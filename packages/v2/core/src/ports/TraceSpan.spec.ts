@@ -7,7 +7,7 @@ import { domainError } from '../domain/shared/DomainError';
 import type { DomainError } from '../domain/shared/DomainError';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { IExecutionContext } from './ExecutionContext';
-import type { ISpan, ITracer, SpanAttributes } from './Tracer';
+import type { ISpan, ITracer, SpanAttributes, TeableSpanAttributes } from './Tracer';
 import { TraceSpan } from './TraceSpan';
 
 class FakeSpan implements ISpan {
@@ -25,6 +25,14 @@ class FakeSpan implements ISpan {
     }
   }
 
+  setTeableAttributes(attrs: TeableSpanAttributes): void {
+    for (const [key, value] of Object.entries(attrs)) {
+      if (value !== undefined) {
+        this.attributes.push([key, value]);
+      }
+    }
+  }
+
   recordError(message: string): void {
     this.errors.push(message);
   }
@@ -36,15 +44,21 @@ class FakeSpan implements ISpan {
 
 class FakeTracer implements ITracer {
   readonly spans: Array<{ name: string; attributes?: SpanAttributes; span: FakeSpan }> = [];
+  private activeSpan: FakeSpan | undefined = undefined;
 
   startSpan(name: string, attributes?: SpanAttributes): ISpan {
     const span = new FakeSpan();
     this.spans.push({ name, attributes, span });
+    this.activeSpan = span;
     return span;
   }
 
   async withSpan<T>(_span: ISpan, callback: () => Promise<T>): Promise<T> {
     return callback();
+  }
+
+  getActiveSpan(): ISpan | undefined {
+    return this.activeSpan;
   }
 }
 
@@ -152,6 +166,9 @@ describe('TraceSpan', () => {
       },
       async withSpan<T>(_span: ISpan, callback: () => Promise<T>): Promise<T> {
         return callback();
+      },
+      getActiveSpan(): ISpan | undefined {
+        return undefined;
       },
     };
     const handler = new TestHandler(brokenTracer);

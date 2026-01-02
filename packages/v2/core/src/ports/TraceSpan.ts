@@ -4,7 +4,14 @@ import type { Result } from 'neverthrow';
 
 import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from './ExecutionContext';
-import type { ISpan, ITracer, SpanAttributes, SpanAttributeValue } from './Tracer';
+import type {
+  ISpan,
+  ITracer,
+  SpanAttributes,
+  SpanAttributeValue,
+  TeableSpanAttributes,
+} from './Tracer';
+import { teableSpanAttributes } from './Tracer';
 
 type HandlerMethod<TResult> = (
   context: IExecutionContext,
@@ -29,6 +36,7 @@ export const isTraceSpanWrapped = (value: unknown): boolean => {
 const noopSpan: ISpan = {
   setAttribute(_key: string, _value: SpanAttributeValue) {},
   setAttributes(_attributes: SpanAttributes) {},
+  setTeableAttributes(_attributes: TeableSpanAttributes) {},
   recordError(_message: string) {},
   end() {},
 };
@@ -76,6 +84,83 @@ const resolveAttributes = (
   return { ...baseAttributes, ...extra };
 };
 
+/**
+ * Extract teable-specific attributes from a command/query payload.
+ * Automatically detects common properties like baseId, tableId, fieldId.
+ */
+const extractTeableAttributes = (handlerName: string, payload: unknown): TeableSpanAttributes => {
+  const attrs: TeableSpanAttributes = {};
+
+  // Determine if this is a command or query handler
+  const isCommand =
+    handlerName.toLowerCase().includes('command') || handlerName.endsWith('Handler');
+  const isQuery = handlerName.toLowerCase().includes('query');
+
+  if (isCommand) {
+    attrs[teableSpanAttributes['teable.command.name']] = resolveMessageName(payload);
+  } else if (isQuery) {
+    attrs[teableSpanAttributes['teable.read.name']] = resolveMessageName(payload);
+  }
+
+  if (!payload || typeof payload !== 'object') return attrs;
+
+  const p = payload as Record<string, unknown>;
+
+  // Extract baseId
+  if ('baseId' in p && p.baseId) {
+    const baseId = extractIdString(p.baseId);
+    if (baseId) {
+      if (isCommand) {
+        attrs[teableSpanAttributes['teable.command.base_id']] = baseId;
+      } else {
+        attrs[teableSpanAttributes['teable.read.base_id']] = baseId;
+      }
+    }
+  }
+
+  // Extract tableId
+  if ('tableId' in p && p.tableId) {
+    const tableId = extractIdString(p.tableId);
+    if (tableId) {
+      if (isCommand) {
+        attrs[teableSpanAttributes['teable.command.table_id']] = tableId;
+      } else {
+        attrs[teableSpanAttributes['teable.read.table_id']] = tableId;
+      }
+    }
+  }
+
+  // Extract fieldId (command only)
+  if ('fieldId' in p && p.fieldId) {
+    const fieldId = extractIdString(p.fieldId);
+    if (fieldId) {
+      attrs[teableSpanAttributes['teable.command.field_id']] = fieldId;
+    }
+  }
+
+  // Extract record count for batch operations
+  if ('fieldValues' in p && Array.isArray(p.fieldValues)) {
+    attrs[teableSpanAttributes['teable.command.record_count']] = p.fieldValues.length;
+  }
+
+  return attrs;
+};
+
+/**
+ * Extract string value from an ID (handles both string and ValueObject).
+ */
+const extractIdString = (id: unknown): string | undefined => {
+  if (typeof id === 'string') return id;
+  if (id && typeof id === 'object' && 'toString' in id && typeof id.toString === 'function') {
+    const str = id.toString();
+    // Avoid [object Object] style strings
+    if (str && !str.startsWith('[object')) {
+      return str;
+    }
+  }
+  return undefined;
+};
+
 export const TraceSpan =
   (spanName?: string, attributes?: TraceAttributes): MethodDecorator =>
   (_target, propertyKey, descriptor) => {
@@ -100,6 +185,9 @@ export const TraceSpan =
       if (tracer) {
         try {
           span = tracer.startSpan(resolvedSpanName, spanAttributes);
+          // Set teable-specific attributes automatically
+          const teableAttrs = extractTeableAttributes(handlerName, payload);
+          span.setTeableAttributes(teableAttrs);
         } catch {
           span = noopSpan;
         }
@@ -110,6 +198,22 @@ export const TraceSpan =
           const result = await original.apply(this, [context, ...args]);
           if (isResult(result) && result.isErr()) {
             span.recordError(result.error.toString());
+            // Add error attributes
+            const errorResult = result as Result<unknown, DomainError>;
+            if (errorResult.isErr()) {
+              // Use first tag as category
+              const category = errorResult.error.tags[0];
+              if (category) {
+                span.setTeableAttributes({
+                  [teableSpanAttributes['teable.error.category']]: category,
+                });
+              }
+              if (errorResult.error.code) {
+                span.setTeableAttributes({
+                  [teableSpanAttributes['teable.error.code']]: errorResult.error.code,
+                });
+              }
+            }
           }
           return result;
         };

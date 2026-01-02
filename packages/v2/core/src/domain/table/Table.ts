@@ -324,6 +324,47 @@ export class Table extends AggregateRoot<TableId> {
    * ```
    */
   createRecord(fieldValues: ReadonlyMap<string, unknown>): Result<TableRecord, DomainError> {
+    return this.buildRecord(fieldValues);
+  }
+
+  /**
+   * Create multiple records for this table with the given field values.
+   *
+   * This method:
+   * 1. Iterates through all field values arrays
+   * 2. Creates each record using the same logic as createRecord
+   * 3. Returns all created records or the first validation error
+   *
+   * @param recordsFieldValues - Array of field value maps, one per record
+   * @returns Result containing array of new records or validation error
+   *
+   * @example
+   * ```typescript
+   * const recordsResult = table.createRecords([
+   *   new Map([['fld123', 'John'], ['fld456', 30]]),
+   *   new Map([['fld123', 'Jane'], ['fld456', 25]]),
+   * ]);
+   * ```
+   */
+  createRecords(
+    recordsFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>>
+  ): Result<ReadonlyArray<TableRecord>, DomainError> {
+    const table = this;
+    return safeTry<ReadonlyArray<TableRecord>, DomainError>(function* () {
+      const records: TableRecord[] = [];
+      for (const fieldValues of recordsFieldValues) {
+        const record = yield* table.buildRecord(fieldValues);
+        records.push(record);
+      }
+      return ok(records);
+    });
+  }
+
+  /**
+   * Internal method to build a single record with the given field values.
+   * Used by both createRecord and createRecords.
+   */
+  private buildRecord(fieldValues: ReadonlyMap<string, unknown>): Result<TableRecord, DomainError> {
     const table = this;
     return safeTry<TableRecord, DomainError>(function* () {
       // 1. Generate a new record ID

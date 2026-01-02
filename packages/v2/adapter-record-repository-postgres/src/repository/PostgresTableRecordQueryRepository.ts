@@ -3,6 +3,7 @@ import {
   domainError,
   type ILogger,
   isDomainError,
+  teableSpanAttributes,
   v2CoreTokens,
   type DomainError,
 } from '@teable/v2-core';
@@ -36,35 +37,58 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
   ): Promise<Result<ReadonlyArray<core.TableRecordReadModel>, DomainError>> {
     return safeTry<ReadonlyArray<core.TableRecordReadModel>, DomainError>(
       async function* (this: PostgresTableRecordQueryRepository) {
-        // Create query builder via manager (it handles prepare)
-        const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
-          mode: options?.mode,
-        });
-
-        // Default ordering by auto_number
-        queryBuilder.orderBy('__auto_number', 'asc');
-
-        // Build the query
-        const builtQuery = yield* queryBuilder.build();
-
-        const compiled = builtQuery.compile();
-        this.logger.debug(`find:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
-          parameters: compiled.parameters,
-        });
-
-        // Collect field column mappings
-        const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
+        // Start tracing span for record query
+        const span = context.tracer?.startSpan('teable.repository.record.find');
 
         try {
-          const rows = await builtQuery.execute();
-          const records = mapRowsToReadModels(fieldColumns, rows);
-          return ok(records);
-        } catch (error) {
-          return err(
-            domainError.unexpected({
-              message: `Failed to load table records: ${describeError(error)}`,
-            })
-          );
+          // Create query builder via manager (it handles prepare)
+          const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+            mode: options?.mode,
+          });
+
+          // Set teable-specific attributes for query mode
+          const tableIdStr = table.id().toString();
+          const tableName = table.name().toString();
+          const fieldCount = table.getFields().length;
+
+          span?.setTeableAttributes({
+            [teableSpanAttributes['teable.query.mode']]: queryBuilder.mode,
+            [teableSpanAttributes['teable.query.table_id']]: tableIdStr,
+            [teableSpanAttributes['teable.query.table_name']]: tableName,
+            [teableSpanAttributes['teable.query.field_count']]: fieldCount,
+            [teableSpanAttributes['teable.query.has_filter']]: _spec !== undefined,
+            [teableSpanAttributes['teable.repository.operation']]: 'find',
+            [teableSpanAttributes['teable.repository.entity_type']]: 'record',
+          });
+
+          // Default ordering by auto_number
+          queryBuilder.orderBy('__auto_number', 'asc');
+
+          // Build the query
+          const builtQuery = yield* queryBuilder.build();
+
+          const compiled = builtQuery.compile();
+          this.logger.debug(`find:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
+            parameters: compiled.parameters,
+          });
+
+          // Collect field column mappings
+          const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
+
+          try {
+            const rows = await builtQuery.execute();
+            const records = mapRowsToReadModels(fieldColumns, rows);
+            return ok(records);
+          } catch (error) {
+            span?.recordError(describeError(error));
+            return err(
+              domainError.unexpected({
+                message: `Failed to load table records: ${describeError(error)}`,
+              })
+            );
+          }
+        } finally {
+          span?.end();
         }
       }.bind(this)
     );

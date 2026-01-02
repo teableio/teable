@@ -2,6 +2,7 @@ import { oc } from '@orpc/contract';
 import {
   createFieldInputSchema,
   createRecordInputSchema,
+  createRecordsInputSchema,
   createTableInputSchema,
   deleteFieldInputSchema,
   deleteTableInputSchema,
@@ -13,6 +14,7 @@ import {
 
 import { createFieldOkResponseSchema } from './table/createField';
 import { createRecordOkResponseSchema } from './table/createRecord';
+import { createRecordsOkResponseSchema } from './table/createRecords';
 import { createTableErrorResponseSchema, createTableOkResponseSchema } from './table/createTable';
 import { deleteFieldOkResponseSchema } from './table/deleteField';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
@@ -24,6 +26,7 @@ import { renameTableOkResponseSchema } from './table/renameTable';
 const TABLES_CREATE_FIELD_PATH = '/tables/createField';
 const TABLES_CREATE_PATH = '/tables/create';
 const TABLES_CREATE_RECORD_PATH = '/tables/createRecord';
+const TABLES_CREATE_RECORDS_PATH = '/tables/createRecords';
 const TABLES_DELETE_FIELD_PATH = '/tables/deleteField';
 const TABLES_DELETE_PATH = '/tables/delete';
 const TABLES_GET_PATH = '/tables/get';
@@ -63,6 +66,16 @@ export const v2Contract = {
       })
       .input(createRecordInputSchema)
       .output(createRecordOkResponseSchema),
+    createRecords: oc
+      .route({
+        method: 'POST',
+        path: TABLES_CREATE_RECORDS_PATH,
+        successStatus: 201,
+        summary: 'Create multiple records',
+        tags: ['tables'],
+      })
+      .input(createRecordsInputSchema)
+      .output(createRecordsOkResponseSchema),
     deleteField: oc
       .route({
         method: 'DELETE',

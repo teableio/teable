@@ -17,6 +17,14 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
     return ok(undefined);
   }
 
+  async insertMany(
+    _: IExecutionContext,
+    __: Table,
+    ___: ReadonlyArray<TableRecord>
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async update(
     _: IExecutionContext,
     __: Table,

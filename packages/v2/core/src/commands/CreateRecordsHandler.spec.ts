@@ -22,8 +22,8 @@ import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordRepository } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { CreateRecordCommand } from './CreateRecordCommand';
-import { CreateRecordHandler } from './CreateRecordHandler';
+import { CreateRecordsCommand } from './CreateRecordsCommand';
+import { CreateRecordsHandler } from './CreateRecordsHandler';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -78,6 +78,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastContext: IExecutionContext | undefined;
   lastTable: Table | undefined;
   failInsert: DomainError | undefined;
+  failInsertMany: DomainError | undefined;
 
   async insert(
     context: IExecutionContext,
@@ -98,7 +99,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<void, DomainError>> {
     this.lastContext = context;
     this.lastTable = table;
-    if (this.failInsert) return err(this.failInsert);
+    if (this.failInsertMany) return err(this.failInsertMany);
     this.records.push(...records);
     return ok(undefined);
   }
@@ -223,11 +224,11 @@ const createTestTable = (baseId: string, tableId: string) => {
   };
 };
 
-describe('CreateRecordHandler', () => {
+describe('CreateRecordsHandler', () => {
   const baseId = `bse${'a'.repeat(16)}`;
   const tableId = `tbl${'b'.repeat(16)}`;
 
-  it('creates a record and persists it', async () => {
+  it('creates multiple records and persists them', async () => {
     const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
 
     const tableRepository = new FakeTableRepository();
@@ -237,32 +238,85 @@ describe('CreateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new CreateRecordHandler(
+    const handler = new CreateRecordsHandler(
       tableQueryService,
       recordRepository,
       eventBus,
       unitOfWork
     );
 
-    const commandResult = CreateRecordCommand.create({
+    const commandResult = CreateRecordsCommand.create({
       tableId,
-      fields: {
-        [textFieldId]: 'Test Value',
-        [numberFieldId]: 100,
-      },
+      records: [
+        {
+          fields: {
+            [textFieldId]: 'First Record',
+            [numberFieldId]: 100,
+          },
+        },
+        {
+          fields: {
+            [textFieldId]: 'Second Record',
+            [numberFieldId]: 200,
+          },
+        },
+        {
+          fields: {
+            [textFieldId]: 'Third Record',
+            [numberFieldId]: 300,
+          },
+        },
+      ],
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
+
+    expect(recordRepository.records.length).toBe(3);
+    expect(unitOfWork.transactions.length).toBe(1);
+    expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
+
+    // Verify all records belong to the table
+    for (const record of recordRepository.records) {
+      expect(record.tableId().equals(table.id())).toBe(true);
+    }
+  });
+
+  it('creates a single record via records array', async () => {
+    const { table, textFieldId } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new CreateRecordsHandler(
+      tableQueryService,
+      recordRepository,
+      eventBus,
+      unitOfWork
+    );
+
+    const commandResult = CreateRecordsCommand.create({
+      tableId,
+      records: [
+        {
+          fields: {
+            [textFieldId]: 'Single Record',
+          },
+        },
+      ],
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrap();
 
     expect(recordRepository.records.length).toBe(1);
-    const savedRecord = recordRepository.records[0];
-    expect(savedRecord.tableId().equals(table.id())).toBe(true);
-    expect(unitOfWork.transactions.length).toBe(1);
-    expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
   });
 
-  it('creates a record with empty fields', async () => {
+  it('creates records with empty fields', async () => {
     const { table } = createTestTable(baseId, tableId);
 
     const tableRepository = new FakeTableRepository();
@@ -272,22 +326,22 @@ describe('CreateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new CreateRecordHandler(
+    const handler = new CreateRecordsHandler(
       tableQueryService,
       recordRepository,
       eventBus,
       unitOfWork
     );
 
-    const commandResult = CreateRecordCommand.create({
+    const commandResult = CreateRecordsCommand.create({
       tableId,
-      fields: {},
+      records: [{ fields: {} }, { fields: {} }],
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrap();
 
-    expect(recordRepository.records.length).toBe(1);
+    expect(recordRepository.records.length).toBe(2);
   });
 
   it('returns error when table not found', async () => {
@@ -297,16 +351,16 @@ describe('CreateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new CreateRecordHandler(
+    const handler = new CreateRecordsHandler(
       tableQueryService,
       recordRepository,
       eventBus,
       unitOfWork
     );
 
-    const commandResult = CreateRecordCommand.create({
+    const commandResult = CreateRecordsCommand.create({
       tableId: `tbl${'x'.repeat(16)}`,
-      fields: {},
+      records: [{ fields: {} }],
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -322,16 +376,16 @@ describe('CreateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new CreateRecordHandler(
+    const handler = new CreateRecordsHandler(
       tableQueryService,
       recordRepository,
       eventBus,
       unitOfWork
     );
 
-    const commandResult = CreateRecordCommand.create({
+    const commandResult = CreateRecordsCommand.create({
       tableId,
-      fields: {},
+      records: [{ fields: {} }],
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -339,38 +393,38 @@ describe('CreateRecordHandler', () => {
     expect(result._unsafeUnwrapErr().message).toBe('Find failed');
   });
 
-  it('returns error when record insert fails', async () => {
+  it('returns error when insertMany fails', async () => {
     const { table } = createTestTable(baseId, tableId);
 
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
-    recordRepository.failInsert = domainError.infrastructure({
-      message: 'Insert failed',
+    recordRepository.failInsertMany = domainError.infrastructure({
+      message: 'InsertMany failed',
       code: 'infrastructure.database',
     });
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new CreateRecordHandler(
+    const handler = new CreateRecordsHandler(
       tableQueryService,
       recordRepository,
       eventBus,
       unitOfWork
     );
 
-    const commandResult = CreateRecordCommand.create({
+    const commandResult = CreateRecordsCommand.create({
       tableId,
-      fields: {},
+      records: [{ fields: {} }, { fields: {} }],
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toBe('Insert failed');
+    expect(result._unsafeUnwrapErr().message).toBe('InsertMany failed');
   });
 
-  it('returns error when field validation fails', async () => {
+  it('returns error when field validation fails for any record', async () => {
     const { table, numberFieldId } = createTestTable(baseId, tableId);
 
     const tableRepository = new FakeTableRepository();
@@ -380,18 +434,21 @@ describe('CreateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new CreateRecordHandler(
+    const handler = new CreateRecordsHandler(
       tableQueryService,
       recordRepository,
       eventBus,
       unitOfWork
     );
 
-    const commandResult = CreateRecordCommand.create({
+    // Second record has invalid number value
+    const commandResult = CreateRecordsCommand.create({
       tableId,
-      fields: {
-        [numberFieldId]: 'not a number',
-      },
+      records: [
+        { fields: { [numberFieldId]: 100 } },
+        { fields: { [numberFieldId]: 'not a number' } }, // Invalid
+        { fields: { [numberFieldId]: 300 } },
+      ],
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
@@ -399,7 +456,7 @@ describe('CreateRecordHandler', () => {
     expect(result._unsafeUnwrapErr().message).toContain('Invalid value');
   });
 
-  it('returns the created record in result', async () => {
+  it('returns all created records in result', async () => {
     const { table, textFieldId } = createTestTable(baseId, tableId);
 
     const tableRepository = new FakeTableRepository();
@@ -409,29 +466,62 @@ describe('CreateRecordHandler', () => {
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
-    const handler = new CreateRecordHandler(
+    const handler = new CreateRecordsHandler(
       tableQueryService,
       recordRepository,
       eventBus,
       unitOfWork
     );
 
-    const commandResult = CreateRecordCommand.create({
+    const commandResult = CreateRecordsCommand.create({
       tableId,
-      fields: {
-        [textFieldId]: 'My Title',
-      },
+      records: [
+        { fields: { [textFieldId]: 'Record A' } },
+        { fields: { [textFieldId]: 'Record B' } },
+      ],
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    const { record } = result._unsafeUnwrap();
+    const { records } = result._unsafeUnwrap();
 
-    expect(record.id().toString()).toMatch(/^rec/);
-    expect(record.tableId().equals(table.id())).toBe(true);
+    expect(records.length).toBe(2);
+    for (const record of records) {
+      expect(record.id().toString()).toMatch(/^rec/);
+      expect(record.tableId().equals(table.id())).toBe(true);
+    }
+  });
+
+  it('generates unique IDs for each record', async () => {
+    const { table } = createTestTable(baseId, tableId);
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new CreateRecordsHandler(
+      tableQueryService,
+      recordRepository,
+      eventBus,
+      unitOfWork
+    );
+
+    const commandResult = CreateRecordsCommand.create({
+      tableId,
+      records: [{ fields: {} }, { fields: {} }, { fields: {} }, { fields: {} }, { fields: {} }],
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    const { records } = result._unsafeUnwrap();
+
+    const ids = new Set(records.map((r) => r.id().toString()));
+    expect(ids.size).toBe(5); // All IDs should be unique
   });
 
   describe('transaction rollback', () => {
-    it('rolls back when repository insert fails (simulates link field FK error)', async () => {
+    it('rolls back when insertMany fails', async () => {
       const { table, textFieldId } = createTestTable(baseId, tableId);
 
       const tableRepository = new FakeTableRepository();
@@ -441,93 +531,46 @@ describe('CreateRecordHandler', () => {
       const eventBus = new FakeEventBus();
       const unitOfWork = new RollbackFakeUnitOfWork(recordRepository);
 
-      const handler = new CreateRecordHandler(
+      const handler = new CreateRecordsHandler(
         tableQueryService,
         recordRepository,
         eventBus,
         unitOfWork
       );
 
-      // First, insert a record successfully
-      const firstCommand = CreateRecordCommand.create({
+      // First, insert records successfully
+      const firstCommand = CreateRecordsCommand.create({
         tableId,
-        fields: { [textFieldId]: 'First Record' },
+        records: [{ fields: { [textFieldId]: 'First Batch Record' } }],
       });
       const firstResult = await handler.handle(createContext(), firstCommand._unsafeUnwrap());
       firstResult._unsafeUnwrap();
       expect(recordRepository.records.length).toBe(1);
 
-      // Now simulate a link field FK constraint error on the second insert
-      recordRepository.failInsert = domainError.infrastructure({
-        message: 'Foreign key constraint violation: linked record not found',
-        code: 'infrastructure.database.fk_violation',
+      // Now simulate insertMany failure on second batch
+      recordRepository.failInsertMany = domainError.infrastructure({
+        message: 'Batch insert failed: FK constraint violation',
+        code: 'infrastructure.database.batch_insert_failed',
       });
 
-      const secondCommand = CreateRecordCommand.create({
+      const secondCommand = CreateRecordsCommand.create({
         tableId,
-        fields: { [textFieldId]: 'Second Record' },
+        records: [
+          { fields: { [textFieldId]: 'Second Batch Record 1' } },
+          { fields: { [textFieldId]: 'Second Batch Record 2' } },
+        ],
       });
       const secondResult = await handler.handle(createContext(), secondCommand._unsafeUnwrap());
 
       // Should return error
       expect(secondResult.isErr()).toBe(true);
-      expect(secondResult._unsafeUnwrapErr().message).toContain('Foreign key constraint violation');
+      expect(secondResult._unsafeUnwrapErr().message).toContain('Batch insert failed');
 
       // Transaction should have been rolled back
       expect(unitOfWork.rollbacks.length).toBe(1);
 
-      // Record count should still be 1 (the first successful one)
+      // Record count should still be 1 (the first successful batch)
       expect(recordRepository.records.length).toBe(1);
-      expect(
-        recordRepository.records[0]
-          .fields()
-          .get(FieldId.create(textFieldId)._unsafeUnwrap())
-          ?.toValue()
-      ).toBe('First Record');
-    });
-
-    it('rolls back when insert succeeds but subsequent operation fails', async () => {
-      const { table, textFieldId } = createTestTable(baseId, tableId);
-
-      const tableRepository = new FakeTableRepository();
-      tableRepository.tables.push(table);
-      const tableQueryService = new TableQueryService(tableRepository);
-      const recordRepository = new FakeTableRecordRepository();
-      const eventBus = new FakeEventBus();
-      const unitOfWork = new RollbackFakeUnitOfWork(recordRepository);
-
-      const handler = new CreateRecordHandler(
-        tableQueryService,
-        recordRepository,
-        eventBus,
-        unitOfWork
-      );
-
-      // This test verifies the rollback mechanism works when simulating
-      // a multi-statement transaction failure (e.g., main insert succeeds
-      // but link junction table insert fails)
-
-      // Start with empty records
-      expect(recordRepository.records.length).toBe(0);
-
-      // Simulate: the insert itself fails mid-transaction
-      recordRepository.failInsert = domainError.infrastructure({
-        message: 'Link junction table insert failed: invalid record ID',
-        code: 'infrastructure.database.junction_insert_failed',
-      });
-
-      const command = CreateRecordCommand.create({
-        tableId,
-        fields: { [textFieldId]: 'Test Record' },
-      });
-      const result = await handler.handle(createContext(), command._unsafeUnwrap());
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toContain('junction table insert failed');
-
-      // Should have been rolled back - no records persisted
-      expect(unitOfWork.rollbacks.length).toBe(1);
-      expect(recordRepository.records.length).toBe(0);
     });
 
     it('does not roll back when transaction succeeds', async () => {
@@ -540,16 +583,19 @@ describe('CreateRecordHandler', () => {
       const eventBus = new FakeEventBus();
       const unitOfWork = new RollbackFakeUnitOfWork(recordRepository);
 
-      const handler = new CreateRecordHandler(
+      const handler = new CreateRecordsHandler(
         tableQueryService,
         recordRepository,
         eventBus,
         unitOfWork
       );
 
-      const command = CreateRecordCommand.create({
+      const command = CreateRecordsCommand.create({
         tableId,
-        fields: { [textFieldId]: 'Success Record' },
+        records: [
+          { fields: { [textFieldId]: 'Success Record 1' } },
+          { fields: { [textFieldId]: 'Success Record 2' } },
+        ],
       });
       const result = await handler.handle(createContext(), command._unsafeUnwrap());
       result._unsafeUnwrap();
@@ -557,7 +603,7 @@ describe('CreateRecordHandler', () => {
       // Transaction succeeded - no rollbacks
       expect(unitOfWork.rollbacks.length).toBe(0);
       expect(unitOfWork.transactions.length).toBe(1);
-      expect(recordRepository.records.length).toBe(1);
+      expect(recordRepository.records.length).toBe(2);
     });
   });
 });

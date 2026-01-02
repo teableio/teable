@@ -25,6 +25,11 @@ const LAST_MODIFIED_BY_COLUMN = '__last_modified_by';
 const VERSION_COLUMN = '__version';
 // Note: __auto_number is a serial primary key - do NOT insert it manually
 
+interface RecordInsertData {
+  values: Record<string, unknown>;
+  queryExecutors: QueryExecutor<DynamicDB>[];
+}
+
 /**
  * PostgreSQL implementation of TableRecordRepository.
  *
@@ -39,6 +44,77 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     private readonly logger: ILogger
   ) {}
 
+  /**
+   * Build insert data for a single record.
+   * This is shared between insert and insertMany.
+   */
+  private buildRecordInsertData(
+    table: core.Table,
+    record: core.TableRecord,
+    context: core.IExecutionContext,
+    now: string
+  ): RecordInsertData {
+    const recordId = record.id().toString();
+    const actorId = context.actorId.toString();
+
+    // Build the insert values with system columns
+    const values: Record<string, unknown> = {
+      [RECORD_ID_COLUMN]: recordId,
+      [CREATED_TIME_COLUMN]: now,
+      [CREATED_BY_COLUMN]: actorId,
+      [LAST_MODIFIED_TIME_COLUMN]: now,
+      [LAST_MODIFIED_BY_COLUMN]: actorId,
+      [VERSION_COLUMN]: 1,
+    };
+
+    // Collect query executors (junction inserts, FK updates, etc.)
+    const queryExecutors: QueryExecutor<DynamicDB>[] = [];
+
+    // Map field values to database columns using FieldInsertValueVisitor
+    const fields = table.getFields();
+    const recordFields = record.fields();
+
+    for (const field of fields) {
+      // Skip computed fields
+      if (field.computed().toBoolean()) {
+        continue;
+      }
+
+      const dbFieldNameResult = field.dbFieldName();
+      if (dbFieldNameResult.isErr()) {
+        continue;
+      }
+      const dbFieldNameValueResult = dbFieldNameResult.value.value();
+      if (dbFieldNameValueResult.isErr()) {
+        continue;
+      }
+      const dbFieldName = dbFieldNameValueResult.value;
+
+      const cellValue = recordFields.get(field.id());
+      const rawValue = cellValue?.toValue() ?? null;
+
+      // Use visitor to get column values and query executors
+      const insertVisitor = FieldInsertValueVisitor.create(rawValue, {
+        recordId,
+        dbFieldName,
+      });
+      const insertResult: Result<FieldInsertResult, DomainError> = field.accept(insertVisitor);
+
+      if (insertResult.isOk()) {
+        const { columnValues, queryExecutors: executors } = insertResult.value;
+        // Merge column values into main insert
+        Object.assign(values, columnValues);
+        // Collect query executors
+        queryExecutors.push(...executors);
+      } else {
+        // Fallback: just use raw value
+        values[dbFieldName] = rawValue;
+      }
+    }
+
+    return { values, queryExecutors };
+  }
+
   async insert(
     context: core.IExecutionContext,
     table: core.Table,
@@ -48,65 +124,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     return safeTry<void, DomainError>(async function* () {
       const dbTableName = yield* table.dbTableName();
       const tableName = yield* dbTableName.value();
-      const recordId = record.id().toString();
 
       const now = new Date().toISOString();
-      const actorId = context.actorId.toString();
-
-      // Build the insert values with system columns
-      const values: Record<string, unknown> = {
-        [RECORD_ID_COLUMN]: recordId,
-        [CREATED_TIME_COLUMN]: now,
-        [CREATED_BY_COLUMN]: actorId,
-        [LAST_MODIFIED_TIME_COLUMN]: now,
-        [LAST_MODIFIED_BY_COLUMN]: actorId,
-        [VERSION_COLUMN]: 1,
-      };
-
-      // Collect query executors (junction inserts, FK updates, etc.)
-      const queryExecutors: QueryExecutor<DynamicDB>[] = [];
-
-      // Map field values to database columns using FieldInsertValueVisitor
-      const fields = table.getFields();
-      const recordFields = record.fields();
-
-      for (const field of fields) {
-        // Skip computed fields
-        if (field.computed().toBoolean()) {
-          continue;
-        }
-
-        const dbFieldNameResult = field.dbFieldName();
-        if (dbFieldNameResult.isErr()) {
-          continue;
-        }
-        const dbFieldNameValueResult = dbFieldNameResult.value.value();
-        if (dbFieldNameValueResult.isErr()) {
-          continue;
-        }
-        const dbFieldName = dbFieldNameValueResult.value;
-
-        const cellValue = recordFields.get(field.id());
-        const rawValue = cellValue?.toValue() ?? null;
-
-        // Use visitor to get column values and query executors
-        const insertVisitor = FieldInsertValueVisitor.create(rawValue, {
-          recordId,
-          dbFieldName,
-        });
-        const insertResult: Result<FieldInsertResult, DomainError> = field.accept(insertVisitor);
-
-        if (insertResult.isOk()) {
-          const { columnValues, queryExecutors: executors } = insertResult.value;
-          // Merge column values into main insert
-          Object.assign(values, columnValues);
-          // Collect query executors
-          queryExecutors.push(...executors);
-        } else {
-          // Fallback: just use raw value
-          values[dbFieldName] = rawValue;
-        }
-      }
+      const { values, queryExecutors } = repo.buildRecordInsertData(table, record, context, now);
 
       repo.logger.debug(`insert:table=${tableName}`, { values });
 
@@ -127,6 +147,59 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             message: `Failed to insert record: ${describeError(error)}`,
             code: 'infrastructure.database.insert_failed',
             details: { tableName, error: describeError(error) },
+          })
+        );
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  async insertMany(
+    context: core.IExecutionContext,
+    table: core.Table,
+    records: ReadonlyArray<core.TableRecord>
+  ): Promise<Result<void, DomainError>> {
+    const repo = this;
+    return safeTry<void, DomainError>(async function* () {
+      if (records.length === 0) {
+        return ok(undefined);
+      }
+
+      const dbTableName = yield* table.dbTableName();
+      const tableName = yield* dbTableName.value();
+
+      const now = new Date().toISOString();
+
+      // Build insert data for all records
+      const allValues: Record<string, unknown>[] = [];
+      const allQueryExecutors: QueryExecutor<DynamicDB>[] = [];
+
+      for (const record of records) {
+        const { values, queryExecutors } = repo.buildRecordInsertData(table, record, context, now);
+        allValues.push(values);
+        allQueryExecutors.push(...queryExecutors);
+      }
+
+      repo.logger.debug(`insertMany:table=${tableName}`, { count: records.length });
+
+      // Use transaction-aware database connection
+      const db = resolvePostgresDb(repo.db, context) as unknown as Kysely<DynamicDB>;
+
+      try {
+        // Execute batch insert
+        await db.insertInto(tableName).values(allValues).execute();
+
+        // Execute additional queries from visitors (junction inserts, FK updates, etc.)
+        for (const executor of allQueryExecutors) {
+          await executor(db);
+        }
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to insert records: ${describeError(error)}`,
+            code: 'infrastructure.database.insert_many_failed',
+            details: { tableName, count: records.length, error: describeError(error) },
           })
         );
       }

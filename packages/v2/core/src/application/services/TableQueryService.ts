@@ -7,10 +7,11 @@ import { domainError, isNotFoundError, type DomainError } from '../../domain/sha
 import { TableByIdSpec } from '../../domain/table/specs/TableByIdSpec';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
-import type { TableId } from '../../domain/table/TableId';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ITableRepository } from '../../ports/TableRepository';
+import { TableId } from '../../domain/table/TableId';
+import { IExecutionContext } from '../../ports/ExecutionContext';
+import { ITableRepository } from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
+import { TraceSpan } from '../../ports/TraceSpan';
 
 /**
  * Application Service: Table Query Service
@@ -75,6 +76,7 @@ export class TableQueryService {
    * const table = tableResult.value;
    * ```
    */
+  @TraceSpan()
   async getById(context: IExecutionContext, tableId: TableId): Promise<Result<Table, DomainError>> {
     // Use TableByIdSpec directly since we don't have baseId constraint
     const spec = TableByIdSpec.create(tableId);

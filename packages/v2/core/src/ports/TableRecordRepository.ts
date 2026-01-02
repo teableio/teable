@@ -12,6 +12,11 @@ export interface ITableRecordRepository {
     table: Table,
     record: TableRecord
   ): Promise<Result<void, DomainError>>;
+  insertMany(
+    context: IExecutionContext,
+    table: Table,
+    records: ReadonlyArray<TableRecord>
+  ): Promise<Result<void, DomainError>>;
   update(
     context: IExecutionContext,
     table: Table,

@@ -10,27 +10,29 @@ import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import { teableSpanAttributes } from '../ports/Tracer';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
-import { CreateRecordCommand } from './CreateRecordCommand';
+import { CreateRecordsCommand } from './CreateRecordsCommand';
 
-export class CreateRecordResult {
+export class CreateRecordsResult {
   private constructor(
-    readonly record: TableRecord,
+    readonly records: ReadonlyArray<TableRecord>,
     readonly events: ReadonlyArray<IDomainEvent>
   ) {}
 
-  static create(record: TableRecord, events: ReadonlyArray<IDomainEvent>): CreateRecordResult {
-    return new CreateRecordResult(record, [...events]);
+  static create(
+    records: ReadonlyArray<TableRecord>,
+    events: ReadonlyArray<IDomainEvent>
+  ): CreateRecordsResult {
+    return new CreateRecordsResult([...records], [...events]);
   }
 }
 
-@CommandHandler(CreateRecordCommand)
+@CommandHandler(CreateRecordsCommand)
 @injectable()
-export class CreateRecordHandler
-  implements ICommandHandler<CreateRecordCommand, CreateRecordResult>
+export class CreateRecordsHandler
+  implements ICommandHandler<CreateRecordsCommand, CreateRecordsResult>
 {
   constructor(
     @inject(v2CoreTokens.tableQueryService)
@@ -46,25 +48,20 @@ export class CreateRecordHandler
   @TraceSpan()
   async handle(
     context: ExecutionContextPort.IExecutionContext,
-    command: CreateRecordCommand
-  ): Promise<Result<CreateRecordResult, DomainError>> {
+    command: CreateRecordsCommand
+  ): Promise<Result<CreateRecordsResult, DomainError>> {
     const handler = this;
-    return safeTry<CreateRecordResult, DomainError>(async function* () {
+    return safeTry<CreateRecordsResult, DomainError>(async function* () {
       // 1. Get the table
-      const fetchTableSpan = context.tracer?.getActiveSpan();
-      fetchTableSpan?.setTeableAttributes({
-        [teableSpanAttributes['teable.command.table_id']]: command.tableId.toString(),
-      });
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
-      // 2. Create the record (validates and applies field values internally)
-      const createRecordSpan = context.tracer?.startSpan('teable.CreateRecordHandler.createRecord');
-      const record = yield* table.createRecord(command.fieldValues);
-      createRecordSpan?.end();
+      // 2. Create all records (validates and applies field values internally)
+      const records = yield* table.createRecords(command.recordsFieldValues);
 
+      // 3. Persist all records within a transaction
       yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
         return safeTry<void, DomainError>(async function* () {
-          yield* await handler.tableRecordRepository.insert(transactionContext, table, record);
+          yield* await handler.tableRecordRepository.insertMany(transactionContext, table, records);
           return ok(undefined);
         });
       });
@@ -73,7 +70,7 @@ export class CreateRecordHandler
       const events: IDomainEvent[] = [];
       yield* await handler.eventBus.publishMany(context, events);
 
-      return ok(CreateRecordResult.create(record, events));
+      return ok(CreateRecordsResult.create(records, events));
     });
   }
 }

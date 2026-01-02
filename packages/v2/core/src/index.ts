@@ -22,6 +22,8 @@ export * from './commands/RenameTableCommand';
 export * from './commands/RenameTableHandler';
 export * from './commands/CreateRecordCommand';
 export * from './commands/CreateRecordHandler';
+export * from './commands/CreateRecordsCommand';
+export * from './commands/CreateRecordsHandler';
 export * from './application/services/TableUpdateFlow';
 export * from './commands/CommandHandler';
 export * from './ports/TraceSpan';

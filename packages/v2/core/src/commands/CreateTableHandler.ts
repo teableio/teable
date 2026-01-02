@@ -12,6 +12,7 @@ import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
+import { teableSpanAttributes } from '../ports/Tracer';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -68,8 +69,15 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         selfTableId !== undefined &&
         foreignTableReferences.some((reference) => reference.foreignTableId.equals(selfTableId));
 
-      const span = context.tracer?.startSpan('teable.CreateTableHandler.handle.buildTable');
+      const span = context.tracer?.startSpan('teable.CreateTableHandler.buildTable');
+      span?.setTeableAttributes({
+        [teableSpanAttributes['teable.command.base_id']]: command.baseId.toString(),
+        [teableSpanAttributes['teable.query.field_count']]: command.fields.length,
+      });
       const table = yield* buildTable(command, { foreignTables, includeSelf });
+      span?.setTeableAttributes({
+        [teableSpanAttributes['teable.command.table_id']]: table.id().toString(),
+      });
       span?.end();
 
       const tableFields = table.getFields();

@@ -1,5 +1,6 @@
 export * from './createField';
 export * from './createRecord';
+export * from './createRecords';
 export * from './createTable';
 export * from './deleteField';
 export * from './deleteTable';

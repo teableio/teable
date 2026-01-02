@@ -1,4 +1,5 @@
 import {
+  teableSpanAttributes,
   v2CoreTokens,
   type DomainError,
   type IExecutionContext,
@@ -61,20 +62,42 @@ export class TableRecordQueryBuilderManager {
     const db = this.db as unknown as Kysely<DynamicDB>;
     const mode = options?.mode ?? 'computed';
 
-    const builder =
-      mode === 'stored'
-        ? new StoredTableRecordQueryBuilder(db).from(table)
-        : new ComputedTableRecordQueryBuilder(db).from(table);
+    // Start tracing span for query builder creation
+    const span = context.tracer?.startSpan('teable.queryBuilder.create');
 
-    // Let the builder prepare itself (load foreign tables, etc.)
-    return safeTry<ITableRecordQueryBuilder, DomainError>(
-      async function* (this: TableRecordQueryBuilderManager) {
-        yield* await builder.prepare({
-          context,
-          tableRepository: this.tableRepository,
-        });
-        return ok(builder);
-      }.bind(this)
-    );
+    try {
+      span?.setTeableAttributes({
+        [teableSpanAttributes['teable.query.mode']]: mode,
+        [teableSpanAttributes['teable.query.table_id']]: table.id().toString(),
+      });
+
+      const builder =
+        mode === 'stored'
+          ? new StoredTableRecordQueryBuilder(db).from(table)
+          : new ComputedTableRecordQueryBuilder(db).from(table);
+
+      // Let the builder prepare itself (load foreign tables, etc.)
+      return safeTry<ITableRecordQueryBuilder, DomainError>(
+        async function* (this: TableRecordQueryBuilderManager) {
+          const prepareSpan = context.tracer?.startSpan('teable.queryBuilder.prepare');
+          try {
+            prepareSpan?.setTeableAttributes({
+              [teableSpanAttributes['teable.query.mode']]: mode,
+            });
+
+            yield* await builder.prepare({
+              context,
+              tableRepository: this.tableRepository,
+            });
+
+            return ok(builder);
+          } finally {
+            prepareSpan?.end();
+          }
+        }.bind(this)
+      );
+    } finally {
+      span?.end();
+    }
   }
 }
