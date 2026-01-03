@@ -25,14 +25,6 @@ class FakeSpan implements ISpan {
     }
   }
 
-  setTeableAttributes(attrs: TeableSpanAttributes): void {
-    for (const [key, value] of Object.entries(attrs)) {
-      if (value !== undefined) {
-        this.attributes.push([key, value]);
-      }
-    }
-  }
-
   recordError(message: string): void {
     this.errors.push(message);
   }

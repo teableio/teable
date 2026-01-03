@@ -3,7 +3,6 @@ import {
   domainError,
   type ILogger,
   isDomainError,
-  teableSpanAttributes,
   v2CoreTokens,
   type DomainError,
 } from '@teable/v2-core';
@@ -44,21 +43,6 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
           // Create query builder via manager (it handles prepare)
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: options?.mode,
-          });
-
-          // Set teable-specific attributes for query mode
-          const tableIdStr = table.id().toString();
-          const tableName = table.name().toString();
-          const fieldCount = table.getFields().length;
-
-          span?.setTeableAttributes({
-            [teableSpanAttributes['teable.query.mode']]: queryBuilder.mode,
-            [teableSpanAttributes['teable.query.table_id']]: tableIdStr,
-            [teableSpanAttributes['teable.query.table_name']]: tableName,
-            [teableSpanAttributes['teable.query.field_count']]: fieldCount,
-            [teableSpanAttributes['teable.query.has_filter']]: _spec !== undefined,
-            [teableSpanAttributes['teable.repository.operation']]: 'find',
-            [teableSpanAttributes['teable.repository.entity_type']]: 'record',
           });
 
           // Default ordering by auto_number

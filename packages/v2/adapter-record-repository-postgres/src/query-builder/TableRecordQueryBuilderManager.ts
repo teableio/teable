@@ -1,5 +1,4 @@
 import {
-  teableSpanAttributes,
   v2CoreTokens,
   type DomainError,
   type IExecutionContext,
@@ -66,11 +65,6 @@ export class TableRecordQueryBuilderManager {
     const span = context.tracer?.startSpan('teable.queryBuilder.create');
 
     try {
-      span?.setTeableAttributes({
-        [teableSpanAttributes['teable.query.mode']]: mode,
-        [teableSpanAttributes['teable.query.table_id']]: table.id().toString(),
-      });
-
       const builder =
         mode === 'stored'
           ? new StoredTableRecordQueryBuilder(db).from(table)
@@ -81,10 +75,6 @@ export class TableRecordQueryBuilderManager {
         async function* (this: TableRecordQueryBuilderManager) {
           const prepareSpan = context.tracer?.startSpan('teable.queryBuilder.prepare');
           try {
-            prepareSpan?.setTeableAttributes({
-              [teableSpanAttributes['teable.query.mode']]: mode,
-            });
-
             yield* await builder.prepare({
               context,
               tableRepository: this.tableRepository,

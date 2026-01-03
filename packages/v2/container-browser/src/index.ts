@@ -1,3 +1,4 @@
+import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
   PostgresUnitOfWork,
   registerV2PostgresPgliteDb,
@@ -119,6 +120,12 @@ export const registerV2BrowserPgliteDependencies = async (
 
   if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
     c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  if (!c.isRegistered(v2CoreTokens.csvParser)) {
+    c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
       lifecycle: Lifecycle.Singleton,
     });
   }

@@ -10,7 +10,6 @@ import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryReposi
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import { teableSpanAttributes } from '../ports/Tracer';
 import { ListTableRecordsQuery } from './ListTableRecordsQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
 import { buildRecordConditionSpec } from './RecordFilterMapper';
@@ -48,11 +47,6 @@ export class ListTableRecordsHandler
 
     // Start main span for the query handler
     const span = context.tracer?.startSpan('teable.ListTableRecordsHandler.handle');
-    span?.setTeableAttributes({
-      [teableSpanAttributes['teable.read.name']]: 'ListTableRecordsQuery',
-      [teableSpanAttributes['teable.read.table_id']]: query.tableId.toString(),
-      [teableSpanAttributes['teable.query.has_filter']]: query.filter !== undefined,
-    });
 
     try {
       return safeTry<ListTableRecordsResult, DomainError>(
@@ -68,10 +62,6 @@ export class ListTableRecordsHandler
                 ? domainError.notFound({ code: 'table.not_found', message: 'Table not found' })
                 : error
           );
-          loadTableSpan?.setTeableAttributes({
-            [teableSpanAttributes['teable.query.table_name']]: table.name().toString(),
-            [teableSpanAttributes['teable.query.field_count']]: table.getFields().length,
-          });
           loadTableSpan?.end();
 
           // 2. Build filter spec

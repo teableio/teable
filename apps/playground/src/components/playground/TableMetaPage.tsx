@@ -706,6 +706,11 @@ type TableMetaPageProps = {
   onRecordCreated?: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onImportCsv?: (data: {
+    tableName: string;
+    headers: string[];
+    rows: Record<string, string>[];
+  }) => Promise<void>;
   onDelete: () => void;
   onDeleteField: (fieldId: string) => void;
   onRename: (name: string) => void;
@@ -737,6 +742,7 @@ export function TableMetaPage({
   onRecordCreated,
   templates,
   onCreateTemplate,
+  onImportCsv,
   onDelete,
   onDeleteField,
   onRename,
@@ -767,6 +773,7 @@ export function TableMetaPage({
         onFieldCreated={onFieldCreated}
         templates={templates}
         onCreateTemplate={onCreateTemplate}
+        onImportCsv={onImportCsv}
         onDelete={onDelete}
         onRename={onRename}
       />
@@ -781,6 +788,7 @@ export function TableMetaPage({
               isCreating={isCreating}
               templates={templates}
               onCreateTemplate={onCreateTemplate}
+              onImportCsv={onImportCsv}
             />
           ) : (
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
@@ -867,6 +875,11 @@ type PlaygroundHeaderProps = {
   onFieldCreated: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onImportCsv?: (data: {
+    tableName: string;
+    headers: string[];
+    rows: Record<string, string>[];
+  }) => Promise<void>;
   onDelete: () => void;
   onRename: (name: string) => void;
 };
@@ -882,6 +895,7 @@ function PlaygroundHeader({
   onFieldCreated,
   templates,
   onCreateTemplate,
+  onImportCsv,
   onDelete,
   onRename,
 }: PlaygroundHeaderProps) {
@@ -976,6 +990,7 @@ function PlaygroundHeader({
           templates={templates}
           isCreating={isCreating}
           onSelect={onCreateTemplate}
+          onImportCsv={onImportCsv}
           label="Create table"
           align="end"
         />
@@ -1115,12 +1130,18 @@ type PlaygroundEmptyStateProps = {
   isCreating: boolean;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onImportCsv?: (data: {
+    tableName: string;
+    headers: string[];
+    rows: Record<string, string>[];
+  }) => Promise<void>;
 };
 
 function PlaygroundEmptyState({
   isCreating,
   templates,
   onCreateTemplate,
+  onImportCsv,
 }: PlaygroundEmptyStateProps) {
   return (
     <Card>
@@ -1136,6 +1157,7 @@ function PlaygroundEmptyState({
           templates={templates}
           isCreating={isCreating}
           onSelect={onCreateTemplate}
+          onImportCsv={onImportCsv}
           label="Create table"
           align="start"
         />

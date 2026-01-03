@@ -155,6 +155,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
   }
 
+  /**
+   * Default batch size for insertMany to stay under PostgreSQL's ~65535 parameter limit.
+   * With ~10 columns per record (user fields + system columns), 500 records = ~5000 params.
+   */
+  private static readonly INSERT_BATCH_SIZE = 500;
+
   async insertMany(
     context: core.IExecutionContext,
     table: core.Table,
@@ -187,8 +193,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       const db = resolvePostgresDb(repo.db, context) as unknown as Kysely<DynamicDB>;
 
       try {
-        // Execute batch insert
-        await db.insertInto(tableName).values(allValues).execute();
+        // Execute batch inserts to stay under PG parameter limit
+        const batchSize = PostgresTableRecordRepository.INSERT_BATCH_SIZE;
+        for (let i = 0; i < allValues.length; i += batchSize) {
+          const batch = allValues.slice(i, i + batchSize);
+          await db.insertInto(tableName).values(batch).execute();
+        }
 
         // Execute additional queries from visitors (junction inserts, FK updates, etc.)
         for (const executor of allQueryExecutors) {
@@ -206,6 +216,33 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
       return ok(undefined);
     });
+  }
+
+  async insertManyStream(
+    context: core.IExecutionContext,
+    table: core.Table,
+    batches: Iterable<ReadonlyArray<core.TableRecord>>,
+    options?: core.InsertManyStreamOptions
+  ): Promise<Result<core.InsertManyStreamResult, DomainError>> {
+    let totalInserted = 0;
+    let batchIndex = 0;
+
+    for (const batch of batches) {
+      const result = await this.insertMany(context, table, batch);
+      if (result.isErr()) {
+        return err(result.error);
+      }
+
+      totalInserted += batch.length;
+      options?.onBatchInserted?.({
+        batchIndex,
+        insertedCount: batch.length,
+        totalInserted,
+      });
+      batchIndex++;
+    }
+
+    return ok({ totalInserted });
   }
 
   async update(

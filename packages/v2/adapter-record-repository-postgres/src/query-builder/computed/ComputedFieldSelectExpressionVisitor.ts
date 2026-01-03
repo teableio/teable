@@ -6,6 +6,7 @@ import {
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
+  domainError,
   type DomainError,
   type Field,
   type FieldId,
@@ -22,10 +23,12 @@ import {
   type RollupField,
   type SingleLineTextField,
   type SingleSelectField,
+  type Table,
   type UserField,
 } from '@teable/v2-core';
 import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
 
@@ -172,7 +175,10 @@ export class ComputedFieldSelectExpressionVisitor
 
   // Formula - TODO: convert to SQL
   visitFormulaField(field: FormulaField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.getColAlias(field).map((colAlias) => sql`NULL`.as(colAlias));
+    return this.getColAlias(field).andThen((colAlias) => {
+      // TODO: convert to SQL
+      return ok(sql`NULL`.as(colAlias));
+    });
   }
 
   // Link-based fields - need lateral join

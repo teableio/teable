@@ -60,7 +60,8 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     { initializeWithValue: false }
   );
 
-  const orpc = createTanstackQueryUtils(useOrpcClient());
+  const orpcClient = useOrpcClient();
+  const orpc = createTanstackQueryUtils(orpcClient);
   const queryClient = useQueryClient();
   const tableMapper = useMemo(() => new DefaultTableMapper(), []);
 
@@ -526,6 +527,31 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     void recordsQuery.refetch();
   };
 
+  const handleImportCsv = async (data: { tableName: string; csvData: string }): Promise<void> => {
+    try {
+      const result = await orpcClient.tables.importCsv({
+        baseId,
+        csvData: data.csvData,
+        tableName: data.tableName,
+        batchSize: 500,
+      });
+
+      toast.success(`Imported ${result.data.totalImported} records into "${data.tableName}"`);
+
+      // Navigate to new table and refresh
+      setStoredTableId(result.data.table.id);
+      void navigate({
+        to: env.routes.table,
+        params: { baseId, tableId: result.data.table.id },
+        search: (prev) => prev,
+      });
+    } catch (error) {
+      const errorMsg = getErrorMessage(error, 'Failed to import CSV');
+      toast.error(errorMsg);
+      throw error;
+    }
+  };
+
   return (
     <TableMetaPage
       baseId={baseId}
@@ -554,6 +580,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       onRecordCreated={handleRecordCreated}
       templates={tableTemplates}
       onCreateTemplate={handleCreateTemplate}
+      onImportCsv={handleImportCsv}
       onDelete={handleDelete}
       onDeleteField={handleDeleteField}
       onRename={handleRename}

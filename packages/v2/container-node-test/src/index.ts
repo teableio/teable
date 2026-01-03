@@ -1,3 +1,4 @@
+import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
   PostgresUnitOfWork,
@@ -107,6 +108,11 @@ export const createV2NodeTestContainer = async (
   }
   if (!c.isRegistered(v2CoreTokens.tableMapper)) {
     c.register(v2CoreTokens.tableMapper, DefaultTableMapper, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+  if (!c.isRegistered(v2CoreTokens.csvParser)) {
+    c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
       lifecycle: Lifecycle.Singleton,
     });
   }

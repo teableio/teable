@@ -7,6 +7,7 @@ import {
   deleteFieldInputSchema,
   deleteTableInputSchema,
   getTableByIdInputSchema,
+  importCsvInputSchema,
   listTableRecordsInputSchema,
   listTablesInputSchema,
   renameTableInputSchema,
@@ -19,6 +20,7 @@ import { createTableErrorResponseSchema, createTableOkResponseSchema } from './t
 import { deleteFieldOkResponseSchema } from './table/deleteField';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
 import { getTableByIdOkResponseSchema } from './table/getTableById';
+import { importCsvOkResponseSchema } from './table/importCsv';
 import { listTableRecordsOkResponseSchema } from './table/listTableRecords';
 import { listTablesOkResponseSchema } from './table/listTables';
 import { renameTableOkResponseSchema } from './table/renameTable';
@@ -30,6 +32,7 @@ const TABLES_CREATE_RECORDS_PATH = '/tables/createRecords';
 const TABLES_DELETE_FIELD_PATH = '/tables/deleteField';
 const TABLES_DELETE_PATH = '/tables/delete';
 const TABLES_GET_PATH = '/tables/get';
+const TABLES_IMPORT_CSV_PATH = '/tables/importCsv';
 const TABLES_LIST_RECORDS_PATH = '/tables/listRecords';
 const TABLES_LIST_PATH = '/tables/list';
 const TABLES_RENAME_PATH = '/tables/rename';
@@ -106,6 +109,16 @@ export const v2Contract = {
       })
       .input(getTableByIdInputSchema)
       .output(getTableByIdOkResponseSchema),
+    importCsv: oc
+      .route({
+        method: 'POST',
+        path: TABLES_IMPORT_CSV_PATH,
+        successStatus: 201,
+        summary: 'Import CSV to create table with records',
+        tags: ['tables'],
+      })
+      .input(importCsvInputSchema)
+      .output(importCsvOkResponseSchema),
     listRecords: oc
       .route({
         method: 'GET',

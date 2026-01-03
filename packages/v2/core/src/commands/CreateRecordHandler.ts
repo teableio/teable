@@ -10,7 +10,6 @@ import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import { teableSpanAttributes } from '../ports/Tracer';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -51,10 +50,6 @@ export class CreateRecordHandler
     const handler = this;
     return safeTry<CreateRecordResult, DomainError>(async function* () {
       // 1. Get the table
-      const fetchTableSpan = context.tracer?.getActiveSpan();
-      fetchTableSpan?.setTeableAttributes({
-        [teableSpanAttributes['teable.command.table_id']]: command.tableId.toString(),
-      });
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
       // 2. Create the record (validates and applies field values internally)

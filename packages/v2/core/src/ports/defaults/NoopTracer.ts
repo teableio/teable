@@ -1,16 +1,9 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
-import type {
-  ISpan,
-  ITracer,
-  SpanAttributeValue,
-  SpanAttributes,
-  TeableSpanAttributes,
-} from '../Tracer';
+import type { ISpan, ITracer, SpanAttributeValue, SpanAttributes } from '../Tracer';
 
 const noopSpan: ISpan = {
   setAttribute(_key: string, _value: SpanAttributeValue) {},
   setAttributes(_attributes: SpanAttributes) {},
-  setTeableAttributes(_attributes: TeableSpanAttributes) {},
   recordError(_message: string) {},
   end() {},
 };

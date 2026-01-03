@@ -8,6 +8,7 @@ import {
   executeDeleteFieldEndpoint,
   executeDeleteTableEndpoint,
   executeGetTableByIdEndpoint,
+  executeImportCsvEndpoint,
   executeListTableRecordsEndpoint,
   executeListTablesEndpoint,
   executeRenameTableEndpoint,
@@ -121,6 +122,12 @@ const createSandboxHandlers = (): Record<string, SandboxHandler> => ({
     const container = await createSandboxContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeRenameTableEndpoint(executionContext, input, commandBus);
+    return unwrapEndpointResult(result);
+  },
+  'tables.importCsv': async (input, executionContext) => {
+    const container = await createSandboxContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeImportCsvEndpoint(executionContext, input, commandBus);
     return unwrapEndpointResult(result);
   },
 });

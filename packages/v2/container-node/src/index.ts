@@ -1,3 +1,4 @@
+import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
   PostgresUnitOfWork,
   registerV2PostgresDb,
@@ -110,6 +111,13 @@ export const registerV2NodePgDependencies = async (
 
   if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
     c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  // Register CSV parser
+  if (!c.isRegistered(v2CoreTokens.csvParser)) {
+    c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
       lifecycle: Lifecycle.Singleton,
     });
   }

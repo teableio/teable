@@ -103,6 +103,32 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok(undefined);
   }
 
+  async insertManyStream(
+    context: IExecutionContext,
+    table: Table,
+    batches: Iterable<ReadonlyArray<TableRecord>>,
+    options?: {
+      onBatchInserted?: (info: {
+        batchIndex: number;
+        insertedCount: number;
+        totalInserted: number;
+      }) => void;
+    }
+  ): Promise<Result<{ totalInserted: number }, DomainError>> {
+    this.lastContext = context;
+    this.lastTable = table;
+    if (this.failInsert) return err(this.failInsert);
+    let totalInserted = 0;
+    let batchIndex = 0;
+    for (const batch of batches) {
+      this.records.push(...batch);
+      totalInserted += batch.length;
+      options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+      batchIndex++;
+    }
+    return ok({ totalInserted });
+  }
+
   async update(
     _context: IExecutionContext,
     _table: Table,

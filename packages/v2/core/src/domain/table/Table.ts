@@ -361,8 +361,68 @@ export class Table extends AggregateRoot<TableId> {
   }
 
   /**
+   * Create records in a streaming/batched fashion using a Generator.
+   *
+   * This method is memory-friendly for large record sets:
+   * - Lazily processes input records
+   * - Yields batches of created records
+   * - Only keeps batchSize records in memory at a time
+   * - Stops immediately on first validation error
+   *
+   * @param recordsFieldValues - Iterable of field value maps (can be lazy/streaming)
+   * @param options - Optional configuration
+   * @param options.batchSize - Number of records per batch (default: 500)
+   * @returns Generator yielding Result batches of created records
+   *
+   * @example
+   * ```typescript
+   * // Process 100k records with bounded memory
+   * function* generateRecords() {
+   *   for (let i = 0; i < 100000; i++) {
+   *     yield new Map([['fld123', `Record ${i}`]]);
+   *   }
+   * }
+   *
+   * for (const batchResult of table.createRecordsStream(generateRecords(), { batchSize: 500 })) {
+   *   if (batchResult.isErr()) {
+   *     console.error(batchResult.error);
+   *     break;
+   *   }
+   *   // Process batch of 500 records
+   *   await repository.insertMany(batchResult.value);
+   * }
+   * ```
+   */
+  *createRecordsStream(
+    recordsFieldValues: Iterable<ReadonlyMap<string, unknown>>,
+    options?: { batchSize?: number }
+  ): Generator<Result<ReadonlyArray<TableRecord>, DomainError>> {
+    const batchSize = options?.batchSize ?? 500;
+    let batch: TableRecord[] = [];
+
+    for (const fieldValues of recordsFieldValues) {
+      const recordResult = this.buildRecord(fieldValues);
+      if (recordResult.isErr()) {
+        yield err(recordResult.error);
+        return;
+      }
+      batch.push(recordResult.value);
+
+      if (batch.length >= batchSize) {
+        yield ok(batch);
+        batch = []; // Reset for next batch, allows GC to collect previous batch
+      }
+    }
+
+    // Yield remaining records if any
+    if (batch.length > 0) {
+      yield ok(batch);
+    }
+  }
+
+  /**
    * Internal method to build a single record with the given field values.
-   * Used by both createRecord and createRecords.
+   * Used by both createRecord, createRecords, and createRecordsStream.
    */
   private buildRecord(fieldValues: ReadonlyMap<string, unknown>): Result<TableRecord, DomainError> {
     const table = this;

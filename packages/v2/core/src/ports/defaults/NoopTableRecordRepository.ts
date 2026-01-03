@@ -6,7 +6,11 @@ import type { RecordId } from '../../domain/table/records/RecordId';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../ExecutionContext';
-import type { ITableRecordRepository } from '../TableRecordRepository';
+import type {
+  ITableRecordRepository,
+  InsertManyStreamOptions,
+  InsertManyStreamResult,
+} from '../TableRecordRepository';
 
 export class NoopTableRecordRepository implements ITableRecordRepository {
   async insert(
@@ -23,6 +27,22 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
     ___: ReadonlyArray<TableRecord>
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
+  }
+
+  async insertManyStream(
+    _context: IExecutionContext,
+    _table: Table,
+    batches: Iterable<ReadonlyArray<TableRecord>>,
+    options?: InsertManyStreamOptions
+  ): Promise<Result<InsertManyStreamResult, DomainError>> {
+    let totalInserted = 0;
+    let batchIndex = 0;
+    for (const batch of batches) {
+      totalInserted += batch.length;
+      options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+      batchIndex++;
+    }
+    return ok({ totalInserted });
   }
 
   async update(

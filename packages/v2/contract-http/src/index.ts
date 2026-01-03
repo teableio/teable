@@ -9,6 +9,7 @@ export * from './table/createTable';
 export * from './table/deleteField';
 export * from './table/deleteTable';
 export * from './table/getTableById';
+export * from './table/importCsv';
 export * from './table/listTableRecords';
 export * from './table/listTables';
 export * from './table/renameTable';
