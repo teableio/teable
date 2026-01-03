@@ -32,16 +32,27 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
   async insertManyStream(
     _context: IExecutionContext,
     _table: Table,
-    batches: Iterable<ReadonlyArray<TableRecord>>,
+    batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>,
     options?: InsertManyStreamOptions
   ): Promise<Result<InsertManyStreamResult, DomainError>> {
     let totalInserted = 0;
     let batchIndex = 0;
-    for (const batch of batches) {
-      totalInserted += batch.length;
-      options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
-      batchIndex++;
+
+    // Handle both sync and async iterables
+    if (Symbol.asyncIterator in batches) {
+      for await (const batch of batches as AsyncIterable<ReadonlyArray<TableRecord>>) {
+        totalInserted += batch.length;
+        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+        batchIndex++;
+      }
+    } else {
+      for (const batch of batches as Iterable<ReadonlyArray<TableRecord>>) {
+        totalInserted += batch.length;
+        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+        batchIndex++;
+      }
     }
+
     return ok({ totalInserted });
   }
 

@@ -53,7 +53,7 @@ describe('ListTableRecordsHandler', () => {
       find: async (_context, _table, spec) => {
         captured.spec = spec;
         const records: TableRecordReadModel[] = [{ id: 'rec1', fields: { Title: 'Hello' } }];
-        return ok(records);
+        return ok({ records, total: 1 });
       },
     };
 
@@ -65,6 +65,7 @@ describe('ListTableRecordsHandler', () => {
     const payload = result._unsafeUnwrap();
 
     expect(payload.records.length).toBe(1);
+    expect(payload.total).toBe(1);
     expect(captured.spec).toBeUndefined();
   });
 
@@ -80,7 +81,7 @@ describe('ListTableRecordsHandler', () => {
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async (_context, _table, spec) => {
         captured.spec = spec;
-        return ok([]);
+        return ok({ records: [], total: 0 });
       },
     };
 
@@ -111,7 +112,7 @@ describe('ListTableRecordsHandler', () => {
     };
 
     const recordQueryRepo: ITableRecordQueryRepository = {
-      find: async () => ok([]),
+      find: async () => ok({ records: [], total: 0 }),
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -128,7 +129,7 @@ describe('ListTableRecordsHandler', () => {
     await tableRepository.insert(createContext(), table);
 
     const recordQueryRepo: ITableRecordQueryRepository = {
-      find: async () => ok([]),
+      find: async () => ok({ records: [], total: 0 }),
     };
 
     const queryResult = ListTableRecordsQuery.create({

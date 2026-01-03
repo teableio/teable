@@ -5,8 +5,12 @@ import {
   isDomainError,
   v2CoreTokens,
   type DomainError,
+  type ITableRecordQueryResult,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -15,6 +19,7 @@ import {
   FieldOutputColumnVisitor,
   type FieldOutputColumn,
   TableRecordQueryBuilderManager,
+  type DynamicDB,
 } from '../query-builder';
 
 const RECORD_ID_COLUMN = '__id';
@@ -24,6 +29,8 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.tableRecordQueryBuilderManager)
     private readonly queryBuilderManager: TableRecordQueryBuilderManager,
+    @inject(v2RecordRepositoryPostgresTokens.db)
+    private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger
   ) {}
@@ -33,8 +40,8 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
     table: core.Table,
     _spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>,
     options?: core.ITableRecordQueryOptions
-  ): Promise<Result<ReadonlyArray<core.TableRecordReadModel>, DomainError>> {
-    return safeTry<ReadonlyArray<core.TableRecordReadModel>, DomainError>(
+  ): Promise<Result<ITableRecordQueryResult, DomainError>> {
+    return safeTry<ITableRecordQueryResult, DomainError>(
       async function* (this: PostgresTableRecordQueryRepository) {
         // Start tracing span for record query
         const span = context.tracer?.startSpan('teable.repository.record.find');
@@ -48,6 +55,12 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
           // Default ordering by auto_number
           queryBuilder.orderBy('__auto_number', 'asc');
 
+          // Apply pagination if provided
+          if (options?.pagination) {
+            queryBuilder.limit(options.pagination.limit().toNumber());
+            queryBuilder.offset(options.pagination.offset().toNumber());
+          }
+
           // Build the query
           const builtQuery = yield* queryBuilder.build();
 
@@ -60,9 +73,21 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
           const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
 
           try {
-            const rows = await builtQuery.execute();
+            // Execute data query and count query in parallel
+            const dbTableName = yield* table.dbTableName();
+            const name = yield* dbTableName.value();
+            const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+            const countQuery = dynamicDb.selectFrom(name).select(sql<string>`count(*)`.as('count'));
+
+            const [rows, countResult] = await Promise.all([
+              builtQuery.execute(),
+              countQuery.executeTakeFirstOrThrow(),
+            ]);
+
             const records = mapRowsToReadModels(fieldColumns, rows);
-            return ok(records);
+            const total = parseInt(countResult.count, 10);
+
+            return ok({ records, total });
           } catch (error) {
             span?.recordError(describeError(error));
             return err(

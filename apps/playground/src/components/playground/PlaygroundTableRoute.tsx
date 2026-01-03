@@ -5,6 +5,7 @@ import {
   mapTableDtoToDomain,
   mapTableToDto,
   type IGetTableByIdOkResponseDto,
+  type IListTableRecordsPaginationDto,
   type IListTablesOkResponseDto,
   type ITableDto,
 } from '@teable/v2-contract-http';
@@ -14,9 +15,12 @@ import {
   type ITablePersistenceDTO,
 } from '@teable/v2-core';
 import { tableTemplates, type TableTemplateDefinition } from '@teable/v2-table-templates';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage } from 'usehooks-ts';
+
+/** Default page size for records */
+const DEFAULT_PAGE_SIZE = 20;
 
 import { TableMetaPage } from '@/components/playground/TableMetaPage';
 import { useBroadcastChannelDoc, useBroadcastChannelQuery } from '@/lib/broadcastChannel';
@@ -59,6 +63,15 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     null,
     { initializeWithValue: false }
   );
+
+  // Pagination state for records
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+  // Reset pagination when table changes
+  useEffect(() => {
+    setPageIndex(0);
+  }, [tableId]);
 
   const orpcClient = useOrpcClient();
   const orpc = createTanstackQueryUtils(orpcClient);
@@ -277,13 +290,18 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     orpc.tables.listRecords.queryOptions({
       input: {
         tableId,
+        limit: pageSize,
+        offset: pageIndex * pageSize,
       },
       enabled: Boolean(tableId),
       placeholderData: keepPreviousData,
       refetchOnMount: false,
       refetchOnReconnect: false,
       refetchOnWindowFocus: false,
-      select: (response) => response.data.records,
+      select: (response) => ({
+        records: response.data.records,
+        pagination: response.data.pagination,
+      }),
     })
   );
 
@@ -291,10 +309,20 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const tableResult = useMemo(() => (tableDto ? mapTableDtoToDomain(tableDto) : null), [tableDto]);
   const table = tableResult?.isOk() ? tableResult.value : null;
   const mappingError = tableResult?.isErr() ? tableResult.error.message : null;
-  const records = recordsQuery.data ?? null;
+  const records = recordsQuery.data?.records ?? null;
+  const recordsPagination = recordsQuery.data?.pagination ?? null;
   const recordsError = recordsQuery.error
     ? getErrorMessage(recordsQuery.error, 'Failed to load records')
     : null;
+
+  // Pagination change handler
+  const handlePaginationChange = useCallback(
+    (pagination: { pageIndex: number; pageSize: number }) => {
+      setPageIndex(pagination.pageIndex);
+      setPageSize(pagination.pageSize);
+    },
+    []
+  );
 
   // Track previous realtime data to avoid unnecessary updates
   const prevRealtimeDocRef = useRef<string | null>(null);
@@ -527,11 +555,15 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     void recordsQuery.refetch();
   };
 
-  const handleImportCsv = async (data: { tableName: string; csvData: string }): Promise<void> => {
+  const handleImportCsv = async (data: {
+    tableName: string;
+    csvData?: string;
+    csvUrl?: string;
+  }): Promise<void> => {
     try {
       const result = await orpcClient.tables.importCsv({
         baseId,
-        csvData: data.csvData,
+        ...(data.csvUrl ? { csvUrl: data.csvUrl } : { csvData: data.csvData! }),
         tableName: data.tableName,
         batchSize: 500,
       });
@@ -571,6 +603,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       isDeletingField={deleteFieldMutation.isPending}
       isRenaming={renameTableMutation.isPending}
       records={records}
+      recordsPagination={recordsPagination}
       recordsError={recordsError}
       isRecordsLoading={recordsQuery.isLoading}
       isRecordsFetching={recordsQuery.isFetching}
@@ -578,6 +611,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       onRefresh={handleRefresh}
       onFieldCreated={() => {}}
       onRecordCreated={handleRecordCreated}
+      onPaginationChange={handlePaginationChange}
       templates={tableTemplates}
       onCreateTemplate={handleCreateTemplate}
       onImportCsv={handleImportCsv}

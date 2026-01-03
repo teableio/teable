@@ -421,6 +421,41 @@ export class Table extends AggregateRoot<TableId> {
   }
 
   /**
+   * Async version of createRecordsStream for AsyncIterable sources.
+   * Useful for streaming from URLs or large files without loading into memory.
+   *
+   * @param recordsFieldValues - An async iterable yielding Maps of field ID -> value
+   * @param options.batchSize - Number of records per batch (default: 500)
+   * @returns An async generator yielding Results containing batches of TableRecords
+   */
+  async *createRecordsStreamAsync(
+    recordsFieldValues: AsyncIterable<ReadonlyMap<string, unknown>>,
+    options?: { batchSize?: number }
+  ): AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>> {
+    const batchSize = options?.batchSize ?? 500;
+    let batch: TableRecord[] = [];
+
+    for await (const fieldValues of recordsFieldValues) {
+      const recordResult = this.buildRecord(fieldValues);
+      if (recordResult.isErr()) {
+        yield err(recordResult.error);
+        return;
+      }
+      batch.push(recordResult.value);
+
+      if (batch.length >= batchSize) {
+        yield ok(batch);
+        batch = []; // Reset for next batch, allows GC to collect previous batch
+      }
+    }
+
+    // Yield remaining records if any
+    if (batch.length > 0) {
+      yield ok(batch);
+    }
+  }
+
+  /**
    * Internal method to build a single record with the given field values.
    * Used by both createRecord, createRecords, and createRecordsStream.
    */

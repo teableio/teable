@@ -9,6 +9,7 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { Table } from '../domain/table/Table';
 import { TableName } from '../domain/table/TableName';
+import type { CsvParseResult, CsvSource } from '../ports/CsvParser';
 import { ICsvParser } from '../ports/CsvParser';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
@@ -73,8 +74,8 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
   ): Promise<Result<ImportCsvResult, DomainError>> {
     const handler = this;
     return safeTry<ImportCsvResult, DomainError>(async function* () {
-      // 1. 解析 CSV
-      const parseResult = yield* handler.csvParser.parse(command.csvSource);
+      // 1. 解析 CSV（根据数据源类型选择同步或异步）
+      const parseResult = yield* await handler.parseCsvSource(command.csvSource);
 
       if (parseResult.headers.length === 0) {
         return err(
@@ -115,19 +116,39 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
               // 4.2 获取字段 ID 映射（CSV 列名 → 字段 ID）
               const fieldIdMap = handler.buildFieldIdMap(persistedTable, parseResult.headers);
 
-              // 4.3 流式创建记录
-              const recordsIterable = handler.createRecordsIterable(parseResult.rows, fieldIdMap);
+              // 4.3 流式创建记录（支持同步和异步迭代器）
+              const recordsIterable = parseResult.rowsAsync
+                ? handler.createRecordsIterableAsync(parseResult.rowsAsync, fieldIdMap)
+                : handler.createRecordsIterable(parseResult.rows, fieldIdMap);
 
               // 4.4 使用域层流式处理
-              const batchGenerator = persistedTable.createRecordsStream(recordsIterable, {
-                batchSize: command.batchSize,
-              });
+              const batchGenerator = parseResult.rowsAsync
+                ? persistedTable.createRecordsStreamAsync(
+                    recordsIterable as AsyncIterable<ReadonlyMap<string, unknown>>,
+                    {
+                      batchSize: command.batchSize,
+                    }
+                  )
+                : persistedTable.createRecordsStream(
+                    recordsIterable as Iterable<ReadonlyMap<string, unknown>>,
+                    {
+                      batchSize: command.batchSize,
+                    }
+                  );
 
               // 4.5 流式插入数据库
               const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
                 transactionContext,
                 persistedTable,
-                handler.consumeBatches(batchGenerator)
+                parseResult.rowsAsync
+                  ? handler.consumeBatchesAsync(
+                      batchGenerator as AsyncGenerator<
+                        Result<ReadonlyArray<TableRecord>, DomainError>
+                      >
+                    )
+                  : handler.consumeBatches(
+                      batchGenerator as Generator<Result<ReadonlyArray<TableRecord>, DomainError>>
+                    )
               );
 
               return ok({ persistedTable, totalImported: insertResult.totalInserted });
@@ -233,6 +254,63 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
         throw batchResult.error;
       }
       yield batchResult.value;
+    }
+  }
+
+  /**
+   * 消费异步批次生成器，解包 Result
+   */
+  private async *consumeBatchesAsync(
+    generator: AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>>
+  ): AsyncGenerator<ReadonlyArray<TableRecord>> {
+    for await (const batchResult of generator) {
+      if (batchResult.isErr()) {
+        throw batchResult.error;
+      }
+      yield batchResult.value;
+    }
+  }
+
+  /**
+   * 解析 CSV 数据源
+   * 根据类型选择同步或异步解析
+   */
+  private async parseCsvSource(source: CsvSource): Promise<Result<CsvParseResult, DomainError>> {
+    // stream 和 url 类型需要异步解析
+    if (source.type === 'stream' || source.type === 'url') {
+      if (!this.csvParser.parseAsync) {
+        return err(
+          domainError.infrastructure({
+            message: 'CSV parser does not support async parsing for stream/url sources',
+            code: 'csv.async_not_supported',
+          })
+        );
+      }
+      return this.csvParser.parseAsync(source);
+    }
+
+    // string 和 buffer 使用同步解析
+    return this.csvParser.parse(source);
+  }
+
+  /**
+   * 将 CSV 行异步迭代器转换为记录字段值的 AsyncIterable
+   */
+  private async *createRecordsIterableAsync(
+    rows: AsyncIterable<Record<string, string>>,
+    fieldIdMap: Map<string, string>
+  ): AsyncIterable<ReadonlyMap<string, unknown>> {
+    for await (const row of rows) {
+      const fieldValues = new Map<string, unknown>();
+
+      for (const [csvColumn, value] of Object.entries(row)) {
+        const fieldId = fieldIdMap.get(csvColumn);
+        if (fieldId) {
+          fieldValues.set(fieldId, value);
+        }
+      }
+
+      yield fieldValues;
     }
   }
 }

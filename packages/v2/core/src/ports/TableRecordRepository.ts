@@ -53,17 +53,18 @@ export interface ITableRecordRepository {
    * - Consumes batches from the iterable one at a time
    * - Only keeps one batch in memory during processing
    * - Reports progress via optional callback
+   * - Supports both sync and async iterables (for URL/stream sources)
    *
    * @param context - Execution context (may contain transaction)
    * @param table - Target table
-   * @param batches - Iterable of record batches to insert
+   * @param batches - Iterable or AsyncIterable of record batches to insert
    * @param options - Optional configuration including progress callback
    * @returns Result with total inserted count or error
    */
   insertManyStream(
     context: IExecutionContext,
     table: Table,
-    batches: Iterable<ReadonlyArray<TableRecord>>,
+    batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>,
     options?: InsertManyStreamOptions
   ): Promise<Result<InsertManyStreamResult, DomainError>>;
 

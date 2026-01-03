@@ -20,8 +20,22 @@ import { mapTableRecordToDto, tableRecordDtoSchema } from './recordDto';
 
 export type IListTableRecordsRequestDto = IListTableRecordsQueryInput;
 
+/** Pagination metadata for list records response */
+export interface IListTableRecordsPaginationDto {
+  /** Total number of records matching the query */
+  total: number;
+  /** Current offset (number of records skipped) */
+  offset: number;
+  /** Page size limit */
+  limit: number;
+  /** Whether there are more records after this page */
+  hasMore: boolean;
+}
+
 export interface IListTableRecordsResponseDataDto {
   records: ITableRecordDto[];
+  /** Pagination metadata */
+  pagination: IListTableRecordsPaginationDto;
 }
 
 export type IListTableRecordsResponseDto = IApiResponseDto<IListTableRecordsResponseDataDto>;
@@ -33,8 +47,16 @@ export type IListTableRecordsEndpointResult =
   | { status: 200; body: IListTableRecordsOkResponseDto }
   | { status: HttpErrorStatus; body: IListTableRecordsErrorResponseDto };
 
+export const listTableRecordsPaginationSchema = z.object({
+  total: z.number().int().nonnegative(),
+  offset: z.number().int().nonnegative(),
+  limit: z.number().int().positive(),
+  hasMore: z.boolean(),
+});
+
 export const listTableRecordsResponseDataSchema = z.object({
   records: z.array(tableRecordDtoSchema),
+  pagination: listTableRecordsPaginationSchema,
 });
 
 export const listTableRecordsOkResponseSchema = apiOkResponseDtoSchema(
@@ -48,5 +70,11 @@ export const mapListTableRecordsResultToDto = (
 ): Result<IListTableRecordsResponseDataDto, DomainError> => {
   return sequenceResults(result.records.map(mapTableRecordToDto)).map((records) => ({
     records: [...records],
+    pagination: {
+      total: result.total,
+      offset: result.offset,
+      limit: result.limit,
+      hasMore: result.offset + records.length < result.total,
+    },
   }));
 };

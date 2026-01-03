@@ -221,16 +221,19 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   async insertManyStream(
     context: core.IExecutionContext,
     table: core.Table,
-    batches: Iterable<ReadonlyArray<core.TableRecord>>,
+    batches:
+      | Iterable<ReadonlyArray<core.TableRecord>>
+      | AsyncIterable<ReadonlyArray<core.TableRecord>>,
     options?: core.InsertManyStreamOptions
   ): Promise<Result<core.InsertManyStreamResult, DomainError>> {
     let totalInserted = 0;
     let batchIndex = 0;
 
-    for (const batch of batches) {
+    // Handle both sync and async iterables
+    const processBatch = async (batch: ReadonlyArray<core.TableRecord>) => {
       const result = await this.insertMany(context, table, batch);
       if (result.isErr()) {
-        return err(result.error);
+        return result;
       }
 
       totalInserted += batch.length;
@@ -240,6 +243,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         totalInserted,
       });
       batchIndex++;
+      return ok(undefined);
+    };
+
+    if (Symbol.asyncIterator in batches) {
+      for await (const batch of batches as AsyncIterable<ReadonlyArray<core.TableRecord>>) {
+        const result = await processBatch(batch);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+      }
+    } else {
+      for (const batch of batches as Iterable<ReadonlyArray<core.TableRecord>>) {
+        const result = await processBatch(batch);
+        if (result.isErr()) {
+          return err(result.error);
+        }
+      }
     }
 
     return ok({ totalInserted });

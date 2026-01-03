@@ -1,4 +1,9 @@
-import { mapTableToDto, type ITableDto, type ITableRecordDto } from '@teable/v2-contract-http';
+import {
+  mapTableToDto,
+  type IListTableRecordsPaginationDto,
+  type ITableDto,
+  type ITableRecordDto,
+} from '@teable/v2-contract-http';
 import type {
   AutoNumberField,
   ButtonField,
@@ -693,6 +698,7 @@ type TableMetaPageProps = {
   isInitialLoading: boolean;
   isLoading: boolean;
   records: ReadonlyArray<ITableRecordDto> | null;
+  recordsPagination: IListTableRecordsPaginationDto | null;
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
@@ -704,13 +710,10 @@ type TableMetaPageProps = {
   onRefresh: () => void;
   onFieldCreated: () => void;
   onRecordCreated?: () => void;
+  onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
-  onImportCsv?: (data: {
-    tableName: string;
-    headers: string[];
-    rows: Record<string, string>[];
-  }) => Promise<void>;
+  onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   onDelete: () => void;
   onDeleteField: (fieldId: string) => void;
   onRename: (name: string) => void;
@@ -729,6 +732,7 @@ export function TableMetaPage({
   isInitialLoading,
   isLoading,
   records,
+  recordsPagination,
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
@@ -740,6 +744,7 @@ export function TableMetaPage({
   onRefresh,
   onFieldCreated,
   onRecordCreated,
+  onPaginationChange,
   templates,
   onCreateTemplate,
   onImportCsv,
@@ -833,10 +838,12 @@ export function TableMetaPage({
                   baseId={baseId}
                   table={table}
                   records={records}
+                  recordsPagination={recordsPagination}
                   recordsError={recordsError}
                   isRecordsLoading={isRecordsLoading}
                   isRecordsFetching={isRecordsFetching}
                   onRecordCreated={onRecordCreated}
+                  onPaginationChange={onPaginationChange}
                 />
               </TabsContent>
               <TabsContent value="json" className="mt-0">
@@ -875,11 +882,7 @@ type PlaygroundHeaderProps = {
   onFieldCreated: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
-  onImportCsv?: (data: {
-    tableName: string;
-    headers: string[];
-    rows: Record<string, string>[];
-  }) => Promise<void>;
+  onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   onDelete: () => void;
   onRename: (name: string) => void;
 };
@@ -1200,20 +1203,24 @@ type PlaygroundRecordsLayoutProps = {
   baseId: string;
   table: TableAggregate;
   records: ReadonlyArray<ITableRecordDto> | null;
+  recordsPagination: IListTableRecordsPaginationDto | null;
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
   onRecordCreated?: () => void;
+  onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
 };
 
 function PlaygroundRecordsLayout({
   baseId,
   table,
   records,
+  recordsPagination,
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
   onRecordCreated,
+  onPaginationChange,
 }: PlaygroundRecordsLayoutProps) {
   return (
     <div className="space-y-6 min-w-0">
@@ -1221,10 +1228,12 @@ function PlaygroundRecordsLayout({
         baseId={baseId}
         table={table}
         records={records}
+        recordsPagination={recordsPagination}
         recordsError={recordsError}
         isRecordsLoading={isRecordsLoading}
         isRecordsFetching={isRecordsFetching}
         onRecordCreated={onRecordCreated}
+        onPaginationChange={onPaginationChange}
       />
     </div>
   );
@@ -1419,25 +1428,29 @@ type TableRecordsCardProps = {
   baseId: string;
   table: TableAggregate;
   records: ReadonlyArray<ITableRecordDto> | null;
+  recordsPagination: IListTableRecordsPaginationDto | null;
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
   onRecordCreated?: () => void;
+  onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
 };
 
 function TableRecordsCard({
   baseId,
   table,
   records,
+  recordsPagination,
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
   onRecordCreated,
+  onPaginationChange,
 }: TableRecordsCardProps) {
   const [, copyToClipboard] = useCopyToClipboard();
   const fields = table.getFields();
   const primaryFieldId = table.primaryFieldId().toString();
-  const recordCount = records?.length ?? 0;
+  const totalRecords = recordsPagination?.total ?? records?.length ?? 0;
   const isInitialLoading = isRecordsLoading && !records;
 
   const columns = useMemo<ColumnDef<ITableRecordDto>[]>(() => {
@@ -1513,8 +1526,19 @@ function TableRecordsCard({
     [primaryFieldId]
   );
 
+  // Calculate pagination state for DataTable
+  const paginationForTable = useMemo(() => {
+    if (!recordsPagination || !onPaginationChange) return undefined;
+    const pageIndex = Math.floor(recordsPagination.offset / recordsPagination.limit);
+    return {
+      pageIndex,
+      pageSize: recordsPagination.limit,
+      total: recordsPagination.total,
+    };
+  }, [recordsPagination, onPaginationChange]);
+
   return (
-    <section className="space-y-3 min-w-0">
+    <section className="space-y-3 min-w-0 overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
           <TableIcon className="h-4 w-4 text-muted-foreground" />
@@ -1523,7 +1547,7 @@ function TableRecordsCard({
             variant="secondary"
             className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
           >
-            {recordCount} records
+            {totalRecords} total
           </Badge>
           {isRecordsFetching ? (
             <Badge
@@ -1565,6 +1589,8 @@ function TableRecordsCard({
           data={data}
           emptyMessage="No records yet."
           pinnedColumns={pinnedColumns}
+          pagination={paginationForTable}
+          onPaginationChange={onPaginationChange}
         />
       )}
     </section>

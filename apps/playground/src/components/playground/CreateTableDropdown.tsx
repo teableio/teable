@@ -18,11 +18,7 @@ type CreateTableDropdownProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   isCreating: boolean;
   onSelect: (template: TableTemplateDefinition) => void;
-  onImportCsv?: (data: {
-    tableName: string;
-    headers: string[];
-    rows: Record<string, string>[];
-  }) => Promise<void>;
+  onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   label?: string;
   align?: 'start' | 'center' | 'end';
   variant?: VariantProps<typeof buttonVariants>['variant'];

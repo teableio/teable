@@ -7,15 +7,19 @@ import type { ITableRecordConditionSpecVisitor } from '../../domain/table/record
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../ExecutionContext';
-import type { ITableRecordQueryRepository } from '../TableRecordQueryRepository';
-import type { TableRecordReadModel } from '../TableRecordReadModel';
+import type {
+  ITableRecordQueryOptions,
+  ITableRecordQueryRepository,
+  ITableRecordQueryResult,
+} from '../TableRecordQueryRepository';
 
 export class NoopTableRecordQueryRepository implements ITableRecordQueryRepository {
   async find(
-    _: IExecutionContext,
-    __: Table,
-    ___?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
-    return ok([]);
+    _context: IExecutionContext,
+    _table: Table,
+    _spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    _options?: ITableRecordQueryOptions
+  ): Promise<Result<ITableRecordQueryResult, DomainError>> {
+    return ok({ records: [], total: 0 });
   }
 }

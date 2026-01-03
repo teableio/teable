@@ -15,10 +15,20 @@ import { QueryHandler, type IQueryHandler } from './QueryHandler';
 import { buildRecordConditionSpec } from './RecordFilterMapper';
 
 export class ListTableRecordsResult {
-  private constructor(readonly records: ReadonlyArray<TableRecordReadModel>) {}
+  private constructor(
+    readonly records: ReadonlyArray<TableRecordReadModel>,
+    readonly total: number,
+    readonly offset: number,
+    readonly limit: number
+  ) {}
 
-  static create(records: ReadonlyArray<TableRecordReadModel>): ListTableRecordsResult {
-    return new ListTableRecordsResult(records);
+  static create(
+    records: ReadonlyArray<TableRecordReadModel>,
+    total: number,
+    offset: number,
+    limit: number
+  ): ListTableRecordsResult {
+    return new ListTableRecordsResult(records, total, offset, limit);
   }
 }
 
@@ -69,19 +79,31 @@ export class ListTableRecordsHandler
             ? yield* buildRecordConditionSpec(table, query.filter)
             : undefined;
 
-          // 3. Query records (repository handles foreign table loading via query builder prepare)
+          // 3. Query records with pagination
           const queryRecordsSpan = context.tracer?.startSpan(
             'teable.ListTableRecordsHandler.queryRecords'
           );
-          const records = yield* await this.tableRecordQueryRepository.find(
+          const queryResult = yield* await this.tableRecordQueryRepository.find(
             context,
             table,
-            filterSpec
+            filterSpec,
+            { pagination: query.pagination }
           );
           queryRecordsSpan?.end();
 
-          logger.debug('ListTableRecordsHandler.success', { count: records.length });
-          return ok(ListTableRecordsResult.create(records));
+          logger.debug('ListTableRecordsHandler.success', {
+            count: queryResult.records.length,
+            total: queryResult.total,
+          });
+
+          return ok(
+            ListTableRecordsResult.create(
+              queryResult.records,
+              queryResult.total,
+              query.pagination.offset().toNumber(),
+              query.pagination.limit().toNumber()
+            )
+          );
         }.bind(this)
       );
     } finally {

@@ -9,23 +9,44 @@ import tailwindcss from '@tailwindcss/vite';
 import { nitro } from 'nitro/vite';
 
 const v2ServerPackages = [
+  // Core
   '@teable/v2-core',
+  '@teable/v2-di',
+  '@teable/v2-postgres-schema',
+  '@teable/v2-table-templates',
+  '@teable/v2-formula-sql-pg',
+  // Contract
   '@teable/v2-contract-http',
+  '@teable/v2-contract-http-client',
+  '@teable/v2-contract-http-express',
+  '@teable/v2-contract-http-fastify',
+  '@teable/v2-contract-http-hono',
   '@teable/v2-contract-http-implementation',
-  '@teable/v2-container-node',
+  '@teable/v2-contract-http-openapi',
+  // Containers
   '@teable/v2-container-browser',
+  '@teable/v2-container-bun',
+  '@teable/v2-container-bun-test',
+  '@teable/v2-container-node',
+  '@teable/v2-container-node-test',
+  // DB Adapters
+  '@teable/v2-adapter-db-postgres-bun-sql',
   '@teable/v2-adapter-db-postgres-pg',
   '@teable/v2-adapter-db-postgres-pglite',
+  '@teable/v2-adapter-db-postgres-postgresjs',
   '@teable/v2-adapter-db-postgres-shared',
-  '@teable/v2-postgres-schema',
+  // Repository Adapters
   '@teable/v2-adapter-repository-postgres',
   '@teable/v2-adapter-record-repository-postgres',
   '@teable/v2-adapter-schema-repository-postgres',
+  // Other Adapters
+  '@teable/v2-adapter-bullmq',
+  '@teable/v2-adapter-csv-parser-papaparse',
+  '@teable/v2-adapter-logger-console',
+  '@teable/v2-adapter-logger-pino',
   '@teable/v2-adapter-realtime-broadcastchannel',
   '@teable/v2-adapter-realtime-sharedb',
-  '@teable/v2-adapter-logger-pino',
-  '@teable/v2-table-templates',
-  '@teable/v2-di',
+  '@teable/v2-adapter-realtime-yjs',
 ];
 const sourceOnlyPackages = ['@teable/formula'];
 
