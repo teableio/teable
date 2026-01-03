@@ -29,6 +29,9 @@ node_modules
 /build
 /dist/
 
+# v2 packages build output
+packages/v2/**/dist/
+
 # Cache
 *.tsbuildinfo
 **/.eslintcache
