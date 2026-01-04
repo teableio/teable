@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, Loader2, Plus } from '@teable/icons';
-import type { ITestLLMVo, LLMProvider } from '@teable/openapi/src/admin/setting';
+import type { ITestLLMVo, LLMProvider, IModelConfig } from '@teable/openapi/src/admin/setting';
 import { llmProviderSchema, LLMProviderType } from '@teable/openapi/src/admin/setting';
 import {
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,9 +27,10 @@ import {
   SelectValue,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { PropsWithChildren } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LLM_PROVIDERS } from './constant';
 
@@ -195,6 +197,91 @@ export const NewLLMProviderForm = ({
   );
 };
 
+// Component for configuring rates per model
+interface ModelRatesConfigProps {
+  models: string;
+  modelConfigs: Record<string, IModelConfig> | undefined;
+  onChange: (configs: Record<string, IModelConfig>) => void;
+}
+
+const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesConfigProps) => {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+
+  const modelList = useMemo(() => {
+    return models
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean);
+  }, [models]);
+
+  if (modelList.length === 0) return null;
+
+  const handleRateChange = (model: string, field: 'inputRate' | 'outputRate', value: string) => {
+    const numValue = parseFloat(value) || 0;
+    const currentConfig = modelConfigs[model] || { inputRate: 0, outputRate: 0 };
+    onChange({
+      ...modelConfigs,
+      [model]: {
+        ...currentConfig,
+        [field]: numValue,
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+        {t('admin.setting.ai.modelRates')} ({modelList.length})
+      </button>
+
+      {expanded && (
+        <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+          <div className="grid grid-cols-[1fr,80px,80px] gap-2 text-xs font-medium text-muted-foreground">
+            <div>{t('admin.setting.ai.model')}</div>
+            <div>{t('admin.setting.ai.inputRate')}</div>
+            <div>{t('admin.setting.ai.outputRate')}</div>
+          </div>
+          {modelList.map((model) => {
+            const config = modelConfigs[model] || { inputRate: 0, outputRate: 0 };
+            return (
+              <div key={model} className="grid grid-cols-[1fr,80px,80px] items-center gap-2">
+                <div className="truncate text-sm" title={model}>
+                  {model}
+                </div>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={config.inputRate || ''}
+                  onChange={(e) => handleRateChange(model, 'inputRate', e.target.value)}
+                  placeholder="0"
+                  className="h-7 text-xs"
+                />
+                <Input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={config.outputRate || ''}
+                  onChange={(e) => handleRateChange(model, 'outputRate', e.target.value)}
+                  placeholder="0"
+                  className="h-7 text-xs"
+                />
+              </div>
+            );
+          })}
+          <p className="text-xs text-muted-foreground">{t('admin.setting.ai.ratesDescription')}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderFormProps) => {
   const { t } = useTranslation();
   const [isTestLoading, setIsTestLoading] = useState(false);
@@ -209,6 +296,7 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
       apiKey: '',
       baseUrl: '',
       models: '',
+      modelConfigs: {},
     },
   });
 
@@ -413,6 +501,13 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
                 <FormMessage />
               </FormItem>
             )}
+          />
+
+          {/* Model Rates Configuration */}
+          <ModelRatesConfig
+            models={form.watch('models') || ''}
+            modelConfigs={form.watch('modelConfigs')}
+            onChange={(configs) => form.setValue('modelConfigs', configs)}
           />
 
           {/* Test Error Display */}

@@ -481,21 +481,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             </div>
 
             <div className="relative h-[520px] w-[512px] shrink-0 overflow-hidden rounded-lg border bg-muted">
-              {templateDetail?.isPublished && (
-                <div className="absolute bottom-6 left-1/2 z-50 flex h-9 max-w-[432px] -translate-x-1/2 items-center gap-2 overflow-hidden rounded-md border bg-background pl-3">
-                  <Link className="size-4 shrink-0" />
-                  <div className="truncate text-sm text-muted-foreground">{shareUrl}</div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-9 shrink-0 rounded-none border-l p-0"
-                    onClick={handleCopyUrl}
-                  >
-                    <Copy className="size-4" />
-                  </Button>
-                </div>
-              )}
-
               <input
                 ref={uploadRef}
                 type="file"
@@ -579,6 +564,20 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     </span>
                   </div>
                 </div>
+                {templateDetail?.isPublished && (
+                  <div className="z-50 flex h-9 w-[432px] items-center gap-2 overflow-hidden rounded-md border bg-background pl-3">
+                    <Link className="size-4 shrink-0" />
+                    <div className="grow truncate text-sm text-muted-foreground">{shareUrl}</div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-9 shrink-0 rounded-none border-l p-0"
+                      onClick={handleCopyUrl}
+                    >
+                      <Copy className="size-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
