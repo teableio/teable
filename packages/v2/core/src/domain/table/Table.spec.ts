@@ -14,6 +14,7 @@ import { FormulaExpression } from './fields/types/FormulaExpression';
 import { NumberDefaultValue } from './fields/types/NumberDefaultValue';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
 import { TextDefaultValue } from './fields/types/TextDefaultValue';
+import { RecordId } from './records/RecordId';
 import { Table } from './Table';
 import { TableId } from './TableId';
 import { TableName } from './TableName';
@@ -24,6 +25,7 @@ import { ViewName } from './views/ViewName';
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
+const createRecordId = (seed: string) => RecordId.create(`rec${seed.repeat(16)}`);
 const createViewId = (seed: string) => ViewId.create(`viw${seed.repeat(16)}`);
 
 describe('Table', () => {
@@ -575,6 +577,97 @@ describe('Table.createRecord', () => {
     const shape = schema.shape;
     expect(Object.keys(shape).length).toBe(1);
     expect(shape[textFieldId._unsafeUnwrap().toString()]).toBeDefined();
+  });
+});
+
+describe('Table.updateRecord', () => {
+  const buildSimpleTable = () => {
+    const baseIdResult = createBaseId('u');
+    const tableNameResult = TableName.create('Update Records');
+    const textFieldId = createFieldId('t');
+    const numberFieldId = createFieldId('n');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(numberFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    return {
+      table: builder.build()._unsafeUnwrap(),
+      textFieldId: textFieldId._unsafeUnwrap().toString(),
+      numberFieldId: numberFieldId._unsafeUnwrap().toString(),
+    };
+  };
+
+  it('updates a record with provided field values', () => {
+    const { table, textFieldId, numberFieldId } = buildSimpleTable();
+    const recordId = createRecordId('r')._unsafeUnwrap();
+
+    const fieldValues = new Map<string, unknown>([
+      [textFieldId, 'Updated Title'],
+      [numberFieldId, 123],
+    ]);
+
+    const recordResult = table.updateRecord(recordId, fieldValues);
+    const record = recordResult._unsafeUnwrap();
+
+    expect(record.id().equals(recordId)).toBe(true);
+    expect(record.tableId().equals(table.id())).toBe(true);
+
+    const fields = record.fields();
+    const textFieldIdObj = FieldId.create(textFieldId)._unsafeUnwrap();
+    const numberFieldIdObj = FieldId.create(numberFieldId)._unsafeUnwrap();
+
+    expect(fields.get(textFieldIdObj)?.toValue()).toBe('Updated Title');
+    expect(fields.get(numberFieldIdObj)?.toValue()).toBe(123);
+  });
+
+  it('ignores unknown field IDs when updating', () => {
+    const { table, textFieldId } = buildSimpleTable();
+    const recordId = createRecordId('s')._unsafeUnwrap();
+
+    const fieldValues = new Map<string, unknown>([
+      [textFieldId, 'Valid'],
+      ['fldUnknownField12345', 'Ignored'],
+    ]);
+
+    const recordResult = table.updateRecord(recordId, fieldValues);
+    const record = recordResult._unsafeUnwrap();
+
+    expect(record.fields().entries().length).toBe(1);
+  });
+
+  it('returns error when no field values are provided', () => {
+    const { table } = buildSimpleTable();
+    const recordId = createRecordId('t')._unsafeUnwrap();
+
+    const recordResult = table.updateRecord(recordId, new Map());
+    expect(recordResult.isErr()).toBe(true);
+    expect(recordResult._unsafeUnwrapErr().message).toContain('No field values to set');
+  });
+
+  it('validates field values when updating', () => {
+    const { table, numberFieldId } = buildSimpleTable();
+    const recordId = createRecordId('v')._unsafeUnwrap();
+
+    const fieldValues = new Map<string, unknown>([[numberFieldId, 'not a number']]);
+
+    const recordResult = table.updateRecord(recordId, fieldValues);
+    expect(recordResult.isErr()).toBe(true);
+    expect(recordResult._unsafeUnwrapErr().message).toContain('Invalid value');
   });
 });
 

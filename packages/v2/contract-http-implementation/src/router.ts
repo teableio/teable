@@ -20,6 +20,7 @@ import { executeImportCsvEndpoint } from './handlers/tables/importCsv';
 import { executeListTableRecordsEndpoint } from './handlers/tables/listTableRecords';
 import { executeListTablesEndpoint } from './handlers/tables/listTables';
 import { executeRenameTableEndpoint } from './handlers/tables/renameTable';
+import { executeUpdateRecordEndpoint } from './handlers/tables/updateRecord';
 
 export interface IV2OrpcRouterOptions {
   createContainer?: () => IHandlerResolver | Promise<IHandlerResolver>;
@@ -169,6 +170,39 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     const result = await executeCreateRecordsEndpoint(executionContext, input, commandBus);
 
     if (result.status === 201) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
+  });
+
+  const tablesUpdateRecord = os.tables.updateRecord.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeUpdateRecordEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 200) return result.body;
 
     if (result.status === 400) {
       throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
@@ -414,6 +448,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       createField: tablesCreateField,
       createRecord: tablesCreateRecord,
       createRecords: tablesCreateRecords,
+      updateRecord: tablesUpdateRecord,
       deleteField: tablesDeleteField,
       delete: tablesDelete,
       getById: tablesGetById,

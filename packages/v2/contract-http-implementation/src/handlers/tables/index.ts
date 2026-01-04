@@ -9,3 +9,4 @@ export * from './importCsv';
 export * from './listTableRecords';
 export * from './listTables';
 export * from './renameTable';
+export * from './updateRecord';

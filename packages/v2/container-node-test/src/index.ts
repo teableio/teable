@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
@@ -9,7 +10,7 @@ import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2RecordRepositoryPostgresAdapter } from '@teable/v2-adapter-record-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
-import type { ITableRepository } from '@teable/v2-core';
+import type { IHasher, ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
   DefaultTableMapper,
@@ -29,6 +30,15 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';
+
+/**
+ * Node.js crypto-based hasher implementation for tests.
+ */
+class NodeCryptoHasher implements IHasher {
+  sha256(input: string): string {
+    return createHash('sha256').update(input).digest('hex');
+  }
+}
 
 export interface IV2NodeTestContainer {
   container: DependencyContainer;
@@ -113,6 +123,11 @@ export const createV2NodeTestContainer = async (
   }
   if (!c.isRegistered(v2CoreTokens.csvParser)) {
     c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+  if (!c.isRegistered(v2CoreTokens.hasher)) {
+    c.register(v2CoreTokens.hasher, NodeCryptoHasher, {
       lifecycle: Lifecycle.Singleton,
     });
   }

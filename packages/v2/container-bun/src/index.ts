@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import {
   PostgresUnitOfWork,
   registerV2PostgresDb,
@@ -16,12 +17,23 @@ import {
   registerV2CoreServices,
   v2CoreTokens,
   type ICommandBusMiddleware,
+  type IHasher,
   type ILogger,
   type IQueryBusMiddleware,
   type ITracer,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
+
+/**
+ * Bun crypto-based hasher implementation.
+ * Bun supports Node.js crypto module.
+ */
+class BunCryptoHasher implements IHasher {
+  sha256(input: string): string {
+    return createHash('sha256').update(input).digest('hex');
+  }
+}
 
 type IEnvRecord = Record<string, string | undefined>;
 
@@ -122,6 +134,13 @@ export const registerV2BunPgDependencies = async (
     c.registerInstance(v2CoreTokens.tracer, options.tracer);
   } else {
     c.register(v2CoreTokens.tracer, NoopTracer, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  // Register hasher
+  if (!c.isRegistered(v2CoreTokens.hasher)) {
+    c.register(v2CoreTokens.hasher, BunCryptoHasher, {
       lifecycle: Lifecycle.Singleton,
     });
   }

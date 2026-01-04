@@ -1,7 +1,6 @@
 import {
   domainError,
   FieldId,
-  isNotFoundError,
   LinkForeignTableReferenceVisitor,
   LinkRelationship,
   type DomainError,
@@ -28,14 +27,16 @@ import type {
   OrderByColumn,
   QB,
 } from '../ITableRecordQueryBuilder';
+import { QueryMode } from '../TableRecordQueryBuilderManager';
 import {
   ComputedFieldSelectExpressionVisitor,
   type ILateralContext,
   type LateralColumnType,
+  type LinkOrderBy,
 } from './ComputedFieldSelectExpressionVisitor';
-import { QueryMode } from '../TableRecordQueryBuilderManager';
 
-const T = 't'; // main table alias
+export const COMPUTED_TABLE_ALIAS = 't';
+const T = COMPUTED_TABLE_ALIAS; // main table alias
 const F = 'f'; // foreign table alias in lateral
 
 export interface IComputedQueryBuilderOptions {
@@ -49,7 +50,7 @@ export interface IComputedQueryBuilderOptions {
  */
 export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private table: Table | null = null;
-  private projection: FieldId[] | null = null;
+  private projection: ReadonlyArray<FieldId> | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
   private orderByColumnValue: OrderByColumn | null = null;
@@ -70,7 +71,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return this;
   }
 
-  select(projection: FieldId[]): this {
+  select(projection: ReadonlyArray<FieldId>): this {
     this.projection = projection;
     return this;
   }
@@ -210,8 +211,14 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         if (!laterals.has(key)) {
           laterals.set(key, { linkFieldId, alias: `lat_${key}`, foreignTableId, columns: [] });
         }
-        laterals.get(key)!.columns.push({ outputAlias, columnType });
-        return laterals.get(key)!.alias;
+        const lateral = laterals.get(key)!;
+        // Prevent duplicate columns with the same outputAlias
+        // This can happen when a formula references a lookup field that is also being computed
+        const existingColumn = lateral.columns.find((col) => col.outputAlias === outputAlias);
+        if (!existingColumn) {
+          lateral.columns.push({ outputAlias, columnType });
+        }
+        return lateral.alias;
       },
     };
 
@@ -220,11 +227,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
   private buildSelectColumns(
     table: Table,
-    projection: FieldId[] | null,
+    projection: ReadonlyArray<FieldId> | null,
     lateralCtx: ILateralContext
   ): Result<AliasedRawBuilder<unknown, string>[], DomainError> {
     return safeTry(function* () {
-      const visitor = new ComputedFieldSelectExpressionVisitor(T, lateralCtx);
+      const visitor = new ComputedFieldSelectExpressionVisitor(table, T, lateralCtx);
       const columns: AliasedRawBuilder<unknown, string>[] = [];
 
       for (const field of table.getFields()) {
@@ -309,22 +316,31 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     outputAlias: string
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return match(columnType)
-      .with({ type: 'link' }, ({ lookupFieldId, isMultiValue }) =>
+      .with({ type: 'link' }, ({ lookupFieldId, isMultiValue, orderBy }) =>
         this.getForeignColRef(foreignTable, lookupFieldId).map((titleRef) => {
           // Build JSON object: {id: ..., title: ...}
           const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleRef}))`;
+          const orderByExpr = buildLinkOrderByExpr(orderBy);
           if (isMultiValue) {
             // Multi-value: aggregate as JSON array
-            return sql`json_agg(${jsonObj})`.as(outputAlias);
+            // Use jsonb_agg to get JSONB type which is more efficient for storage and indexing
+            return orderByExpr
+              ? sql`jsonb_agg(${jsonObj} ORDER BY ${orderByExpr})`.as(outputAlias)
+              : sql`jsonb_agg(${jsonObj})`.as(outputAlias);
           } else {
             // Single value: return single object (use first match)
-            return sql`(json_agg(${jsonObj}))[0]`.as(outputAlias);
+            // Must use jsonb_agg (not json_agg) because only JSONB supports subscript [0] access
+            return orderByExpr
+              ? sql`(jsonb_agg(${jsonObj} ORDER BY ${orderByExpr}))[0]`.as(outputAlias)
+              : sql`(jsonb_agg(${jsonObj}))[0]`.as(outputAlias);
           }
         })
       )
       .with({ type: 'lookup' }, ({ foreignFieldId }) =>
         this.getForeignColRef(foreignTable, foreignFieldId).map((colRef) =>
-          sql`ARRAY_AGG(${colRef})`.as(outputAlias)
+          // Use jsonb_agg with to_jsonb to ensure the output is JSONB type
+          // This handles all data types (including timestamp, numeric, etc.) correctly
+          sql`jsonb_agg(to_jsonb(${colRef}))`.as(outputAlias)
         )
       )
       .with({ type: 'rollup' }, ({ foreignFieldId, aggregate }) =>
@@ -451,3 +467,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return ok(this.orderByColumnValue);
   }
 }
+
+const buildLinkOrderByExpr = (orderBy?: LinkOrderBy): RawBuilder<unknown> | null => {
+  if (!orderBy) return null;
+  if (orderBy.source === 'foreign') {
+    return sql`${sql.ref(`${F}.${orderBy.column}`)}`;
+  }
+  return sql`(SELECT ${sql.ref(`j.${orderBy.column}`)} FROM ${sql.table(orderBy.junctionTable)} AS j WHERE ${sql.ref(`j.${orderBy.selfKey}`)} = ${sql.ref(`${T}.__id`)} AND ${sql.ref(`j.${orderBy.foreignKey}`)} = ${sql.ref(`${F}.__id`)})`;
+};

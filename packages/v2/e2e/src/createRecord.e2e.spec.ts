@@ -473,9 +473,9 @@ describe('v2 http createRecord with link fields (e2e)', () => {
     // The database returns a foreign key violation error
     expect(response.status).toBe(500);
 
-    const body = await response.json();
+    const body = (await response.json()) as { ok?: boolean; error?: { message?: string } };
     expect(body.ok).toBe(false);
     // The error message should indicate a foreign key constraint violation
-    expect(body.error.message).toContain('Failed to insert record');
+    expect(body.error?.message ?? '').toContain('Failed to insert record');
   });
 });

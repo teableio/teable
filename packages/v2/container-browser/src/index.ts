@@ -12,6 +12,7 @@ import {
   AsyncMemoryEventBus,
   MemoryCommandBus,
   MemoryQueryBus,
+  NoopHasher,
   NoopLogger,
   NoopRealtimeEngine,
   NoopTableRepository,
@@ -130,6 +131,13 @@ export const registerV2BrowserPgliteDependencies = async (
     });
   }
 
+  // Register hasher (browser-compatible implementation)
+  if (!c.isRegistered(v2CoreTokens.hasher)) {
+    c.register(v2CoreTokens.hasher, NoopHasher, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
   // Register core services (uses defaults unless already registered)
   registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
 
@@ -177,6 +185,13 @@ export const registerV2BrowserNoopDependencies = (
   });
   if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
     c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  // Register hasher (browser-compatible implementation)
+  if (!c.isRegistered(v2CoreTokens.hasher)) {
+    c.register(v2CoreTokens.hasher, NoopHasher, {
       lifecycle: Lifecycle.Singleton,
     });
   }

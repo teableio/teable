@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
   PostgresUnitOfWork,
@@ -8,7 +9,7 @@ import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2RecordRepositoryPostgresAdapter } from '@teable/v2-adapter-record-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
-import type { ITableRepository } from '@teable/v2-core';
+import type { IHasher, ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
   getRandomString,
@@ -26,6 +27,15 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';
 import { Wait } from 'testcontainers';
+
+/**
+ * Bun crypto-based hasher implementation for tests.
+ */
+class BunCryptoHasher implements IHasher {
+  sha256(input: string): string {
+    return createHash('sha256').update(input).digest('hex');
+  }
+}
 
 export interface IV2BunTestContainer {
   container: DependencyContainer;
@@ -86,6 +96,11 @@ export const createV2BunTestContainer = async (
   });
   if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
     c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+  if (!c.isRegistered(v2CoreTokens.hasher)) {
+    c.register(v2CoreTokens.hasher, BunCryptoHasher, {
       lifecycle: Lifecycle.Singleton,
     });
   }

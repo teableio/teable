@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import {
   PostgresUnitOfWork,
@@ -18,12 +19,22 @@ import {
   registerV2CoreServices,
   v2CoreTokens,
   type ICommandBusMiddleware,
+  type IHasher,
   type IQueryBusMiddleware,
   type ILogger,
   type ITracer,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
+
+/**
+ * Node.js crypto-based hasher implementation.
+ */
+class NodeCryptoHasher implements IHasher {
+  sha256(input: string): string {
+    return createHash('sha256').update(input).digest('hex');
+  }
+}
 
 export interface IV2NodePgContainerOptions {
   connectionString?: string;
@@ -118,6 +129,13 @@ export const registerV2NodePgDependencies = async (
   // Register CSV parser
   if (!c.isRegistered(v2CoreTokens.csvParser)) {
     c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  // Register hasher
+  if (!c.isRegistered(v2CoreTokens.hasher)) {
+    c.register(v2CoreTokens.hasher, NodeCryptoHasher, {
       lifecycle: Lifecycle.Singleton,
     });
   }

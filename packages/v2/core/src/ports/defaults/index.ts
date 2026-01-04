@@ -1,5 +1,6 @@
 export * from './NoopCsvParser';
 export * from './NoopEventBus';
+export * from './NoopHasher';
 export * from './NoopLogger';
 export * from './NoopRealtimeEngine';
 export * from './NoopTableRepository';

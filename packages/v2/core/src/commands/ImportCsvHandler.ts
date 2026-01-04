@@ -9,13 +9,12 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { Table } from '../domain/table/Table';
 import { TableName } from '../domain/table/TableName';
-import type { CsvParseResult, CsvSource } from '../ports/CsvParser';
-import { ICsvParser } from '../ports/CsvParser';
+import * as CsvParserPort from '../ports/CsvParser';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import { ITableRecordRepository } from '../ports/TableRecordRepository';
-import { ITableRepository } from '../ports/TableRepository';
-import { ITableSchemaRepository } from '../ports/TableSchemaRepository';
+import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import * as TableRepositoryPort from '../ports/TableRepository';
+import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
@@ -54,13 +53,13 @@ export class ImportCsvResult {
 export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, ImportCsvResult> {
   constructor(
     @inject(v2CoreTokens.csvParser)
-    private readonly csvParser: ICsvParser,
+    private readonly csvParser: CsvParserPort.ICsvParser,
     @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: ITableRepository,
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableSchemaRepository)
-    private readonly tableSchemaRepository: ITableSchemaRepository,
+    private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     @inject(v2CoreTokens.tableRecordRepository)
-    private readonly tableRecordRepository: ITableRecordRepository,
+    private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
@@ -275,7 +274,9 @@ export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, Impor
    * 解析 CSV 数据源
    * 根据类型选择同步或异步解析
    */
-  private async parseCsvSource(source: CsvSource): Promise<Result<CsvParseResult, DomainError>> {
+  private async parseCsvSource(
+    source: CsvParserPort.CsvSource
+  ): Promise<Result<CsvParserPort.CsvParseResult, DomainError>> {
     // stream 和 url 类型需要异步解析
     if (source.type === 'stream' || source.type === 'url') {
       if (!this.csvParser.parseAsync) {

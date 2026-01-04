@@ -1,0 +1,32 @@
+import { domainError, type DomainError, type IExecutionContext } from '@teable/v2-core';
+import { injectable } from '@teable/v2-di';
+import { err } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+import type { ComputedFieldUpdater } from '../ComputedFieldUpdater';
+import type { ComputedUpdatePlan } from '../ComputedUpdatePlanner';
+import type { IUpdateStrategy } from './IUpdateStrategy';
+
+/**
+ * Async strategy placeholder.
+ *
+ * Intended behavior (future):
+ * - enqueue plan into an event-driven worker
+ * - persist failures + retry metadata
+ */
+@injectable()
+export class AsyncWithRetryStrategy implements IUpdateStrategy {
+  readonly name = 'async';
+
+  async execute(
+    _updater: ComputedFieldUpdater,
+    _plan: ComputedUpdatePlan,
+    _context: IExecutionContext
+  ): Promise<Result<void, DomainError>> {
+    return err(
+      domainError.unexpected({
+        message: 'Async computed update strategy is not wired yet; use SyncInTransactionStrategy.',
+      })
+    );
+  }
+}

@@ -46,7 +46,7 @@ import {
 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { JsonView } from 'react-json-view-lite';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
@@ -54,6 +54,7 @@ import { useCopyToClipboard } from 'usehooks-ts';
 import { CreateTableDropdown } from '@/components/playground/CreateTableDropdown';
 import { FieldCreateDialog } from '@/components/playground/FieldCreateDialog';
 import { RecordCreateDialog } from '@/components/playground/RecordCreateDialog';
+import { RecordUpdateDialog } from '@/components/playground/RecordUpdateDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1452,6 +1453,20 @@ function TableRecordsCard({
   const primaryFieldId = table.primaryFieldId().toString();
   const totalRecords = recordsPagination?.total ?? records?.length ?? 0;
   const isInitialLoading = isRecordsLoading && !records;
+  const [updateTarget, setUpdateTarget] = useState<ITableRecordDto | null>(null);
+  const [isUpdateOpen, setIsUpdateOpen] = useState(false);
+
+  const handleUpdateOpen = useCallback((record: ITableRecordDto) => {
+    setUpdateTarget(record);
+    setIsUpdateOpen(true);
+  }, []);
+
+  const handleUpdateOpenChange = useCallback((nextOpen: boolean) => {
+    setIsUpdateOpen(nextOpen);
+    if (!nextOpen) {
+      setUpdateTarget(null);
+    }
+  }, []);
 
   const columns = useMemo<ColumnDef<ITableRecordDto>[]>(() => {
     const handleCopyRecordId = (recordId: string) => {
@@ -1505,6 +1520,10 @@ function TableRecordsCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleUpdateOpen(row.original)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Update record
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleCopyRecordId(row.original.id)}>
               <Copy className="mr-2 h-4 w-4" />
               Copy Record ID
@@ -1515,7 +1534,7 @@ function TableRecordsCard({
     };
 
     return [...fieldColumns, actionsColumn];
-  }, [fields, primaryFieldId, copyToClipboard]);
+  }, [fields, primaryFieldId, copyToClipboard, handleUpdateOpen]);
 
   const data = useMemo(() => (records ?? []) as ITableRecordDto[], [records]);
 
@@ -1593,6 +1612,16 @@ function TableRecordsCard({
           onPaginationChange={onPaginationChange}
         />
       )}
+      {updateTarget ? (
+        <RecordUpdateDialog
+          table={table}
+          record={updateTarget}
+          baseId={baseId}
+          open={isUpdateOpen}
+          onOpenChange={handleUpdateOpenChange}
+          onSuccess={onRecordCreated}
+        />
+      ) : null}
     </section>
   );
 }

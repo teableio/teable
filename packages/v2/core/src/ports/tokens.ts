@@ -17,4 +17,5 @@ export const v2CoreTokens = {
   logger: Symbol('v2.core.logger'),
   tracer: Symbol('v2.core.tracer'),
   csvParser: Symbol('v2.core.csvParser'),
+  hasher: Symbol('v2.core.hasher'),
 } as const;

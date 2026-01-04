@@ -23,9 +23,9 @@ import {
   type UserField,
   ok,
 } from '@teable/v2-core';
+import type { Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
 import { safeTry } from 'neverthrow';
-import type { Kysely } from 'kysely';
 
 import type { DynamicDB } from '../query-builder';
 
@@ -157,105 +157,106 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
   }
 
   visitLinkField(field: LinkField): Result<FieldInsertResult, DomainError> {
-    const visitor = this;
-    return safeTry<FieldInsertResult, DomainError>(function* () {
-      const columnValues: Record<string, unknown> = {};
-      const queryExecutors: QueryExecutor[] = [];
+    return safeTry<FieldInsertResult, DomainError>(
+      function* (this: FieldInsertValueVisitor) {
+        const columnValues: Record<string, unknown> = {};
+        const queryExecutors: QueryExecutor[] = [];
 
-      // Note: Link value JSONB column is not stored during insert.
-      // It will be computed/populated later. For now, we only handle FK relationships.
+        // Note: Link value JSONB column is not stored during insert.
+        // It will be computed/populated later. For now, we only handle FK relationships.
 
-      // If no value, nothing to do
-      if (visitor.rawValue === null || visitor.rawValue === undefined) {
-        return ok({ columnValues, queryExecutors });
-      }
-
-      // Parse link items
-      const linkItems = Array.isArray(visitor.rawValue)
-        ? (visitor.rawValue as Array<{ id: string; title?: string }>)
-        : [visitor.rawValue as { id: string; title?: string }];
-
-      if (linkItems.length === 0) {
-        return ok({ columnValues, queryExecutors });
-      }
-
-      const relationship = field.relationship().toString();
-
-      if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
-        // Junction table: insert rows for each linked record
-        const fkHostTableName = field.fkHostTableName();
-        const fkHostTableSplit = yield* fkHostTableName.split({ defaultSchema: 'public' });
-        const tableName = fkHostTableSplit.schema
-          ? `${fkHostTableSplit.schema}.${fkHostTableSplit.tableName}`
-          : fkHostTableSplit.tableName;
-
-        const selfKeyName = yield* field.selfKeyNameString();
-        const foreignKeyName = yield* field.foreignKeyNameString();
-        const orderColumnName = yield* field.orderColumnName();
-
-        for (let i = 0; i < linkItems.length; i++) {
-          const linkItem = linkItems[i];
-          const order = i + 1;
-
-          // Capture values for closure
-          const recordId = visitor.ctx.recordId;
-          const foreignRecordId = linkItem.id;
-          const insertValues = {
-            [selfKeyName]: recordId,
-            [foreignKeyName]: foreignRecordId,
-            [orderColumnName]: order,
-          };
-
-          // Strategy: DELETE existing link then INSERT new one
-          // This is more robust than ON CONFLICT which requires a unique constraint
-          // that may not exist on legacy tables
-          queryExecutors.push(async (db) => {
-            // Delete any existing link between these two records
-            await db
-              .deleteFrom(tableName)
-              .where(selfKeyName, '=', recordId)
-              .where(foreignKeyName, '=', foreignRecordId)
-              .execute();
-
-            // Insert the new link with updated order
-            await db.insertInto(tableName).values(insertValues).execute();
-          });
+        // If no value, nothing to do
+        if (this.rawValue === null || this.rawValue === undefined) {
+          return ok({ columnValues, queryExecutors });
         }
-      } else if (relationship === 'manyOne' || relationship === 'oneOne') {
-        // FK column in main table: set the foreign key value
-        // For manyOne/oneOne, we only link to one record (first item)
-        const foreignKeyName = yield* field.foreignKeyNameString();
-        const firstLinkItem = linkItems[0];
-        columnValues[foreignKeyName] = firstLinkItem.id;
-      } else if (relationship === 'oneMany') {
-        // oneMany (two-way): FK is on the foreign table
-        // We need to UPDATE the foreign records to point their FK to the current record
-        const fkHostTableName = field.fkHostTableName();
-        const fkHostTableSplit = yield* fkHostTableName.split({ defaultSchema: 'public' });
-        const tableName = fkHostTableSplit.schema
-          ? `${fkHostTableSplit.schema}.${fkHostTableSplit.tableName}`
-          : fkHostTableSplit.tableName;
 
-        // selfKeyName is the FK column in the foreign table that points to current table
-        const selfKeyName = yield* field.selfKeyNameString();
+        // Parse link items
+        const linkItems = Array.isArray(this.rawValue)
+          ? (this.rawValue as Array<{ id: string; title?: string }>)
+          : [this.rawValue as { id: string; title?: string }];
 
-        for (const linkItem of linkItems) {
-          // Capture values for closure
-          const recordId = visitor.ctx.recordId;
-          const linkedRecordId = linkItem.id;
-
-          queryExecutors.push((db) =>
-            db
-              .updateTable(tableName)
-              .set({ [selfKeyName]: recordId })
-              .where('__id', '=', linkedRecordId)
-              .execute()
-          );
+        if (linkItems.length === 0) {
+          return ok({ columnValues, queryExecutors });
         }
-      }
 
-      return ok({ columnValues, queryExecutors });
-    });
+        const relationship = field.relationship().toString();
+
+        if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
+          // Junction table: insert rows for each linked record
+          const fkHostTableName = field.fkHostTableName();
+          const fkHostTableSplit = yield* fkHostTableName.split({ defaultSchema: 'public' });
+          const tableName = fkHostTableSplit.schema
+            ? `${fkHostTableSplit.schema}.${fkHostTableSplit.tableName}`
+            : fkHostTableSplit.tableName;
+
+          const selfKeyName = yield* field.selfKeyNameString();
+          const foreignKeyName = yield* field.foreignKeyNameString();
+          const orderColumnName = yield* field.orderColumnName();
+
+          for (let i = 0; i < linkItems.length; i++) {
+            const linkItem = linkItems[i];
+            const order = i + 1;
+
+            // Capture values for closure
+            const recordId = this.ctx.recordId;
+            const foreignRecordId = linkItem.id;
+            const insertValues = {
+              [selfKeyName]: recordId,
+              [foreignKeyName]: foreignRecordId,
+              [orderColumnName]: order,
+            };
+
+            // Strategy: DELETE existing link then INSERT new one
+            // This is more robust than ON CONFLICT which requires a unique constraint
+            // that may not exist on legacy tables
+            queryExecutors.push(async (db) => {
+              // Delete any existing link between these two records
+              await db
+                .deleteFrom(tableName)
+                .where(selfKeyName, '=', recordId)
+                .where(foreignKeyName, '=', foreignRecordId)
+                .execute();
+
+              // Insert the new link with updated order
+              await db.insertInto(tableName).values(insertValues).execute();
+            });
+          }
+        } else if (relationship === 'manyOne' || relationship === 'oneOne') {
+          // FK column in main table: set the foreign key value
+          // For manyOne/oneOne, we only link to one record (first item)
+          const foreignKeyName = yield* field.foreignKeyNameString();
+          const firstLinkItem = linkItems[0];
+          columnValues[foreignKeyName] = firstLinkItem.id;
+        } else if (relationship === 'oneMany') {
+          // oneMany (two-way): FK is on the foreign table
+          // We need to UPDATE the foreign records to point their FK to the current record
+          const fkHostTableName = field.fkHostTableName();
+          const fkHostTableSplit = yield* fkHostTableName.split({ defaultSchema: 'public' });
+          const tableName = fkHostTableSplit.schema
+            ? `${fkHostTableSplit.schema}.${fkHostTableSplit.tableName}`
+            : fkHostTableSplit.tableName;
+
+          // selfKeyName is the FK column in the foreign table that points to current table
+          const selfKeyName = yield* field.selfKeyNameString();
+
+          for (const linkItem of linkItems) {
+            // Capture values for closure
+            const recordId = this.ctx.recordId;
+            const linkedRecordId = linkItem.id;
+
+            queryExecutors.push((db) =>
+              db
+                .updateTable(tableName)
+                .set({ [selfKeyName]: recordId })
+                .where('__id', '=', linkedRecordId)
+                .execute()
+            );
+          }
+        }
+
+        return ok({ columnValues, queryExecutors });
+      }.bind(this)
+    );
   }
 
   visitCreatedTimeField(_field: CreatedTimeField): Result<FieldInsertResult, DomainError> {

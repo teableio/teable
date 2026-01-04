@@ -8,8 +8,8 @@ import { TableByIdSpec } from '../../domain/table/specs/TableByIdSpec';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ITableRepository } from '../../ports/TableRepository';
+import * as ExecutionContextPort from '../../ports/ExecutionContext';
+import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
 
@@ -59,7 +59,7 @@ import { TraceSpan } from '../../ports/TraceSpan';
 export class TableQueryService {
   constructor(
     @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: ITableRepository
+    private readonly tableRepository: TableRepositoryPort.ITableRepository
   ) {}
 
   /**
@@ -77,7 +77,10 @@ export class TableQueryService {
    * ```
    */
   @TraceSpan()
-  async getById(context: IExecutionContext, tableId: TableId): Promise<Result<Table, DomainError>> {
+  async getById(
+    context: ExecutionContextPort.IExecutionContext,
+    tableId: TableId
+  ): Promise<Result<Table, DomainError>> {
     // Use TableByIdSpec directly since we don't have baseId constraint
     const spec = TableByIdSpec.create(tableId);
     const tableResult = await this.tableRepository.findOne(context, spec);
@@ -128,7 +131,7 @@ export class TableQueryService {
    * ```
    */
   async getByIdInBase(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     baseId: BaseId,
     tableId: TableId
   ): Promise<Result<Table, DomainError>> {
@@ -174,7 +177,7 @@ export class TableQueryService {
    * @returns Result<boolean> - true if exists, false otherwise
    */
   async exists(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     tableId: TableId
   ): Promise<Result<boolean, DomainError>> {
     const result = await this.getById(context, tableId);

@@ -328,6 +328,50 @@ export class Table extends AggregateRoot<TableId> {
   }
 
   /**
+   * Update a record with the given field values.
+   *
+   * This method:
+   * 1. Validates provided field values (no defaults are applied)
+   * 2. Builds a mutation spec for the provided fields
+   * 3. Returns a record containing only the updated fields
+   *
+   * @param recordId - The record to update
+   * @param fieldValues - Map of field IDs to raw values
+   * @returns Result containing the updated record or validation error
+   */
+  updateRecord(
+    recordId: RecordId,
+    fieldValues: ReadonlyMap<string, unknown>
+  ): Result<TableRecord, DomainError> {
+    const table = this;
+    return safeTry<TableRecord, DomainError>(function* () {
+      const builder = RecordMutationSpecBuilder.create();
+      const fields = table.getEditableFields();
+
+      for (const field of fields) {
+        const fieldIdStr = field.id().toString();
+        if (!fieldValues.has(fieldIdStr)) continue;
+        const providedValue = fieldValues.get(fieldIdStr);
+        if (providedValue === undefined) continue;
+        builder.set(field, providedValue);
+      }
+
+      if (builder.hasErrors()) {
+        return err(builder.getErrors()[0]!);
+      }
+
+      const emptyFields = yield* TableRecordFields.create([]);
+      const emptyRecord = yield* TableRecord.create({
+        id: recordId,
+        tableId: table.id(),
+        fieldValues: emptyFields.entries(),
+      });
+
+      return ok(yield* builder.buildAndMutate(emptyRecord));
+    });
+  }
+
+  /**
    * Create multiple records for this table with the given field values.
    *
    * This method:

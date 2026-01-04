@@ -492,9 +492,8 @@ describe('v2 http createRecord link fields (e2e)', () => {
           SELECT * FROM "${sql.raw(baseId)}"."${sql.raw(junctionTableName)}"
         `.execute(testContainer.db);
 
-        const matchingRows = allRows.rows.filter((r: Record<string, unknown>) =>
-          Object.values(r).includes(mainRecord.id)
-        );
+        const rows = allRows.rows as Array<Record<string, unknown>>;
+        const matchingRows = rows.filter((r) => Object.values(r).includes(mainRecord.id));
         expect(matchingRows.length).toBe(2);
       }
     });
@@ -542,7 +541,7 @@ describe('v2 http createRecord link fields (e2e)', () => {
           }),
         });
         if (response.ok) {
-          const body = await response.json();
+          const body = (await response.json()) as { data?: { field?: { id?: string } } };
           linkFieldId = body?.data?.field?.id ?? '';
         }
       });
@@ -609,7 +608,7 @@ describe('v2 http createRecord link fields (e2e)', () => {
           }),
         });
         if (response.ok) {
-          const body = await response.json();
+          const body = (await response.json()) as { data?: { field?: { id?: string } } };
           linkFieldId = body?.data?.field?.id ?? '';
         }
       });
@@ -824,9 +823,8 @@ describe('v2 http createRecord link fields (e2e)', () => {
           SELECT * FROM "${sql.raw(baseId)}"."${sql.raw(junctionTableName)}"
         `.execute(testContainer.db);
 
-        const matchingRows = allRows.rows.filter((r: Record<string, unknown>) =>
-          Object.values(r).includes(record.id)
-        );
+        const rows = allRows.rows as Array<Record<string, unknown>>;
+        const matchingRows = rows.filter((r) => Object.values(r).includes(record.id));
         expect(matchingRows.length).toBe(1);
       }
     });
@@ -996,9 +994,8 @@ describe('v2 http createRecord link fields (e2e)', () => {
           `.execute(testContainer.db);
 
           // Filter rows that contain our record id (main record)
-          const matchingRows = allRows.rows.filter((r: Record<string, unknown>) =>
-            Object.values(r).includes(record.id)
-          );
+          const rows = allRows.rows as Array<Record<string, unknown>>;
+          const matchingRows = rows.filter((r) => Object.values(r).includes(record.id));
           expect(matchingRows.length).toBe(2);
         }
       });
@@ -1027,9 +1024,8 @@ describe('v2 http createRecord link fields (e2e)', () => {
             SELECT * FROM "${sql.raw(baseId)}"."${sql.raw(junctionTableName)}"
           `.execute(testContainer.db);
 
-          const matchingRows = allRows.rows.filter((r: Record<string, unknown>) =>
-            Object.values(r).includes(record.id)
-          );
+          const rows = allRows.rows as Array<Record<string, unknown>>;
+          const matchingRows = rows.filter((r) => Object.values(r).includes(record.id));
           expect(matchingRows.length).toBe(0);
         }
       });

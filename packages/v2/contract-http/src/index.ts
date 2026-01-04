@@ -13,6 +13,7 @@ export * from './table/importCsv';
 export * from './table/listTableRecords';
 export * from './table/listTables';
 export * from './table/renameTable';
+export * from './table/updateRecord';
 export * from './table/dto';
 export * from './table/recordDto';
 export * from './table/mapTableDtoToDomain';

@@ -59,7 +59,7 @@ export class TableRecordQueryBuilderManager {
     options?: IQueryBuilderManagerOptions
   ): Promise<Result<ITableRecordQueryBuilder, DomainError>> {
     const db = this.db as unknown as Kysely<DynamicDB>;
-    const mode = options?.mode ?? 'computed';
+    const mode = options?.mode ?? 'stored';
 
     // Start tracing span for query builder creation
     const span = context.tracer?.startSpan('teable.queryBuilder.create');

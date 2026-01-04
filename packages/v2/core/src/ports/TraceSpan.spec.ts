@@ -7,7 +7,7 @@ import { domainError } from '../domain/shared/DomainError';
 import type { DomainError } from '../domain/shared/DomainError';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { IExecutionContext } from './ExecutionContext';
-import type { ISpan, ITracer, SpanAttributes, TeableSpanAttributes } from './Tracer';
+import type { ISpan, ITracer, SpanAttributes } from './Tracer';
 import { TraceSpan } from './TraceSpan';
 
 class FakeSpan implements ISpan {

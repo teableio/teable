@@ -6,9 +6,9 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    "emitDecoratorMetadata": false,
     "target": "esnext",
-    "lib": ["esnext"],
+    "lib": ["esnext", "dom"],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "noEmit": false,
@@ -22,10 +22,11 @@
     "paths": {
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"],
+      "@teable/v2-formula-sql-pg": ["../formula-sql-pg/src"],
       "@teable/v2-postgres-schema": ["../postgres-schema/src"]
     },
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "node"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage", "../core/src/**/*.spec.ts"],
-  "include": ["src", "../core/src", "../di/src", "../postgres-schema/src"]
+  "include": ["src", "../core/src", "../di/src", "../postgres-schema/src", "../formula-sql-pg/src"]
 }

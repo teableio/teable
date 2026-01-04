@@ -5,8 +5,8 @@ import {
   type CheckboxField,
   type CreatedByField,
   type CreatedTimeField,
+  FieldType,
   type DateField,
-  domainError,
   type DomainError,
   type Field,
   type FieldId,
@@ -26,6 +26,12 @@ import {
   type Table,
   type UserField,
 } from '@teable/v2-core';
+import {
+  FormulaSqlPgTranslator,
+  guardValueSql,
+  makeExpr,
+  type SqlExpr,
+} from '@teable/v2-formula-sql-pg';
 import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
@@ -49,8 +55,18 @@ export const SqlAggregate = {
 export type SqlAggregate = (typeof SqlAggregate)[keyof typeof SqlAggregate];
 
 /** Column type for lateral join */
+export type LinkOrderBy =
+  | { source: 'foreign'; column: string }
+  | {
+      source: 'junction';
+      column: string;
+      junctionTable: string;
+      selfKey: string;
+      foreignKey: string;
+    };
+
 export type LateralColumnType =
-  | { type: 'link'; lookupFieldId: FieldId; isMultiValue: boolean }
+  | { type: 'link'; lookupFieldId: FieldId; isMultiValue: boolean; orderBy?: LinkOrderBy }
   | { type: 'lookup'; foreignFieldId: FieldId }
   | { type: 'rollup'; foreignFieldId: FieldId; aggregate: SqlAggregate };
 
@@ -69,15 +85,87 @@ export class ComputedFieldSelectExpressionVisitor
   implements IFieldVisitor<AliasedRawBuilder<unknown, string>>
 {
   private readonly columnVisitor = new FieldOutputColumnVisitor();
+  private readonly formulaTranslator: FormulaSqlPgTranslator;
 
   constructor(
+    private readonly table: Table,
     private readonly tableAlias: string,
     private readonly lateral: ILateralContext
-  ) {}
+  ) {
+    this.formulaTranslator = new FormulaSqlPgTranslator({
+      table,
+      tableAlias,
+      resolveFieldSql: (field) => this.resolveFieldReferenceSql(field),
+    });
+  }
 
   // Helper to get column alias from field using the shared visitor
   private getColAlias(field: Field): Result<string, DomainError> {
     return this.columnVisitor.getColumnAlias(field);
+  }
+
+  private quoteIdentifier(value: string): string {
+    const escaped = value.replace(/"/g, '""');
+    return `"${escaped}"`;
+  }
+
+  private qualify(alias: string, column: string): string {
+    return `${this.quoteIdentifier(alias)}.${this.quoteIdentifier(column)}`;
+  }
+
+  private resolveFieldReferenceSql(field: Field): Result<SqlExpr, DomainError> {
+    return this.getColAlias(field).andThen((colAlias) => {
+      if (field.type().equals(FieldType.link())) {
+        const linkField = field as LinkField;
+        const isMultiValue = linkField.relationship().isMultipleValue();
+        const orderByResult = this.getLinkOrderBy(linkField);
+        if (orderByResult.isErr()) return err(orderByResult.error);
+        const lateralAlias = this.lateral.addColumn(
+          linkField.id(),
+          linkField.foreignTableId().toString(),
+          colAlias,
+          {
+            type: 'link',
+            lookupFieldId: linkField.lookupFieldId(),
+            isMultiValue,
+            orderBy: orderByResult.value,
+          }
+        );
+        return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
+      }
+
+      if (field.type().equals(FieldType.lookup())) {
+        const lookupField = field as LookupField;
+        const lateralAlias = this.lateral.addColumn(
+          lookupField.linkFieldId(),
+          lookupField.foreignTableId().toString(),
+          colAlias,
+          {
+            type: 'lookup',
+            foreignFieldId: lookupField.lookupFieldId(),
+          }
+        );
+        return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
+      }
+
+      if (field.type().equals(FieldType.rollup())) {
+        const rollupField = field as RollupField;
+        const aggregate = rollupExpressionToSqlAggregate(rollupField.expression().toString());
+        const lateralAlias = this.lateral.addColumn(
+          rollupField.linkFieldId(),
+          rollupField.foreignTableId().toString(),
+          colAlias,
+          {
+            type: 'rollup',
+            foreignFieldId: rollupField.lookupFieldId(),
+            aggregate,
+          }
+        );
+        return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
+      }
+
+      return ok(makeExpr(this.qualify(this.tableAlias, colAlias), 'unknown', false));
+    });
   }
 
   // Simple column fields - just select from main table
@@ -176,15 +264,22 @@ export class ComputedFieldSelectExpressionVisitor
   // Formula - TODO: convert to SQL
   visitFormulaField(field: FormulaField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.getColAlias(field).andThen((colAlias) => {
-      // TODO: convert to SQL
-      return ok(sql`NULL`.as(colAlias));
+      const translated = this.formulaTranslator.translateExpression(field.expression().toString());
+      if (translated.isErr()) {
+        return ok(sql.raw('NULL').as(colAlias));
+      }
+      const expr = translated.value;
+      const typedSql = guardValueSql(expr.valueSql, expr.errorConditionSql);
+      return ok(sql.raw(typedSql).as(colAlias));
     });
   }
 
   // Link-based fields - need lateral join
   visitLinkField(field: LinkField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.getColAlias(field).map((colAlias) => {
+    return this.getColAlias(field).andThen((colAlias) => {
       const isMultiValue = field.relationship().isMultipleValue();
+      const orderByResult = this.getLinkOrderBy(field);
+      if (orderByResult.isErr()) return err(orderByResult.error);
       const lateralAlias = this.lateral.addColumn(
         field.id(),
         field.foreignTableId().toString(),
@@ -193,9 +288,10 @@ export class ComputedFieldSelectExpressionVisitor
           type: 'link',
           lookupFieldId: field.lookupFieldId(),
           isMultiValue,
+          orderBy: orderByResult.value,
         }
       );
-      return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);
+      return ok(sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias));
     });
   }
 
@@ -229,6 +325,34 @@ export class ComputedFieldSelectExpressionVisitor
       );
       return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);
     });
+  }
+
+  private getLinkOrderBy(field: LinkField): Result<LinkOrderBy | undefined, DomainError> {
+    if (!field.relationship().isMultipleValue()) return ok(undefined);
+    if (!field.hasOrderColumn()) return ok(undefined);
+
+    const orderColumnResult = field.orderColumnName();
+    if (orderColumnResult.isErr()) return err(orderColumnResult.error);
+    const orderColumn = orderColumnResult.value;
+
+    const relationship = field.relationship().toString();
+    if (relationship === 'manyMany') {
+      return field.fkHostTableNameString().andThen((junctionTable) =>
+        field.selfKeyNameString().andThen((selfKey) =>
+          field.foreignKeyNameString().map(
+            (foreignKey): LinkOrderBy => ({
+              source: 'junction',
+              column: orderColumn,
+              junctionTable,
+              selfKey,
+              foreignKey,
+            })
+          )
+        )
+      );
+    }
+
+    return ok({ source: 'foreign', column: orderColumn });
   }
 }
 

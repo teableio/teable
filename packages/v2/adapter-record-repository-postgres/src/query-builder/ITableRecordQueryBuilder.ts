@@ -80,7 +80,7 @@ export interface ITableRecordQueryBuilder {
    * If not called, all fields are selected.
    * @param projection - Array of field IDs to select
    */
-  select(projection: FieldId[]): this;
+  select(projection: ReadonlyArray<FieldId>): this;
 
   /**
    * Limit the number of records returned.

@@ -12,6 +12,7 @@ import {
   executeListTableRecordsEndpoint,
   executeListTablesEndpoint,
   executeRenameTableEndpoint,
+  executeUpdateRecordEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import {
   ActorId,
@@ -86,6 +87,12 @@ const createSandboxHandlers = (): Record<string, SandboxHandler> => ({
     const container = await createSandboxContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateRecordEndpoint(executionContext, input, commandBus);
+    return unwrapEndpointResult(result);
+  },
+  'tables.updateRecord': async (input, executionContext) => {
+    const container = await createSandboxContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeUpdateRecordEndpoint(executionContext, input, commandBus);
     return unwrapEndpointResult(result);
   },
   'tables.deleteField': async (input, executionContext) => {

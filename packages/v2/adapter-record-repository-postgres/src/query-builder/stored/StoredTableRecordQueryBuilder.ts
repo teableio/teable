@@ -10,8 +10,8 @@ import type {
   OrderByColumn,
   QB,
 } from '../ITableRecordQueryBuilder';
-import { StoredFieldSelectVisitor } from './StoredFieldSelectVisitor';
 import { QueryMode } from '../TableRecordQueryBuilderManager';
+import { StoredFieldSelectVisitor } from './StoredFieldSelectVisitor';
 
 const T = 't'; // main table alias
 
@@ -22,7 +22,7 @@ const T = 't'; // main table alias
  */
 export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private table: Table | null = null;
-  private projection: FieldId[] | null = null;
+  private projection: ReadonlyArray<FieldId> | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
   private orderByColumnValue: OrderByColumn | null = null;
@@ -37,7 +37,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     return this;
   }
 
-  select(projection: FieldId[]): this {
+  select(projection: ReadonlyArray<FieldId>): this {
     this.projection = projection;
     return this;
   }
@@ -102,7 +102,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
 
   private buildSelectColumns(
     table: Table,
-    projection: FieldId[] | null
+    projection: ReadonlyArray<FieldId> | null
   ): Result<AliasedRawBuilder<unknown, string>[], DomainError> {
     return safeTry(function* () {
       const visitor = new StoredFieldSelectVisitor(T);

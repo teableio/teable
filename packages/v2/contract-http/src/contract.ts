@@ -11,6 +11,7 @@ import {
   listTableRecordsInputSchema,
   listTablesInputSchema,
   renameTableInputSchema,
+  updateRecordInputSchema,
 } from '@teable/v2-core';
 
 import { createFieldOkResponseSchema } from './table/createField';
@@ -24,6 +25,7 @@ import { importCsvOkResponseSchema } from './table/importCsv';
 import { listTableRecordsOkResponseSchema } from './table/listTableRecords';
 import { listTablesOkResponseSchema } from './table/listTables';
 import { renameTableOkResponseSchema } from './table/renameTable';
+import { updateRecordOkResponseSchema } from './table/updateRecord';
 
 const TABLES_CREATE_FIELD_PATH = '/tables/createField';
 const TABLES_CREATE_PATH = '/tables/create';
@@ -36,6 +38,7 @@ const TABLES_IMPORT_CSV_PATH = '/tables/importCsv';
 const TABLES_LIST_RECORDS_PATH = '/tables/listRecords';
 const TABLES_LIST_PATH = '/tables/list';
 const TABLES_RENAME_PATH = '/tables/rename';
+const TABLES_UPDATE_RECORD_PATH = '/tables/updateRecord';
 
 export const v2Contract = {
   tables: {
@@ -149,6 +152,16 @@ export const v2Contract = {
       })
       .input(renameTableInputSchema)
       .output(renameTableOkResponseSchema),
+    updateRecord: oc
+      .route({
+        method: 'POST',
+        path: TABLES_UPDATE_RECORD_PATH,
+        successStatus: 200,
+        summary: 'Update record',
+        tags: ['tables'],
+      })
+      .input(updateRecordInputSchema)
+      .output(updateRecordOkResponseSchema),
   },
 } as const;
 
