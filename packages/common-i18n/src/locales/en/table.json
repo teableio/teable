@@ -400,6 +400,9 @@
         "medium": "Medium",
         "high": "High"
       },
+      "hint": {
+        "imageInputSupported": "💡 This model supports image input. You can select an attachment field to use images as reference for generation."
+      },
       "autoFill": {
         "title": "Auto update",
         "tip": "After enabling, the current field will be updated synchronously with the content changes of the AI configuration"
@@ -989,6 +992,7 @@
       "sqlQuery": "SQL query",
       "querying": "Querying...",
       "queryFailed": "Query failed",
+      "aborted": "Aborted",
       "noData": "No data returned",
       "dataFormatError": "Data format error",
       "unsupportedQueryType": "Unsupported query type: {{toolName}}",
