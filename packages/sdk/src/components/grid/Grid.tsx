@@ -49,7 +49,8 @@ export interface IGridExternalProps {
   smoothScrollY?: boolean;
   scrollBufferX?: number;
   scrollBufferY?: number;
-  scrollBarVisible?: boolean;
+  scrollBarXVisible?: boolean;
+  scrollBarYVisible?: boolean;
   rowIndexVisible?: boolean;
   collaborators?: ICollaborator;
   // [rowIndex, colIndex]
@@ -194,7 +195,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     smoothScrollY = true,
     scrollBufferX = scrollBuffer,
     scrollBufferY = scrollBuffer,
-    scrollBarVisible = true,
+    scrollBarXVisible = true,
+    scrollBarYVisible = true,
     rowIndexVisible = true,
     isMultiSelectionEnable = true,
     style,
@@ -586,7 +588,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         const rowHeight = coordInstance.getRowHeight(rowIndex);
         const offsetY = coordInstance.getRowOffset(rowIndex);
         const deltaTop = Math.min(offsetY - scrollTop - rowInitSize, 0);
-        const deltaBottom = Math.max(offsetY + rowHeight - scrollTop - containerHeight, 0);
+        const deltaBottom = Math.max(offsetY + rowHeight - scrollTop - containerHeight + 1, 0);
         const st = scrollTop + deltaTop + deltaBottom;
         if (st !== scrollTop) {
           scrollTo(undefined, st);
@@ -727,7 +729,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         scrollHeight={totalHeight}
         smoothScrollX={smoothScrollX}
         smoothScrollY={smoothScrollY}
-        scrollBarVisible={scrollBarVisible}
+        scrollBarXVisible={scrollBarXVisible}
+        scrollBarYVisible={scrollBarYVisible}
         containerRef={containerRef}
         scrollState={scrollState}
         scrollEnable={scrollEnable}

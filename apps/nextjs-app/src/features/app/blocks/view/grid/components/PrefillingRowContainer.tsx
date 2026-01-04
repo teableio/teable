@@ -18,10 +18,11 @@ interface IPrefillingRowContainerProps {
   isLoading?: boolean;
   onCancel?: () => void;
   onClickOutside?: () => void;
+  onAddRow?: () => void;
 }
 
 export const PrefillingRowContainer = (props: IPrefillingRowContainerProps) => {
-  const { style, children, isLoading, onCancel, onClickOutside } = props;
+  const { style, children, isLoading, onCancel, onClickOutside, onAddRow } = props;
   const prefillingGridContainerRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -32,10 +33,10 @@ export const PrefillingRowContainer = (props: IPrefillingRowContainerProps) => {
   return (
     <div
       ref={prefillingGridContainerRef}
-      className="absolute left-0 w-full border-y-2 border-violet-500 dark:border-violet-700"
+      className="absolute left-0 w-full border-t-2 border-primary"
       style={style}
     >
-      <div className="absolute left-0 top-[-32px] flex h-8 items-center rounded-ss-lg bg-violet-500 px-2 py-1 text-background dark:border-violet-700">
+      <div className="absolute left-0 top-[-32px] flex h-8 items-center rounded-t-lg bg-primary px-2 py-1 text-background">
         {isLoading ? <Spin className="mr-1 size-4" /> : <Plus className="mr-1" />}
         <span className="text-[13px]">{t('table:grid.prefillingRowTitle')}</span>
         <TooltipProvider>
@@ -58,6 +59,19 @@ export const PrefillingRowContainer = (props: IPrefillingRowContainerProps) => {
         </Button>
       </div>
       {children}
+      <div
+        className="flex h-8 w-full select-none items-center border-b-2 border-t border-b-primary border-t-gray-200 bg-background pl-[26px]"
+        onClick={() => onAddRow?.()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            onAddRow?.();
+          }
+        }}
+      >
+        <Plus className="size-5 text-muted-foreground" />
+      </div>
     </div>
   );
 };

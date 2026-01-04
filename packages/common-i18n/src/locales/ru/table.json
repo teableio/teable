@@ -408,7 +408,11 @@
       "pasteFileFailed": "Файлы можно вставлять только в поле вложений",
       "copyError": {
         "noFocus": "Пожалуйста, не меняйте окно"
-      }
+      },
+      "pasteError": {
+        "noPermission": "У вас нет прав вставлять записи"
+      },
+      "requiredFieldsMissing": "Поля {{fieldNames}} не могут быть пустыми. Заполните их перед отправкой."
     },
     "graph": {
       "tableLabel": "Метка таблицы",

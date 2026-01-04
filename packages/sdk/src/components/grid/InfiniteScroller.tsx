@@ -18,7 +18,8 @@ export interface ScrollerProps
     IGridProps,
     | 'smoothScrollX'
     | 'smoothScrollY'
-    | 'scrollBarVisible'
+    | 'scrollBarXVisible'
+    | 'scrollBarYVisible'
     | 'onScrollChanged'
     | 'onVisibleRegionChanged'
   > {
@@ -53,7 +54,8 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     containerRef,
     smoothScrollX,
     smoothScrollY,
-    scrollBarVisible,
+    scrollBarXVisible,
+    scrollBarYVisible,
     scrollEnable = true,
     scrollState,
     getLinearRow,
@@ -282,7 +284,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         ref={horizontalScrollRef}
         className={cn(
           'scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-h-[10px] absolute bottom-[2px] left-0 h-4 cursor-pointer overflow-y-hidden overflow-x-scroll will-change-transform',
-          !scrollBarVisible && 'opacity-0 pointer-events-none'
+          !scrollBarXVisible && 'opacity-0 pointer-events-none'
         )}
         style={{
           left,
@@ -302,7 +304,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         ref={verticalScrollRef}
         className={cn(
           'scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-w-[10px] scrollbar-min-thumb absolute right-[2px] w-4 cursor-pointer overflow-x-hidden overflow-y-scroll will-change-transform',
-          !scrollBarVisible && 'opacity-0 pointer-events-none'
+          !scrollBarYVisible && 'opacity-0 pointer-events-none'
         )}
         style={{
           top,

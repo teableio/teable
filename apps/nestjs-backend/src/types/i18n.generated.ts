@@ -3363,6 +3363,10 @@ export type I18nTranslations = {
                     "noFocus": string;
                     "noPermission": string;
                 };
+                "pasteError": {
+                    "noPermission": string;
+                };
+                "requiredFieldsMissing": string;
                 "clearConfirmTitle": string;
                 "clearConfirmDescription": string;
                 "deleteRecordConfirmTitle": string;

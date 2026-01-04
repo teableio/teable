@@ -416,7 +416,11 @@
       "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
       "copyError": {
         "noFocus": "Lütfen pencereyi değiştirmeyin"
-      }
+      },
+      "pasteError": {
+        "noPermission": "Kayıtları yapıştırma izniniz yok"
+      },
+      "requiredFieldsMissing": "{{fieldNames}} boş bırakılamaz. Lütfen göndermeden önce doldurun."
     },
     "graph": {
       "tableLabel": "Tablo etiketi",

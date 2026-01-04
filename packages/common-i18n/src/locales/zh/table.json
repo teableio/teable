@@ -471,7 +471,11 @@
       "copyError": {
         "noFocus": "请保持页面激活，不要切换窗口",
         "noPermission": "您没有权限复制记录"
-      }
+      },
+      "pasteError": {
+        "noPermission": "您没有权限粘贴记录"
+      },
+      "requiredFieldsMissing": "{{fieldNames}} 字段不能为空，请填写完整后再提交"
     },
     "graph": {
       "tableLabel": "表格名称",

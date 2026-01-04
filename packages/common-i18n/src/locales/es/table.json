@@ -413,7 +413,11 @@
       "pasteFileFailed": "Los archivos solo se pueden pegar en un campo de archivo adjunto",
       "copyError": {
         "noFocus": "Mantenga la página activa y no cambie Windows"
-      }
+      },
+      "pasteError": {
+        "noPermission": "No tienes permiso para pegar registros"
+      },
+      "requiredFieldsMissing": "{{fieldNames}} no pueden estar vacíos. Complete los campos antes de enviar."
     },
     "graph": {
       "tableLabel": "Etiqueta de mesa",
