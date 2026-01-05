@@ -619,6 +619,8 @@ export class BaseService {
         resourceType: ResourceType.Base,
       },
     });
+
+    await this.cleanRelativeNodesData(baseId);
   }
 
   async moveBase(baseId: string, moveBaseRo: IMoveBaseRo) {

@@ -16,7 +16,7 @@ export interface IViewFilterProps {
   contentHeader?: React.ReactNode;
   onChange: (value: IFilter) => void;
   viewFilterLinkContext?: IViewFilterLinkContext;
-  children?: (text: string, isActive?: boolean) => React.ReactNode;
+  children?: (text: string, isActive?: boolean, hasWarning?: boolean) => React.ReactNode;
   customValueComponent?: IFilterBaseComponent<IViewFilterConditionItem>;
 }
 
@@ -27,7 +27,7 @@ export const ViewFilter = (props: IViewFilterProps) => {
   const emptyText = t('filter.default.empty');
   const defaultFields = useFields({ withHidden: true, withDenied: true });
   const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
-  const { text, isActive } = useFilterNode(filters, fields);
+  const { text, isActive, hasWarning } = useFilterNode(filters, fields);
   const latestValue = useLatest(filters);
   const [filter, setFilter] = useState(latestValue.current);
 
@@ -60,7 +60,7 @@ export const ViewFilter = (props: IViewFilterProps) => {
 
   return (
     <Popover>
-      <PopoverTrigger asChild>{children?.(text, isActive)}</PopoverTrigger>
+      <PopoverTrigger asChild>{children?.(text, isActive, hasWarning)}</PopoverTrigger>
       <PopoverContent
         side="bottom"
         align="start"
