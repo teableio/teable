@@ -9,15 +9,28 @@ import {
   FormMessage,
 } from '@teable/ui-lib/shadcn';
 import type { Control } from 'react-hook-form';
+import type { IModelTestResult } from './LlmproviderManage';
 import { LLMProviderManage } from './LlmproviderManage';
 
 interface IAIProviderCardProps {
   control: Control<IAIIntegrationConfig>;
   onChange?: (value: LLMProvider[]) => void;
   onTest?: (data: Required<LLMProvider>) => Promise<ITestLLMVo>;
+  modelTestResults?: Map<string, IModelTestResult>;
+  onToggleImageModel?: (modelKey: string, isImageModel: boolean) => void;
+  onTestProvider?: (provider: LLMProvider) => void;
+  testingProviders?: Set<string>;
 }
 
-export const AIProviderCard = ({ control, onChange, onTest }: IAIProviderCardProps) => {
+export const AIProviderCard = ({
+  control,
+  onChange,
+  onTest,
+  modelTestResults,
+  onToggleImageModel,
+  onTestProvider,
+  testingProviders,
+}: IAIProviderCardProps) => {
   return (
     <Card className="pt-6 shadow-sm">
       <CardContent>
@@ -31,6 +44,10 @@ export const AIProviderCard = ({ control, onChange, onTest }: IAIProviderCardPro
                   {...field}
                   onChange={(value) => onChange?.(value)}
                   onTest={onTest}
+                  modelTestResults={modelTestResults}
+                  onToggleImageModel={onToggleImageModel}
+                  onTestProvider={onTestProvider}
+                  testingProviders={testingProviders}
                 />
               </FormControl>
               <FormMessage />

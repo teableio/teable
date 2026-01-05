@@ -226,12 +226,15 @@ export class AiService {
       const config = await this.getAIConfig(baseId);
       return {
         ...config,
-        llmProviders: config.llmProviders.map(({ type, name, models, isInstance }) => ({
-          type,
-          name,
-          models,
-          isInstance,
-        })),
+        llmProviders: config.llmProviders.map(
+          ({ type, name, models, isInstance, modelConfigs }) => ({
+            type,
+            name,
+            models,
+            isInstance,
+            modelConfigs,
+          })
+        ),
       };
     } catch {
       return null;

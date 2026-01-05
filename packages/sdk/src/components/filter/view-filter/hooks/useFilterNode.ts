@@ -1,4 +1,5 @@
-import type { IFilter } from '@teable/core';
+import type { FieldType, IFilter } from '@teable/core';
+import { validateFilterOperatorModeCompatibility } from '@teable/core';
 import { Filter as FilterIcon } from '@teable/icons';
 import { keyBy } from 'lodash';
 import { useCallback, useMemo } from 'react';
@@ -39,9 +40,26 @@ export const useFilterNode = (filters: IFilter | null | undefined, fields: IFiel
     return generateFilterButtonText(filteredIds, fields);
   }, [fields, filters, generateFilterButtonText]);
 
+  // Check if filter has any validation errors (e.g., invalid operator+mode combination)
+  const hasWarning = useMemo(() => {
+    if (!filters || !fields.length) return false;
+
+    const fieldTypeMap = fields.reduce(
+      (acc, field) => {
+        acc[field.id] = field.type as FieldType;
+        return acc;
+      },
+      {} as Record<string, FieldType>
+    );
+
+    const errors = validateFilterOperatorModeCompatibility(filters, fieldTypeMap);
+    return errors.length > 0;
+  }, [filters, fields]);
+
   return {
     text,
     isActive: text !== t('filter.label'),
+    hasWarning,
     Icon: FilterIcon,
   };
 };
