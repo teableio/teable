@@ -170,7 +170,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
             onChange={onChange}
           />
         </div>
-        <div className="flex justify-end gap-4 border-t px-10 py-3">
+        <div className="flex justify-end gap-4 border-t p-3">
           <Button variant={'outline'} size={'sm'} onClick={() => setOpen(false)}>
             {t('common.cancel')}
           </Button>

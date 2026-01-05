@@ -8,7 +8,7 @@ export interface IViewPageProps {
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
   recordServerData?: IRecord;
-  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | undefined };
+  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | null };
 }
 
 export const getViewPageServerData = async (
@@ -27,7 +27,7 @@ export const getViewPageServerData = async (
       viewServerData: views,
       recordsServerData: { records },
       groupPointsServerDataMap: {
-        [viewId]: extra?.groupPoints,
+        [viewId]: extra?.groupPoints ?? null,
       },
     };
   }

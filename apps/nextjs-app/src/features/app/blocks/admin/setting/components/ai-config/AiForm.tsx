@@ -1,6 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { IAIIntegrationConfig } from '@teable/openapi';
-import type { LLMProvider } from '@teable/openapi/src/admin/setting';
+import type {
+  IChatModelAbility,
+  IImageModelAbility,
+  LLMProvider,
+} from '@teable/openapi/src/admin/setting';
 import { aiConfigVoSchema, chatModelAbilityType, testLLM } from '@teable/openapi/src/admin/setting';
 import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import {
@@ -19,11 +23,13 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AIControlCard } from './AIControlCard';
 import { AIModelPreferencesCard } from './AIModelPreferencesCard';
 import { AIProviderCard } from './AIProviderCard';
+import { BatchTestModels } from './BatchTestModels';
+import type { IModelTestResult } from './LlmproviderManage';
 import { generateModelKeyList, parseModelKey } from './utils';
 
 export function AIConfigForm({
@@ -51,6 +57,11 @@ export function AIConfigForm({
   const models = generateModelKeyList(llmProviders);
   const { reset } = form;
   const { t } = useTranslation(['common', 'space']);
+  const [modelTestResults, setModelTestResults] = useState<Map<string, IModelTestResult>>(
+    new Map()
+  );
+  const [testingProviders, setTestingProviders] = useState<Set<string>>(new Set());
+  const testProviderCallbackRef = useRef<((provider: LLMProvider) => void) | null>(null);
 
   useEffect(() => {
     reset(defaultValues);
@@ -72,7 +83,87 @@ export function AIConfigForm({
     onSubmit(form.getValues());
   }
 
-  const onTest = async (data: Required<LLMProvider>) => testLLM(data);
+  // Save test results to modelConfigs and persist
+  const onSaveTestResult = useCallback(
+    (
+      modelKey: string,
+      ability: IChatModelAbility | undefined,
+      imageAbility: IImageModelAbility | undefined
+    ) => {
+      const parsed = parseModelKey(modelKey);
+      if (!parsed.type || !parsed.model || !parsed.name) return;
+
+      const { type, model, name } = parsed;
+      const currentProviders = form.getValues('llmProviders') ?? [];
+      const providerIndex = currentProviders.findIndex((p) => p.type === type && p.name === name);
+
+      if (providerIndex === -1) return;
+
+      const provider = currentProviders[providerIndex];
+      const updatedProvider = {
+        ...provider,
+        modelConfigs: {
+          ...provider.modelConfigs,
+          [model]: {
+            ...provider.modelConfigs?.[model],
+            ability,
+            imageAbility,
+            testedAt: Date.now(),
+          },
+        },
+      };
+
+      const newProviders = [...currentProviders];
+      newProviders[providerIndex] = updatedProvider;
+
+      form.setValue('llmProviders', newProviders);
+      // Silent save without toast
+      setAiConfig(form.getValues());
+    },
+    [form, setAiConfig]
+  );
+
+  // Toggle image model flag
+  const onToggleImageModel = useCallback(
+    (modelKey: string, isImageModel: boolean) => {
+      const parsed = parseModelKey(modelKey);
+      if (!parsed.type || !parsed.model || !parsed.name) return;
+
+      const { type, model, name } = parsed;
+      const currentProviders = form.getValues('llmProviders') ?? [];
+      const providerIndex = currentProviders.findIndex((p) => p.type === type && p.name === name);
+
+      if (providerIndex === -1) return;
+
+      const provider = currentProviders[providerIndex];
+      const updatedProvider = {
+        ...provider,
+        modelConfigs: {
+          ...provider.modelConfigs,
+          [model]: {
+            ...provider.modelConfigs?.[model],
+            isImageModel,
+            // Clear previous test results when toggling
+            ability: isImageModel ? undefined : provider.modelConfigs?.[model]?.ability,
+            imageAbility: isImageModel ? provider.modelConfigs?.[model]?.imageAbility : undefined,
+          },
+        },
+      };
+
+      const newProviders = [...currentProviders];
+      newProviders[providerIndex] = updatedProvider;
+
+      form.setValue('llmProviders', newProviders);
+      setAiConfig(form.getValues());
+    },
+    [form, setAiConfig]
+  );
+
+  const onTest = async (data: Required<LLMProvider>) => {
+    // Only pass required fields, exclude modelConfigs
+    const { type, name, apiKey, baseUrl, models } = data;
+    return testLLM({ type, name, apiKey, baseUrl, models });
+  };
 
   const enableAi = form.watch('enable');
 
@@ -102,8 +193,14 @@ export function AIConfigForm({
     if (!testLLMProvider) {
       return;
     }
+    // Only pass required fields, exclude modelConfigs
+    const { type, name, apiKey, baseUrl, models } = testLLMProvider;
     return testLLM({
-      ...testLLMProvider,
+      type,
+      name,
+      apiKey,
+      baseUrl,
+      models,
       modelKey: testModelKey,
       ability: chatModelAbilityType.options,
     }).then((res) => {
@@ -164,8 +261,28 @@ export function AIConfigForm({
           )}
         />
         <div>
-          <div className="pb-2 text-lg font-medium">{t('admin.setting.ai.provider')}</div>
-          <AIProviderCard control={form.control} onChange={updateProviders} onTest={onTest} />
+          <div className="flex items-center justify-between pb-2">
+            <div className="text-lg font-medium">{t('admin.setting.ai.provider')}</div>
+            <BatchTestModels
+              providers={llmProviders}
+              disabled={!llmProviders?.length}
+              onResultsChange={setModelTestResults}
+              onSaveResult={onSaveTestResult}
+              onTestingProvidersChange={setTestingProviders}
+              onTestProvider={(callback) => {
+                testProviderCallbackRef.current = callback;
+              }}
+            />
+          </div>
+          <AIProviderCard
+            control={form.control}
+            onChange={updateProviders}
+            onTest={onTest}
+            modelTestResults={modelTestResults}
+            onToggleImageModel={onToggleImageModel}
+            onTestProvider={(provider) => testProviderCallbackRef.current?.(provider)}
+            testingProviders={testingProviders}
+          />
         </div>
         {!enable && (
           <div className="!mt-2 text-xs text-red-500">

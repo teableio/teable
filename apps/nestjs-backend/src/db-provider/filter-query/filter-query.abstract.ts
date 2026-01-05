@@ -1,4 +1,4 @@
-import { BadRequestException, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import type {
   FieldCore,
   IConjunction,
@@ -16,6 +16,7 @@ import {
   FieldType,
   getFilterOperatorMapping,
   getValidFilterSubOperators,
+  HttpErrorCode,
   isEmpty,
   isMeTag,
   isNotEmpty,
@@ -23,6 +24,7 @@ import {
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { includes, invert, isObject } from 'lodash';
+import { CustomHttpException } from '../../custom.exception';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IDbProvider, IFilterQueryExtra } from '../db.provider.interface';
 import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
@@ -107,8 +109,14 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
         throw new FieldReferenceCompatibilityException(sourceName, referenceName);
       }
 
-      throw new BadRequestException(
-        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following types are allowed: [${validFilterOperators}]`
+      throw new CustomHttpException(
+        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following types are allowed: [${validFilterOperators}]`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.filterInvalidOperator',
+          },
+        }
       );
     }
 
@@ -123,8 +131,14 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
       'mode' in value &&
       !includes(validFilterSubOperators, value.mode)
     ) {
-      throw new BadRequestException(
-        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following subtypes are allowed: [${validFilterSubOperators}]`
+      throw new CustomHttpException(
+        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following subtypes are allowed: [${validFilterSubOperators}]`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.filterInvalidOperatorMode',
+          },
+        }
       );
     }
 

@@ -17,6 +17,7 @@ import type {
   ISettingVo,
   ITestLLMVo,
   IUploadLogoVo,
+  IBatchTestLLMVo,
 } from '@teable/openapi';
 import {
   IUpdateSettingRo,
@@ -26,6 +27,8 @@ import {
   setSettingMailTransportConfigRoSchema,
   ISetSettingMailTransportConfigRo,
   SettingKey,
+  batchTestLLMRoSchema,
+  IBatchTestLLMRo,
 } from '@teable/openapi';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -129,6 +132,14 @@ export class SettingOpenApiController {
     @Body(new ZodValidationPipe(testLLMRoSchema)) testLLMRo: ITestLLMRo
   ): Promise<ITestLLMVo> {
     return await this.settingOpenApiService.testLLM(testLLMRo);
+  }
+
+  @Permissions('instance|update')
+  @Post('batch-test-llm')
+  async batchTestLLM(
+    @Body(new ZodValidationPipe(batchTestLLMRoSchema.optional())) batchTestLLMRo?: IBatchTestLLMRo
+  ): Promise<IBatchTestLLMVo> {
+    return await this.settingOpenApiService.batchTestLLM(batchTestLLMRo);
   }
 
   @Permissions('instance|update')
