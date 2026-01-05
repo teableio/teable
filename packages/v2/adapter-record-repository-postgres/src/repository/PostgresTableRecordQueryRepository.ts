@@ -5,7 +5,10 @@ import {
   isDomainError,
   v2CoreTokens,
   type DomainError,
+  type ITableRecordQueryOptions,
   type ITableRecordQueryResult,
+  type RecordId,
+  type TableRecordReadModel,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -93,6 +96,65 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
             return err(
               domainError.unexpected({
                 message: `Failed to load table records: ${describeError(error)}`,
+              })
+            );
+          }
+        } finally {
+          span?.end();
+        }
+      }.bind(this)
+    );
+  }
+
+  async findOne(
+    context: core.IExecutionContext,
+    table: core.Table,
+    recordId: RecordId,
+    options?: Pick<ITableRecordQueryOptions, 'mode'>
+  ): Promise<Result<TableRecordReadModel, DomainError>> {
+    return safeTry<TableRecordReadModel, DomainError>(
+      async function* (this: PostgresTableRecordQueryRepository) {
+        const span = context.tracer?.startSpan('teable.repository.record.findOne');
+
+        try {
+          // Create query builder via manager
+          const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+            mode: options?.mode,
+          });
+
+          // Filter by record ID
+          queryBuilder.where(RECORD_ID_COLUMN, '=', recordId.toString());
+
+          // Limit to 1
+          queryBuilder.limit(1);
+
+          // Build the query
+          const builtQuery = yield* queryBuilder.build();
+
+          const compiled = builtQuery.compile();
+          this.logger.debug(`findOne:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
+            parameters: compiled.parameters,
+          });
+
+          // Collect field column mappings
+          const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
+
+          try {
+            const rows = await builtQuery.execute();
+
+            if (rows.length === 0) {
+              return err(
+                domainError.notFound({ code: 'record.not_found', message: 'Record not found' })
+              );
+            }
+
+            const records = mapRowsToReadModels(fieldColumns, rows);
+            return ok(records[0]);
+          } catch (error) {
+            span?.recordError(describeError(error));
+            return err(
+              domainError.unexpected({
+                message: `Failed to load record: ${describeError(error)}`,
               })
             );
           }

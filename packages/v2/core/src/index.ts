@@ -1,5 +1,7 @@
 export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
+export * from './commands/CreateTablesCommand';
+export * from './commands/CreateTablesHandler';
 export * from './commands/CreateFieldCommand';
 export * from './commands/CreateFieldHandler';
 export * from './commands/FieldValidation';
@@ -36,6 +38,8 @@ export * from './ports/TraceSpan';
 
 export * from './queries/GetTableByIdQuery';
 export * from './queries/GetTableByIdHandler';
+export * from './queries/GetRecordByIdQuery';
+export * from './queries/GetRecordByIdHandler';
 export * from './queries/ListTableRecordsQuery';
 export * from './queries/ListTableRecordsHandler';
 export * from './queries/RecordFilterDto';

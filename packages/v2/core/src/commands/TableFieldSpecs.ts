@@ -1149,10 +1149,11 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
     ).withPrimary(options.isPrimary);
   }
 
-  applyTo(_builder: TableBuilder): void {
-    // Lookup fields are created through the repository layer with isLookup=true
-    // This is a placeholder for the builder pattern
-    // The actual lookup field creation happens in the repository mapper
+  applyTo(builder: TableBuilder): void {
+    // Lookup fields are created as pending (without inner field resolved)
+    // The inner field will be resolved during foreign table validation in the handler
+    const fieldResult = this.createField();
+    builder.addFieldFromResult(fieldResult);
   }
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {

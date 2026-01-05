@@ -107,6 +107,72 @@ export interface V1ReferenceTable {
   created_time: ColumnType<Date, Date | undefined, never>;
 }
 
+export interface V1ComputedUpdateOutboxTable {
+  id: string;
+  base_id: string;
+  seed_table_id: string;
+  seed_record_ids: unknown | null;
+  change_type: string;
+  steps: unknown;
+  edges: unknown;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  next_run_at: ColumnType<Date, Date | undefined, Date | undefined>;
+  locked_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  locked_by: string | null;
+  last_error: string | null;
+  estimated_complexity: number;
+  plan_hash: string;
+  dirty_stats: unknown | null;
+  run_id: string;
+  origin_run_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  run_total_steps: number;
+  run_completed_steps_before: number;
+  affected_table_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  affected_field_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  sync_max_level: number | null;
+  created_at: ColumnType<Date, Date | undefined, Date | undefined>;
+  updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
+export interface V1ComputedUpdateOutboxSeedTable {
+  id: string;
+  task_id: string;
+  table_id: string;
+  record_id: string;
+}
+
+export interface V1ComputedUpdateDeadLetterTable {
+  id: string;
+  base_id: string;
+  seed_table_id: string;
+  seed_record_ids: unknown | null;
+  change_type: string;
+  steps: unknown;
+  edges: unknown;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  next_run_at: ColumnType<Date, Date | undefined, Date | undefined>;
+  locked_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  locked_by: string | null;
+  last_error: string | null;
+  estimated_complexity: number;
+  plan_hash: string;
+  dirty_stats: unknown | null;
+  run_id: string;
+  origin_run_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  run_total_steps: number;
+  run_completed_steps_before: number;
+  affected_table_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  affected_field_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
+  sync_max_level: number | null;
+  failed_at: ColumnType<Date, Date | undefined, Date | undefined>;
+  created_at: ColumnType<Date, Date | undefined, Date | undefined>;
+  updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
 export interface V1TeableDatabase {
   space: V1SpaceTable;
   base: V1BaseTable;
@@ -114,4 +180,7 @@ export interface V1TeableDatabase {
   field: V1FieldTable;
   view: V1ViewTable;
   reference: V1ReferenceTable;
+  computed_update_outbox: V1ComputedUpdateOutboxTable;
+  computed_update_outbox_seed: V1ComputedUpdateOutboxSeedTable;
+  computed_update_dead_letter: V1ComputedUpdateDeadLetterTable;
 }

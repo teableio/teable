@@ -3,7 +3,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type { DomainError } from '../../../shared/DomainError';
-import type { Field } from '../Field';
 import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
@@ -196,9 +195,15 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
   }
 
   visitLinkField(field: LinkField): Result<ZodSchema, DomainError> {
-    const isMultiple = field.isMultipleValue();
-    const baseSchema = isMultiple ? z.array(linkItemSchema) : linkItemSchema;
-    return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
+    const isMultipleRelationship = field.relationship().isMultipleValue();
+
+    if (isMultipleRelationship) {
+      const baseSchema = z.array(linkItemSchema);
+      return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
+    } else {
+      const baseSchema = linkItemSchema;
+      return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
+    }
   }
 
   /**

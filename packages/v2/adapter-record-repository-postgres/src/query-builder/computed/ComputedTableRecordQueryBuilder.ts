@@ -1,6 +1,7 @@
 import {
   domainError,
   FieldId,
+  FieldType,
   LinkForeignTableReferenceVisitor,
   LinkRelationship,
   type DomainError,
@@ -56,6 +57,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private orderByColumnValue: OrderByColumn | null = null;
   private orderByDirection: 'asc' | 'desc' = 'asc';
   private foreignTables: ReadonlyMap<string, Table>;
+  private recordIdFilter: string | null = null;
 
   readonly mode: QueryMode = 'computed';
 
@@ -89,6 +91,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this {
     this.orderByColumnValue = column;
     this.orderByDirection = direction;
+    return this;
+  }
+
+  whereRecordId(recordId: string): this {
+    this.recordIdFilter = recordId;
     return this;
   }
 
@@ -183,6 +190,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           .selectFrom(`${tableName} as ${T}`)
           .select(() => selectColumns)
           .$call(applyLateralJoins)
+          .$if(this.recordIdFilter !== null, (qb) =>
+            qb.where(sql`${sql.ref(`${T}.__id`)}`, '=', this.recordIdFilter!)
+          )
           .$if(orderByColumn !== null, (qb) =>
             qb.orderBy(sql`${sql.ref(`${T}.${orderByColumn}`)}`, this.orderByDirection)
           )
@@ -337,11 +347,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         })
       )
       .with({ type: 'lookup' }, ({ foreignFieldId }) =>
-        this.getForeignColRef(foreignTable, foreignFieldId).map((colRef) =>
-          // Use jsonb_agg with to_jsonb to ensure the output is JSONB type
-          // This handles all data types (including timestamp, numeric, etc.) correctly
-          sql`jsonb_agg(to_jsonb(${colRef}))`.as(outputAlias)
-        )
+        this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias)
       )
       .with({ type: 'rollup' }, ({ foreignFieldId, aggregate }) =>
         this.getForeignColRef(foreignTable, foreignFieldId).map((colRef) =>
@@ -366,6 +372,70 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   }
 
   /**
+   * Build lookup aggregation expression.
+   *
+   * For lookup fields that reference already-JSONB columns (like other lookup fields),
+   * we need to handle nested arrays to avoid double-encoding.
+   *
+   * V1 approach (flattenLookupCteValue):
+   * - For JSONB: Cast to jsonb (not to_jsonb) and flatten nested arrays
+   * - Uses WITH RECURSIVE to unwrap all nested array levels
+   *
+   * Example: if B.ValueFromA = [10] and we link to one B record:
+   * - With to_jsonb: jsonb_agg(to_jsonb([10])) = ["[10]"] (WRONG - string)
+   * - With ::jsonb: jsonb_agg([10]::jsonb) = [[10]] (nested array)
+   * - With flatten: [10] (correct - flattened)
+   */
+  private buildLookupAggExpr(
+    foreignTable: Table,
+    foreignFieldId: FieldId,
+    outputAlias: string
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    return foreignTable
+      .getField((f) => f.id().equals(foreignFieldId))
+      .andThen((foreignField) =>
+        foreignField
+          .dbFieldName()
+          .andThen((dbFieldName) => dbFieldName.value())
+          .map((columnName) => {
+            const colRef = sql.ref(`${F}.${columnName}`);
+
+            // Check if the foreign field stores data as JSONB (lookup, rollup, link)
+            // These fields already contain JSONB arrays and should not be wrapped with to_jsonb()
+            const isJsonbStorage =
+              foreignField.type().equals(FieldType.lookup()) ||
+              foreignField.type().equals(FieldType.rollup()) ||
+              foreignField.type().equals(FieldType.link());
+
+            if (isJsonbStorage) {
+              // For JSONB columns, use ::jsonb cast and then flatten nested arrays.
+              //
+              // V1 uses a post-aggregation flattening CTE. We implement this as:
+              // 1. First aggregate: jsonb_agg(col::jsonb)
+              // 2. Then apply recursive flattening to unwrap nested arrays
+              //
+              // The recursive CTE extracts all non-array leaf values.
+              const aggExpr = sql`jsonb_agg(${colRef}::jsonb)`;
+
+              return sql`(
+                WITH RECURSIVE __flat(e) AS (
+                  SELECT ${aggExpr}
+                  UNION ALL
+                  SELECT jsonb_array_elements(__flat.e)
+                  FROM __flat
+                  WHERE jsonb_typeof(__flat.e) = 'array'
+                )
+                SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM __flat
+              )`.as(outputAlias);
+            }
+
+            // For regular columns, use to_jsonb() to convert to JSONB
+            return sql`jsonb_agg(to_jsonb(${colRef}))`.as(outputAlias);
+          })
+      );
+  }
+
+  /**
    * Build join condition based on relationship type.
    *
    * FK config meanings from LinkFieldConfig.buildDbConfig:
@@ -381,6 +451,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     _foreignTableName: string
   ): Result<Expression<SqlBool>, DomainError> {
     const relationship = linkField.relationship();
+    const isOneWay = linkField.isOneWay();
     const selfKeyNameResult = linkField.selfKeyName().value();
     const foreignKeyNameResult = linkField.foreignKeyName().value();
 
@@ -407,7 +478,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     // oneMany: foreign table has FK pointing to this table's __id
     // selfKeyName='__fk_{symmetricFieldId}', foreignKeyName='__id'
     // join: f.{selfKeyName} = t.__id
-    if (relationship.equals(LinkRelationship.oneMany())) {
+    if (relationship.equals(LinkRelationship.oneMany()) && !isOneWay) {
       if (selfKeyNameResult.isOk() && selfKeyNameResult.value !== '__id') {
         return ok(
           sql<SqlBool>`${sql.ref(`${F}.${selfKeyNameResult.value}`)} = ${sql.ref(`${T}.__id`)}`
@@ -424,7 +495,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     // manyMany: use junction table
     // SELECT ... FROM foreign_table f
     // WHERE f.__id IN (SELECT j.foreignKeyName FROM junction_table j WHERE j.selfKeyName = t.__id)
-    if (relationship.equals(LinkRelationship.manyMany())) {
+    if (
+      relationship.equals(LinkRelationship.manyMany()) ||
+      (relationship.equals(LinkRelationship.oneMany()) && isOneWay)
+    ) {
       const fkHostTableNameResult = linkField.fkHostTableName().value();
       if (fkHostTableNameResult.isOk() && selfKeyNameResult.isOk() && foreignKeyNameResult.isOk()) {
         const junctionTable = fkHostTableNameResult.value;

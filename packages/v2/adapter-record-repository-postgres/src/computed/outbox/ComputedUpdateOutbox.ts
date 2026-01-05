@@ -1,6 +1,7 @@
 import {
   domainError,
   type DomainError,
+  generatePrefixedId,
   type IExecutionContext,
   type ILogger,
   v2CoreTokens,
@@ -30,6 +31,14 @@ const OUTBOX_SEED_TABLE = 'computed_update_outbox_seed';
 const DEAD_LETTER_TABLE = 'computed_update_dead_letter';
 
 const DEFAULT_STATUS = 'pending';
+const OUTBOX_ID_PREFIX = 'cuo';
+const OUTBOX_ID_BODY_LENGTH = 16;
+const OUTBOX_SEED_ID_PREFIX = 'cus';
+const OUTBOX_SEED_ID_BODY_LENGTH = 16;
+
+const createOutboxId = (): string => generatePrefixedId(OUTBOX_ID_PREFIX, OUTBOX_ID_BODY_LENGTH);
+const createOutboxSeedId = (): string =>
+  generatePrefixedId(OUTBOX_SEED_ID_PREFIX, OUTBOX_SEED_ID_BODY_LENGTH);
 
 type OutboxRow = Record<string, unknown>;
 
@@ -103,6 +112,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         parseDirtyStats(existing.dirty_stats),
         task.dirtyStats
       );
+      const mergedOriginRunIds = mergeOriginRunIds(
+        parseStringArray(existing.origin_run_ids),
+        task.originRunIds
+      );
+      const existingRunId = existing.run_id ? String(existing.run_id) : null;
+      const mergedRunId = existingRunId ?? task.runId;
 
       const seedInlineLimit = this.config.seedInlineLimit;
       const mergedSeedCount = countSeedRecords(mergedSeedGroups);
@@ -117,8 +132,15 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       await trx
         .updateTable(OUTBOX_TABLE)
         .set({
-          seed_record_ids: useSeedTable ? null : mergedSeedGroups,
-          dirty_stats: mergedDirtyStats,
+          seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
+          dirty_stats: toJsonValue(mergedDirtyStats),
+          run_id: mergedRunId,
+          origin_run_ids: mergedOriginRunIds,
+          run_total_steps: Math.max(Number(existing.run_total_steps ?? 0), task.runTotalSteps),
+          run_completed_steps_before: Math.max(
+            Number(existing.run_completed_steps_before ?? 0),
+            task.runCompletedStepsBefore
+          ),
           estimated_complexity: Math.max(
             Number(existing.estimated_complexity ?? 0),
             task.estimatedComplexity
@@ -133,6 +155,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       this.logger.debug('computed:outbox:merged', {
         taskId,
         seedCount: mergedSeedCount,
+        runId: mergedRunId,
+        originRunIds: mergedOriginRunIds,
       });
 
       return ok({ taskId, merged: true });
@@ -205,10 +229,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             id: task.id,
             base_id: task.baseId,
             seed_table_id: task.seedTableId,
-            seed_record_ids: buildSeedGroupsFromTask(task),
+            seed_record_ids: toJsonValue(buildSeedGroupsFromTask(task)),
             change_type: task.changeType,
-            steps: task.steps,
-            edges: task.edges,
+            steps: toJsonValue(task.steps),
+            edges: toJsonValue(task.edges),
             status: 'dead',
             attempts: nextAttempts,
             max_attempts: task.maxAttempts,
@@ -218,7 +242,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             last_error: error,
             estimated_complexity: task.estimatedComplexity,
             plan_hash: task.planHash,
-            dirty_stats: task.dirtyStats ?? null,
+            dirty_stats: toJsonValue(task.dirtyStats),
+            run_id: task.runId,
+            origin_run_ids: task.originRunIds,
+            run_total_steps: task.runTotalSteps,
+            run_completed_steps_before: task.runCompletedStepsBefore,
             affected_table_ids: task.affectedTableIds,
             affected_field_ids: task.affectedFieldIds,
             sync_max_level: task.syncMaxLevel,
@@ -277,12 +305,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     const record = await trx
       .insertInto(OUTBOX_TABLE)
       .values({
+        id: createOutboxId(),
         base_id: task.baseId,
         seed_table_id: task.seedTableId,
-        seed_record_ids: useSeedTable ? null : seedGroups,
+        seed_record_ids: useSeedTable ? null : toJsonValue(seedGroups),
         change_type: task.changeType,
-        steps: task.steps,
-        edges: task.edges,
+        steps: toJsonValue(task.steps),
+        edges: toJsonValue(task.edges),
         status: DEFAULT_STATUS,
         attempts: 0,
         max_attempts: this.config.maxAttempts,
@@ -292,7 +321,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         last_error: null,
         estimated_complexity: task.estimatedComplexity,
         plan_hash: task.planHash,
-        dirty_stats: task.dirtyStats ?? null,
+        dirty_stats: toJsonValue(task.dirtyStats),
+        run_id: task.runId,
+        origin_run_ids: task.originRunIds,
+        run_total_steps: task.runTotalSteps,
+        run_completed_steps_before: task.runCompletedStepsBefore,
         affected_table_ids: task.affectedTableIds,
         affected_field_ids: task.affectedFieldIds,
         sync_max_level: task.syncMaxLevel,
@@ -383,6 +416,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     if (seeds.length === 0) return;
 
     const rows = seeds.map((record) => ({
+      id: createOutboxSeedId(),
       task_id: taskId,
       table_id: record.tableId,
       record_id: record.recordId,
@@ -420,6 +454,10 @@ const toOutboxItem = (
     changeType: String(row.change_type) as ComputedUpdateOutboxItem['changeType'],
     planHash: String(row.plan_hash),
     dirtyStats: parseDirtyStats(row.dirty_stats),
+    runId: String(row.run_id ?? ''),
+    originRunIds: parseStringArray(row.origin_run_ids),
+    runTotalSteps: Number(row.run_total_steps ?? 0),
+    runCompletedStepsBefore: Number(row.run_completed_steps_before ?? 0),
     affectedTableIds: parseStringArray(row.affected_table_ids),
     affectedFieldIds: parseStringArray(row.affected_field_ids),
     syncMaxLevel: Number(row.sync_max_level ?? 0),
@@ -434,9 +472,28 @@ const toOutboxItem = (
   };
 };
 
+const parseJsonValue = (value: unknown): unknown => {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
 const parseJsonArray = <T>(value: unknown): T[] | undefined => {
-  if (Array.isArray(value)) return value as T[];
+  const parsed = parseJsonValue(value);
+  if (Array.isArray(parsed)) return parsed as T[];
   return undefined;
+};
+
+const toJsonValue = (value: unknown): unknown => {
+  if (value === undefined || value === null) return null;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
 };
 
 const parseStringArray = (value: unknown): string[] => {
@@ -445,8 +502,9 @@ const parseStringArray = (value: unknown): string[] => {
 };
 
 const parseDirtyStats = (value: unknown): ReadonlyArray<DirtyRecordStats> | undefined => {
-  if (!Array.isArray(value)) return undefined;
-  return value
+  const parsed = parseJsonValue(value);
+  if (!Array.isArray(parsed)) return undefined;
+  return parsed
     .map((item) => {
       if (!item || typeof item !== 'object') return null;
       const entry = item as { tableId?: unknown; recordCount?: unknown };
@@ -460,11 +518,12 @@ const parseDirtyStats = (value: unknown): ReadonlyArray<DirtyRecordStats> | unde
 };
 
 const parseSeedGroups = (value: unknown, seedTableId: string): SeedGroup[] => {
-  if (!Array.isArray(value)) return [];
+  const parsed = parseJsonValue(value);
+  if (!Array.isArray(parsed)) return [];
 
   const groups = new Map<string, Set<string>>();
 
-  for (const item of value) {
+  for (const item of parsed) {
     if (typeof item === 'string') {
       const set = groups.get(seedTableId) ?? new Set<string>();
       set.add(item);
@@ -576,6 +635,13 @@ const mergeDirtyStats = (
   return [...map.entries()].map(([tableId, recordCount]) => ({ tableId, recordCount }));
 };
 
+const mergeOriginRunIds = (existing: string[], incoming: string[]): string[] => {
+  const merged = new Set<string>();
+  for (const id of existing) merged.add(id);
+  for (const id of incoming) merged.add(id);
+  return [...merged];
+};
+
 interface PostgresTransactionContext<DB> {
   kind: 'unitOfWorkTransaction';
   db: Transaction<DB>;
@@ -596,6 +662,13 @@ const resolvePostgresDb = <DB>(
   return getPostgresTransaction<DB>(context) ?? db;
 };
 
+class OutboxAbort extends Error {
+  constructor(readonly error: DomainError) {
+    super(error.message);
+    this.name = 'OutboxAbort';
+  }
+}
+
 const runInTransaction = async <T>(
   db: Kysely<DynamicDB>,
   context: IExecutionContext | undefined,
@@ -605,11 +678,18 @@ const runInTransaction = async <T>(
 
   try {
     if (hasTransaction) {
-      return await fn(db as Transaction<DynamicDB>);
+      const result = await fn(db as Transaction<DynamicDB>);
+      if (result.isErr()) throw new OutboxAbort(result.error);
+      return result;
     }
 
-    return await db.transaction().execute(async (trx) => fn(trx));
+    return await db.transaction().execute(async (trx) => {
+      const result = await fn(trx);
+      if (result.isErr()) throw new OutboxAbort(result.error);
+      return result;
+    });
   } catch (error) {
+    if (error instanceof OutboxAbort) return err(error.error);
     return err(
       domainError.infrastructure({
         message: `Outbox transaction failed: ${describeError(error)}`,

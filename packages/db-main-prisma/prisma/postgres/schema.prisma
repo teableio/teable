@@ -137,6 +137,10 @@ model ComputedUpdateOutbox {
   estimatedComplexity Int     @default(0) @map("estimated_complexity")
   planHash           String   @map("plan_hash")
   dirtyStats         Json?    @map("dirty_stats")
+  runId              String   @map("run_id")
+  originRunIds       String[] @default([]) @map("origin_run_ids")
+  runTotalSteps      Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int @default(0) @map("run_completed_steps_before")
   affectedTableIds   String[] @default([]) @map("affected_table_ids")
   affectedFieldIds   String[] @default([]) @map("affected_field_ids")
   syncMaxLevel       Int?     @map("sync_max_level")
@@ -148,6 +152,7 @@ model ComputedUpdateOutbox {
   @@index([status, nextRunAt])
   @@index([baseId, seedTableId])
   @@index([planHash])
+  @@index([runId])
   @@map("computed_update_outbox")
 }
 
@@ -181,6 +186,10 @@ model ComputedUpdateDeadLetter {
   estimatedComplexity Int     @default(0) @map("estimated_complexity")
   planHash           String   @map("plan_hash")
   dirtyStats         Json?    @map("dirty_stats")
+  runId              String   @map("run_id")
+  originRunIds       String[] @default([]) @map("origin_run_ids")
+  runTotalSteps      Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int @default(0) @map("run_completed_steps_before")
   affectedTableIds   String[] @default([]) @map("affected_table_ids")
   affectedFieldIds   String[] @default([]) @map("affected_field_ids")
   syncMaxLevel       Int?     @map("sync_max_level")
@@ -190,6 +199,7 @@ model ComputedUpdateDeadLetter {
 
   @@index([baseId, seedTableId])
   @@index([planHash])
+  @@index([runId])
   @@map("computed_update_dead_letter")
 }
 

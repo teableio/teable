@@ -76,7 +76,7 @@ export const registerV2RecordRepositoryPostgresAdapter = (
     lifecycle: Lifecycle.Singleton,
   });
 
-  const strategyMode = config.computedUpdate?.mode ?? 'sync';
+  const strategyMode = config.computedUpdate?.mode ?? 'hybrid';
   if (strategyMode === 'hybrid') {
     c.register(v2RecordRepositoryPostgresTokens.computedUpdateStrategy, HybridWithOutboxStrategy, {
       lifecycle: Lifecycle.Singleton,

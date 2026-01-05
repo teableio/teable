@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
@@ -50,4 +51,20 @@ export interface ITableRecordQueryRepository {
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>>;
+
+  /**
+   * Find a single record by its ID.
+   *
+   * @param context - Execution context
+   * @param table - The table to query
+   * @param recordId - The record ID to find
+   * @param options - Query options including mode
+   * @returns The record if found, or a not_found error
+   */
+  findOne(
+    context: IExecutionContext,
+    table: Table,
+    recordId: RecordId,
+    options?: Pick<ITableRecordQueryOptions, 'mode'>
+  ): Promise<Result<TableRecordReadModel, DomainError>>;
 }

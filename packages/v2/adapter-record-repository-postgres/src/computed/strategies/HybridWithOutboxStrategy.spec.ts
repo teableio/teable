@@ -11,8 +11,13 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ComputedFieldUpdater, PreparedDirtyState } from '../ComputedFieldUpdater';
-import type { ComputedUpdatePlan, UpdateStep } from '../ComputedUpdatePlanner';
+import type {
+  ComputedUpdatePlan,
+  ComputedUpdatePlanner,
+  UpdateStep,
+} from '../ComputedUpdatePlanner';
 import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
+import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
 import { HybridWithOutboxStrategy } from './HybridWithOutboxStrategy';
 
 const testHasher = new NoopHasher();
@@ -51,6 +56,7 @@ const createPlan = (): ComputedUpdatePlan => ({
   edges: [],
   estimatedComplexity: 3,
   changeType: 'update',
+  sameTableBatches: [],
 });
 
 const createPreparedState = (dirtyStats: PreparedDirtyState['dirtyStats']): PreparedDirtyState => ({
@@ -63,13 +69,15 @@ const createPreparedState = (dirtyStats: PreparedDirtyState['dirtyStats']): Prep
 const createUpdaterStub = () => {
   const prepareDirtyState = vi.fn();
   const executePreparedSteps = vi.fn();
+  const collectDirtySeedGroups = vi.fn();
 
   const updater = {
     prepareDirtyState,
     executePreparedSteps,
+    collectDirtySeedGroups,
   } as unknown as ComputedFieldUpdater;
 
-  return { updater, prepareDirtyState, executePreparedSteps };
+  return { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups };
 };
 
 const createOutboxStub = () => {
@@ -85,6 +93,21 @@ const createOutboxStub = () => {
   return { outbox, enqueueOrMerge };
 };
 
+const createWorkerStub = () => {
+  const runOnce = vi.fn();
+  const worker = {
+    runOnce,
+  } as unknown as ComputedUpdateWorker;
+
+  return { worker, runOnce };
+};
+
+const createPlannerStub = () => {
+  const planStage = vi.fn();
+  const planner = { planStage } as unknown as ComputedUpdatePlanner;
+  return { planner, planStage };
+};
+
 const createLogger = (): ILogger => ({
   debug: () => undefined,
   info: () => undefined,
@@ -97,8 +120,11 @@ const createLogger = (): ILogger => ({
 describe('HybridWithOutboxStrategy', () => {
   it('syncs seed-table steps and enqueues remaining levels when threshold exceeded', async () => {
     const plan = createPlan();
-    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups } =
+      createUpdaterStub();
     const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner, planStage } = createPlannerStub();
 
     prepareDirtyState.mockResolvedValue(
       ok(
@@ -109,9 +135,27 @@ describe('HybridWithOutboxStrategy', () => {
       )
     );
     executePreparedSteps.mockResolvedValue(ok([]));
+    collectDirtySeedGroups.mockResolvedValue(ok([]));
+    planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
     enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
 
-    const strategy = new HybridWithOutboxStrategy(outbox, undefined, createLogger(), testHasher);
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'threshold',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchAfterEnqueue: false,
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner
+    );
     const actorId = ActorId.create('usr_test')._unsafeUnwrap();
 
     const result = await strategy.execute(updater, plan, { actorId });
@@ -129,8 +173,11 @@ describe('HybridWithOutboxStrategy', () => {
 
   it('syncs all steps when dirty counts stay below thresholds', async () => {
     const plan = createPlan();
-    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups } =
+      createUpdaterStub();
     const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner, planStage } = createPlannerStub();
 
     enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
     prepareDirtyState.mockResolvedValue(
@@ -142,16 +189,25 @@ describe('HybridWithOutboxStrategy', () => {
       )
     );
     executePreparedSteps.mockResolvedValue(ok([]));
+    collectDirtySeedGroups.mockResolvedValue(ok([]));
+    planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
 
     const strategy = new HybridWithOutboxStrategy(
       outbox,
+      worker,
       {
+        syncPolicy: 'threshold',
         syncMaxDirtyPerTable: 2000,
         syncMaxTotalDirty: 5000,
         syncMaxLevelHardCap: 10,
+        dispatchAfterEnqueue: false,
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
       },
       createLogger(),
-      testHasher
+      testHasher,
+      planner
     );
     const actorId = ActorId.create('usr_test')._unsafeUnwrap();
 
@@ -163,5 +219,109 @@ describe('HybridWithOutboxStrategy', () => {
     expect(steps).toHaveLength(3);
 
     expect(enqueueOrMerge).not.toHaveBeenCalled();
+  });
+
+  it('syncs seed-table steps when using seedTableOnly policy', async () => {
+    const plan = createPlan();
+    const { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups } =
+      createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner, planStage } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(
+        createPreparedState([
+          { tableId: OTHER_TABLE_ID, recordCount: 10 },
+          { tableId: THIRD_TABLE_ID, recordCount: 20 },
+        ])
+      )
+    );
+    executePreparedSteps.mockResolvedValue(ok([]));
+    collectDirtySeedGroups.mockResolvedValue(ok([]));
+    planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'seedTableOnly',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchAfterEnqueue: false,
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner
+    );
+    const actorId = ActorId.create('usr_test')._unsafeUnwrap();
+
+    const result = await strategy.execute(updater, plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    expect(executePreparedSteps).toHaveBeenCalledTimes(1);
+    const steps = executePreparedSteps.mock.calls[0][3] as UpdateStep[];
+    expect(steps).toHaveLength(1);
+    expect(steps[0].tableId.toString()).toBe(SEED_TABLE_ID);
+
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispatches worker after enqueue when enabled', async () => {
+    const plan = createPlan();
+    const { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups } =
+      createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker, runOnce } = createWorkerStub();
+    const { planner, planStage } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(
+        createPreparedState([
+          { tableId: OTHER_TABLE_ID, recordCount: 10 },
+          { tableId: THIRD_TABLE_ID, recordCount: 20 },
+        ])
+      )
+    );
+    executePreparedSteps.mockResolvedValue(ok([]));
+    collectDirtySeedGroups.mockResolvedValue(ok([]));
+    planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+    runOnce.mockResolvedValue(ok(0));
+
+    vi.useFakeTimers();
+    try {
+      const strategy = new HybridWithOutboxStrategy(
+        outbox,
+        worker,
+        {
+          syncPolicy: 'seedTableOnly',
+          syncMaxDirtyPerTable: 2000,
+          syncMaxTotalDirty: 5000,
+          syncMaxLevelHardCap: 1,
+          dispatchAfterEnqueue: true,
+          dispatchWorkerLimit: 50,
+          dispatchWorkerId: 'computed-inline',
+          dispatchDelayMs: 0,
+        },
+        createLogger(),
+        testHasher,
+        planner
+      );
+      const actorId = ActorId.create('usr_test')._unsafeUnwrap();
+
+      const result = await strategy.execute(updater, plan, { actorId });
+      expect(result.isOk()).toBe(true);
+
+      await vi.runAllTimersAsync();
+      expect(runOnce).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

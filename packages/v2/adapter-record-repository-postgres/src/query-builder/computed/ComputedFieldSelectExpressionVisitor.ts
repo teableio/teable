@@ -336,7 +336,9 @@ export class ComputedFieldSelectExpressionVisitor
     const orderColumn = orderColumnResult.value;
 
     const relationship = field.relationship().toString();
-    if (relationship === 'manyMany') {
+    const usesJunction =
+      relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay());
+    if (usesJunction) {
       return field.fkHostTableNameString().andThen((junctionTable) =>
         field.selfKeyNameString().andThen((selfKey) =>
           field.foreignKeyNameString().map(

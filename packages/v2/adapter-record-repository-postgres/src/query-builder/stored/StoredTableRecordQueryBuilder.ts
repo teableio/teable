@@ -27,6 +27,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private offsetValue: number | null = null;
   private orderByColumnValue: OrderByColumn | null = null;
   private orderByDirection: 'asc' | 'desc' = 'asc';
+  private recordIdFilter: string | null = null;
 
   readonly mode: QueryMode = 'stored';
 
@@ -55,6 +56,11 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this {
     this.orderByColumnValue = column;
     this.orderByDirection = direction;
+    return this;
+  }
+
+  whereRecordId(recordId: string): this {
+    this.recordIdFilter = recordId;
     return this;
   }
 
@@ -89,6 +95,9 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
         const query = this.db
           .selectFrom(`${tableName} as ${T}`)
           .select(() => [idColumn, ...selectColumns])
+          .$if(this.recordIdFilter !== null, (qb) =>
+            qb.where(sql`${sql.ref(`${T}.__id`)}`, '=', this.recordIdFilter!)
+          )
           .$if(orderByColumn !== null, (qb) =>
             qb.orderBy(sql`${sql.ref(`${T}.${orderByColumn}`)}`, this.orderByDirection)
           )

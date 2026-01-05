@@ -447,6 +447,7 @@ describe('ComputedFieldUpdater', () => {
       ],
       estimatedComplexity: 1,
       changeType: 'update',
+      sameTableBatches: [],
     };
 
     const { db, driver } = createRecordingDb();
@@ -492,6 +493,12 @@ describe('ComputedFieldUpdater', () => {
         {
           "parameters": [],
           "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "tmp_computed_dirty" group by "table_id"",
+        },
+        {
+          "parameters": [
+            "tblbbbbbbbbbbbbbbbb",
+          ],
+          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
         },
         {
           "parameters": [
@@ -565,6 +572,7 @@ describe('ComputedFieldUpdater', () => {
       ],
       estimatedComplexity: 3,
       changeType: 'update',
+      sameTableBatches: [],
     };
 
     const { db, driver } = createRecordingDb();
@@ -627,13 +635,34 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblllllllllllllllll",
           ],
+          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+        },
+        {
+          "parameters": [
+            "tblllllllllllllllll",
+          ],
           "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "col_lookup_b" = to_jsonb("c"."col_lookup_b"), "col_rollup_b" = "c"."col_rollup_b" from (select "t"."__id" as "__id", "lat_fldpppppppppppppppp"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) as "col_lookup_b", SUM("f"."col_source_score") as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp" on true where "t"."__id" in (select "d"."record_id" as "record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c" where "u"."__id" = "c"."__id"",
         },
         {
           "parameters": [
             "tblmmmmmmmmmmmmmmmm",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "col_lookup_c" = to_jsonb("c"."col_lookup_c") from (select "t"."__id" as "__id", "lat_fldtttttttttttttttt"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt" on true where "t"."__id" in (select "d"."record_id" as "record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c" where "u"."__id" = "c"."__id"",
+          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+        },
+        {
+          "parameters": [
+            "tblmmmmmmmmmmmmmmmm",
+          ],
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "col_lookup_c" = to_jsonb("c"."col_lookup_c") from (select "t"."__id" as "__id", "lat_fldtttttttttttttttt"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (
+                      WITH RECURSIVE __flat(e) AS (
+                        SELECT jsonb_agg("f"."col_rollup_b"::jsonb)
+                        UNION ALL
+                        SELECT jsonb_array_elements(__flat.e)
+                        FROM __flat
+                        WHERE jsonb_typeof(__flat.e) = 'array'
+                      )
+                      SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM __flat
+                    ) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt" on true where "t"."__id" in (select "d"."record_id" as "record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c" where "u"."__id" = "c"."__id"",
         },
       ]
     `);

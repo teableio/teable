@@ -6,6 +6,7 @@ import {
   type ITableRepository,
   type LinkField,
   LinkRelationship,
+  RecordId,
   Table,
   TableId,
   v2CoreTokens,
@@ -20,11 +21,21 @@ import type { Result } from 'neverthrow';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder, COMPUTED_TABLE_ALIAS } from '../query-builder/computed';
+// NOTE: SameTableBatchQueryBuilder will be used for CTE optimization in future versions
+// import { SameTableBatchQueryBuilder, type SameTableFieldLevel } from '../query-builder/computed/SameTableBatchQueryBuilder';
 import type {
   ComputedDependencyEdge,
+  ComputedSeedGroup,
   ComputedUpdatePlan,
+  SameTableBatch,
   UpdateStep,
 } from './ComputedUpdatePlanner';
+import {
+  createComputedUpdateRun,
+  type ComputedUpdateRunContext,
+  toRunLogContext,
+  toRunSpanAttributes,
+} from './ComputedUpdateRun';
 import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
 
 const DIRTY_TABLE = 'tmp_computed_dirty';
@@ -44,10 +55,13 @@ export interface DirtyRecordStats {
  */
 interface StepTraceInfo {
   tableId: string;
+  tableName: string;
   level: number;
   fieldIds: string[];
+  fieldNames: string[];
   sql: string;
   parameterCount: number;
+  dirtyRecordCount: number;
 }
 
 export type PreparedDirtyState = {
@@ -79,7 +93,8 @@ export class ComputedFieldUpdater {
 
   async execute(
     plan: ComputedUpdatePlan,
-    context: IExecutionContext
+    context: IExecutionContext,
+    run?: ComputedUpdateRunContext
   ): Promise<Result<void, DomainError>> {
     if (
       plan.steps.length === 0 ||
@@ -88,19 +103,57 @@ export class ComputedFieldUpdater {
       return ok(undefined);
     }
 
+    const resolvedRun =
+      run ??
+      createComputedUpdateRun({
+        totalSteps: plan.steps.length,
+        completedStepsBefore: 0,
+        phase: 'full',
+      });
+    const runLogger = this.logger.child(toRunLogContext(resolvedRun));
+    const runStartTime = Date.now();
+
+    // Collect table and field summary for tracing
+    const affectedTableIds = [...new Set(plan.steps.map((s) => s.tableId.toString()))];
+    const affectedFieldIds = [
+      ...new Set(plan.steps.flatMap((s) => s.fieldIds.map((f) => f.toString()))),
+    ];
+
     // Start main span for the entire computed update execution
     const mainSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.execute', {
+      // Plan identification
       'computed.baseId': plan.baseId.toString(),
       'computed.seedTableId': plan.seedTableId.toString(),
+      'computed.changeType': plan.changeType,
+      // Record counts
       'computed.seedRecordCount': plan.seedRecordIds.length,
+      'computed.extraSeedGroupCount': plan.extraSeedRecords.length,
+      // Step and edge counts
       'computed.stepCount': plan.steps.length,
       'computed.edgeCount': plan.edges.length,
+      // Affected scope
+      'computed.affectedTableCount': affectedTableIds.length,
+      'computed.affectedFieldCount': affectedFieldIds.length,
+      'computed.affectedTableIds': affectedTableIds.join(','),
+      // Complexity estimate
       'computed.estimatedComplexity': plan.estimatedComplexity,
-      'computed.changeType': plan.changeType,
+      // Step levels summary (min/max)
+      'computed.minLevel': plan.steps.length > 0 ? Math.min(...plan.steps.map((s) => s.level)) : 0,
+      'computed.maxLevel': plan.steps.length > 0 ? Math.max(...plan.steps.map((s) => s.level)) : 0,
     });
+    mainSpan?.setAttributes(toRunSpanAttributes(resolvedRun));
 
     // Log plan summary for structured logging
-    this.logger.debug('computed:plan', {
+    runLogger.info('computed:run:start', {
+      baseId: plan.baseId.toString(),
+      seedTableId: plan.seedTableId.toString(),
+      changeType: plan.changeType,
+      totalSteps: resolvedRun.totalSteps,
+      completedStepsBefore: resolvedRun.completedStepsBefore,
+      pendingSteps: Math.max(resolvedRun.totalSteps - resolvedRun.completedStepsBefore, 0),
+    });
+
+    runLogger.debug('computed:plan', {
       baseId: plan.baseId.toString(),
       seedTableId: plan.seedTableId.toString(),
       seedRecordIds: plan.seedRecordIds.map((r) => r.toString()),
@@ -115,26 +168,67 @@ export class ComputedFieldUpdater {
         linkFieldId: e.linkFieldId?.toString(),
         order: e.order,
       })),
+      sameTableBatches: plan.sameTableBatches.map((b) => ({
+        tableId: b.tableId.toString(),
+        stepCount: b.steps.length,
+        minLevel: b.minLevel,
+        maxLevel: b.maxLevel,
+        fieldCount: b.steps.reduce((acc, s) => acc + s.fieldIds.length, 0),
+      })),
     });
 
-    try {
-      return await safeTry<void, DomainError>(
+    // Log batch optimization opportunities
+    const multiStepBatches = plan.sameTableBatches.filter((b) => b.steps.length > 1);
+    if (multiStepBatches.length > 0) {
+      mainSpan?.setAttribute('computed.sameTableBatchCount', plan.sameTableBatches.length);
+      mainSpan?.setAttribute('computed.optimizableBatchCount', multiStepBatches.length);
+      runLogger.debug('computed:batches:optimizable', {
+        batchCount: multiStepBatches.length,
+        batches: multiStepBatches.map((b) => ({
+          tableId: b.tableId.toString(),
+          stepCount: b.steps.length,
+          levelRange: `${b.minLevel}-${b.maxLevel}`,
+        })),
+      });
+    }
+
+    const runWork = async () =>
+      safeTry<void, DomainError>(
         async function* (this: ComputedFieldUpdater) {
           const prepared = yield* await this.prepareDirtyState(plan, context);
           mainSpan?.setAttribute('computed.totalDirtyRecords', prepared.totalDirtyRecords);
           mainSpan?.setAttribute('computed.affectedTableCount', prepared.dirtyStats.length);
 
-          this.logger.debug('computed:dirtyStats', {
+          runLogger.debug('computed:dirtyStats', {
             totalDirtyRecords: prepared.totalDirtyRecords,
             affectedTables: prepared.dirtyStats,
           });
 
-          const stepTraces = yield* await this.executePreparedSteps(plan, context, prepared);
+          const stepTraces = yield* await this.executePreparedSteps(
+            plan,
+            context,
+            prepared,
+            plan.steps,
+            resolvedRun
+          );
           mainSpan?.setAttribute('computed.executedStepCount', stepTraces.length);
+
+          const completedSteps = resolvedRun.completedStepsBefore + stepTraces.length;
+          runLogger.info('computed:run:done', {
+            completedSteps,
+            pendingSteps: Math.max(resolvedRun.totalSteps - completedSteps, 0),
+            durationMs: Date.now() - runStartTime,
+          });
 
           return ok(undefined);
         }.bind(this)
       );
+
+    try {
+      if (mainSpan && context.tracer) {
+        return await context.tracer.withSpan(mainSpan, runWork);
+      }
+      return await runWork();
     } finally {
       mainSpan?.end();
     }
@@ -170,38 +264,63 @@ export class ComputedFieldUpdater {
 
     return safeTry<PreparedDirtyState, DomainError>(
       async function* (this: ComputedFieldUpdater) {
-        const loadTablesSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.loadTables');
-        const tables = yield* await this.loadTables(plan, context);
-        const tableById = new Map(tables.map((table) => [table.id().toString(), table]));
-        loadTablesSpan?.setAttribute('tableCount', tables.length);
-        loadTablesSpan?.end();
+        // Helper to run work within a span context so child DB operations are properly nested
+        const runWithSpan = async <T>(
+          name: string,
+          work: () => Promise<T>,
+          attrs?: Record<string, string | number>
+        ): Promise<T> => {
+          const span = context.tracer?.startSpan(name, attrs);
+          if (span && context.tracer) {
+            try {
+              return await context.tracer.withSpan(span, work);
+            } finally {
+              span.end();
+            }
+          } else {
+            return work();
+          }
+        };
 
-        const resetSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.resetDirtyTable');
-        yield* await resetDirtyTable(db);
-        resetSpan?.end();
-
-        const seedSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.seedDirtyRecords');
-        yield* await seedDirtyRecords(db, plan.seedTableId, plan.seedRecordIds);
-        yield* await seedExtraDirtyRecords(db, plan.extraSeedRecords);
-        seedSpan?.setAttribute('seedCount', plan.seedRecordIds.length);
-        seedSpan?.setAttribute('extraSeedCount', plan.extraSeedRecords.length);
-        seedSpan?.end();
-
-        const propagateSpan = context.tracer?.startSpan(
-          'teable.ComputedFieldUpdater.propagateDirtyRecords'
+        // Load tables - wrap with span to capture DB queries
+        const loadTablesResult = yield* await runWithSpan(
+          'teable.ComputedFieldUpdater.loadTables',
+          () => this.loadTables(plan, context)
         );
-        yield* await propagateDirtyRecords(db, plan.edges, tableById, context);
-        propagateSpan?.setAttribute('edgeCount', plan.edges.length);
-        propagateSpan?.end();
+        const tableById = new Map(loadTablesResult.map((table) => [table.id().toString(), table]));
 
-        const statsSpan = context.tracer?.startSpan(
-          'teable.ComputedFieldUpdater.collectDirtyStats'
+        // Reset dirty table - wrap with span
+        yield* await runWithSpan('teable.ComputedFieldUpdater.resetDirtyTable', () =>
+          resetDirtyTable(db)
         );
-        const dirtyStats = yield* await this.collectDirtyRecordStats(db);
+
+        // Seed dirty records - wrap with span
+        yield* await runWithSpan(
+          'teable.ComputedFieldUpdater.seedDirtyRecords',
+          async () => {
+            const result = await seedDirtyRecords(db, plan.seedTableId, plan.seedRecordIds);
+            if (result.isErr()) return result;
+            return seedExtraDirtyRecords(db, plan.extraSeedRecords);
+          },
+          {
+            seedCount: plan.seedRecordIds.length,
+            extraSeedCount: plan.extraSeedRecords.length,
+          }
+        );
+
+        // Propagate dirty records - wrap with span so propagateEdge spans are children
+        yield* await runWithSpan(
+          'teable.ComputedFieldUpdater.propagateDirtyRecords',
+          () => propagateDirtyRecords(db, plan.edges, tableById, context),
+          { 'propagate.edgeCount': plan.edges.length }
+        );
+
+        // Collect dirty stats - wrap with span
+        const dirtyStats = yield* await runWithSpan(
+          'teable.ComputedFieldUpdater.collectDirtyStats',
+          () => this.collectDirtyRecordStats(db)
+        );
         const totalDirtyRecords = dirtyStats.reduce((sum, s) => sum + s.recordCount, 0);
-        statsSpan?.setAttribute('totalDirtyRecords', totalDirtyRecords);
-        statsSpan?.setAttribute('affectedTableCount', dirtyStats.length);
-        statsSpan?.end();
 
         return ok({
           db,
@@ -226,30 +345,92 @@ export class ComputedFieldUpdater {
     plan: ComputedUpdatePlan,
     context: IExecutionContext,
     prepared: PreparedDirtyState,
-    steps: ReadonlyArray<UpdateStep> = plan.steps
+    steps: ReadonlyArray<UpdateStep> = plan.steps,
+    run?: ComputedUpdateRunContext
   ): Promise<Result<ReadonlyArray<StepTraceInfo>, DomainError>> {
     if (steps.length === 0) return ok([]);
 
     const updateBuilder = new UpdateFromSelectBuilder(prepared.db);
     const stepTraces: StepTraceInfo[] = [];
+    const runLogger = run ? this.logger.child(toRunLogContext(run)) : this.logger;
 
-    return safeTry<ReadonlyArray<StepTraceInfo>, DomainError>(
-      async function* (this: ComputedFieldUpdater) {
-        for (let i = 0; i < steps.length; i++) {
-          const step = steps[i];
-          const stepResult = yield* await this.executeStep(
+    // Group steps by level for organized tracing
+    const stepsByLevel = new Map<number, Array<{ index: number; step: UpdateStep }>>();
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const levelSteps = stepsByLevel.get(step.level) ?? [];
+      levelSteps.push({ index: i, step });
+      stepsByLevel.set(step.level, levelSteps);
+    }
+
+    const levels = [...stepsByLevel.keys()].sort((a, b) => a - b);
+
+    for (const level of levels) {
+      const levelSteps = stepsByLevel.get(level)!;
+
+      // Create a span for each level
+      const levelSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.level', {
+        'level.index': level,
+        'level.stepCount': levelSteps.length,
+        'level.tableIds': levelSteps.map((s) => s.step.tableId.toString()).join(','),
+      });
+
+      const executeLevel = async (): Promise<Result<StepTraceInfo[], DomainError>> => {
+        const results: StepTraceInfo[] = [];
+        for (const { index, step } of levelSteps) {
+          const doneSteps = run ? run.completedStepsBefore + index + 1 : undefined;
+          const pendingSteps =
+            run && doneSteps !== undefined ? Math.max(run.totalSteps - doneSteps, 0) : undefined;
+
+          if (run && doneSteps !== undefined && pendingSteps !== undefined) {
+            runLogger.debug('computed:run:step', {
+              stepIndex: doneSteps,
+              stepCount: run.totalSteps,
+              pendingSteps,
+              tableId: step.tableId.toString(),
+              level: step.level,
+              fieldIds: step.fieldIds.map((f) => f.toString()),
+            });
+          }
+
+          const stepResult = await this.executeStep(
             prepared.db,
             updateBuilder,
             step,
             prepared.tableById,
             context,
-            i
+            index,
+            run,
+            doneSteps,
+            pendingSteps
           );
-          stepTraces.push(stepResult);
+
+          if (stepResult.isErr()) {
+            levelSpan?.recordError(stepResult.error.message);
+            levelSpan?.end();
+            return err(stepResult.error);
+          }
+
+          results.push(stepResult.value);
         }
-        return ok(stepTraces);
-      }.bind(this)
-    );
+        return ok(results);
+      };
+
+      let levelResults: Result<StepTraceInfo[], DomainError>;
+      if (levelSpan && context.tracer) {
+        levelResults = await context.tracer.withSpan(levelSpan, executeLevel);
+      } else {
+        levelResults = await executeLevel();
+      }
+      levelSpan?.end();
+
+      if (levelResults.isErr()) {
+        return err(levelResults.error);
+      }
+
+      stepTraces.push(...levelResults.value);
+    }
+    return ok(stepTraces);
   }
 
   /**
@@ -261,20 +442,61 @@ export class ComputedFieldUpdater {
     step: UpdateStep,
     tableById: Map<string, Table>,
     context: IExecutionContext,
-    stepIndex: number
+    stepIndex: number,
+    run?: ComputedUpdateRunContext,
+    doneSteps?: number,
+    pendingSteps?: number
   ): Promise<Result<StepTraceInfo, DomainError>> {
+    const table = tableById.get(step.tableId.toString());
+    const tableName = table
+      ? table
+          .dbTableName()
+          .andThen((n) => n.value())
+          .unwrapOr(step.tableId.toString())
+      : step.tableId.toString();
+
+    // Collect field names for tracing
+    const fieldNames: string[] = [];
+    for (const fieldId of step.fieldIds) {
+      if (table) {
+        const fieldResult = table.getField((f) => f.id().equals(fieldId));
+        if (fieldResult.isOk()) {
+          fieldNames.push(fieldResult.value.name().toString());
+        } else {
+          fieldNames.push(fieldId.toString());
+        }
+      } else {
+        fieldNames.push(fieldId.toString());
+      }
+    }
+
+    // Get dirty record count for this table
+    const dirtyCount = await this.getDirtyCountForTable(db, step.tableId);
+
     const stepSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.step', {
+      // Basic step info
       'step.index': stepIndex,
-      'step.tableId': step.tableId.toString(),
       'step.level': step.level,
       'step.fieldCount': step.fieldIds.length,
+      // Table info
+      'step.tableId': step.tableId.toString(),
+      'step.tableName': tableName,
+      // Field info (both IDs and names for readability)
       'step.fieldIds': step.fieldIds.map((f) => f.toString()).join(','),
+      'step.fieldNames': fieldNames.join(','),
+      // Dirty record info
+      'step.dirtyRecordCount': dirtyCount,
     });
+
+    if (run) {
+      stepSpan?.setAttributes(toRunSpanAttributes(run));
+      if (doneSteps !== undefined) stepSpan?.setAttribute('step.position', doneSteps);
+      if (pendingSteps !== undefined) stepSpan?.setAttribute('step.pending', pendingSteps);
+    }
 
     try {
       return await safeTry<StepTraceInfo, DomainError>(
         async function* (this: ComputedFieldUpdater) {
-          const table = tableById.get(step.tableId.toString());
           if (!table) {
             return err(
               domainError.notFound({
@@ -301,19 +523,25 @@ export class ComputedFieldUpdater {
           stepSpan?.setAttribute('step.sql', compiled.sql);
           stepSpan?.setAttribute('step.parameterCount', compiled.parameters.length);
 
+          const sqlLogContext = run
+            ? { ...toRunLogContext(run), parameters: compiled.parameters }
+            : { parameters: compiled.parameters };
           this.logger.debug(
-            `computed:update:table=${step.tableId.toString()}:level=${step.level}:sql:\n${compiled.sql}`,
-            { parameters: compiled.parameters }
+            `computed:update:table=${tableName}:level=${step.level}:sql:\n${compiled.sql}`,
+            sqlLogContext
           );
 
           await db.executeQuery(compiled);
 
           const traceInfo: StepTraceInfo = {
             tableId: step.tableId.toString(),
+            tableName,
             level: step.level,
             fieldIds: step.fieldIds.map((f) => f.toString()),
+            fieldNames,
             sql: compiled.sql,
             parameterCount: compiled.parameters.length,
+            dirtyRecordCount: dirtyCount,
           };
 
           return ok(traceInfo);
@@ -321,6 +549,134 @@ export class ComputedFieldUpdater {
       );
     } finally {
       stepSpan?.end();
+    }
+  }
+
+  /**
+   * Execute a same-table batch using CTE optimization when possible.
+   *
+   * Currently, this method checks if the batch can be optimized (all formula fields)
+   * and logs the opportunity. Full CTE optimization will be implemented in a future version.
+   *
+   * @param batch The same-table batch to execute
+   * @param prepared The prepared dirty state
+   * @param context Execution context
+   * @returns Result containing trace info for all executed steps
+   */
+  async executeSameTableBatch(
+    batch: SameTableBatch,
+    prepared: PreparedDirtyState,
+    context: IExecutionContext,
+    run?: ComputedUpdateRunContext
+  ): Promise<Result<StepTraceInfo[], DomainError>> {
+    const table = prepared.tableById.get(batch.tableId.toString());
+    if (!table) {
+      return err(
+        domainError.notFound({
+          message: `Table not found for batch: ${batch.tableId.toString()}`,
+        })
+      );
+    }
+
+    const tableName = table
+      .dbTableName()
+      .andThen((n) => n.value())
+      .unwrapOr(batch.tableId.toString());
+
+    const batchSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.sameTableBatch', {
+      'batch.tableId': batch.tableId.toString(),
+      'batch.tableName': tableName,
+      'batch.stepCount': batch.steps.length,
+      'batch.minLevel': batch.minLevel,
+      'batch.maxLevel': batch.maxLevel,
+      'batch.totalFieldCount': batch.steps.reduce((acc, s) => acc + s.fieldIds.length, 0),
+    });
+
+    try {
+      // Check if batch can use CTE optimization (all formula fields)
+      const canOptimize = await this.canBatchOptimize(batch, prepared);
+      batchSpan?.setAttribute('batch.canOptimize', canOptimize);
+
+      if (canOptimize && batch.steps.length > 1) {
+        // TODO: Implement CTE-based batch execution
+        // For now, log the optimization opportunity and fall back to step-by-step
+        this.logger.debug('computed:batch:optimizable', {
+          tableId: batch.tableId.toString(),
+          tableName,
+          stepCount: batch.steps.length,
+          levelRange: `${batch.minLevel}-${batch.maxLevel}`,
+          message: 'CTE optimization available but not yet implemented',
+        });
+      }
+
+      // Fall back to step-by-step execution
+      const updateBuilder = new UpdateFromSelectBuilder(prepared.db);
+      const traces: StepTraceInfo[] = [];
+
+      for (let i = 0; i < batch.steps.length; i++) {
+        const step = batch.steps[i];
+        const result = await this.executeStep(
+          prepared.db,
+          updateBuilder,
+          step,
+          prepared.tableById,
+          context,
+          i,
+          run
+        );
+        if (result.isErr()) return err(result.error);
+        traces.push(result.value);
+      }
+
+      return ok(traces);
+    } finally {
+      batchSpan?.end();
+    }
+  }
+
+  /**
+   * Check if a batch can be optimized using CTE.
+   * Currently requires all fields to be formulas (no lookup/rollup/link).
+   */
+  private async canBatchOptimize(
+    batch: SameTableBatch,
+    prepared: PreparedDirtyState
+  ): Promise<boolean> {
+    const table = prepared.tableById.get(batch.tableId.toString());
+    if (!table) return false;
+
+    // Check if all fields in the batch are formulas
+    for (const step of batch.steps) {
+      for (const fieldId of step.fieldIds) {
+        const fieldResult = table.getField((f) => f.id().equals(fieldId));
+        if (fieldResult.isErr()) return false;
+
+        const field = fieldResult.value;
+        // Only formulas can be CTE-optimized
+        // Lookup/rollup need lateral joins which don't work well with CTEs
+        // Link fields have their own lateral join logic
+        if (field.type().toString() !== 'formula') {
+          return false;
+        }
+      }
+    }
+
+    return batch.steps.length > 1;
+  }
+
+  /**
+   * Get the count of dirty records for a specific table.
+   */
+  private async getDirtyCountForTable(db: Kysely<DynamicDB>, tableId: TableId): Promise<number> {
+    try {
+      const result = await db
+        .selectFrom(DIRTY_TABLE)
+        .select(sql<number>`count(*)`.as('count'))
+        .where(DIRTY_TABLE_ID_COL, '=', tableId.toString())
+        .executeTakeFirst();
+      return result ? Number(result.count) : 0;
+    } catch {
+      return 0;
     }
   }
 
@@ -380,6 +736,62 @@ export class ComputedFieldUpdater {
         return ok(tables);
       }.bind(this)
     );
+  }
+
+  /**
+   * Collect dirty record ids per table for chaining to the next stage.
+   */
+  async collectDirtySeedGroups(
+    context: IExecutionContext,
+    tableIds: ReadonlyArray<TableId>
+  ): Promise<Result<ComputedSeedGroup[], DomainError>> {
+    const uniqueTableIds = [...new Set(tableIds.map((id) => id.toString()))];
+    if (uniqueTableIds.length === 0) return ok([]);
+
+    const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+    try {
+      const rows = await db
+        .selectFrom(DIRTY_TABLE)
+        .select([
+          sql.ref(DIRTY_TABLE_ID_COL).as('tableId'),
+          sql.ref(DIRTY_RECORD_ID_COL).as('recordId'),
+        ])
+        .where(DIRTY_TABLE_ID_COL, 'in', uniqueTableIds)
+        .execute();
+
+      const tableIdMap = new Map<string, TableId>();
+      for (const tableId of tableIds) {
+        tableIdMap.set(tableId.toString(), tableId);
+      }
+
+      const groups = new Map<string, { tableId: TableId; recordIds: RecordId[] }>();
+      for (const row of rows) {
+        const tableIdValue = String(row.tableId);
+        const recordIdValue = String(row.recordId);
+        const tableIdResult = tableIdMap.has(tableIdValue)
+          ? ok(tableIdMap.get(tableIdValue)!)
+          : TableId.create(tableIdValue);
+        if (tableIdResult.isErr()) return err(tableIdResult.error);
+
+        const recordIdResult = RecordId.create(recordIdValue);
+        if (recordIdResult.isErr()) return err(recordIdResult.error);
+
+        const entry = groups.get(tableIdValue) ?? {
+          tableId: tableIdResult.value,
+          recordIds: [],
+        };
+        entry.recordIds.push(recordIdResult.value);
+        groups.set(tableIdValue, entry);
+      }
+
+      return ok([...groups.values()]);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to collect dirty record ids: ${describeError(error)}`,
+        })
+      );
+    }
   }
 }
 
@@ -466,14 +878,70 @@ const propagateDirtyRecords = async (
   try {
     for (let i = 0; i < edges.length; i++) {
       const edge = edges[i];
+
+      // Resolve table and field names for better tracing readability
+      const sourceTable = tableById.get(edge.fromTableId.toString());
+      const targetTable = tableById.get(edge.toTableId.toString());
+
+      const sourceTableName = sourceTable
+        ? sourceTable
+            .dbTableName()
+            .andThen((n) => n.value())
+            .unwrapOr(edge.fromTableId.toString())
+        : edge.fromTableId.toString();
+
+      const targetTableName = targetTable
+        ? targetTable
+            .dbTableName()
+            .andThen((n) => n.value())
+            .unwrapOr(edge.toTableId.toString())
+        : edge.toTableId.toString();
+
+      // Resolve field names
+      let fromFieldName = edge.fromFieldId.toString();
+      let toFieldName = edge.toFieldId.toString();
+      let linkFieldName = edge.linkFieldId?.toString() ?? '';
+
+      if (sourceTable) {
+        const fieldResult = sourceTable.getField((f) => f.id().equals(edge.fromFieldId));
+        if (fieldResult.isOk()) {
+          fromFieldName = fieldResult.value.name().toString();
+        }
+      }
+
+      if (targetTable) {
+        const fieldResult = targetTable.getField((f) => f.id().equals(edge.toFieldId));
+        if (fieldResult.isOk()) {
+          toFieldName = fieldResult.value.name().toString();
+        }
+
+        if (edge.linkFieldId) {
+          const linkFieldResult = targetTable.getField((f) => f.id().equals(edge.linkFieldId!));
+          if (linkFieldResult.isOk()) {
+            linkFieldName = linkFieldResult.value.name().toString();
+          }
+        }
+      }
+
       const edgeSpan = context?.tracer?.startSpan('teable.ComputedFieldUpdater.propagateEdge', {
+        // Edge index and order
         'edge.index': i,
-        'edge.fromTableId': edge.fromTableId.toString(),
-        'edge.toTableId': edge.toTableId.toString(),
-        'edge.fromFieldId': edge.fromFieldId.toString(),
-        'edge.toFieldId': edge.toFieldId.toString(),
-        'edge.linkFieldId': edge.linkFieldId?.toString() ?? '',
         'edge.order': edge.order,
+        // Source info (IDs and names)
+        'edge.fromTableId': edge.fromTableId.toString(),
+        'edge.fromTableName': sourceTableName,
+        'edge.fromFieldId': edge.fromFieldId.toString(),
+        'edge.fromFieldName': fromFieldName,
+        // Target info (IDs and names)
+        'edge.toTableId': edge.toTableId.toString(),
+        'edge.toTableName': targetTableName,
+        'edge.toFieldId': edge.toFieldId.toString(),
+        'edge.toFieldName': toFieldName,
+        // Link field info
+        'edge.linkFieldId': edge.linkFieldId?.toString() ?? '',
+        'edge.linkFieldName': linkFieldName,
+        // Direction description for quick understanding
+        'edge.description': `${sourceTableName}.${fromFieldName} → ${targetTableName}.${toFieldName}`,
       });
 
       try {
@@ -604,6 +1072,29 @@ const buildDirtyInsertQuery = (
     }
 
     if (relationship.equals(LinkRelationship.oneMany())) {
+      if (linkField.isOneWay()) {
+        const fkHostTableName = yield* linkField.fkHostTableNameString();
+        const selfKey = yield* linkField.selfKeyNameString();
+        const foreignKey = yield* linkField.foreignKeyNameString();
+        const select = db
+          .selectFrom(`${fkHostTableName} as j`)
+          .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+          .select([
+            sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+            sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(
+          db
+            .insertInto(DIRTY_TABLE)
+            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
+            .expression(select)
+            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+        );
+      }
+
       const selfKey = yield* linkField.selfKeyNameString();
       const select = db
         .selectFrom(`${sourceTableName} as f`)

@@ -142,4 +142,152 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('created_by', 'text', (col) => col.notNull())
     .addColumn('last_modified_by', 'text')
     .execute();
+
+  await db.schema
+    .createTable('computed_update_outbox')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('seed_table_id', 'text', (col) => col.notNull())
+    .addColumn('seed_record_ids', 'jsonb')
+    .addColumn('change_type', 'text', (col) => col.notNull())
+    .addColumn('steps', 'jsonb', (col) => col.notNull())
+    .addColumn('edges', 'jsonb', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('max_attempts', 'integer', (col) => col.notNull().defaultTo(8))
+    .addColumn('next_run_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('locked_at', 'timestamptz')
+    .addColumn('locked_by', 'text')
+    .addColumn('last_error', 'text')
+    .addColumn('estimated_complexity', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('plan_hash', 'text', (col) => col.notNull())
+    .addColumn('dirty_stats', 'jsonb')
+    .addColumn('run_id', 'text', (col) => col.notNull())
+    .addColumn('origin_run_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('run_total_steps', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('run_completed_steps_before', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('affected_table_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('affected_field_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('sync_max_level', 'integer')
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .execute();
+
+  await db.schema
+    .createTable('computed_update_outbox_seed')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('task_id', 'text', (col) => col.notNull())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('record_id', 'text', (col) => col.notNull())
+    .execute();
+
+  await db.schema
+    .createTable('computed_update_dead_letter')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('seed_table_id', 'text', (col) => col.notNull())
+    .addColumn('seed_record_ids', 'jsonb')
+    .addColumn('change_type', 'text', (col) => col.notNull())
+    .addColumn('steps', 'jsonb', (col) => col.notNull())
+    .addColumn('edges', 'jsonb', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('max_attempts', 'integer', (col) => col.notNull().defaultTo(8))
+    .addColumn('next_run_at', 'timestamptz', (col) => col.notNull())
+    .addColumn('locked_at', 'timestamptz')
+    .addColumn('locked_by', 'text')
+    .addColumn('last_error', 'text')
+    .addColumn('estimated_complexity', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('plan_hash', 'text', (col) => col.notNull())
+    .addColumn('dirty_stats', 'jsonb')
+    .addColumn('run_id', 'text', (col) => col.notNull())
+    .addColumn('origin_run_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('run_total_steps', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('run_completed_steps_before', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('affected_table_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('affected_field_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('sync_max_level', 'integer')
+    .addColumn('failed_at', 'timestamptz', (col) => col.notNull())
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull())
+    .addColumn('updated_at', 'timestamptz', (col) => col.notNull())
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_outbox_status_next_run_at_idx')
+    .ifNotExists()
+    .on('computed_update_outbox')
+    .columns(['status', 'next_run_at'])
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_outbox_base_id_seed_table_id_idx')
+    .ifNotExists()
+    .on('computed_update_outbox')
+    .columns(['base_id', 'seed_table_id'])
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_outbox_plan_hash_idx')
+    .ifNotExists()
+    .on('computed_update_outbox')
+    .column('plan_hash')
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_outbox_run_id_idx')
+    .ifNotExists()
+    .on('computed_update_outbox')
+    .column('run_id')
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_outbox_seed_task_id_idx')
+    .ifNotExists()
+    .on('computed_update_outbox_seed')
+    .column('task_id')
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_outbox_seed_task_id_table_id_record_id_key')
+    .ifNotExists()
+    .on('computed_update_outbox_seed')
+    .columns(['task_id', 'table_id', 'record_id'])
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_dead_letter_base_id_seed_table_id_idx')
+    .ifNotExists()
+    .on('computed_update_dead_letter')
+    .columns(['base_id', 'seed_table_id'])
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_dead_letter_plan_hash_idx')
+    .ifNotExists()
+    .on('computed_update_dead_letter')
+    .column('plan_hash')
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_dead_letter_run_id_idx')
+    .ifNotExists()
+    .on('computed_update_dead_letter')
+    .column('run_id')
+    .execute();
 };

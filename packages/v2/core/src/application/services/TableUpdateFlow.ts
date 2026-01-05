@@ -82,7 +82,8 @@ export class TableUpdateFlow {
       span?.end();
 
       const updatedTable = updated.table;
-      events.push(...updatedTable.pullDomainEvents());
+      const hostEvents = updatedTable.pullDomainEvents();
+      events.push(...hostEvents);
 
       const mutateSpec = updated.mutateSpec;
       yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
@@ -122,7 +123,13 @@ export class TableUpdateFlow {
       if (publishEvents) {
         const snapshotResult = handler.tableMapper.toDTO(updatedTable);
         if (snapshotResult.isErr()) return err(snapshotResult.error);
-        const enrichedEvents = handler.enrichEventsWithSnapshot(events, snapshotResult.value);
+        const enrichedEvents = yield* await handler.enrichEventsWithSnapshots(
+          context,
+          events,
+          updatedTable,
+          snapshotResult.value,
+          new Set(hostEvents)
+        );
         yield* await handler.eventBus.publishMany(context, enrichedEvents);
       }
       return ok({ table: updatedTable, events });
@@ -130,18 +137,44 @@ export class TableUpdateFlow {
   }
 
   /**
-   * Enriches AbstractTableUpdatedEvent instances with the table snapshot.
-   * Non-table-updated events are passed through unchanged.
+   * Enriches table-updated events with per-table snapshots (host + side effects).
    */
-  private enrichEventsWithSnapshot(
+  private async enrichEventsWithSnapshots(
+    context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>,
-    snapshot: ITablePersistenceDTO
-  ): ReadonlyArray<IDomainEvent> {
-    return events.map((event) => {
-      if (event instanceof AbstractTableUpdatedEvent && !event.hasSnapshot()) {
-        return event.withSnapshot(snapshot);
+    hostTable: Table,
+    hostSnapshot: ITablePersistenceDTO,
+    hostEventSet: ReadonlySet<IDomainEvent>
+  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
+    const handler = this;
+    return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
+      const snapshots = new Map<string, ITablePersistenceDTO>();
+
+      const enriched: IDomainEvent[] = [];
+      for (const event of events) {
+        if (!(event instanceof AbstractTableUpdatedEvent) || event.hasSnapshot()) {
+          enriched.push(event);
+          continue;
+        }
+
+        const tableId = event.tableId.toString();
+        let snapshot = snapshots.get(tableId);
+        if (!snapshot) {
+          if (hostEventSet.has(event)) {
+            snapshot = hostSnapshot;
+          } else {
+            const spec = yield* TableAggregate.specs(event.baseId).byId(event.tableId).build();
+            const tableResult = yield* await handler.tableRepository.findOne(context, spec);
+            const tableSnapshot = yield* handler.tableMapper.toDTO(tableResult);
+            snapshots.set(tableId, tableSnapshot);
+            snapshot = tableSnapshot;
+          }
+        }
+
+        enriched.push(event.withSnapshot(snapshot));
       }
-      return event;
+
+      return ok(enriched);
     });
   }
 

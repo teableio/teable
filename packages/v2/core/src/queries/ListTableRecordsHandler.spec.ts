@@ -55,6 +55,7 @@ describe('ListTableRecordsHandler', () => {
         const records: TableRecordReadModel[] = [{ id: 'rec1', fields: { Title: 'Hello' } }];
         return ok({ records, total: 1 });
       },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -83,6 +84,7 @@ describe('ListTableRecordsHandler', () => {
         captured.spec = spec;
         return ok({ records: [], total: 0 });
       },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -113,6 +115,7 @@ describe('ListTableRecordsHandler', () => {
 
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async () => ok({ records: [], total: 0 }),
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -130,6 +133,7 @@ describe('ListTableRecordsHandler', () => {
 
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async () => ok({ records: [], total: 0 }),
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
     };
 
     const queryResult = ListTableRecordsQuery.create({
@@ -152,6 +156,7 @@ describe('ListTableRecordsHandler', () => {
 
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async () => err(domainError.unexpected({ message: 'query failed' })),
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
     };
 
     const queryResult = ListTableRecordsQuery.create({

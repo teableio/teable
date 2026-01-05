@@ -1,8 +1,10 @@
 import {
   type DomainError,
+  FieldId,
   type IExecutionContext,
   type IHasher,
   type ILogger,
+  TableId,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
@@ -11,21 +13,38 @@ import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { ComputedFieldUpdater, PreparedDirtyState } from '../ComputedFieldUpdater';
-import type { ComputedUpdatePlan, UpdateStep } from '../ComputedUpdatePlanner';
+import type { ComputedSeedGroup, ComputedUpdatePlan, UpdateStep } from '../ComputedUpdatePlanner';
+import { ComputedUpdatePlanner, splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
+import {
+  createComputedUpdateRun,
+  toRunLogContext,
+  toRunSpanAttributes,
+} from '../ComputedUpdateRun';
 import { buildOutboxTaskInput } from '../outbox/ComputedUpdateOutboxPayload';
 import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
+import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
 import type { IUpdateStrategy } from './IUpdateStrategy';
 
 export type HybridWithOutboxStrategyConfig = {
+  syncPolicy: 'seedTableOnly' | 'threshold';
   syncMaxDirtyPerTable: number;
   syncMaxTotalDirty: number;
   syncMaxLevelHardCap: number;
+  dispatchAfterEnqueue: boolean;
+  dispatchWorkerLimit: number;
+  dispatchWorkerId: string;
+  dispatchDelayMs: number;
 };
 
 export const defaultHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConfig = {
+  syncPolicy: 'seedTableOnly',
   syncMaxDirtyPerTable: 2000,
   syncMaxTotalDirty: 5000,
   syncMaxLevelHardCap: 1,
+  dispatchAfterEnqueue: true,
+  dispatchWorkerLimit: 50,
+  dispatchWorkerId: 'computed-inline',
+  dispatchDelayMs: 0,
 };
 
 /**
@@ -33,7 +52,7 @@ export const defaultHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConf
  *
  * Example
  * ```typescript
- * const strategy = new HybridWithOutboxStrategy(outbox, config, logger);
+ * const strategy = new HybridWithOutboxStrategy(outbox, worker, config, logger);
  * await strategy.execute(updater, plan, context);
  * ```
  */
@@ -44,13 +63,20 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
     private readonly outbox: IComputedUpdateOutbox,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateWorker)
+    private readonly worker: ComputedUpdateWorker,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig)
     private readonly config: HybridWithOutboxStrategyConfig = defaultHybridWithOutboxStrategyConfig,
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,
     @inject(v2CoreTokens.hasher)
-    private readonly hasher: IHasher
+    private readonly hasher: IHasher,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
+    private readonly planner: ComputedUpdatePlanner
   ) {}
+
+  private dispatchTimer: ReturnType<typeof setTimeout> | null = null;
+  private dispatchInFlight = false;
 
   async execute(
     updater: ComputedFieldUpdater,
@@ -64,54 +90,231 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       return ok(undefined);
     }
 
-    const prepared = await updater.prepareDirtyState(plan, context);
-    if (prepared.isErr()) return err(prepared.error);
-
-    const { syncSteps, asyncSteps, syncMaxLevel } = splitStepsByThreshold(
-      plan,
-      prepared.value,
-      this.config
-    );
-
-    const syncResult = await updater.executePreparedSteps(plan, context, prepared.value, syncSteps);
-    if (syncResult.isErr()) return err(syncResult.error);
-
-    if (asyncSteps.length === 0) {
-      return ok(undefined);
-    }
-
-    const asyncPlan: ComputedUpdatePlan = {
-      ...plan,
-      steps: asyncSteps,
-    };
-
-    const task = buildOutboxTaskInput({
-      plan: asyncPlan,
-      dirtyStats: prepared.value.dirtyStats,
-      syncMaxLevel,
-      hasher: this.hasher,
+    let currentPlan = plan;
+    let completedSteps = 0;
+    let totalSteps = currentPlan.steps.length;
+    const baseRun = createComputedUpdateRun({
+      totalSteps,
+      completedStepsBefore: 0,
+      phase: 'full',
     });
+    const runId = baseRun.runId;
+    const originRunIds = baseRun.originRunIds;
 
-    const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
-    if (enqueueResult.isErr()) {
-      this.logger.warn('computed:outbox:enqueue_failed', {
-        error: enqueueResult.error.message,
-        planHash: task.planHash,
+    while (currentPlan.steps.length > 0) {
+      const prepared = await updater.prepareDirtyState(currentPlan, context);
+      if (prepared.isErr()) return err(prepared.error);
+
+      const { syncSteps, asyncSteps, syncMaxLevel } = splitStepsByPolicy(
+        currentPlan,
+        prepared.value,
+        this.config
+      );
+
+      const phase = asyncSteps.length === 0 ? 'full' : 'sync';
+      const run = createComputedUpdateRun({
+        runId,
+        originRunIds,
+        totalSteps,
+        completedStepsBefore: completedSteps,
+        phase,
       });
-      return ok(undefined);
-    }
+      const runLogger = this.logger.child(toRunLogContext(run));
 
-    this.logger.debug('computed:outbox:enqueued', {
-      taskId: enqueueResult.value.taskId,
-      merged: enqueueResult.value.merged,
-      asyncStepCount: asyncSteps.length,
-    });
+      runLogger.info('computed:run:start', {
+        baseId: currentPlan.baseId.toString(),
+        seedTableId: currentPlan.seedTableId.toString(),
+        changeType: currentPlan.changeType,
+        totalSteps,
+        syncStepCount: syncSteps.length,
+        asyncStepCount: asyncSteps.length,
+        pendingSteps: Math.max(totalSteps - completedSteps, 0),
+      });
+
+      const runSpan = context.tracer?.startSpan('teable.ComputedUpdateRun', {
+        ...toRunSpanAttributes(run),
+        'computed.baseId': currentPlan.baseId.toString(),
+        'computed.seedTableId': currentPlan.seedTableId.toString(),
+        'computed.changeType': currentPlan.changeType,
+      });
+
+      const syncWork = async () =>
+        updater.executePreparedSteps(currentPlan, context, prepared.value, syncSteps, run);
+      const syncResult =
+        runSpan && context.tracer
+          ? await context.tracer.withSpan(runSpan, syncWork)
+          : await syncWork();
+      runSpan?.end();
+      if (syncResult.isErr()) return err(syncResult.error);
+
+      completedSteps += syncSteps.length;
+
+      if (asyncSteps.length > 0) {
+        const stageFieldIds = collectStepFieldIds(currentPlan);
+        const stageTableIds = collectStepTableIds(currentPlan);
+        runLogger.info('computed:run:phase_done', {
+          phase: 'sync',
+          completedSteps,
+          pendingSteps: Math.max(totalSteps - completedSteps, 0),
+          asyncStepCount: asyncSteps.length,
+        });
+
+        const asyncPlan: ComputedUpdatePlan = {
+          ...currentPlan,
+          steps: asyncSteps,
+        };
+
+        const task = buildOutboxTaskInput({
+          plan: asyncPlan,
+          dirtyStats: prepared.value.dirtyStats,
+          syncMaxLevel,
+          hasher: this.hasher,
+          runId,
+          originRunIds: [...originRunIds],
+          runTotalSteps: totalSteps,
+          runCompletedStepsBefore: completedSteps,
+          affectedFieldIds: stageFieldIds.map((id) => id.toString()),
+          affectedTableIds: stageTableIds.map((id) => id.toString()),
+        });
+
+        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
+        if (enqueueResult.isErr()) {
+          runLogger.warn('computed:outbox:enqueue_failed', {
+            error: enqueueResult.error.message,
+            planHash: task.planHash,
+          });
+          return err(enqueueResult.error);
+        }
+
+        runLogger.debug('computed:outbox:enqueued', {
+          taskId: enqueueResult.value.taskId,
+          merged: enqueueResult.value.merged,
+          asyncStepCount: asyncSteps.length,
+        });
+
+        runLogger.info('computed:run:queued', {
+          taskId: enqueueResult.value.taskId,
+          pendingSteps: asyncSteps.length,
+          asyncStepCount: asyncSteps.length,
+        });
+
+        this.scheduleDispatch(context);
+        return ok(undefined);
+      }
+
+      runLogger.info('computed:run:done', {
+        completedSteps,
+        pendingSteps: 0,
+      });
+
+      const nextSeedFieldIds = collectStepFieldIds(currentPlan);
+      const tableIds = collectStepTableIds(currentPlan);
+      const seedGroups = await updater.collectDirtySeedGroups(context, tableIds);
+      if (seedGroups.isErr()) return err(seedGroups.error);
+
+      const nextPlanResult = await this.planNextStage(
+        currentPlan,
+        nextSeedFieldIds,
+        seedGroups.value
+      );
+      if (nextPlanResult.isErr()) return err(nextPlanResult.error);
+      if (nextPlanResult.value.steps.length === 0) break;
+
+      currentPlan = nextPlanResult.value;
+      totalSteps += currentPlan.steps.length;
+    }
 
     return ok(undefined);
   }
+
+  private scheduleDispatch(context: IExecutionContext): void {
+    if (!this.config.dispatchAfterEnqueue) return;
+    if (this.dispatchTimer) return;
+    // Strip transaction so async work runs after commit on a fresh connection.
+    const dispatchContext: IExecutionContext = {
+      actorId: context.actorId,
+      tracer: context.tracer,
+    };
+    this.dispatchTimer = setTimeout(() => {
+      this.dispatchTimer = null;
+      void this.drainOutbox(dispatchContext);
+    }, this.config.dispatchDelayMs);
+  }
+
+  private async drainOutbox(context: IExecutionContext): Promise<void> {
+    if (this.dispatchInFlight) return;
+    this.dispatchInFlight = true;
+    try {
+      const limit = this.config.dispatchWorkerLimit;
+      const workerId = this.config.dispatchWorkerId;
+
+      let shouldContinue = true;
+      while (shouldContinue) {
+        const result = await this.worker.runOnce({
+          workerId,
+          limit,
+          actorId: context.actorId,
+        });
+
+        if (result.isErr()) {
+          this.logger.warn('computed:outbox:dispatch_failed', { error: result.error.message });
+          shouldContinue = false;
+          continue;
+        }
+
+        if (result.value < limit) {
+          shouldContinue = false;
+        }
+      }
+    } finally {
+      this.dispatchInFlight = false;
+    }
+  }
+
+  private async planNextStage(
+    plan: ComputedUpdatePlan,
+    seedFieldIds: ReadonlyArray<FieldId>,
+    seedGroups: ReadonlyArray<ComputedSeedGroup>
+  ): Promise<Result<ComputedUpdatePlan, DomainError>> {
+    if (seedFieldIds.length === 0) return ok({ ...plan, steps: [], edges: [] });
+
+    const seedSplit = splitSeedGroupsForPlan(seedGroups, plan.seedTableId);
+    if (!seedSplit) return ok({ ...plan, steps: [], edges: [] });
+
+    return this.planner.planStage({
+      baseId: plan.baseId,
+      seedTableId: seedSplit.seedTableId,
+      seedRecordIds: seedSplit.seedRecordIds,
+      extraSeedRecords: seedSplit.extraSeedRecords,
+      changedFieldIds: seedFieldIds,
+      changeType: plan.changeType,
+      impact: {
+        valueFieldIds: seedFieldIds,
+        linkFieldIds: [],
+      },
+    });
+  }
 }
 
-const splitStepsByThreshold = (
+const collectStepFieldIds = (plan: ComputedUpdatePlan): FieldId[] => {
+  const ids = new Map<string, FieldId>();
+  for (const step of plan.steps) {
+    for (const fieldId of step.fieldIds) {
+      ids.set(fieldId.toString(), fieldId);
+    }
+  }
+  return [...ids.values()];
+};
+
+const collectStepTableIds = (plan: ComputedUpdatePlan): TableId[] => {
+  const ids = new Map<string, TableId>();
+  for (const step of plan.steps) {
+    ids.set(step.tableId.toString(), step.tableId);
+  }
+  return [...ids.values()];
+};
+
+const splitStepsByPolicy = (
   plan: ComputedUpdatePlan,
   prepared: PreparedDirtyState,
   config: HybridWithOutboxStrategyConfig
@@ -121,6 +324,14 @@ const splitStepsByThreshold = (
   syncMaxLevel: number;
 } => {
   const seedTableId = plan.seedTableId.toString();
+
+  if (config.syncPolicy === 'seedTableOnly') {
+    const syncSteps = plan.steps.filter((step) => step.tableId.toString() === seedTableId);
+    const asyncSteps = plan.steps.filter((step) => step.tableId.toString() !== seedTableId);
+    const syncMaxLevel = syncSteps.reduce((acc, step) => Math.max(acc, step.level), -1);
+    return { syncSteps, asyncSteps, syncMaxLevel };
+  }
+
   const maxLevel = plan.steps.reduce((acc, step) => Math.max(acc, step.level), -1);
   const seedTableMaxLevel = plan.steps
     .filter((step) => step.tableId.toString() === seedTableId)

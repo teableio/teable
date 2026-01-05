@@ -16,6 +16,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `CommandHandler.ts` - Role: handler interface + registry; Purpose: let the command bus resolve handlers.
 - `CreateTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs and build TableBuilder inputs.
 - `CreateTableHandler.ts` - Role: command handler; Purpose: build aggregate and persist/publish.
+- `CreateTablesCommand.ts` - Role: command DTO + schema; Purpose: validate batch table inputs.
+- `CreateTablesHandler.ts` - Role: command handler; Purpose: create multiple tables in one unit of work.
 - `CreateFieldCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for adding a field.
 - `CreateFieldHandler.ts` - Role: command handler; Purpose: update table meta/schema and publish events.
 - `CreateRecordCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for creating a record.

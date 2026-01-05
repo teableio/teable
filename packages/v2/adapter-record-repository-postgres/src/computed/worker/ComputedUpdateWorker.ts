@@ -1,8 +1,12 @@
 import {
   ActorId,
   type DomainError,
+  FieldId,
   type IExecutionContext,
+  type IHasher,
+  type IUnitOfWork,
   type ILogger,
+  TableId,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
@@ -11,6 +15,10 @@ import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import { ComputedFieldUpdater } from '../ComputedFieldUpdater';
+import type { ComputedSeedGroup, ComputedUpdatePlan } from '../ComputedUpdatePlanner';
+import { ComputedUpdatePlanner, splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
+import { createComputedUpdateRun } from '../ComputedUpdateRun';
+import { buildOutboxTaskInput } from '../outbox/ComputedUpdateOutboxPayload';
 import {
   deserializeComputedUpdatePlan,
   type ComputedUpdateOutboxPayload,
@@ -39,8 +47,14 @@ export class ComputedUpdateWorker {
     private readonly outbox: IComputedUpdateOutbox,
     @inject(v2RecordRepositoryPostgresTokens.computedFieldUpdater)
     private readonly updater: ComputedFieldUpdater,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
+    private readonly planner: ComputedUpdatePlanner,
+    @inject(v2CoreTokens.unitOfWork)
+    private readonly unitOfWork: IUnitOfWork,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger
+    private readonly logger: ILogger,
+    @inject(v2CoreTokens.hasher)
+    private readonly hasher: IHasher
   ) {}
 
   async runOnce(params: ComputedUpdateWorkerParams): Promise<Result<number, DomainError>> {
@@ -58,26 +72,117 @@ export class ComputedUpdateWorker {
 
         let processed = 0;
         for (const task of claimed) {
+          const runLogContext = {
+            computedRunId: task.runId,
+            computedOriginRunIds: task.originRunIds,
+            computedTaskId: task.id,
+          };
           const payload = toPayload(task);
           const planResult = deserializeComputedUpdatePlan(payload);
           if (planResult.isErr()) {
+            this.logger.warn('computed:outbox:task_failed', {
+              taskId: task.id,
+              error: planResult.error.message,
+              ...runLogContext,
+            });
             await this.handleTaskFailure(task, planResult.error.message);
             continue;
           }
 
           const context: IExecutionContext = { actorId: actorIdResult.value };
-          const executeResult = await this.updater.execute(planResult.value, context);
-          if (executeResult.isErr()) {
-            await this.handleTaskFailure(task, executeResult.error.message);
+          const totalSteps =
+            task.runTotalSteps > 0
+              ? task.runTotalSteps
+              : task.runCompletedStepsBefore + task.steps.length;
+          const runId = task.runId?.length ? task.runId : undefined;
+          const originRunIds = task.originRunIds?.length ? task.originRunIds : undefined;
+
+          const stageFieldIdsResult = collectSeedFieldIds(task);
+          if (stageFieldIdsResult.isErr()) {
+            this.logger.warn('computed:outbox:task_failed', {
+              taskId: task.id,
+              error: stageFieldIdsResult.error.message,
+              ...runLogContext,
+            });
+            await this.handleTaskFailure(task, stageFieldIdsResult.error.message);
             continue;
           }
 
-          const doneResult = await this.outbox.markDone(task.id);
-          if (doneResult.isErr()) {
-            this.logger.warn('computed:outbox:markDone_failed', {
+          const stageTableIdsResult = collectSeedTableIds(task);
+          if (stageTableIdsResult.isErr()) {
+            this.logger.warn('computed:outbox:task_failed', {
               taskId: task.id,
-              error: doneResult.error.message,
+              error: stageTableIdsResult.error.message,
+              ...runLogContext,
             });
+            await this.handleTaskFailure(task, stageTableIdsResult.error.message);
+            continue;
+          }
+
+          const executeResult = await this.unitOfWork.withTransaction(
+            context,
+            async (txContext) => {
+              const run = createComputedUpdateRun({
+                runId,
+                originRunIds,
+                totalSteps,
+                completedStepsBefore: task.runCompletedStepsBefore,
+                phase: 'async',
+                taskId: task.id,
+              });
+
+              const stageResult = await this.updater.execute(planResult.value, txContext, run);
+              if (stageResult.isErr()) return err(stageResult.error);
+
+              const completedStepsAfter = task.runCompletedStepsBefore + task.steps.length;
+              const seedGroupsResult = await this.updater.collectDirtySeedGroups(
+                txContext,
+                stageTableIdsResult.value
+              );
+              if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
+
+              const nextPlanResult = await this.planNextStage(
+                planResult.value,
+                stageFieldIdsResult.value,
+                seedGroupsResult.value
+              );
+              if (nextPlanResult.isErr()) return err(nextPlanResult.error);
+
+              if (nextPlanResult.value.steps.length > 0) {
+                const nextTotalSteps =
+                  Math.max(totalSteps, completedStepsAfter) + nextPlanResult.value.steps.length;
+                const nextTask = buildOutboxTaskInput({
+                  plan: nextPlanResult.value,
+                  dirtyStats: seedGroupsResult.value.map((group) => ({
+                    tableId: group.tableId.toString(),
+                    recordCount: group.recordIds.length,
+                  })),
+                  syncMaxLevel: 0,
+                  hasher: this.hasher,
+                  runId: run.runId,
+                  originRunIds: [...run.originRunIds],
+                  runTotalSteps: nextTotalSteps,
+                  runCompletedStepsBefore: completedStepsAfter,
+                });
+
+                const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
+                if (enqueueResult.isErr()) return err(enqueueResult.error);
+              }
+
+              const doneResult = await this.outbox.markDone(task.id, txContext);
+              if (doneResult.isErr()) return err(doneResult.error);
+
+              return ok(undefined);
+            }
+          );
+          if (executeResult.isErr()) {
+            this.logger.warn('computed:outbox:task_failed', {
+              taskId: task.id,
+              error: executeResult.error.message,
+              ...runLogContext,
+            });
+            await this.handleTaskFailure(task, executeResult.error.message);
+            continue;
           }
 
           processed += 1;
@@ -97,6 +202,30 @@ export class ComputedUpdateWorker {
       });
     }
   }
+
+  private async planNextStage(
+    plan: ComputedUpdatePlan,
+    seedFieldIds: ReadonlyArray<FieldId>,
+    seedGroups: ReadonlyArray<ComputedSeedGroup>
+  ): Promise<Result<ComputedUpdatePlan, DomainError>> {
+    if (seedFieldIds.length === 0) return ok({ ...plan, steps: [], edges: [] });
+
+    const seedSplit = splitSeedGroupsForPlan(seedGroups, plan.seedTableId);
+    if (!seedSplit) return ok({ ...plan, steps: [], edges: [] });
+
+    return this.planner.planStage({
+      baseId: plan.baseId,
+      seedTableId: seedSplit.seedTableId,
+      seedRecordIds: seedSplit.seedRecordIds,
+      extraSeedRecords: seedSplit.extraSeedRecords,
+      changedFieldIds: seedFieldIds,
+      changeType: plan.changeType,
+      impact: {
+        valueFieldIds: seedFieldIds,
+        linkFieldIds: [],
+      },
+    });
+  }
 }
 
 const toPayload = (task: ComputedUpdateOutboxItem): ComputedUpdateOutboxPayload => ({
@@ -109,3 +238,51 @@ const toPayload = (task: ComputedUpdateOutboxItem): ComputedUpdateOutboxPayload 
   estimatedComplexity: task.estimatedComplexity,
   changeType: task.changeType,
 });
+
+const collectSeedFieldIds = (
+  task: ComputedUpdateOutboxItem
+): Result<ReadonlyArray<FieldId>, DomainError> => {
+  const ids = new Map<string, FieldId>();
+  const candidates = task.affectedFieldIds.length ? task.affectedFieldIds : [];
+
+  for (const fieldId of candidates) {
+    const parsed = FieldId.create(fieldId);
+    if (parsed.isErr()) return err(parsed.error);
+    ids.set(parsed.value.toString(), parsed.value);
+  }
+
+  if (ids.size > 0) return ok([...ids.values()]);
+
+  for (const step of task.steps) {
+    for (const fieldId of step.fieldIds) {
+      const parsed = FieldId.create(fieldId);
+      if (parsed.isErr()) return err(parsed.error);
+      ids.set(parsed.value.toString(), parsed.value);
+    }
+  }
+
+  return ok([...ids.values()]);
+};
+
+const collectSeedTableIds = (
+  task: ComputedUpdateOutboxItem
+): Result<ReadonlyArray<TableId>, DomainError> => {
+  const ids = new Map<string, TableId>();
+  const candidates = task.affectedTableIds.length ? task.affectedTableIds : [];
+
+  for (const tableId of candidates) {
+    const parsed = TableId.create(tableId);
+    if (parsed.isErr()) return err(parsed.error);
+    ids.set(parsed.value.toString(), parsed.value);
+  }
+
+  if (ids.size > 0) return ok([...ids.values()]);
+
+  for (const step of task.steps) {
+    const parsed = TableId.create(step.tableId);
+    if (parsed.isErr()) return err(parsed.error);
+    ids.set(parsed.value.toString(), parsed.value);
+  }
+
+  return ok([...ids.values()]);
+};

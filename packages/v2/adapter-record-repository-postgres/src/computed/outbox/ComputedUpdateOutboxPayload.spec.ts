@@ -10,6 +10,7 @@ const EXTRA_TABLE_ID = `tbl${'x'.repeat(16)}`;
 const FIELD_ID = `fld${'c'.repeat(16)}`;
 const RECORD_ID = `rec${'d'.repeat(16)}`;
 const EXTRA_RECORD_ID = `rec${'e'.repeat(16)}`;
+const RUN_ID = `cur${'r'.repeat(16)}`;
 
 const testHasher = new NoopHasher();
 
@@ -33,12 +34,21 @@ const createPlan = (): ComputedUpdatePlan => ({
   edges: [],
   estimatedComplexity: 1,
   changeType: 'update',
+  sameTableBatches: [],
 });
 
 describe('ComputedUpdateOutboxPayload', () => {
   it('serializes and deserializes computed update plans', () => {
     const plan = createPlan();
-    const task = buildOutboxTaskInput({ plan, syncMaxLevel: 0, hasher: testHasher });
+    const task = buildOutboxTaskInput({
+      plan,
+      syncMaxLevel: 0,
+      hasher: testHasher,
+      runId: RUN_ID,
+      originRunIds: [RUN_ID],
+      runTotalSteps: plan.steps.length,
+      runCompletedStepsBefore: 0,
+    });
 
     const deserialized = deserializeComputedUpdatePlan({
       baseId: task.baseId,

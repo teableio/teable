@@ -85,6 +85,12 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 - Each v2 package has a local `tsdown.config.ts` that extends the shared base config from `@teable/v2-tsdown-config`.
 - Outputs are written to `dist/` (ESM `.js` + `.d.ts`), and workspace deps (`@teable/v2-*`) are kept external (no bundling across packages).
 
+## Source visibility (v2 packages)
+
+- Package consumers must be able to navigate TypeScript sources without built `dist/`.
+- In `package.json`, point `types` (and `exports` `types`) to `src/index.ts`, and include `src` in `files`.
+- In `tsconfig.json`, map workspace dependencies to their `src` paths (e.g. `@teable/v2-core: ["../core/src"]`) and include those sources.
+
 ## Error handling (non-negotiable)
 
 - **Never throw in `v2/core`.**

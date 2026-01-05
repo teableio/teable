@@ -7,7 +7,11 @@ import {
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
-import { registerV2RecordRepositoryPostgresAdapter } from '@teable/v2-adapter-record-repository-postgres';
+import {
+  registerV2RecordRepositoryPostgresAdapter,
+  v2RecordRepositoryPostgresTokens,
+  type ComputedUpdateWorker,
+} from '@teable/v2-adapter-record-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import type { IHasher, ITableRepository } from '@teable/v2-core';
@@ -46,6 +50,11 @@ export interface IV2NodeTestContainer {
   eventBus: MemoryEventBus;
   baseId: BaseId;
   db: Kysely<V1TeableDatabase>;
+  /**
+   * Process all pending outbox tasks (for tests that need to wait for async computed updates).
+   * Returns the number of tasks processed.
+   */
+  processOutbox(): Promise<number>;
   dispose(): Promise<void>;
 }
 
@@ -180,12 +189,39 @@ export const createV2NodeTestContainer = async (
     c.registerInstance(v2CoreTokens.tableRepository, tableRepository);
   }
 
+  const processOutbox = async (): Promise<number> => {
+    const worker = c.resolve<ComputedUpdateWorker>(
+      v2RecordRepositoryPostgresTokens.computedUpdateWorker
+    );
+    let totalProcessed = 0;
+    let processed = 0;
+    const maxIterations = 100; // Prevent infinite loops
+    let iterations = 0;
+
+    // Keep processing until no more tasks are pending
+    do {
+      const result = await worker.runOnce({
+        workerId: 'test-worker',
+        limit: 100,
+      });
+      if (result.isErr()) {
+        throw new Error(`Outbox processing failed: ${result.error.message}`);
+      }
+      processed = result.value;
+      totalProcessed += processed;
+      iterations += 1;
+    } while (processed > 0 && iterations < maxIterations);
+
+    return totalProcessed;
+  };
+
   return {
     container: c,
     tableRepository,
     eventBus,
     baseId,
     db,
+    processOutbox,
     dispose: async () => {
       try {
         await db.destroy();

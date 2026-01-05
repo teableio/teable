@@ -46,15 +46,27 @@ export type ComputedUpdateOutboxPayload = {
   edges: ComputedDependencyEdgeDto[];
   estimatedComplexity: number;
   changeType: ComputedUpdatePlan['changeType'];
+  runId?: string;
+  originRunIds?: string[];
+  runTotalSteps?: number;
+  runCompletedStepsBefore?: number;
 };
 
-export type ComputedUpdateOutboxTaskInput = ComputedUpdateOutboxPayload & {
-  planHash: string;
-  dirtyStats?: ReadonlyArray<DirtyRecordStats>;
-  affectedTableIds: string[];
-  affectedFieldIds: string[];
-  syncMaxLevel: number;
+export type ComputedUpdateRunMeta = {
+  runId: string;
+  originRunIds: string[];
+  runTotalSteps: number;
+  runCompletedStepsBefore: number;
 };
+
+export type ComputedUpdateOutboxTaskInput = ComputedUpdateOutboxPayload &
+  ComputedUpdateRunMeta & {
+    planHash: string;
+    dirtyStats?: ReadonlyArray<DirtyRecordStats>;
+    affectedTableIds: string[];
+    affectedFieldIds: string[];
+    syncMaxLevel: number;
+  };
 
 export type ComputedUpdateOutboxItem = ComputedUpdateOutboxTaskInput & {
   id: string;
@@ -99,13 +111,27 @@ export const buildOutboxTaskInput = (params: {
   dirtyStats?: ReadonlyArray<DirtyRecordStats>;
   syncMaxLevel: number;
   hasher: IHasher;
+  runId: string;
+  originRunIds: string[];
+  runTotalSteps: number;
+  runCompletedStepsBefore: number;
+  affectedTableIds?: string[];
+  affectedFieldIds?: string[];
 }): ComputedUpdateOutboxTaskInput => {
   const payload = serializeComputedUpdatePlan(params.plan);
-  const affectedTableIds = [...new Set(payload.steps.map((step) => step.tableId))];
-  const affectedFieldIds = [...new Set(payload.steps.flatMap((step) => step.fieldIds))];
+  const affectedTableIds = params.affectedTableIds ?? [
+    ...new Set(payload.steps.map((step) => step.tableId)),
+  ];
+  const affectedFieldIds = params.affectedFieldIds ?? [
+    ...new Set(payload.steps.flatMap((step) => step.fieldIds)),
+  ];
 
   return {
     ...payload,
+    runId: params.runId,
+    originRunIds: params.originRunIds,
+    runTotalSteps: params.runTotalSteps,
+    runCompletedStepsBefore: params.runCompletedStepsBefore,
     planHash: computePlanHash(payload, params.hasher),
     dirtyStats: params.dirtyStats,
     affectedTableIds,
@@ -216,6 +242,9 @@ export const deserializeComputedUpdatePlan = (
     edges: edgesResult.value,
     estimatedComplexity: payload.estimatedComplexity,
     changeType,
+    // Note: sameTableBatches are derived from steps at planning time,
+    // so we don't serialize/deserialize them. They will be empty for outbox tasks.
+    sameTableBatches: [],
   });
 };
 

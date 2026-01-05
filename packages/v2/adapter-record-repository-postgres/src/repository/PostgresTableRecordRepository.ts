@@ -12,10 +12,23 @@ import { sql, type Kysely, type Transaction } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { ComputedFieldUpdater, ComputedUpdatePlanner, IUpdateStrategy } from '../computed';
+import type {
+  ComputedFieldUpdater,
+  ComputedUpdatePlanner,
+  IUpdateStrategy,
+  UpdateImpactHint,
+} from '../computed';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
-import { FieldInsertValueVisitor, type FieldInsertResult, type QueryExecutor } from '../visitors';
+import {
+  FieldInsertValueVisitor,
+  LinkChangeCollectorVisitor,
+  createEmptyCollectedLinkChanges,
+  mergeCollectedLinkChange,
+  type CollectedLinkChanges,
+  type FieldInsertResult,
+  type QueryExecutor,
+} from '../visitors';
 
 // System columns
 const RECORD_ID_COLUMN = '__id';
@@ -318,6 +331,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           string,
           { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
         >();
+        const valueChangeFieldIds: core.FieldId[] = [];
+        const collectedLinkChanges: CollectedLinkChanges = createEmptyCollectedLinkChanges();
 
         const values: Record<string, unknown> = {
           [LAST_MODIFIED_TIME_COLUMN]: now,
@@ -340,15 +355,44 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               recordId,
               linkField
             );
-            const mergeResult = mergeExtraSeedRecords(
-              extraSeedMap,
-              linkField.foreignTableId(),
-              existingLinks
-            );
-            if (mergeResult.isErr()) return err(mergeResult.error);
-            const linkOps = yield* buildLinkUpdateOperations(linkField, rawValue, recordId);
-            Object.assign(values, linkOps.columnValues);
-            queryExecutors.push(...linkOps.queryExecutors);
+
+            // Use visitor to collect link changes
+            const linkChangeVisitor = LinkChangeCollectorVisitor.create({
+              recordId,
+              existingLinkIds: existingLinks,
+              newRawValue: rawValue,
+            });
+            const linkChangeResult = yield* linkField.accept(linkChangeVisitor);
+
+            if (linkChangeResult.hasChange) {
+              // Merge into collected changes
+              mergeCollectedLinkChange(
+                collectedLinkChanges,
+                linkChangeResult,
+                linkField.foreignTableId()
+              );
+
+              // Collect removed records for extra seed (for symmetric link updates)
+              const { linkChange } = linkChangeResult;
+              if (linkChange.changeType !== 'reorder') {
+                const mergeResult = mergeExtraSeedRecords(
+                  extraSeedMap,
+                  linkField.foreignTableId(),
+                  existingLinks
+                );
+                if (mergeResult.isErr()) return err(mergeResult.error);
+              }
+
+              // Build link update operations
+              const linkItems = yield* normalizeLinkItems(rawValue);
+              const linkOps = yield* buildLinkUpdateOperationsFromItems(
+                linkField,
+                linkItems,
+                recordId
+              );
+              Object.assign(values, linkOps.columnValues);
+              queryExecutors.push(...linkOps.queryExecutors);
+            }
             continue;
           }
 
@@ -356,6 +400,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             continue;
           }
 
+          valueChangeFieldIds.push(field.id());
           const dbFieldNameResult = field.dbFieldName();
           if (dbFieldNameResult.isErr()) {
             continue;
@@ -392,11 +437,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             await executor(db);
           }
 
+          // Build impact hint from collected changes
+          const linkChangeFieldIds = collectedLinkChanges.relationChangeFieldIds;
           const computedResult = await this.runComputedUpdate(
             context,
             table,
             record,
             'update',
+            buildImpactHint(valueChangeFieldIds, linkChangeFieldIds),
             finalizeExtraSeedRecords(extraSeedMap)
           );
           if (computedResult.isErr()) {
@@ -486,6 +534,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     table: core.Table,
     record: core.TableRecord,
     changeType: 'insert' | 'update' | 'delete',
+    impact: UpdateImpactHint | undefined = undefined,
     extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = []
   ): Promise<Result<void, DomainError>> {
     const changedFieldIds = record
@@ -497,6 +546,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       changedFieldIds,
       changedRecordIds: [record.id()],
       changeType,
+      impact,
     });
     if (planResult.isErr()) return err(planResult.error);
     const plan = {
@@ -581,6 +631,8 @@ const normalizeLinkItems = (rawValue: unknown): Result<ReadonlyArray<LinkItem>, 
   return ok(normalized);
 };
 
+// Note: classifyLinkChange logic has been moved to LinkChangeCollectorVisitor
+
 const resolveFkHostTableName = (field: core.LinkField): Result<string, DomainError> => {
   return field
     .fkHostTableName()
@@ -588,15 +640,14 @@ const resolveFkHostTableName = (field: core.LinkField): Result<string, DomainErr
     .map((split) => (split.schema ? `${split.schema}.${split.tableName}` : split.tableName));
 };
 
-const buildLinkUpdateOperations = (
+const buildLinkUpdateOperationsFromItems = (
   field: core.LinkField,
-  rawValue: unknown,
-  recordId: string
+  linkItems: ReadonlyArray<LinkItem>,
+  recordId: string,
+  seed: FieldInsertResult<DynamicDB> = { columnValues: {}, queryExecutors: [] }
 ): Result<FieldInsertResult<DynamicDB>, DomainError> => {
   return safeTry<FieldInsertResult<DynamicDB>, DomainError>(function* () {
-    const columnValues: Record<string, unknown> = {};
-    const queryExecutors: QueryExecutor<DynamicDB>[] = [];
-    const linkItems = yield* normalizeLinkItems(rawValue);
+    const { columnValues, queryExecutors } = seed;
 
     const relationship = field.relationship().toString();
     const hasOrderColumn = field.hasOrderColumn();
@@ -678,12 +729,24 @@ const loadExistingLinkRecordIds = async (
 ): Promise<Result<string[], DomainError>> => {
   const relationship = field.relationship().toString();
 
-  const readRows = async (targetTable: string, columnName: string, whereColumn: string) => {
-    const rows = await db
+  const orderColumnNameResult = field.hasOrderColumn() ? field.orderColumnName() : ok(null);
+  if (orderColumnNameResult.isErr()) return err(orderColumnNameResult.error);
+  const orderColumnName = orderColumnNameResult.value;
+
+  const readRows = async (
+    targetTable: string,
+    columnName: string,
+    whereColumn: string,
+    orderColumn: string | null
+  ) => {
+    let query = db
       .selectFrom(targetTable)
       .select(sql.ref(columnName).as('record_id'))
-      .where(whereColumn, '=', recordId)
-      .execute();
+      .where(whereColumn, '=', recordId);
+    if (orderColumn) {
+      query = query.orderBy(orderColumn, 'asc');
+    }
+    const rows = await query.execute();
 
     return rows
       .map((row) => row.record_id)
@@ -702,7 +765,8 @@ const loadExistingLinkRecordIds = async (
       const rows = await readRows(
         junctionTableResult.value,
         foreignKeyResult.value,
-        selfKeyResult.value
+        selfKeyResult.value,
+        orderColumnName
       );
       return ok(rows);
     }
@@ -728,7 +792,12 @@ const loadExistingLinkRecordIds = async (
       const selfKeyResult = field.selfKeyNameString();
       if (selfKeyResult.isErr()) return err(selfKeyResult.error);
 
-      const rows = await readRows(foreignTableResult.value, RECORD_ID_COLUMN, selfKeyResult.value);
+      const rows = await readRows(
+        foreignTableResult.value,
+        RECORD_ID_COLUMN,
+        selfKeyResult.value,
+        orderColumnName
+      );
       return ok(rows);
     }
 
@@ -764,6 +833,13 @@ const mergeExtraSeedRecords = (
 
   extraSeedMap.set(tableId.toString(), entry);
   return ok(undefined);
+};
+
+const buildImpactHint = (
+  valueFieldIds: ReadonlyArray<core.FieldId>,
+  linkFieldIds: ReadonlyArray<core.FieldId>
+): UpdateImpactHint => {
+  return { valueFieldIds, linkFieldIds };
 };
 
 const finalizeExtraSeedRecords = (

@@ -3,6 +3,7 @@ import { NuqsAdapter } from 'nuqs/adapters/tanstack-router';
 import { Toaster } from 'sonner';
 
 import appCss from '../styles.css?url';
+import { LogPanel } from '@/components/playground/LogPanel';
 
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -50,6 +51,8 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   component: () => (
     <NuqsAdapter>
       <Outlet />
+      {/* Log panel for monitoring computed field updates and other backend logs */}
+      {!import.meta.env.SSR && <LogPanel />}
     </NuqsAdapter>
   ),
 });

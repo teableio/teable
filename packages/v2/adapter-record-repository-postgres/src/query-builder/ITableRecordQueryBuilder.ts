@@ -102,6 +102,12 @@ export interface ITableRecordQueryBuilder {
   orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this;
 
   /**
+   * Filter by record ID.
+   * @param recordId - The record ID to filter by
+   */
+  whereRecordId(recordId: string): this;
+
+  /**
    * Prepare the query builder by loading any required data.
    * Called by the manager before build().
    * Each builder decides what data it needs to prepare.

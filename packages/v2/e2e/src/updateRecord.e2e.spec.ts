@@ -418,4 +418,281 @@ describe('v2 http updateRecord (e2e)', () => {
     expect(finalLinks?.some((link) => link.id === taskA.id)).toBe(false);
     expect(finalLinks?.some((link) => link.id === taskB.id)).toBe(true);
   });
+
+  it('cascades lookup values across multiple tables', async () => {
+    const contactScoreFieldId = createFieldId();
+    const contactScoreLabelId = createFieldId();
+    const contactScoreLookupId = createFieldId();
+
+    const contacts = await createTable({
+      baseId,
+      name: 'Cascade Contacts',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', id: contactScoreFieldId, name: 'Score' },
+        {
+          type: 'formula',
+          id: contactScoreLabelId,
+          name: 'Score Label',
+          options: { expression: `CONCATENATE("Score: ", {${contactScoreFieldId}})` },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const contactNameFieldId = contacts.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!contactNameFieldId) throw new Error('Missing primary field for contacts table');
+
+    const linkToContactId = createFieldId();
+
+    const deals = await createTable({
+      baseId,
+      name: 'Cascade Deals',
+      fields: [
+        { type: 'singleLineText', name: 'Deal', isPrimary: true },
+        {
+          type: 'link',
+          id: linkToContactId,
+          name: 'Contact',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: contacts.id,
+            lookupFieldId: contactNameFieldId,
+          },
+        },
+        {
+          type: 'lookup',
+          id: contactScoreLookupId,
+          name: 'Contact Score',
+          options: {
+            linkFieldId: linkToContactId,
+            foreignTableId: contacts.id,
+            lookupFieldId: contactScoreLabelId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const dealNameFieldId = deals.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!dealNameFieldId) throw new Error('Missing primary field for deals table');
+
+    const accountDealLinkId = createFieldId();
+    const accountDealScoreLabelId = createFieldId();
+
+    const accounts = await createTable({
+      baseId,
+      name: 'Cascade Accounts',
+      fields: [
+        { type: 'singleLineText', name: 'Account', isPrimary: true },
+        {
+          type: 'link',
+          id: accountDealLinkId,
+          name: 'Deal',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: deals.id,
+            lookupFieldId: dealNameFieldId,
+          },
+        },
+        {
+          type: 'lookup',
+          id: accountDealScoreLabelId,
+          name: 'Deal Score Label',
+          options: {
+            linkFieldId: accountDealLinkId,
+            foreignTableId: deals.id,
+            lookupFieldId: contactScoreLookupId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const accountNameFieldId = accounts.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!accountNameFieldId) throw new Error('Missing primary field for accounts table');
+
+    const contact = await createRecord(contacts.id, {
+      [contactNameFieldId]: 'Sam',
+      [contactScoreFieldId]: 2,
+    });
+
+    const deal = await createRecord(deals.id, {
+      [dealNameFieldId]: 'Deal X',
+      [linkToContactId]: [{ id: contact.id }],
+    });
+
+    const account = await createRecord(accounts.id, {
+      [accountNameFieldId]: 'Account 1',
+      [accountDealLinkId]: [{ id: deal.id }],
+    });
+
+    let accountsRecords = await listRecords(accounts.id);
+    let stored = accountsRecords.find((r) => r.id === account.id);
+    expectLookupValue(stored?.fields[accountDealScoreLabelId], 'Score: 2');
+
+    await updateRecord(contacts.id, contact.id, {
+      [contactScoreFieldId]: 5,
+    });
+
+    accountsRecords = await listRecords(accounts.id);
+    stored = accountsRecords.find((r) => r.id === account.id);
+    expectLookupValue(stored?.fields[accountDealScoreLabelId], 'Score: 5');
+  });
+
+  it('updates lookup values when link relations change', async () => {
+    const levelFieldId = createFieldId();
+
+    const people = await createTable({
+      baseId,
+      name: 'People',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', id: levelFieldId, name: 'Level' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const peopleNameFieldId = people.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!peopleNameFieldId) throw new Error('Missing primary field for people table');
+
+    const linkFieldId = createFieldId();
+    const lookupFieldId = createFieldId();
+
+    const teams = await createTable({
+      baseId,
+      name: 'Teams',
+      fields: [
+        { type: 'singleLineText', name: 'Team', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Members',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: people.id,
+            lookupFieldId: peopleNameFieldId,
+          },
+        },
+        {
+          type: 'lookup',
+          id: lookupFieldId,
+          name: 'Member Levels',
+          options: {
+            linkFieldId,
+            foreignTableId: people.id,
+            lookupFieldId: levelFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const teamNameFieldId = teams.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!teamNameFieldId) throw new Error('Missing primary field for teams table');
+
+    const alice = await createRecord(people.id, {
+      [peopleNameFieldId]: 'Alice',
+      [levelFieldId]: 1,
+    });
+    const bob = await createRecord(people.id, {
+      [peopleNameFieldId]: 'Bob',
+      [levelFieldId]: 2,
+    });
+
+    const team = await createRecord(teams.id, {
+      [teamNameFieldId]: 'Alpha',
+      [linkFieldId]: [{ id: alice.id }],
+    });
+
+    let teamRecords = await listRecords(teams.id);
+    let stored = teamRecords.find((r) => r.id === team.id);
+    expect((stored?.fields[lookupFieldId] as number[] | undefined)?.sort()).toEqual([1]);
+
+    await updateRecord(teams.id, team.id, {
+      [linkFieldId]: [{ id: alice.id }, { id: bob.id }],
+    });
+
+    teamRecords = await listRecords(teams.id);
+    stored = teamRecords.find((r) => r.id === team.id);
+    expect((stored?.fields[lookupFieldId] as number[] | undefined)?.sort()).toEqual([1, 2]);
+
+    await updateRecord(teams.id, team.id, {
+      [linkFieldId]: [{ id: bob.id }],
+    });
+
+    teamRecords = await listRecords(teams.id);
+    stored = teamRecords.find((r) => r.id === team.id);
+    expect((stored?.fields[lookupFieldId] as number[] | undefined)?.sort()).toEqual([2]);
+  });
+
+  it('updates symmetric link values when relations change', async () => {
+    const tasks = await createTable({
+      baseId,
+      name: 'Tasks B',
+      fields: [{ type: 'singleLineText', name: 'Task', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+
+    const taskNameFieldId = tasks.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!taskNameFieldId) {
+      throw new Error('Missing primary field for symmetric link test');
+    }
+
+    const projectTaskLinkId = createFieldId();
+
+    const projects = await createTable({
+      baseId,
+      name: 'Projects With Link',
+      fields: [
+        { type: 'singleLineText', name: 'Project', isPrimary: true },
+        {
+          type: 'link',
+          id: projectTaskLinkId,
+          name: 'Tasks',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: tasks.id,
+            lookupFieldId: taskNameFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const projectNameFieldId = projects.fields.find((f) => f.isPrimary)?.id ?? '';
+    if (!projectNameFieldId) {
+      throw new Error('Missing project primary field for symmetric link test');
+    }
+
+    const projectLinkField = projects.fields.find((f) => f.id === projectTaskLinkId);
+    if (!projectLinkField || projectLinkField.type !== 'link') {
+      throw new Error('Missing project link field');
+    }
+    const symmetricFieldId = projectLinkField.options.symmetricFieldId ?? '';
+    if (!symmetricFieldId) throw new Error('Missing symmetric link field id');
+
+    const task = await createRecord(tasks.id, {
+      [taskNameFieldId]: 'Task 1',
+    });
+
+    const project = await createRecord(projects.id, {
+      [projectNameFieldId]: 'Project 1',
+      [projectTaskLinkId]: [{ id: task.id }],
+    });
+
+    let taskRecords = await listRecords(tasks.id);
+    let taskRow = taskRecords.find((r) => r.id === task.id);
+    const symmetricLinks = taskRow?.fields[symmetricFieldId] as Array<{ id: string }>;
+    expect(symmetricLinks?.some((link) => link.id === project.id)).toBe(true);
+
+    await updateRecord(projects.id, project.id, {
+      [projectTaskLinkId]: [],
+    });
+
+    taskRecords = await listRecords(tasks.id);
+    taskRow = taskRecords.find((r) => r.id === task.id);
+    const updatedLinks = taskRow?.fields[symmetricFieldId] as Array<{ id: string }>;
+    expect(updatedLinks?.some((link) => link.id === project.id)).toBe(false);
+  });
 });

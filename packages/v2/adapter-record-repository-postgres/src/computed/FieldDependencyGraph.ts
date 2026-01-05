@@ -7,12 +7,34 @@ import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 
+/**
+ * Edge kind for field dependencies.
+ *
+ * - `same_record`: Dependency within the same record (no link traversal needed)
+ * - `cross_record`: Dependency across records via link (includes same-table self-referencing)
+ */
+export type FieldDependencyEdgeKind = 'same_record' | 'cross_record';
+
+/**
+ * Semantic hint for debugging and logging (does not affect propagation logic).
+ */
+export type FieldDependencyEdgeSemantic =
+  | 'formula_ref'
+  | 'lookup_source'
+  | 'lookup_link'
+  | 'link_title'
+  | 'rollup_source';
+
 export type FieldDependencyEdge = {
   fromFieldId: FieldId;
   toFieldId: FieldId;
   fromTableId: TableId;
   toTableId: TableId;
-  source: 'reference' | 'legacy';
+  kind: FieldDependencyEdgeKind;
+  /** For cross_record edges: which link field to use for dirty propagation */
+  linkFieldId?: FieldId;
+  /** Semantic hint for debugging (does not affect propagation) */
+  semantic?: FieldDependencyEdgeSemantic;
 };
 
 export type LookupOptionsMeta = {
@@ -68,7 +90,7 @@ export class FieldDependencyGraph {
 
         const fieldsById = new Map(fields.map((field) => [field.id.toString(), field]));
 
-        const legacyEdges: FieldDependencyEdge[] = [];
+        const derivedEdges: FieldDependencyEdge[] = [];
         for (const field of fields) {
           const type = field.type;
           if (type === 'lookup' || type === 'rollup') {
@@ -84,19 +106,26 @@ export class FieldDependencyGraph {
             const lookupFieldId = yield* FieldId.create(lookupOptions.lookupFieldId);
             const foreignTableId = yield* TableId.create(lookupOptions.foreignTableId);
 
-            legacyEdges.push({
+            // Lookup/Rollup depends on its link field (same record)
+            derivedEdges.push({
               fromFieldId: linkFieldId,
               toFieldId: field.id,
               fromTableId: field.tableId,
               toTableId: field.tableId,
-              source: 'legacy',
+              kind: 'same_record',
+              semantic: 'lookup_link',
             });
-            legacyEdges.push({
+
+            // Lookup/Rollup depends on source field in foreign table (cross record)
+            // Note: This is cross_record even if foreignTableId === field.tableId (self-ref link)
+            derivedEdges.push({
               fromFieldId: lookupFieldId,
               toFieldId: field.id,
               fromTableId: foreignTableId,
               toTableId: field.tableId,
-              source: 'legacy',
+              kind: 'cross_record',
+              linkFieldId,
+              semantic: type === 'rollup' ? 'rollup_source' : 'lookup_source',
             });
           }
 
@@ -111,17 +140,21 @@ export class FieldDependencyGraph {
             }
             const lookupFieldId = yield* FieldId.create(options.lookupFieldId);
             const foreignTableId = yield* TableId.create(options.foreignTableId);
-            legacyEdges.push({
+
+            // Link's stored title depends on the lookup field in foreign table (cross record)
+            derivedEdges.push({
               fromFieldId: lookupFieldId,
               toFieldId: field.id,
               fromTableId: foreignTableId,
               toTableId: field.tableId,
-              source: 'legacy',
+              kind: 'cross_record',
+              linkFieldId: field.id, // The link field itself is used for traversal
+              semantic: 'link_title',
             });
           }
         }
 
-        const edges = mergeEdges(referenceEdges, legacyEdges);
+        const edges = mergeEdges(referenceEdges, derivedEdges);
         return ok({ fieldsById, edges });
       }.bind(this)
     );
@@ -137,6 +170,7 @@ export class FieldDependencyGraph {
           'f.table_id as table_id',
           'f.type as type',
           'f.is_computed as is_computed',
+          'f.is_lookup as is_lookup',
           'f.options as options',
           'f.lookup_options as lookup_options',
           'f.meta as meta',
@@ -155,16 +189,26 @@ export class FieldDependencyGraph {
         const options =
           row.type === 'link' ? parseLinkOptions(row.options) : ok<LinkOptionsMeta | null>(null);
         if (options.isErr()) return err(options.error);
+
+        // Lookup fields are stored with `is_lookup=true` and type set to inner field type (v1 format)
+        // Rollup fields have type='rollup'
+        const isLookupField = Boolean(row.is_lookup);
+        const isRollupField = row.type === 'rollup';
         const lookupOptions =
-          row.type === 'lookup' || row.type === 'rollup'
+          isLookupField || isRollupField
             ? parseLookupOptions(row.lookup_options)
             : ok<LookupOptionsMeta | null>(null);
         if (lookupOptions.isErr()) return err(lookupOptions.error);
 
+        // Normalize the type for graph processing:
+        // - lookup fields: use 'lookup' as type (regardless of inner field type)
+        // - other fields: use stored type
+        const normalizedType = isLookupField ? 'lookup' : row.type;
+
         fields.push({
           id: fieldId.value,
           tableId: tableId.value,
-          type: row.type,
+          type: normalizedType,
           isComputed: Boolean(row.is_computed),
           options: options.value,
           lookupOptions: lookupOptions.value,
@@ -196,6 +240,7 @@ export class FieldDependencyGraph {
           'r.to_field_id as to_field_id',
           'f_from.table_id as from_table_id',
           'f_to.table_id as to_table_id',
+          'f_to.type as to_field_type',
           't_from.base_id as from_base_id',
           't_to.base_id as to_base_id',
         ])
@@ -222,12 +267,31 @@ export class FieldDependencyGraph {
         const toTableId = TableId.create(row.to_table_id);
         if (toTableId.isErr()) return err(toTableId.error);
 
+        const toFieldType = row.to_field_type;
+        const isSameTable = fromTableId.value.equals(toTableId.value);
+
+        // For lookup/rollup/link fields, their dependencies are handled in derivedEdges.
+        // Skip them here to avoid duplicates, especially for self-referencing links
+        // where fromTableId === toTableId but it's still cross_record.
+        if (
+          isSameTable &&
+          (toFieldType === 'lookup' || toFieldType === 'rollup' || toFieldType === 'link')
+        ) {
+          // These cross-record dependencies (even for self-referencing links)
+          // are correctly created in derivedEdges with linkFieldId
+          continue;
+        }
+
+        // Reference edges from the reference table:
+        // - If different tables, it's cross_record (formula depends on lookup/link value)
+        // - If same table, it's same_record (formula directly references same-table field)
         edges.push({
           fromFieldId: fromFieldId.value,
           toFieldId: toFieldId.value,
           fromTableId: fromTableId.value,
           toTableId: toTableId.value,
-          source: 'reference',
+          kind: isSameTable ? 'same_record' : 'cross_record',
+          semantic: 'formula_ref',
         });
       }
 
@@ -244,17 +308,21 @@ export class FieldDependencyGraph {
 
 const mergeEdges = (
   referenceEdges: ReadonlyArray<FieldDependencyEdge>,
-  legacyEdges: ReadonlyArray<FieldDependencyEdge>
+  derivedEdges: ReadonlyArray<FieldDependencyEdge>
 ): ReadonlyArray<FieldDependencyEdge> => {
   const map = new Map<string, FieldDependencyEdge>();
   const add = (edge: FieldDependencyEdge) => {
-    const key = `${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}`;
+    // Key includes kind and linkFieldId to distinguish different propagation paths
+    const linkKey = edge.linkFieldId?.toString() ?? '';
+    const key = `${edge.fromFieldId.toString()}|${edge.toFieldId.toString()}|${edge.kind}|${linkKey}`;
     if (!map.has(key)) {
       map.set(key, edge);
     }
   };
+  // Process derived edges FIRST so they take priority over reference edges.
+  // Derived edges have more specific semantics (e.g., lookup_link vs formula_ref).
+  derivedEdges.forEach(add);
   referenceEdges.forEach(add);
-  legacyEdges.forEach(add);
   return [...map.values()];
 };
 

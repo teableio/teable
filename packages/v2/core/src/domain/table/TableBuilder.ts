@@ -271,6 +271,15 @@ export class TableBuilder {
     );
   }
 
+  /**
+   * Add a field directly to the table builder from a Result.
+   * This is useful for fields created outside the builder pattern (e.g., pending lookup fields).
+   */
+  addFieldFromResult(result: Result<Field, DomainError>): TableBuilder {
+    this.addFieldResult(result);
+    return this;
+  }
+
   private addViewResult(result: Result<View, DomainError>): void {
     result.match(
       (view) => this.addView(view),
