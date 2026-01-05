@@ -153,7 +153,8 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
       flattenNestedArray?: boolean;
     }
   ): string {
-    const { targetField } = opts;
+    const { targetField, orderByField } = opts;
+    const orderClause = orderByField ? ` ORDER BY ${orderByField}` : '';
     switch (fn) {
       case 'sum':
         return `COALESCE(SUM(${fieldExpression}), 0)`;
@@ -181,11 +182,11 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
         return `(COUNT(CASE WHEN ${fieldExpression} THEN 1 END) % 2 = 1)`;
       case 'array_join':
       case 'concatenate':
-        return `GROUP_CONCAT(${fieldExpression}, ', ')`;
+        return `GROUP_CONCAT(${fieldExpression}, ', '${orderClause})`;
       case 'array_unique':
         return `json_group_array(DISTINCT ${fieldExpression})`;
       case 'array_compact':
-        return `json_group_array(CASE WHEN ${fieldExpression} IS NOT NULL AND CAST(${fieldExpression} AS TEXT) <> '' THEN ${fieldExpression} END)`;
+        return `json_group_array(CASE WHEN ${fieldExpression} IS NOT NULL AND CAST(${fieldExpression} AS TEXT) <> '' THEN ${fieldExpression} END${orderClause})`;
       default:
         throw new Error(`Unsupported rollup function: ${fn}`);
     }

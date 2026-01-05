@@ -433,6 +433,56 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       }
     });
 
+    it('should recompute values after updating sort/limit configs', async () => {
+      let tempField: IFieldVo | undefined;
+      try {
+        tempField = await createField(host.id, {
+          name: 'Top Scores Temp',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            filter: statusMatchFilter,
+            sort: {
+              fieldId: scoreId,
+              order: SortFunc.Desc,
+            },
+            limit: 1,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        let activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[tempField.id]).toEqual(['Beta']);
+
+        tempField = await convertField(host.id, tempField.id, {
+          name: tempField.name,
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: tempField.options,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            filter: statusMatchFilter,
+            sort: {
+              fieldId: scoreId,
+              order: SortFunc.Asc,
+            },
+            limit: 1,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[tempField.id]).toEqual(['Gamma']);
+      } finally {
+        if (tempField) {
+          await deleteField(host.id, tempField.id);
+        }
+      }
+    });
+
     it('sorts referenced lookup fields with limits applied', async () => {
       const colors = await createTable(baseId, {
         name: 'ConditionalLookup_Sort_Colors',
