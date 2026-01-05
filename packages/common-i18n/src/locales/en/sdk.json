@@ -1182,6 +1182,8 @@
       "propertyParseError": "Failed to parse view property",
       "primaryFieldCannotBeHidden": "Primary field cannot be hidden",
       "filterUnsupportedFieldType": "Filter unsupported field type",
+      "filterInvalidOperator": "Filter has invalid operator for this field type",
+      "filterInvalidOperatorMode": "Filter has invalid operator and mode combination",
       "sortUnsupportedFieldType": "Sort unsupported field type",
       "groupUnsupportedFieldType": "Group unsupported field type",
       "anchorNotFound": "Anchor view not found",

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
+import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
 import { StorageModule } from '../attachments/plugins/storage.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldDuplicateModule } from '../field/field-duplicate/field-duplicate.module';
@@ -39,6 +40,7 @@ import { DbConnectionService } from './db-connection.service';
     RecordModule,
     ComputedModule,
     StorageModule,
+    AttachmentsStorageModule,
     NotificationModule,
     BaseImportAttachmentsModule,
     BaseImportCsvModule,

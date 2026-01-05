@@ -18,14 +18,7 @@ interface ITemplateListProps extends ITemplateBaseProps {
 const PAGE_SIZE = 2 * 3 * 2;
 
 export const TemplateList = (props: ITemplateListProps) => {
-  const {
-    currentCategoryId,
-    search,
-    onClickUseTemplateHandler,
-    onClickTemplateCardHandler,
-    className,
-    isFeatured,
-  } = props;
+  const { currentCategoryId, search, onClickTemplateCardHandler, className, isFeatured } = props;
   const { t } = useTranslation(['common']);
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ReactQueryKeys.publishedTemplateList(currentCategoryId, search, isFeatured),
@@ -58,9 +51,9 @@ export const TemplateList = (props: ITemplateListProps) => {
       >
         {currentTemplateList?.map((template) => (
           <TemplateCard
+            size="md"
             key={template.id}
             template={template}
-            onClickUseTemplateHandler={onClickUseTemplateHandler}
             onClickTemplateCardHandler={onClickTemplateCardHandler}
           />
         ))}

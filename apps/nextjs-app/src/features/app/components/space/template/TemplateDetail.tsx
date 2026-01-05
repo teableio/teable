@@ -9,7 +9,7 @@ import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { useIsMobile } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Badge, Button, cn, useToast } from '@teable/ui-lib/shadcn';
-import { ArrowUpRight, ChevronLeft, Link as LinkIcon } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, Share2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
@@ -136,7 +136,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
               </Button>
             </TemplatePreviewSheet>
             <Button className="flex-1" variant="outline" size="xs" onClick={handleCopyPermalink}>
-              <LinkIcon className="size-3" />
+              <Share2 className="size-3" />
               {t('common:template.non.share')}
             </Button>
             <Button
@@ -165,7 +165,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           </div>
           <RecommendTemplate
             filterTemplateIds={filterTemplateIds}
-            onTemplateClick={onTemplateClick}
+            onClickTemplateCardHandler={onTemplateClick}
           />
         </div>
       </div>
@@ -187,16 +187,18 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
               </Button>
             )}
             <h1 className="truncate text-lg font-semibold">{name}</h1>
-            {categoryNames.length > 0 &&
-              categoryNames.map((name) => (
-                <Badge
-                  variant="secondary"
-                  className="px-2 text-xs font-normal text-muted-foreground"
-                  key={name}
-                >
-                  {name}
-                </Badge>
-              ))}
+            <div className="flex gap-2">
+              {categoryNames.length > 0 &&
+                categoryNames.map((name) => (
+                  <Badge
+                    variant="secondary"
+                    className="px-2 text-xs font-normal text-muted-foreground"
+                    key={name}
+                  >
+                    {name}
+                  </Badge>
+                ))}
+            </div>
           </div>
           <p
             className={cn(
@@ -209,9 +211,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             {description}
           </p>
         </div>
-        <div className="my-3 flex gap-2">
+        <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={handleCopyPermalink}>
-            <LinkIcon className="size-4" />
+            <Share2 className="size-4" />
             {t('common:template.non.share')}
           </Button>
           <Button size="sm" onClick={() => createTemplateToBase()} disabled={isLoading}>
@@ -232,7 +234,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
         )}
         <RecommendTemplate
           filterTemplateIds={filterTemplateIds}
-          onTemplateClick={onTemplateClick}
+          onClickTemplateCardHandler={onTemplateClick}
         />
       </div>
     </div>

@@ -1,4 +1,11 @@
-import { ArrowUpDown, Filter as FilterIcon, Share2, Settings, Plus } from '@teable/icons';
+import {
+  ArrowUpDown,
+  Filter as FilterIcon,
+  Share2,
+  Settings,
+  Plus,
+  AlertTriangle,
+} from '@teable/icons';
 import type { GalleryView } from '@teable/sdk';
 import {
   Sort,
@@ -100,7 +107,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
           )
         }
       >
-        {(text, isActive) => (
+        {(text, isActive, hasWarning) => (
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
@@ -108,11 +115,15 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
             className={cn(
               'max-w-xs',
               isActive &&
-                'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30'
+                'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
+              hasWarning && 'border-yellow-500'
             )}
             textClassName="@2xl/toolbar:inline"
           >
-            <FilterIcon className="size-4 text-sm" />
+            <>
+              <FilterIcon className="size-4 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 text-yellow-500" />}
+            </>
           </ToolBarButton>
         )}
       </ViewFilter>

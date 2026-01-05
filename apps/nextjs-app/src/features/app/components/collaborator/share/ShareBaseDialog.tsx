@@ -40,16 +40,14 @@ export const ShareBaseDialog = (props: IShareBaseDialogProps) => {
           )}
         </DialogTrigger>
         <DialogContent className="max-h-[90vh] max-w-full overflow-y-auto rounded-xl p-6 md:w-[480px]">
-          <div className="overflow-hidden">
-            <ShareBaseContent
-              baseId={base.id}
-              baseName={base.name}
-              role={base.role}
-              enabledAuthority={base.enabledAuthority}
-              onClose={onClose}
-              onPublishBase={() => setPublishOpen(true)}
-            />
-          </div>
+          <ShareBaseContent
+            baseId={base.id}
+            baseName={base.name}
+            role={base.role}
+            enabledAuthority={base.enabledAuthority}
+            onClose={onClose}
+            onPublishBase={() => setPublishOpen(true)}
+          />
         </DialogContent>
       </Dialog>
 

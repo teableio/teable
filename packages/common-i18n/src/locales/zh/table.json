@@ -400,6 +400,9 @@
         "medium": "中",
         "high": "高"
       },
+      "hint": {
+        "imageInputSupported": "💡 该模型支持图片输入，可以选择附件字段作为参考图片进行生成"
+      },
       "autoFill": {
         "title": "自动更新",
         "tip": "开启后，当前字段将跟随 AI 配置的内容变化而同步更新"
@@ -989,6 +992,7 @@
       "sqlQuery": "SQL 查询",
       "querying": "查询中...",
       "queryFailed": "查询失败",
+      "aborted": "已中止",
       "noData": "无返回数据",
       "dataFormatError": "数据格式错误",
       "unsupportedQueryType": "不支持的查询类型: {{toolName}}",

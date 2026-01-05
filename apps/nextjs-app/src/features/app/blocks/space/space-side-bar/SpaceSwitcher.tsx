@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
 import { Admin, Check, ChevronDown, Database, Plus, Settings, Trash2 } from '@teable/icons';
 import {
-  BillingProductLevel,
   createSpace,
   getSubscriptionSummaryList,
   PinType,
@@ -13,7 +12,6 @@ import { ReactQueryKeys } from '@teable/sdk';
 import { useSession } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
-  Badge,
   Button,
   cn,
   Command,
@@ -35,46 +33,11 @@ import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { Level } from '../../../components/billing/Level';
 import { SpaceAvatar } from '../../../components/space/SpaceAvatar';
 import { useSpaceList } from '../hooks';
 import { usePinMap } from '../usePinMap';
 import { StarButton } from './StarButton';
-
-interface ISubscriptionBadgeProps {
-  level?: BillingProductLevel;
-}
-
-const SubscriptionBadge = ({ level }: ISubscriptionBadgeProps) => {
-  if (!level) return null;
-
-  const badgeConfig: Record<BillingProductLevel, { className: string; label: string }> = {
-    [BillingProductLevel.Free]: {
-      className: 'bg-zinc-100 text-zinc-700 hover:bg-zinc-100',
-      label: 'Free',
-    },
-    [BillingProductLevel.Pro]: {
-      className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
-      label: 'Pro',
-    },
-    [BillingProductLevel.Business]: {
-      className: 'bg-blue-100 text-blue-700 hover:bg-blue-100',
-      label: 'Business',
-    },
-    [BillingProductLevel.Enterprise]: {
-      className: 'bg-zinc-900 text-neutral-50 hover:bg-zinc-900',
-      label: 'Enterprise',
-    },
-  };
-
-  const config = badgeConfig[level];
-  if (!config) return null;
-
-  return (
-    <Badge variant="secondary" className={cn('shrink-0 border-transparent', config.className)}>
-      {config.label}
-    </Badge>
-  );
-};
 
 export const SpaceSwitcher = () => {
   const router = useRouter();
@@ -213,7 +176,7 @@ export const SpaceSwitcher = () => {
                       <div className="flex min-w-0 grow items-center gap-2">
                         <SpaceAvatar name={space.name} className="size-6" />
                         <span className="truncate text-sm ">{space.name}</span>
-                        {isCloud && <SubscriptionBadge level={subscription?.level} />}
+                        {isCloud && <Level level={subscription?.level} />}
                         <StarButton
                           id={space.id}
                           type={PinType.Space}

@@ -8,12 +8,6 @@ import {
   generateTemplateId,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  CollaboratorType,
-  ResourceType,
-  BaseNodeResourceType,
-  BaseDuplicateMode,
-} from '@teable/openapi';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
@@ -26,6 +20,13 @@ import type {
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
+import {
+  CollaboratorType,
+  ResourceType,
+  BaseNodeResourceType,
+  BaseDuplicateMode,
+  UploadType,
+} from '@teable/openapi';
 import { keyBy, isNumber, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -35,6 +36,9 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { updateOrder } from '../../utils/update-order';
+import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import { ATTACHMENT_LG_THUMBNAIL_HEIGHT } from '../attachments/constant';
+import StorageAdapter from '../attachments/plugins/adapter';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -55,6 +59,7 @@ export class BaseService {
     private readonly permissionService: PermissionService,
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly graphService: GraphService,
+    private readonly attachmentsStorageService: AttachmentsStorageService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -619,6 +624,8 @@ export class BaseService {
         resourceType: ResourceType.Base,
       },
     });
+
+    await this.cleanRelativeNodesData(baseId);
   }
 
   async moveBase(baseId: string, moveBaseRo: IMoveBaseRo) {
@@ -718,6 +725,18 @@ export class BaseService {
           defaultUrl,
         };
 
+        // Generate thumbnail for template cover image
+        if (cover) {
+          const coverThumbnail = await this.cropTemplateCoverImage(cover);
+
+          if (coverThumbnail?.lgThumbnailPath && coverThumbnail?.smThumbnailPath) {
+            cover.thumbnailPath = {
+              lg: coverThumbnail.lgThumbnailPath,
+              sm: coverThumbnail.smThumbnailPath,
+            };
+          }
+        }
+
         // if already published, update template
         if (template) {
           const updatedTemplate = await prisma.template.update({
@@ -739,6 +758,7 @@ export class BaseService {
               id: true,
             },
           });
+
           return {
             baseId: snapshot.baseId,
             defaultUrl,
@@ -820,6 +840,42 @@ export class BaseService {
 
   async cleanTemplateRelatedData(baseId: string) {
     await this.permanentEmptyBaseRelatedData(baseId);
+  }
+
+  /**
+   * Generate thumbnail for template cover image
+   * Template only has one cover image, so we generate thumbnail synchronously (no queue needed)
+   */
+  private async cropTemplateCoverImage(cover: {
+    path: string;
+    mimetype?: string;
+    height?: number;
+  }) {
+    const { path, mimetype, height } = cover;
+
+    // Only process images with height info
+    if (!mimetype?.startsWith('image/') || !height) {
+      return;
+    }
+
+    // Only generate thumbnail if the image is larger than the thumbnail size
+    if (height <= ATTACHMENT_LG_THUMBNAIL_HEIGHT) {
+      return;
+    }
+
+    try {
+      const bucket = StorageAdapter.getBucket(UploadType.Template);
+      const result = await this.attachmentsStorageService.cropTableImage(bucket, path, height);
+      const { lgThumbnailPath, smThumbnailPath } = result;
+      this.logger.log(`Template cover thumbnail generated for path: ${path}`);
+      return {
+        lgThumbnailPath,
+        smThumbnailPath,
+      };
+    } catch (error) {
+      // Log error but don't fail the publish operation
+      this.logger.error(`Failed to generate template cover thumbnail: ${(error as Error).message}`);
+    }
   }
 
   private async createTemplateBySnapshot(

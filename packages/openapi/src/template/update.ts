@@ -20,6 +20,12 @@ export const templateCoverRoSchema = notifyVoSchema
   .extend({
     name: z.string(),
     id: z.string().startsWith(IdPrefix.Attachment),
+    thumbnailPath: z
+      .object({
+        lg: z.string(),
+        sm: z.string(),
+      })
+      .optional(),
   });
 
 export type ITemplateCoverRo = z.infer<typeof templateCoverRoSchema>;
