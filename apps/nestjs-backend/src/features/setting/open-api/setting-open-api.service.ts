@@ -11,9 +11,13 @@ import type {
   ISettingVo,
   ITestLLMRo,
   ITestLLMVo,
+  IBatchTestLLMRo,
+  IBatchTestLLMVo,
+  IModelTestResult,
+  LLMProvider,
 } from '@teable/openapi';
-import { chatModelAbilityType, UploadType } from '@teable/openapi';
-import { generateText, tool } from 'ai';
+import { chatModelAbilityType, UploadType, LLMProviderType } from '@teable/openapi';
+import { generateText, tool, experimental_generateImage } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
 import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -329,14 +333,22 @@ export class SettingOpenApiService {
   }
 
   async testLLM(testLLMRo: ITestLLMRo): Promise<ITestLLMVo> {
-    const { type, baseUrl, apiKey, models, ability, modelKey } = testLLMRo;
-    const testPrompt = 'Hello, please respond with "Connection successful!"';
+    const {
+      type,
+      baseUrl,
+      apiKey,
+      models,
+      ability,
+      modelKey,
+      testImageGeneration,
+      testImageToImage,
+    } = testLLMRo;
+
     try {
       const modelArray = models.split(',');
       const model = modelKey ? this.parseModelKey(modelKey).model : modelArray[0];
 
       const provider = modelProviders[type];
-
       const providerOptions = getAdaptedProviderOptions(type, {
         name: model,
         baseURL: baseUrl,
@@ -345,6 +357,14 @@ export class SettingOpenApiService {
       const modelProvider = provider({
         ...providerOptions,
       }) as OpenAIProvider;
+
+      // Handle image generation model testing
+      if (testImageGeneration) {
+        return await this.testImageGenerationModel(modelProvider, model, type, testImageToImage);
+      }
+
+      // Standard text model testing
+      const testPrompt = 'Hello, please respond with "Connection successful!"';
       const modelInstance = modelProvider(model) as unknown as LanguageModel;
       const { text } = await generateText({
         model: modelInstance,
@@ -371,11 +391,303 @@ export class SettingOpenApiService {
     }
   }
 
+  private async testImageGenerationModel(
+    modelProvider: OpenAIProvider,
+    model: string,
+    providerType: LLMProviderType,
+    testImageToImage?: boolean
+  ): Promise<ITestLLMVo> {
+    try {
+      // Google Gemini native image generation models use generateText with responseModalities
+      if (providerType === LLMProviderType.GOOGLE) {
+        return await this.testGoogleImageGeneration(modelProvider, model, testImageToImage);
+      }
+
+      // OpenAI-style image generation (DALL-E, etc.)
+
+      const imageModel = modelProvider.image(model);
+
+      if (testImageToImage) {
+        // Test image-to-image: provide an image as input
+        // Note: Not all image models support this, so we catch errors gracefully
+        const testImageUrl =
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        await experimental_generateImage({
+          model: imageModel,
+          prompt: 'A simple test image',
+          n: 1,
+          size: '256x256',
+          providerOptions: {
+            openai: {
+              image: testImageUrl,
+            },
+          },
+        });
+      } else {
+        // Test basic text-to-image generation
+        await experimental_generateImage({
+          model: imageModel,
+          prompt: 'A simple test: draw a small red circle',
+          n: 1,
+          size: '256x256',
+        });
+      }
+
+      return {
+        success: true,
+        response: testImageToImage
+          ? 'Image-to-image generation successful'
+          : 'Image generation successful',
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Image generation failed';
+      return {
+        success: false,
+        response: message,
+      };
+    }
+  }
+
+  /**
+   * Test Google Gemini native image generation models
+   * These models use generateText with responseModalities: ['TEXT', 'IMAGE']
+   */
+  private async testGoogleImageGeneration(
+    modelProvider: OpenAIProvider,
+    model: string,
+    testImageToImage?: boolean
+  ): Promise<ITestLLMVo> {
+    try {
+      const modelInstance = modelProvider(model) as unknown as LanguageModel;
+
+      if (testImageToImage) {
+        // Test image-to-image with a simple 1x1 pixel image
+        const testImageBase64 =
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+        const result = await generateText({
+          model: modelInstance,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  image: `data:image/png;base64,${testImageBase64}`,
+                },
+                {
+                  type: 'text',
+                  text: 'Generate a variation of this image with a red circle',
+                },
+              ],
+            },
+          ],
+          providerOptions: {
+            google: {
+              responseModalities: ['TEXT', 'IMAGE'],
+            },
+          },
+        });
+
+        // Check if we got any response (text or image parts)
+        if (result.text || result.response) {
+          return {
+            success: true,
+            response: 'Image-to-image generation successful',
+          };
+        }
+      } else {
+        // Test text-to-image generation
+        const result = await generateText({
+          model: modelInstance,
+          prompt: 'Generate an image of a simple red circle on white background',
+          providerOptions: {
+            google: {
+              responseModalities: ['TEXT', 'IMAGE'],
+            },
+          },
+        });
+
+        // Check if we got any response
+        if (result.text || result.response) {
+          return {
+            success: true,
+            response: 'Image generation successful',
+          };
+        }
+      }
+
+      return {
+        success: false,
+        response: 'No image generated',
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Image generation failed';
+      return {
+        success: false,
+        response: message,
+      };
+    }
+  }
+
   async setMailTransportConfig(setMailTransportConfigRo: ISetSettingMailTransportConfigRo) {
     const { name, transportConfig } = setMailTransportConfigRo;
     await verifyTransport(transportConfig);
     await this.settingService.updateSetting({
       [name]: transportConfig,
     });
+  }
+
+  /**
+   * Test a single model and return the result
+   * This is a non-throwing version for batch testing
+   */
+  private async testSingleModel(
+    provider: Required<LLMProvider>,
+    model: string
+  ): Promise<IModelTestResult> {
+    const { type, name: providerName, baseUrl, apiKey } = provider;
+    const modelKey = `${type}@${model}@${providerName}`;
+    const testPrompt = 'Hello, please respond with "Connection successful!"';
+
+    try {
+      const providerFactory = modelProviders[type];
+
+      if (!providerFactory) {
+        return {
+          modelKey,
+          providerName,
+          providerType: type,
+          model,
+          success: false,
+          error: `Unsupported provider type: ${type}`,
+        };
+      }
+
+      const providerOptions = getAdaptedProviderOptions(type, {
+        name: model,
+        baseURL: baseUrl,
+        apiKey,
+      });
+      const modelProvider = providerFactory({
+        ...providerOptions,
+      }) as OpenAIProvider;
+      const modelInstance = modelProvider(model) as unknown as LanguageModel;
+
+      // Test basic generation
+      await generateText({
+        model: modelInstance,
+        prompt: testPrompt,
+        temperature: 1,
+      });
+
+      // Test image support (vision capability)
+      const ability = await this.testChatModelAbility(modelInstance, [
+        chatModelAbilityType.enum.image,
+      ]);
+
+      return {
+        modelKey,
+        providerName,
+        providerType: type,
+        model,
+        success: true,
+        ability,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : unknownErrorMsg;
+      this.logger.error(`Batch test failed for model ${modelKey}: ${errorMessage}`);
+
+      return {
+        modelKey,
+        providerName,
+        providerType: type,
+        model,
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Batch test all configured LLM models
+   * Tests basic generation and image (attachment) support for each model
+   */
+  async batchTestLLM(batchTestLLMRo?: IBatchTestLLMRo): Promise<IBatchTestLLMVo> {
+    // Get providers from request or from settings
+    let providers: LLMProvider[];
+
+    if (batchTestLLMRo?.providers && batchTestLLMRo.providers.length > 0) {
+      providers = batchTestLLMRo.providers;
+    } else {
+      const setting = await this.getSetting();
+      providers = setting.aiConfig?.llmProviders ?? [];
+    }
+
+    if (providers.length === 0) {
+      return {
+        totalModels: 0,
+        testedModels: 0,
+        successCount: 0,
+        failedCount: 0,
+        results: [],
+      };
+    }
+
+    // Expand all models from all providers
+    const modelTests: { provider: Required<LLMProvider>; model: string }[] = [];
+
+    for (const provider of providers) {
+      if (!provider.apiKey || !provider.baseUrl || !provider.models) {
+        continue;
+      }
+
+      const models = provider.models
+        .split(',')
+        .map((m) => m.trim())
+        .filter(Boolean);
+      for (const model of models) {
+        modelTests.push({
+          provider: provider as Required<LLMProvider>,
+          model,
+        });
+      }
+    }
+
+    const totalModels = modelTests.length;
+
+    if (totalModels === 0) {
+      return {
+        totalModels: 0,
+        testedModels: 0,
+        successCount: 0,
+        failedCount: 0,
+        results: [],
+      };
+    }
+
+    // Run all tests in parallel with concurrency limit
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const CONCURRENCY_LIMIT = 5;
+    const results: IModelTestResult[] = [];
+
+    for (let i = 0; i < modelTests.length; i += CONCURRENCY_LIMIT) {
+      const batch = modelTests.slice(i, i + CONCURRENCY_LIMIT);
+      const batchResults = await Promise.all(
+        batch.map(({ provider, model }) => this.testSingleModel(provider, model))
+      );
+      results.push(...batchResults);
+    }
+
+    const successCount = results.filter((r) => r.success).length;
+    const failedCount = results.filter((r) => !r.success).length;
+
+    return {
+      totalModels,
+      testedModels: results.length,
+      successCount,
+      failedCount,
+      results,
+    };
   }
 }

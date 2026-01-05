@@ -814,6 +814,38 @@ export type I18nTranslations = {
                             "description": string;
                         };
                     };
+                    "batchTest": string;
+                    "testProvider": string;
+                    "testProviderTooltip": string;
+                    "batchTesting": string;
+                    "batchTestComplete": string;
+                    "batchTestResults": string;
+                    "batchTestResultsSummary": string;
+                    "batchTestNoModels": string;
+                    "modelStatus": string;
+                    "imageSupport": string;
+                    "basicGeneration": string;
+                    "supported": string;
+                    "notSupported": string;
+                    "partialSupport": string;
+                    "urlSupport": string;
+                    "base64Support": string;
+                    "closeResults": string;
+                    "retryFailed": string;
+                    "stopTest": string;
+                    "pending": string;
+                    "configuredModels": string;
+                    "modelRates": string;
+                    "model": string;
+                    "inputRate": string;
+                    "outputRate": string;
+                    "ratesDescription": string;
+                    "imageModel": string;
+                    "imageGeneration": string;
+                    "imageToImage": string;
+                    "clickToToggleImageModel": string;
+                    "markedAsImageModel": string;
+                    "markedAsTextModel": string;
                     "hint": {
                         "title": string;
                         "missingV1Suffix": string;
@@ -2231,6 +2263,7 @@ export type I18nTranslations = {
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
             "unknownErrorCode": string;
+            "networkError": string;
             "requestTimeout": string;
             "failedDependency": string;
             "automationNodeParseError": string;
@@ -2534,6 +2567,8 @@ export type I18nTranslations = {
                 "shareAlreadyEnabled": string;
                 "shareAlreadyDisabled": string;
                 "cannotDeleteLastView": string;
+                "filterInvalidOperator": string;
+                "filterInvalidOperatorMode": string;
             };
             "billing": {
                 "insufficientCredit": string;
@@ -3322,6 +3357,9 @@ export type I18nTranslations = {
                 "action": {
                     "addAttachment": string;
                 };
+                "hint": {
+                    "imageInputSupported": string;
+                };
             };
         };
         "table": {
@@ -3924,6 +3962,7 @@ export type I18nTranslations = {
                 "sqlQuery": string;
                 "querying": string;
                 "queryFailed": string;
+                "aborted": string;
                 "noData": string;
                 "dataFormatError": string;
                 "unsupportedQueryType": string;

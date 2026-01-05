@@ -106,15 +106,27 @@ export class SsrApi {
       .then(({ data }) => data);
 
     const currentView = views.find((view) => view.id === viewId);
-    const { records, extra } = await this.axios
-      .get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { baseId, tableId }), {
-        params: {
-          viewId,
-          fieldKeyType: FieldKeyType.Id,
-          groupBy: currentView?.group ? JSON.stringify(currentView.group) : undefined,
-        },
-      })
-      .then(({ data }) => data);
+
+    // Gracefully handle records fetch errors (e.g., invalid filter in view)
+    // This prevents SSR crash when view has corrupted filter data
+    let records: IRecord[] = [];
+    let extra: IRecordsVo['extra'] = undefined;
+    try {
+      const recordsResult = await this.axios
+        .get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { baseId, tableId }), {
+          params: {
+            viewId,
+            fieldKeyType: FieldKeyType.Id,
+            groupBy: currentView?.group ? JSON.stringify(currentView.group) : undefined,
+          },
+        })
+        .then(({ data }) => data);
+      records = recordsResult.records;
+      extra = recordsResult.extra;
+    } catch (error) {
+      // Log error but continue - client-side will show appropriate error toast
+      console.error('[SSR] Failed to fetch records, view may have invalid filter:', error);
+    }
 
     return {
       ...table,

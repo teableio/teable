@@ -34,6 +34,7 @@ import { parseModelKey, processModelDefinition, isImageOutputModel } from './uti
 export interface IModelOption {
   isInstance?: boolean;
   modelKey: string;
+  isImageModel?: boolean; // User-configured image model flag from admin panel
 }
 
 interface IAIModelSelectProps {
@@ -74,17 +75,28 @@ export function AIModelSelect({
   const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
 
   const { spaceOptions, instanceOptions } = useMemo(() => {
-    const filterImageOutput = (model: string) => {
+    const filterImageOutput = (model: string, isImageModel?: boolean) => {
       if (!onlyImageOutput) return true;
+      // Check user-configured isImageModel flag first
+      if (isImageModel) return true;
+      // Fallback to static model definition
       const modelDefination = modelDefinationMap?.[model];
       return isImageOutputModel(modelDefination);
     };
 
     return {
-      spaceOptions: options.filter(({ isInstance }) => !isInstance),
-      instanceOptions: options.filter(({ isInstance, modelKey }) => {
+      spaceOptions: options.filter(({ isInstance, modelKey, isImageModel }) => {
+        if (isInstance) return false;
         const { model = '' } = parseModelKey(modelKey);
-        return isInstance && !model.toLowerCase().includes('embedding') && filterImageOutput(model);
+        return filterImageOutput(model, isImageModel);
+      }),
+      instanceOptions: options.filter(({ isInstance, modelKey, isImageModel }) => {
+        const { model = '' } = parseModelKey(modelKey);
+        return (
+          isInstance &&
+          !model.toLowerCase().includes('embedding') &&
+          filterImageOutput(model, isImageModel)
+        );
       }),
     };
   }, [options, onlyImageOutput, modelDefinationMap]);
