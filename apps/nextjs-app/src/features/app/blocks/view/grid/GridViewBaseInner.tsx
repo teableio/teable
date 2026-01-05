@@ -109,7 +109,7 @@ import { getEffectRows, generateSeriesForColumn, isEmptyValue } from './utils';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 
 interface IGridViewBaseInnerProps {
-  groupPointsServerData?: IGroupPointsVo;
+  groupPointsServerData?: IGroupPointsVo | null;
   onRowExpand?: (recordId: string) => void;
 }
 
@@ -212,7 +212,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     recordsQuery,
     searchHitIndex,
     allGroupHeaderRefs,
-  } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
+  } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData ?? undefined);
 
   const isSelectionLoaded = useIsSelectionLoaded();
 

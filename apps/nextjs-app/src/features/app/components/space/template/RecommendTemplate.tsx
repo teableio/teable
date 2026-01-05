@@ -54,14 +54,14 @@ export const RecommendTemplate = (props: IRecommendTemplateProps) => {
       <p className="text-base font-semibold text-foreground">
         {t('settings.templateAdmin.relatedTemplates')}
       </p>
-      <div className="flex flex-col items-start justify-start gap-5 self-stretch md:flex-row">
+      <div className="flex flex-col items-start justify-start gap-6 self-stretch md:flex-row">
         {filteredTemplates?.map((template) => (
           <div
             key={template.id}
-            className="group relative flex w-full flex-col items-start justify-start rounded-lg border bg-card transition-shadow hover:shadow-md focus:outline-none md:max-w-[33%] md:flex-1"
+            className="group relative flex w-full flex-col items-start justify-start gap-2 md:max-w-[33%] md:flex-1"
           >
             <div
-              className="relative h-[218px] w-full cursor-pointer self-stretch overflow-hidden bg-secondary"
+              className="relative h-[218px] w-full cursor-pointer self-stretch overflow-hidden rounded-lg border bg-secondary transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08),0_3px_6px_-2px_rgba(0,0,0,0.08)]"
               onClick={() => handleTemplateClick(template.id)}
               onKeyDown={(e) => handleKeyDown(e, template.id)}
               role="button"
@@ -81,12 +81,9 @@ export const RecommendTemplate = (props: IRecommendTemplateProps) => {
                 </div>
               )}
             </div>
-            <div className="flex flex-col items-start justify-center gap-1 self-stretch p-4">
+            <div className="flex flex-col items-start justify-center gap-1 self-stretch px-2">
               <div className="relative flex items-start justify-start gap-1 self-stretch">
-                <p
-                  className="w-full truncate text-sm font-medium text-foreground"
-                  title={template.name}
-                >
+                <p className="w-full truncate font-medium text-foreground" title={template.name}>
                   {template.name}{' '}
                 </p>
                 <div className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
