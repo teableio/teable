@@ -13,6 +13,8 @@ import type { ISpecification } from '../domain/shared/specification/ISpecificati
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
+import type { RecordId } from '../domain/table/records/RecordId';
+import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -22,6 +24,11 @@ import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import type {
+  ITableRecordRepository,
+  InsertManyStreamOptions,
+  InsertManyStreamResult,
+} from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
@@ -112,6 +119,50 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
   }
 }
 
+class FakeTableRecordRepository implements ITableRecordRepository {
+  inserted: TableRecord[] = [];
+  lastContext: IExecutionContext | undefined;
+
+  async insert(context: IExecutionContext, _table: Table, record: TableRecord) {
+    this.lastContext = context;
+    this.inserted.push(record);
+    return ok(undefined);
+  }
+
+  async insertMany(context: IExecutionContext, _table: Table, records: ReadonlyArray<TableRecord>) {
+    this.lastContext = context;
+    this.inserted.push(...records);
+    return ok(undefined);
+  }
+
+  async insertManyStream(
+    context: IExecutionContext,
+    _table: Table,
+    batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>,
+    options?: InsertManyStreamOptions
+  ) {
+    this.lastContext = context;
+    let totalInserted = 0;
+    let batchIndex = 0;
+    for await (const batch of batches as AsyncIterable<ReadonlyArray<TableRecord>>) {
+      this.inserted.push(...batch);
+      totalInserted += batch.length;
+      options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+      batchIndex += 1;
+    }
+    const result: InsertManyStreamResult = { totalInserted };
+    return ok(result);
+  }
+
+  async update(_context: IExecutionContext, _table: Table, _record: TableRecord) {
+    return ok(undefined);
+  }
+
+  async delete(_context: IExecutionContext, _table: Table, _recordId: RecordId) {
+    return ok(undefined);
+  }
+}
+
 class FakeEventBus implements IEventBus {
   published: IDomainEvent[] = [];
   failPublish: DomainError | undefined;
@@ -159,6 +210,7 @@ describe('CreateTableHandler', () => {
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
     const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -175,8 +227,10 @@ describe('CreateTableHandler', () => {
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
+      recordRepository,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -189,6 +243,51 @@ describe('CreateTableHandler', () => {
     expect(eventBus.published.length).toBeGreaterThan(0);
     expect(unitOfWork.transactions.length).toBe(1);
     expect(tableRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
+  });
+
+  it('creates records when provided', async () => {
+    const nameFieldId = `fld${'r'.repeat(16)}`;
+    const commandResult = CreateTableCommand.create({
+      baseId: `bse${'d'.repeat(16)}`,
+      name: 'Table With Records',
+      fields: [{ type: 'singleLineText', id: nameFieldId, name: 'Title', isPrimary: true }],
+      records: [{ fields: { [nameFieldId]: 'Alpha' } }, { fields: { [nameFieldId]: 'Beta' } }],
+      views: [{ type: 'grid' }],
+    });
+    commandResult._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
+    const tableMapper = new DefaultTableMapper();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      tableMapper,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+
+    const handler = new CreateTableHandler(
+      tableRepository,
+      schemaRepository,
+      recordRepository,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService,
+      tableMapper,
+      eventBus,
+      unitOfWork
+    );
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
+
+    expect(recordRepository.inserted.length).toBe(2);
+    expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
   });
 
   it('resolves formula dependencies and types', async () => {
@@ -212,6 +311,7 @@ describe('CreateTableHandler', () => {
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
     const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -227,8 +327,10 @@ describe('CreateTableHandler', () => {
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
+      recordRepository,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -254,6 +356,7 @@ describe('CreateTableHandler', () => {
     const tableRepository = new FakeTableRepository();
     tableRepository.failInsert = domainError.unexpected({ message: 'insert failed' });
     const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
     const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -270,8 +373,10 @@ describe('CreateTableHandler', () => {
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
+      recordRepository,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -305,6 +410,7 @@ describe('CreateTableHandler', () => {
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
     const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -321,8 +427,10 @@ describe('CreateTableHandler', () => {
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
+      recordRepository,
       fieldCreationSideEffectService,
       foreignTableLoaderService,
+      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -371,6 +479,7 @@ describe('CreateTableHandler', () => {
       const tableRepository = new FakeTableRepository();
       tableRepository.inserted.push(foreignTable);
       const schemaRepository = new FakeTableSchemaRepository();
+      const recordRepository = new FakeTableRecordRepository();
       const tableMapper = new DefaultTableMapper();
       const eventBus = new FakeEventBus();
       const unitOfWork = new FakeUnitOfWork();
@@ -386,8 +495,10 @@ describe('CreateTableHandler', () => {
       const handler = new CreateTableHandler(
         tableRepository,
         schemaRepository,
+        recordRepository,
         fieldCreationSideEffectService,
         foreignTableLoaderService,
+        tableMapper,
         eventBus,
         unitOfWork
       );
@@ -436,6 +547,7 @@ describe('CreateTableHandler', () => {
 
       const tableRepository = new FakeTableRepository();
       const schemaRepository = new FakeTableSchemaRepository();
+      const recordRepository = new FakeTableRecordRepository();
       const tableMapper = new DefaultTableMapper();
       const eventBus = new FakeEventBus();
       const unitOfWork = new FakeUnitOfWork();
@@ -451,8 +563,10 @@ describe('CreateTableHandler', () => {
       const handler = new CreateTableHandler(
         tableRepository,
         schemaRepository,
+        recordRepository,
         fieldCreationSideEffectService,
         foreignTableLoaderService,
+        tableMapper,
         eventBus,
         unitOfWork
       );

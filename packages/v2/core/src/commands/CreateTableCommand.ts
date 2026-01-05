@@ -11,6 +11,7 @@ import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuild
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import { ViewName } from '../domain/table/views/ViewName';
+import type { RecordFieldValues } from './CreateRecordCommand';
 import {
   collectForeignTableReferences,
   type ICreateTableFieldSpec,
@@ -30,6 +31,13 @@ export const createTableInputSchema = z.object({
       z.object({
         type: z.enum(['grid', 'calendar', 'kanban', 'form', 'gallery', 'plugin']).optional(),
         name: z.string().optional(),
+      })
+    )
+    .optional(),
+  records: z
+    .array(
+      z.object({
+        fields: z.record(z.string(), z.unknown()).default({}),
       })
     )
     .optional(),
@@ -127,7 +135,8 @@ export class CreateTableCommand {
     readonly tableId: TableId | undefined,
     readonly tableName: TableName,
     readonly fields: ReadonlyArray<ICreateTableFieldSpec>,
-    readonly views: ReadonlyArray<ICreateTableViewSpec>
+    readonly views: ReadonlyArray<ICreateTableViewSpec>,
+    readonly records: ReadonlyArray<RecordFieldValues>
   ) {}
 
   static create(raw: unknown): Result<CreateTableCommand, DomainError> {
@@ -149,11 +158,17 @@ export class CreateTableCommand {
         TableName.create(parsed.data.name).andThen((tableName) =>
           this.parseFields(parsed.data.fields)
             .andThen((fields) =>
-              this.parseViews(parsed.data.views).map((views) => ({ fields, views }))
+              this.parseViews(parsed.data.views).andThen((views) =>
+                this.parseRecords(parsed.data.records).map((records) => ({
+                  fields,
+                  views,
+                  records,
+                }))
+              )
             )
             .map(
-              ({ fields, views }) =>
-                new CreateTableCommand(baseId, tableId, tableName, fields, views)
+              ({ fields, views, records }) =>
+                new CreateTableCommand(baseId, tableId, tableName, fields, views, records)
             )
         )
       )
@@ -229,6 +244,20 @@ export class CreateTableCommand {
     });
 
     return sequence(specs);
+  }
+
+  private static parseRecords(
+    rawRecords: z.output<typeof createTableInputSchema>['records']
+  ): Result<ReadonlyArray<RecordFieldValues>, DomainError> {
+    if (!rawRecords || rawRecords.length === 0) {
+      return ok([]);
+    }
+
+    const recordsFieldValues = rawRecords.map(
+      (record) => new Map(Object.entries(record.fields)) as RecordFieldValues
+    );
+
+    return ok(recordsFieldValues);
   }
 }
 

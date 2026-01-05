@@ -5,6 +5,7 @@ import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createTableOkResponseSchema,
   getTableByIdOkResponseSchema,
+  listTableRecordsOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
@@ -80,6 +81,23 @@ describe('v2 http createTable (e2e)', () => {
     return parsed.data.data.table;
   };
 
+  const listTableRecords = async (tableIdValue: string) => {
+    const response = await fetch(
+      `${baseUrl}/tables/listRecords?tableId=${tableIdValue}&limit=50&offset=0`,
+      { method: 'GET' }
+    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch records: ${errorText}`);
+    }
+    const rawBody = await response.json();
+    const parsed = listTableRecordsOkResponseSchema.safeParse(rawBody);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error('Failed to parse list records response');
+    }
+    return parsed.data.data.records;
+  };
+
   beforeAll(async () => {
     const testContainer = await createV2NodeTestContainer();
     dispose = testContainer.dispose;
@@ -151,6 +169,23 @@ describe('v2 http createTable (e2e)', () => {
     expect(body.data.table.fields.filter((f) => f.isPrimary).length).toBe(1);
     expect(body.data.table.views.length).toBeGreaterThan(0);
     expect(body.data.events.some((e) => e.name === 'TableCreated')).toBe(true);
+  });
+
+  it('creates records when included in the payload', async () => {
+    const nameFieldId = createFieldId();
+    const payload: ICreateTableCommandInput = {
+      baseId,
+      name: 'Seeded',
+      fields: [{ type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true }],
+      records: [{ fields: { [nameFieldId]: 'Alpha' } }, { fields: { [nameFieldId]: 'Beta' } }],
+    };
+
+    const created = await createTable(payload);
+    const records = await listTableRecords(created.id);
+
+    expect(records).toHaveLength(2);
+    const values = records.map((record) => record.fields[nameFieldId]);
+    expect(values).toEqual(expect.arrayContaining(['Alpha', 'Beta']));
   });
 
   it('allows creating two tables with the same name', async () => {

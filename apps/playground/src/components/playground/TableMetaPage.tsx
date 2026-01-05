@@ -713,7 +713,10 @@ type TableMetaPageProps = {
   onRecordCreated?: () => void;
   onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
-  onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onCreateTemplate: (
+    template: TableTemplateDefinition,
+    options: { includeRecords: boolean; recordCount: number }
+  ) => void;
   onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   onDelete: () => void;
   onDeleteField: (fieldId: string) => void;
@@ -882,7 +885,10 @@ type PlaygroundHeaderProps = {
   onRefresh: () => void;
   onFieldCreated: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
-  onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onCreateTemplate: (
+    template: TableTemplateDefinition,
+    options: { includeRecords: boolean; recordCount: number }
+  ) => void;
   onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   onDelete: () => void;
   onRename: (name: string) => void;
@@ -996,7 +1002,6 @@ function PlaygroundHeader({
           onSelect={onCreateTemplate}
           onImportCsv={onImportCsv}
           label="Create table"
-          align="end"
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1133,7 +1138,10 @@ function PlaygroundLoadingState() {
 type PlaygroundEmptyStateProps = {
   isCreating: boolean;
   templates: ReadonlyArray<TableTemplateDefinition>;
-  onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onCreateTemplate: (
+    template: TableTemplateDefinition,
+    options: { includeRecords: boolean; recordCount: number }
+  ) => void;
   onImportCsv?: (data: {
     tableName: string;
     headers: string[];
@@ -1163,7 +1171,6 @@ function PlaygroundEmptyState({
           onSelect={onCreateTemplate}
           onImportCsv={onImportCsv}
           label="Create table"
-          align="start"
         />
       </CardContent>
     </Card>

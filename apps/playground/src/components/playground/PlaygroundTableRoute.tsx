@@ -315,9 +315,12 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     return null;
   })();
 
-  const handleCreateTemplate = (template: TableTemplateDefinition) => {
+  const handleCreateTemplate = (
+    template: TableTemplateDefinition,
+    options: { includeRecords: boolean; recordCount: number }
+  ) => {
     createTableMutation.reset();
-    createTableMutation.mutate(template.createInput(baseId, template.name));
+    createTableMutation.mutate(template.createInput(baseId, template.name, options));
   };
 
   const handleDelete = () => {

@@ -42,6 +42,20 @@ describe('CreateTableCommand', () => {
     expect(table.views()[0]?.name().toString()).toBe('Grid');
   });
 
+  it('parses record inputs', () => {
+    const baseId = createBaseId('r')._unsafeUnwrap();
+    const fieldId = `fld${'t'.repeat(16)}`;
+    const command = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Record Table',
+      fields: [{ type: 'singleLineText', id: fieldId, name: 'Name', isPrimary: true }],
+      records: [{ fields: { [fieldId]: 'Alpha' } }],
+    })._unsafeUnwrap();
+
+    expect(command.records).toHaveLength(1);
+    expect(command.records[0]?.get(fieldId)).toBe('Alpha');
+  });
+
   it('creates command with all field types and view types', () => {
     const baseId = createBaseId('b')._unsafeUnwrap();
 

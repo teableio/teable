@@ -228,9 +228,12 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
     void tablesQuery.refetch();
   };
 
-  const handleCreateTemplate = (template: TableTemplateDefinition) => {
+  const handleCreateTemplate = (
+    template: TableTemplateDefinition,
+    options: { includeRecords: boolean; recordCount: number }
+  ) => {
     createTableMutation.reset();
-    createTableMutation.mutate(template.createInput(baseId, template.name));
+    createTableMutation.mutate(template.createInput(baseId, template.name, options));
   };
 
   const handleDeleteTable = (table: ITableDto) => {
@@ -290,7 +293,10 @@ type PlaygroundBasePageProps = {
   searchValue: string;
   onRefresh: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
-  onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onCreateTemplate: (
+    template: TableTemplateDefinition,
+    options: { includeRecords: boolean; recordCount: number }
+  ) => void;
 };
 
 function PlaygroundBasePage({
@@ -348,7 +354,10 @@ type PlaygroundBaseHeaderProps = {
   isCreating: boolean;
   onRefresh: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
-  onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onCreateTemplate: (
+    template: TableTemplateDefinition,
+    options: { includeRecords: boolean; recordCount: number }
+  ) => void;
 };
 
 function PlaygroundBaseHeader({
@@ -386,7 +395,6 @@ function PlaygroundBaseHeader({
           isCreating={isCreating}
           onSelect={onCreateTemplate}
           label="Create table"
-          align="end"
         />
       </div>
     </header>
@@ -504,7 +512,10 @@ type PlaygroundBaseEmptyStateProps = {
   searchValue: string;
   isCreating: boolean;
   templates: ReadonlyArray<TableTemplateDefinition>;
-  onCreateTemplate: (template: TableTemplateDefinition) => void;
+  onCreateTemplate: (
+    template: TableTemplateDefinition,
+    options: { includeRecords: boolean; recordCount: number }
+  ) => void;
 };
 
 function PlaygroundBaseEmptyState({
@@ -531,7 +542,6 @@ function PlaygroundBaseEmptyState({
           isCreating={isCreating}
           onSelect={onCreateTemplate}
           label="Create table"
-          align="start"
         />
       </CardContent>
     </Card>

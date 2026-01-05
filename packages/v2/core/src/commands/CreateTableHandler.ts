@@ -6,9 +6,13 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import type { Table } from '../domain/table/Table';
+import { AbstractTableUpdatedEvent } from '../domain/table/events/AbstractTableUpdatedEvent';
+import { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
+import * as TableMapperPort from '../ports/mappers/TableMapper';
+import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -36,10 +40,14 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableSchemaRepository)
     private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
+    @inject(v2CoreTokens.tableRecordRepository)
+    private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.fieldCreationSideEffectService)
     private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.tableMapper)
+    private readonly tableMapper: TableMapperPort.ITableMapper,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
@@ -73,6 +81,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
       span?.end();
 
       const tableFields = table.getFields();
+      const recordsFieldValues = command.records;
       const foreignTablesForSideEffects = includeSelf
         ? [
             ...new Map(
@@ -100,6 +109,18 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
                 foreignTables: foreignTablesForSideEffects,
               }
             );
+            if (recordsFieldValues.length > 0) {
+              const recordSpan = transactionContext.tracer?.startSpan(
+                'teable.CreateTableHandler.createRecords'
+              );
+              const records = yield* persistedTable.createRecords(recordsFieldValues);
+              recordSpan?.end();
+              yield* await handler.tableRecordRepository.insertMany(
+                transactionContext,
+                persistedTable,
+                records
+              );
+            }
             return ok<{ table: Table; sideEffectEvents: ReadonlyArray<IDomainEvent> }, DomainError>(
               {
                 table: persistedTable,
@@ -110,9 +131,58 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         }
       );
       const { table: persistedTable, sideEffectEvents } = transactionResult;
-      const events = [...table.pullDomainEvents(), ...sideEffectEvents];
-      yield* await handler.eventBus.publishMany(context, events);
-      return ok(CreateTableResult.create(persistedTable, events));
+      const hostEvents = table.pullDomainEvents();
+      const events = [...hostEvents, ...sideEffectEvents];
+      const enrichedEvents = yield* await handler.enrichEventsWithSnapshots(
+        context,
+        events,
+        persistedTable,
+        new Set(hostEvents)
+      );
+      yield* await handler.eventBus.publishMany(context, enrichedEvents);
+      return ok(CreateTableResult.create(persistedTable, enrichedEvents));
+    });
+  }
+
+  /**
+   * Attach snapshots to table-updated events for each affected table.
+   */
+  private async enrichEventsWithSnapshots(
+    context: ExecutionContextPort.IExecutionContext,
+    events: ReadonlyArray<IDomainEvent>,
+    persistedTable: Table,
+    hostEventSet: ReadonlySet<IDomainEvent>
+  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
+    const handler = this;
+    return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
+      const snapshots = new Map<string, ITablePersistenceDTO>();
+      const persistedSnapshot = yield* handler.tableMapper.toDTO(persistedTable);
+
+      const enriched: IDomainEvent[] = [];
+      for (const event of events) {
+        if (!(event instanceof AbstractTableUpdatedEvent) || event.hasSnapshot()) {
+          enriched.push(event);
+          continue;
+        }
+
+        const tableId = event.tableId.toString();
+        let snapshot = snapshots.get(tableId);
+        if (!snapshot) {
+          if (hostEventSet.has(event)) {
+            snapshot = persistedSnapshot;
+          } else {
+            const spec = yield* Table.specs(event.baseId).byId(event.tableId).build();
+            const tableResult = yield* await handler.tableRepository.findOne(context, spec);
+            const tableSnapshot = yield* handler.tableMapper.toDTO(tableResult);
+            snapshots.set(tableId, tableSnapshot);
+            snapshot = tableSnapshot;
+          }
+        }
+
+        enriched.push(event.withSnapshot(snapshot));
+      }
+
+      return ok(enriched);
     });
   }
 }

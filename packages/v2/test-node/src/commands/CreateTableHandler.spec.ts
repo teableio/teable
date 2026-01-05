@@ -8,7 +8,10 @@ import {
   type IEventHandler,
   type ICommandBus,
   type IExecutionContext,
+  type IQueryBus,
   type ISpecification,
+  ListTableRecordsQuery,
+  type ListTableRecordsResult,
   type LinkField,
   type FormulaField,
   type RollupField,
@@ -77,6 +80,47 @@ describe('CreateTableHandler', () => {
     const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());
     const savedTable = savedResult._unsafeUnwrap();
     expect(savedTable.primaryFieldId().equals(createdTable.primaryFieldId())).toBe(true);
+  });
+
+  it('creates records when provided', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const nameFieldId = `fld${'r'.repeat(16)}`;
+
+    const commandResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Seeded Table',
+      fields: [{ type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true }],
+      records: [{ fields: { [nameFieldId]: 'Alpha' } }, { fields: { [nameFieldId]: 'Beta' } }],
+    });
+    commandResult._unsafeUnwrap();
+
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const createResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult._unsafeUnwrap()
+    );
+    const createdTable = createResult._unsafeUnwrap().table;
+
+    const listQuery = ListTableRecordsQuery.create({
+      tableId: createdTable.id().toString(),
+      limit: 10,
+      offset: 0,
+    });
+    listQuery._unsafeUnwrap();
+
+    const listResult = await queryBus.execute<ListTableRecordsQuery, ListTableRecordsResult>(
+      context,
+      listQuery._unsafeUnwrap()
+    );
+    const records = listResult._unsafeUnwrap().records;
+    expect(records).toHaveLength(2);
+    const values = records.map((record) => record.fields[nameFieldId]);
+    expect(values).toEqual(expect.arrayContaining(['Alpha', 'Beta']));
   });
 
   it('supports non-text primary field', async () => {
