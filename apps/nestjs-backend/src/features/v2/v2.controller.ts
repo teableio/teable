@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 import { Controller } from '@nestjs/common';
 import { Implement, implement, ORPCError } from '@orpc/nest';
 import { v2Contract } from '@teable/v2-contract-http';

@@ -20,10 +20,11 @@
     "rootDir": "../",
     "outDir": "dist",
     "paths": {
-      "@teable/v2-di": ["../di/src"]
+      "@teable/v2-di": ["../di/src"],
+      "@teable/formula": ["../../formula/src"]
     },
     "types": ["vitest/globals", "node"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src", "../di/src"]
+  "include": ["src", "../di/src", "../../formula/src"]
 }

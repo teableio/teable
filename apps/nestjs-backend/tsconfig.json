@@ -2,13 +2,14 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "isolatedModules": false,
     "target": "es2022",
-    "moduleResolution": "Node16",
     "declaration": true,
     "declarationDir": "./dist",
-    "module": "Node16",
     "noEmit": false,
     "sourceMap": true,
     "allowJs": false,
@@ -20,7 +21,8 @@
       "@teable/v2-*": ["../../packages/v2/*/src/index"],
       "@teable/v2-contract-http-implementation/handlers": [
         "../../packages/v2/contract-http-implementation/src/handlers/index.ts"
-      ]
+      ],
+      "@teable/formula": ["../../packages/formula/src"]
     },
     "types": ["vitest/globals", "node"]
   },

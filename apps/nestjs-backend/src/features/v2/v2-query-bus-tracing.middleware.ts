@@ -1,9 +1,4 @@
-import type {
-  QueryBusNext,
-  IQueryBusMiddleware,
-  IExecutionContext,
-  Result,
-} from '@teable/v2-core' with { 'resolution-mode': 'import' };
+import type { QueryBusNext, IQueryBusMiddleware, IExecutionContext } from '@teable/v2-core';
 
 const describeError = (error: unknown): string => {
   if (error instanceof Error) return error.message || error.name;
@@ -20,7 +15,7 @@ export class QueryBusTracingMiddleware implements IQueryBusMiddleware {
     context: IExecutionContext,
     query: TQuery,
     next: QueryBusNext<TQuery, TResult>
-  ): Promise<Result<TResult, string>> {
+  ) {
     const tracer = context.tracer;
     if (!tracer) {
       return next(context, query);
@@ -35,7 +30,7 @@ export class QueryBusTracingMiddleware implements IQueryBusMiddleware {
     try {
       const result = await next(context, query);
       if (result.isErr()) {
-        span.recordError(result.error);
+        span.recordError(result.error.message ?? 'Unknown error');
       }
       return result;
     } catch (error) {

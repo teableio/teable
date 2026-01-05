@@ -1,11 +1,6 @@
 import type { Span as ApiSpan } from '@opentelemetry/api';
 import { SpanStatusCode, context as otelContext, trace } from '@opentelemetry/api';
-import type {
-  ISpan,
-  ITracer,
-  SpanAttributeValue,
-  SpanAttributes,
-} from '@teable/v2-core' with { 'resolution-mode': 'import' };
+import type { ISpan, ITracer, SpanAttributeValue, SpanAttributes } from '@teable/v2-core';
 
 class OpenTelemetrySpan implements ISpan {
   constructor(public readonly span: ApiSpan) {}
@@ -42,5 +37,11 @@ export class OpenTelemetryTracer implements ITracer {
       return otelContext.with(trace.setSpan(otelContext.active(), span.span), callback);
     }
     return callback();
+  }
+
+  getActiveSpan(): ISpan | undefined {
+    const span = trace.getActiveSpan();
+    if (!span) return undefined;
+    return new OpenTelemetrySpan(span);
   }
 }

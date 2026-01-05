@@ -2,7 +2,6 @@ import type {
   CommandBusNext,
   ICommandBusMiddleware,
   IExecutionContext,
-  Result,
 } from '@teable/v2-core' with { 'resolution-mode': 'import' };
 
 const describeError = (error: unknown): string => {
@@ -20,7 +19,7 @@ export class CommandBusTracingMiddleware implements ICommandBusMiddleware {
     context: IExecutionContext,
     command: TCommand,
     next: CommandBusNext<TCommand, TResult>
-  ): Promise<Result<TResult, string>> {
+  ) {
     const tracer = context.tracer;
     if (!tracer) {
       return next(context, command);
@@ -35,7 +34,7 @@ export class CommandBusTracingMiddleware implements ICommandBusMiddleware {
     try {
       const result = await next(context, command);
       if (result.isErr()) {
-        span.recordError(result.error);
+        span.recordError(result.error.message ?? 'Unknown error');
       }
       return result;
     } catch (error) {

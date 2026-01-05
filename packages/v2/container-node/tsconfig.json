@@ -26,7 +26,9 @@
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
-      "@teable/v2-di": ["../di/src"]
+      "@teable/v2-di": ["../di/src"],
+      "@teable/v2-adapter-csv-parser-papaparse": ["../adapter-csv-parser-papaparse/src"],
+      "@teable/v2-adapter-record-repository-postgres": ["../adapter-record-repository-postgres/src"]
     },
     "types": ["vitest/globals", "node"]
   },
@@ -37,6 +39,8 @@
     "../adapter-repository-postgres/src",
     "../core/src",
     "../adapter-db-postgres-pg/src",
-    "../di/src"
+    "../di/src",
+    "../adapter-record-repository-postgres/src",
+    "../adapter-csv-parser-papaparse/src"
   ]
 }

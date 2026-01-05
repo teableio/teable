@@ -34,5 +34,13 @@ module.exports = {
         '@typescript-eslint/naming-convention': 'off',
       },
     },
+    {
+      // Disable consistent-type-imports for files with decorators (NestJS controllers/services)
+      // See: https://typescript-eslint.io/blog/changes-to-consistent-type-imports-with-decorators
+      files: ['src/**/*.controller.ts'],
+      rules: {
+        '@typescript-eslint/consistent-type-imports': 'off',
+      },
+    },
   ],
 };

@@ -15,6 +15,17 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '@teable/db-main-prisma';
+import {
+  createRecordsRoSchema,
+  getRecordQuerySchema,
+  getRecordsRoSchema,
+  updateRecordRoSchema,
+  deleteRecordsQuerySchema,
+  getRecordHistoryQuerySchema,
+  updateRecordsRoSchema,
+  recordInsertOrderRoSchema,
+  recordGetCollaboratorsRoSchema,
+} from '@teable/openapi';
 import type {
   IAutoFillCellVo,
   IButtonClickVo,
@@ -23,26 +34,15 @@ import type {
   IRecordGetCollaboratorsVo,
   IRecordStatusVo,
   IRecordsVo,
-} from '@teable/openapi';
-import {
-  createRecordsRoSchema,
-  getRecordQuerySchema,
-  getRecordsRoSchema,
-  IGetRecordsRo,
   ICreateRecordsRo,
-  IGetRecordQuery,
-  IUpdateRecordRo,
-  updateRecordRoSchema,
-  deleteRecordsQuerySchema,
   IDeleteRecordsQuery,
-  getRecordHistoryQuerySchema,
+  IGetRecordQuery,
   IGetRecordHistoryQuery,
-  updateRecordsRoSchema,
-  IUpdateRecordsRo,
-  recordInsertOrderRoSchema,
-  IRecordInsertOrderRo,
-  recordGetCollaboratorsRoSchema,
+  IGetRecordsRo,
   IRecordGetCollaboratorsRo,
+  IRecordInsertOrderRo,
+  IUpdateRecordRo,
+  IUpdateRecordsRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
@@ -56,6 +56,7 @@ import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator'
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { RecordService } from '../record.service';
 import { FieldKeyPipe } from './field-key.pipe';
+import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
 
@@ -67,7 +68,8 @@ export class RecordOpenApiController {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly recordOpenApiV2Service: RecordOpenApiV2Service
   ) {}
 
   @Permissions('record|update')
@@ -124,8 +126,14 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo,
     @Headers('x-window-id') windowId?: string,
-    @Headers('x-ai-internal') isAiInternal?: string
+    @Headers('x-ai-internal') isAiInternal?: string,
+    @Headers('x-use-v2') useV2?: string
   ): Promise<IRecord> {
+    // Use v2 logic when x-use-v2 header is set to 'true' or '1'
+    if (useV2 === 'true' || useV2 === '1') {
+      return this.recordOpenApiV2Service.updateRecord(tableId, recordId, updateRecordRo);
+    }
+
     return await this.recordOpenApiService.updateRecord(
       tableId,
       recordId,
@@ -178,8 +186,13 @@ export class RecordOpenApiController {
   async createRecords(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo,
-    @Headers('x-ai-internal') isAiInternal?: string
+    @Headers('x-ai-internal') isAiInternal?: string,
+    @Headers('x-use-v2') useV2?: string
   ): Promise<ICreateRecordsVo> {
+    if (useV2 === 'true' || useV2 === '1') {
+      return await this.recordOpenApiV2Service.createRecords(tableId, createRecordsRo);
+    }
+
     return await this.recordOpenApiService.multipleCreateRecords(
       tableId,
       createRecordsRo,
