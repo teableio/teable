@@ -8,6 +8,8 @@
  * - Lookup fields (linked record value updates)
  * - Rollup fields (aggregated linked record values)
  * - Link field effects on symmetric links, lookups, and formulas
+ * - ConditionalRollup fields (filtered rollup aggregations)
+ * - ConditionalLookup fields (filtered lookup values)
  *
  * Test Structure:
  * 1. Simple scenarios: Basic formula, single-level lookup
@@ -16,12 +18,69 @@
  * 4. Primary field scenarios: Primary field is formula
  * 5. Self-referencing: Self-referential link updates
  * 6. Edge cases: Mixed triggers, concurrent updates
+ * 7. Conditional fields: ConditionalRollup and ConditionalLookup with various conditions
  *
  * Each test validates:
  * - Before/after table state via inline snapshots (using printTable)
  * - Update plan metrics (step count, table count)
  * - Final DB state correctness
  * - API response correctness
+ *
+ * =============================================================================
+ * IMPORTANT: processOutbox() Usage Rules
+ * =============================================================================
+ *
+ * **MUST call `await testContainer.processOutbox()` in the following cases:**
+ *
+ * 1. **After creating records with cross-table computed fields:**
+ *    - When creating a record that has lookup/rollup fields referencing other tables
+ *    - When creating a record that triggers lookup/rollup updates in other tables
+ *    - Example: Creating recordB with link to recordA, then querying recordB's lookup field
+ *
+ * 2. **After updating records that affect cross-table computed fields:**
+ *    - When updating a field that is referenced by lookup/rollup in other tables
+ *    - When updating link fields that affect lookup/rollup calculations
+ *    - Example: Updating tableA.value, then querying tableB.lookup (which looks up tableA.value)
+ *
+ * 3. **Multi-level dependency chains:**
+ *    - Formula → Rollup → Lookup chains across multiple tables
+ *    - Lookup → Lookup chains (nested lookups)
+ *    - May require multiple `processOutbox()` calls (one per dependency level)
+ *    - Example: A.formula → B.rollup → C.lookup requires 2-3 processOutbox() calls
+ *
+ * 4. **Symmetric link updates:**
+ *    - When creating/updating link fields that have two-way relationships
+ *    - The symmetric link in the foreign table needs to be updated asynchronously
+ *
+ * **DO NOT need processOutbox() for:**
+ *
+ * 1. **Same-table formula fields:**
+ *    - Formula fields that only reference fields in the same table are calculated synchronously
+ *    - Example: A.number → A.formula (same table, no processOutbox needed)
+ *
+ * 2. **Immediate queries after same-table updates:**
+ *    - If all computed fields are in the same table, they're calculated synchronously
+ *
+ * **General Pattern:**
+ * ```typescript
+ * // Create/update record
+ * await createRecord(table.id, { ... });
+ * // OR
+ * await updateRecord(table.id, recordId, { ... });
+ *
+ * // If this affects cross-table computed fields, process outbox
+ * await testContainer.processOutbox();
+ * // For multi-level chains, may need multiple calls:
+ * await testContainer.processOutbox();
+ * await testContainer.processOutbox();
+ *
+ * // Then query and assert
+ * const records = await listRecords(table.id);
+ * expect(...).toMatchInlineSnapshot(...);
+ * ```
+ *
+ * **When in doubt:** If a test involves lookup, rollup, or cross-table formula dependencies,
+ * add `processOutbox()` calls. It's better to be safe than have flaky tests.
  */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -565,6 +624,9 @@ describe('v2 computed field updates (e2e)', () => {
           [linkFieldId]: { id: recordA.id },
         });
 
+        // Process outbox to ensure lookup field is calculated
+        await testContainer.processOutbox();
+
         const beforeRecordsA = await listRecords(tableA.id);
         expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -678,6 +740,9 @@ describe('v2 computed field updates (e2e)', () => {
           [bNameFieldId]: 'ItemB',
           [linkFieldId]: { id: recordA1.id },
         });
+
+        // Process outbox to ensure lookup field is calculated
+        await testContainer.processOutbox();
 
         const beforeRecords = await listRecords(tableB.id);
         expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
@@ -932,6 +997,9 @@ describe('v2 computed field updates (e2e)', () => {
           [linkFieldId]: [{ id: recordA1.id }, { id: recordA2.id }],
         });
 
+        // Process outbox to ensure rollup field is calculated
+        await testContainer.processOutbox();
+
         const beforeRecordsA = await listRecords(tableA.id);
         expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
           .toMatchInlineSnapshot(`
@@ -1051,6 +1119,9 @@ describe('v2 computed field updates (e2e)', () => {
           [bNameFieldId]: 'ItemB',
           [linkFieldId]: [{ id: recordA1.id }],
         });
+
+        // Process outbox to ensure rollup field is calculated
+        await testContainer.processOutbox();
 
         const beforeRecords = await listRecords(tableB.id);
         expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
@@ -1262,6 +1333,10 @@ describe('v2 computed field updates (e2e)', () => {
         [cLinkFieldId]: { id: recordB.id },
       });
 
+      // Process outbox to ensure all computed fields (lookup chain) are calculated
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
       const beforeRecordsA = await listRecords(tableA.id);
       expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -1391,6 +1466,9 @@ describe('v2 computed field updates (e2e)', () => {
         [bLinkFieldId]: { id: recordA.id },
       });
 
+      // Process outbox to ensure lookup and formula fields are calculated
+      await testContainer.processOutbox();
+
       const beforeRecordsA = await listRecords(tableA.id);
       expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
@@ -1435,8 +1513,183 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------------------------
           #  | Name | LinkA | LookupDoubled | PlusTen
           -------------------------------------------
-          R0 | B1   | A1    | [20]          | -      
+          R0 | B1   | A1    | [100]         | -      
           -------------------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: Formula -> formula -> rollup -> lookup chain across three tables.
+     * A.amount -> A.double -> A.total -> B.rollup(sum) -> C.lookup
+     */
+    it('updates formula-rollup-lookup chain across tables', async () => {
+      const aNameFieldId = createFieldId();
+      const aAmountFieldId = createFieldId();
+      const aDoubleFieldId = createFieldId();
+      const aTotalFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'FormulaRollupA',
+        fields: [
+          { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: aAmountFieldId, name: 'Amount' },
+          {
+            type: 'formula',
+            id: aDoubleFieldId,
+            name: 'Double',
+            options: { expression: `{${aAmountFieldId}} * 2` },
+          },
+          {
+            type: 'formula',
+            id: aTotalFieldId,
+            name: 'Total',
+            options: { expression: `{${aDoubleFieldId}} + 5` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordA1 = await createRecord(tableA.id, {
+        [aNameFieldId]: 'A1',
+        [aAmountFieldId]: 10,
+      });
+      const recordA2 = await createRecord(tableA.id, {
+        [aNameFieldId]: 'A2',
+        [aAmountFieldId]: 5,
+      });
+
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+      const bRollupFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'FormulaRollupB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'Links',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: tableA.id,
+              lookupFieldId: aNameFieldId,
+            },
+          },
+          {
+            type: 'rollup',
+            id: bRollupFieldId,
+            name: 'TotalSum',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId: bLinkFieldId,
+              foreignTableId: tableA.id,
+              lookupFieldId: aTotalFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordB = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bLinkFieldId]: [{ id: recordA1.id }, { id: recordA2.id }],
+      });
+
+      const cNameFieldId = createFieldId();
+      const cLinkFieldId = createFieldId();
+      const cLookupFieldId = createFieldId();
+      const tableC = await createTable({
+        baseId,
+        name: 'FormulaRollupC',
+        fields: [
+          { type: 'singleLineText', id: cNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: cLinkFieldId,
+            name: 'LinkB',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableB.id,
+              lookupFieldId: bNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: cLookupFieldId,
+            name: 'SumFromB',
+            options: {
+              linkFieldId: cLinkFieldId,
+              foreignTableId: tableB.id,
+              lookupFieldId: bRollupFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(tableC.id, {
+        [cNameFieldId]: 'C1',
+        [cLinkFieldId]: { id: recordB.id },
+      });
+
+      // Process outbox to ensure all computed fields (formula, rollup, lookup) are calculated
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      const bFieldIds = [bNameFieldId, bLinkFieldId, bRollupFieldId];
+      const bFieldNames = ['Name', 'Links', 'TotalSum'];
+      const cFieldIds = [cNameFieldId, cLinkFieldId, cLookupFieldId];
+      const cFieldNames = ['Name', 'LinkB', 'SumFromB'];
+
+      const beforeRecordsB = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecordsB, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaRollupB]
+          -----------------------------
+          #  | Name | Links  | TotalSum
+          -----------------------------
+          R0 | B1   | A1, A2 | 40      
+          -----------------------------"
+        `);
+
+      const beforeRecordsC = await listRecords(tableC.id);
+      expect(printTableSnapshot(tableC.name, cFieldNames, beforeRecordsC, cFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaRollupC]
+          ----------------------------
+          #  | Name | LinkB | SumFromB
+          ----------------------------
+          R0 | C1   | B1    | [40]    
+          ----------------------------"
+        `);
+
+      await updateRecord(tableA.id, recordA1.id, { [aAmountFieldId]: 20 });
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      const afterRecordsB = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaRollupB]
+          -----------------------------
+          #  | Name | Links  | TotalSum
+          -----------------------------
+          R0 | B1   | A1, A2 | 60      
+          -----------------------------"
+        `);
+
+      const afterRecordsC = await listRecords(tableC.id);
+      expect(printTableSnapshot(tableC.name, cFieldNames, afterRecordsC, cFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaRollupC]
+          ----------------------------
+          #  | Name | LinkB | SumFromB
+          ----------------------------
+          R0 | C1   | B1    | [60]    
+          ----------------------------"
         `);
     });
 
@@ -1489,6 +1742,9 @@ describe('v2 computed field updates (e2e)', () => {
         [bNameFieldId]: 'B1',
         [bLinkFieldId]: { id: recordA.id },
       });
+
+      // Process outbox to ensure link title is updated
+      await testContainer.processOutbox();
 
       const beforeRecordsA = await listRecords(tableA.id);
       expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
@@ -1651,6 +1907,10 @@ describe('v2 computed field updates (e2e)', () => {
           [cNameFieldId]: 'End',
           [linkBFieldId]: { id: recordB.id },
         });
+
+        // Process outbox to ensure lookup chain is calculated
+        await testContainer.processOutbox();
+        await testContainer.processOutbox();
 
         const beforeRecordsA = await listRecords(tableA.id);
         expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
@@ -1873,6 +2133,9 @@ describe('v2 computed field updates (e2e)', () => {
           [bNameFieldId]: 'B1',
           [bLinkFieldId]: { id: recordA.id },
         });
+
+        // Process outbox to ensure symmetric link is updated
+        await testContainer.processOutbox();
 
         const beforeRecordsA = await listRecords(tableA.id);
         expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
