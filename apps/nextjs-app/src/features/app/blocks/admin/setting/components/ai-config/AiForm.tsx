@@ -168,6 +168,9 @@ export function AIConfigForm({
   const enableAi = form.watch('enable');
 
   const switchEnable = useMemo(() => {
+    if (enableAi) {
+      return false;
+    }
     if (!aiConfig?.chatModel?.lg && enableAi) {
       return false;
     }
