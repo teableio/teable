@@ -96,34 +96,34 @@ export const Table: React.FC<ITableProps> = ({
       <TablePermissionProvider baseId={baseId}>
         <ViewProvider serverData={viewServerData}>
           <PersonalViewProxy serverData={viewServerData}>
-            <div className="flex h-full grow basis-[500px]">
-              <div
-                className="flex flex-1 flex-col overflow-hidden"
-                data-screenshot-target="base-view"
-              >
-                <TableHeader />
-                <FieldProvider serverSideData={fieldServerData}>
-                  <ErrorBoundary
-                    fallback={
-                      <div className="flex size-full items-center justify-center">
-                        <FailAlert />
-                      </div>
-                    }
+            <FieldProvider serverSideData={fieldServerData}>
+              <PersonalViewProvider>
+                <div className="flex h-full grow basis-[500px]">
+                  <div
+                    className="flex flex-1 flex-col overflow-hidden"
+                    data-screenshot-target="base-view"
                   >
-                    <PersonalViewProvider>
+                    <TableHeader />
+                    <ErrorBoundary
+                      fallback={
+                        <div className="flex size-full items-center justify-center">
+                          <FailAlert />
+                        </div>
+                      }
+                    >
                       <View
                         recordServerData={recordServerData}
                         recordsServerData={recordsServerData}
                         groupPointsServerDataMap={groupPointsServerDataMap}
                       />
-                    </PersonalViewProvider>
-                  </ErrorBoundary>
-                </FieldProvider>
-              </div>
-              <PluginPanel tableId={tableId} />
-              <PluginContextMenu tableId={tableId} baseId={baseId} />
-              {/* <ChatPanel /> */}
-            </div>
+                    </ErrorBoundary>
+                  </div>
+                  <PluginPanel tableId={tableId} />
+                  <PluginContextMenu tableId={tableId} baseId={baseId} />
+                  {/* <ChatPanel /> */}
+                </div>
+              </PersonalViewProvider>
+            </FieldProvider>
           </PersonalViewProxy>
         </ViewProvider>
       </TablePermissionProvider>

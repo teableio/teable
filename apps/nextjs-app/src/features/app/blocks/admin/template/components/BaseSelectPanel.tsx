@@ -87,19 +87,19 @@ export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
         <Button
           variant="outline"
           size={'xs'}
-          className={cn('w-32 overflow-hidden', {
+          className={cn('w-32 overflow-hidden truncate', {
             'border-red-500': !baseName,
           })}
           disabled={disabled}
         >
-          {baseName ?? (
-            <span
-              className="truncate text-red-500"
-              title={t('settings.templateAdmin.baseSelectPanel.abnormalBase')}
-            >
-              {t('settings.templateAdmin.baseSelectPanel.abnormalBase')}
-            </span>
-          )}
+          <span
+            className={cn('truncate', {
+              'text-red-500': !baseName,
+            })}
+            title={baseName ?? t('settings.templateAdmin.baseSelectPanel.abnormalBase')}
+          >
+            {baseName ?? t('settings.templateAdmin.baseSelectPanel.abnormalBase')}
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="flex h-[550px] min-w-[750px] flex-col">

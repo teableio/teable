@@ -4,7 +4,6 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle, Link } from '@teable/icons';
 import type { ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
 import {
-  createTemplateSnapshot,
   deleteTemplate,
   getBaseAll,
   getSpaceList,
@@ -51,7 +50,7 @@ import { TemplateTooltips } from './TemplateTooltips';
 import { TextEditor } from './TextEditor';
 import { TextEditorDialog } from './TextEditorDialog';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export const TemplateTable = () => {
   const { t } = useTranslation(['common']);
@@ -62,7 +61,7 @@ export const TemplateTable = () => {
 
   const isHydrated = useIsHydrated();
 
-  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
+  // const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ReactQueryKeys.templateList(),
@@ -108,13 +107,13 @@ export const TemplateTable = () => {
     },
   });
 
-  const { mutateAsync: createTemplateSnapshotFn, isLoading } = useMutation({
-    mutationFn: (templateId: string) => createTemplateSnapshot(templateId),
-    onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
-      setCurrentTemplateId(null);
-    },
-  });
+  // const { mutateAsync: createTemplateSnapshotFn, isLoading } = useMutation({
+  //   mutationFn: (templateId: string) => createTemplateSnapshot(templateId),
+  //   onSuccess: () => {
+  //     queryClient.invalidateQueries(ReactQueryKeys.templateList());
+  //     setCurrentTemplateId(null);
+  //   },
+  // });
 
   const { mutateAsync: updateTemplateFn } = useMutation({
     mutationFn: ({ templateId, updateRo }: { templateId: string; updateRo: IUpdateTemplateRo }) =>
@@ -295,7 +294,7 @@ export const TemplateTable = () => {
             </div>
           </TemplateTooltips>
         </TableCell>
-        <TableCell>
+        {/* <TableCell>
           <TemplateTooltips
             content={t('settings.templateAdmin.tips.needBaseSource')}
             disabled={!row.baseId || (edition !== 'CLOUD' && row.isSystem)}
@@ -314,7 +313,7 @@ export const TemplateTable = () => {
               {currentTemplateId === row.id && isLoading && <Spin className="size-4" />}
             </Button>
           </TemplateTooltips>
-        </TableCell>
+        </TableCell> */}
         <TableCell>
           {row.snapshot?.snapshotTime ? (
             dayjs(row.snapshot.snapshotTime).format('YYYY-MM-DD HH:mm:ss')
@@ -366,8 +365,16 @@ export const TemplateTable = () => {
             </span>
           )}
         </TableCell>
-        <TableCell className="text-center">{row.usageCount ?? 0}</TableCell>
-        <TableCell className="text-center">
+        <TableCell
+          className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
+          style={{ zIndex: 2, right: 144, width: 72, minWidth: 72, maxWidth: 72 }}
+        >
+          {row.usageCount ?? 0}
+        </TableCell>
+        <TableCell
+          className="sticky bg-background text-center"
+          style={{ zIndex: 2, right: 72, width: 72, minWidth: 72, maxWidth: 72 }}
+        >
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -395,7 +402,10 @@ export const TemplateTable = () => {
             </Tooltip>
           </TooltipProvider>
         </TableCell>
-        <TableCell>
+        <TableCell
+          className="sticky bg-background"
+          style={{ zIndex: 2, right: 0, width: 72, minWidth: 72, maxWidth: 72 }}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size={'xs'}>
@@ -432,7 +442,7 @@ export const TemplateTable = () => {
 
   return (
     <div className="h-full overflow-auto">
-      <Table className="relative size-full scroll-smooth rounded-sm">
+      <Table className="relative w-max min-w-full scroll-smooth rounded-sm">
         <TableHeader className="sticky top-0 z-20 bg-background after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-['']">
           <TableRow className="h-16 bg-background" style={{ zIndex: 2 }}>
             <TableHead
@@ -467,9 +477,9 @@ export const TemplateTable = () => {
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.status')}
             </TableHead>
-            <TableHead className="w-32">
+            {/* <TableHead className="w-32">
               {t('settings.templateAdmin.header.publishSnapshot')}
-            </TableHead>
+            </TableHead> */}
             <TableHead className="min-w-48">
               {t('settings.templateAdmin.header.snapshotTime')}
             </TableHead>
@@ -479,13 +489,24 @@ export const TemplateTable = () => {
             <TableHead className="min-w-32">
               {t('settings.templateAdmin.header.createdBy')}
             </TableHead>
-            <TableHead className="text-center">
+            <TableHead
+              className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
+              style={{ zIndex: 3, right: 144, width: 72, minWidth: 72, maxWidth: 72 }}
+            >
               {t('settings.templateAdmin.header.usage')}
             </TableHead>
-            <TableHead className="text-center">
+            <TableHead
+              className="sticky bg-background text-center"
+              style={{ zIndex: 3, right: 72, width: 72, minWidth: 72, maxWidth: 72 }}
+            >
               {t('settings.templateAdmin.header.preview')}
             </TableHead>
-            <TableHead>{t('settings.templateAdmin.header.actions')}</TableHead>
+            <TableHead
+              className="sticky bg-background"
+              style={{ zIndex: 3, right: 0, width: 72, minWidth: 72, maxWidth: 72 }}
+            >
+              {t('settings.templateAdmin.header.actions')}
+            </TableHead>
           </TableRow>
         </TableHeader>
 

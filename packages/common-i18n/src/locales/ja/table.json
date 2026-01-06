@@ -457,7 +457,7 @@
       "csvFile": "CSVファイル",
       "cancel": "キャンセル",
       "leave": "離れる",
-      "downAsCsv": "CSVをダウンロード",
+      "downAsCsv": "csvをダウンロード",
       "importData": "データをインポート"
     },
     "tips": {
