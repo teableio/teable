@@ -839,6 +839,63 @@ export class PostgresTableRepository implements core.ITableRepository {
         ...(meta ? { meta } : {}),
       };
     }
+    // conditionalRollup: v1 format stores everything in options, need to split into options + config
+    if (row.type === 'conditionalRollup') {
+      const v1Options = parsed as Record<string, unknown>;
+      const options: core.IConditionalRollupFieldOptionsDTO = {
+        expression:
+          typeof v1Options.expression === 'string' ? v1Options.expression : 'countall({values})',
+      };
+      if (typeof v1Options.timeZone === 'string') {
+        options.timeZone = v1Options.timeZone as core.IConditionalRollupFieldOptionsDTO['timeZone'];
+      }
+      if (v1Options.formatting) {
+        options.formatting =
+          v1Options.formatting as core.IConditionalRollupFieldOptionsDTO['formatting'];
+      }
+      if (v1Options.showAs) {
+        options.showAs = v1Options.showAs as core.IConditionalRollupFieldOptionsDTO['showAs'];
+      }
+      // Build config from v1 format
+      const config: core.IConditionalRollupFieldConfigDTO = {
+        foreignTableId:
+          typeof v1Options.foreignTableId === 'string' ? v1Options.foreignTableId : '',
+        lookupFieldId: typeof v1Options.lookupFieldId === 'string' ? v1Options.lookupFieldId : '',
+        condition: {
+          filter: v1Options.filter as core.IConditionalRollupFieldConfigDTO['condition']['filter'],
+          sort: v1Options.sort as { fieldId: string; order: 'asc' | 'desc' } | undefined,
+          limit: typeof v1Options.limit === 'number' ? v1Options.limit : undefined,
+        },
+      };
+      return {
+        ...base,
+        type: 'conditionalRollup',
+        options,
+        config,
+        cellValueType: row.cell_value_type ?? undefined,
+        isMultipleCellValue: row.is_multiple_cell_value ?? undefined,
+      };
+    }
+    // conditionalLookup: v1 format stores foreignTableId, lookupFieldId, filter, sort, limit in options
+    if (row.type === 'conditionalLookup') {
+      const v1Options = parsed as Record<string, unknown>;
+      const options: core.IConditionalLookupOptionsDTO = {
+        foreignTableId:
+          typeof v1Options.foreignTableId === 'string' ? v1Options.foreignTableId : '',
+        lookupFieldId: typeof v1Options.lookupFieldId === 'string' ? v1Options.lookupFieldId : '',
+        condition: {
+          filter: v1Options.filter as core.IConditionalLookupOptionsDTO['condition']['filter'],
+          sort: v1Options.sort as { fieldId: string; order: 'asc' | 'desc' } | undefined,
+          limit: typeof v1Options.limit === 'number' ? v1Options.limit : undefined,
+        },
+      };
+      return {
+        ...base,
+        type: 'conditionalLookup',
+        options,
+        innerType: row.cell_value_type ?? undefined,
+      };
+    }
     return {
       ...base,
       type: 'singleLineText',

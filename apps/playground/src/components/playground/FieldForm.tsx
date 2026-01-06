@@ -157,6 +157,39 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
     } as any;
   };
 
+  const defaultConditionalRollupConfig = () => {
+    const tables = tablesQuery.data ?? [];
+    const candidates = tables.filter((table) => table.id !== tableId);
+    const foreignTable = candidates[0];
+    const lookupField =
+      foreignTable?.fields.find((field) => field.isPrimary) ?? foreignTable?.fields[0];
+    return {
+      foreignTableId: foreignTable?.id ?? '',
+      lookupFieldId: lookupField?.id ?? '',
+      condition: { filter: null },
+    } as any;
+  };
+
+  const defaultConditionalRollupOptions = () => {
+    return {
+      expression: ROLLUP_FUNCTIONS[0],
+      timeZone: TIME_ZONE_LIST[0],
+    } as any;
+  };
+
+  const defaultConditionalLookupOptions = () => {
+    const tables = tablesQuery.data ?? [];
+    const candidates = tables.filter((table) => table.id !== tableId);
+    const foreignTable = candidates[0];
+    const lookupField =
+      foreignTable?.fields.find((field) => field.isPrimary) ?? foreignTable?.fields[0];
+    return {
+      foreignTableId: foreignTable?.id ?? '',
+      lookupFieldId: lookupField?.id ?? '',
+      condition: { filter: null },
+    } as any;
+  };
+
   const getDefaultValuesForType = (
     type: FieldType
   ): { options?: FieldOptionsValue; config?: RollupFieldConfig } => {
@@ -169,6 +202,13 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
         return { options: defaultRollupOptions(), config: defaultRollupConfig() };
       case 'lookup':
         return { options: defaultLookupOptions() };
+      case 'conditionalRollup':
+        return {
+          options: defaultConditionalRollupOptions(),
+          config: defaultConditionalRollupConfig(),
+        };
+      case 'conditionalLookup':
+        return { options: defaultConditionalLookupOptions() };
       default:
         return { options: {} };
     }
@@ -251,7 +291,9 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                 const defaults = getDefaultValuesForType(nextType);
                 const nextOptions = draft?.options ?? defaults.options;
                 const nextConfig =
-                  nextType === 'rollup' ? draft?.config ?? defaults.config : undefined;
+                  nextType === 'rollup' || nextType === 'conditionalRollup'
+                    ? draft?.config ?? defaults.config
+                    : undefined;
                 const isComputed = isComputedFieldType(nextType);
                 const notNullEnabled = checkFieldNotNullValidationEnabled(nextType, {
                   isComputed,
@@ -270,7 +312,7 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                   unique: nextUnique,
                 };
 
-                if (nextType === 'rollup') {
+                if (nextType === 'rollup' || nextType === 'conditionalRollup') {
                   (nextValues as FieldFormValues & { config?: RollupFieldConfig }).config =
                     nextConfig;
                 }
@@ -303,6 +345,8 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                 <SelectItem value="link">Link</SelectItem>
                 <SelectItem value="rollup">Rollup</SelectItem>
                 <SelectItem value="lookup">Lookup</SelectItem>
+                <SelectItem value="conditionalRollup">Conditional Rollup</SelectItem>
+                <SelectItem value="conditionalLookup">Conditional Lookup</SelectItem>
               </SelectContent>
             </Select>
           </div>

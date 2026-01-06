@@ -153,7 +153,7 @@ export type IFieldConditionDTO = {
     filterSet: ReadonlyArray<
       IFilterItemDTO | { conjunction: 'and' | 'or'; filterSet: ReadonlyArray<IFilterItemDTO> }
     >;
-  };
+  } | null;
   sort?: {
     fieldId: string;
     order: 'asc' | 'desc';

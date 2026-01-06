@@ -11,6 +11,8 @@ import { FormulaOptions } from './field-options/FormulaOptions';
 import { LinkOptions } from './field-options/LinkOptions';
 import { RollupOptions } from './field-options/RollupOptions';
 import { LookupOptions } from './field-options/LookupOptions';
+import { ConditionalRollupOptions } from './field-options/ConditionalRollupOptions';
+import { ConditionalLookupOptions } from './field-options/ConditionalLookupOptions';
 import type { FieldFormApi } from './FieldForm';
 import {
   checkFieldNotNullValidationEnabled,
@@ -97,6 +99,22 @@ export function FieldFormOptions({
         ))
         .with('lookup', () => (
           <LookupOptions
+            form={form}
+            tableId={tableId}
+            tables={tables}
+            isTablesLoading={isTablesLoading}
+          />
+        ))
+        .with('conditionalRollup', () => (
+          <ConditionalRollupOptions
+            form={form}
+            tableId={tableId}
+            tables={tables}
+            isTablesLoading={isTablesLoading}
+          />
+        ))
+        .with('conditionalLookup', () => (
+          <ConditionalLookupOptions
             form={form}
             tableId={tableId}
             tables={tables}

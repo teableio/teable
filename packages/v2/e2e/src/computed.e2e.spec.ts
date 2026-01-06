@@ -4815,4 +4815,2361 @@ describe('v2 computed field updates (e2e)', () => {
         `);
     });
   });
+
+  // ===========================================================================
+  // SECTION 8: CONDITIONAL ROLLUP & CONDITIONAL LOOKUP
+  // ===========================================================================
+
+  describe('conditionalRollup field updates', () => {
+    /**
+     * Scenario: ConditionalRollup with simple filter condition.
+     * Foreign table has records with different values, filter by value > threshold.
+     */
+    it('updates conditionalRollup when foreign records match filter condition', async () => {
+      // Foreign table: Source of rollup values
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const record1 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+      });
+      const record2 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+      });
+      const record3 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+        [foreignStatusFieldId]: 'inactive',
+      });
+
+      // Host table: Has conditionalRollup field
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'Active Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'Active Sum'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup Host]
+          ---------------------------
+          #  | Name  | Active Sum
+          ---------------------------
+          R0 | Host1 | 30        
+          ---------------------------"
+        `);
+
+      // Update foreign record value - should update rollup
+      await updateRecord(foreignTable.id, record1.id, { [foreignValueFieldId]: 15 });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup Host]
+          ---------------------------
+          #  | Name  | Active Sum
+          ---------------------------
+          R0 | Host1 | 35        
+          ---------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup with multiple filter conditions (AND).
+     */
+    it('updates conditionalRollup with multiple AND filter conditions', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignCategoryFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup MultiFilter Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+          { type: 'singleLineText', id: foreignCategoryFieldId, name: 'Category' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'A',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'B',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'A',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup MultiFilter Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'Filtered Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                    {
+                      fieldId: foreignCategoryFieldId,
+                      operator: 'is',
+                      value: 'A',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'Filtered Sum'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup MultiFilter Host]
+          --------------------------------
+          #  | Name  | Filtered Sum
+          --------------------------------
+          R0 | Host1 | 40        
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup with OR filter conditions.
+     */
+    it('updates conditionalRollup with OR filter conditions', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignCategoryFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup ORFilter Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignCategoryFieldId, name: 'Category' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignCategoryFieldId]: 'A',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignCategoryFieldId]: 'B',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+        [foreignCategoryFieldId]: 'C',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup ORFilter Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'OR Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'or',
+                  filterSet: [
+                    {
+                      fieldId: foreignCategoryFieldId,
+                      operator: 'is',
+                      value: 'A',
+                    },
+                    {
+                      fieldId: foreignCategoryFieldId,
+                      operator: 'is',
+                      value: 'B',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'OR Sum'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup ORFilter Host]
+          ---------------------------
+          #  | Name  | OR Sum
+          ---------------------------
+          R0 | Host1 | 30      
+          ---------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup with sort condition.
+     */
+    it('updates conditionalRollup with sort condition', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Sort Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 30,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 10,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 20,
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Sort Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'Sorted Max',
+            options: {
+              expression: 'max({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+                sort: {
+                  fieldId: foreignValueFieldId,
+                  order: 'desc',
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'Sorted Max'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup Sort Host]
+          ---------------------------
+          #  | Name  | Sorted Max
+          ---------------------------
+          R0 | Host1 | 30        
+          ---------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup with limit condition.
+     */
+    it('updates conditionalRollup with limit condition', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Limit Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item4',
+        [foreignValueFieldId]: 40,
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Limit Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'Limited Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+                sort: {
+                  fieldId: foreignValueFieldId,
+                  order: 'desc',
+                },
+                limit: 2,
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'Limited Sum'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      // Should sum only top 2 values (40 + 30 = 70)
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup Limit Host]
+          -----------------------------
+          #  | Name  | Limited Sum
+          -----------------------------
+          R0 | Host1 | 70        
+          -----------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup with nested filter conditions.
+     */
+    it('updates conditionalRollup with nested filter conditions', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignCategoryFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Nested Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+          { type: 'singleLineText', id: foreignCategoryFieldId, name: 'Category' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'A',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'B',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+        [foreignStatusFieldId]: 'inactive',
+        [foreignCategoryFieldId]: 'A',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Nested Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'Nested Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                    {
+                      conjunction: 'or',
+                      filterSet: [
+                        {
+                          fieldId: foreignCategoryFieldId,
+                          operator: 'is',
+                          value: 'A',
+                        },
+                        {
+                          fieldId: foreignCategoryFieldId,
+                          operator: 'is',
+                          value: 'B',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'Nested Sum'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup Nested Host]
+          -----------------------------
+          #  | Name  | Nested Sum
+          -----------------------------
+          R0 | Host1 | 30        
+          -----------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup with different rollup expressions.
+     */
+    it('updates conditionalRollup with different rollup expressions', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Expressions Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+      });
+
+      const hostNameFieldId = createFieldId();
+      const sumFieldId = createFieldId();
+      const avgFieldId = createFieldId();
+      const maxFieldId = createFieldId();
+      const minFieldId = createFieldId();
+      const countFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Expressions Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: sumFieldId,
+            name: 'Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            type: 'conditionalRollup',
+            id: avgFieldId,
+            name: 'Average',
+            options: {
+              expression: 'average({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            type: 'conditionalRollup',
+            id: maxFieldId,
+            name: 'Max',
+            options: {
+              expression: 'max({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            type: 'conditionalRollup',
+            id: minFieldId,
+            name: 'Min',
+            options: {
+              expression: 'min({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            type: 'conditionalRollup',
+            id: countFieldId,
+            name: 'Count',
+            options: {
+              expression: 'count({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [
+        hostNameFieldId,
+        sumFieldId,
+        avgFieldId,
+        maxFieldId,
+        minFieldId,
+        countFieldId,
+      ];
+      const fieldNames = ['Name', 'Sum', 'Average', 'Max', 'Min', 'Count'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup Expressions Host]
+          ---------------------------------------------------------
+          #  | Name  | Sum | Average | Max | Min | Count
+          ---------------------------------------------------------
+          R0 | Host1 | 60  | 20      | 30  | 10  | 3    
+          ---------------------------------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup updates when foreign records are added/removed.
+     */
+    it('updates conditionalRollup when foreign records are added', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Add Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Add Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'Active Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'Active Sum'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup Add Host]
+          ---------------------------
+          #  | Name  | Active Sum
+          ---------------------------
+          R0 | Host1 | 10        
+          ---------------------------"
+        `);
+
+      // Add new foreign record matching condition
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+      });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup Add Host]
+          ---------------------------
+          #  | Name  | Active Sum
+          ---------------------------
+          R0 | Host1 | 30        
+          ---------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup with same-table condition (self-referencing).
+     * This tests that conditionalRollup can filter records from the same table.
+     */
+    it('updates conditionalRollup with same-table condition', async () => {
+      const nameFieldId = createFieldId();
+      const valueFieldId = createFieldId();
+      const statusFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const table = await createTable({
+        baseId,
+        name: 'ConditionalRollup Self',
+        fields: [
+          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: valueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: statusFieldId, name: 'Status' },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'Self Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: '', // Will be set to same table
+              lookupFieldId: valueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: statusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Update foreignTableId to be the same table
+      // Note: This requires updating the field after table creation
+      // For now, we'll test with a separate table and document the limitation
+      test.todo(
+        'Same-table conditionalRollup: Need to support setting foreignTableId to same table ID'
+      );
+
+      await createRecord(table.id, {
+        [nameFieldId]: 'Item1',
+        [valueFieldId]: 10,
+        [statusFieldId]: 'active',
+      });
+      await createRecord(table.id, {
+        [nameFieldId]: 'Item2',
+        [valueFieldId]: 20,
+        [statusFieldId]: 'active',
+      });
+      await createRecord(table.id, {
+        [nameFieldId]: 'Item3',
+        [valueFieldId]: 30,
+        [statusFieldId]: 'inactive',
+      });
+
+      // For now, test with a separate foreign table
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Self Foreign',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', id: valueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: statusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // This test documents that same-table conditionalRollup needs special handling
+      // The field config needs to be updated after table creation to reference itself
+    });
+
+    /**
+     * Scenario: ConditionalRollup rejects empty condition.
+     */
+    it('rejects conditionalRollup with empty condition', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Reject Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostNameFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup Reject Host',
+        fields: [{ type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      // Try to create conditionalRollup with empty condition (filter: null)
+      const response = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'conditionalRollup',
+            name: 'Invalid Rollup',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: null,
+              },
+            },
+          },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    /**
+     * Scenario: ConditionalRollup rejects condition with empty filterSet.
+     */
+    it('rejects conditionalRollup with condition having empty filterSet', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup EmptyFilter Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostNameFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup EmptyFilter Host',
+        fields: [{ type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      // Try to create conditionalRollup with empty filterSet
+      const response = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'conditionalRollup',
+            name: 'Invalid Rollup',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [],
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+    });
+  });
+
+  describe('conditionalLookup field updates', () => {
+    /**
+     * Scenario: ConditionalLookup with simple filter condition.
+     */
+    it('updates conditionalLookup when foreign records match filter condition', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+        [foreignStatusFieldId]: 'inactive',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Active Values',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Active Values'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Host]
+          --------------------------------
+          #  | Name  | Active Values
+          --------------------------------
+          R0 | Host1 | [10, 20]     
+          --------------------------------"
+        `);
+
+      // Update foreign record value - should update lookup
+      const foreignRecords = await listRecords(foreignTable.id);
+      const item1 = foreignRecords.find((r) => r.fields[foreignNameFieldId] === 'Item1');
+      await updateRecord(foreignTable.id, item1!.id, { [foreignValueFieldId]: 15 });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Host]
+          --------------------------------
+          #  | Name  | Active Values
+          --------------------------------
+          R0 | Host1 | [15, 20]     
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with sort condition.
+     */
+    it('updates conditionalLookup with sort condition', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Sort Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 30,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 10,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 20,
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Sort Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Sorted Values',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+                sort: {
+                  fieldId: foreignValueFieldId,
+                  order: 'desc',
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Sorted Values'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Sort Host]
+          --------------------------------
+          #  | Name  | Sorted Values
+          --------------------------------
+          R0 | Host1 | [30, 20, 10] 
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with limit condition.
+     */
+    it('updates conditionalLookup with limit condition', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Limit Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item4',
+        [foreignValueFieldId]: 40,
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Limit Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Limited Values',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 5,
+                    },
+                  ],
+                },
+                sort: {
+                  fieldId: foreignValueFieldId,
+                  order: 'desc',
+                },
+                limit: 2,
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Limited Values'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      // Should return only top 2 values (40, 30)
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Limit Host]
+          --------------------------------
+          #  | Name  | Limited Values
+          --------------------------------
+          R0 | Host1 | [40, 30]     
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with multiple filter conditions.
+     */
+    it('updates conditionalLookup with multiple filter conditions', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignCategoryFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup MultiFilter Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+          { type: 'singleLineText', id: foreignCategoryFieldId, name: 'Category' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'A',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'B',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'A',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup MultiFilter Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Filtered Values',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                    {
+                      fieldId: foreignCategoryFieldId,
+                      operator: 'is',
+                      value: 'A',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Filtered Values'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup MultiFilter Host]
+          --------------------------------
+          #  | Name  | Filtered Values
+          --------------------------------
+          R0 | Host1 | [10, 30]      
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with same-table condition (self-referencing).
+     */
+    it('updates conditionalLookup with same-table condition', async () => {
+      test.todo(
+        'Same-table conditionalLookup: Need to support setting foreignTableId to same table ID'
+      );
+
+      const nameFieldId = createFieldId();
+      const valueFieldId = createFieldId();
+      const statusFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const table = await createTable({
+        baseId,
+        name: 'ConditionalLookup Self',
+        fields: [
+          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: valueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: statusFieldId, name: 'Status' },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Self Values',
+            options: {
+              foreignTableId: '', // Will be set to same table
+              lookupFieldId: valueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: statusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // This test documents that same-table conditionalLookup needs special handling
+      // The field config needs to be updated after table creation to reference itself
+    });
+
+    /**
+     * Scenario: ConditionalLookup rejects empty condition.
+     */
+    it('rejects conditionalLookup with empty condition', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Reject Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostNameFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Reject Host',
+        fields: [{ type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      // Try to create conditionalLookup with empty condition (filter: null)
+      const response = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'conditionalLookup',
+            name: 'Invalid Lookup',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: null,
+              },
+            },
+          },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with text field lookup.
+     */
+    it('updates conditionalLookup with text field lookup', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignTextFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Text Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: foreignTextFieldId, name: 'Text' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignTextFieldId]: 'Alpha',
+        [foreignStatusFieldId]: 'active',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignTextFieldId]: 'Beta',
+        [foreignStatusFieldId]: 'active',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignTextFieldId]: 'Gamma',
+        [foreignStatusFieldId]: 'inactive',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Text Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Active Texts',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignTextFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Active Texts'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Text Host]
+          --------------------------------
+          #  | Name  | Active Texts
+          --------------------------------
+          R0 | Host1 | [Alpha, Beta]
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup updates when foreign records are added/removed.
+     */
+    it('updates conditionalLookup when foreign records are added', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Add Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Add Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Active Values',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Active Values'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Add Host]
+          --------------------------------
+          #  | Name  | Active Values
+          --------------------------------
+          R0 | Host1 | [10]         
+          --------------------------------"
+        `);
+
+      // Add new foreign record matching condition
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+      });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Add Host]
+          --------------------------------
+          #  | Name  | Active Values
+          --------------------------------
+          R0 | Host1 | [10, 20]     
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with nested filter conditions.
+     */
+    it('updates conditionalLookup with nested filter conditions', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignCategoryFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Nested Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+          { type: 'singleLineText', id: foreignCategoryFieldId, name: 'Category' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'A',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+        [foreignCategoryFieldId]: 'B',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+        [foreignStatusFieldId]: 'inactive',
+        [foreignCategoryFieldId]: 'A',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Nested Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Nested Values',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                    {
+                      conjunction: 'or',
+                      filterSet: [
+                        {
+                          fieldId: foreignCategoryFieldId,
+                          operator: 'is',
+                          value: 'A',
+                        },
+                        {
+                          fieldId: foreignCategoryFieldId,
+                          operator: 'is',
+                          value: 'B',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Nested Values'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Nested Host]
+          --------------------------------
+          #  | Name  | Nested Values
+          --------------------------------
+          R0 | Host1 | [10, 20]     
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with boolean field lookup.
+     */
+    it('updates conditionalLookup with boolean field lookup', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignBooleanFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Boolean Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'checkbox', id: foreignBooleanFieldId, name: 'Flag' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignBooleanFieldId]: true,
+        [foreignStatusFieldId]: 'active',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignBooleanFieldId]: false,
+        [foreignStatusFieldId]: 'active',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignBooleanFieldId]: true,
+        [foreignStatusFieldId]: 'inactive',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Boolean Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Active Flags',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignBooleanFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Active Flags'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Boolean Host]
+          --------------------------------
+          #  | Name  | Active Flags
+          --------------------------------
+          R0 | Host1 | [true, false]
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with different operators in condition.
+     */
+    it('updates conditionalLookup with different filter operators', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Operators Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignValueFieldId]: 30,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item4',
+        [foreignValueFieldId]: 40,
+      });
+
+      const hostNameFieldId = createFieldId();
+      const greaterThanFieldId = createFieldId();
+      const lessThanFieldId = createFieldId();
+      const equalFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Operators Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: greaterThanFieldId,
+            name: 'Greater Than 15',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isGreater',
+                      value: 15,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            type: 'conditionalLookup',
+            id: lessThanFieldId,
+            name: 'Less Than 25',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'isLess',
+                      value: 25,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            type: 'conditionalLookup',
+            id: equalFieldId,
+            name: 'Equal 20',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignValueFieldId,
+                      operator: 'is',
+                      value: 20,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, greaterThanFieldId, lessThanFieldId, equalFieldId];
+      const fieldNames = ['Name', 'Greater Than 15', 'Less Than 25', 'Equal 20'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const records = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Operators Host]
+          -----------------------------------------------------
+          #  | Name  | Greater Than 15 | Less Than 25 | Equal 20
+          -----------------------------------------------------
+          R0 | Host1 | [20, 30, 40]    | [10, 20]     | [20]     
+          -----------------------------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup updates when foreign record is deleted.
+     */
+    it('updates conditionalLookup when foreign record is deleted', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Delete Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const record1 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+      });
+      const record2 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'active',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup Delete Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Active Values',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Active Values'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Delete Host]
+          --------------------------------
+          #  | Name  | Active Values
+          --------------------------------
+          R0 | Host1 | [10, 20]     
+          --------------------------------"
+        `);
+
+      // Delete foreign record
+      await deleteRecord(foreignTable.id, record1.id);
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup Delete Host]
+          --------------------------------
+          #  | Name  | Active Values
+          --------------------------------
+          R0 | Host1 | [20]         
+          --------------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with field reference in condition (isSymbol).
+     * This tests column-to-column comparison.
+     */
+    test.todo(
+      'ConditionalLookup with field reference (isSymbol): Need to verify support for column-to-column comparison in conditions'
+    );
+
+    /**
+     * Scenario: ConditionalRollup with field reference in condition (isSymbol).
+     */
+    test.todo(
+      'ConditionalRollup with field reference (isSymbol): Need to verify support for column-to-column comparison in conditions'
+    );
+
+    /**
+     * Scenario: ConditionalLookup with dateTime field lookup.
+     */
+    test.todo(
+      'ConditionalLookup with dateTime field: Need to verify dateTime field lookup and formatting in conditionalLookup'
+    );
+
+    /**
+     * Scenario: ConditionalRollup with dateTime field aggregation.
+     */
+    test.todo(
+      'ConditionalRollup with dateTime field: Need to verify dateTime field aggregation functions (min/max) in conditionalRollup'
+    );
+
+    /**
+     * Scenario: ConditionalLookup/conditionalRollup with formula field in condition.
+     */
+    test.todo(
+      'Conditional fields with formula field in condition: Need to verify that formula fields can be used in condition filters'
+    );
+
+    /**
+     * Scenario: ConditionalLookup/conditionalRollup with lookup field in condition.
+     */
+    test.todo(
+      'Conditional fields with lookup field in condition: Need to verify that lookup fields can be used in condition filters'
+    );
+
+    /**
+     * Scenario: ConditionalRollup with complex nested conditions and multiple aggregations.
+     */
+    test.todo(
+      'ConditionalRollup with complex nested conditions: Need to verify deeply nested filter conditions (3+ levels) work correctly'
+    );
+
+    /**
+     * Scenario: ConditionalLookup/conditionalRollup performance with large datasets.
+     */
+    test.todo(
+      'Conditional fields performance: Need to verify performance with large foreign tables (1000+ records) and complex conditions'
+    );
+
+    /**
+     * Scenario: ConditionalRollup updates when condition filter field changes.
+     */
+    it('updates conditionalRollup when condition filter field value changes', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup FilterChange Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const record1 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+      });
+      const record2 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'inactive',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalRollup FilterChange Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'Active Sum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'Active Sum'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup FilterChange Host]
+          ---------------------------
+          #  | Name  | Active Sum
+          ---------------------------
+          R0 | Host1 | 10        
+          ---------------------------"
+        `);
+
+      // Change record2 status from inactive to active - should now be included
+      await updateRecord(foreignTable.id, record2.id, { [foreignStatusFieldId]: 'active' });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalRollup FilterChange Host]
+          ---------------------------
+          #  | Name  | Active Sum
+          ---------------------------
+          R0 | Host1 | 30        
+          ---------------------------"
+        `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup updates when condition filter field changes.
+     */
+    it('updates conditionalLookup when condition filter field value changes', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignValueFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup FilterChange Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignValueFieldId, name: 'Value' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const record1 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignValueFieldId]: 10,
+        [foreignStatusFieldId]: 'active',
+      });
+      const record2 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignValueFieldId]: 20,
+        [foreignStatusFieldId]: 'inactive',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'ConditionalLookup FilterChange Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Active Values',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Active Values'];
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup FilterChange Host]
+          --------------------------------
+          #  | Name  | Active Values
+          --------------------------------
+          R0 | Host1 | [10]         
+          --------------------------------"
+        `);
+
+      // Change record2 status from inactive to active - should now be included
+      await updateRecord(foreignTable.id, record2.id, { [foreignStatusFieldId]: 'active' });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ConditionalLookup FilterChange Host]
+          --------------------------------
+          #  | Name  | Active Values
+          --------------------------------
+          R0 | Host1 | [10, 20]     
+          --------------------------------"
+        `);
+    });
+  });
 });

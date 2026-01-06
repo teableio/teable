@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -64,9 +64,18 @@ export class ConditionalLookupOptions extends ValueObject {
 
     return FieldIdVO.create(lookupFieldId).andThen((lookupId) =>
       TableIdVO.create(foreignTableId).andThen((tableId) =>
-        FieldCondition.create(condition).map(
-          (cond) => new ConditionalLookupOptions(tableId, lookupId, cond)
-        )
+        FieldCondition.create(condition).andThen((cond) => {
+          // Validate that condition has at least one filter item
+          if (!cond.hasFilter()) {
+            return err(
+              domainError.validation({
+                code: 'conditional_lookup.options.condition_required',
+                message: 'ConditionalLookupOptions condition must have at least one filter item',
+              })
+            );
+          }
+          return ok(new ConditionalLookupOptions(tableId, lookupId, cond));
+        })
       )
     );
   }

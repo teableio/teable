@@ -5,6 +5,8 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -299,6 +301,47 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
       pushToken(tokens, 'inner', innerTypeResult.value.toString());
     } else {
       pushToken(tokens, 'inner', 'pending');
+    }
+    return ok(formatFieldTokens(field, tokens));
+  }
+
+  visitConditionalRollupField(field: ConditionalRollupField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'expr', field.expression().toString());
+    pushToken(tokens, 'foreign', field.foreignTableId().toString());
+    pushToken(tokens, 'lookup', field.lookupFieldId().toString());
+    const condition = field.condition();
+    if (condition.hasFilter()) {
+      pushToken(tokens, 'filtered', 'yes');
+    }
+    if (condition.hasSort()) {
+      pushToken(tokens, 'sorted', 'yes');
+    }
+    if (condition.hasLimit()) {
+      pushToken(tokens, 'limit', condition.limit() ?? 0);
+    }
+    return ok(formatFieldTokens(field, tokens));
+  }
+
+  visitConditionalLookupField(field: ConditionalLookupField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'foreign', field.foreignTableId().toString());
+    pushToken(tokens, 'lookup', field.lookupFieldId().toString());
+    const innerTypeResult = field.innerFieldType();
+    if (innerTypeResult.isOk()) {
+      pushToken(tokens, 'inner', innerTypeResult.value.toString());
+    } else {
+      pushToken(tokens, 'inner', 'pending');
+    }
+    const condition = field.condition();
+    if (condition.hasFilter()) {
+      pushToken(tokens, 'filtered', 'yes');
+    }
+    if (condition.hasSort()) {
+      pushToken(tokens, 'sorted', 'yes');
+    }
+    if (condition.hasLimit()) {
+      pushToken(tokens, 'limit', condition.limit() ?? 0);
     }
     return ok(formatFieldTokens(field, tokens));
   }

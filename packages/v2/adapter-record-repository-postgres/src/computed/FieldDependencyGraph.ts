@@ -423,7 +423,7 @@ const parseLookupOptions = (raw: string | null): Result<LookupOptionsMeta | null
 
 /**
  * Parse conditional field options (for conditionalRollup/conditionalLookup).
- * These are stored in the options field with foreignTableId and lookupFieldId.
+ * v1 format: foreignTableId, lookupFieldId, filter, sort, limit are stored directly in options.
  */
 const parseConditionalFieldOptions = (
   raw: string | null
@@ -433,16 +433,16 @@ const parseConditionalFieldOptions = (
   if (parsed.isErr()) return err(parsed.error);
   const value = parsed.value as Record<string, unknown>;
 
-  // Conditional fields store their config in 'config' sub-object
-  const config = value.config as Record<string, unknown> | undefined;
-  if (!config) {
-    return err(domainError.validation({ message: 'Missing config in conditional field options' }));
-  }
-
-  const foreignTableId = readString(config, 'foreignTableId');
+  // v1 format: foreignTableId and lookupFieldId are directly in options
+  const foreignTableId = readOptionalString(value, 'foreignTableId');
   if (foreignTableId.isErr()) return err(foreignTableId.error);
-  const lookupFieldId = readString(config, 'lookupFieldId');
+  const lookupFieldId = readOptionalString(value, 'lookupFieldId');
   if (lookupFieldId.isErr()) return err(lookupFieldId.error);
+
+  // If both are missing, return null (field might be incomplete)
+  if (!foreignTableId.value || !lookupFieldId.value) {
+    return ok(null);
+  }
 
   return ok({
     foreignTableId: foreignTableId.value,

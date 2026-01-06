@@ -280,10 +280,13 @@ const filterSetSchema: z.ZodType<unknown> = z.lazy(() =>
 );
 
 const fieldConditionSchema = z.object({
-  filter: z.object({
-    conjunction: z.enum(['and', 'or']),
-    filterSet: z.array(filterSetSchema),
-  }),
+  filter: z
+    .object({
+      conjunction: z.enum(['and', 'or']),
+      filterSet: z.array(filterSetSchema).optional(),
+    })
+    .nullable()
+    .optional(),
   sort: z
     .object({
       fieldId: z.string(),
@@ -299,7 +302,23 @@ const conditionalRollupConfigSchema = z
     lookupFieldId: z.string(),
     condition: fieldConditionSchema,
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) => {
+      // Condition must have at least one filter item
+      const filter = data.condition?.filter;
+      return (
+        filter !== null &&
+        filter !== undefined &&
+        filter.filterSet !== undefined &&
+        filter.filterSet.length > 0
+      );
+    },
+    {
+      message: 'ConditionalRollupConfig condition must have at least one filter item',
+      path: ['condition'],
+    }
+  );
 
 const conditionalRollupOptionsSchema = z
   .object({
@@ -316,7 +335,23 @@ const conditionalLookupOptionsSchema = z
     lookupFieldId: z.string(),
     condition: fieldConditionSchema,
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) => {
+      // Condition must have at least one filter item
+      const filter = data.condition?.filter;
+      return (
+        filter !== null &&
+        filter !== undefined &&
+        filter.filterSet !== undefined &&
+        filter.filterSet.length > 0
+      );
+    },
+    {
+      message: 'ConditionalLookupOptions condition must have at least one filter item',
+      path: ['condition'],
+    }
+  );
 
 export const tableFieldInputSchema = z.discriminatedUnion('type', [
   z.object({

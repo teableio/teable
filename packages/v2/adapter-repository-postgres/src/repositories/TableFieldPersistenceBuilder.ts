@@ -285,6 +285,37 @@ export class TableFieldPersistenceBuilder {
 
   private serializeFieldOptions(field: ITableFieldPersistenceDTO): string | null {
     if (field.options === undefined) return null;
+
+    // For conditionalRollup, match v1 format: flatten config into options
+    // v1 stores: expression, timeZone, formatting, showAs, foreignTableId, lookupFieldId, filter, sort, limit
+    if (field.type === 'conditionalRollup' && field.config) {
+      const config = field.config as Record<string, unknown>;
+      const condition = config.condition as Record<string, unknown> | undefined;
+      return JSON.stringify({
+        ...field.options,
+        foreignTableId: config.foreignTableId,
+        lookupFieldId: config.lookupFieldId,
+        // Convert condition to v1 filter format
+        filter: condition?.filter ?? null,
+        sort: condition?.sort,
+        limit: condition?.limit,
+      });
+    }
+
+    // For conditionalLookup, options already has foreignTableId, lookupFieldId, condition
+    // Convert to v1 format (flatten condition into options)
+    if (field.type === 'conditionalLookup') {
+      const opts = field.options as Record<string, unknown>;
+      const condition = opts.condition as Record<string, unknown> | undefined;
+      return JSON.stringify({
+        foreignTableId: opts.foreignTableId,
+        lookupFieldId: opts.lookupFieldId,
+        filter: condition?.filter ?? null,
+        sort: condition?.sort,
+        limit: condition?.limit,
+      });
+    }
+
     return JSON.stringify(field.options);
   }
 
