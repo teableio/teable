@@ -225,7 +225,7 @@ export class SameTableBatchQueryBuilder {
     const translator = new FormulaSqlPgTranslator({
       table,
       tableAlias: T,
-      resolveFieldSql: (refField) =>
+      resolveFieldSql: (refField: Field) =>
         this.resolveFieldSqlWithCte(refField, previousCteColumns, tableName),
       skipFormulaExpansion: true,
     });

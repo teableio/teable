@@ -2988,6 +2988,9 @@ importers:
       '@teable/v2-postgres-schema':
         specifier: workspace:*
         version: link:../postgres-schema
+      dayjs:
+        specifier: 1.11.10
+        version: 1.11.10
       kysely:
         specifier: 0.28.9
         version: 0.28.9

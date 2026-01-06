@@ -39,6 +39,12 @@ export interface SchemaCheckResult {
 
   /** Timestamp when check was performed */
   timestamp: number;
+
+  /** IDs of rules this rule depends on (for parent-child relationship display) */
+  dependencies: ReadonlyArray<string>;
+
+  /** Nesting depth for display (0 = root, 1+ = nested under parent) */
+  depth: number;
 }
 
 /**
@@ -49,7 +55,9 @@ export const pendingResult = (
   fieldName: string,
   ruleId: string,
   ruleDescription: string,
-  required: boolean
+  required: boolean,
+  dependencies: ReadonlyArray<string> = [],
+  depth: number = 0
 ): SchemaCheckResult => ({
   id: `${fieldId}:${ruleId}`,
   fieldId,
@@ -59,6 +67,8 @@ export const pendingResult = (
   status: 'pending',
   required,
   timestamp: Date.now(),
+  dependencies,
+  depth,
 });
 
 /**
@@ -118,6 +128,10 @@ export const getRuleDescription = (ruleId: string): string => {
   switch (type) {
     case 'column':
       return 'Physical column';
+    case 'not_null':
+      return 'NOT NULL constraint';
+    case 'column_unique':
+      return 'UNIQUE constraint';
     case 'fk_column':
       return 'Foreign key column';
     case 'index':
@@ -128,6 +142,12 @@ export const getRuleDescription = (ruleId: string): string => {
       return 'Foreign key constraint';
     case 'junction_table':
       return 'Junction table';
+    case 'junction_unique':
+      return 'Junction table unique constraint';
+    case 'junction_index':
+      return 'Junction table index';
+    case 'junction_fk':
+      return 'Junction table foreign key';
     case 'reference':
       return 'Reference records';
     case 'generated_column':

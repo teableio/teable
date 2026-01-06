@@ -165,6 +165,45 @@ Repositories query via specifications, not ad-hoc filters.
 - For multi-type logic that already has a visitor (fields, specs, etc.), prefer a dedicated visitor file over switch/if chains.
 - Keep type-to-value mappings in visitors so new types require explicit visitor updates.
 
+## Condition/Filter handling (non-negotiable)
+
+**Record conditions are a core domain concept.** All condition/filter logic MUST use the specification + visitor pattern. Never directly parse or interpret condition objects with switch/if/match chains.
+
+### Required pattern
+
+1. **Domain**: Conditions are modeled as `RecordConditionSpec` (specification pattern)
+2. **Creation**: Use `FieldConditionSpecBuilder` or `RecordConditionSpecBuilder` to create specs
+3. **Translation**: Use `ITableRecordConditionSpecVisitor` implementations to translate specs (e.g. to SQL WHERE clauses)
+
+```typescript
+// ✅ CORRECT: Use spec + visitor pattern
+const spec = yield* condition.toRecordConditionSpec(table);
+const visitor = new TableRecordConditionWhereVisitor();
+const whereClause = yield* spec.accept(visitor);
+
+// ❌ WRONG: Direct parsing with match/switch
+for (const item of condition.filterItems()) {
+  match(item.operator)
+    .with('is', () => sql`${col} = ${val}`)
+    .with('isNot', () => sql`${col} != ${val}`)
+    // ... duplicates visitor logic
+}
+```
+
+### Why this matters
+
+- **Single source of truth**: All operator logic lives in one visitor
+- **Type safety**: Adding new operators requires updating the visitor interface (compile-time errors)
+- **Consistency**: Same behavior across all condition consumers (views, computed fields, API filters)
+- **Testability**: Visitor behavior is tested once with full coverage
+
+### Key files
+
+- `v2/core/src/domain/table/records/specs/RecordConditionSpec.ts` - Base spec classes
+- `v2/core/src/domain/table/records/specs/ITableRecordConditionSpecVisitor.ts` - Visitor interface
+- `v2/core/src/domain/table/records/specs/FieldConditionSpecBuilder.ts` - Creates specs from field + operator + value
+- Adapter visitors (e.g. `TableRecordConditionWhereVisitor`) - Translate to SQL
+
 ## Folder conventions (recommended)
 
 Inside `packages/v2/core/src`:

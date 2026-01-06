@@ -1,4 +1,4 @@
-import type { DomainError } from '@teable/v2-core';
+import type { DomainError, Field } from '@teable/v2-core';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -23,32 +23,38 @@ export class UniqueIndexRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
-  readonly required: boolean;
+  readonly required = true;
 
   /**
-   * @param fieldId - The field ID this index is for
+   * @param field - The field this index is for
    * @param columnName - The column name to create unique index on
-   * @param options - Optional configuration
+   * @param parent - The parent rule (typically FkColumnRule) this depends on
+   * @param relationshipType - The relationship type (for description)
    */
   constructor(
-    private readonly fieldId: string,
+    private readonly field: Field,
     private readonly columnName: string,
-    options: {
-      required?: boolean;
-      columnRuleId?: string;
-      fieldName?: string;
-      relationshipType?: string;
-    } = {}
+    parent: ISchemaRule,
+    private readonly relationshipType?: string
   ) {
-    this.id = `unique_index:${fieldId}:${columnName}`;
-    this.dependencies = [options.columnRuleId ?? `column:${fieldId}`];
-    this.required = options.required ?? true;
+    this.id = `unique_index:${field.id().toString()}:${columnName}`;
+    this.dependencies = [parent.id];
 
-    const name = options.fieldName ?? columnName;
-    const relationship = options.relationshipType
-      ? ` (${options.relationshipType} relationship)`
-      : '';
-    this.description = `Unique index on "${name}" ensures one-to-one relationship${relationship}`;
+    const name = field.name().toString();
+    const relationship = relationshipType ? ` (${relationshipType} relationship)` : '';
+    this.description = `Unique index on "${name}" (${columnName}) ensures one-to-one relationship${relationship}`;
+  }
+
+  /**
+   * Creates a UniqueIndexRule for a FK column.
+   */
+  static forFkColumn(
+    field: Field,
+    columnName: string,
+    parent: ISchemaRule,
+    relationshipType?: string
+  ): UniqueIndexRule {
+    return new UniqueIndexRule(field, columnName, parent, relationshipType);
   }
 
   private get indexName(): string {

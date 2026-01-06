@@ -6,6 +6,8 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { ConditionalLookupField } from '../types/ConditionalLookupField';
+import type { ConditionalRollupField } from '../types/ConditionalRollupField';
 import type { CreatedByField } from '../types/CreatedByField';
 import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
@@ -103,6 +105,16 @@ export class FieldFormVisibilityVisitor implements IFieldVisitor<boolean> {
 
   visitLookupField(_: LookupField): Result<boolean, DomainError> {
     // Lookup fields are computed/read-only, not visible in forms
+    return ok(false);
+  }
+
+  visitConditionalRollupField(_: ConditionalRollupField): Result<boolean, DomainError> {
+    // Computed fields are not visible in forms
+    return ok(false);
+  }
+
+  visitConditionalLookupField(_: ConditionalLookupField): Result<boolean, DomainError> {
+    // Computed fields are not visible in forms
     return ok(false);
   }
 }

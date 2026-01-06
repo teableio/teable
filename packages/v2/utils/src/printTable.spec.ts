@@ -87,12 +87,12 @@ R1 | -     | []    | [foo, bar] | Obj
     });
 
     expect(output).toMatchInlineSnapshot(`
-"[Orders]
-------------------------------------
-RecordId           | Title  | Count
-------------------------------------
-recaaaaaaaaaaaaaaaa | Widget | 7    
-------------------------------------"
-`);
+      "[Orders]
+      ------------------------------------
+      RecordId            | Title  | Count
+      ------------------------------------
+      recaaaaaaaaaaaaaaaa | Widget | 7    
+      ------------------------------------"
+    `);
   });
 });

@@ -11,6 +11,8 @@ import {
   createAutoNumberField,
   createButtonField,
   createCheckboxField,
+  createConditionalLookupFieldPending,
+  createConditionalRollupFieldPending,
   createCreatedByField,
   createCreatedTimeField,
   createDateField,
@@ -35,6 +37,8 @@ import { ButtonMaxCount } from '../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../domain/table/fields/types/ButtonResetCount';
 import { ButtonWorkflow } from '../domain/table/fields/types/ButtonWorkflow';
 import { CheckboxDefaultValue } from '../domain/table/fields/types/CheckboxDefaultValue';
+import { ConditionalLookupOptions } from '../domain/table/fields/types/ConditionalLookupOptions';
+import { ConditionalRollupConfig } from '../domain/table/fields/types/ConditionalRollupConfig';
 import { DateDefaultValue } from '../domain/table/fields/types/DateDefaultValue';
 import {
   DateTimeFormatting,
@@ -259,6 +263,61 @@ const lookupOptionsSchema = z
   })
   .strict();
 
+const filterItemSchema = z.object({
+  fieldId: z.string(),
+  operator: z.string(),
+  value: z.unknown(),
+});
+
+const filterSetSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    filterItemSchema,
+    z.object({
+      conjunction: z.enum(['and', 'or']),
+      filterSet: z.array(filterSetSchema),
+    }),
+  ])
+);
+
+const fieldConditionSchema = z.object({
+  filter: z.object({
+    conjunction: z.enum(['and', 'or']),
+    filterSet: z.array(filterSetSchema),
+  }),
+  sort: z
+    .object({
+      fieldId: z.string(),
+      order: z.enum(['asc', 'desc']),
+    })
+    .optional(),
+  limit: z.number().optional(),
+});
+
+const conditionalRollupConfigSchema = z
+  .object({
+    foreignTableId: z.string(),
+    lookupFieldId: z.string(),
+    condition: fieldConditionSchema,
+  })
+  .strict();
+
+const conditionalRollupOptionsSchema = z
+  .object({
+    expression: z.string(),
+    timeZone: z.enum(TIME_ZONE_LIST).optional(),
+    formatting: formulaFormattingSchema.optional(),
+    showAs: formulaShowAsSchema.optional(),
+  })
+  .strict();
+
+const conditionalLookupOptionsSchema = z
+  .object({
+    foreignTableId: z.string(),
+    lookupFieldId: z.string(),
+    condition: fieldConditionSchema,
+  })
+  .strict();
+
 export const tableFieldInputSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('singleLineText'),
@@ -449,6 +508,29 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
       unique: z.boolean().optional(),
     })
     .strict(),
+  z
+    .object({
+      type: z.literal('conditionalRollup'),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      options: conditionalRollupOptionsSchema,
+      config: conditionalRollupConfigSchema,
+      isPrimary: z.boolean().optional(),
+      notNull: z.boolean().optional(),
+      unique: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('conditionalLookup'),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      options: conditionalLookupOptionsSchema,
+      isPrimary: z.boolean().optional(),
+      notNull: z.boolean().optional(),
+      unique: z.boolean().optional(),
+    })
+    .strict(),
 ]);
 
 export type ITableFieldInput = z.output<typeof tableFieldInputSchema>;
@@ -522,6 +604,10 @@ const defaultFieldName = (field: ITableFieldInput): string => {
       return 'Link';
     case 'lookup':
       return 'Lookup';
+    case 'conditionalRollup':
+      return 'Conditional Rollup';
+    case 'conditionalLookup':
+      return 'Conditional Lookup';
     default:
       return 'Field';
   }
@@ -1220,6 +1306,147 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
   }
 
   private withPrimary(isPrimary: boolean): CreateLookupFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateConditionalRollupFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName,
+    private readonly config: ConditionalRollupConfig,
+    private readonly expression: RollupExpression,
+    private readonly timeZone: TimeZone | undefined,
+    private readonly formatting: FormulaFormatting | undefined,
+    private readonly showAs: FormulaShowAs | undefined
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: {
+      isPrimary: boolean;
+      config: ConditionalRollupConfig;
+      expression: RollupExpression;
+      timeZone?: TimeZone;
+      formatting?: FormulaFormatting;
+      showAs?: FormulaShowAs;
+    }
+  ): CreateConditionalRollupFieldSpec {
+    return new CreateConditionalRollupFieldSpec(
+      id,
+      name,
+      options.config,
+      options.expression,
+      options.timeZone,
+      options.formatting,
+      options.showAs
+    ).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder
+      .field()
+      .conditionalRollup()
+      .withName(this.name)
+      .withConfig(this.config)
+      .withExpression(this.expression);
+    if (this.id) fieldBuilder.withId(this.id);
+    if (this.timeZone) fieldBuilder.withTimeZone(this.timeZone);
+    if (this.formatting) fieldBuilder.withFormatting(this.formatting);
+    if (this.showAs) fieldBuilder.withShowAs(this.showAs);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
+    return resolveFieldId(this.id).andThen((id) =>
+      createConditionalRollupFieldPending({
+        id,
+        name: this.name,
+        config: this.config,
+        expression: this.expression,
+        timeZone: this.timeZone,
+        formatting: this.formatting,
+        showAs: this.showAs,
+      })
+    );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    return ok([
+      {
+        foreignTableId: this.config.foreignTableId(),
+      },
+    ]);
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateConditionalRollupFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateConditionalLookupFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName,
+    private readonly conditionalLookupOptions: ConditionalLookupOptions
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: {
+      isPrimary: boolean;
+      conditionalLookupOptions: ConditionalLookupOptions;
+    }
+  ): CreateConditionalLookupFieldSpec {
+    return new CreateConditionalLookupFieldSpec(
+      id,
+      name,
+      options.conditionalLookupOptions
+    ).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    // ConditionalLookup fields are created as pending (without inner field resolved)
+    // The inner field will be resolved during foreign table validation in the handler
+    const fieldResult = this.createField();
+    builder.addFieldFromResult(fieldResult);
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary) {
+      return err(
+        domainError.validation({ message: 'Primary field cannot be a conditional lookup field' })
+      );
+    }
+    return resolveFieldId(this.id).andThen((id) =>
+      createConditionalLookupFieldPending({
+        id,
+        name: this.name,
+        conditionalLookupOptions: this.conditionalLookupOptions,
+      })
+    );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    return ok([
+      {
+        foreignTableId: this.conditionalLookupOptions.foreignTableId(),
+      },
+    ]);
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateConditionalLookupFieldSpec {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -2367,6 +2594,34 @@ export const parseTableFieldSpec = (
                   )
                 )
               )
+            )
+          )
+          .with({ type: 'conditionalRollup' }, (field) =>
+            RollupExpression.create(field.options.expression).andThen((expression) =>
+              ConditionalRollupConfig.create(field.config).andThen((config) =>
+                optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
+                  parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                    parseFormulaShowAs(field.options.showAs).map((showAs) =>
+                      CreateConditionalRollupFieldSpec.create(id, name, {
+                        isPrimary: options.isPrimary,
+                        config,
+                        expression,
+                        timeZone,
+                        formatting,
+                        showAs,
+                      })
+                    )
+                  )
+                )
+              )
+            )
+          )
+          .with({ type: 'conditionalLookup' }, (field) =>
+            ConditionalLookupOptions.create(field.options).map((conditionalLookupOptions) =>
+              CreateConditionalLookupFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+                conditionalLookupOptions,
+              })
             )
           )
           .exhaustive()

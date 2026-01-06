@@ -13,7 +13,7 @@ import {
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { allFieldTypesTemplate } from '@teable/v2-table-templates';
+import { createAllFieldTypesFields } from '@teable/v2-table-templates';
 import type { Kysely } from 'kysely';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -68,9 +68,11 @@ describe('CreateFieldHandler (db)', () => {
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
 
-    const createTableResult = CreateTableCommand.create(
-      allFieldTypesTemplate.createInput(baseId.toString(), 'Data Check')
-    );
+    const createTableResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Data Check',
+      fields: createAllFieldTypesFields(),
+    });
     createTableResult._unsafeUnwrap();
 
     const createdTableResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(

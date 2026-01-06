@@ -1,4 +1,4 @@
-import type { DomainError } from '@teable/v2-core';
+import type { DomainError, Field } from '@teable/v2-core';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -22,46 +22,46 @@ export class ForeignKeyRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
-  readonly required: boolean;
+  readonly required = true;
 
   /**
-   * @param fieldId - The field ID this FK is for
+   * @param field - The field this FK is for
    * @param columnName - The local column name that holds the FK
    * @param targetTable - The target table identifier
-   * @param options - Optional configuration
+   * @param parent - The parent rule (typically FkColumnRule) this depends on
+   * @param targetTableName - Display name of the target table (for description)
+   * @param onDelete - ON DELETE action (default: CASCADE)
    */
   constructor(
-    private readonly fieldId: string,
+    private readonly field: Field,
     private readonly columnName: string,
     private readonly targetTable: TableIdentifier,
-    private readonly options: {
-      targetColumn?: string;
-      onDelete?: 'CASCADE' | 'SET NULL' | 'RESTRICT';
-      required?: boolean;
-      columnRuleId?: string;
-      fieldName?: string;
-      targetTableName?: string;
-    } = {}
+    parent: ISchemaRule,
+    private readonly targetTableName: string,
+    private readonly onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE'
   ) {
-    this.id = `fk:${fieldId}:${columnName}`;
-    this.dependencies = [this.options.columnRuleId ?? `column:${fieldId}`];
-    this.required = this.options.required ?? true;
+    this.id = `fk:${field.id().toString()}:${columnName}`;
+    this.dependencies = [parent.id];
     this.description = this.buildDescription();
   }
 
   private buildDescription(): string {
-    const name = this.options.fieldName ?? this.columnName;
-    const target = this.options.targetTableName ?? this.targetTable.tableName;
-    const onDelete = this.options.onDelete ?? 'CASCADE';
-    return `Foreign key constraint on "${name}" → ${target}.${this.targetColumnValue} (ON DELETE ${onDelete})`;
+    const name = this.field.name().toString();
+    return `Foreign key constraint on "${name}" (${this.columnName}) → ${this.targetTableName}.__id (ON DELETE ${this.onDelete})`;
   }
 
-  private get targetColumnValue(): string {
-    return this.options.targetColumn ?? '__id';
-  }
-
-  private get onDeleteValue(): 'CASCADE' | 'SET NULL' | 'RESTRICT' {
-    return this.options.onDelete ?? 'CASCADE';
+  /**
+   * Creates a ForeignKeyRule for a link field.
+   */
+  static forField(
+    field: Field,
+    columnName: string,
+    targetTable: TableIdentifier,
+    parent: ISchemaRule,
+    targetTableName: string,
+    onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE'
+  ): ForeignKeyRule {
+    return new ForeignKeyRule(field, columnName, targetTable, parent, targetTableName, onDelete);
   }
 
   private get constraintName(): string {
@@ -93,8 +93,8 @@ export class ForeignKeyRule implements ISchemaRule {
         this.constraintName,
         this.columnName,
         this.targetTable,
-        this.targetColumnValue,
-        this.onDeleteValue
+        '__id',
+        this.onDelete
       ),
     ]);
   }

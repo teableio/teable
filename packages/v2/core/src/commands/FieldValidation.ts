@@ -10,6 +10,8 @@ const computedFieldTypes = new Set<FieldTypeValue>([
   'createdBy',
   'lastModifiedBy',
   'autoNumber',
+  'conditionalRollup',
+  'conditionalLookup',
 ]);
 
 const uniqueValidationFieldTypes = new Set<FieldTypeValue>([

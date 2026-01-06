@@ -18,6 +18,14 @@ import type { ButtonResetCount } from './fields/types/ButtonResetCount';
 import type { ButtonWorkflow } from './fields/types/ButtonWorkflow';
 import type { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
 import { CheckboxField } from './fields/types/CheckboxField';
+import { ConditionalLookupField } from './fields/types/ConditionalLookupField';
+import type { ConditionalLookupOptions } from './fields/types/ConditionalLookupOptions';
+import type { ConditionalRollupConfig } from './fields/types/ConditionalRollupConfig';
+import {
+  ConditionalRollupField,
+  type ConditionalRollupFormatting,
+  type ConditionalRollupShowAs,
+} from './fields/types/ConditionalRollupField';
 import { CreatedByField } from './fields/types/CreatedByField';
 import { CreatedTimeField } from './fields/types/CreatedTimeField';
 import type { DateDefaultValue } from './fields/types/DateDefaultValue';
@@ -108,6 +116,9 @@ const rollupExpressionRequiredError = 'Rollup expression is required';
 const rollupConfigRequiredError = 'RollupFieldConfig is required';
 const lookupOptionsRequiredError = 'LookupOptions is required';
 const lookupInnerFieldRequiredError = 'Lookup inner field is required';
+const conditionalRollupConfigRequiredError = 'ConditionalRollupConfig is required';
+const conditionalRollupExpressionRequiredError = 'Conditional rollup expression is required';
+const conditionalLookupOptionsRequiredError = 'ConditionalLookupOptions is required';
 
 const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): boolean => {
   const seen = new Set<string>();
@@ -412,6 +423,14 @@ export class TableFieldBuilder {
 
   link(): LinkFieldBuilder {
     return new LinkFieldBuilder(this.parent, this.sink);
+  }
+
+  conditionalRollup(): ConditionalRollupFieldBuilder {
+    return new ConditionalRollupFieldBuilder(this.parent, this.sink);
+  }
+
+  conditionalLookup(): ConditionalLookupFieldBuilder {
+    return new ConditionalLookupFieldBuilder(this.parent, this.sink);
   }
 }
 
@@ -1857,6 +1876,209 @@ export class LinkFieldBuilder {
           if (!this.isPrimary) return ok(field);
           return this.parent.markPrimaryFieldId(field.id()).map(() => field);
         })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class ConditionalRollupFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private config: ConditionalRollupConfig | undefined;
+  private expression: RollupExpression | undefined;
+  private valuesField: Field | undefined;
+  private timeZone: TimeZone | undefined;
+  private formatting: ConditionalRollupFormatting | undefined;
+  private showAs: ConditionalRollupShowAs | undefined;
+  private dependencies: ReadonlyArray<FieldId> = [];
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): ConditionalRollupFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): ConditionalRollupFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withConfig(config: ConditionalRollupConfig): ConditionalRollupFieldBuilder {
+    this.config = config;
+    return this;
+  }
+
+  withExpression(expression: RollupExpression): ConditionalRollupFieldBuilder {
+    this.expression = expression;
+    return this;
+  }
+
+  withValuesField(valuesField: Field): ConditionalRollupFieldBuilder {
+    this.valuesField = valuesField;
+    return this;
+  }
+
+  withTimeZone(timeZone: TimeZone): ConditionalRollupFieldBuilder {
+    this.timeZone = timeZone;
+    return this;
+  }
+
+  withFormatting(formatting: ConditionalRollupFormatting): ConditionalRollupFieldBuilder {
+    this.formatting = formatting;
+    return this;
+  }
+
+  withShowAs(showAs: ConditionalRollupShowAs): ConditionalRollupFieldBuilder {
+    this.showAs = showAs;
+    return this;
+  }
+
+  withDependencies(dependencies: ReadonlyArray<FieldId>): ConditionalRollupFieldBuilder {
+    this.dependencies = [...dependencies];
+    return this;
+  }
+
+  primary(): ConditionalRollupFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+    const config = this.config;
+    if (!config) {
+      this.sink.addError(conditionalRollupConfigRequiredError);
+      return this.parent;
+    }
+    const expression = this.expression;
+    if (!expression) {
+      this.sink.addError(conditionalRollupExpressionRequiredError);
+      return this.parent;
+    }
+    const valuesField = this.valuesField;
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      (valuesField
+        ? ConditionalRollupField.create({
+            id,
+            name,
+            config,
+            expression,
+            valuesField,
+            timeZone: this.timeZone,
+            formatting: this.formatting,
+            showAs: this.showAs,
+            dependencies: this.dependencies,
+          })
+        : ConditionalRollupField.createPending({
+            id,
+            name,
+            config,
+            expression,
+            timeZone: this.timeZone,
+            formatting: this.formatting,
+            showAs: this.showAs,
+            dependencies: this.dependencies,
+          })
+      ).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class ConditionalLookupFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private conditionalLookupOptions: ConditionalLookupOptions | undefined;
+  private innerField: Field | undefined;
+  private dependencies: ReadonlyArray<FieldId> = [];
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): ConditionalLookupFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): ConditionalLookupFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withConditionalLookupOptions(options: ConditionalLookupOptions): ConditionalLookupFieldBuilder {
+    this.conditionalLookupOptions = options;
+    return this;
+  }
+
+  /**
+   * Set the inner field that defines the lookup value type and formatting.
+   * This should be a field that matches the type of the field being looked up.
+   */
+  withInnerField(innerField: Field): ConditionalLookupFieldBuilder {
+    this.innerField = innerField;
+    return this;
+  }
+
+  withDependencies(dependencies: ReadonlyArray<FieldId>): ConditionalLookupFieldBuilder {
+    this.dependencies = [...dependencies];
+    return this;
+  }
+
+  primary(): ConditionalLookupFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+    const options = this.conditionalLookupOptions;
+    if (!options) {
+      this.sink.addError(conditionalLookupOptionsRequiredError);
+      return this.parent;
+    }
+    const innerField = this.innerField;
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      (innerField
+        ? ConditionalLookupField.create({
+            id,
+            name,
+            innerField,
+            conditionalLookupOptions: options,
+            dependencies: this.dependencies,
+          })
+        : ConditionalLookupField.createPending({
+            id,
+            name,
+            conditionalLookupOptions: options,
+            dependencies: this.dependencies,
+          })
+      ).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
     );
     this.sink.addFieldResult(result);
     return this.parent;

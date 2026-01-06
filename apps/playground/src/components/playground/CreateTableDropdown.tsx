@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { ImportCsvDialog } from './ImportCsvDialog';
 
@@ -75,6 +76,7 @@ export function CreateTableDropdown({
   }, [seedSelectionLocked, selectedTemplate?.key]);
 
   const supportsRecords = (selectedTemplate?.defaultRecordCount ?? 0) > 0;
+  const selectedTables = selectedTemplate?.tables ?? [];
 
   const handleRecordCountChange = (value: string) => {
     const parsed = Number(value);
@@ -109,76 +111,153 @@ export function CreateTableDropdown({
             {isCreating ? 'Creating...' : label}
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="flex h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none sm:max-w-none flex-col">
           <DialogHeader>
             <DialogTitle>Create table</DialogTitle>
             <DialogDescription>
               Pick a template and optionally seed it with example records.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {templates.map((template) => {
-              const selected = template.key === selectedTemplate?.key;
-              const seedCount = template.defaultRecordCount ?? 0;
-              return (
-                <button
-                  key={template.key}
-                  type="button"
-                  onClick={() => setSelectedKey(template.key)}
-                  className={cn(
-                    'flex h-full flex-col gap-2 rounded-lg border px-3 py-2 text-left text-sm transition',
-                    selected
-                      ? 'border-primary/60 bg-primary/10'
-                      : 'border-border hover:border-foreground/40'
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-foreground">{template.name}</span>
-                    {seedCount > 0 ? (
-                      <Badge variant="outline" className="text-[10px] font-normal uppercase">
-                        {seedCount} records
-                      </Badge>
+          <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[360px_1fr] lg:grid-cols-[420px_1fr]">
+            <div className="flex min-h-0 flex-col rounded-lg border border-border/70 bg-muted/10">
+              <div className="border-b border-border/70 px-3 py-2 text-xs font-medium text-muted-foreground">
+                Templates
+              </div>
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="p-2">
+                  {templates.map((template) => {
+                    const selected = template.key === selectedTemplate?.key;
+                    const seedCount = template.defaultRecordCount ?? 0;
+                    const tableCount = template.tables.length;
+                    return (
+                      <button
+                        key={template.key}
+                        type="button"
+                        onClick={() => setSelectedKey(template.key)}
+                        className={cn(
+                          'flex w-full flex-col gap-1.5 rounded-md border px-2.5 py-2 text-left text-sm transition',
+                          selected
+                            ? 'border-primary/60 bg-primary/10'
+                            : 'border-border/70 hover:border-foreground/40'
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-foreground">
+                            {template.name}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] font-normal uppercase">
+                              {tableCount} {tableCount === 1 ? 'table' : 'tables'}
+                            </Badge>
+                            {seedCount > 0 ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] font-normal uppercase"
+                              >
+                                {seedCount} records
+                              </Badge>
+                            ) : null}
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
+                          {template.description}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+
+            <div className="flex min-h-0 flex-col gap-4">
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="flex flex-col gap-4 pr-1">
+                  <div>
+                    <div className="text-sm font-medium text-foreground">
+                      {selectedTemplate?.name ?? 'Select a template'}
+                    </div>
+                    {selectedTemplate ? (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {selectedTemplate.description}
+                      </div>
                     ) : null}
                   </div>
-                  <span className="text-[11px] text-muted-foreground leading-snug">
-                    {template.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="text-sm font-medium text-foreground">Seed records</div>
-                <div className="text-xs text-muted-foreground">
-                  {supportsRecords
-                    ? 'Add sample records from the selected template.'
-                    : 'This template ships without sample records.'}
+
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
+                    <div className="text-xs font-medium text-muted-foreground">Tables</div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {selectedTables.map((table) => (
+                        <div
+                          key={table.key}
+                          className="rounded-md border border-border/70 bg-background/60 px-3 py-2"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs font-semibold text-foreground">
+                              {table.name}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] font-normal uppercase"
+                              >
+                                {table.fieldCount} fields
+                              </Badge>
+                              {table.defaultRecordCount > 0 ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] font-normal uppercase"
+                                >
+                                  {table.defaultRecordCount} records
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </div>
+                          {table.description ? (
+                            <div className="mt-1 text-[11px] text-muted-foreground leading-snug line-clamp-2">
+                              {table.description}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-medium text-foreground">Seed records</div>
+                        <div className="text-xs text-muted-foreground">
+                          {supportsRecords
+                            ? 'Add sample records from the selected template.'
+                            : 'This template ships without sample records.'}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={includeRecords && supportsRecords}
+                        onCheckedChange={(checked) => {
+                          setSeedSelectionLocked(true);
+                          setIncludeRecords(checked);
+                        }}
+                        disabled={!supportsRecords}
+                      />
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      <Label htmlFor="record-count" className="text-xs text-muted-foreground">
+                        Records per table
+                      </Label>
+                      <Input
+                        id="record-count"
+                        type="number"
+                        min={0}
+                        value={recordCount}
+                        onChange={(event) => handleRecordCountChange(event.target.value)}
+                        disabled={!supportsRecords || !includeRecords}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <Switch
-                checked={includeRecords && supportsRecords}
-                onCheckedChange={(checked) => {
-                  setSeedSelectionLocked(true);
-                  setIncludeRecords(checked);
-                }}
-                disabled={!supportsRecords}
-              />
-            </div>
-            <div className="mt-3 grid gap-2">
-              <Label htmlFor="record-count" className="text-xs text-muted-foreground">
-                Record count
-              </Label>
-              <Input
-                id="record-count"
-                type="number"
-                min={0}
-                value={recordCount}
-                onChange={(event) => handleRecordCountChange(event.target.value)}
-                disabled={!supportsRecords || !includeRecords}
-                className="h-8 text-xs"
-              />
+              </ScrollArea>
             </div>
           </div>
           <DialogFooter>
@@ -191,7 +270,11 @@ export function CreateTableDropdown({
               Cancel
             </Button>
             <Button size="sm" onClick={handleCreate} disabled={isCreating || !selectedTemplate}>
-              {isCreating ? 'Creating...' : 'Create table'}
+              {isCreating
+                ? 'Creating...'
+                : selectedTemplate && selectedTemplate.tables.length > 1
+                  ? 'Create tables'
+                  : 'Create table'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -8,7 +8,7 @@ import type { LinkForeignTableReference } from '../domain/table/fields/visitors/
 import type { TableId } from '../domain/table/TableId';
 import { CreateTableCommand, createTableInputSchema } from './CreateTableCommand';
 
-const createTablesInputSchema = z.object({
+export const createTablesInputSchema = z.object({
   baseId: z.string(),
   tables: z.array(createTableInputSchema.omit({ baseId: true })).min(1),
 });

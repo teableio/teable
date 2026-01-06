@@ -8,6 +8,8 @@ import type { ButtonField } from '../types/ButtonField';
 import { CellValueMultiplicity } from '../types/CellValueMultiplicity';
 import { CellValueType } from '../types/CellValueType';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { ConditionalLookupField } from '../types/ConditionalLookupField';
+import type { ConditionalRollupField } from '../types/ConditionalRollupField';
 import type { CreatedByField } from '../types/CreatedByField';
 import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
@@ -197,6 +199,43 @@ export class FieldValueTypeVisitor implements IFieldVisitor<FieldValueType> {
       .map((innerType: FieldValueType) => ({
         cellValueType: innerType.cellValueType,
         // Lookup is always multiple because it can return values from multiple linked records
+        isMultipleCellValue: CellValueMultiplicity.multiple(),
+      }));
+  }
+
+  /**
+   * ConditionalRollup fields get cellValueType/multiplicity from the rollup expression result.
+   */
+  visitConditionalRollupField(field: ConditionalRollupField): Result<FieldValueType, DomainError> {
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field
+          .isMultipleCellValue()
+          .map((isMultipleCellValue) => ({ cellValueType, isMultipleCellValue }))
+      );
+  }
+
+  /**
+   * ConditionalLookup fields get cellValueType from inner field, but are always multiple
+   * (can return values from multiple filtered records).
+   */
+  visitConditionalLookupField(field: ConditionalLookupField): Result<FieldValueType, DomainError> {
+    // For pending conditional lookup fields, default to string type
+    if (field.isPending()) {
+      return ok({
+        cellValueType: CellValueType.string(),
+        isMultipleCellValue: CellValueMultiplicity.multiple(),
+      });
+    }
+
+    // Get the inner field's cellValueType
+    return field
+      .innerField()
+      .andThen((inner) => inner.accept(this))
+      .map((innerType: FieldValueType) => ({
+        cellValueType: innerType.cellValueType,
+        // ConditionalLookup is always multiple because it can return values from multiple filtered records
         isMultipleCellValue: CellValueMultiplicity.multiple(),
       }));
   }

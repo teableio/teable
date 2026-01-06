@@ -67,9 +67,10 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const queryClient = useQueryClient();
 
   const createTableMutation = useMutation(
-    orpc.tables.create.mutationOptions({
+    orpc.tables.createTables.mutationOptions({
       onSuccess: (response) => {
-        const created = response.data.table;
+        const created = response.data.tables[0];
+        if (!created) return;
         setEventCount(response.data.events.length);
         setStoredBaseId(baseId);
         setStoredTableId(created.id);
@@ -82,6 +83,10 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
           }),
           { ok: true, data: { table: created } }
         );
+        void queryClient.invalidateQueries({
+          queryKey: orpc.tables.list.queryKey({ input: { baseId } }),
+          exact: false,
+        });
         void navigate({
           to: env.routes.table,
           params: { baseId, tableId: created.id },
@@ -334,7 +339,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     options: { includeRecords: boolean; recordCount: number }
   ) => {
     createTableMutation.reset();
-    createTableMutation.mutate(template.createInput(baseId, template.name, options));
+    createTableMutation.mutate(template.createInput(baseId, options));
   };
 
   const handleDelete = () => {

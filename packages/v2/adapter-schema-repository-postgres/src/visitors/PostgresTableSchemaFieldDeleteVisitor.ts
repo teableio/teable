@@ -4,6 +4,8 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -218,6 +220,18 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
 
   override visitLookupField(
     field: LookupField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return this.generateDropStatementsFromRules(field);
+  }
+
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return this.generateDropStatementsFromRules(field);
+  }
+
+  visitConditionalLookupField(
+    field: ConditionalLookupField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.generateDropStatementsFromRules(field);
   }

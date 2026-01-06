@@ -13,6 +13,8 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { ConditionalLookupField } from '../types/ConditionalLookupField';
+import type { ConditionalRollupField } from '../types/ConditionalRollupField';
 import type { CreatedByField } from '../types/CreatedByField';
 import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
@@ -164,6 +166,20 @@ export class FieldDeletionSideEffectVisitor implements IFieldVisitor<FieldDeleti
   visitLookupField(_: LookupField): Result<FieldDeletionSideEffects, DomainError> {
     // Lookup fields don't have deletion side effects
     // They reference link fields which handle their own side effects
+    return ok([]);
+  }
+
+  visitConditionalRollupField(
+    _: ConditionalRollupField
+  ): Result<FieldDeletionSideEffects, DomainError> {
+    // Conditional rollup fields don't have deletion side effects
+    return ok([]);
+  }
+
+  visitConditionalLookupField(
+    _: ConditionalLookupField
+  ): Result<FieldDeletionSideEffects, DomainError> {
+    // Conditional lookup fields don't have deletion side effects
     return ok([]);
   }
 

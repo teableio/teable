@@ -1,4 +1,4 @@
-import type { DomainError } from '@teable/v2-core';
+import type { DomainError, Field } from '@teable/v2-core';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -22,12 +22,19 @@ export class LinkValueColumnRule implements ISchemaRule {
   readonly required = true;
 
   constructor(
-    fieldId: string,
-    private readonly fieldName: string,
+    private readonly field: Field,
     private readonly relationshipType: 'oneWay' | 'twoWay'
   ) {
-    this.id = `link_value_column:${fieldId}`;
+    this.id = `link_value_column:${field.id().toString()}`;
+    const fieldName = field.name().toString();
     this.description = `JSONB column "${fieldName}" stores linked record IDs and display values (${relationshipType} link)`;
+  }
+
+  /**
+   * Creates a LinkValueColumnRule for a link field.
+   */
+  static forField(field: Field, relationshipType: 'oneWay' | 'twoWay'): LinkValueColumnRule {
+    return new LinkValueColumnRule(field, relationshipType);
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {

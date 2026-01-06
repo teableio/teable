@@ -1,11 +1,11 @@
 import {
   AbstractFieldVisitor,
-  checkFieldNotNullValidationEnabled,
-  checkFieldUniqueValidationEnabled,
   type AttachmentField,
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -28,17 +28,15 @@ import {
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { resolveColumnType } from '../../visitors/PostgresTableSchemaFieldColumn';
-
 import type { ISchemaRule } from '../core/ISchemaRule';
 import type { TableIdentifier } from '../helpers/StatementBuilders';
-import { ColumnRule } from './ColumnRule';
+import { ColumnExistsRule } from './ColumnExistsRule';
 import { FieldMetaRule } from './FieldMetaRule';
 import { FkColumnRule } from './FkColumnRule';
 import { ForeignKeyRule } from './ForeignKeyRule';
 import { GeneratedColumnRule } from './GeneratedColumnRule';
 import { IndexRule } from './IndexRule';
-import { JunctionTableRule, type JunctionTableConfig } from './JunctionTableRule';
+import { JunctionTableExistsRule, type JunctionTableConfig } from './JunctionTableRule';
 import { LinkValueColumnRule } from './LinkValueColumnRule';
 import { OrderColumnRule } from './OrderColumnRule';
 import { ReferenceRule } from './ReferenceRule';
@@ -57,27 +55,6 @@ export interface FieldSchemaRulesContext {
 }
 
 /**
- * Helper to create a ColumnRule with description metadata.
- */
-const createColumnRule = (field: Field): ColumnRule => {
-  const fieldId = field.id().toString();
-  const fieldName = field.name().toString();
-  // Get human-readable data type for description
-  const dataTypeResult = resolveColumnType(field);
-  const dataType = dataTypeResult.isOk() ? String(dataTypeResult.value) : 'text';
-
-  const fieldType = field.type().toString();
-  const isComputed = field.computed().toBoolean();
-  const notNullEnabled = checkFieldNotNullValidationEnabled(fieldType, { isComputed });
-  const uniqueEnabled = checkFieldUniqueValidationEnabled(fieldType, { isComputed });
-
-  return new ColumnRule(fieldId, fieldName, dataType, {
-    notNull: notNullEnabled && field.notNull().toBoolean(),
-    unique: uniqueEnabled && field.unique().toBoolean(),
-  });
-};
-
-/**
  * Visitor that creates schema rules for each field type.
  */
 export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<ISchemaRule>> {
@@ -88,36 +65,31 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   visitSingleLineTextField(
     field: SingleLineTextField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitLongTextField(field: LongTextField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitNumberField(field: NumberField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitRatingField(field: RatingField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitFormulaField(field: FormulaField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    const fieldId = field.id().toString();
-    const fieldName = field.name().toString();
-    const rules: ISchemaRule[] = [createColumnRule(field)];
+    const rules: ISchemaRule[] = [...ColumnExistsRule.createRulesFromField(field)];
 
     const dependencies = field.dependencies();
     if (dependencies.length > 0) {
       rules.push(
         ReferenceRule.multiple(
-          fieldId,
+          field,
           dependencies.map((d) => d.toString()),
-          {
-            fieldName,
-            fieldType: 'formula',
-          }
+          { fieldType: 'formula' }
         )
       );
     }
@@ -126,93 +98,82 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   }
 
   visitRollupField(field: RollupField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    const fieldId = field.id().toString();
-    const fieldName = field.name().toString();
     const linkFieldId = field.linkFieldId().toString();
     const lookupFieldId = field.lookupFieldId().toString();
 
     return ok([
-      createColumnRule(field),
-      ReferenceRule.multiple(fieldId, [linkFieldId, lookupFieldId], {
-        fieldName,
-        fieldType: 'rollup',
-      }),
+      ...ColumnExistsRule.createRulesFromField(field),
+      ReferenceRule.multiple(field, [linkFieldId, lookupFieldId], { fieldType: 'rollup' }),
     ]);
   }
 
   visitSingleSelectField(
     field: SingleSelectField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitMultipleSelectField(
     field: MultipleSelectField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitCheckboxField(field: CheckboxField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitAttachmentField(field: AttachmentField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitDateField(field: DateField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitCreatedTimeField(field: CreatedTimeField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([GeneratedColumnRule.forCreatedTime(field.id().toString(), field.name().toString())]);
+    return ok([GeneratedColumnRule.forCreatedTime(field)]);
   }
 
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    const fieldId = field.id().toString();
-    const fieldName = field.name().toString();
     if (field.isTrackAll()) {
-      return ok([GeneratedColumnRule.forLastModifiedTime(fieldId, fieldName)]);
+      return ok([GeneratedColumnRule.forLastModifiedTime(field)]);
     }
     // When not tracking all, it's a regular column
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitUserField(field: UserField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitCreatedByField(field: CreatedByField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([GeneratedColumnRule.forCreatedBy(field.id().toString(), field.name().toString())]);
+    return ok([GeneratedColumnRule.forCreatedBy(field)]);
   }
 
   visitLastModifiedByField(
     field: LastModifiedByField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    const fieldId = field.id().toString();
-    const fieldName = field.name().toString();
     if (field.isTrackAll()) {
-      return ok([GeneratedColumnRule.forLastModifiedBy(fieldId, fieldName)]);
+      return ok([GeneratedColumnRule.forLastModifiedBy(field)]);
     }
     // When not tracking all, it's a regular column
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitAutoNumberField(field: AutoNumberField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([GeneratedColumnRule.forAutoNumber(field.id().toString(), field.name().toString())]);
+    return ok([GeneratedColumnRule.forAutoNumber(field)]);
   }
 
   visitButtonField(field: ButtonField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([createColumnRule(field)]);
+    return ok(ColumnExistsRule.createRulesFromField(field));
   }
 
   visitLinkField(field: LinkField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
     const ctx = this.ctx;
     return safeTry<ReadonlyArray<ISchemaRule>, DomainError>(function* () {
-      const fieldId = field.id().toString();
-      const fieldName = field.name().toString();
       const rules: ISchemaRule[] = [];
 
       const relationship = field.relationship().toString() as 'manyMany' | 'oneMany' | 'oneOne';
@@ -220,14 +181,11 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
       const relationshipType = isOneWay ? 'oneWay' : 'twoWay';
 
       // 1. Link value column (JSONB for storing display values)
-      rules.push(new LinkValueColumnRule(fieldId, fieldName, relationshipType));
+      rules.push(LinkValueColumnRule.forField(field, relationshipType));
 
       // 2. Reference for the lookup field
       rules.push(
-        ReferenceRule.single(fieldId, field.lookupFieldId().toString(), {
-          fieldName,
-          fieldType: 'link',
-        })
+        ReferenceRule.single(field, field.lookupFieldId().toString(), { fieldType: 'link' })
       );
 
       const fkHostTableResult = field.fkHostTableName().split({ defaultSchema: ctx.schema });
@@ -240,8 +198,8 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
       };
       const currentTable: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
 
-      if (relationship === 'manyMany') {
-        // ManyMany: create junction table with indexes and FKs
+      if (relationship === 'manyMany' || (relationship === 'oneMany' && isOneWay)) {
+        // ManyMany or OneWay OneMany: create junction table
         const selfKeyName = yield* field.selfKeyNameString();
         const foreignKeyName = yield* field.foreignKeyNameString();
         const orderColumnName = yield* field.orderColumnName();
@@ -253,45 +211,16 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
           orderColumnName,
           sourceTable: currentTable,
           foreignTable,
-          withIndexes: true,
+          withIndexes: relationship === 'manyMany', // Only ManyMany gets indexes
         };
-        rules.push(
-          new JunctionTableRule(fieldId, junctionConfig, {
-            fieldName,
-            relationshipType: 'manyMany',
-            sourceTableName: ctx.tableName,
-            foreignTableName: foreignTableId,
-          })
-        );
-        rules.push(
-          FieldMetaRule.forOrderColumn(fieldId, {
-            dependsOnRuleId: `junction_table:${fieldId}`,
-            fieldName,
-          })
-        );
-      } else if (relationship === 'oneMany' && isOneWay) {
-        // OneWay OneMany: create junction table without indexes
-        const selfKeyName = yield* field.selfKeyNameString();
-        const foreignKeyName = yield* field.foreignKeyNameString();
-        const orderColumnName = yield* field.orderColumnName();
 
-        const junctionConfig: JunctionTableConfig = {
-          junctionTable: fkHostTable,
-          selfKeyName,
-          foreignKeyName,
-          orderColumnName,
-          sourceTable: currentTable,
-          foreignTable,
-          withIndexes: false,
-        };
-        rules.push(
-          new JunctionTableRule(fieldId, junctionConfig, {
-            fieldName,
-            relationshipType: 'oneWay',
-            sourceTableName: ctx.tableName,
-            foreignTableName: foreignTableId,
-          })
-        );
+        // Use the static factory method to create all junction table rules
+        const junctionRules = JunctionTableExistsRule.createRulesFromField(field, junctionConfig);
+        rules.push(...junctionRules);
+
+        // Field metadata (depends on junction table)
+        const junctionTableRuleId = `junction_table:${field.id().toString()}`;
+        rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: junctionTableRuleId }));
       } else {
         // OneOne or regular OneMany: add FK columns to the host table
         const isCurrentTableHost =
@@ -306,56 +235,32 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
           const orderColumnName = yield* field.orderColumnName();
 
           // FK column rule
-          const fkColumnRule = new FkColumnRule(fieldId, keyName, {
-            fieldName,
-            referencedTableName: foreignTableId,
-          });
+          const fkColumnRule = FkColumnRule.forField(field, keyName, foreignTableId);
           rules.push(fkColumnRule);
 
           // Index on FK column
           const indexRule =
             relationship === 'oneOne'
-              ? new UniqueIndexRule(fieldId, keyName, {
-                  required: true,
-                  columnRuleId: fkColumnRule.id,
-                  fieldName,
-                  relationshipType: 'one-to-one',
-                })
-              : new IndexRule(fieldId, keyName, {
-                  required: true,
-                  columnRuleId: fkColumnRule.id,
-                  fieldName,
-                });
+              ? UniqueIndexRule.forFkColumn(field, keyName, fkColumnRule, 'one-to-one')
+              : IndexRule.forFkColumn(field, keyName, fkColumnRule);
           rules.push(indexRule);
 
           // FK constraint
           rules.push(
-            new ForeignKeyRule(fieldId, keyName, foreignTable, {
-              targetColumn: '__id',
-              onDelete: 'CASCADE',
-              required: true,
-              columnRuleId: fkColumnRule.id,
-              fieldName,
-              targetTableName: foreignTableId,
-            })
+            ForeignKeyRule.forField(field, keyName, foreignTable, fkColumnRule, foreignTableId)
           );
 
           // Order column
-          rules.push(
-            new OrderColumnRule(fieldId, orderColumnName, currentTable, {
-              dependsOnRuleId: fkColumnRule.id,
-              fieldName,
-              targetTableName: ctx.tableName,
-            })
+          const orderRule = OrderColumnRule.forField(
+            field,
+            orderColumnName,
+            currentTable,
+            fkColumnRule
           );
+          rules.push(orderRule);
 
-          // Field meta
-          rules.push(
-            FieldMetaRule.forOrderColumn(fieldId, {
-              dependsOnRuleId: `order_column:${fieldId}`,
-              fieldName,
-            })
-          );
+          // Field meta (depends on order column)
+          rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: orderRule.id }));
         }
       }
 
@@ -365,17 +270,42 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
 
   override visitLookupField(field: LookupField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
     // Lookup fields are computed fields that need their own column + references
-    const fieldId = field.id().toString();
-    const fieldName = field.name().toString();
     const linkFieldId = field.linkFieldId().toString();
     const lookupFieldId = field.lookupFieldId().toString();
 
     return ok([
-      createColumnRule(field),
-      ReferenceRule.multiple(fieldId, [linkFieldId, lookupFieldId], {
-        fieldName,
-        fieldType: 'lookup',
-      }),
+      ...ColumnExistsRule.createRulesFromField(field),
+      ReferenceRule.multiple(field, [linkFieldId, lookupFieldId], { fieldType: 'lookup' }),
+    ]);
+  }
+
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
+    // ConditionalRollup fields are computed fields that aggregate values from a foreign table
+    // based on a condition. Unlike regular RollupField, they don't have a linkFieldId.
+    // They only reference the lookupFieldId in the foreign table.
+    const lookupFieldId = field.lookupFieldId().toString();
+
+    return ok([
+      ...ColumnExistsRule.createRulesFromField(field),
+      // Reference only the lookup field - conditional rollup doesn't depend on a link field
+      ReferenceRule.single(field, lookupFieldId, { fieldType: 'conditionalRollup' }),
+    ]);
+  }
+
+  visitConditionalLookupField(
+    field: ConditionalLookupField
+  ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
+    // ConditionalLookup fields are computed fields that lookup values from a foreign table
+    // based on a condition. Unlike regular LookupField, they don't have a linkFieldId.
+    // They only reference the lookupFieldId in the foreign table.
+    const lookupFieldId = field.lookupFieldId().toString();
+
+    return ok([
+      ...ColumnExistsRule.createRulesFromField(field),
+      // Reference only the lookup field - conditional lookup doesn't depend on a link field
+      ReferenceRule.single(field, lookupFieldId, { fieldType: 'conditionalLookup' }),
     ]);
   }
 }

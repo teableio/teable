@@ -5,6 +5,8 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -142,6 +144,14 @@ export class TableRecordSelectColumnsVisitor extends AbstractFieldVisitor<FieldC
 
   override visitLookupField(field: LookupField): Result<FieldColumn, DomainError> {
     // Lookup fields need their own column, not delegation to inner field
+    return this.addFieldColumn(field);
+  }
+
+  visitConditionalRollupField(field: ConditionalRollupField): Result<FieldColumn, DomainError> {
+    return this.addFieldColumn(field);
+  }
+
+  visitConditionalLookupField(field: ConditionalLookupField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 

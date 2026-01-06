@@ -1,29 +1,31 @@
 import {
   AbstractFieldVisitor,
-  Field,
-  FieldValueTypeVisitor,
-  type DomainError,
   AttachmentField,
   AutoNumberField,
   ButtonField,
   CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   CreatedByField,
   CreatedTimeField,
   DateField,
-  LinkField,
-  LongTextField,
+  type DomainError,
+  Field,
+  FieldValueTypeVisitor,
+  FormulaField,
   LastModifiedByField,
   LastModifiedTimeField,
+  LinkField,
+  LongTextField,
   LookupField,
   MultipleSelectField,
   NumberField,
   RatingField,
+  RollupField,
   SingleLineTextField,
   SingleSelectField,
   Table,
   UserField,
-  FormulaField,
-  RollupField,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -156,6 +158,19 @@ export class FieldStorageTypeVisitor extends AbstractFieldVisitor<IFieldStorageT
   override visitLookupField(field: LookupField): Result<IFieldStorageType, DomainError> {
     // Lookup fields need their own storage type entry, not delegation to inner field
     // They are always stored as JSON because lookups can return multiple values
+    return this.setTypeFromValueType(field);
+  }
+
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<IFieldStorageType, DomainError> {
+    return this.setTypeFromValueType(field);
+  }
+
+  visitConditionalLookupField(
+    field: ConditionalLookupField
+  ): Result<IFieldStorageType, DomainError> {
+    // ConditionalLookup fields are stored similarly to Lookup fields
     return this.setTypeFromValueType(field);
   }
 

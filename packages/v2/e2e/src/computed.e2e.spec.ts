@@ -30,14 +30,16 @@ import {
   type IV2NodeTestContainer,
 } from '@teable/v2-container-node-test';
 import {
+  createFieldOkResponseSchema,
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
   deleteRecordsOkResponseSchema,
+  getTableByIdOkResponseSchema,
   listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import type { ICreateTableCommandInput } from '@teable/v2-core';
+import type { ICreateFieldCommandInput, ICreateTableCommandInput } from '@teable/v2-core';
 import { printTable } from '@teable/v2-utils';
 import express from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -95,6 +97,24 @@ describe('v2 computed field updates (e2e)', () => {
     const parsed = createTableOkResponseSchema.safeParse(rawBody);
     if (!parsed.success || !parsed.data.ok) {
       throw new Error('Failed to parse create table response');
+    }
+    return parsed.data.data.table;
+  };
+
+  const createField = async (payload: ICreateFieldCommandInput) => {
+    const response = await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create field: ${errorText}`);
+    }
+    const rawBody = await response.json();
+    const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error('Failed to parse create field response');
     }
     return parsed.data.data.table;
   };
@@ -173,6 +193,24 @@ describe('v2 computed field updates (e2e)', () => {
       throw new Error('Failed to parse list records response');
     }
     return parsed.data.data.records;
+  };
+
+  const getTableById = async (tableId: string) => {
+    const params = new URLSearchParams({ baseId, tableId });
+    const response = await fetch(`${baseUrl}/tables/get?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'content-type': 'application/json' },
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get table: ${errorText}`);
+    }
+    const rawBody = await response.json();
+    const parsed = getTableByIdOkResponseSchema.safeParse(rawBody);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error('Failed to parse get table response');
+    }
+    return parsed.data.data.table;
   };
 
   // ---------------------------------------------------------------------------
@@ -386,6 +424,80 @@ describe('v2 computed field updates (e2e)', () => {
             --------------------------------------"
           `);
       });
+
+      describe('basic formula chain', () => {
+        it('updates formula chain when source number changes', async () => {
+          const amountFieldId = createFieldId();
+          const scoreFieldId = createFieldId();
+          const scoreLabelFieldId = createFieldId();
+
+          const table = await createTable({
+            baseId,
+            name: 'Formula Chain Test',
+            fields: [
+              { type: 'singleLineText', name: 'Name', isPrimary: true },
+              { type: 'number', id: amountFieldId, name: 'Amount' },
+              {
+                type: 'formula',
+                id: scoreFieldId,
+                name: 'Score',
+                options: { expression: `{${amountFieldId}} * 2` },
+              },
+              {
+                type: 'formula',
+                id: scoreLabelFieldId,
+                name: 'ScoreLabel',
+                options: { expression: `CONCATENATE("Score: ", {${scoreFieldId}})` },
+              },
+            ],
+            views: [{ type: 'grid' }],
+          });
+
+          const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+          const fieldIds = [nameFieldId, amountFieldId, scoreFieldId, scoreLabelFieldId];
+          const fieldNames = ['Name', 'Amount', 'Score', 'ScoreLabel'];
+
+          // Create record
+          const record = await createRecord(table.id, {
+            [nameFieldId]: 'Alpha',
+            [amountFieldId]: 5,
+          });
+
+          // Before update
+          const beforeRecords = await listRecords(table.id);
+          const beforeSnapshot = printTableSnapshot(
+            table.name,
+            fieldNames,
+            beforeRecords,
+            fieldIds
+          );
+
+          expect(beforeSnapshot).toMatchInlineSnapshot(`
+            "[Formula Chain Test]
+            ----------------------------------------
+            #  | Name  | Amount | Score | ScoreLabel
+            ----------------------------------------
+            R0 | Alpha | 5      | 10    | Score: 10 
+            ----------------------------------------"
+          `);
+
+          // Update amount
+          await updateRecord(table.id, record.id, { [amountFieldId]: 7 });
+
+          // After update
+          const afterRecords = await listRecords(table.id);
+          const afterSnapshot = printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds);
+
+          expect(afterSnapshot).toMatchInlineSnapshot(`
+            "[Formula Chain Test]
+            ----------------------------------------
+            #  | Name  | Amount | Score | ScoreLabel
+            ----------------------------------------
+            R0 | Alpha | 7      | 14    | Score: 14 
+            ----------------------------------------"
+          `);
+        });
+      });
     });
 
     describe('lookup field updates', () => {
@@ -445,14 +557,27 @@ describe('v2 computed field updates (e2e)', () => {
 
         const bFieldIds = [bNameFieldId, linkFieldId, lookupFieldId];
         const bFieldNames = ['Name', 'LinkA', 'LookupVal'];
+        const aFieldIds = [aNameFieldId, aValueFieldId];
+        const aFieldNames = ['Name', 'Value'];
 
         await createRecord(tableB.id, {
           [bNameFieldId]: 'ItemB',
           [linkFieldId]: { id: recordA.id },
         });
 
-        const beforeRecords = await listRecords(tableB.id);
-        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+        const beforeRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[LookupSourceA]
+            ------------------
+            #  | Name  | Value
+            ------------------
+            R0 | ItemA | 100  
+            ------------------"
+          `);
+
+        const beforeRecordsB = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecordsB, bFieldIds))
           .toMatchInlineSnapshot(`
             "[LookupTargetB]
             ------------------------------
@@ -465,8 +590,19 @@ describe('v2 computed field updates (e2e)', () => {
         await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 200 });
         await testContainer.processOutbox();
 
-        const afterRecords = await listRecords(tableB.id);
-        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+        const afterRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[LookupSourceA]
+            ------------------
+            #  | Name  | Value
+            ------------------
+            R0 | ItemA | 200  
+            ------------------"
+          `);
+
+        const afterRecordsB = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
           .toMatchInlineSnapshot(`
             "[LookupTargetB]
             ------------------------------
@@ -569,6 +705,161 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------------"
           `);
       });
+
+      describe('cross-table lookup', () => {
+        /**
+         * TODO: This test currently shows lookup returning null.
+         * This indicates the lookup computed value is not being calculated
+         * when a record is created with a link, or the cross-table update
+         * is not propagating correctly.
+         *
+         * Investigation needed:
+         * 1. Is lookup computed on record creation with link?
+         * 2. Is cross-table propagation working correctly?
+         */
+        it('updates lookup when source field changes in foreign table', async () => {
+          const scoreFieldId = createFieldId();
+          const scoreLabelFieldId = createFieldId();
+
+          // Create source table (Contacts)
+          const contacts = await createTable({
+            baseId,
+            name: 'Contacts Source',
+            fields: [
+              { type: 'singleLineText', name: 'Name', isPrimary: true },
+              { type: 'number', id: scoreFieldId, name: 'Score' },
+              {
+                type: 'formula',
+                id: scoreLabelFieldId,
+                name: 'ScoreLabel',
+                options: { expression: `CONCATENATE("Score: ", {${scoreFieldId}})` },
+              },
+            ],
+            views: [{ type: 'grid' }],
+          });
+
+          const contactNameFieldId = contacts.fields.find((f) => f.isPrimary)?.id ?? '';
+
+          // Create contact
+          const contact = await createRecord(contacts.id, {
+            [contactNameFieldId]: 'Alice',
+            [scoreFieldId]: 2,
+          });
+
+          // Create linking table (Deals)
+          const linkFieldId = createFieldId();
+          const lookupFieldId = createFieldId();
+
+          const deals = await createTable({
+            baseId,
+            name: 'Deals Target',
+            fields: [
+              { type: 'singleLineText', name: 'Deal', isPrimary: true },
+              {
+                type: 'link',
+                id: linkFieldId,
+                name: 'Contact',
+                options: {
+                  relationship: 'manyOne',
+                  foreignTableId: contacts.id,
+                  lookupFieldId: contactNameFieldId,
+                },
+              },
+              {
+                type: 'lookup',
+                id: lookupFieldId,
+                name: 'ContactScore',
+                options: {
+                  linkFieldId,
+                  foreignTableId: contacts.id,
+                  lookupFieldId: scoreLabelFieldId,
+                },
+              },
+            ],
+            views: [{ type: 'grid' }],
+          });
+
+          const dealNameFieldId = deals.fields.find((f) => f.isPrimary)?.id ?? '';
+          const dealFieldIds = [dealNameFieldId, linkFieldId, lookupFieldId];
+          const dealFieldNames = ['Deal', 'Contact', 'ContactScore'];
+          const contactFieldIds = [contactNameFieldId, scoreFieldId, scoreLabelFieldId];
+          const contactFieldNames = ['Name', 'Score', 'ScoreLabel'];
+
+          // Create deal with link (manyOne uses single object)
+          const deal = await createRecord(deals.id, {
+            [dealNameFieldId]: 'Deal A',
+            [linkFieldId]: { id: contact.id },
+          });
+
+          const beforeContacts = await listRecords(contacts.id);
+          expect(
+            printTableSnapshot(contacts.name, contactFieldNames, beforeContacts, contactFieldIds)
+          ).toMatchInlineSnapshot(`
+            "[Contacts Source]
+            --------------------------------
+            #  | Name  | Score | ScoreLabel 
+            --------------------------------
+            R0 | Alice | 2     | Score: 2.00
+            --------------------------------"
+          `);
+
+          // Before update - verify lookup shows current value
+          const beforeRecords = await listRecords(deals.id);
+          const beforeSnapshot = printTableSnapshot(
+            deals.name,
+            dealFieldNames,
+            beforeRecords,
+            dealFieldIds
+          );
+
+          // Lookup should show the value from the foreign table
+          expect(beforeSnapshot).toMatchInlineSnapshot(`
+            "[Deals Target]
+            -------------------------------------
+            #  | Deal   | Contact | ContactScore 
+            -------------------------------------
+            R0 | Deal A | Alice   | [Score: 2.00]
+            -------------------------------------"
+          `);
+
+          // Update contact's score (triggers: Contact.Score -> Contact.ScoreLabel -> Deal.lookup)
+          await updateRecord(contacts.id, contact.id, { [scoreFieldId]: 8 });
+
+          // Process any pending outbox tasks (cross-table updates are async)
+          await testContainer.processOutbox();
+
+          const afterContacts = await listRecords(contacts.id);
+          expect(
+            printTableSnapshot(contacts.name, contactFieldNames, afterContacts, contactFieldIds)
+          ).toMatchInlineSnapshot(`
+            "[Contacts Source]
+            --------------------------------
+            #  | Name  | Score | ScoreLabel 
+            --------------------------------
+            R0 | Alice | 8     | Score: 8.00
+            --------------------------------"
+          `);
+
+          // After update - lookup should reflect new value
+          const afterRecords = await listRecords(deals.id);
+          const afterSnapshot = printTableSnapshot(
+            deals.name,
+            dealFieldNames,
+            afterRecords,
+            dealFieldIds
+          );
+
+          // Lookup should show updated value
+          expect(afterSnapshot).toMatchInlineSnapshot(`
+            "[Deals Target]
+            -------------------------------------
+            #  | Deal   | Contact | ContactScore 
+            -------------------------------------
+            R0 | Deal A | Alice   | [Score: 8.00]
+            -------------------------------------"
+          `);
+        });
+      });
     });
 
     describe('rollup field updates', () => {
@@ -633,14 +924,28 @@ describe('v2 computed field updates (e2e)', () => {
 
         const bFieldIds = [bNameFieldId, linkFieldId, rollupFieldId];
         const bFieldNames = ['Name', 'Links', 'Sum'];
+        const aFieldIds = [aNameFieldId, aValueFieldId];
+        const aFieldNames = ['Name', 'Value'];
 
         await createRecord(tableB.id, {
           [bNameFieldId]: 'ItemB',
           [linkFieldId]: [{ id: recordA1.id }, { id: recordA2.id }],
         });
 
-        const beforeRecords = await listRecords(tableB.id);
-        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+        const beforeRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[RollupSourceA]
+            -----------------
+            #  | Name | Value
+            -----------------
+            R0 | A1   | 10   
+            R1 | A2   | 20   
+            -----------------"
+          `);
+
+        const beforeRecordsB = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecordsB, bFieldIds))
           .toMatchInlineSnapshot(`
             "[RollupTargetB]
             -------------------------
@@ -653,8 +958,20 @@ describe('v2 computed field updates (e2e)', () => {
         await updateRecord(tableA.id, recordA1.id, { [aValueFieldId]: 50 });
         await testContainer.processOutbox();
 
-        const afterRecords = await listRecords(tableB.id);
-        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+        const afterRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[RollupSourceA]
+            -----------------
+            #  | Name | Value
+            -----------------
+            R0 | A1   | 50   
+            R1 | A2   | 20   
+            -----------------"
+          `);
+
+        const afterRecordsB = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
           .toMatchInlineSnapshot(`
             "[RollupTargetB]
             -------------------------
@@ -937,11 +1254,24 @@ describe('v2 computed field updates (e2e)', () => {
 
       const cFieldIds = [cNameFieldId, cLinkFieldId, cLookupFieldId];
       const cFieldNames = ['Name', 'LinkB', 'LookupB'];
+      const aFieldIds = [aNameFieldId, aValueFieldId];
+      const aFieldNames = ['Name', 'Value'];
 
       await createRecord(tableC.id, {
         [cNameFieldId]: 'C1',
         [cLinkFieldId]: { id: recordB.id },
       });
+
+      const beforeRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[ChainA]
+          -----------------
+          #  | Name | Value
+          -----------------
+          R0 | A1   | 100  
+          -----------------"
+        `);
 
       const beforeRecords = await listRecords(tableC.id);
       expect(printTableSnapshot(tableC.name, cFieldNames, beforeRecords, cFieldIds))
@@ -957,6 +1287,17 @@ describe('v2 computed field updates (e2e)', () => {
       // Update A.Value - should cascade through B.LookupA -> C.LookupB
       await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 999 });
       await testContainer.processOutbox();
+
+      const afterRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[ChainA]
+          -----------------
+          #  | Name | Value
+          -----------------
+          R0 | A1   | 999  
+          -----------------"
+        `);
 
       const afterRecords = await listRecords(tableC.id);
       expect(printTableSnapshot(tableC.name, cFieldNames, afterRecords, cFieldIds))
@@ -1042,11 +1383,24 @@ describe('v2 computed field updates (e2e)', () => {
 
       const bFieldIds = [bNameFieldId, bLinkFieldId, bLookupFieldId, bFormulaFieldId];
       const bFieldNames = ['Name', 'LinkA', 'LookupDoubled', 'PlusTen'];
+      const aFieldIds = [aNameFieldId, aNumFieldId, aFormulaFieldId];
+      const aFieldNames = ['Name', 'Num', 'Doubled'];
 
       await createRecord(tableB.id, {
         [bNameFieldId]: 'B1',
         [bLinkFieldId]: { id: recordA.id },
       });
+
+      const beforeRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[MixedA]
+          -------------------------
+          #  | Name | Num | Doubled
+          -------------------------
+          R0 | A1   | 10  | 20     
+          -------------------------"
+        `);
 
       const beforeRecords = await listRecords(tableB.id);
       expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
@@ -1062,6 +1416,17 @@ describe('v2 computed field updates (e2e)', () => {
       // Update A.Num: A.Doubled -> B.LookupDoubled -> B.PlusTen
       await updateRecord(tableA.id, recordA.id, { [aNumFieldId]: 50 });
       await testContainer.processOutbox();
+
+      const afterRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[MixedA]
+          -------------------------
+          #  | Name | Num | Doubled
+          -------------------------
+          R0 | A1   | 50  | 100    
+          -------------------------"
+        `);
 
       const afterRecords = await listRecords(tableB.id);
       expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
@@ -1117,11 +1482,24 @@ describe('v2 computed field updates (e2e)', () => {
 
       const bFieldIds = [bNameFieldId, bLinkFieldId];
       const bFieldNames = ['Name', 'LinkA'];
+      const aFieldIds = [aNameFieldId];
+      const aFieldNames = ['Name'];
 
       await createRecord(tableB.id, {
         [bNameFieldId]: 'B1',
         [bLinkFieldId]: { id: recordA.id },
       });
+
+      const beforeRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[TitleChainA]
+          -------------------
+          #  | Name          
+          -------------------
+          R0 | Original Title
+          -------------------"
+        `);
 
       const beforeRecords = await listRecords(tableB.id);
       expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
@@ -1138,6 +1516,17 @@ describe('v2 computed field updates (e2e)', () => {
       await updateRecord(tableA.id, recordA.id, { [aNameFieldId]: 'Updated Title' });
       await testContainer.processOutbox();
 
+      const afterRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[TitleChainA]
+          ------------------
+          #  | Name         
+          ------------------
+          R0 | Updated Title
+          ------------------"
+        `);
+
       const afterRecords = await listRecords(tableB.id);
       expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
         .toMatchInlineSnapshot(`
@@ -1148,6 +1537,185 @@ describe('v2 computed field updates (e2e)', () => {
           R0 | B1   | Updated Title
           -------------------------"
         `);
+    });
+
+    describe('three-table cascade', () => {
+      /**
+       * Test case: A.value -> B.lookup -> C.lookup
+       *
+       * Verifies that:
+       * 1. Updates propagate through multiple tables
+       * 2. Level ordering is correct (B before C)
+       */
+      it('cascades updates through three tables in correct order', async () => {
+        // Table A: Source
+        const valueFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'Cascade A',
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'number', id: valueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+        const aNameFieldId = tableA.fields.find((f) => f.isPrimary)?.id ?? '';
+
+        // Create A record
+        const recordA = await createRecord(tableA.id, {
+          [aNameFieldId]: 'Source',
+          [valueFieldId]: 10,
+        });
+
+        const aFieldIds = [aNameFieldId, valueFieldId];
+        const aFieldNames = ['Name', 'Value'];
+
+        // Table B: Links to A, has lookup
+        const linkAFieldId = createFieldId();
+        const lookupAFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'Cascade B',
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkAFieldId,
+              name: 'LinkA',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+                isOneWay: true,
+              },
+            },
+            {
+              type: 'lookup',
+              id: lookupAFieldId,
+              name: 'ValueFromA',
+              options: {
+                linkFieldId: linkAFieldId,
+                foreignTableId: tableA.id,
+                lookupFieldId: valueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+        const bNameFieldId = tableB.fields.find((f) => f.isPrimary)?.id ?? '';
+
+        // Create B record linked to A (manyOne uses single object)
+        const recordB = await createRecord(tableB.id, {
+          [bNameFieldId]: 'Middle',
+          [linkAFieldId]: { id: recordA.id },
+        });
+
+        // Table C: Links to B, has lookup of B's lookup
+        const linkBFieldId = createFieldId();
+        const lookupBFieldId = createFieldId();
+        const tableC = await createTable({
+          baseId,
+          name: 'Cascade C',
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkBFieldId,
+              name: 'LinkB',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+                isOneWay: true,
+              },
+            },
+            {
+              type: 'lookup',
+              id: lookupBFieldId,
+              name: 'ValueFromB',
+              options: {
+                linkFieldId: linkBFieldId,
+                foreignTableId: tableB.id,
+                lookupFieldId: lookupAFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+        const cNameFieldId = tableC.fields.find((f) => f.isPrimary)?.id ?? '';
+        const cFieldIds = [cNameFieldId, linkBFieldId, lookupBFieldId];
+        const cFieldNames = ['Name', 'LinkB', 'ValueFromB'];
+
+        // Create C record linked to B (manyOne uses single object)
+        const recordC = await createRecord(tableC.id, {
+          [cNameFieldId]: 'End',
+          [linkBFieldId]: { id: recordB.id },
+        });
+
+        const beforeRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[Cascade A]
+            -------------------
+            #  | Name   | Value
+            -------------------
+            R0 | Source | 10   
+            -------------------"
+          `);
+
+        // Before update
+        const beforeRecords = await listRecords(tableC.id);
+        const beforeSnapshot = printTableSnapshot(
+          tableC.name,
+          cFieldNames,
+          beforeRecords,
+          cFieldIds
+        );
+
+        // Lookup returns the value from the linked record (number values shown as-is from JSON array)
+        expect(beforeSnapshot).toMatchInlineSnapshot(`
+          "[Cascade C]
+          -------------------------------
+          #  | Name | LinkB  | ValueFromB
+          -------------------------------
+          R0 | End  | Middle | [10]      
+          -------------------------------"
+        `);
+
+        // Update A.Value - should cascade A -> B.lookup -> C.lookup
+        await updateRecord(tableA.id, recordA.id, { [valueFieldId]: 99 });
+
+        // Process outbox tasks for multi-level cascade (A->B, then B->C)
+        // Each level may enqueue the next level, so we need multiple passes
+        await testContainer.processOutbox();
+        await testContainer.processOutbox();
+        await testContainer.processOutbox();
+
+        const afterRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[Cascade A]
+            -------------------
+            #  | Name   | Value
+            -------------------
+            R0 | Source | 99   
+            -------------------"
+          `);
+
+        // After update - C should show updated value
+        const afterRecords = await listRecords(tableC.id);
+        const afterSnapshot = printTableSnapshot(tableC.name, cFieldNames, afterRecords, cFieldIds);
+
+        // Value propagates through the chain: A.Value(99) -> B.ValueFromA(99) -> C.ValueFromB(99)
+        expect(afterSnapshot).toMatchInlineSnapshot(`
+          "[Cascade C]
+          -------------------------------
+          #  | Name | LinkB  | ValueFromB
+          -------------------------------
+          R0 | End  | Middle | [99]      
+          -------------------------------"
+        `);
+      });
     });
   });
 
@@ -1298,11 +1866,24 @@ describe('v2 computed field updates (e2e)', () => {
 
         const bFieldIds = [bNameFieldId, bLinkFieldId, bLookupFieldId];
         const bFieldNames = ['Name', 'LinkA', 'LookupVal'];
+        const aFieldIds = [aNameFieldId, aValueFieldId];
+        const aFieldNames = ['Name', 'Value'];
 
         await createRecord(tableB.id, {
           [bNameFieldId]: 'B1',
           [bLinkFieldId]: { id: recordA.id },
         });
+
+        const beforeRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneOneA]
+            -----------------
+            #  | Name | Value
+            -----------------
+            R0 | A1   | 100  
+            -----------------"
+          `);
 
         const beforeRecords = await listRecords(tableB.id);
         expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
@@ -1318,6 +1899,17 @@ describe('v2 computed field updates (e2e)', () => {
         await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 999 });
         await testContainer.processOutbox();
 
+        const afterRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneOneA]
+            -----------------
+            #  | Name | Value
+            -----------------
+            R0 | A1   | 999  
+            -----------------"
+          `);
+
         const afterRecords = await listRecords(tableB.id);
         expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -1330,7 +1922,75 @@ describe('v2 computed field updates (e2e)', () => {
           `);
       });
 
-      it.todo('oneOne oneWay - no symmetric link in foreign table');
+      it('oneOne oneWay - no symmetric link in foreign table', async () => {
+        const aNameFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'OneOneOneWayA',
+          fields: [{ type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordA = await createRecord(tableA.id, { [aNameFieldId]: 'A1' });
+
+        const bNameFieldId = createFieldId();
+        const bLinkFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'OneOneOneWayB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: bLinkFieldId,
+              name: 'LinkA',
+              options: {
+                relationship: 'oneOne',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+                isOneWay: true,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        await createRecord(tableB.id, {
+          [bNameFieldId]: 'B1',
+          [bLinkFieldId]: { id: recordA.id },
+        });
+        await testContainer.processOutbox();
+
+        const bFieldIds = [bNameFieldId, bLinkFieldId];
+        const bFieldNames = ['Name', 'LinkA'];
+        const bRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, bRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneOneOneWayB]
+            -----------------
+            #  | Name | LinkA
+            -----------------
+            R0 | B1   | A1   
+            -----------------"
+          `);
+
+        const aFieldIds = [aNameFieldId];
+        const aFieldNames = ['Name'];
+        const aRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, aRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneOneOneWayA]
+            ---------
+            #  | Name
+            ---------
+            R0 | A1  
+            ---------"
+          `);
+        const extraKeys = Object.keys(aRecords[0]?.fields ?? {}).filter(
+          (key) => key !== aNameFieldId && key !== '__id'
+        );
+        expect(extraKeys).toHaveLength(0);
+      });
     });
 
     describe('oneMany relationship', () => {
@@ -1380,6 +2040,20 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await testContainer.processOutbox();
 
+        const parentFieldIds = [parentNameFieldId, parentLinkFieldId];
+        const parentFieldNames = ['Name', 'Children'];
+        const parentRecords = await listRecords(tableParent.id);
+        expect(
+          printTableSnapshot(tableParent.name, parentFieldNames, parentRecords, parentFieldIds)
+        ).toMatchInlineSnapshot(`
+            "[OneManyParent]
+            -----------------------
+            #  | Name    | Children
+            -----------------------
+            R0 | Parent1 | C1, C2  
+            -----------------------"
+          `);
+
         // Find symmetric link field in tableChild
         const childRecords = await listRecords(tableChild.id);
         const symLinkFieldKey = Object.keys(childRecords[0]?.fields || {}).find(
@@ -1400,14 +2074,25 @@ describe('v2 computed field updates (e2e)', () => {
             R0 | C1   | Parent1
             R1 | C2   | Parent1
             -------------------"
-          `);
+        `);
 
         // Change parent to only link C1
-        const parentRecords = await listRecords(tableParent.id);
         await updateRecord(tableParent.id, parentRecords[0].id, {
           [parentLinkFieldId]: [{ id: child1.id }],
         });
         await testContainer.processOutbox();
+
+        const parentRecordsAfter = await listRecords(tableParent.id);
+        expect(
+          printTableSnapshot(tableParent.name, parentFieldNames, parentRecordsAfter, parentFieldIds)
+        ).toMatchInlineSnapshot(`
+          "[OneManyParent]
+          -----------------------
+          #  | Name    | Children
+          -----------------------
+          R0 | Parent1 | C1      
+          -----------------------"
+        `);
 
         const childRecordsAfter = await listRecords(tableChild.id);
         expect(
@@ -1522,7 +2207,80 @@ describe('v2 computed field updates (e2e)', () => {
           `);
       });
 
-      it.todo('oneMany oneWay - no symmetric link in foreign table');
+      it('oneMany oneWay - no symmetric link in foreign table', async () => {
+        const childNameFieldId = createFieldId();
+        const tableChild = await createTable({
+          baseId,
+          name: 'OneManyOneWayChild',
+          fields: [{ type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        const child1 = await createRecord(tableChild.id, { [childNameFieldId]: 'C1' });
+        const child2 = await createRecord(tableChild.id, { [childNameFieldId]: 'C2' });
+
+        const parentNameFieldId = createFieldId();
+        const parentLinkFieldId = createFieldId();
+        const tableParent = await createTable({
+          baseId,
+          name: 'OneManyOneWayParent',
+          fields: [
+            { type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: parentLinkFieldId,
+              name: 'Children',
+              options: {
+                relationship: 'oneMany',
+                foreignTableId: tableChild.id,
+                lookupFieldId: childNameFieldId,
+                isOneWay: true,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        await createRecord(tableParent.id, {
+          [parentNameFieldId]: 'Parent1',
+          [parentLinkFieldId]: [{ id: child1.id }, { id: child2.id }],
+        });
+        await testContainer.processOutbox();
+
+        const parentFieldIds = [parentNameFieldId, parentLinkFieldId];
+        const parentFieldNames = ['Name', 'Children'];
+        const parentRecords = await listRecords(tableParent.id);
+        expect(
+          printTableSnapshot(tableParent.name, parentFieldNames, parentRecords, parentFieldIds)
+        ).toMatchInlineSnapshot(`
+            "[OneManyOneWayParent]
+            -----------------------
+            #  | Name    | Children
+            -----------------------
+            R0 | Parent1 | C1, C2  
+            -----------------------"
+          `);
+
+        const childFieldIds = [childNameFieldId];
+        const childFieldNames = ['Name'];
+        const childRecords = await listRecords(tableChild.id);
+        expect(printTableSnapshot(tableChild.name, childFieldNames, childRecords, childFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneManyOneWayChild]
+            ---------
+            #  | Name
+            ---------
+            R0 | C1  
+            R1 | C2  
+            ---------"
+          `);
+        childRecords.forEach((record) => {
+          const extraKeys = Object.keys(record.fields ?? {}).filter(
+            (key) => key !== childNameFieldId && key !== '__id'
+          );
+          expect(extraKeys).toHaveLength(0);
+        });
+      });
     });
 
     describe('manyOne relationship', () => {
@@ -1580,6 +2338,8 @@ describe('v2 computed field updates (e2e)', () => {
 
         const aFieldIds = [aNameFieldId, aLinkFieldId, aLookupFieldId];
         const aFieldNames = ['Name', 'Parent', 'ParentVal'];
+        const bFieldIds = [bNameFieldId, bValueFieldId];
+        const bFieldNames = ['Name', 'Value'];
 
         // Create multiple A records linking to same B
         await createRecord(tableA.id, {
@@ -1608,9 +2368,31 @@ describe('v2 computed field updates (e2e)', () => {
             --------------------------------"
           `);
 
+        const beforeRecordsB = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecordsB, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyOneB]
+            -------------------
+            #  | Name   | Value
+            -------------------
+            R0 | Shared | 100  
+            -------------------"
+          `);
+
         // Update B's value - all A records should update
         await updateRecord(tableB.id, recordB.id, { [bValueFieldId]: 999 });
         await testContainer.processOutbox();
+
+        const afterRecordsB = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyOneB]
+            -------------------
+            #  | Name   | Value
+            -------------------
+            R0 | Shared | 999  
+            -------------------"
+          `);
 
         const afterRecords = await listRecords(tableA.id);
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
@@ -1666,6 +2448,19 @@ describe('v2 computed field updates (e2e)', () => {
           views: [{ type: 'grid' }],
         });
 
+        const childFieldIds = [childNameFieldId, childLinkFieldId];
+        const childFieldNames = ['Name', 'Parent'];
+        const childRecordsEmpty = await listRecords(tableChild.id);
+        expect(
+          printTableSnapshot(tableChild.name, childFieldNames, childRecordsEmpty, childFieldIds)
+        ).toMatchInlineSnapshot(`
+            "[ManyOneChild]
+            -----------------
+            # | Name | Parent
+            -----------------
+            -----------------"
+          `);
+
         // Create children linking to parent
         await createRecord(tableChild.id, {
           [childNameFieldId]: 'Child1',
@@ -1676,6 +2471,18 @@ describe('v2 computed field updates (e2e)', () => {
           [childLinkFieldId]: { id: parent1.id },
         });
         await testContainer.processOutbox();
+
+        const childRecords = await listRecords(tableChild.id);
+        expect(printTableSnapshot(tableChild.name, childFieldNames, childRecords, childFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyOneChild]
+            --------------------
+            #  | Name   | Parent
+            --------------------
+            R0 | Child1 | P1    
+            R1 | Child2 | P1    
+            --------------------"
+          `);
 
         // Find symmetric link field in tableParent
         const parentRecords = await listRecords(tableParent.id);
@@ -1705,6 +2512,20 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await testContainer.processOutbox();
 
+        const childRecordsAfter = await listRecords(tableChild.id);
+        expect(
+          printTableSnapshot(tableChild.name, childFieldNames, childRecordsAfter, childFieldIds)
+        ).toMatchInlineSnapshot(`
+          "[ManyOneChild]
+          --------------------
+          #  | Name   | Parent
+          --------------------
+          R0 | Child1 | P1    
+          R1 | Child2 | P1    
+          R2 | Child3 | P1    
+          --------------------"
+        `);
+
         const parentRecordsAfter = await listRecords(tableParent.id);
         expect(
           printTableSnapshot(tableParent.name, parentFieldNames, parentRecordsAfter, parentFieldIds)
@@ -1718,7 +2539,101 @@ describe('v2 computed field updates (e2e)', () => {
         `);
       });
 
-      it.todo('manyOne oneWay - updates lookup when changing link target');
+      it('manyOne oneWay - updates lookup when changing link target', async () => {
+        const bNameFieldId = createFieldId();
+        const bValueFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'ManyOneOneWayB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: bValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB1 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B1',
+          [bValueFieldId]: 10,
+        });
+        const recordB2 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B2',
+          [bValueFieldId]: 20,
+        });
+
+        const aNameFieldId = createFieldId();
+        const aLinkFieldId = createFieldId();
+        const aLookupFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'ManyOneOneWayA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: aLinkFieldId,
+              name: 'Parent',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+                isOneWay: true,
+              },
+            },
+            {
+              type: 'lookup',
+              id: aLookupFieldId,
+              name: 'ParentVal',
+              options: {
+                linkFieldId: aLinkFieldId,
+                foreignTableId: tableB.id,
+                lookupFieldId: bValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordA = await createRecord(tableA.id, {
+          [aNameFieldId]: 'Child',
+          [aLinkFieldId]: { id: recordB1.id },
+        });
+
+        const aFieldIds = [aNameFieldId, aLinkFieldId, aLookupFieldId];
+        const aFieldNames = ['Name', 'Parent', 'ParentVal'];
+        const beforeRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyOneOneWayA]
+            -------------------------------
+            #  | Name  | Parent | ParentVal
+            -------------------------------
+            R0 | Child | B1     | [10]     
+            -------------------------------"
+          `);
+        const beforeRecord = beforeRecords.find((r) => r.id === recordA.id);
+        const beforeLink = beforeRecord?.fields[aLinkFieldId] as { id?: string } | null;
+        expect(beforeLink?.id).toBe(recordB1.id);
+        expect(beforeRecord?.fields[aLookupFieldId]).toBe('[10]');
+
+        await updateRecord(tableA.id, recordA.id, { [aLinkFieldId]: { id: recordB2.id } });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyOneOneWayA]
+            -------------------------------
+            #  | Name  | Parent | ParentVal
+            -------------------------------
+            R0 | Child | B2     | [20]     
+            -------------------------------"
+          `);
+        const afterRecord = afterRecords.find((r) => r.id === recordA.id);
+        const afterLink = afterRecord?.fields[aLinkFieldId] as { id?: string } | null;
+        expect(afterLink?.id).toBe(recordB2.id);
+        expect(afterRecord?.fields[aLookupFieldId]).toBe('[20]');
+      });
     });
 
     describe('manyMany relationship', () => {
@@ -1868,6 +2783,20 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await testContainer.processOutbox();
 
+        const aFieldIds = [aNameFieldId, aLinkFieldId];
+        const aFieldNames = ['Name', 'LinksB'];
+        const aRecordsBefore = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, aRecordsBefore, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyManySymA]
+            ------------------
+            #  | Name | LinksB
+            ------------------
+            R0 | A1   | B1, B2
+            R1 | A2   | B1    
+            ------------------"
+          `);
+
         // Find symmetric link field in tableB
         const bRecords = await listRecords(tableB.id);
         const symLinkFieldKey = Object.keys(bRecords[0]?.fields || {}).find(
@@ -1898,6 +2827,18 @@ describe('v2 computed field updates (e2e)', () => {
         });
         await testContainer.processOutbox();
 
+        const aRecordsAfter = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, aRecordsAfter, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyManySymA]
+            ------------------
+            #  | Name | LinksB
+            ------------------
+            R0 | A1   | B1, B2
+            R1 | A2   | B1, B2
+            ------------------"
+          `);
+
         const bRecordsAfter = await listRecords(tableB.id);
         expect(printTableSnapshot(tableB.name, bFieldNames, bRecordsAfter, bFieldIds))
           .toMatchInlineSnapshot(`
@@ -1911,7 +2852,84 @@ describe('v2 computed field updates (e2e)', () => {
           `);
       });
 
-      it.todo('manyMany oneWay - only main table shows links');
+      it('manyMany oneWay - only main table shows links', async () => {
+        const bNameFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'ManyManyOneWayB',
+          fields: [{ type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB1 = await createRecord(tableB.id, { [bNameFieldId]: 'B1' });
+        const recordB2 = await createRecord(tableB.id, { [bNameFieldId]: 'B2' });
+
+        const aNameFieldId = createFieldId();
+        const aLinkFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'ManyManyOneWayA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: aLinkFieldId,
+              name: 'LinksB',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+                isOneWay: true,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'A1',
+          [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
+        });
+        await testContainer.processOutbox();
+
+        const aFieldIds = [aNameFieldId, aLinkFieldId];
+        const aFieldNames = ['Name', 'LinksB'];
+        const aRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, aRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyManyOneWayA]
+            ------------------
+            #  | Name | LinksB
+            ------------------
+            R0 | A1   | B1, B2
+            ------------------"
+          `);
+
+        const linkValues = aRecords[0]?.fields[aLinkFieldId] as Array<{ id?: string }>;
+        expect(linkValues?.map((link) => link.id)).toEqual(
+          expect.arrayContaining([recordB1.id, recordB2.id])
+        );
+
+        const bFieldIds = [bNameFieldId];
+        const bFieldNames = ['Name'];
+        const bRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, bRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyManyOneWayB]
+            ---------
+            #  | Name
+            ---------
+            R0 | B1  
+            R1 | B2  
+            ---------"
+          `);
+        bRecords.forEach((record) => {
+          const extraKeys = Object.keys(record.fields ?? {}).filter(
+            (key) => key !== bNameFieldId && key !== '__id'
+          );
+          expect(extraKeys).toHaveLength(0);
+        });
+      });
     });
   });
 
@@ -1949,6 +2967,9 @@ describe('v2 computed field updates (e2e)', () => {
         [aValueFieldId]: 42,
       });
 
+      const aFieldIds = [aValueFieldId, aPrimaryFieldId];
+      const aFieldNames = ['Value', 'Title'];
+
       // Table B: Links to A
       const bNameFieldId = createFieldId();
       const bLinkFieldId = createFieldId();
@@ -1979,6 +3000,17 @@ describe('v2 computed field updates (e2e)', () => {
         [bLinkFieldId]: { id: recordA.id },
       });
 
+      const beforeRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaPrimaryA]
+          -----------------------
+          #  | Value | Title     
+          -----------------------
+          R0 | 42    | Item-42.00
+          -----------------------"
+        `);
+
       const beforeRecords = await listRecords(tableB.id);
       expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
         .toMatchInlineSnapshot(`
@@ -1994,6 +3026,17 @@ describe('v2 computed field updates (e2e)', () => {
       await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 100 });
       await testContainer.processOutbox();
 
+      const afterRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaPrimaryA]
+          ------------------------
+          #  | Value | Title      
+          ------------------------
+          R0 | 100   | Item-100.00
+          ------------------------"
+        `);
+
       const afterRecords = await listRecords(tableB.id);
       expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
         .toMatchInlineSnapshot(`
@@ -2006,7 +3049,159 @@ describe('v2 computed field updates (e2e)', () => {
         `);
     });
 
-    it.todo('propagates formula primary field changes through lookup chain');
+    it('propagates formula primary field changes through lookup chain', async () => {
+      const aValueFieldId = createFieldId();
+      const aPrimaryFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'FormulaPrimaryChainA',
+        fields: [
+          { type: 'number', id: aValueFieldId, name: 'Value' },
+          {
+            type: 'formula',
+            id: aPrimaryFieldId,
+            name: 'Title',
+            isPrimary: true,
+            options: { expression: `CONCATENATE("Item-", {${aValueFieldId}})` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordA = await createRecord(tableA.id, {
+        [aValueFieldId]: 7,
+      });
+
+      const aFieldIds = [aValueFieldId, aPrimaryFieldId];
+      const aFieldNames = ['Value', 'Title'];
+
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+      const bLookupFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'FormulaPrimaryChainB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkA',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id,
+              lookupFieldId: aPrimaryFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: bLookupFieldId,
+            name: 'TitleFromA',
+            options: {
+              linkFieldId: bLinkFieldId,
+              foreignTableId: tableA.id,
+              lookupFieldId: aPrimaryFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordB = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bLinkFieldId]: { id: recordA.id },
+      });
+
+      const cNameFieldId = createFieldId();
+      const cLinkFieldId = createFieldId();
+      const cLookupFieldId = createFieldId();
+      const tableC = await createTable({
+        baseId,
+        name: 'FormulaPrimaryChainC',
+        fields: [
+          { type: 'singleLineText', id: cNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: cLinkFieldId,
+            name: 'LinkB',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableB.id,
+              lookupFieldId: bNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: cLookupFieldId,
+            name: 'TitleFromB',
+            options: {
+              linkFieldId: cLinkFieldId,
+              foreignTableId: tableB.id,
+              lookupFieldId: bLookupFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(tableC.id, {
+        [cNameFieldId]: 'C1',
+        [cLinkFieldId]: { id: recordB.id },
+      });
+
+      const beforeRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaPrimaryChainA]
+          -----------------------
+          #  | Value | Title     
+          -----------------------
+          R0 | 7     | Item-7.00
+          -----------------------"
+        `);
+
+      const cFieldIds = [cNameFieldId, cLinkFieldId, cLookupFieldId];
+      const cFieldNames = ['Name', 'LinkB', 'TitleFromB'];
+      const beforeRecords = await listRecords(tableC.id);
+      expect(printTableSnapshot(tableC.name, cFieldNames, beforeRecords, cFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaPrimaryChainC]
+          -------------------------------
+          #  | Name | LinkB | TitleFromB 
+          -------------------------------
+          R0 | C1   | B1    | [Item-7.00]
+          -------------------------------"
+        `);
+      expect(beforeRecords[0]?.fields[cLookupFieldId]).toBe('["Item-7.00"]');
+
+      await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 12 });
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      const afterRecordsA = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaPrimaryChainA]
+          -----------------------
+          #  | Value | Title     
+          -----------------------
+          R0 | 12    | Item-12.00
+          -----------------------"
+        `);
+
+      const afterRecords = await listRecords(tableC.id);
+      expect(printTableSnapshot(tableC.name, cFieldNames, afterRecords, cFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaPrimaryChainC]
+          --------------------------------
+          #  | Name | LinkB | TitleFromB  
+          --------------------------------
+          R0 | C1   | B1    | [Item-12.00]
+          --------------------------------"
+        `);
+      expect(afterRecords[0]?.fields[cLookupFieldId]).toBe('["Item-12.00"]');
+    });
   });
 
   // ===========================================================================
@@ -2016,11 +3211,294 @@ describe('v2 computed field updates (e2e)', () => {
   describe('self-referencing links', () => {
     /**
      * NOTE: Self-referencing links require special API support to create the table first,
-     * then add the link field separately. These are marked as TODO until that's implemented.
+     * then add the link field separately.
      */
-    it.todo('self manyOne - updates child lookups when parent name changes');
-    it.todo('self manyMany - updates rollup when adding/removing self-links');
-    it.todo('self link with formula chain - handles cross_record dependencies correctly');
+    it('self manyOne - updates child lookups when parent name changes', async () => {
+      const nameFieldId = createFieldId();
+      const table = await createTable({
+        baseId,
+        name: 'SelfManyOne',
+        fields: [{ type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const parentLinkFieldId = createFieldId();
+      const parentLookupFieldId = createFieldId();
+
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'link',
+          id: parentLinkFieldId,
+          name: 'Parent',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: table.id,
+            lookupFieldId: nameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'lookup',
+          id: parentLookupFieldId,
+          name: 'ParentName',
+          options: {
+            linkFieldId: parentLinkFieldId,
+            foreignTableId: table.id,
+            lookupFieldId: nameFieldId,
+          },
+        },
+      });
+
+      const parent = await createRecord(table.id, { [nameFieldId]: 'Parent' });
+      const child = await createRecord(table.id, {
+        [nameFieldId]: 'Child',
+        [parentLinkFieldId]: { id: parent.id },
+      });
+
+      const fieldIds = [nameFieldId, parentLinkFieldId, parentLookupFieldId];
+      const fieldNames = ['Name', 'Parent', 'ParentName'];
+      const beforeRecords = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[SelfManyOne]
+          ---------------------------------
+          #  | Name   | Parent | ParentName
+          ---------------------------------
+          R0 | Parent | -      | -         
+          R1 | Child  | Parent | [Parent]  
+          ---------------------------------"
+        `);
+      const beforeChild = beforeRecords.find((r) => r.id === child.id);
+      expect(String(beforeChild?.fields[parentLookupFieldId] ?? '')).toContain('Parent');
+
+      await updateRecord(table.id, parent.id, { [nameFieldId]: 'Parent2' });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[SelfManyOne]
+          -----------------------------------
+          #  | Name    | Parent  | ParentName
+          -----------------------------------
+          R0 | Parent2 | -       | -         
+          R1 | Child   | Parent2 | [Parent2] 
+          -----------------------------------"
+        `);
+      const afterChild = afterRecords.find((r) => r.id === child.id);
+      expect(String(afterChild?.fields[parentLookupFieldId] ?? '')).toContain('Parent2');
+    });
+
+    it('self manyMany - updates rollup when adding/removing self-links', async () => {
+      const nameFieldId = createFieldId();
+      const valueFieldId = createFieldId();
+      const table = await createTable({
+        baseId,
+        name: 'SelfManyMany',
+        fields: [
+          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: valueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const linkFieldId = createFieldId();
+      const rollupFieldId = createFieldId();
+
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Links',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: table.id,
+            lookupFieldId: nameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'rollup',
+          id: rollupFieldId,
+          name: 'Sum',
+          options: { expression: 'sum({values})' },
+          config: {
+            linkFieldId,
+            foreignTableId: table.id,
+            lookupFieldId: valueFieldId,
+          },
+        },
+      });
+
+      const record1 = await createRecord(table.id, {
+        [nameFieldId]: 'R1',
+        [valueFieldId]: 10,
+      });
+      const record2 = await createRecord(table.id, {
+        [nameFieldId]: 'R2',
+        [valueFieldId]: 20,
+      });
+      const record3 = await createRecord(table.id, {
+        [nameFieldId]: 'R3',
+        [valueFieldId]: 30,
+      });
+
+      await updateRecord(table.id, record1.id, {
+        [linkFieldId]: [{ id: record2.id }, { id: record3.id }],
+      });
+      await testContainer.processOutbox();
+
+      const fieldIds = [nameFieldId, linkFieldId, rollupFieldId];
+      const fieldNames = ['Name', 'Links', 'Sum'];
+      let records = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, records, fieldIds)).toMatchInlineSnapshot(`
+          "[SelfManyMany]
+          ------------------------
+          #  | Name | Links  | Sum
+          ------------------------
+          R0 | R1   | R2, R3 | 50 
+          R1 | R2   | -      | -  
+          R2 | R3   | -      | -  
+          ------------------------"
+        `);
+      let stored = records.find((r) => r.id === record1.id);
+      expect(stored?.fields[rollupFieldId]).toBe(50);
+
+      await updateRecord(table.id, record1.id, { [linkFieldId]: [{ id: record3.id }] });
+      await testContainer.processOutbox();
+
+      records = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, records, fieldIds)).toMatchInlineSnapshot(`
+          "[SelfManyMany]
+          -----------------------
+          #  | Name | Links | Sum
+          -----------------------
+          R0 | R1   | R3    | 30 
+          R1 | R2   | -     | -  
+          R2 | R3   | -     | -  
+          -----------------------"
+        `);
+      stored = records.find((r) => r.id === record1.id);
+      expect(stored?.fields[rollupFieldId]).toBe(30);
+    });
+
+    it('self link with formula chain - handles cross_record dependencies correctly', async () => {
+      const nameFieldId = createFieldId();
+      const valueFieldId = createFieldId();
+      const formulaFieldId = createFieldId();
+      const table = await createTable({
+        baseId,
+        name: 'SelfFormulaChain',
+        fields: [
+          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: valueFieldId, name: 'Value' },
+          {
+            type: 'formula',
+            id: formulaFieldId,
+            name: 'Double',
+            options: { expression: `{${valueFieldId}} * 2` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const parentLinkFieldId = createFieldId();
+      const parentLookupFieldId = createFieldId();
+
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'link',
+          id: parentLinkFieldId,
+          name: 'Parent',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: table.id,
+            lookupFieldId: nameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'lookup',
+          id: parentLookupFieldId,
+          name: 'ParentDouble',
+          options: {
+            linkFieldId: parentLinkFieldId,
+            foreignTableId: table.id,
+            lookupFieldId: formulaFieldId,
+          },
+        },
+      });
+
+      const parent = await createRecord(table.id, {
+        [nameFieldId]: 'Parent',
+        [valueFieldId]: 10,
+      });
+      const child = await createRecord(table.id, {
+        [nameFieldId]: 'Child',
+        [valueFieldId]: 5,
+        [parentLinkFieldId]: { id: parent.id },
+      });
+
+      const fieldIds = [
+        nameFieldId,
+        valueFieldId,
+        formulaFieldId,
+        parentLinkFieldId,
+        parentLookupFieldId,
+      ];
+      const fieldNames = ['Name', 'Value', 'Double', 'Parent', 'ParentDouble'];
+      const beforeRecords = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[SelfFormulaChain]
+          ----------------------------------------------------
+          #  | Name   | Value | Double | Parent | ParentDouble
+          ----------------------------------------------------
+          R0 | Parent | 10    | 20     | -      | -           
+          R1 | Child  | 5     | 10     | Parent | [20]        
+          ----------------------------------------------------"
+        `);
+      const beforeChild = beforeRecords.find((r) => r.id === child.id);
+      expect(beforeChild?.fields[parentLookupFieldId]).toBe('[20]');
+
+      await updateRecord(table.id, parent.id, { [valueFieldId]: 15 });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[SelfFormulaChain]
+          ----------------------------------------------------
+          #  | Name   | Value | Double | Parent | ParentDouble
+          ----------------------------------------------------
+          R0 | Parent | 15    | 30     | -      | -           
+          R1 | Child  | 5     | 10     | Parent | [30]        
+          ----------------------------------------------------"
+        `);
+      const afterChild = afterRecords.find((r) => r.id === child.id);
+      expect(afterChild?.fields[parentLookupFieldId]).toBe('[30]');
+    });
   });
 
   // ===========================================================================
@@ -2033,7 +3511,44 @@ describe('v2 computed field updates (e2e)', () => {
        * Scenario: Create record triggers formula calculation.
        * Table with formula field - new record should have computed value.
        */
-      it.todo('calculates formula fields on record creation');
+      it('calculates formula fields on record creation', async () => {
+        const nameFieldId = createFieldId();
+        const numFieldId = createFieldId();
+        const formulaFieldId = createFieldId();
+
+        const table = await createTable({
+          baseId,
+          name: 'CreateFormula',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: numFieldId, name: 'Num' },
+            {
+              type: 'formula',
+              id: formulaFieldId,
+              name: 'Double',
+              options: { expression: `{${numFieldId}} * 2` },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        await createRecord(table.id, { [nameFieldId]: 'Row1', [numFieldId]: 3 });
+
+        const fieldIds = [nameFieldId, numFieldId, formulaFieldId];
+        const fieldNames = ['Name', 'Num', 'Double'];
+        const records = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, records, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[CreateFormula]
+            ------------------------
+            #  | Name | Num | Double
+            ------------------------
+            R0 | Row1 | 3   | 6     
+            ------------------------"
+          `);
+        const record = records[0];
+        expect(record?.fields[formulaFieldId]).toBe(6);
+      });
 
       /**
        * Scenario: Create record with link triggers symmetric link update.
@@ -2134,7 +3649,92 @@ describe('v2 computed field updates (e2e)', () => {
        * Scenario: Create record triggers rollup update in linking table.
        * Create child record - parent's rollup should update.
        */
-      it.todo('updates rollup in parent when child record created');
+      it('updates rollup in parent when child record created', async () => {
+        const parentNameFieldId = createFieldId();
+        const parentTable = await createTable({
+          baseId,
+          name: 'ParentRollupCreate',
+          fields: [
+            { type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const childNameFieldId = createFieldId();
+        const childValueFieldId = createFieldId();
+        const childLinkFieldId = createFieldId();
+        const childTable = await createTable({
+          baseId,
+          name: 'ChildRollupCreate',
+          fields: [
+            { type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: childValueFieldId, name: 'Value' },
+            {
+              type: 'link',
+              id: childLinkFieldId,
+              name: 'Parent',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: parentTable.id,
+                lookupFieldId: parentNameFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const parentTableWithLink = await getTableById(parentTable.id);
+        const symmetricLinkField = parentTableWithLink.fields.find(
+          (field) => field.type === 'link' && field.options?.symmetricFieldId === childLinkFieldId
+        );
+        expect(symmetricLinkField).toBeDefined();
+        if (!symmetricLinkField) {
+          throw new Error('Missing symmetric link field');
+        }
+
+        const rollupFieldId = createFieldId();
+        await createField({
+          baseId,
+          tableId: parentTable.id,
+          field: {
+            type: 'rollup',
+            id: rollupFieldId,
+            name: 'Sum',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId: symmetricLinkField.id,
+              foreignTableId: childTable.id,
+              lookupFieldId: childValueFieldId,
+            },
+          },
+        });
+
+        const parentRecord = await createRecord(parentTable.id, {
+          [parentNameFieldId]: 'Parent1',
+        });
+
+        await createRecord(childTable.id, {
+          [childNameFieldId]: 'Child1',
+          [childValueFieldId]: 10,
+          [childLinkFieldId]: { id: parentRecord.id },
+        });
+        await testContainer.processOutbox();
+
+        const fieldIds = [parentNameFieldId, symmetricLinkField.id, rollupFieldId];
+        const fieldNames = ['Name', 'Children', 'Sum'];
+        const parentRecords = await listRecords(parentTable.id);
+        expect(printTableSnapshot(parentTable.name, fieldNames, parentRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[ParentRollupCreate]
+            -----------------------------
+            #  | Name    | Children | Sum
+            -----------------------------
+            R0 | Parent1 | Child1   | 10 
+            -----------------------------"
+          `);
+        const storedParent = parentRecords.find((r) => r.id === parentRecord.id);
+        expect(storedParent?.fields[rollupFieldId]).toBe(10);
+      });
     });
 
     describe('update record', () => {
@@ -2403,15 +4003,41 @@ describe('v2 computed field updates (e2e)', () => {
           views: [{ type: 'grid' }],
         });
 
+        const bFieldIds = [bNameFieldId, bScoreFieldId];
+        const bFieldNames = ['Name', 'Score'];
+        const aFieldIds = [aNameFieldId, linkToBFieldId, lookupScoreFieldId];
+        const aFieldNames = ['Name', 'LinkToB', 'LookupScore'];
+
         // Create record in A linking to B (manyOne uses single object)
         const recordA = await createRecord(tableA.id, {
           [aNameFieldId]: 'ItemA',
           [linkToBFieldId]: { id: recordB.id },
         });
 
+        const beforeRecordsB = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecordsB, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableB_DeleteLookup]
+            ------------------
+            #  | Name  | Score
+            ------------------
+            R0 | ItemB | 100  
+            ------------------"
+          `);
+
         // Verify initial state (lookup returns array of values, serialized as JSON string)
-        const beforeRecords = await listRecords(tableA.id);
-        const beforeA = beforeRecords.find((r) => r.id === recordA.id);
+        const beforeRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableA_DeleteLookup]
+            ----------------------------------
+            #  | Name  | LinkToB | LookupScore
+            ----------------------------------
+            R0 | ItemA | ItemB   | [100]      
+            ----------------------------------"
+          `);
+
+        const beforeA = beforeRecordsA.find((r) => r.id === recordA.id);
         // Lookup value is stored as JSON array string like "[100]"
         expect(beforeA?.fields[lookupScoreFieldId]).toBe('[100]');
 
@@ -2422,8 +4048,28 @@ describe('v2 computed field updates (e2e)', () => {
         await testContainer.processOutbox();
 
         // Verify A's lookup is now null/empty and link is cleared
-        const afterRecords = await listRecords(tableA.id);
-        const afterA = afterRecords.find((r) => r.id === recordA.id);
+        const afterRecordsA = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableA_DeleteLookup]
+            ----------------------------------
+            #  | Name  | LinkToB | LookupScore
+            ----------------------------------
+            R0 | ItemA | -       | -          
+            ----------------------------------"
+          `);
+
+        const afterRecordsB = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableB_DeleteLookup]
+            ----------------
+            # | Name | Score
+            ----------------
+            ----------------"
+          `);
+
+        const afterA = afterRecordsA.find((r) => r.id === recordA.id);
         // After deleting the linked record, lookup should be null/empty
         const lookupValue = afterA?.fields[lookupScoreFieldId];
         expect(
@@ -2582,6 +4228,33 @@ describe('v2 computed field updates (e2e)', () => {
         });
         expect(symmetricLinkFieldKey).toBeDefined();
 
+        const aFieldIds = [aNameFieldId, symmetricLinkFieldKey!];
+        const aFieldNames = ['Name', 'SymLink'];
+        const bFieldIds = [bNameFieldId, linkToAFieldId];
+        const bFieldNames = ['Name', 'LinkToA'];
+
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeA1Records, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableA_DeleteSymmetric]
+            -------------------
+            #  | Name | SymLink
+            -------------------
+            R0 | A1   | B      
+            R1 | A2   | B      
+            -------------------"
+          `);
+
+        const beforeBRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeBRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableB_DeleteSymmetric]
+            -------------------
+            #  | Name | LinkToA
+            -------------------
+            R0 | B    | A1, A2 
+            -------------------"
+          `);
+
         // Delete record B
         await deleteRecord(tableB.id, recordB.id);
 
@@ -2590,6 +4263,27 @@ describe('v2 computed field updates (e2e)', () => {
 
         // Verify A1's symmetric link no longer contains B
         const afterA1Records = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterA1Records, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableA_DeleteSymmetric]
+            -------------------
+            #  | Name | SymLink
+            -------------------
+            R0 | A1   | -      
+            R1 | A2   | -      
+            -------------------"
+          `);
+
+        const afterBRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterBRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableB_DeleteSymmetric]
+            ------------------
+            # | Name | LinkToA
+            ------------------
+            ------------------"
+          `);
+
         const afterA1 = afterA1Records.find((r) => r.id === recordA1.id);
         if (symmetricLinkFieldKey) {
           const afterSymmetricLinks = afterA1?.fields[symmetricLinkFieldKey] as Array<{
@@ -2714,7 +4408,154 @@ describe('v2 computed field updates (e2e)', () => {
         `);
     });
 
-    it.todo('handles potential circular references without infinite loop');
+    it('handles potential circular references without infinite loop', async () => {
+      const aNameFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'CircularA',
+        fields: [{ type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const bNameFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'CircularB',
+        fields: [{ type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const aLinkFieldId = createFieldId();
+      const aLookupFieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: tableA.id,
+        field: {
+          type: 'link',
+          id: aLinkFieldId,
+          name: 'LinkB',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: tableB.id,
+            lookupFieldId: bNameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      await createField({
+        baseId,
+        tableId: tableA.id,
+        field: {
+          type: 'lookup',
+          id: aLookupFieldId,
+          name: 'BName',
+          options: {
+            linkFieldId: aLinkFieldId,
+            foreignTableId: tableB.id,
+            lookupFieldId: bNameFieldId,
+          },
+        },
+      });
+
+      const bLinkFieldId = createFieldId();
+      const bLookupFieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: tableB.id,
+        field: {
+          type: 'link',
+          id: bLinkFieldId,
+          name: 'LinkA',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: tableA.id,
+            lookupFieldId: aNameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      await createField({
+        baseId,
+        tableId: tableB.id,
+        field: {
+          type: 'lookup',
+          id: bLookupFieldId,
+          name: 'AName',
+          options: {
+            linkFieldId: bLinkFieldId,
+            foreignTableId: tableA.id,
+            lookupFieldId: aNameFieldId,
+          },
+        },
+      });
+
+      const recordA = await createRecord(tableA.id, { [aNameFieldId]: 'A1' });
+      const recordB = await createRecord(tableB.id, { [bNameFieldId]: 'B1' });
+
+      await updateRecord(tableA.id, recordA.id, { [aLinkFieldId]: { id: recordB.id } });
+      await updateRecord(tableB.id, recordB.id, { [bLinkFieldId]: { id: recordA.id } });
+      await testContainer.processOutbox();
+
+      const aFieldIds = [aNameFieldId, aLinkFieldId, aLookupFieldId];
+      const aFieldNames = ['Name', 'LinkB', 'BName'];
+      const bFieldIds = [bNameFieldId, bLinkFieldId, bLookupFieldId];
+      const bFieldNames = ['Name', 'LinkA', 'AName'];
+      let aRecords = await listRecords(tableA.id);
+      let bRecords = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, aRecords, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[CircularA]
+          -------------------------
+          #  | Name | LinkB | BName
+          -------------------------
+          R0 | A1   | B1    | [B1] 
+          -------------------------"
+        `);
+      expect(printTableSnapshot(tableB.name, bFieldNames, bRecords, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[CircularB]
+          -------------------------
+          #  | Name | LinkA | AName
+          -------------------------
+          R0 | B1   | A1    | [A1] 
+          -------------------------"
+        `);
+      const storedA = aRecords.find((r) => r.id === recordA.id);
+      const storedB = bRecords.find((r) => r.id === recordB.id);
+      expect(String(storedA?.fields[aLookupFieldId] ?? '')).toContain('B1');
+      expect(String(storedB?.fields[bLookupFieldId] ?? '')).toContain('A1');
+
+      await updateRecord(tableA.id, recordA.id, { [aNameFieldId]: 'A1-updated' });
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      const drained = await testContainer.processOutbox();
+      expect(drained).toBe(0);
+
+      aRecords = await listRecords(tableA.id);
+      bRecords = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, aRecords, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[CircularA]
+          -------------------------------
+          #  | Name       | LinkB | BName
+          -------------------------------
+          R0 | A1-updated | B1    | [B1] 
+          -------------------------------"
+        `);
+      expect(printTableSnapshot(tableB.name, bFieldNames, bRecords, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[CircularB]
+          -------------------------------------
+          #  | Name | LinkA      | AName       
+          -------------------------------------
+          R0 | B1   | A1-updated | [A1-updated]
+          -------------------------------------"
+        `);
+      const afterB = bRecords.find((r) => r.id === recordB.id);
+      expect(String(afterB?.fields[bLookupFieldId] ?? '')).toContain('A1-updated');
+    });
 
     /**
      * Scenario: Link array from empty to populated.
@@ -2972,357 +4813,6 @@ describe('v2 computed field updates (e2e)', () => {
           R1 | HasNum | -   | -     
           --------------------------"
         `);
-    });
-  });
-
-  // ===========================================================================
-  // SECTION 8: IMPLEMENTED TESTS
-  // ===========================================================================
-
-  describe('implemented: basic formula chain', () => {
-    it('updates formula chain when source number changes', async () => {
-      const amountFieldId = createFieldId();
-      const scoreFieldId = createFieldId();
-      const scoreLabelFieldId = createFieldId();
-
-      const table = await createTable({
-        baseId,
-        name: 'Formula Chain Test',
-        fields: [
-          { type: 'singleLineText', name: 'Name', isPrimary: true },
-          { type: 'number', id: amountFieldId, name: 'Amount' },
-          {
-            type: 'formula',
-            id: scoreFieldId,
-            name: 'Score',
-            options: { expression: `{${amountFieldId}} * 2` },
-          },
-          {
-            type: 'formula',
-            id: scoreLabelFieldId,
-            name: 'ScoreLabel',
-            options: { expression: `CONCATENATE("Score: ", {${scoreFieldId}})` },
-          },
-        ],
-        views: [{ type: 'grid' }],
-      });
-
-      const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
-      const fieldIds = [nameFieldId, amountFieldId, scoreFieldId, scoreLabelFieldId];
-      const fieldNames = ['Name', 'Amount', 'Score', 'ScoreLabel'];
-
-      // Create record
-      const record = await createRecord(table.id, {
-        [nameFieldId]: 'Alpha',
-        [amountFieldId]: 5,
-      });
-
-      // Before update
-      const beforeRecords = await listRecords(table.id);
-      const beforeSnapshot = printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds);
-
-      expect(beforeSnapshot).toMatchInlineSnapshot(`
-        "[Formula Chain Test]
-        ----------------------------------------
-        #  | Name  | Amount | Score | ScoreLabel
-        ----------------------------------------
-        R0 | Alpha | 5      | 10    | Score: 10 
-        ----------------------------------------"
-      `);
-
-      // Update amount
-      await updateRecord(table.id, record.id, { [amountFieldId]: 7 });
-
-      // After update
-      const afterRecords = await listRecords(table.id);
-      const afterSnapshot = printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds);
-
-      expect(afterSnapshot).toMatchInlineSnapshot(`
-        "[Formula Chain Test]
-        ----------------------------------------
-        #  | Name  | Amount | Score | ScoreLabel
-        ----------------------------------------
-        R0 | Alpha | 7      | 14    | Score: 14 
-        ----------------------------------------"
-      `);
-    });
-  });
-
-  describe('implemented: cross-table lookup', () => {
-    /**
-     * TODO: This test currently shows lookup returning null.
-     * This indicates the lookup computed value is not being calculated
-     * when a record is created with a link, or the cross-table update
-     * is not propagating correctly.
-     *
-     * Investigation needed:
-     * 1. Is lookup computed on record creation with link?
-     * 2. Is cross-table propagation working correctly?
-     */
-    it('updates lookup when source field changes in foreign table', async () => {
-      const scoreFieldId = createFieldId();
-      const scoreLabelFieldId = createFieldId();
-
-      // Create source table (Contacts)
-      const contacts = await createTable({
-        baseId,
-        name: 'Contacts Source',
-        fields: [
-          { type: 'singleLineText', name: 'Name', isPrimary: true },
-          { type: 'number', id: scoreFieldId, name: 'Score' },
-          {
-            type: 'formula',
-            id: scoreLabelFieldId,
-            name: 'ScoreLabel',
-            options: { expression: `CONCATENATE("Score: ", {${scoreFieldId}})` },
-          },
-        ],
-        views: [{ type: 'grid' }],
-      });
-
-      const contactNameFieldId = contacts.fields.find((f) => f.isPrimary)?.id ?? '';
-
-      // Create contact
-      const contact = await createRecord(contacts.id, {
-        [contactNameFieldId]: 'Alice',
-        [scoreFieldId]: 2,
-      });
-
-      // Create linking table (Deals)
-      const linkFieldId = createFieldId();
-      const lookupFieldId = createFieldId();
-
-      const deals = await createTable({
-        baseId,
-        name: 'Deals Target',
-        fields: [
-          { type: 'singleLineText', name: 'Deal', isPrimary: true },
-          {
-            type: 'link',
-            id: linkFieldId,
-            name: 'Contact',
-            options: {
-              relationship: 'manyOne',
-              foreignTableId: contacts.id,
-              lookupFieldId: contactNameFieldId,
-            },
-          },
-          {
-            type: 'lookup',
-            id: lookupFieldId,
-            name: 'ContactScore',
-            options: {
-              linkFieldId,
-              foreignTableId: contacts.id,
-              lookupFieldId: scoreLabelFieldId,
-            },
-          },
-        ],
-        views: [{ type: 'grid' }],
-      });
-
-      const dealNameFieldId = deals.fields.find((f) => f.isPrimary)?.id ?? '';
-      const dealFieldIds = [dealNameFieldId, linkFieldId, lookupFieldId];
-      const dealFieldNames = ['Deal', 'Contact', 'ContactScore'];
-
-      // Create deal with link (manyOne uses single object)
-      const deal = await createRecord(deals.id, {
-        [dealNameFieldId]: 'Deal A',
-        [linkFieldId]: { id: contact.id },
-      });
-
-      // Before update - verify lookup shows current value
-      const beforeRecords = await listRecords(deals.id);
-      const beforeSnapshot = printTableSnapshot(
-        deals.name,
-        dealFieldNames,
-        beforeRecords,
-        dealFieldIds
-      );
-
-      // Lookup should show the value from the foreign table
-      expect(beforeSnapshot).toMatchInlineSnapshot(`
-        "[Deals Target]
-        -------------------------------------
-        #  | Deal   | Contact | ContactScore 
-        -------------------------------------
-        R0 | Deal A | Alice   | [Score: 2.00]
-        -------------------------------------"
-      `);
-
-      // Update contact's score (triggers: Contact.Score -> Contact.ScoreLabel -> Deal.lookup)
-      await updateRecord(contacts.id, contact.id, { [scoreFieldId]: 8 });
-
-      // Process any pending outbox tasks (cross-table updates are async)
-      await testContainer.processOutbox();
-
-      // After update - lookup should reflect new value
-      const afterRecords = await listRecords(deals.id);
-      const afterSnapshot = printTableSnapshot(
-        deals.name,
-        dealFieldNames,
-        afterRecords,
-        dealFieldIds
-      );
-
-      // Lookup should show updated value
-      expect(afterSnapshot).toMatchInlineSnapshot(`
-        "[Deals Target]
-        -------------------------------------
-        #  | Deal   | Contact | ContactScore 
-        -------------------------------------
-        R0 | Deal A | Alice   | [Score: 8.00]
-        -------------------------------------"
-      `);
-    });
-  });
-
-  describe('implemented: three-table cascade', () => {
-    /**
-     * Test case: A.value -> B.lookup -> C.lookup
-     *
-     * Verifies that:
-     * 1. Updates propagate through multiple tables
-     * 2. Level ordering is correct (B before C)
-     */
-    it('cascades updates through three tables in correct order', async () => {
-      // Table A: Source
-      const valueFieldId = createFieldId();
-      const tableA = await createTable({
-        baseId,
-        name: 'Cascade A',
-        fields: [
-          { type: 'singleLineText', name: 'Name', isPrimary: true },
-          { type: 'number', id: valueFieldId, name: 'Value' },
-        ],
-        views: [{ type: 'grid' }],
-      });
-      const aNameFieldId = tableA.fields.find((f) => f.isPrimary)?.id ?? '';
-
-      // Create A record
-      const recordA = await createRecord(tableA.id, {
-        [aNameFieldId]: 'Source',
-        [valueFieldId]: 10,
-      });
-
-      // Table B: Links to A, has lookup
-      const linkAFieldId = createFieldId();
-      const lookupAFieldId = createFieldId();
-      const tableB = await createTable({
-        baseId,
-        name: 'Cascade B',
-        fields: [
-          { type: 'singleLineText', name: 'Name', isPrimary: true },
-          {
-            type: 'link',
-            id: linkAFieldId,
-            name: 'LinkA',
-            options: {
-              relationship: 'manyOne',
-              foreignTableId: tableA.id,
-              lookupFieldId: aNameFieldId,
-              isOneWay: true,
-            },
-          },
-          {
-            type: 'lookup',
-            id: lookupAFieldId,
-            name: 'ValueFromA',
-            options: {
-              linkFieldId: linkAFieldId,
-              foreignTableId: tableA.id,
-              lookupFieldId: valueFieldId,
-            },
-          },
-        ],
-        views: [{ type: 'grid' }],
-      });
-      const bNameFieldId = tableB.fields.find((f) => f.isPrimary)?.id ?? '';
-
-      // Create B record linked to A (manyOne uses single object)
-      const recordB = await createRecord(tableB.id, {
-        [bNameFieldId]: 'Middle',
-        [linkAFieldId]: { id: recordA.id },
-      });
-
-      // Table C: Links to B, has lookup of B's lookup
-      const linkBFieldId = createFieldId();
-      const lookupBFieldId = createFieldId();
-      const tableC = await createTable({
-        baseId,
-        name: 'Cascade C',
-        fields: [
-          { type: 'singleLineText', name: 'Name', isPrimary: true },
-          {
-            type: 'link',
-            id: linkBFieldId,
-            name: 'LinkB',
-            options: {
-              relationship: 'manyOne',
-              foreignTableId: tableB.id,
-              lookupFieldId: bNameFieldId,
-              isOneWay: true,
-            },
-          },
-          {
-            type: 'lookup',
-            id: lookupBFieldId,
-            name: 'ValueFromB',
-            options: {
-              linkFieldId: linkBFieldId,
-              foreignTableId: tableB.id,
-              lookupFieldId: lookupAFieldId,
-            },
-          },
-        ],
-        views: [{ type: 'grid' }],
-      });
-      const cNameFieldId = tableC.fields.find((f) => f.isPrimary)?.id ?? '';
-      const cFieldIds = [cNameFieldId, linkBFieldId, lookupBFieldId];
-      const cFieldNames = ['Name', 'LinkB', 'ValueFromB'];
-
-      // Create C record linked to B (manyOne uses single object)
-      const recordC = await createRecord(tableC.id, {
-        [cNameFieldId]: 'End',
-        [linkBFieldId]: { id: recordB.id },
-      });
-
-      // Before update
-      const beforeRecords = await listRecords(tableC.id);
-      const beforeSnapshot = printTableSnapshot(tableC.name, cFieldNames, beforeRecords, cFieldIds);
-
-      // Lookup returns the value from the linked record (number values shown as-is from JSON array)
-      expect(beforeSnapshot).toMatchInlineSnapshot(`
-        "[Cascade C]
-        -------------------------------
-        #  | Name | LinkB  | ValueFromB
-        -------------------------------
-        R0 | End  | Middle | [10]      
-        -------------------------------"
-      `);
-
-      // Update A.Value - should cascade A -> B.lookup -> C.lookup
-      await updateRecord(tableA.id, recordA.id, { [valueFieldId]: 99 });
-
-      // Process outbox tasks for multi-level cascade (A->B, then B->C)
-      // Each level may enqueue the next level, so we need multiple passes
-      await testContainer.processOutbox();
-      await testContainer.processOutbox();
-      await testContainer.processOutbox();
-
-      // After update - C should show updated value
-      const afterRecords = await listRecords(tableC.id);
-      const afterSnapshot = printTableSnapshot(tableC.name, cFieldNames, afterRecords, cFieldIds);
-
-      // Value propagates through the chain: A.Value(99) -> B.ValueFromA(99) -> C.ValueFromB(99)
-      expect(afterSnapshot).toMatchInlineSnapshot(`
-        "[Cascade C]
-        -------------------------------
-        #  | Name | LinkB  | ValueFromB
-        -------------------------------
-        R0 | End  | Middle | [99]      
-        -------------------------------"
-      `);
     });
   });
 });

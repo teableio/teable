@@ -141,6 +141,45 @@ export type IRollupFieldConfigDTO = {
   lookupFieldId: string;
 };
 
+export type IFilterItemDTO = {
+  fieldId: string;
+  operator: string;
+  value: unknown;
+};
+
+export type IFieldConditionDTO = {
+  filter: {
+    conjunction: 'and' | 'or';
+    filterSet: ReadonlyArray<
+      IFilterItemDTO | { conjunction: 'and' | 'or'; filterSet: ReadonlyArray<IFilterItemDTO> }
+    >;
+  };
+  sort?: {
+    fieldId: string;
+    order: 'asc' | 'desc';
+  };
+  limit?: number;
+};
+
+export type IConditionalRollupFieldConfigDTO = {
+  foreignTableId: string;
+  lookupFieldId: string;
+  condition: IFieldConditionDTO;
+};
+
+export type IConditionalRollupFieldOptionsDTO = {
+  expression: string;
+  timeZone?: string;
+  formatting?: IFormulaFieldFormattingDTO;
+  showAs?: IFormulaFieldShowAsDTO;
+};
+
+export type IConditionalLookupOptionsDTO = {
+  foreignTableId: string;
+  lookupFieldId: string;
+  condition: IFieldConditionDTO;
+};
+
 export type ILinkFieldOptionsDTO = {
   baseId?: string;
   relationship: 'oneOne' | 'manyMany' | 'oneMany' | 'manyOne';
@@ -227,6 +266,19 @@ export type ITableFieldPersistenceDTO =
       type: 'link';
       options: ILinkFieldOptionsDTO;
       meta?: ILinkFieldMetaDTO;
+    })
+  | (ITableFieldBaseDTO & {
+      type: 'conditionalRollup';
+      options: IConditionalRollupFieldOptionsDTO;
+      config: IConditionalRollupFieldConfigDTO;
+      cellValueType?: string;
+      isMultipleCellValue?: boolean;
+    })
+  | (ITableFieldBaseDTO & {
+      type: 'conditionalLookup';
+      options: IConditionalLookupOptionsDTO;
+      innerType?: string;
+      innerOptions?: unknown;
     });
 
 export type ITableViewPersistenceDTOBase = {

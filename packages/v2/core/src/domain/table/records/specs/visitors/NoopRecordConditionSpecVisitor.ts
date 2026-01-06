@@ -6,6 +6,8 @@ import type { ISpecification } from '../../../../shared/specification/ISpecifica
 import type { AttachmentConditionSpec } from '../AttachmentConditionSpec';
 import type { ButtonConditionSpec } from '../ButtonConditionSpec';
 import type { CheckboxConditionSpec } from '../CheckboxConditionSpec';
+import type { ConditionalLookupConditionSpec } from '../ConditionalLookupConditionSpec';
+import type { ConditionalRollupConditionSpec } from '../ConditionalRollupConditionSpec';
 import type { DateConditionSpec } from '../DateConditionSpec';
 import type { FormulaConditionSpec } from '../FormulaConditionSpec';
 import type { ITableRecordConditionSpecVisitor } from '../ITableRecordConditionSpecVisitor';
@@ -14,6 +16,7 @@ import type { LongTextConditionSpec } from '../LongTextConditionSpec';
 import type { MultipleSelectConditionSpec } from '../MultipleSelectConditionSpec';
 import type { NumberConditionSpec } from '../NumberConditionSpec';
 import type { RatingConditionSpec } from '../RatingConditionSpec';
+import type { RecordByIdSpec } from '../RecordByIdSpec';
 import type { RollupConditionSpec } from '../RollupConditionSpec';
 import type { SingleLineTextConditionSpec } from '../SingleLineTextConditionSpec';
 import type { SingleSelectConditionSpec } from '../SingleSelectConditionSpec';
@@ -25,6 +28,10 @@ export class NoopRecordConditionSpecVisitor implements ITableRecordConditionSpec
   }
 
   visit(_: ISpecification): Result<void, DomainError> {
+    return this.noop();
+  }
+
+  visitRecordById(_: RecordByIdSpec): Result<void, DomainError> {
     return this.noop();
   }
 
@@ -420,6 +427,121 @@ export class NoopRecordConditionSpecVisitor implements ITableRecordConditionSpec
     return this.noop();
   }
   visitRollupIsOnOrAfter(_: RollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+
+  // ConditionalRollup condition specs
+  visitConditionalRollupIs(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsNot(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupContains(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupDoesNotContain(
+    _: ConditionalRollupConditionSpec
+  ): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsEmpty(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsNotEmpty(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsGreater(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsGreaterEqual(
+    _: ConditionalRollupConditionSpec
+  ): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsLess(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsLessEqual(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsAnyOf(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsNoneOf(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupHasAnyOf(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupHasAllOf(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsNotExactly(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupHasNoneOf(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsExactly(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsWithIn(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsBefore(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsAfter(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsOnOrBefore(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalRollupIsOnOrAfter(_: ConditionalRollupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+
+  // ConditionalLookup condition specs
+  visitConditionalLookupIs(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupIsNot(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupContains(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupDoesNotContain(
+    _: ConditionalLookupConditionSpec
+  ): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupIsEmpty(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupIsNotEmpty(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupIsAnyOf(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupIsNoneOf(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupHasAnyOf(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupHasAllOf(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupIsNotExactly(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupHasNoneOf(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
+    return this.noop();
+  }
+  visitConditionalLookupIsExactly(_: ConditionalLookupConditionSpec): Result<void, DomainError> {
     return this.noop();
   }
 }

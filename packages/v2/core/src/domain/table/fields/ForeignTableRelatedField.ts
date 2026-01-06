@@ -4,6 +4,8 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../shared/DomainError';
 import type { Table } from '../Table';
 import type { Field } from './Field';
+import { ConditionalLookupField } from './types/ConditionalLookupField';
+import { ConditionalRollupField } from './types/ConditionalRollupField';
 import { LinkField } from './types/LinkField';
 import { LookupField } from './types/LookupField';
 import { RollupField } from './types/RollupField';
@@ -19,8 +21,17 @@ export interface ForeignTableRelatedField {
 
 export const isForeignTableRelatedField = (
   field: Field
-): field is RollupField | LinkField | LookupField =>
-  field instanceof LinkField || field instanceof RollupField || field instanceof LookupField;
+): field is
+  | RollupField
+  | LinkField
+  | LookupField
+  | ConditionalRollupField
+  | ConditionalLookupField =>
+  field instanceof LinkField ||
+  field instanceof RollupField ||
+  field instanceof LookupField ||
+  field instanceof ConditionalRollupField ||
+  field instanceof ConditionalLookupField;
 
 export const validateForeignTablesForFields = (
   fields: ReadonlyArray<Field>,

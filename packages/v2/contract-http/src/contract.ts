@@ -5,6 +5,7 @@ import {
   createRecordInputSchema,
   createRecordsInputSchema,
   createTableInputSchema,
+  createTablesInputSchema,
   deleteFieldInputSchema,
   deleteRecordsInputSchema,
   deleteTableInputSchema,
@@ -21,6 +22,7 @@ import { createFieldOkResponseSchema } from './table/createField';
 import { createRecordOkResponseSchema } from './table/createRecord';
 import { createRecordsOkResponseSchema } from './table/createRecords';
 import { createTableErrorResponseSchema, createTableOkResponseSchema } from './table/createTable';
+import { createTablesOkResponseSchema } from './table/createTables';
 import { deleteFieldOkResponseSchema } from './table/deleteField';
 import { deleteRecordsOkResponseSchema } from './table/deleteRecords';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
@@ -34,6 +36,7 @@ import { updateRecordOkResponseSchema } from './table/updateRecord';
 
 const TABLES_CREATE_FIELD_PATH = '/tables/createField';
 const TABLES_CREATE_PATH = '/tables/create';
+const TABLES_CREATE_TABLES_PATH = '/tables/createTables';
 const TABLES_CREATE_RECORD_PATH = '/tables/createRecord';
 const TABLES_CREATE_RECORDS_PATH = '/tables/createRecords';
 const TABLES_DELETE_RECORDS_PATH = '/tables/deleteRecords';
@@ -47,7 +50,7 @@ const TABLES_LIST_PATH = '/tables/list';
 const TABLES_RENAME_PATH = '/tables/rename';
 const TABLES_UPDATE_RECORD_PATH = '/tables/updateRecord';
 
-export const v2Contract: AnyContractRouter = {
+export const v2Contract = {
   tables: {
     create: oc
       .route({
@@ -59,6 +62,16 @@ export const v2Contract: AnyContractRouter = {
       })
       .input(createTableInputSchema)
       .output(createTableOkResponseSchema),
+    createTables: oc
+      .route({
+        method: 'POST',
+        path: TABLES_CREATE_TABLES_PATH,
+        successStatus: 201,
+        summary: 'Create tables',
+        tags: ['tables'],
+      })
+      .input(createTablesInputSchema)
+      .output(createTablesOkResponseSchema),
     createField: oc
       .route({
         method: 'POST',
@@ -190,7 +203,7 @@ export const v2Contract: AnyContractRouter = {
       .input(updateRecordInputSchema)
       .output(updateRecordOkResponseSchema),
   },
-} as const;
+} as const satisfies AnyContractRouter;
 
 export const v2ContractErrors = {
   400: createTableErrorResponseSchema,

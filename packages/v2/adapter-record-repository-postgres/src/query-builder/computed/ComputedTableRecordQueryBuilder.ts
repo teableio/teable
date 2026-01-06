@@ -21,6 +21,7 @@ import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
+import { TableRecordConditionWhereVisitor } from '../../visitors';
 import type {
   DynamicDB,
   IQueryBuilderDeps,
@@ -169,7 +170,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     const table = this.table;
     const foreignTables = this.foreignTables;
     const projection = this.projection;
-    const { laterals, ctx: lateralCtx } = this.createLateralContext();
+    const { laterals, conditionalLaterals, ctx: lateralCtx } = this.createLateralContext();
 
     return safeTry<QB, DomainError>(
       function* (this: ComputedTableRecordQueryBuilder) {
@@ -178,6 +179,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
         const fieldSelectColumns = yield* this.buildSelectColumns(table, projection, lateralCtx);
         const applyLateralJoins = yield* this.buildLateralJoins(table, foreignTables, laterals);
+        const applyConditionalJoins = yield* this.buildConditionalJoins(
+          foreignTables,
+          conditionalLaterals
+        );
 
         // Always include __id column for record identification
         const idColumn = sql`${sql.ref(`${T}.__id`)}`.as('__id');
@@ -190,6 +195,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           .selectFrom(`${tableName} as ${T}`)
           .select(() => selectColumns)
           .$call(applyLateralJoins)
+          .$call(applyConditionalJoins)
           .$if(this.recordIdFilter !== null, (qb) =>
             qb.where(sql`${sql.ref(`${T}.__id`)}`, '=', this.recordIdFilter!)
           )
@@ -205,10 +211,23 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   }
 
   private createLateralContext() {
+    // Link-based laterals (keyed by linkFieldId)
     const laterals = new Map<
       string,
       {
         linkFieldId: FieldId;
+        alias: string;
+        foreignTableId: string;
+        columns: Array<{ outputAlias: string; columnType: LateralColumnType }>;
+      }
+    >();
+
+    // Conditional field laterals (keyed by conditionalFieldId)
+    // These don't share a link field, so each conditional field gets its own entry
+    const conditionalLaterals = new Map<
+      string,
+      {
+        conditionalFieldId: FieldId;
         alias: string;
         foreignTableId: string;
         columns: Array<{ outputAlias: string; columnType: LateralColumnType }>;
@@ -230,9 +249,26 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         }
         return lateral.alias;
       },
+      addConditionalColumn(conditionalFieldId, foreignTableId, outputAlias, columnType) {
+        const key = conditionalFieldId.toString();
+        if (!conditionalLaterals.has(key)) {
+          conditionalLaterals.set(key, {
+            conditionalFieldId,
+            alias: `cond_${key}`,
+            foreignTableId,
+            columns: [],
+          });
+        }
+        const lateral = conditionalLaterals.get(key)!;
+        const existingColumn = lateral.columns.find((col) => col.outputAlias === outputAlias);
+        if (!existingColumn) {
+          lateral.columns.push({ outputAlias, columnType });
+        }
+        return lateral.alias;
+      },
     };
 
-    return { laterals, ctx };
+    return { laterals, conditionalLaterals, ctx };
   }
 
   private buildSelectColumns(
@@ -320,41 +356,212 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     );
   }
 
+  /**
+   * Build lateral joins for conditional fields (conditionalRollup, conditionalLookup).
+   *
+   * Unlike link-based lateral joins that use FK relationships, conditional joins
+   * use a condition filter to select which foreign records to aggregate.
+   *
+   * The generated SQL structure for each conditional field:
+   * - conditionalRollup: LATERAL (SELECT AGG(col) FROM foreign_table WHERE <condition>)
+   * - conditionalLookup: LATERAL (SELECT jsonb_agg(col) FROM foreign_table WHERE <condition>)
+   */
+  private buildConditionalJoins(
+    foreignTables: ReadonlyMap<string, Table>,
+    conditionalLaterals: Map<
+      string,
+      {
+        conditionalFieldId: FieldId;
+        alias: string;
+        foreignTableId: string;
+        columns: Array<{ outputAlias: string; columnType: LateralColumnType }>;
+      }
+    >
+  ): Result<(qb: QB) => QB, DomainError> {
+    if (conditionalLaterals.size === 0) {
+      return ok((qb) => qb);
+    }
+
+    return safeTry<(qb: QB) => QB, DomainError>(
+      function* (this: ComputedTableRecordQueryBuilder) {
+        const subqueries: AliasedExpression<Record<string, unknown>, string>[] = [];
+
+        for (const [, lateral] of conditionalLaterals) {
+          const foreignTable = foreignTables.get(lateral.foreignTableId);
+          if (!foreignTable) {
+            return err(
+              domainError.notFound({
+                message: `Foreign table not found for conditional field: ${lateral.foreignTableId}`,
+              })
+            );
+          }
+
+          const foreignDbTableName = yield* foreignTable.dbTableName();
+          const foreignTableName = yield* foreignDbTableName.value();
+
+          const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+
+          for (const col of lateral.columns) {
+            selectExprs.push(
+              yield* this.buildConditionalSelectExpr(foreignTable, col.columnType, col.outputAlias)
+            );
+          }
+
+          // Build WHERE clause from condition filter
+          const whereClause = yield* this.buildConditionWhere(
+            foreignTable,
+            lateral.columns[0]?.columnType
+          );
+
+          subqueries.push(
+            this.db
+              .selectFrom(`${foreignTableName} as ${F}`)
+              .select(selectExprs)
+              .$if(whereClause !== null, (qb) => qb.where(whereClause!))
+              .as(lateral.alias)
+          );
+        }
+
+        return ok((qb: QB) =>
+          subqueries.reduce((q, sub) => q.innerJoinLateral(sub, (j) => j.onTrue()), qb)
+        );
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Build WHERE clause from FieldCondition for conditional field subqueries.
+   *
+   * Uses the visitor pattern to translate conditions to SQL.
+   * This is the canonical way to handle conditions - all operator logic
+   * is centralized in TableRecordConditionWhereVisitor.
+   *
+   * @returns null if no filter conditions, or a SQL expression for WHERE clause
+   */
+  private buildConditionWhere(
+    foreignTable: Table,
+    columnType: LateralColumnType | undefined
+  ): Result<Expression<SqlBool> | null, DomainError> {
+    if (!columnType) {
+      return ok(null);
+    }
+
+    // Extract condition from column type
+    const condition = match(columnType)
+      .with({ type: 'conditionalLookup' }, (c) => c.condition)
+      .with({ type: 'conditionalRollup' }, (c) => c.condition)
+      .otherwise(() => undefined);
+
+    if (!condition || !condition.hasFilter()) {
+      return ok(null);
+    }
+
+    return safeTry<Expression<SqlBool> | null, DomainError>(function* () {
+      // Convert FieldCondition to RecordConditionSpec using the canonical pattern
+      const spec = yield* condition.toRecordConditionSpec(foreignTable);
+
+      if (!spec) {
+        return ok(null);
+      }
+
+      // Use the visitor pattern to translate spec to SQL WHERE clause
+      const visitor = new TableRecordConditionWhereVisitor();
+      const whereClause = yield* spec.accept(visitor);
+
+      return ok(whereClause as unknown as Expression<SqlBool>);
+    });
+  }
+
+  /**
+   * Build SELECT expression for conditional field columns.
+   */
+  private buildConditionalSelectExpr(
+    foreignTable: Table,
+    columnType: LateralColumnType,
+    outputAlias: string
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    return (
+      match(columnType)
+        .with({ type: 'conditionalLookup' }, ({ foreignFieldId }) =>
+          // For conditional lookup, aggregate all matching values as a JSONB array
+          this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias)
+        )
+        .with({ type: 'conditionalRollup' }, ({ foreignFieldId, aggregate }) =>
+          // For conditional rollup, apply the aggregate function
+          this.getForeignColRef(foreignTable, foreignFieldId).map((colRef) =>
+            sql`${sql.raw(aggregate)}(${colRef})`.as(outputAlias)
+          )
+        )
+        // Other types should not appear in conditional laterals
+        .with({ type: 'link' }, () =>
+          err(domainError.invariant({ message: 'link type should not be in conditional laterals' }))
+        )
+        .with({ type: 'lookup' }, () =>
+          err(
+            domainError.invariant({ message: 'lookup type should not be in conditional laterals' })
+          )
+        )
+        .with({ type: 'rollup' }, () =>
+          err(
+            domainError.invariant({ message: 'rollup type should not be in conditional laterals' })
+          )
+        )
+        .exhaustive()
+    );
+  }
+
   private buildLateralSelectExpr(
     foreignTable: Table,
     columnType: LateralColumnType,
     outputAlias: string
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return match(columnType)
-      .with({ type: 'link' }, ({ lookupFieldId, isMultiValue, orderBy }) =>
-        this.getForeignColRef(foreignTable, lookupFieldId).map((titleRef) => {
-          // Build JSON object: {id: ..., title: ...}
-          const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleRef}))`;
-          const orderByExpr = buildLinkOrderByExpr(orderBy);
-          if (isMultiValue) {
-            // Multi-value: aggregate as JSON array
-            // Use jsonb_agg to get JSONB type which is more efficient for storage and indexing
-            return orderByExpr
-              ? sql`jsonb_agg(${jsonObj} ORDER BY ${orderByExpr})`.as(outputAlias)
-              : sql`jsonb_agg(${jsonObj})`.as(outputAlias);
-          } else {
-            // Single value: return single object (use first match)
-            // Must use jsonb_agg (not json_agg) because only JSONB supports subscript [0] access
-            return orderByExpr
-              ? sql`(jsonb_agg(${jsonObj} ORDER BY ${orderByExpr}))[0]`.as(outputAlias)
-              : sql`(jsonb_agg(${jsonObj}))[0]`.as(outputAlias);
-          }
-        })
-      )
-      .with({ type: 'lookup' }, ({ foreignFieldId }) =>
-        this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias)
-      )
-      .with({ type: 'rollup' }, ({ foreignFieldId, aggregate }) =>
-        this.getForeignColRef(foreignTable, foreignFieldId).map((colRef) =>
-          sql`${sql.raw(aggregate)}(${colRef})`.as(outputAlias)
+    return (
+      match(columnType)
+        .with({ type: 'link' }, ({ lookupFieldId, isMultiValue, orderBy }) =>
+          this.getForeignColRef(foreignTable, lookupFieldId).map((titleRef) => {
+            // Build JSON object: {id: ..., title: ...}
+            const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleRef}))`;
+            const orderByExpr = buildLinkOrderByExpr(orderBy);
+            if (isMultiValue) {
+              // Multi-value: aggregate as JSON array
+              // Use jsonb_agg to get JSONB type which is more efficient for storage and indexing
+              return orderByExpr
+                ? sql`jsonb_agg(${jsonObj} ORDER BY ${orderByExpr})`.as(outputAlias)
+                : sql`jsonb_agg(${jsonObj})`.as(outputAlias);
+            } else {
+              // Single value: return single object (use first match)
+              // Must use jsonb_agg (not json_agg) because only JSONB supports subscript [0] access
+              return orderByExpr
+                ? sql`(jsonb_agg(${jsonObj} ORDER BY ${orderByExpr}))[0]`.as(outputAlias)
+                : sql`(jsonb_agg(${jsonObj}))[0]`.as(outputAlias);
+            }
+          })
         )
-      )
-      .exhaustive();
+        .with({ type: 'lookup' }, ({ foreignFieldId }) =>
+          this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias)
+        )
+        .with({ type: 'rollup' }, ({ foreignFieldId, aggregate }) =>
+          this.getForeignColRef(foreignTable, foreignFieldId).map((colRef) =>
+            sql`${sql.raw(aggregate)}(${colRef})`.as(outputAlias)
+          )
+        )
+        // Conditional types are handled in buildConditionalJoins, not here
+        .with({ type: 'conditionalLookup' }, () =>
+          err(
+            domainError.invariant({
+              message: 'conditionalLookup should be handled in buildConditionalJoins',
+            })
+          )
+        )
+        .with({ type: 'conditionalRollup' }, () =>
+          err(
+            domainError.invariant({
+              message: 'conditionalRollup should be handled in buildConditionalJoins',
+            })
+          )
+        )
+        .exhaustive()
+    );
   }
 
   private getForeignColRef(

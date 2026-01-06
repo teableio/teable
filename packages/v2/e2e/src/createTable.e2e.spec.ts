@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createTableOkResponseSchema,
+  createTablesOkResponseSchema,
   getTableByIdOkResponseSchema,
   listTableRecordsOkResponseSchema,
 } from '@teable/v2-contract-http';
@@ -62,6 +63,24 @@ describe('v2 http createTable (e2e)', () => {
       throw new Error('Failed to parse create table response');
     }
     return parsed.data.data.table;
+  };
+
+  const createTables = async (payload: unknown) => {
+    const response = await fetch(`${baseUrl}/tables/createTables`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create tables: ${errorText}`);
+    }
+    const rawBody = await response.json();
+    const parsed = createTablesOkResponseSchema.safeParse(rawBody);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error('Failed to parse create tables response');
+    }
+    return parsed.data.data.tables;
   };
 
   const getTableById = async (baseIdValue: string, tableIdValue: string) => {
@@ -203,11 +222,18 @@ describe('v2 http createTable (e2e)', () => {
     let index = 0;
     for (const template of tableTemplates) {
       const name = `Template ${template.key} ${index + 1}`;
-      const created = await createTable(template.createInput(baseId, name));
+      const created = await createTables(template.createInput(baseId, { namePrefix: name }));
 
-      expect(created.name).toBe(name);
-      expect(created.baseId).toBe(baseId);
-      expect(created.fields.length).toBeGreaterThan(0);
+      expect(created.length).toBe(template.tables.length);
+      for (let tableIndex = 0; tableIndex < created.length; tableIndex += 1) {
+        const table = created[tableIndex]!;
+        const templateTable = template.tables[tableIndex]!;
+        const expectedName = template.tables.length > 1 ? `${name} - ${templateTable.name}` : name;
+
+        expect(table.name).toBe(expectedName);
+        expect(table.baseId).toBe(baseId);
+        expect(table.fields.length).toBeGreaterThan(0);
+      }
       index += 1;
     }
   });

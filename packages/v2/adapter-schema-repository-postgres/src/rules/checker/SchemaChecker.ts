@@ -66,6 +66,53 @@ const resolveDbTableLocation = (
 };
 
 /**
+ * Calculate the depth of a rule based on its dependencies.
+ * Rules with no dependencies have depth 0.
+ * Rules with dependencies have depth = max(parent depths) + 1.
+ */
+const calculateRuleDepths = (rules: ReadonlyArray<ISchemaRule>): Map<string, number> => {
+  const depths = new Map<string, number>();
+  const ruleMap = new Map(rules.map((r) => [r.id, r]));
+
+  const getDepth = (ruleId: string, visited: Set<string> = new Set()): number => {
+    // Prevent infinite loops
+    if (visited.has(ruleId)) return 0;
+    visited.add(ruleId);
+
+    // If already calculated, return cached value
+    if (depths.has(ruleId)) {
+      return depths.get(ruleId)!;
+    }
+
+    const rule = ruleMap.get(ruleId);
+    if (!rule || rule.dependencies.length === 0) {
+      depths.set(ruleId, 0);
+      return 0;
+    }
+
+    // Calculate max depth of dependencies
+    let maxParentDepth = -1;
+    for (const depId of rule.dependencies) {
+      const parentDepth = getDepth(depId, new Set(visited));
+      if (parentDepth > maxParentDepth) {
+        maxParentDepth = parentDepth;
+      }
+    }
+
+    const depth = maxParentDepth + 1;
+    depths.set(ruleId, depth);
+    return depth;
+  };
+
+  // Calculate depth for all rules
+  for (const rule of rules) {
+    getDepth(rule.id);
+  }
+
+  return depths;
+};
+
+/**
  * Checks the schema of a table field by field, rule by rule.
  * Yields results as an async generator for streaming.
  */
@@ -122,7 +169,7 @@ export class SchemaChecker {
     // Yield errors first
     for (const { fieldId, fieldName, error } of errors) {
       yield errorResult(
-        pendingResult(fieldId, fieldName, 'rules_creation', 'Rules creation', true),
+        pendingResult(fieldId, fieldName, 'rules_creation', 'Rules creation', true, [], 0),
         error.message
       );
     }
@@ -134,7 +181,7 @@ export class SchemaChecker {
 
       if (resolutionResult.isErr()) {
         yield errorResult(
-          pendingResult(fieldId, fieldName, 'rules_resolution', 'Rules resolution', true),
+          pendingResult(fieldId, fieldName, 'rules_resolution', 'Rules resolution', true, [], 0),
           resolutionResult.error.message
         );
         continue;
@@ -142,12 +189,24 @@ export class SchemaChecker {
 
       const orderedRules = resolutionResult.value.orderedRules;
 
+      // Calculate depths for all rules
+      const ruleDepths = calculateRuleDepths(orderedRules);
+
       // Track which rules have been validated (for dependency checking)
       const validatedRules = new Map<string, boolean>();
 
       // Check each rule in order
       for (const rule of orderedRules) {
-        const pending = pendingResult(fieldId, fieldName, rule.id, rule.description, rule.required);
+        const depth = ruleDepths.get(rule.id) ?? 0;
+        const pending = pendingResult(
+          fieldId,
+          fieldName,
+          rule.id,
+          rule.description,
+          rule.required,
+          rule.dependencies,
+          depth
+        );
 
         // Check dependencies first
         const dependenciesSatisfied = rule.dependencies.every((depId) => {
@@ -231,7 +290,7 @@ export class SchemaChecker {
 
     if (!field) {
       yield errorResult(
-        pendingResult(fieldId, 'Unknown', 'field_lookup', 'Field lookup', true),
+        pendingResult(fieldId, 'Unknown', 'field_lookup', 'Field lookup', true, [], 0),
         `Field ${fieldId} not found in table`
       );
       return;
@@ -248,7 +307,7 @@ export class SchemaChecker {
 
     if (rulesResult.isErr()) {
       yield errorResult(
-        pendingResult(fieldId, fieldName, 'rules_creation', 'Rules creation', true),
+        pendingResult(fieldId, fieldName, 'rules_creation', 'Rules creation', true, [], 0),
         rulesResult.error.message
       );
       return;
@@ -270,17 +329,27 @@ export class SchemaChecker {
 
     if (resolutionResult.isErr()) {
       yield errorResult(
-        pendingResult(fieldId, fieldName, 'rules_resolution', 'Rules resolution', true),
+        pendingResult(fieldId, fieldName, 'rules_resolution', 'Rules resolution', true, [], 0),
         resolutionResult.error.message
       );
       return;
     }
 
     const orderedRules = resolutionResult.value.orderedRules;
+    const ruleDepths = calculateRuleDepths(orderedRules);
     const validatedRules = new Map<string, boolean>();
 
     for (const rule of orderedRules) {
-      const pending = pendingResult(fieldId, fieldName, rule.id, rule.description, rule.required);
+      const depth = ruleDepths.get(rule.id) ?? 0;
+      const pending = pendingResult(
+        fieldId,
+        fieldName,
+        rule.id,
+        rule.description,
+        rule.required,
+        rule.dependencies,
+        depth
+      );
 
       // Check dependencies
       const dependenciesSatisfied = rule.dependencies.every((depId) => {

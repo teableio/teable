@@ -6,6 +6,8 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { ConditionalLookupField } from '../types/ConditionalLookupField';
+import type { ConditionalRollupField } from '../types/ConditionalRollupField';
 import type { CreatedByField } from '../types/CreatedByField';
 import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
@@ -189,6 +191,20 @@ export class FieldDefaultValueVisitor extends AbstractFieldVisitor<RawDefaultVal
 
   visitButtonField(_field: ButtonField): Result<RawDefaultValue, DomainError> {
     // Button fields don't have values
+    return ok(undefined);
+  }
+
+  visitConditionalRollupField(
+    _field: ConditionalRollupField
+  ): Result<RawDefaultValue, DomainError> {
+    // Computed field - no default value
+    return ok(undefined);
+  }
+
+  visitConditionalLookupField(
+    _field: ConditionalLookupField
+  ): Result<RawDefaultValue, DomainError> {
+    // Computed field - no default value
     return ok(undefined);
   }
 }

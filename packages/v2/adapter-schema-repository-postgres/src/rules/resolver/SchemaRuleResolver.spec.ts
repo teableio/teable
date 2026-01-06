@@ -8,6 +8,7 @@ import { SchemaRuleResolver } from './SchemaRuleResolver';
 // Mock rule for testing
 const createMockRule = (id: string, dependencies: string[] = [], required = true): ISchemaRule => ({
   id,
+  description: `Mock rule ${id}`,
   dependencies,
   required,
   isValid: async () => ok({ valid: true }),

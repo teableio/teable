@@ -6,6 +6,7 @@ export * from './table/createField';
 export * from './table/createRecord';
 export * from './table/createRecords';
 export * from './table/createTable';
+export * from './table/createTables';
 export * from './table/deleteField';
 export * from './table/deleteTable';
 export * from './table/deleteRecords';

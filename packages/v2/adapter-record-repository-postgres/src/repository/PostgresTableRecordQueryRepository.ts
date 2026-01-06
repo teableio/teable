@@ -123,7 +123,7 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
           });
 
           // Filter by record ID
-          queryBuilder.where(RECORD_ID_COLUMN, '=', recordId.toString());
+          queryBuilder.whereRecordId(recordId.toString());
 
           // Limit to 1
           queryBuilder.limit(1);

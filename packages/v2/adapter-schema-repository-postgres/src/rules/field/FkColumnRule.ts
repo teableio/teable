@@ -1,4 +1,4 @@
-import type { DomainError } from '@teable/v2-core';
+import type { DomainError, Field } from '@teable/v2-core';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -12,7 +12,7 @@ import { dropColumnStatement, type TableIdentifier } from '../helpers/StatementB
 
 /**
  * Schema rule for creating/dropping a foreign key column (text column for FK value).
- * This is different from ColumnRule - it's specifically for the FK column that holds
+ * This is different from ColumnExistsRule - it's specifically for the FK column that holds
  * the reference to another table's __id.
  */
 export class FkColumnRule implements ISchemaRule {
@@ -22,32 +22,36 @@ export class FkColumnRule implements ISchemaRule {
   readonly required = true;
 
   /**
-   * @param fieldId - The field ID this FK column is for
+   * @param field - The field this FK column is for
    * @param columnName - The FK column name
-   * @param options - Optional configuration
+   * @param referencedTableName - The name of the table being referenced
+   * @param targetTable - Optional target table (if different from context table)
    */
   constructor(
-    private readonly fieldId: string,
+    private readonly field: Field,
     private readonly columnName: string,
-    private readonly options: {
-      targetTable?: TableIdentifier;
-      fieldName?: string;
-      referencedTableName?: string;
-    } = {}
+    private readonly referencedTableName: string,
+    private readonly targetTable?: TableIdentifier
   ) {
-    this.id = `fk_column:${fieldId}`;
+    this.id = `fk_column:${field.id().toString()}`;
     this.description = this.buildDescription();
   }
 
   private buildDescription(): string {
-    const name = this.options.fieldName ?? this.columnName;
-    const refTable = this.options.referencedTableName;
-    const refInfo = refTable ? ` → ${refTable}.__id` : '';
-    return `Foreign key column "${name}" stores reference to linked record${refInfo}`;
+    const name = this.field.name().toString();
+    return `Foreign key column "${name}" (${this.columnName}) → ${this.referencedTableName}.__id`;
   }
 
-  private get targetTable(): TableIdentifier | undefined {
-    return this.options.targetTable;
+  /**
+   * Creates a FkColumnRule for a link field.
+   */
+  static forField(
+    field: Field,
+    columnName: string,
+    referencedTableName: string,
+    targetTable?: TableIdentifier
+  ): FkColumnRule {
+    return new FkColumnRule(field, columnName, referencedTableName, targetTable);
   }
 
   private getTargetTable(ctx: SchemaRuleContext): TableIdentifier {

@@ -119,6 +119,12 @@ class RecordingFieldVisitor implements IFieldVisitor<string> {
   visitLookupField(): ReturnType<IFieldVisitor<string>['visitLookupField']> {
     return ok('lookup');
   }
+  visitConditionalRollupField(): ReturnType<IFieldVisitor<string>['visitConditionalRollupField']> {
+    return ok('conditionalRollup');
+  }
+  visitConditionalLookupField(): ReturnType<IFieldVisitor<string>['visitConditionalLookupField']> {
+    return ok('conditionalLookup');
+  }
 }
 
 describe('Field types', () => {

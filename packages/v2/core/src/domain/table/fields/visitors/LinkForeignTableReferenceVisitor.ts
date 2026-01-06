@@ -9,6 +9,8 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { ConditionalLookupField } from '../types/ConditionalLookupField';
+import type { ConditionalRollupField } from '../types/ConditionalRollupField';
 import type { CreatedByField } from '../types/CreatedByField';
 import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
@@ -173,6 +175,28 @@ export class LinkForeignTableReferenceVisitor
     field: LookupField
   ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     // Lookup fields reference foreign tables through their link field
+    return ok([
+      {
+        foreignTableId: field.foreignTableId(),
+      },
+    ]);
+  }
+
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    // Conditional rollup fields reference foreign tables directly
+    return ok([
+      {
+        foreignTableId: field.foreignTableId(),
+      },
+    ]);
+  }
+
+  visitConditionalLookupField(
+    field: ConditionalLookupField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    // Conditional lookup fields reference foreign tables directly
     return ok([
       {
         foreignTableId: field.foreignTableId(),

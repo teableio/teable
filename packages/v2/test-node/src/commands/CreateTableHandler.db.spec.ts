@@ -9,7 +9,7 @@ import {
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { allFieldTypesTemplate } from '@teable/v2-table-templates';
+import { createAllFieldTypesFields } from '@teable/v2-table-templates';
 import type { Kysely } from 'kysely';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -39,9 +39,11 @@ describe('CreateTableHandler (db)', () => {
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
 
-    const createTableResult = CreateTableCommand.create(
-      allFieldTypesTemplate.createInput(baseId.toString(), 'DB Table')
-    );
+    const createTableResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'DB Table',
+      fields: createAllFieldTypesFields(),
+    });
     createTableResult._unsafeUnwrap();
 
     const execResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(

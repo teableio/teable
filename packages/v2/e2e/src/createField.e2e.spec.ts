@@ -994,6 +994,9 @@ describe('v2 http createField (e2e)', () => {
       ],
       // Lookup fields cannot be used as rollup source (no nested lookup)
       lookup: () => [],
+      // Conditional fields cannot be used as rollup source
+      conditionalRollup: () => [],
+      conditionalLookup: () => [],
     };
 
     const lookupFieldSpecs = Object.values(lookupFieldFactories).flatMap((factory) => factory());

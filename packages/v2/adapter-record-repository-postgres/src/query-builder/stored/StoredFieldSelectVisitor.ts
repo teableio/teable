@@ -3,6 +3,8 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -140,6 +142,18 @@ export class StoredFieldSelectVisitor implements IFieldVisitor<AliasedRawBuilder
   }
 
   visitRollupField(field: RollupField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    return this.selectColumn(field);
+  }
+
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    return this.selectColumn(field);
+  }
+
+  visitConditionalLookupField(
+    field: ConditionalLookupField
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.selectColumn(field);
   }
 }

@@ -27,6 +27,13 @@
     },
     "types": ["vitest/globals", "node"]
   },
-  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage", "../core/src/**/*.spec.ts"],
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "src/**/*.spec.ts",
+    "../core/src/**/*.spec.ts"
+  ],
   "include": ["src", "../core/src", "../di/src", "../postgres-schema/src", "../formula-sql-pg/src"]
 }

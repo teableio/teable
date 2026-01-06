@@ -1,5 +1,7 @@
-export { ColumnRule } from './ColumnRule';
+export { ColumnExistsRule } from './ColumnExistsRule';
+export { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
 export { FieldMetaRule } from './FieldMetaRule';
+export { NotNullConstraintRule } from './NotNullConstraintRule';
 export {
   createFieldSchemaRules,
   FieldSchemaRulesVisitor,
@@ -9,7 +11,13 @@ export { FkColumnRule } from './FkColumnRule';
 export { ForeignKeyRule } from './ForeignKeyRule';
 export { GeneratedColumnRule } from './GeneratedColumnRule';
 export { IndexRule } from './IndexRule';
-export { JunctionTableRule, type JunctionTableConfig } from './JunctionTableRule';
+export {
+  JunctionTableExistsRule,
+  JunctionTableForeignKeyRule,
+  JunctionTableIndexRule,
+  JunctionTableUniqueConstraintRule,
+  type JunctionTableConfig,
+} from './JunctionTableRule';
 export { LinkValueColumnRule } from './LinkValueColumnRule';
 export { OrderColumnRule } from './OrderColumnRule';
 export { ReferenceRule, type ReferenceEntry } from './ReferenceRule';

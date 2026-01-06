@@ -5,6 +5,8 @@ import type { ISpecVisitor } from '../../../shared/specification/ISpecVisitor';
 import type { AttachmentConditionSpec } from './AttachmentConditionSpec';
 import type { ButtonConditionSpec } from './ButtonConditionSpec';
 import type { CheckboxConditionSpec } from './CheckboxConditionSpec';
+import type { ConditionalLookupConditionSpec } from './ConditionalLookupConditionSpec';
+import type { ConditionalRollupConditionSpec } from './ConditionalRollupConditionSpec';
 import type { DateConditionSpec } from './DateConditionSpec';
 import type { FormulaConditionSpec } from './FormulaConditionSpec';
 import type { LinkConditionSpec } from './LinkConditionSpec';
@@ -12,12 +14,15 @@ import type { LongTextConditionSpec } from './LongTextConditionSpec';
 import type { MultipleSelectConditionSpec } from './MultipleSelectConditionSpec';
 import type { NumberConditionSpec } from './NumberConditionSpec';
 import type { RatingConditionSpec } from './RatingConditionSpec';
+import type { RecordByIdSpec } from './RecordByIdSpec';
 import type { RollupConditionSpec } from './RollupConditionSpec';
 import type { SingleLineTextConditionSpec } from './SingleLineTextConditionSpec';
 import type { SingleSelectConditionSpec } from './SingleSelectConditionSpec';
 import type { UserConditionSpec } from './UserConditionSpec';
 
 export interface ITableRecordConditionSpecVisitor<TResult = unknown> extends ISpecVisitor {
+  visitRecordById(spec: RecordByIdSpec): Result<TResult, DomainError>;
+
   visitSingleLineTextIs(spec: SingleLineTextConditionSpec): Result<TResult, DomainError>;
   visitSingleLineTextIsNot(spec: SingleLineTextConditionSpec): Result<TResult, DomainError>;
   visitSingleLineTextContains(spec: SingleLineTextConditionSpec): Result<TResult, DomainError>;
@@ -160,4 +165,93 @@ export interface ITableRecordConditionSpecVisitor<TResult = unknown> extends ISp
   visitRollupIsAfter(spec: RollupConditionSpec): Result<TResult, DomainError>;
   visitRollupIsOnOrBefore(spec: RollupConditionSpec): Result<TResult, DomainError>;
   visitRollupIsOnOrAfter(spec: RollupConditionSpec): Result<TResult, DomainError>;
+
+  // ConditionalRollup condition specs (similar to Rollup)
+  visitConditionalRollupIs(spec: ConditionalRollupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalRollupIsNot(spec: ConditionalRollupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalRollupContains(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupDoesNotContain(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsEmpty(spec: ConditionalRollupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalRollupIsNotEmpty(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsGreater(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsGreaterEqual(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsLess(spec: ConditionalRollupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalRollupIsLessEqual(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsAnyOf(spec: ConditionalRollupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalRollupIsNoneOf(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupHasAnyOf(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupHasAllOf(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsNotExactly(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupHasNoneOf(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsExactly(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsWithIn(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsBefore(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsAfter(spec: ConditionalRollupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalRollupIsOnOrBefore(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalRollupIsOnOrAfter(
+    spec: ConditionalRollupConditionSpec
+  ): Result<TResult, DomainError>;
+
+  // ConditionalLookup condition specs
+  visitConditionalLookupIs(spec: ConditionalLookupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalLookupIsNot(spec: ConditionalLookupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalLookupContains(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalLookupDoesNotContain(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalLookupIsEmpty(spec: ConditionalLookupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalLookupIsNotEmpty(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalLookupIsAnyOf(spec: ConditionalLookupConditionSpec): Result<TResult, DomainError>;
+  visitConditionalLookupIsNoneOf(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalLookupHasAnyOf(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalLookupHasAllOf(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalLookupIsNotExactly(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalLookupHasNoneOf(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
+  visitConditionalLookupIsExactly(
+    spec: ConditionalLookupConditionSpec
+  ): Result<TResult, DomainError>;
 }

@@ -1,4 +1,4 @@
-import type { DomainError } from '@teable/v2-core';
+import type { DomainError, Field } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -29,59 +29,57 @@ export class GeneratedColumnRule implements ISchemaRule {
   readonly required = true;
 
   /**
-   * @param fieldId - The field ID this generated column is for
+   * @param field - The field this generated column is for
    * @param sourceColumn - The source column to generate from (e.g., '__created_time')
    * @param columnType - The PostgreSQL column type (e.g., 'timestamptz', 'text', 'double precision')
-   * @param fieldName - The display name of the field (for description)
    */
   constructor(
-    private readonly fieldId: string,
+    private readonly field: Field,
     private readonly sourceColumn: string,
-    private readonly columnType: string,
-    private readonly fieldName?: string
+    private readonly columnType: string
   ) {
-    this.id = `generated_column:${fieldId}`;
+    this.id = `generated_column:${field.id().toString()}`;
     this.description = this.buildDescription();
   }
 
   private buildDescription(): string {
-    const name = this.fieldName ?? this.fieldId;
+    const name = this.field.name().toString();
     return `Generated column "${name}" computed from ${this.sourceColumn} (${this.columnType})`;
   }
 
   /**
    * Creates a GeneratedColumnRule for CreatedTime.
    */
-  static forCreatedTime(fieldId: string, fieldName?: string): GeneratedColumnRule {
-    return new GeneratedColumnRule(fieldId, '__created_time', 'timestamptz', fieldName);
+  static forCreatedTime(field: Field): GeneratedColumnRule {
+    return new GeneratedColumnRule(field, '__created_time', 'timestamptz');
   }
 
   /**
    * Creates a GeneratedColumnRule for LastModifiedTime (when tracking all).
    */
-  static forLastModifiedTime(fieldId: string, fieldName?: string): GeneratedColumnRule {
-    return new GeneratedColumnRule(fieldId, '__last_modified_time', 'timestamptz', fieldName);
+  static forLastModifiedTime(field: Field): GeneratedColumnRule {
+    return new GeneratedColumnRule(field, '__last_modified_time', 'timestamptz');
   }
 
   /**
    * Creates a GeneratedColumnRule for CreatedBy.
    */
-  static forCreatedBy(fieldId: string, fieldName?: string): GeneratedColumnRule {
-    return new GeneratedColumnRule(fieldId, '__created_by', 'text', fieldName);
+  static forCreatedBy(field: Field): GeneratedColumnRule {
+    return new GeneratedColumnRule(field, '__created_by', 'text');
   }
 
   /**
    * Creates a GeneratedColumnRule for LastModifiedBy (when tracking all).
    */
-  static forLastModifiedBy(fieldId: string, fieldName?: string): GeneratedColumnRule {
-    return new GeneratedColumnRule(fieldId, '__last_modified_by', 'text', fieldName);
+  static forLastModifiedBy(field: Field): GeneratedColumnRule {
+    return new GeneratedColumnRule(field, '__last_modified_by', 'text');
   }
 
   /**
    * Creates a GeneratedColumnRule for AutoNumber.
    */
-  static forAutoNumber(fieldId: string, fieldName?: string): GeneratedColumnRule {
-    return new GeneratedColumnRule(fieldId, '__auto_number', 'double precision', fieldName);
+  static forAutoNumber(field: Field): GeneratedColumnRule {
+    return new GeneratedColumnRule(field, '__auto_number', 'double precision');
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
@@ -111,7 +109,7 @@ export class GeneratedColumnRule implements ISchemaRule {
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const sourceColumn = this.sourceColumn;
     const columnType = this.columnType;
-    const fieldId = this.fieldId;
+    const fieldId = this.field.id().toString();
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(ctx.field);

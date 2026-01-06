@@ -1,4 +1,4 @@
-import type { DomainError } from '@teable/v2-core';
+import type { DomainError, Field } from '@teable/v2-core';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -22,28 +22,30 @@ export class IndexRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
-  readonly required: boolean;
+  readonly required = true;
 
   /**
-   * @param fieldId - The field ID this index is for
+   * @param field - The field this index is for
    * @param columnName - The column name to index
-   * @param options - Optional configuration
+   * @param parent - The parent rule (typically FkColumnRule) this depends on
    */
   constructor(
-    private readonly fieldId: string,
+    private readonly field: Field,
     private readonly columnName: string,
-    options: {
-      required?: boolean;
-      columnRuleId?: string;
-      fieldName?: string;
-    } = {}
+    parent: ISchemaRule
   ) {
-    this.id = `index:${fieldId}:${columnName}`;
-    this.dependencies = [options.columnRuleId ?? `column:${fieldId}`];
-    this.required = options.required ?? false;
+    this.id = `index:${field.id().toString()}:${columnName}`;
+    this.dependencies = [parent.id];
 
-    const name = options.fieldName ?? columnName;
-    this.description = `Index on column "${name}" for faster lookup${this.required ? '' : ' (optional)'}`;
+    const name = field.name().toString();
+    this.description = `Index on column "${name}" (${columnName}) for faster lookup`;
+  }
+
+  /**
+   * Creates an IndexRule for a FK column.
+   */
+  static forFkColumn(field: Field, columnName: string, parent: ISchemaRule): IndexRule {
+    return new IndexRule(field, columnName, parent);
   }
 
   private get indexName(): string {

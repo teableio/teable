@@ -1,28 +1,57 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
-import { FieldId, SelectOptionId, type FieldColorValue } from '@teable/v2-core';
+import type { ICreateTableRequestDto, ICreateTablesRequestDto } from '@teable/v2-contract-http';
+import { FieldId, SelectOptionId, TableId, type FieldColorValue } from '@teable/v2-core';
 
 export type TableTemplateDefinition = {
   key: string;
   name: string;
   description: string;
   defaultRecordCount?: number;
-  createFields: () => ICreateTableRequestDto['fields'];
+  tables: ReadonlyArray<TableTemplateTablePreview>;
   createInput: (
     baseId: string,
-    name: string,
     options?: CreateTableTemplateInputOptions
-  ) => ICreateTableRequestDto;
+  ) => ICreateTablesRequestDto;
+};
+
+export type TableTemplateTablePreview = {
+  key: string;
+  name: string;
+  description?: string;
+  fieldCount: number;
+  defaultRecordCount: number;
 };
 
 export type CreateTableTemplateInputOptions = {
   includeRecords?: boolean;
+  /**
+   * Applied per-table (cap) when seeding records.
+   */
   recordCount?: number;
+  /**
+   * If provided:
+   * - single-table templates: uses this as the table name
+   * - multi-table templates: prefixes table names as `${namePrefix} - ${tableName}`
+   */
+  namePrefix?: string;
 };
 
-type TableTemplateSeed = {
-  fields: ICreateTableRequestDto['fields'];
+type SingleTableSeed = {
+  fields: NonNullable<ICreateTableRequestDto['fields']>;
   records?: ICreateTableRequestDto['records'];
+};
+
+type TemplateTableSeed = {
+  key: string;
+  name: string;
+  description?: string;
+  tableId?: string;
+  fields: NonNullable<ICreateTableRequestDto['fields']>;
+  records?: ICreateTableRequestDto['records'];
+};
+
+type TemplateSeed = {
+  tables: ReadonlyArray<TemplateTableSeed>;
 };
 
 type TemplateRecord = NonNullable<ICreateTableRequestDto['records']>[number];
@@ -31,34 +60,70 @@ const createTemplate = (
   key: string,
   name: string,
   description: string,
-  buildSeed: () => TableTemplateSeed,
+  buildSeed: () => TemplateSeed,
   defaultRecordCount?: number
 ): TableTemplateDefinition => ({
-  key,
-  name,
-  description,
-  defaultRecordCount,
-  createFields: () => buildSeed().fields,
-  createInput: (baseId: string, tableName: string, options?: CreateTableTemplateInputOptions) => {
-    const seed = buildSeed();
-    const seedRecords = seed.records;
-    const canIncludeRecords = Boolean(seedRecords && seedRecords.length > 0);
-    const includeRecords = options?.includeRecords ?? false;
-    const recordCount = options?.recordCount ?? seedRecords?.length ?? 0;
-    const records =
-      includeRecords && canIncludeRecords && recordCount > 0
-        ? [...normalizeTemplateRecords(seedRecords ?? [], recordCount)]
-        : undefined;
+  ...(() => {
+    const previewSeed = buildSeed();
+    const previewTables: TableTemplateTablePreview[] = previewSeed.tables.map((table) => ({
+      key: table.key,
+      name: table.name,
+      description: table.description,
+      fieldCount: table.fields.length,
+      defaultRecordCount: table.records?.length ?? 0,
+    }));
+
+    const maxSeedRecords = Math.max(0, ...previewTables.map((table) => table.defaultRecordCount));
+
     return {
-      baseId,
-      name: tableName,
-      fields: seed.fields,
-      ...(records ? { records } : {}),
+      key,
+      name,
+      description,
+      defaultRecordCount: defaultRecordCount ?? maxSeedRecords,
+      tables: previewTables,
+      createInput: (baseId: string, options?: CreateTableTemplateInputOptions) => {
+        const seed = buildSeed();
+        const includeRecords = options?.includeRecords ?? false;
+        const perTableRecordCount = options?.recordCount;
+        const namePrefix = options?.namePrefix?.trim();
+        const isMultiTable = seed.tables.length > 1;
+
+        return {
+          baseId,
+          tables: seed.tables.map((table) => {
+            const seedRecords = table.records;
+            const canIncludeRecords = Boolean(seedRecords && seedRecords.length > 0);
+            const recordCount = perTableRecordCount ?? seedRecords?.length ?? 0;
+            const records =
+              includeRecords && canIncludeRecords && recordCount > 0
+                ? [...normalizeTemplateRecords(seedRecords ?? [], recordCount)]
+                : undefined;
+            const resolvedName = (() => {
+              if (!namePrefix) return table.name;
+              if (!isMultiTable) return namePrefix;
+              return `${namePrefix} - ${table.name}`;
+            })();
+
+            return {
+              ...(table.tableId ? { tableId: table.tableId } : {}),
+              name: resolvedName,
+              fields: table.fields,
+              ...(records ? { records } : {}),
+            };
+          }),
+        };
+      },
     };
-  },
+  })(),
 });
 
 const createFieldId = (): string => FieldId.mustGenerate().toString();
+const createTableId = (): string => {
+  const idResult = TableId.generate();
+  if (idResult.isOk()) return idResult.value.toString();
+  const fallback = Math.random().toString(36).slice(2).padEnd(16, '0').slice(0, 16);
+  return `tbl${fallback}`;
+};
 const createSelectOptionId = (): string => {
   const idResult = SelectOptionId.generate();
   if (idResult.isOk()) return idResult.value.toString();
@@ -82,7 +147,31 @@ const normalizeTemplateRecords = (
   return [...records, ...emptyRecords];
 };
 
-const createSimpleSeed = (): TableTemplateSeed => {
+const singleTable = (
+  key: string,
+  name: string,
+  description: string,
+  buildSeed: () => SingleTableSeed,
+  defaultRecordCount?: number
+): TableTemplateDefinition =>
+  createTemplate(
+    key,
+    name,
+    description,
+    () => ({
+      tables: [
+        {
+          key: 'main',
+          name,
+          description,
+          ...buildSeed(),
+        },
+      ],
+    }),
+    defaultRecordCount
+  );
+
+const createSimpleSeed = (): SingleTableSeed => {
   const nameFieldId = createFieldId();
   const amountFieldId = createFieldId();
   const doneFieldId = createFieldId();
@@ -121,7 +210,7 @@ const createSimpleSeed = (): TableTemplateSeed => {
 
 export const createSimpleFields = (): ICreateTableRequestDto['fields'] => createSimpleSeed().fields;
 
-const createAllBaseFieldsSeed = (): TableTemplateSeed => {
+const createAllBaseFieldsSeed = (): SingleTableSeed => {
   const nameFieldId = createFieldId();
   const descFieldId = createFieldId();
   const amountFieldId = createFieldId();
@@ -219,7 +308,7 @@ const createAllBaseFieldsSeed = (): TableTemplateSeed => {
 export const createAllBaseFields = (): ICreateTableRequestDto['fields'] =>
   createAllBaseFieldsSeed().fields;
 
-const createTodoSeed = (): TableTemplateSeed => {
+const createTodoSeed = (): SingleTableSeed => {
   const taskFieldId = createFieldId();
   const notesFieldId = createFieldId();
   const statusFieldId = createFieldId();
@@ -321,7 +410,7 @@ const createTodoSeed = (): TableTemplateSeed => {
 
 export const createTodoFields = (): ICreateTableRequestDto['fields'] => createTodoSeed().fields;
 
-const createBugTriageSeed = (): TableTemplateSeed => {
+const createBugTriageSeed = (): SingleTableSeed => {
   const titleFieldId = createFieldId();
   const severityFieldId = createFieldId();
   const statusFieldId = createFieldId();
@@ -420,7 +509,7 @@ const createBugTriageSeed = (): TableTemplateSeed => {
 export const createBugTriageFields = (): ICreateTableRequestDto['fields'] =>
   createBugTriageSeed().fields;
 
-const createContentCalendarSeed = (): TableTemplateSeed => {
+const createContentCalendarSeed = (): SingleTableSeed => {
   const titleFieldId = createFieldId();
   const channelFieldId = createFieldId();
   const statusFieldId = createFieldId();
@@ -513,7 +602,7 @@ const createContentCalendarSeed = (): TableTemplateSeed => {
 export const createContentCalendarFields = (): ICreateTableRequestDto['fields'] =>
   createContentCalendarSeed().fields;
 
-const createProjectTrackerSeed = (): TableTemplateSeed => {
+const createProjectTrackerSeed = (): SingleTableSeed => {
   const itemFieldId = createFieldId();
   const statusFieldId = createFieldId();
   const startDateFieldId = createFieldId();
@@ -609,7 +698,7 @@ const createProjectTrackerSeed = (): TableTemplateSeed => {
 export const createProjectTrackerFields = (): ICreateTableRequestDto['fields'] =>
   createProjectTrackerSeed().fields;
 
-const createPersonalFinanceSeed = (): TableTemplateSeed => {
+const createPersonalFinanceSeed = (): SingleTableSeed => {
   const dateFieldId = createFieldId();
   const descriptionFieldId = createFieldId();
   const categoryFieldId = createFieldId();
@@ -852,9 +941,457 @@ export const createAllFieldTypesFields = (): ICreateTableRequestDto['fields'] =>
   ];
 };
 
-const createAllFieldTypesSeed = (): TableTemplateSeed => ({
-  fields: createAllFieldTypesFields(),
-});
+const createBugTriageTemplateSeed = (): TemplateSeed => {
+  const componentsTableId = createTableId();
+  const componentNameFieldId = createFieldId();
+
+  const componentsTable: TemplateTableSeed = {
+    key: 'components',
+    name: 'Components',
+    description: 'Product areas your bugs belong to.',
+    tableId: componentsTableId,
+    fields: [{ type: 'singleLineText', id: componentNameFieldId, name: 'Name', isPrimary: true }],
+    records: [
+      { fields: { [componentNameFieldId]: 'Auth' } },
+      { fields: { [componentNameFieldId]: 'UI' } },
+      { fields: { [componentNameFieldId]: 'Export' } },
+    ],
+  };
+
+  const bugsTableId = createTableId();
+  const titleFieldId = createFieldId();
+  const severityFieldId = createFieldId();
+  const statusFieldId = createFieldId();
+  const environmentFieldId = createFieldId();
+  const stepsFieldId = createFieldId();
+  const reproducibleFieldId = createFieldId();
+  const reportedAtFieldId = createFieldId();
+  const componentLinkFieldId = createFieldId();
+  const componentLookupFieldId = createFieldId();
+
+  const severityOptions = [
+    createSelectOption('Low', 'green'),
+    createSelectOption('Medium', 'yellow'),
+    createSelectOption('High', 'orange'),
+    createSelectOption('Critical', 'red'),
+  ];
+  const statusOptions = [
+    createSelectOption('New', 'blue'),
+    createSelectOption('Triaged', 'yellow'),
+    createSelectOption('In Progress', 'purple'),
+    createSelectOption('Fixed', 'green'),
+    createSelectOption("Won't Fix", 'gray'),
+  ];
+
+  const bugsTable: TemplateTableSeed = {
+    key: 'bugs',
+    name: 'Bugs',
+    description: 'Track bugs with severity, status, and components.',
+    tableId: bugsTableId,
+    fields: [
+      { type: 'singleLineText', id: titleFieldId, name: 'Title', isPrimary: true },
+      {
+        type: 'singleSelect',
+        id: severityFieldId,
+        name: 'Severity',
+        options: {
+          choices: severityOptions,
+          defaultValue: 'Medium',
+          preventAutoNewOptions: true,
+        },
+      },
+      {
+        type: 'singleSelect',
+        id: statusFieldId,
+        name: 'Status',
+        options: {
+          choices: statusOptions,
+          defaultValue: 'New',
+          preventAutoNewOptions: true,
+        },
+      },
+      { type: 'singleLineText', id: environmentFieldId, name: 'Environment' },
+      { type: 'longText', id: stepsFieldId, name: 'Steps to Repro' },
+      {
+        type: 'checkbox',
+        id: reproducibleFieldId,
+        name: 'Reproducible',
+        options: { defaultValue: true },
+      },
+      { type: 'date', id: reportedAtFieldId, name: 'Reported At' },
+      {
+        type: 'link',
+        id: componentLinkFieldId,
+        name: 'Component',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: componentsTableId,
+          lookupFieldId: componentNameFieldId,
+        },
+      },
+      {
+        type: 'lookup',
+        id: componentLookupFieldId,
+        name: 'Component Name',
+        options: {
+          linkFieldId: componentLinkFieldId,
+          foreignTableId: componentsTableId,
+          lookupFieldId: componentNameFieldId,
+        },
+      },
+    ],
+    records: [
+      {
+        fields: {
+          [titleFieldId]: 'Login fails on retry',
+          [severityFieldId]: severityOptions[2]!.id,
+          [statusFieldId]: statusOptions[0]!.id,
+          [environmentFieldId]: 'Production',
+          [stepsFieldId]: 'Retry login twice and observe 500.',
+          [reproducibleFieldId]: true,
+          [reportedAtFieldId]: '2025-01-28T00:00:00.000Z',
+        },
+      },
+      {
+        fields: {
+          [titleFieldId]: 'Tooltip overlaps content',
+          [severityFieldId]: severityOptions[0]!.id,
+          [statusFieldId]: statusOptions[1]!.id,
+          [environmentFieldId]: 'Staging',
+          [stepsFieldId]: 'Hover table header for 3s.',
+          [reproducibleFieldId]: true,
+          [reportedAtFieldId]: '2025-01-25T00:00:00.000Z',
+        },
+      },
+      {
+        fields: {
+          [titleFieldId]: 'Export timeout',
+          [severityFieldId]: severityOptions[3]!.id,
+          [statusFieldId]: statusOptions[2]!.id,
+          [environmentFieldId]: 'Production',
+          [stepsFieldId]: 'Export 50k rows from dashboard.',
+          [reproducibleFieldId]: false,
+          [reportedAtFieldId]: '2025-01-22T00:00:00.000Z',
+        },
+      },
+    ],
+  };
+
+  return { tables: [bugsTable, componentsTable] };
+};
+
+const createCrmTemplateSeed = (): TemplateSeed => {
+  const companiesTableId = createTableId();
+  const companyNameFieldId = createFieldId();
+  const industryFieldId = createFieldId();
+
+  const industryOptions = [
+    createSelectOption('SaaS', 'blue'),
+    createSelectOption('E-commerce', 'purple'),
+    createSelectOption('Fintech', 'teal'),
+  ];
+
+  const companiesTable: TemplateTableSeed = {
+    key: 'companies',
+    name: 'Companies',
+    description: 'Accounts / companies you work with.',
+    tableId: companiesTableId,
+    fields: [
+      { type: 'singleLineText', id: companyNameFieldId, name: 'Name', isPrimary: true },
+      {
+        type: 'singleSelect',
+        id: industryFieldId,
+        name: 'Industry',
+        options: {
+          choices: industryOptions,
+          defaultValue: 'SaaS',
+          preventAutoNewOptions: true,
+        },
+      },
+    ],
+    records: [
+      {
+        fields: {
+          [companyNameFieldId]: 'Acme Inc.',
+          [industryFieldId]: industryOptions[0]!.id,
+        },
+      },
+      {
+        fields: {
+          [companyNameFieldId]: 'Northwind Traders',
+          [industryFieldId]: industryOptions[1]!.id,
+        },
+      },
+    ],
+  };
+
+  const contactsTableId = createTableId();
+  const contactNameFieldId = createFieldId();
+  const emailFieldId = createFieldId();
+  const companyLinkFieldId = createFieldId();
+  const companyLookupFieldId = createFieldId();
+
+  const contactsTable: TemplateTableSeed = {
+    key: 'contacts',
+    name: 'Contacts',
+    description: 'People at your accounts.',
+    tableId: contactsTableId,
+    fields: [
+      { type: 'singleLineText', id: contactNameFieldId, name: 'Name', isPrimary: true },
+      {
+        type: 'singleLineText',
+        id: emailFieldId,
+        name: 'Email',
+        options: { showAs: { type: 'email' } },
+      },
+      {
+        type: 'link',
+        id: companyLinkFieldId,
+        name: 'Company',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: companiesTableId,
+          lookupFieldId: companyNameFieldId,
+        },
+      },
+      {
+        type: 'lookup',
+        id: companyLookupFieldId,
+        name: 'Company Name',
+        options: {
+          linkFieldId: companyLinkFieldId,
+          foreignTableId: companiesTableId,
+          lookupFieldId: companyNameFieldId,
+        },
+      },
+    ],
+    records: [
+      {
+        fields: {
+          [contactNameFieldId]: 'Ada Lovelace',
+          [emailFieldId]: 'ada@acme.example',
+        },
+      },
+      {
+        fields: {
+          [contactNameFieldId]: 'Grace Hopper',
+          [emailFieldId]: 'grace@northwind.example',
+        },
+      },
+    ],
+  };
+
+  return { tables: [companiesTable, contactsTable] };
+};
+
+const createAllFieldTypesTemplateSeed = (): TemplateSeed => {
+  const companiesTableId = createTableId();
+  const companyNameFieldId = createFieldId();
+  const revenueFieldId = createFieldId();
+
+  const companiesTable: TemplateTableSeed = {
+    key: 'companies',
+    name: 'Companies',
+    description: 'Referenced by link/lookup/rollup fields.',
+    tableId: companiesTableId,
+    fields: [
+      { type: 'singleLineText', id: companyNameFieldId, name: 'Name', isPrimary: true },
+      { type: 'number', id: revenueFieldId, name: 'Revenue' },
+    ],
+    records: [
+      { fields: { [companyNameFieldId]: 'Acme Inc.', [revenueFieldId]: 120 } },
+      { fields: { [companyNameFieldId]: 'Northwind Traders', [revenueFieldId]: 80 } },
+      { fields: { [companyNameFieldId]: 'Globex', [revenueFieldId]: 200 } },
+    ],
+  };
+
+  const allTypesTableId = createTableId();
+  const nameFieldId = createFieldId();
+  const descFieldId = createFieldId();
+  const amountFieldId = createFieldId();
+  const scoreFieldId = createFieldId();
+  const scoreLabelFieldId = createFieldId();
+  const priorityFieldId = createFieldId();
+  const statusFieldId = createFieldId();
+  const tagsFieldId = createFieldId();
+  const doneFieldId = createFieldId();
+  const filesFieldId = createFieldId();
+  const dueDateFieldId = createFieldId();
+  const ownerFieldId = createFieldId();
+  const actionFieldId = createFieldId();
+  const companyLinkFieldId = createFieldId();
+  const companyLookupFieldId = createFieldId();
+  const companyRevenueRollupFieldId = createFieldId();
+
+  const statusOptions = [
+    createSelectOption('Todo', 'blue'),
+    createSelectOption('Doing', 'yellow'),
+    createSelectOption('Done', 'green'),
+  ];
+  const tagOptions = [
+    createSelectOption('Frontend', 'purple'),
+    createSelectOption('Backend', 'orange'),
+    createSelectOption('Bug', 'red'),
+  ];
+
+  const allTypesTable: TemplateTableSeed = {
+    key: 'allTypes',
+    name: 'All Field Types',
+    description: 'All field types, including link/lookup/rollup.',
+    tableId: allTypesTableId,
+    fields: [
+      {
+        type: 'singleLineText',
+        id: nameFieldId,
+        name: 'Name',
+        isPrimary: true,
+        options: { showAs: { type: 'email' } },
+      },
+      {
+        type: 'longText',
+        id: descFieldId,
+        name: 'Description',
+        options: { defaultValue: 'Details' },
+      },
+      {
+        type: 'number',
+        id: amountFieldId,
+        name: 'Amount',
+        options: {
+          formatting: { type: 'currency', precision: 2, symbol: '$' },
+          showAs: { type: 'bar', color: 'teal', showValue: true, maxValue: 100 },
+          defaultValue: 10,
+        },
+      },
+      {
+        type: 'formula',
+        id: scoreFieldId,
+        name: 'Score',
+        options: {
+          expression: `{${amountFieldId}} * 2`,
+          formatting: { type: 'decimal', precision: 0 },
+        },
+      },
+      {
+        type: 'formula',
+        id: scoreLabelFieldId,
+        name: 'Score Label',
+        options: {
+          expression: `CONCATENATE("Score: ", {${scoreFieldId}})`,
+        },
+      },
+      {
+        type: 'rating',
+        id: priorityFieldId,
+        name: 'Priority',
+        options: { max: 5, icon: 'star', color: 'yellowBright' },
+      },
+      {
+        type: 'singleSelect',
+        id: statusFieldId,
+        name: 'Status',
+        options: {
+          choices: statusOptions,
+          defaultValue: 'Todo',
+          preventAutoNewOptions: true,
+        },
+      },
+      {
+        type: 'multipleSelect',
+        id: tagsFieldId,
+        name: 'Tags',
+        options: { choices: tagOptions },
+      },
+      { type: 'checkbox', id: doneFieldId, name: 'Done', options: { defaultValue: true } },
+      { type: 'attachment', id: filesFieldId, name: 'Files' },
+      {
+        type: 'date',
+        id: dueDateFieldId,
+        name: 'Due Date',
+        options: {
+          formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+        },
+      },
+      {
+        type: 'user',
+        id: ownerFieldId,
+        name: 'Owner',
+        options: { isMultiple: true, shouldNotify: false },
+      },
+      {
+        type: 'button',
+        id: actionFieldId,
+        name: 'Action',
+        options: {
+          label: 'Run',
+          color: 'teal',
+          maxCount: 3,
+          resetCount: true,
+          workflow: { id: 'wflaaaaaaaaaaaaaaaa', name: 'Deploy', isActive: true },
+        },
+      },
+      {
+        type: 'link',
+        id: companyLinkFieldId,
+        name: 'Company',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: companiesTableId,
+          lookupFieldId: companyNameFieldId,
+        },
+      },
+      {
+        type: 'lookup',
+        id: companyLookupFieldId,
+        name: 'Company Name',
+        options: {
+          linkFieldId: companyLinkFieldId,
+          foreignTableId: companiesTableId,
+          lookupFieldId: companyNameFieldId,
+        },
+      },
+      {
+        type: 'rollup',
+        id: companyRevenueRollupFieldId,
+        name: 'Company Revenue Total',
+        options: { expression: 'sum({values})' },
+        config: {
+          linkFieldId: companyLinkFieldId,
+          foreignTableId: companiesTableId,
+          lookupFieldId: revenueFieldId,
+        },
+      },
+    ],
+    records: [
+      {
+        fields: {
+          [nameFieldId]: 'owner+1@example.com',
+          [descFieldId]: 'First record',
+          [amountFieldId]: 10,
+          [priorityFieldId]: 4,
+          [statusFieldId]: statusOptions[0]!.id,
+          [tagsFieldId]: [tagOptions[0]!.id, tagOptions[2]!.id],
+          [doneFieldId]: true,
+          [dueDateFieldId]: '2025-02-10T00:00:00.000Z',
+        },
+      },
+      {
+        fields: {
+          [nameFieldId]: 'owner+2@example.com',
+          [descFieldId]: 'Second record',
+          [amountFieldId]: 25,
+          [priorityFieldId]: 2,
+          [statusFieldId]: statusOptions[1]!.id,
+          [tagsFieldId]: [tagOptions[1]!.id],
+          [doneFieldId]: false,
+          [dueDateFieldId]: '2025-02-12T00:00:00.000Z',
+        },
+      },
+    ],
+  };
+
+  return { tables: [allTypesTable, companiesTable] };
+};
 
 export const createTextColumns = (count: number): ICreateTableRequestDto['fields'] =>
   Array.from({ length: count }, (_, index) => ({
@@ -862,7 +1399,7 @@ export const createTextColumns = (count: number): ICreateTableRequestDto['fields
     name: `Column ${index + 1}`,
   }));
 
-export const simpleTableTemplate = createTemplate(
+export const simpleTableTemplate = singleTable(
   'simple-3',
   'Simple 3 Columns',
   'Single line text, number, and checkbox fields.',
@@ -870,7 +1407,7 @@ export const simpleTableTemplate = createTemplate(
   3
 );
 
-export const allBaseFieldsTemplate = createTemplate(
+export const allBaseFieldsTemplate = singleTable(
   'all-base-fields',
   'All Base Fields',
   'Common field types without formulas.',
@@ -878,7 +1415,7 @@ export const allBaseFieldsTemplate = createTemplate(
   3
 );
 
-export const todoTemplate = createTemplate(
+export const todoTemplate = singleTable(
   'todo',
   'Todo List',
   'Simple tasks with status, priority, and due dates.',
@@ -890,11 +1427,19 @@ export const bugTriageTemplate = createTemplate(
   'bug-triage',
   'Bug Triage',
   'Track bugs with severity, status, and ownership.',
-  createBugTriageSeed,
+  createBugTriageTemplateSeed,
   3
 );
 
-export const contentCalendarTemplate = createTemplate(
+export const crmTemplate = createTemplate(
+  'crm',
+  'CRM Starter',
+  'Two-table CRM: companies and contacts.',
+  createCrmTemplateSeed,
+  2
+);
+
+export const contentCalendarTemplate = singleTable(
   'content-calendar',
   'Content Calendar',
   'Plan content with channels, status, and publish dates.',
@@ -902,7 +1447,7 @@ export const contentCalendarTemplate = createTemplate(
   3
 );
 
-export const projectTrackerTemplate = createTemplate(
+export const projectTrackerTemplate = singleTable(
   'project-tracker',
   'Project Tracker',
   'Track work items with status, progress, and budget.',
@@ -910,7 +1455,7 @@ export const projectTrackerTemplate = createTemplate(
   3
 );
 
-export const personalFinanceTemplate = createTemplate(
+export const personalFinanceTemplate = singleTable(
   'personal-finance',
   'Personal Finance',
   'Log transactions with categories, amounts, and accounts.',
@@ -922,7 +1467,8 @@ export const allFieldTypesTemplate = createTemplate(
   'all-field-types',
   'All Field Types',
   'Every field type with richer options and formulas.',
-  createAllFieldTypesSeed
+  createAllFieldTypesTemplateSeed,
+  2
 );
 
 export const tableTemplates = [
@@ -930,6 +1476,7 @@ export const tableTemplates = [
   allBaseFieldsTemplate,
   todoTemplate,
   bugTriageTemplate,
+  crmTemplate,
   contentCalendarTemplate,
   projectTrackerTemplate,
   personalFinanceTemplate,

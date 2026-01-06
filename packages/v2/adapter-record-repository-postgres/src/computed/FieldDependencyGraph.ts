@@ -23,7 +23,9 @@ export type FieldDependencyEdgeSemantic =
   | 'lookup_source'
   | 'lookup_link'
   | 'link_title'
-  | 'rollup_source';
+  | 'rollup_source'
+  | 'conditional_rollup_source'
+  | 'conditional_lookup_source';
 
 export type FieldDependencyEdge = {
   fromFieldId: FieldId;
@@ -49,6 +51,16 @@ export type LinkOptionsMeta = {
   symmetricFieldId?: string;
 };
 
+/**
+ * Metadata for conditional field options (conditionalRollup / conditionalLookup).
+ * Unlike regular lookup/rollup, these don't have a linkFieldId.
+ */
+export type ConditionalFieldOptionsMeta = {
+  foreignTableId: string;
+  lookupFieldId: string;
+  // condition is stored but not needed for dependency graph
+};
+
 export type FieldMeta = {
   id: FieldId;
   tableId: TableId;
@@ -56,6 +68,8 @@ export type FieldMeta = {
   isComputed: boolean;
   options: LinkOptionsMeta | null;
   lookupOptions: LookupOptionsMeta | null;
+  /** For conditionalRollup/conditionalLookup fields */
+  conditionalOptions: ConditionalFieldOptionsMeta | null;
 };
 
 export type FieldDependencyGraphData = {
@@ -152,6 +166,36 @@ export class FieldDependencyGraph {
               semantic: 'link_title',
             });
           }
+
+          // Handle conditional rollup and conditional lookup fields
+          if (type === 'conditionalRollup' || type === 'conditionalLookup') {
+            const conditionalOptions = field.conditionalOptions;
+            if (!conditionalOptions) {
+              return err(
+                domainError.validation({
+                  message: `Missing conditionalOptions for ${type} field ${field.id.toString()}`,
+                })
+              );
+            }
+            const lookupFieldId = yield* FieldId.create(conditionalOptions.lookupFieldId);
+            const foreignTableId = yield* TableId.create(conditionalOptions.foreignTableId);
+
+            // Conditional rollup/lookup depends on source field in foreign table (cross record)
+            // Note: Unlike regular lookup/rollup, there's no linkFieldId for traversal.
+            // The condition-based relationship must be handled differently during update propagation.
+            derivedEdges.push({
+              fromFieldId: lookupFieldId,
+              toFieldId: field.id,
+              fromTableId: foreignTableId,
+              toTableId: field.tableId,
+              kind: 'cross_record',
+              // No linkFieldId - conditional fields use conditions instead of link traversal
+              semantic:
+                type === 'conditionalRollup'
+                  ? 'conditional_rollup_source'
+                  : 'conditional_lookup_source',
+            });
+          }
         }
 
         const edges = mergeEdges(referenceEdges, derivedEdges);
@@ -200,6 +244,14 @@ export class FieldDependencyGraph {
             : ok<LookupOptionsMeta | null>(null);
         if (lookupOptions.isErr()) return err(lookupOptions.error);
 
+        // Conditional fields (conditionalRollup/conditionalLookup) store their config differently
+        const isConditionalField =
+          row.type === 'conditionalRollup' || row.type === 'conditionalLookup';
+        const conditionalOptions = isConditionalField
+          ? parseConditionalFieldOptions(row.options)
+          : ok<ConditionalFieldOptionsMeta | null>(null);
+        if (conditionalOptions.isErr()) return err(conditionalOptions.error);
+
         // Normalize the type for graph processing:
         // - lookup fields: use 'lookup' as type (regardless of inner field type)
         // - other fields: use stored type
@@ -212,6 +264,7 @@ export class FieldDependencyGraph {
           isComputed: Boolean(row.is_computed),
           options: options.value,
           lookupOptions: lookupOptions.value,
+          conditionalOptions: conditionalOptions.value,
         });
       }
 
@@ -270,15 +323,19 @@ export class FieldDependencyGraph {
         const toFieldType = row.to_field_type;
         const isSameTable = fromTableId.value.equals(toTableId.value);
 
-        // For lookup/rollup/link fields, their dependencies are handled in derivedEdges.
+        // For lookup/rollup/link/conditional fields, their dependencies are handled in derivedEdges.
         // Skip them here to avoid duplicates, especially for self-referencing links
         // where fromTableId === toTableId but it's still cross_record.
         if (
           isSameTable &&
-          (toFieldType === 'lookup' || toFieldType === 'rollup' || toFieldType === 'link')
+          (toFieldType === 'lookup' ||
+            toFieldType === 'rollup' ||
+            toFieldType === 'link' ||
+            toFieldType === 'conditionalRollup' ||
+            toFieldType === 'conditionalLookup')
         ) {
           // These cross-record dependencies (even for self-referencing links)
-          // are correctly created in derivedEdges with linkFieldId
+          // are correctly created in derivedEdges with linkFieldId or conditional options
           continue;
         }
 
@@ -359,6 +416,35 @@ const parseLookupOptions = (raw: string | null): Result<LookupOptionsMeta | null
 
   return ok({
     linkFieldId: linkFieldId.value,
+    foreignTableId: foreignTableId.value,
+    lookupFieldId: lookupFieldId.value,
+  });
+};
+
+/**
+ * Parse conditional field options (for conditionalRollup/conditionalLookup).
+ * These are stored in the options field with foreignTableId and lookupFieldId.
+ */
+const parseConditionalFieldOptions = (
+  raw: string | null
+): Result<ConditionalFieldOptionsMeta | null, DomainError> => {
+  if (!raw) return ok(null);
+  const parsed = parseJson(raw, 'field.options (conditional)');
+  if (parsed.isErr()) return err(parsed.error);
+  const value = parsed.value as Record<string, unknown>;
+
+  // Conditional fields store their config in 'config' sub-object
+  const config = value.config as Record<string, unknown> | undefined;
+  if (!config) {
+    return err(domainError.validation({ message: 'Missing config in conditional field options' }));
+  }
+
+  const foreignTableId = readString(config, 'foreignTableId');
+  if (foreignTableId.isErr()) return err(foreignTableId.error);
+  const lookupFieldId = readString(config, 'lookupFieldId');
+  if (lookupFieldId.isErr()) return err(lookupFieldId.error);
+
+  return ok({
     foreignTableId: foreignTableId.value,
     lookupFieldId: lookupFieldId.value,
   });

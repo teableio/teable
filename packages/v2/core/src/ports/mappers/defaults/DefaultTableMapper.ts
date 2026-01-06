@@ -20,6 +20,10 @@ import { CellValueMultiplicity } from '../../../domain/table/fields/types/CellVa
 import { CellValueType } from '../../../domain/table/fields/types/CellValueType';
 import { CheckboxDefaultValue } from '../../../domain/table/fields/types/CheckboxDefaultValue';
 import { CheckboxField } from '../../../domain/table/fields/types/CheckboxField';
+import { ConditionalLookupField } from '../../../domain/table/fields/types/ConditionalLookupField';
+import { ConditionalLookupOptions } from '../../../domain/table/fields/types/ConditionalLookupOptions';
+import { ConditionalRollupConfig } from '../../../domain/table/fields/types/ConditionalRollupConfig';
+import { ConditionalRollupField } from '../../../domain/table/fields/types/ConditionalRollupField';
 import { CreatedByField } from '../../../domain/table/fields/types/CreatedByField';
 import { CreatedTimeField } from '../../../domain/table/fields/types/CreatedTimeField';
 import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefaultValue';
@@ -84,6 +88,9 @@ import type {
   IAutoNumberFieldOptionsDTO,
   IButtonFieldOptionsDTO,
   ICheckboxFieldOptionsDTO,
+  IConditionalLookupOptionsDTO,
+  IConditionalRollupFieldConfigDTO,
+  IConditionalRollupFieldOptionsDTO,
   ICreatedByFieldOptionsDTO,
   ICreatedTimeFieldOptionsDTO,
   IDateFieldOptionsDTO,
@@ -533,6 +540,76 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
         isComputed: true,
       }));
   }
+
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<ITableFieldPersistenceDTO, DomainError> {
+    const options: IConditionalRollupFieldOptionsDTO = {
+      expression: field.expression().toString(),
+    };
+    const timeZone = field.timeZone();
+    if (timeZone) options.timeZone = timeZone.toString();
+    const formatting = field.formatting();
+    if (formatting) options.formatting = formatting.toDto();
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const config: IConditionalRollupFieldConfigDTO =
+      field.configDto() as IConditionalRollupFieldConfigDTO;
+    const base = {
+      ...this.baseField(field),
+      type: 'conditionalRollup' as const,
+      options,
+      config,
+    };
+    const resultType = field.cellValueType().andThen((cellValueType) =>
+      field.isMultipleCellValue().map((isMultipleCellValue) => ({
+        cellValueType,
+        isMultipleCellValue,
+      }))
+    );
+    if (resultType.isErr()) {
+      return ok(base);
+    }
+    return ok({
+      ...base,
+      cellValueType: resultType.value.cellValueType.toString(),
+      isMultipleCellValue: resultType.value.isMultipleCellValue.toBoolean(),
+    });
+  }
+
+  /**
+   * ConditionalLookupField is persisted with its own type 'conditionalLookup'.
+   * The inner field type and options are stored for value type resolution.
+   */
+  visitConditionalLookupField(
+    field: ConditionalLookupField
+  ): Result<ITableFieldPersistenceDTO, DomainError> {
+    const baseDto = this.baseField(field);
+    const options: IConditionalLookupOptionsDTO =
+      field.conditionalLookupOptionsDto() as IConditionalLookupOptionsDTO;
+
+    // For pending conditional lookup fields (inner field not yet resolved)
+    if (field.isPending()) {
+      return ok({
+        ...baseDto,
+        type: 'conditionalLookup' as const,
+        options,
+        isComputed: true,
+      });
+    }
+
+    // Get inner field info for value type resolution
+    return field.innerField().andThen((inner) =>
+      inner.accept(this).map((innerDto: ITableFieldPersistenceDTO) => ({
+        ...baseDto,
+        type: 'conditionalLookup' as const,
+        options,
+        innerType: innerDto.type,
+        innerOptions: 'options' in innerDto ? innerDto.options : undefined,
+        isComputed: true,
+      }))
+    );
+  }
 }
 
 const mapFieldToDto = (field: Field): Result<ITableFieldPersistenceDTO, DomainError> =>
@@ -904,6 +981,53 @@ export class DefaultTableMapper implements ITableMapper {
                 )
               )
             )
+            .with({ type: 'conditionalRollup' }, (dto) => {
+              const options = dto.options;
+              const configRaw = dto.config;
+              return ConditionalRollupConfig.create(configRaw).andThen((config) =>
+                RollupExpression.create(options.expression).andThen((expression) =>
+                  optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+                    parseFormulaFormatting(options.formatting).andThen((formatting) =>
+                      parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                        parseFormulaResultType(dto.cellValueType, dto.isMultipleCellValue).andThen(
+                          (resultType) =>
+                            resultType
+                              ? ConditionalRollupField.rehydrate({
+                                  id,
+                                  name,
+                                  config,
+                                  expression,
+                                  timeZone,
+                                  formatting,
+                                  showAs,
+                                  resultType,
+                                })
+                              : ConditionalRollupField.createPending({
+                                  id,
+                                  name,
+                                  config,
+                                  expression,
+                                  timeZone,
+                                  formatting,
+                                  showAs,
+                                })
+                        )
+                      )
+                    )
+                  )
+                )
+              );
+            })
+            .with({ type: 'conditionalLookup' }, (dto) => {
+              const options = dto.options;
+              return ConditionalLookupOptions.create(options).andThen((conditionalLookupOptions) =>
+                ConditionalLookupField.createPending({
+                  id,
+                  name,
+                  conditionalLookupOptions,
+                })
+              );
+            })
             .exhaustive();
         })
       )

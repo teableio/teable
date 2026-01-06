@@ -34,6 +34,7 @@
     "@teable/v2-di": "workspace:*",
     "@teable/v2-formula-sql-pg": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
+    "dayjs": "1.11.10",
     "kysely": "0.28.9",
     "neverthrow": "8.2.0",
     "ts-pattern": "5.8.0"

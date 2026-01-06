@@ -13,6 +13,7 @@ import { executeCreateFieldEndpoint } from './handlers/tables/createField';
 import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';
 import { executeCreateRecordsEndpoint } from './handlers/tables/createRecords';
 import { executeCreateTableEndpoint } from './handlers/tables/createTable';
+import { executeCreateTablesEndpoint } from './handlers/tables/createTables';
 import { executeDeleteFieldEndpoint } from './handlers/tables/deleteField';
 import { executeDeleteRecordsEndpoint } from './handlers/tables/deleteRecords';
 import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
@@ -75,6 +76,35 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateTableEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 201) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
+  });
+
+  const tablesCreateTables = os.tables.createTables.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeCreateTablesEndpoint(executionContext, input, commandBus);
 
     if (result.status === 201) return result.body;
 
@@ -513,6 +543,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   return os.router({
     tables: {
       create: tablesCreate,
+      createTables: tablesCreateTables,
       createField: tablesCreateField,
       createRecord: tablesCreateRecord,
       createRecords: tablesCreateRecords,

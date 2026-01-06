@@ -26,6 +26,8 @@ export const fieldTypeValues = [
   'autoNumber',
   'button',
   'link',
+  'conditionalRollup',
+  'conditionalLookup',
 ] as const;
 
 const fieldTypeSchema = z.enum(fieldTypeValues);
@@ -120,6 +122,14 @@ export class FieldType extends ValueObject {
 
   static lookup(): FieldType {
     return new FieldType('lookup');
+  }
+
+  static conditionalRollup(): FieldType {
+    return new FieldType('conditionalRollup');
+  }
+
+  static conditionalLookup(): FieldType {
+    return new FieldType('conditionalLookup');
   }
 
   equals(other: FieldType): boolean {

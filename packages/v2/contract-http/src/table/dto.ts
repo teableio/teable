@@ -3,6 +3,8 @@ import type {
   AutoNumberField,
   ButtonField,
   CheckboxField,
+  ConditionalLookupField,
+  ConditionalRollupField,
   CreatedByField,
   CreatedTimeField,
   DateField,
@@ -73,6 +75,48 @@ const lookupOptionsSchema = z.object({
   lookupFieldId: z.string(),
 });
 
+const conditionSortSchema = z.object({
+  fieldId: z.string(),
+  order: z.enum(['asc', 'desc']),
+});
+
+const filterItemSchema = z.object({
+  fieldId: z.string(),
+  operator: z.string(),
+  value: z.unknown().optional(),
+  isSymbol: z.boolean().optional(),
+});
+
+const baseFilterSetSchema = z.object({
+  conjunction: z.enum(['and', 'or']),
+});
+
+type FilterSetType = z.infer<typeof baseFilterSetSchema> & {
+  filterSet: Array<z.infer<typeof filterItemSchema> | FilterSetType>;
+};
+
+const nestedFilterSchema: z.ZodType<FilterSetType> = baseFilterSetSchema.extend({
+  filterSet: z.lazy(() => z.union([filterItemSchema, nestedFilterSchema]).array()),
+});
+
+const fieldConditionSchema = z.object({
+  filter: nestedFilterSchema.nullable().optional(),
+  sort: conditionSortSchema.optional(),
+  limit: z.number().optional(),
+});
+
+const conditionalLookupOptionsSchema = z.object({
+  foreignTableId: z.string(),
+  lookupFieldId: z.string(),
+  condition: fieldConditionSchema,
+});
+
+const conditionalRollupConfigSchema = z.object({
+  foreignTableId: z.string(),
+  lookupFieldId: z.string(),
+  condition: fieldConditionSchema,
+});
+
 const baseFieldDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -83,6 +127,7 @@ const baseFieldDtoSchema = z.object({
   isComputed: z.boolean().optional(),
   isLookup: z.boolean().optional(),
   lookupOptions: lookupOptionsSchema.optional(),
+  conditionalLookupOptions: conditionalLookupOptionsSchema.optional(),
 });
 
 const fieldColorSchema = z.enum(fieldColorValues);
@@ -274,6 +319,7 @@ type ButtonOptionsDto = z.infer<typeof buttonOptionsSchema>;
 type FormulaOptionsDto = z.infer<typeof formulaOptionsSchema>;
 type RollupOptionsDto = z.infer<typeof rollupOptionsSchema>;
 type RollupConfigDto = z.infer<typeof rollupConfigSchema>;
+type ConditionalRollupConfigDto = z.infer<typeof conditionalRollupConfigSchema>;
 
 export const fieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({
@@ -302,6 +348,13 @@ export const fieldDtoSchema = z.discriminatedUnion('type', [
     type: z.literal('rollup'),
     options: rollupOptionsSchema,
     config: rollupConfigSchema,
+    cellValueType: cellValueTypeSchema.optional(),
+    isMultipleCellValue: z.boolean().optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('conditionalRollup'),
+    options: rollupOptionsSchema,
+    config: conditionalRollupConfigSchema,
     cellValueType: cellValueTypeSchema.optional(),
     isMultipleCellValue: z.boolean().optional(),
   }),
@@ -503,6 +556,40 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     const base = {
       ...this.baseField(field),
       type: 'rollup' as const,
+      options,
+      config,
+    };
+    const resultType = field.cellValueType().andThen((cellValueType) =>
+      field.isMultipleCellValue().map((isMultipleCellValue) => ({
+        cellValueType,
+        isMultipleCellValue,
+      }))
+    );
+    if (resultType.isErr()) {
+      return ok(base);
+    }
+    return ok({
+      ...base,
+      cellValueType: resultType.value.cellValueType.toString(),
+      isMultipleCellValue: resultType.value.isMultipleCellValue.toBoolean(),
+    });
+  }
+
+  visitConditionalRollupField(field: ConditionalRollupField): Result<IFieldDto, DomainError> {
+    const options: RollupOptionsDto = {
+      expression: field.expression().toString(),
+    };
+    const timeZone = field.timeZone();
+    if (timeZone) options.timeZone = timeZone.toString();
+    const formatting = field.formatting();
+    if (formatting) options.formatting = formatting.toDto();
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const config: ConditionalRollupConfigDto = field.configDto();
+
+    const base = {
+      ...this.baseField(field),
+      type: 'conditionalRollup' as const,
       options,
       config,
     };
@@ -728,6 +815,32 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       ...baseField,
       isLookup: true,
       lookupOptions,
+    });
+  }
+
+  visitConditionalLookupField(field: ConditionalLookupField): Result<IFieldDto, DomainError> {
+    const conditionalLookupOptions = field.conditionalLookupOptionsDto();
+    const baseField = this.baseField(field);
+
+    // For pending lookup fields, return minimal DTO with singleLineText as default type
+    if (field.isPending()) {
+      return ok({
+        ...baseField,
+        type: 'singleLineText',
+        isLookup: true,
+        conditionalLookupOptions,
+      });
+    }
+
+    const innerResult = field.innerField().andThen((inner) => inner.accept(this));
+    if (innerResult.isErr()) return innerResult;
+
+    const innerDto = innerResult.value;
+    return ok({
+      ...innerDto,
+      ...baseField,
+      isLookup: true,
+      conditionalLookupOptions,
     });
   }
 }

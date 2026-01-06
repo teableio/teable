@@ -12,3 +12,7 @@ export {
   createEmptyCollectedLinkChanges,
   mergeCollectedLinkChange,
 } from './LinkChangeCollectorVisitor';
+export {
+  TableRecordConditionWhereVisitor,
+  type RecordConditionWhere,
+} from './TableRecordConditionWhereVisitor';

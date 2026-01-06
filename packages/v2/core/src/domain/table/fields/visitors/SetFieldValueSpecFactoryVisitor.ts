@@ -22,6 +22,8 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { ConditionalLookupField } from '../types/ConditionalLookupField';
+import type { ConditionalRollupField } from '../types/ConditionalRollupField';
 import type { CreatedByField } from '../types/CreatedByField';
 import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
@@ -164,5 +166,19 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
   visitLinkField(field: LinkField): Result<ICellValueSpec, DomainError> {
     const cellValue = CellValue.fromValidated<LinkItem[]>(this.value as LinkItem[] | null);
     return ok(new SetLinkValueSpec(field.id(), cellValue));
+  }
+
+  visitConditionalRollupField(_field: ConditionalRollupField): Result<ICellValueSpec, DomainError> {
+    // Computed field - cannot set value
+    return err(
+      domainError.validation({ message: 'Cannot set value for conditional rollup field' })
+    );
+  }
+
+  visitConditionalLookupField(_field: ConditionalLookupField): Result<ICellValueSpec, DomainError> {
+    // Computed field - cannot set value
+    return err(
+      domainError.validation({ message: 'Cannot set value for conditional lookup field' })
+    );
   }
 }

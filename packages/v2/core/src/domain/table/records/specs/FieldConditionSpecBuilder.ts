@@ -10,6 +10,8 @@ import { FieldValueTypeVisitor } from '../../fields/visitors/FieldValueTypeVisit
 import { AttachmentConditionSpec } from './AttachmentConditionSpec';
 import { ButtonConditionSpec } from './ButtonConditionSpec';
 import { CheckboxConditionSpec } from './CheckboxConditionSpec';
+import { ConditionalLookupConditionSpec } from './ConditionalLookupConditionSpec';
+import { ConditionalRollupConditionSpec } from './ConditionalRollupConditionSpec';
 import { DateConditionSpec } from './DateConditionSpec';
 import { FormulaConditionSpec } from './FormulaConditionSpec';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
@@ -229,6 +231,25 @@ export class FieldConditionSpecBuilder {
 
     if (fieldType.equals(FieldType.rollup())) {
       return ok(RollupConditionSpec.create(this.field, input.operator, input.value));
+    }
+
+    if (fieldType.equals(FieldType.conditionalRollup())) {
+      return ok(ConditionalRollupConditionSpec.create(this.field, input.operator, input.value));
+    }
+
+    if (fieldType.equals(FieldType.conditionalLookup())) {
+      return ok(ConditionalLookupConditionSpec.create(this.field, input.operator, input.value));
+    }
+
+    // Lookup fields delegate to their inner field type
+    if (fieldType.equals(FieldType.lookup())) {
+      // The condition spec is based on the inner field's type
+      // For now, we return an error - these fields should be handled by accepting the inner field's condition
+      return err(
+        domainError.validation({
+          message: 'Lookup fields delegate to inner field conditions',
+        })
+      );
     }
 
     return err(domainError.validation({ message: 'Unsupported record condition field' }));

@@ -18,6 +18,14 @@ import type { CellValueMultiplicity } from './types/CellValueMultiplicity';
 import type { CellValueType } from './types/CellValueType';
 import type { CheckboxDefaultValue } from './types/CheckboxDefaultValue';
 import { CheckboxField } from './types/CheckboxField';
+import { ConditionalLookupField } from './types/ConditionalLookupField';
+import type { ConditionalLookupOptions } from './types/ConditionalLookupOptions';
+import type { ConditionalRollupConfig } from './types/ConditionalRollupConfig';
+import {
+  ConditionalRollupField,
+  type ConditionalRollupFormatting,
+  type ConditionalRollupShowAs,
+} from './types/ConditionalRollupField';
 import { CreatedByField } from './types/CreatedByField';
 import { CreatedTimeField } from './types/CreatedTimeField';
 import type { DateDefaultValue } from './types/DateDefaultValue';
@@ -310,3 +318,57 @@ export const createNewLinkField = (params: {
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>
   LinkField.createNew(params).andThen((field) => applyFieldValidation(field, params));
+
+export const createConditionalRollupField = (params: {
+  id: FieldId;
+  name: FieldName;
+  config: ConditionalRollupConfig;
+  expression: RollupExpression;
+  valuesField: Field;
+  timeZone?: TimeZone;
+  formatting?: ConditionalRollupFormatting;
+  showAs?: ConditionalRollupShowAs;
+  dependencies?: ReadonlyArray<FieldId>;
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  ConditionalRollupField.create(params).andThen((field) => applyFieldValidation(field, params));
+
+export const createConditionalRollupFieldPending = (params: {
+  id: FieldId;
+  name: FieldName;
+  config: ConditionalRollupConfig;
+  expression: RollupExpression;
+  timeZone?: TimeZone;
+  formatting?: ConditionalRollupFormatting;
+  showAs?: ConditionalRollupShowAs;
+  dependencies?: ReadonlyArray<FieldId>;
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  ConditionalRollupField.createPending(params).andThen((field) =>
+    applyFieldValidation(field, params)
+  );
+
+export const createConditionalLookupField = (params: {
+  id: FieldId;
+  name: FieldName;
+  innerField: Field;
+  conditionalLookupOptions: ConditionalLookupOptions;
+  dependencies?: ReadonlyArray<FieldId>;
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  ConditionalLookupField.create(params).andThen((field) => applyFieldValidation(field, params));
+
+export const createConditionalLookupFieldPending = (params: {
+  id: FieldId;
+  name: FieldName;
+  conditionalLookupOptions: ConditionalLookupOptions;
+  dependencies?: ReadonlyArray<FieldId>;
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  ConditionalLookupField.createPending(params).andThen((field) =>
+    applyFieldValidation(field, params)
+  );

@@ -15,7 +15,8 @@ export type { ISchemaRule, SchemaRuleValidationResult, TableSchemaStatementBuild
 
 // Field rules
 export {
-  ColumnRule,
+  ColumnExistsRule,
+  ColumnUniqueConstraintRule,
   createFieldSchemaRules,
   FieldMetaRule,
   FieldSchemaRulesVisitor,
@@ -23,8 +24,11 @@ export {
   ForeignKeyRule,
   GeneratedColumnRule,
   IndexRule,
-  JunctionTableRule,
+  JunctionTableExistsRule,
+  JunctionTableForeignKeyRule,
+  JunctionTableIndexRule,
   LinkValueColumnRule,
+  NotNullConstraintRule,
   OrderColumnRule,
   ReferenceRule,
   UniqueIndexRule,

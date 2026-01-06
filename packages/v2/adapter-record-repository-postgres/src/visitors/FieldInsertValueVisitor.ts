@@ -3,6 +3,8 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -282,6 +284,18 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
   }
 
   visitButtonField(_field: ButtonField): Result<FieldInsertResult, DomainError> {
+    return this.computedField();
+  }
+
+  visitConditionalRollupField(
+    _field: ConditionalRollupField
+  ): Result<FieldInsertResult, DomainError> {
+    return this.computedField();
+  }
+
+  visitConditionalLookupField(
+    _field: ConditionalLookupField
+  ): Result<FieldInsertResult, DomainError> {
     return this.computedField();
   }
 }

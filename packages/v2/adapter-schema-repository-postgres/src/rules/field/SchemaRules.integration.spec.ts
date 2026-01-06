@@ -7,7 +7,7 @@
  * 3. down() removes the schema elements
  * 4. isValid() and up() are consistent
  */
-import type { DomainError, Field } from '@teable/v2-core';
+import type { DomainError, Field, LinkField } from '@teable/v2-core';
 import {
   createSingleLineTextField,
   DbFieldName,
@@ -27,12 +27,13 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { PostgresSchemaIntrospector } from '../context/PostgresSchemaIntrospector';
 import type { SchemaIntrospector } from '../context/SchemaIntrospector';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
-import { ColumnRule } from './ColumnRule';
+import { ColumnExistsRule } from './ColumnExistsRule';
 import { FkColumnRule } from './FkColumnRule';
 import { ForeignKeyRule } from './ForeignKeyRule';
 import { IndexRule } from './IndexRule';
 import type { JunctionTableConfig } from './JunctionTableRule';
-import { JunctionTableRule } from './JunctionTableRule';
+import { JunctionTableExistsRule } from './JunctionTableRule';
+import { NotNullConstraintRule } from './NotNullConstraintRule';
 import { OrderColumnRule } from './OrderColumnRule';
 import { UniqueIndexRule } from './UniqueIndexRule';
 
@@ -77,6 +78,19 @@ const createRealField = (
   if (setResult.isErr()) return err(setResult.error);
 
   return fieldResult;
+};
+
+/**
+ * Create a mock LinkField for junction table tests.
+ * Since creating a real LinkField is complex, we create a minimal mock.
+ */
+const createMockLinkField = (id: string, name: string): LinkField => {
+  return {
+    id: () => ({ toString: () => createValidFieldId(id) }),
+    name: () => ({ toString: () => name }),
+    relationship: () => ({ toString: () => 'manyMany' }),
+    isOneWay: () => false,
+  } as unknown as LinkField;
 };
 
 describe('Schema Rules Integration Tests', () => {
@@ -144,7 +158,7 @@ describe('Schema Rules Integration Tests', () => {
     field,
   });
 
-  describe('ColumnRule', () => {
+  describe('ColumnExistsRule', () => {
     const TABLE_NAME = 'test_column_rule';
 
     it('should return invalid when column does not exist', async () => {
@@ -154,7 +168,7 @@ describe('Schema Rules Integration Tests', () => {
       expect(fieldResult.isOk()).toBe(true);
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ColumnRule('fld001', 'Name', 'text');
+      const rule = new ColumnExistsRule(field);
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -170,7 +184,7 @@ describe('Schema Rules Integration Tests', () => {
       expect(fieldResult.isOk()).toBe(true);
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ColumnRule('fld001', 'Name', 'text');
+      const rule = new ColumnExistsRule(field);
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -185,7 +199,7 @@ describe('Schema Rules Integration Tests', () => {
       expect(fieldResult.isOk()).toBe(true);
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ColumnRule('fld001', 'Name', 'text');
+      const rule = new ColumnExistsRule(field);
       const ctx = createContext(TABLE_NAME, field);
 
       // Before up: should be invalid
@@ -211,7 +225,7 @@ describe('Schema Rules Integration Tests', () => {
       expect(fieldResult.isOk()).toBe(true);
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ColumnRule('fld001', 'Name', 'text');
+      const rule = new ColumnExistsRule(field);
       const ctx = createContext(TABLE_NAME, field);
 
       // Before down: should be valid
@@ -229,6 +243,10 @@ describe('Schema Rules Integration Tests', () => {
       const afterResult = await rule.isValid(ctx);
       expect(afterResult._unsafeUnwrap().valid).toBe(false);
     });
+  });
+
+  describe('NotNullConstraintRule', () => {
+    const TABLE_NAME = 'test_not_null_rule';
 
     it('should detect missing NOT NULL constraint', async () => {
       // Create column without NOT NULL
@@ -238,7 +256,8 @@ describe('Schema Rules Integration Tests', () => {
       expect(fieldResult.isOk()).toBe(true);
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ColumnRule('fld001', 'Name', 'text', { notNull: true });
+      const columnRule = new ColumnExistsRule(field);
+      const rule = new NotNullConstraintRule(field, columnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -256,7 +275,8 @@ describe('Schema Rules Integration Tests', () => {
       expect(fieldResult.isOk()).toBe(true);
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ColumnRule('fld001', 'Name', 'text', { notNull: true });
+      const columnRule = new ColumnExistsRule(field);
+      const rule = new NotNullConstraintRule(field, columnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -274,7 +294,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Name', 'name_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new IndexRule('fld001', 'name_col', { required: true });
+      const fkColumnRule = FkColumnRule.forField(field, 'name_col', 'other_table');
+      const rule = IndexRule.forFkColumn(field, 'name_col', fkColumnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -288,7 +309,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Name', 'name_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new IndexRule('fld001', 'name_col', { required: true });
+      const fkColumnRule = FkColumnRule.forField(field, 'name_col', 'other_table');
+      const rule = IndexRule.forFkColumn(field, 'name_col', fkColumnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       // Execute up
@@ -312,7 +334,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Name', 'name_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new IndexRule('fld001', 'name_col', { required: true });
+      const fkColumnRule = FkColumnRule.forField(field, 'name_col', 'other_table');
+      const rule = IndexRule.forFkColumn(field, 'name_col', fkColumnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       // Before down: should be valid
@@ -341,7 +364,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Email', 'email_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new UniqueIndexRule('fld001', 'email_col');
+      const fkColumnRule = FkColumnRule.forField(field, 'email_col', 'other_table');
+      const rule = UniqueIndexRule.forFkColumn(field, 'email_col', fkColumnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -359,7 +383,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Email', 'email_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new UniqueIndexRule('fld001', 'email_col');
+      const fkColumnRule = FkColumnRule.forField(field, 'email_col', 'other_table');
+      const rule = UniqueIndexRule.forFkColumn(field, 'email_col', fkColumnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -377,7 +402,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Email', 'email_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new UniqueIndexRule('fld001', 'email_col');
+      const fkColumnRule = FkColumnRule.forField(field, 'email_col', 'other_table');
+      const rule = UniqueIndexRule.forFkColumn(field, 'email_col', fkColumnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -391,7 +417,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Email', 'email_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new UniqueIndexRule('fld001', 'email_col');
+      const fkColumnRule = FkColumnRule.forField(field, 'email_col', 'other_table');
+      const rule = UniqueIndexRule.forFkColumn(field, 'email_col', fkColumnRule);
       const ctx = createContext(TABLE_NAME, field);
 
       // Execute up
@@ -416,7 +443,7 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'fk_link');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new FkColumnRule('fld001', 'fk_link');
+      const rule = FkColumnRule.forField(field, 'fk_link', 'target_table');
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -430,7 +457,7 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'fk_link');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new FkColumnRule('fld001', 'fk_link');
+      const rule = FkColumnRule.forField(field, 'fk_link', 'target_table');
       const ctx = createContext(TABLE_NAME, field);
 
       // Execute up
@@ -451,7 +478,7 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'fk_link');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new FkColumnRule('fld001', 'fk_link');
+      const rule = FkColumnRule.forField(field, 'fk_link', 'target_table');
       const ctx = createContext(TABLE_NAME, field);
 
       // Before down: should be valid
@@ -482,10 +509,14 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'fk_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ForeignKeyRule('fld001', 'fk_col', {
-        schema: TEST_SCHEMA,
-        tableName: TARGET_TABLE,
-      });
+      const fkColumnRule = FkColumnRule.forField(field, 'fk_col', TARGET_TABLE);
+      const rule = ForeignKeyRule.forField(
+        field,
+        'fk_col',
+        { schema: TEST_SCHEMA, tableName: TARGET_TABLE },
+        fkColumnRule,
+        TARGET_TABLE
+      );
       const ctx = createContext(SOURCE_TABLE, field);
 
       const result = await rule.isValid(ctx);
@@ -500,10 +531,14 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'fk_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ForeignKeyRule('fld001', 'fk_col', {
-        schema: TEST_SCHEMA,
-        tableName: TARGET_TABLE,
-      });
+      const fkColumnRule = FkColumnRule.forField(field, 'fk_col', TARGET_TABLE);
+      const rule = ForeignKeyRule.forField(
+        field,
+        'fk_col',
+        { schema: TEST_SCHEMA, tableName: TARGET_TABLE },
+        fkColumnRule,
+        TARGET_TABLE
+      );
       const ctx = createContext(SOURCE_TABLE, field);
 
       // Execute up
@@ -530,10 +565,14 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'fk_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new ForeignKeyRule('fld001', 'fk_col', {
-        schema: TEST_SCHEMA,
-        tableName: TARGET_TABLE,
-      });
+      const fkColumnRule = FkColumnRule.forField(field, 'fk_col', TARGET_TABLE);
+      const rule = ForeignKeyRule.forField(
+        field,
+        'fk_col',
+        { schema: TEST_SCHEMA, tableName: TARGET_TABLE },
+        fkColumnRule,
+        TARGET_TABLE
+      );
       const ctx = createContext(SOURCE_TABLE, field);
 
       // Before down: should be valid
@@ -562,10 +601,13 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'link_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new OrderColumnRule('fld001', 'order_fld001', {
-        schema: TEST_SCHEMA,
-        tableName: TABLE_NAME,
-      });
+      const fkColumnRule = FkColumnRule.forField(field, 'link_col', 'target_table');
+      const rule = OrderColumnRule.forField(
+        field,
+        'order_fld001',
+        { schema: TEST_SCHEMA, tableName: TABLE_NAME },
+        fkColumnRule
+      );
       const ctx = createContext(TABLE_NAME, field);
 
       const result = await rule.isValid(ctx);
@@ -579,10 +621,13 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'link_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new OrderColumnRule('fld001', 'order_fld001', {
-        schema: TEST_SCHEMA,
-        tableName: TABLE_NAME,
-      });
+      const fkColumnRule = FkColumnRule.forField(field, 'link_col', 'target_table');
+      const rule = OrderColumnRule.forField(
+        field,
+        'order_fld001',
+        { schema: TEST_SCHEMA, tableName: TABLE_NAME },
+        fkColumnRule
+      );
       const ctx = createContext(TABLE_NAME, field);
 
       // Execute up
@@ -603,10 +648,13 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'link_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new OrderColumnRule('fld001', 'order_fld001', {
-        schema: TEST_SCHEMA,
-        tableName: TABLE_NAME,
-      });
+      const fkColumnRule = FkColumnRule.forField(field, 'link_col', 'target_table');
+      const rule = OrderColumnRule.forField(
+        field,
+        'order_fld001',
+        { schema: TEST_SCHEMA, tableName: TABLE_NAME },
+        fkColumnRule
+      );
       const ctx = createContext(TABLE_NAME, field);
 
       // Before down: should be valid
@@ -626,7 +674,7 @@ describe('Schema Rules Integration Tests', () => {
     });
   });
 
-  describe('JunctionTableRule', () => {
+  describe('JunctionTableExistsRule', () => {
     const SOURCE_TABLE = 'test_junction_source';
     const TARGET_TABLE = 'test_junction_target';
     const JUNCTION_TABLE = 'junction_test';
@@ -648,7 +696,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'link_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new JunctionTableRule('fld001', createJunctionConfig());
+      const linkField = createMockLinkField('fld001', 'Link');
+      const rule = new JunctionTableExistsRule(linkField, createJunctionConfig());
       const ctx = createContext(SOURCE_TABLE, field);
 
       const result = await rule.isValid(ctx);
@@ -664,7 +713,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'link_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new JunctionTableRule('fld001', createJunctionConfig());
+      const linkField = createMockLinkField('fld001', 'Link');
+      const rule = new JunctionTableExistsRule(linkField, createJunctionConfig());
       const ctx = createContext(SOURCE_TABLE, field);
 
       // Execute up
@@ -697,7 +747,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'link_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new JunctionTableRule('fld001', createJunctionConfig());
+      const linkField = createMockLinkField('fld001', 'Link');
+      const rule = new JunctionTableExistsRule(linkField, createJunctionConfig());
       const ctx = createContext(SOURCE_TABLE, field);
 
       const result = await rule.isValid(ctx);
@@ -724,7 +775,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'link_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new JunctionTableRule('fld001', createJunctionConfig());
+      const linkField = createMockLinkField('fld001', 'Link');
+      const rule = new JunctionTableExistsRule(linkField, createJunctionConfig());
       const ctx = createContext(SOURCE_TABLE, field);
 
       const result = await rule.isValid(ctx);
@@ -735,69 +787,6 @@ describe('Schema Rules Integration Tests', () => {
       );
     });
 
-    it('should detect missing indexes in junction table', async () => {
-      await createTestTable(SOURCE_TABLE);
-      await createTestTable(TARGET_TABLE);
-      // Create junction table without indexes
-      await sql
-        .raw(
-          `CREATE TABLE ${TEST_SCHEMA}.${JUNCTION_TABLE} (
-            __id SERIAL PRIMARY KEY,
-            self_key TEXT,
-            foreign_key TEXT,
-            order_col DOUBLE PRECISION,
-            CONSTRAINT uniq_self_key_foreign_key UNIQUE(self_key, foreign_key)
-          )`
-        )
-        .execute(db);
-
-      const fieldResult = createRealField('fld001', 'Link', 'link_col');
-      const field = fieldResult._unsafeUnwrap();
-
-      const rule = new JunctionTableRule('fld001', createJunctionConfig());
-      const ctx = createContext(SOURCE_TABLE, field);
-
-      const result = await rule.isValid(ctx);
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().valid).toBe(false);
-      expect(result._unsafeUnwrap().missing?.some((m) => m.includes('index'))).toBe(true);
-    });
-
-    it('should detect missing foreign keys in junction table', async () => {
-      await createTestTable(SOURCE_TABLE);
-      await createTestTable(TARGET_TABLE);
-      // Create junction table with columns but without FK constraints
-      await sql
-        .raw(
-          `CREATE TABLE ${TEST_SCHEMA}.${JUNCTION_TABLE} (
-            __id SERIAL PRIMARY KEY,
-            self_key TEXT,
-            foreign_key TEXT,
-            order_col DOUBLE PRECISION,
-            CONSTRAINT uniq_self_key_foreign_key UNIQUE(self_key, foreign_key)
-          )`
-        )
-        .execute(db);
-      // Add indexes
-      await sql
-        .raw(`CREATE INDEX index_self_key ON ${TEST_SCHEMA}.${JUNCTION_TABLE}(self_key)`)
-        .execute(db);
-      await sql
-        .raw(`CREATE INDEX index_foreign_key ON ${TEST_SCHEMA}.${JUNCTION_TABLE}(foreign_key)`)
-        .execute(db);
-
-      const fieldResult = createRealField('fld001', 'Link', 'link_col');
-      const field = fieldResult._unsafeUnwrap();
-
-      const rule = new JunctionTableRule('fld001', createJunctionConfig());
-      const ctx = createContext(SOURCE_TABLE, field);
-
-      const result = await rule.isValid(ctx);
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().valid).toBe(false);
-      expect(result._unsafeUnwrap().missing?.some((m) => m.includes('foreign key'))).toBe(true);
-    });
-
     it('should drop junction table with down()', async () => {
       await createTestTable(SOURCE_TABLE);
       await createTestTable(TARGET_TABLE);
@@ -805,7 +794,8 @@ describe('Schema Rules Integration Tests', () => {
       const fieldResult = createRealField('fld001', 'Link', 'link_col');
       const field = fieldResult._unsafeUnwrap();
 
-      const rule = new JunctionTableRule('fld001', createJunctionConfig());
+      const linkField = createMockLinkField('fld001', 'Link');
+      const rule = new JunctionTableExistsRule(linkField, createJunctionConfig());
       const ctx = createContext(SOURCE_TABLE, field);
 
       // First create it
@@ -828,50 +818,6 @@ describe('Schema Rules Integration Tests', () => {
       // After down: should be invalid
       const afterResult = await rule.isValid(ctx);
       expect(afterResult._unsafeUnwrap().valid).toBe(false);
-    });
-
-    it('should pass validation for junction table without indexes when withIndexes=false', async () => {
-      await createTestTable(SOURCE_TABLE);
-      await createTestTable(TARGET_TABLE);
-
-      // Create junction table without indexes
-      await sql
-        .raw(
-          `CREATE TABLE ${TEST_SCHEMA}.${JUNCTION_TABLE} (
-            __id SERIAL PRIMARY KEY,
-            self_key TEXT,
-            foreign_key TEXT,
-            order_col DOUBLE PRECISION,
-            CONSTRAINT uniq_self_key_foreign_key UNIQUE(self_key, foreign_key)
-          )`
-        )
-        .execute(db);
-      // Add foreign keys
-      await sql
-        .raw(
-          `ALTER TABLE ${TEST_SCHEMA}.${JUNCTION_TABLE} ADD CONSTRAINT fk_self_key FOREIGN KEY (self_key) REFERENCES ${TEST_SCHEMA}.${SOURCE_TABLE}(__id) ON DELETE CASCADE`
-        )
-        .execute(db);
-      await sql
-        .raw(
-          `ALTER TABLE ${TEST_SCHEMA}.${JUNCTION_TABLE} ADD CONSTRAINT fk_foreign_key FOREIGN KEY (foreign_key) REFERENCES ${TEST_SCHEMA}.${TARGET_TABLE}(__id) ON DELETE CASCADE`
-        )
-        .execute(db);
-
-      const fieldResult = createRealField('fld001', 'Link', 'link_col');
-      const field = fieldResult._unsafeUnwrap();
-
-      const config: JunctionTableConfig = {
-        ...createJunctionConfig(),
-        withIndexes: false,
-      };
-      const rule = new JunctionTableRule('fld001', config);
-      const ctx = createContext(SOURCE_TABLE, field);
-
-      const result = await rule.isValid(ctx);
-      expect(result.isOk()).toBe(true);
-      // Should be valid without indexes when withIndexes=false
-      expect(result._unsafeUnwrap().valid).toBe(true);
     });
   });
 });

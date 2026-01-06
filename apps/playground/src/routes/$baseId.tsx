@@ -143,9 +143,10 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
   const isInitialLoading = tablesQuery.isLoading && !hasSearch;
 
   const createTableMutation = useMutation(
-    orpc.tables.create.mutationOptions({
+    orpc.tables.createTables.mutationOptions({
       onSuccess: (response) => {
-        const created = response.data.table;
+        const created = response.data.tables[0];
+        if (!created) return;
         setStoredBaseId(baseId);
         setStoredTableId(created.id);
         queryClient.setQueryData(
@@ -157,6 +158,10 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
           }),
           { ok: true, data: { table: created } }
         );
+        void queryClient.invalidateQueries({
+          queryKey: orpc.tables.list.queryKey({ input: { baseId } }),
+          exact: false,
+        });
         void navigate({
           to: env.routes.table,
           params: { baseId, tableId: created.id },
@@ -233,7 +238,7 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
     options: { includeRecords: boolean; recordCount: number }
   ) => {
     createTableMutation.reset();
-    createTableMutation.mutate(template.createInput(baseId, template.name, options));
+    createTableMutation.mutate(template.createInput(baseId, options));
   };
 
   const handleDeleteTable = (table: ITableDto) => {

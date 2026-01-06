@@ -4,6 +4,8 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -130,6 +132,14 @@ class FieldStorageKindVisitor extends AbstractFieldVisitor<SqlStorageKind> {
   }
 
   visitLookupField(_field: LookupField) {
+    return this.ok('array');
+  }
+
+  visitConditionalRollupField(_field: ConditionalRollupField) {
+    return this.ok('scalar');
+  }
+
+  visitConditionalLookupField(_field: ConditionalLookupField) {
     return this.ok('array');
   }
 

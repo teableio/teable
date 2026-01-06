@@ -16,6 +16,10 @@ import { ButtonField } from './ButtonField';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { CheckboxField } from './CheckboxField';
+import { ConditionalLookupField } from './ConditionalLookupField';
+import { ConditionalLookupOptions } from './ConditionalLookupOptions';
+import { ConditionalRollupConfig } from './ConditionalRollupConfig';
+import { ConditionalRollupField } from './ConditionalRollupField';
 import { CreatedByField } from './CreatedByField';
 import { CreatedTimeField } from './CreatedTimeField';
 import { DateField } from './DateField';
@@ -256,6 +260,66 @@ const createInnerFieldFactories = (): Record<FieldTypeLiteral, InnerFieldTestCas
     link: {
       type: 'link',
       factory: (id, name) => LinkField.create({ id, name, config: linkFieldConfig }),
+      expectedCellValueType: 'string',
+    },
+    conditionalRollup: {
+      type: 'conditionalRollup',
+      factory: (id, name) => {
+        // ConditionalRollup needs config and valuesField
+        // Use single-character seeds to produce 16-character bodies
+        const valuesFieldId = createFieldId('1')._unsafeUnwrap();
+        const valuesFieldName = FieldName.create('CR Values')._unsafeUnwrap();
+        const valuesField = SingleLineTextField.create({
+          id: valuesFieldId,
+          name: valuesFieldName,
+        })._unsafeUnwrap();
+        const conditionalRollupConfig = ConditionalRollupConfig.create({
+          foreignTableId: createTableId('2')._unsafeUnwrap().toString(),
+          lookupFieldId: createFieldId('3')._unsafeUnwrap().toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [],
+            },
+          },
+        })._unsafeUnwrap();
+        return ConditionalRollupField.create({
+          id,
+          name,
+          config: conditionalRollupConfig,
+          expression: rollupExpression,
+          valuesField,
+        });
+      },
+      expectedCellValueType: 'number',
+    },
+    conditionalLookup: {
+      type: 'conditionalLookup',
+      factory: (id, name) => {
+        // Use single-character seeds to produce 16-character bodies
+        const innerFieldId = createFieldId('4')._unsafeUnwrap();
+        const innerFieldName = FieldName.create('CL Inner')._unsafeUnwrap();
+        const innerField = SingleLineTextField.create({
+          id: innerFieldId,
+          name: innerFieldName,
+        })._unsafeUnwrap();
+        const conditionalLookupOptions = ConditionalLookupOptions.create({
+          foreignTableId: createTableId('5')._unsafeUnwrap().toString(),
+          lookupFieldId: createFieldId('6')._unsafeUnwrap().toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [],
+            },
+          },
+        })._unsafeUnwrap();
+        return ConditionalLookupField.create({
+          id,
+          name,
+          innerField,
+          conditionalLookupOptions,
+        });
+      },
       expectedCellValueType: 'string',
     },
   };

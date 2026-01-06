@@ -34,12 +34,22 @@
       "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],
       "@teable/v2-di": ["../di/src"],
       "@teable/v2-contract-http": ["../contract-http/src"],
+      "@teable/v2-formula-sql-pg": ["../formula-sql-pg/src"],
       "@teable/v2-postgres-schema": ["../postgres-schema/src"],
       "@teable/v2-table-templates": ["../table-templates/src"]
     },
     "types": ["vitest/globals"]
   },
-  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage", "../core/src/**/*.spec.ts"],
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../adapter-record-repository-postgres/src/**/*.spec.ts",
+    "../adapter-repository-postgres/src/**/*.spec.ts",
+    "../adapter-schema-repository-postgres/src/**/*.spec.ts"
+  ],
   "include": [
     "vitest.setup.ts",
     "src",
@@ -53,6 +63,7 @@
     "../adapter-db-postgres-shared/src",
     "../di/src",
     "../contract-http/src",
+    "../formula-sql-pg/src",
     "../postgres-schema/src",
     "../table-templates/src"
   ]

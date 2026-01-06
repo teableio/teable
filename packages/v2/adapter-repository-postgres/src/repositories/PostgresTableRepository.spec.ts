@@ -4,6 +4,8 @@ import type {
   AutoNumberField,
   ButtonField,
   CheckboxField,
+  ConditionalLookupField,
+  ConditionalRollupField,
   CreatedByField,
   CreatedTimeField,
   DateField,
@@ -18,9 +20,9 @@ import type {
   MultipleSelectField,
   NumberField,
   RatingField,
-  SingleSelectField,
-  SingleLineTextField,
   RollupField,
+  SingleLineTextField,
+  SingleSelectField,
   UserField,
 } from '@teable/v2-core';
 import {
@@ -102,7 +104,9 @@ type IFieldSnapshot =
   | { type: 'autoNumber'; name: string }
   | { type: 'button'; name: string }
   | { type: 'formula'; name: string; expression: string }
-  | { type: 'rollup'; name: string; expression: string };
+  | { type: 'rollup'; name: string; expression: string }
+  | { type: 'conditionalRollup'; name: string; expression: string }
+  | { type: 'conditionalLookup'; name: string };
 
 class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
   visitSingleLineTextField(field: SingleLineTextField) {
@@ -232,6 +236,23 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
 
   visitLookupField(_: LookupField) {
     return err(domainError.notImplemented({ message: 'Not implemented' }));
+  }
+
+  visitConditionalRollupField(field: ConditionalRollupField) {
+    const snapshot: IFieldSnapshot = {
+      type: 'conditionalRollup',
+      name: field.name().toString(),
+      expression: field.expression().toString(),
+    };
+    return ok(snapshot);
+  }
+
+  visitConditionalLookupField(field: ConditionalLookupField) {
+    const snapshot: IFieldSnapshot = {
+      type: 'conditionalLookup',
+      name: field.name().toString(),
+    };
+    return ok(snapshot);
   }
 }
 

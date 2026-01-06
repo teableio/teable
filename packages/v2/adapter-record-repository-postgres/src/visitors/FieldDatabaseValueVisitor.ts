@@ -3,6 +3,8 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -144,6 +146,16 @@ export class FieldDatabaseValueVisitor implements IFieldVisitor<unknown> {
 
   visitButtonField(_field: ButtonField): Result<unknown, DomainError> {
     // Button fields don't store values
+    return ok(null);
+  }
+
+  visitConditionalRollupField(_field: ConditionalRollupField): Result<unknown, DomainError> {
+    // Computed field - should not be set directly
+    return ok(null);
+  }
+
+  visitConditionalLookupField(_field: ConditionalLookupField): Result<unknown, DomainError> {
+    // Computed field - should not be set directly
     return ok(null);
   }
 }

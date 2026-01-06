@@ -3,6 +3,8 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
@@ -166,6 +168,18 @@ export class LinkChangeCollectorVisitor implements IFieldVisitor<LinkChangeColle
   }
 
   visitButtonField(_field: ButtonField): Result<LinkChangeCollectorResult, DomainError> {
+    return this.noChange();
+  }
+
+  visitConditionalRollupField(
+    _field: ConditionalRollupField
+  ): Result<LinkChangeCollectorResult, DomainError> {
+    return this.noChange();
+  }
+
+  visitConditionalLookupField(
+    _field: ConditionalLookupField
+  ): Result<LinkChangeCollectorResult, DomainError> {
     return this.noChange();
   }
 

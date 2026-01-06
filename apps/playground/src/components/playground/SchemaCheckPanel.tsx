@@ -7,6 +7,7 @@ import {
   Play,
   RefreshCcw,
   Clock,
+  ChevronRight,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +30,10 @@ export interface SchemaCheckResult {
   };
   required: boolean;
   timestamp: number;
+  /** IDs of rules this rule depends on */
+  dependencies?: ReadonlyArray<string>;
+  /** Nesting depth (0 = root, 1+ = nested) */
+  depth?: number;
 }
 
 type SchemaCheckPanelProps = {
@@ -73,6 +78,70 @@ const StatusBadge = ({ status }: { status: SchemaCheckStatus }) => {
     <Badge variant={variants[status]} className="h-5 px-1.5 text-[10px] font-normal uppercase">
       {labels[status]}
     </Badge>
+  );
+};
+
+/**
+ * Renders a single rule result with appropriate indentation based on depth.
+ */
+const RuleResultItem = ({ result }: { result: SchemaCheckResult }) => {
+  const depth = result.depth ?? 0;
+  const hasParent = depth > 0;
+
+  return (
+    <div
+      className={cn(
+        'flex items-start gap-2 text-xs rounded-md p-2',
+        result.status === 'error'
+          ? 'bg-destructive/10'
+          : result.status === 'warn'
+            ? 'bg-yellow-500/10'
+            : result.status === 'success'
+              ? 'bg-green-500/10'
+              : 'bg-muted/40'
+      )}
+      style={{ marginLeft: `${depth * 16}px` }}
+    >
+      {hasParent && <ChevronRight className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />}
+      <StatusIcon status={result.status} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={cn('font-medium', hasParent && 'text-muted-foreground')}>
+            {result.ruleDescription}
+          </span>
+          <StatusBadge status={result.status} />
+          {!result.required && (
+            <Badge variant="outline" className="h-4 px-1 text-[9px] font-normal uppercase">
+              Optional
+            </Badge>
+          )}
+        </div>
+        {result.message && result.message !== 'Schema is valid' && (
+          <div
+            className={cn(
+              'mt-1',
+              result.status === 'error'
+                ? 'text-destructive'
+                : result.status === 'warn'
+                  ? 'text-yellow-600 dark:text-yellow-400'
+                  : 'text-muted-foreground'
+            )}
+          >
+            {result.message}
+          </div>
+        )}
+        {result.details?.missing && result.details.missing.length > 0 && (
+          <div className="mt-1 text-destructive text-[11px]">
+            Missing: {result.details.missing.join(', ')}
+          </div>
+        )}
+        {result.details?.extra && result.details.extra.length > 0 && (
+          <div className="mt-1 text-yellow-600 dark:text-yellow-400 text-[11px]">
+            Extra: {result.details.extra.join(', ')}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -317,59 +386,7 @@ export function SchemaCheckPanel({ tableId, tableName }: SchemaCheckPanelProps) 
 
                 <div className="space-y-1.5 pl-6">
                   {fieldResults.map((result) => (
-                    <div
-                      key={result.id}
-                      className={cn(
-                        'flex items-start gap-2 text-xs rounded-md p-2',
-                        result.status === 'error'
-                          ? 'bg-destructive/10'
-                          : result.status === 'warn'
-                            ? 'bg-yellow-500/10'
-                            : result.status === 'success'
-                              ? 'bg-green-500/10'
-                              : 'bg-muted/40'
-                      )}
-                    >
-                      <StatusIcon status={result.status} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{result.ruleDescription}</span>
-                          <StatusBadge status={result.status} />
-                          {!result.required && (
-                            <Badge
-                              variant="outline"
-                              className="h-4 px-1 text-[9px] font-normal uppercase"
-                            >
-                              Optional
-                            </Badge>
-                          )}
-                        </div>
-                        {result.message && (
-                          <div
-                            className={cn(
-                              'mt-1',
-                              result.status === 'error'
-                                ? 'text-destructive'
-                                : result.status === 'warn'
-                                  ? 'text-yellow-600 dark:text-yellow-400'
-                                  : 'text-muted-foreground'
-                            )}
-                          >
-                            {result.message}
-                          </div>
-                        )}
-                        {result.details?.missing && result.details.missing.length > 0 && (
-                          <div className="mt-1 text-destructive">
-                            Missing: {result.details.missing.join(', ')}
-                          </div>
-                        )}
-                        {result.details?.extra && result.details.extra.length > 0 && (
-                          <div className="mt-1 text-yellow-600 dark:text-yellow-400">
-                            Extra: {result.details.extra.join(', ')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <RuleResultItem key={result.id} result={result} />
                   ))}
                 </div>
               </div>

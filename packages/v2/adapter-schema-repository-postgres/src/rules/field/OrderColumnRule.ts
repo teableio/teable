@@ -1,4 +1,4 @@
-import type { DomainError } from '@teable/v2-core';
+import type { DomainError, Field } from '@teable/v2-core';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -21,27 +21,34 @@ export class OrderColumnRule implements ISchemaRule {
   readonly required = true;
 
   /**
-   * @param fieldId - The field ID this order column is for
+   * @param field - The field this order column is for
    * @param columnName - The order column name
    * @param targetTable - The table where the order column lives
-   * @param options - Optional configuration
+   * @param parent - The parent rule this depends on (e.g., FkColumnRule)
    */
   constructor(
-    private readonly fieldId: string,
+    private readonly field: Field,
     private readonly columnName: string,
     private readonly targetTable: TableIdentifier,
-    private readonly options: {
-      dependsOnRuleId?: string;
-      fieldName?: string;
-      targetTableName?: string;
-    } = {}
+    parent: ISchemaRule
   ) {
-    this.id = `order_column:${fieldId}`;
-    this.dependencies = this.options.dependsOnRuleId ? [this.options.dependsOnRuleId] : [];
+    this.id = `order_column:${field.id().toString()}`;
+    this.dependencies = [parent.id];
 
-    const name = this.options.fieldName ?? this.fieldId;
-    const target = this.options.targetTableName ?? this.targetTable.tableName;
-    this.description = `Order column "${this.columnName}" in table "${target}" for link field "${name}" (stores display order)`;
+    const name = field.name().toString();
+    this.description = `Order column "${this.columnName}" in table "${targetTable.tableName}" for link field "${name}" (stores display order)`;
+  }
+
+  /**
+   * Creates an OrderColumnRule for a link field.
+   */
+  static forField(
+    field: Field,
+    columnName: string,
+    targetTable: TableIdentifier,
+    parent: ISchemaRule
+  ): OrderColumnRule {
+    return new OrderColumnRule(field, columnName, targetTable, parent);
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {

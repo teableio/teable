@@ -3,13 +3,17 @@ import {
   type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
   type CreatedByField,
   type CreatedTimeField,
-  FieldType,
   type DateField,
+  domainError,
   type DomainError,
   type Field,
+  type FieldCondition,
   type FieldId,
+  FieldType,
   type FormulaField,
   type IFieldVisitor,
   type LastModifiedByField,
@@ -68,13 +72,32 @@ export type LinkOrderBy =
 export type LateralColumnType =
   | { type: 'link'; lookupFieldId: FieldId; isMultiValue: boolean; orderBy?: LinkOrderBy }
   | { type: 'lookup'; foreignFieldId: FieldId }
-  | { type: 'rollup'; foreignFieldId: FieldId; aggregate: SqlAggregate };
+  | { type: 'rollup'; foreignFieldId: FieldId; aggregate: SqlAggregate }
+  | { type: 'conditionalLookup'; foreignFieldId: FieldId; condition: FieldCondition }
+  | {
+      type: 'conditionalRollup';
+      foreignFieldId: FieldId;
+      aggregate: SqlAggregate;
+      condition: FieldCondition;
+    };
 
 /** Shared context for collecting lateral join requirements */
 export interface ILateralContext {
   /** Add a column to lateral join, returns the lateral alias */
   addColumn(
     linkFieldId: FieldId,
+    foreignTableId: string,
+    outputAlias: string,
+    columnType: LateralColumnType
+  ): string;
+
+  /**
+   * Add a conditional field that uses a scalar subquery instead of a lateral join.
+   * Unlike link-based fields, conditional fields don't have a linkFieldId - they use
+   * their own fieldId as the key and apply a condition filter on the foreign table.
+   */
+  addConditionalColumn(
+    conditionalFieldId: FieldId,
     foreignTableId: string,
     outputAlias: string,
     columnType: LateralColumnType
@@ -95,7 +118,7 @@ export class ComputedFieldSelectExpressionVisitor
     this.formulaTranslator = new FormulaSqlPgTranslator({
       table,
       tableAlias,
-      resolveFieldSql: (field) => this.resolveFieldReferenceSql(field),
+      resolveFieldSql: (field: Field) => this.resolveFieldReferenceSql(field),
     });
   }
 
@@ -321,6 +344,60 @@ export class ComputedFieldSelectExpressionVisitor
           type: 'rollup',
           foreignFieldId: field.lookupFieldId(),
           aggregate,
+        }
+      );
+      return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);
+    });
+  }
+
+  /**
+   * ConditionalRollup field - aggregates values from foreign table based on conditions.
+   *
+   * Unlike regular rollup fields that follow a link relationship, conditional rollup
+   * uses a condition filter to select which foreign records to aggregate.
+   * The actual SQL generation happens in ComputedTableRecordQueryBuilder.buildConditionalSubquery.
+   */
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    return this.getColAlias(field).map((colAlias) => {
+      const config = field.config();
+      const aggregate = rollupExpressionToSqlAggregate(field.expression().toString());
+      const lateralAlias = this.lateral.addConditionalColumn(
+        field.id(),
+        config.foreignTableId().toString(),
+        colAlias,
+        {
+          type: 'conditionalRollup',
+          foreignFieldId: config.lookupFieldId(),
+          aggregate,
+          condition: config.condition(),
+        }
+      );
+      return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);
+    });
+  }
+
+  /**
+   * ConditionalLookup field - looks up values from foreign table based on conditions.
+   *
+   * Unlike regular lookup fields that follow a link relationship, conditional lookup
+   * uses a condition filter to select which foreign records to include.
+   * The actual SQL generation happens in ComputedTableRecordQueryBuilder.buildConditionalSubquery.
+   */
+  visitConditionalLookupField(
+    field: ConditionalLookupField
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    return this.getColAlias(field).map((colAlias) => {
+      const options = field.conditionalLookupOptions();
+      const lateralAlias = this.lateral.addConditionalColumn(
+        field.id(),
+        options.foreignTableId().toString(),
+        colAlias,
+        {
+          type: 'conditionalLookup',
+          foreignFieldId: options.lookupFieldId(),
+          condition: options.condition(),
         }
       );
       return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);

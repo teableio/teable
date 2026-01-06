@@ -5,6 +5,8 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { ConditionalLookupField } from '../types/ConditionalLookupField';
+import type { ConditionalRollupField } from '../types/ConditionalRollupField';
 import type { CreatedByField } from '../types/CreatedByField';
 import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
@@ -66,4 +68,18 @@ export abstract class AbstractFieldVisitor<T> implements IFieldVisitor<T> {
   abstract visitAutoNumberField(field: AutoNumberField): Result<T, DomainError>;
   abstract visitButtonField(field: ButtonField): Result<T, DomainError>;
   abstract visitLinkField(field: LinkField): Result<T, DomainError>;
+
+  /**
+   * Default conditional rollup handling: delegate to rollup's result type.
+   * Similar to visitRollupField, but for conditional rollups.
+   */
+  abstract visitConditionalRollupField(field: ConditionalRollupField): Result<T, DomainError>;
+
+  /**
+   * Default conditional lookup handling: delegate to the inner field's visitor method.
+   * Similar to visitLookupField.
+   */
+  visitConditionalLookupField(field: ConditionalLookupField): Result<T, DomainError> {
+    return field.innerField().andThen((inner) => inner.accept(this));
+  }
 }

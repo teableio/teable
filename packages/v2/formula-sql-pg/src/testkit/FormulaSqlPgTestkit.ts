@@ -61,7 +61,9 @@ const FIELD_TYPE_NAMES: Record<FieldTypeLiteral, string> = {
   rating: 'Rating',
   formula: FORMULA_TYPE_FIELD_NAME,
   rollup: 'RollupType',
+  conditionalRollup: 'ConditionalRollupType',
   lookup: 'LookupType',
+  conditionalLookup: 'ConditionalLookupType',
   singleSelect: 'SingleSelect',
   multipleSelect: 'MultipleSelect',
   checkbox: 'Checkbox',
@@ -99,7 +101,19 @@ const fieldTypeSamples = (): Record<FieldTypeLiteral, FieldTypeCase> => ({
     numericValue: 10,
   },
   rollup: { type: 'rollup', fieldName: FIELD_TYPE_NAMES.rollup, isArray: false, numericValue: 10 },
+  conditionalRollup: {
+    type: 'conditionalRollup',
+    fieldName: FIELD_TYPE_NAMES.conditionalRollup,
+    isArray: false,
+    numericValue: 10,
+  },
   lookup: { type: 'lookup', fieldName: FIELD_TYPE_NAMES.lookup, isArray: true, numericArray: [10] },
+  conditionalLookup: {
+    type: 'conditionalLookup',
+    fieldName: FIELD_TYPE_NAMES.conditionalLookup,
+    isArray: true,
+    numericArray: [10],
+  },
   singleSelect: {
     type: 'singleSelect',
     fieldName: FIELD_TYPE_NAMES.singleSelect,
@@ -434,7 +448,9 @@ const createHostTable = async (params: {
     rating: generateFieldId('rating'),
     formula: generateFieldId('formula'),
     rollup: generateFieldId('rollup'),
+    conditionalRollup: generateFieldId('conditionalRollup'),
     lookup: generateFieldId('lookup'),
+    conditionalLookup: generateFieldId('conditionalLookup'),
     singleSelect: generateFieldId('singleSelect'),
     multipleSelect: generateFieldId('multipleSelect'),
     checkbox: generateFieldId('checkbox'),
@@ -624,6 +640,45 @@ const createHostTable = async (params: {
     'CreateFieldCommand(RollupType)'
   );
   table = (await executeCommand<{ table: Table }>(container, rollupCommand)).table;
+
+  const emptyCondition = { filter: { conjunction: 'and' as const, filterSet: [] as const } };
+
+  const conditionalLookupCommand = unwrapOrThrow(
+    CreateFieldCommand.create({
+      baseId,
+      tableId: table.id().toString(),
+      field: {
+        type: 'conditionalLookup',
+        name: FIELD_TYPE_NAMES.conditionalLookup,
+        options: {
+          foreignTableId: foreignTable.id().toString(),
+          lookupFieldId: foreignNumber.id().toString(),
+          condition: emptyCondition,
+        },
+      },
+    }),
+    'CreateFieldCommand(ConditionalLookupType)'
+  );
+  table = (await executeCommand<{ table: Table }>(container, conditionalLookupCommand)).table;
+
+  const conditionalRollupCommand = unwrapOrThrow(
+    CreateFieldCommand.create({
+      baseId,
+      tableId: table.id().toString(),
+      field: {
+        type: 'conditionalRollup',
+        name: FIELD_TYPE_NAMES.conditionalRollup,
+        options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
+        config: {
+          foreignTableId: foreignTable.id().toString(),
+          lookupFieldId: foreignNumber.id().toString(),
+          condition: emptyCondition,
+        },
+      },
+    }),
+    'CreateFieldCommand(ConditionalRollupType)'
+  );
+  table = (await executeCommand<{ table: Table }>(container, conditionalRollupCommand)).table;
 
   table = await resolveFormulaFields({
     container,
