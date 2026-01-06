@@ -220,11 +220,14 @@ export class SameTableBatchQueryBuilder {
     const formulaField = field as FormulaField;
 
     // Build translator with custom field resolver that checks CTE columns
+    // Use skipFormulaExpansion to prevent recursive formula expansion -
+    // formula fields from previous CTE levels should reference CTE columns directly
     const translator = new FormulaSqlPgTranslator({
       table,
       tableAlias: T,
       resolveFieldSql: (refField) =>
         this.resolveFieldSqlWithCte(refField, previousCteColumns, tableName),
+      skipFormulaExpansion: true,
     });
 
     const translated = translator.translateExpression(formulaField.expression().toString());

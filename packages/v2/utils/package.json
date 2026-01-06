@@ -30,8 +30,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@teable/v2-core": "workspace:*",
-    "cli-table3": "0.6.5"
+    "@teable/v2-core": "workspace:*"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",

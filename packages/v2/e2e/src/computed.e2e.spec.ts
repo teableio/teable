@@ -32,12 +32,13 @@ import {
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
-  deleteRecordOkResponseSchema,
+  deleteRecordsOkResponseSchema,
   listTableRecordsOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import type { ICreateTableCommandInput, Table as DomainTable, TableRecord } from '@teable/v2-core';
+import type { ICreateTableCommandInput } from '@teable/v2-core';
+import { printTable } from '@teable/v2-utils';
 import express from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -45,89 +46,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // Test Utilities
 // =============================================================================
 
-/**
- * Simple table printer for inline snapshots.
- * Renders a table as ASCII art with aligned columns for visual verification in tests.
- *
- * Uses fixed-width format to ensure consistent snapshots regardless of record IDs.
- */
-const printRecords = (
+const printTableSnapshot = (
   tableName: string,
   fieldNames: string[],
   records: Array<{ id: string; fields: Record<string, unknown> }>,
   fieldIds: string[]
-): string => {
-  const formatValue = (v: unknown): string => {
-    if (v === null || v === undefined) return '-';
-
-    // Helper to format an array
-    const formatArray = (arr: unknown[]): string => {
-      if (arr.length === 0) return '[]';
-      // Check if array contains link objects (with title property)
-      const hasLinkObjects = arr.some(
-        (item) => typeof item === 'object' && item !== null && 'title' in item
-      );
-      if (hasLinkObjects) {
-        // Format link arrays as comma-separated titles
-        return arr
-          .map((item) => {
-            if (typeof item === 'object' && item !== null) {
-              return (item as { title?: string }).title ?? '?';
-            }
-            return String(item);
-          })
-          .join(', ');
-      }
-      // For primitive arrays (lookup values), keep array notation
-      return `[${arr.map((item) => String(item)).join(', ')}]`;
-    };
-
-    // Handle JSON string arrays (from JSONB columns)
-    if (typeof v === 'string' && v.startsWith('[')) {
-      try {
-        const parsed = JSON.parse(v) as unknown[];
-        if (Array.isArray(parsed)) {
-          return formatArray(parsed);
-        }
-      } catch {
-        // Not valid JSON, treat as regular string
-      }
-    }
-
-    if (Array.isArray(v)) {
-      return formatArray(v);
-    }
-    if (typeof v === 'object') {
-      const obj = v as { title?: string; id?: string };
-      return obj.title ?? obj.id ?? JSON.stringify(v);
-    }
-    return String(v);
-  };
-
-  // Build all rows first to calculate column widths
-  const headerCols = ['#', ...fieldNames];
-  const dataRows = records.map((r, idx) => {
-    const fieldValues = fieldIds.map((fid) => formatValue(r.fields[fid]));
-    return [`R${idx}`, ...fieldValues];
+): string =>
+  printTable({
+    tableName,
+    fieldNames,
+    records,
+    fieldIds,
   });
-
-  // Calculate max width for each column
-  const colWidths = headerCols.map((col, colIdx) => {
-    const headerWidth = col.length;
-    const dataWidth = Math.max(0, ...dataRows.map((row) => row[colIdx]?.length ?? 0));
-    return Math.max(headerWidth, dataWidth);
-  });
-
-  // Pad values to align columns
-  const padRow = (cols: string[]): string =>
-    cols.map((val, idx) => val.padEnd(colWidths[idx])).join(' | ');
-
-  const headerLine = padRow(headerCols);
-  const separator = '-'.repeat(headerLine.length);
-  const rowLines = dataRows.map(padRow);
-
-  return [`[${tableName}]`, separator, headerLine, separator, ...rowLines, separator].join('\n');
-};
 
 // =============================================================================
 // Test Suite
@@ -210,17 +140,17 @@ describe('v2 computed field updates (e2e)', () => {
   };
 
   const deleteRecord = async (tableId: string, recordId: string) => {
-    const response = await fetch(`${baseUrl}/tables/deleteRecord`, {
-      method: 'POST',
+    const response = await fetch(`${baseUrl}/tables/deleteRecords`, {
+      method: 'DELETE',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tableId, recordId }),
+      body: JSON.stringify({ tableId, recordIds: [recordId] }),
     });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Failed to delete record: ${errorText}`);
     }
     const rawBody = await response.json();
-    const parsed = deleteRecordOkResponseSchema.safeParse(rawBody);
+    const parsed = deleteRecordsOkResponseSchema.safeParse(rawBody);
     if (!parsed.success || !parsed.data.ok) {
       throw new Error('Failed to parse delete record response');
     }
@@ -556,9 +486,242 @@ describe('v2 computed field updates (e2e)', () => {
        * Scenario: Delete linked record triggers lookup/rollup update.
        * Delete B - A's lookup/rollup referencing B should update.
        */
-      it.todo('updates lookup to null when linked record deleted');
-      it.todo('updates rollup when linked record deleted');
-      it.todo('removes symmetric link when record deleted');
+      it('updates lookup to null when linked record deleted', async () => {
+        // Table B: Source table
+        const bNameFieldId = createFieldId();
+        const bScoreFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'TableB_DeleteLookup',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: bScoreFieldId, name: 'Score' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB = await createRecord(tableB.id, {
+          [bNameFieldId]: 'ItemB',
+          [bScoreFieldId]: 100,
+        });
+
+        // Table A: Has link to B and lookup on B.Score
+        const aNameFieldId = createFieldId();
+        const linkToBFieldId = createFieldId();
+        const lookupScoreFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'TableA_DeleteLookup',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkToBFieldId,
+              name: 'LinkToB',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+              },
+            },
+            {
+              type: 'lookup',
+              id: lookupScoreFieldId,
+              name: 'LookupScore',
+              options: {
+                linkFieldId: linkToBFieldId,
+                foreignTableId: tableB.id,
+                lookupFieldId: bScoreFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Create record in A linking to B (manyOne uses single object)
+        const recordA = await createRecord(tableA.id, {
+          [aNameFieldId]: 'ItemA',
+          [linkToBFieldId]: { id: recordB.id },
+        });
+
+        // Verify initial state (lookup returns array of values, serialized as JSON string)
+        const beforeRecords = await listRecords(tableA.id);
+        const beforeA = beforeRecords.find((r) => r.id === recordA.id);
+        // Lookup value is stored as JSON array string like "[100]"
+        expect(beforeA?.fields[lookupScoreFieldId]).toBe('[100]');
+
+        // Delete the linked record B
+        await deleteRecord(tableB.id, recordB.id);
+
+        // Process any pending outbox tasks
+        await testContainer.processOutbox();
+
+        // Verify A's lookup is now null/empty and link is cleared
+        const afterRecords = await listRecords(tableA.id);
+        const afterA = afterRecords.find((r) => r.id === recordA.id);
+        // After deleting the linked record, lookup should be null/empty
+        const lookupValue = afterA?.fields[lookupScoreFieldId];
+        expect(
+          lookupValue === null ||
+            lookupValue === '[]' ||
+            lookupValue === '' ||
+            lookupValue === undefined
+        ).toBe(true);
+        // Link should be null (manyOne)
+        const linkValue = afterA?.fields[linkToBFieldId];
+        expect(linkValue === null || linkValue === undefined).toBe(true);
+      });
+
+      it('updates rollup when linked record deleted', async () => {
+        // Table B: Source table
+        const bNameFieldId = createFieldId();
+        const bValueFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'TableB_DeleteRollup',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: bValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB1 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B1',
+          [bValueFieldId]: 10,
+        });
+        const recordB2 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B2',
+          [bValueFieldId]: 20,
+        });
+
+        // Table A: Has link to B (manyMany) and rollup SUM on B.Value
+        const aNameFieldId = createFieldId();
+        const linksToBFieldId = createFieldId();
+        const sumValuesFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'TableA_DeleteRollup',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linksToBFieldId,
+              name: 'LinksToB',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+              },
+            },
+            {
+              type: 'rollup',
+              id: sumValuesFieldId,
+              name: 'SumValues',
+              options: { expression: 'sum({values})' },
+              config: {
+                linkFieldId: linksToBFieldId,
+                foreignTableId: tableB.id,
+                lookupFieldId: bValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Create record in A linking to both B records
+        const recordA = await createRecord(tableA.id, {
+          [aNameFieldId]: 'ItemA',
+          [linksToBFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
+        });
+
+        // Verify initial state: rollup should be 30
+        const beforeRecords = await listRecords(tableA.id);
+        const beforeA = beforeRecords.find((r) => r.id === recordA.id);
+        expect(beforeA?.fields[sumValuesFieldId]).toBe(30);
+
+        // Delete one of the linked records
+        await deleteRecord(tableB.id, recordB1.id);
+
+        // Process any pending outbox tasks
+        await testContainer.processOutbox();
+
+        // Verify A's rollup is now 20 (only B2 remains)
+        const afterRecords = await listRecords(tableA.id);
+        const afterA = afterRecords.find((r) => r.id === recordA.id);
+        expect(afterA?.fields[sumValuesFieldId]).toBe(20);
+      });
+
+      it('removes symmetric link when record deleted', async () => {
+        // Table A: Simple table
+        const aNameFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'TableA_DeleteSymmetric',
+          fields: [{ type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        // Table B: Has manyMany link to A
+        const bNameFieldId = createFieldId();
+        const linkToAFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'TableB_DeleteSymmetric',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkToAFieldId,
+              name: 'LinkToA',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Create records in A
+        const recordA1 = await createRecord(tableA.id, { [aNameFieldId]: 'A1' });
+        const recordA2 = await createRecord(tableA.id, { [aNameFieldId]: 'A2' });
+
+        // Create record in B linking to both A records
+        const recordB = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B',
+          [linkToAFieldId]: [{ id: recordA1.id }, { id: recordA2.id }],
+        });
+
+        // Process any pending symmetric link updates
+        await testContainer.processOutbox();
+
+        // Verify A1 has symmetric link to B (find the symmetric link field)
+        const beforeA1Records = await listRecords(tableA.id);
+        const beforeA1 = beforeA1Records.find((r) => r.id === recordA1.id);
+        const symmetricLinkFieldKey = Object.keys(beforeA1?.fields || {}).find((k) => {
+          const val = beforeA1?.fields[k];
+          return Array.isArray(val) && val.some((v) => v.id === recordB.id);
+        });
+        expect(symmetricLinkFieldKey).toBeDefined();
+
+        // Delete record B
+        await deleteRecord(tableB.id, recordB.id);
+
+        // Process symmetric link cleanup
+        await testContainer.processOutbox();
+
+        // Verify A1's symmetric link no longer contains B
+        const afterA1Records = await listRecords(tableA.id);
+        const afterA1 = afterA1Records.find((r) => r.id === recordA1.id);
+        if (symmetricLinkFieldKey) {
+          const afterSymmetricLinks = afterA1?.fields[symmetricLinkFieldKey] as Array<{
+            id: string;
+          }> | null;
+          expect(afterSymmetricLinks?.some((l) => l.id === recordB.id) ?? false).toBe(false);
+        }
+      });
     });
   });
 
@@ -637,7 +800,7 @@ describe('v2 computed field updates (e2e)', () => {
 
       // Before update
       const beforeRecords = await listRecords(table.id);
-      const beforeSnapshot = printRecords(table.name, fieldNames, beforeRecords, fieldIds);
+      const beforeSnapshot = printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds);
 
       expect(beforeSnapshot).toMatchInlineSnapshot(`
         "[Formula Chain Test]
@@ -653,7 +816,7 @@ describe('v2 computed field updates (e2e)', () => {
 
       // After update
       const afterRecords = await listRecords(table.id);
-      const afterSnapshot = printRecords(table.name, fieldNames, afterRecords, fieldIds);
+      const afterSnapshot = printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds);
 
       expect(afterSnapshot).toMatchInlineSnapshot(`
         "[Formula Chain Test]
@@ -751,7 +914,12 @@ describe('v2 computed field updates (e2e)', () => {
 
       // Before update - verify lookup shows current value
       const beforeRecords = await listRecords(deals.id);
-      const beforeSnapshot = printRecords(deals.name, dealFieldNames, beforeRecords, dealFieldIds);
+      const beforeSnapshot = printTableSnapshot(
+        deals.name,
+        dealFieldNames,
+        beforeRecords,
+        dealFieldIds
+      );
 
       // Lookup should show the value from the foreign table
       expect(beforeSnapshot).toMatchInlineSnapshot(`
@@ -771,7 +939,12 @@ describe('v2 computed field updates (e2e)', () => {
 
       // After update - lookup should reflect new value
       const afterRecords = await listRecords(deals.id);
-      const afterSnapshot = printRecords(deals.name, dealFieldNames, afterRecords, dealFieldIds);
+      const afterSnapshot = printTableSnapshot(
+        deals.name,
+        dealFieldNames,
+        afterRecords,
+        dealFieldIds
+      );
 
       // Lookup should show updated value
       expect(afterSnapshot).toMatchInlineSnapshot(`
@@ -897,7 +1070,7 @@ describe('v2 computed field updates (e2e)', () => {
 
       // Before update
       const beforeRecords = await listRecords(tableC.id);
-      const beforeSnapshot = printRecords(tableC.name, cFieldNames, beforeRecords, cFieldIds);
+      const beforeSnapshot = printTableSnapshot(tableC.name, cFieldNames, beforeRecords, cFieldIds);
 
       // Lookup returns the value from the linked record (number values shown as-is from JSON array)
       expect(beforeSnapshot).toMatchInlineSnapshot(`
@@ -920,7 +1093,7 @@ describe('v2 computed field updates (e2e)', () => {
 
       // After update - C should show updated value
       const afterRecords = await listRecords(tableC.id);
-      const afterSnapshot = printRecords(tableC.name, cFieldNames, afterRecords, cFieldIds);
+      const afterSnapshot = printTableSnapshot(tableC.name, cFieldNames, afterRecords, cFieldIds);
 
       // Value propagates through the chain: A.Value(99) -> B.ValueFromA(99) -> C.ValueFromB(99)
       expect(afterSnapshot).toMatchInlineSnapshot(`

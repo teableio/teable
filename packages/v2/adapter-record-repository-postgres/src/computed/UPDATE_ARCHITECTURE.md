@@ -441,6 +441,207 @@ When executing a same-table batch (current fallback to step-by-step):
 - Backoff: Exponential (5s base, 5min max)
 - Dead letter table: `computed_update_dead_letter`
 
+### Dispatch Modes (Push vs Pull)
+
+The `HybridWithOutboxStrategy` supports three dispatch modes for processing async computed updates:
+
+| Mode       | Description                                      | Latency | Reliability | Use Case             |
+| ---------- | ------------------------------------------------ | ------- | ----------- | -------------------- |
+| `push`     | Inline dispatch after enqueue with delay         | Low     | Medium      | Development, testing |
+| `external` | No inline dispatch, rely on external worker poll | Medium  | High        | Production (simple)  |
+| `hybrid`   | Push with external worker as fallback            | Low     | High        | Production (optimal) |
+
+#### Configuration
+
+```typescript
+// Push mode: fast but needs delay to avoid race condition
+const pushConfig: HybridWithOutboxStrategyConfig = {
+  dispatchMode: "push",
+  dispatchDelayMs: 50, // Must be >= 50ms to allow transaction commit
+  dispatchWorkerLimit: 50,
+  dispatchWorkerId: "computed-inline",
+};
+
+// External mode: most reliable, recommended for production
+const externalConfig: HybridWithOutboxStrategyConfig = {
+  dispatchMode: "external",
+  // No inline dispatch - external worker polls outbox
+};
+
+// Hybrid mode: best of both worlds
+const hybridConfig: HybridWithOutboxStrategyConfig = {
+  dispatchMode: "hybrid",
+  dispatchDelayMs: 50,
+  dispatchWorkerLimit: 50,
+  dispatchWorkerId: "computed-inline",
+  // External worker also polls as backup
+};
+```
+
+#### External Worker Setup
+
+For `external` or `hybrid` modes, use the built-in worker from `@teable/v2-container-node`:
+
+```typescript
+// Option 1: Programmatic API
+import { createComputedUpdateWorker } from "@teable/v2-container-node";
+
+const worker = await createComputedUpdateWorker({
+  connectionString: process.env.DATABASE_URL,
+  worker: {
+    workerId: "computed-worker-1",
+    batchSize: 50,
+    pollIntervalMs: 1000,
+  },
+});
+
+// Start polling
+worker.start();
+
+// Graceful shutdown
+process.on("SIGTERM", () => worker.stop());
+```
+
+```typescript
+// Option 2: CLI (for Docker/K8s)
+import { runComputedWorkerCli } from "@teable/v2-container-node";
+
+runComputedWorkerCli();
+// Reads from: DATABASE_URL, WORKER_ID, WORKER_BATCH_SIZE, WORKER_POLL_INTERVAL_MS
+```
+
+```bash
+# Option 3: Direct execution
+DATABASE_URL=postgres://... node -e "require('@teable/v2-container-node').runComputedWorkerCli()"
+```
+
+#### Kubernetes Deployment Example
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: computed-update-worker
+spec:
+  replicas: 3 # Multiple workers for high availability
+  template:
+    spec:
+      containers:
+        - name: worker
+          image: your-app-image
+          command: ["node", "-e", "require('@teable/v2-container-node').runComputedWorkerCli()"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: url
+            - name: WORKER_BATCH_SIZE
+              value: "100"
+            - name: WORKER_POLL_INTERVAL_MS
+              value: "1000"
+```
+
+#### Race Condition Explanation
+
+The `push` mode with `dispatchDelayMs: 0` has a race condition:
+
+```
+Timeline:
+1. Request handler inserts outbox task (in transaction)
+2. setTimeout(0) fires, drainOutbox() called
+3. drainOutbox() opens NEW connection, queries outbox
+4. NEW connection can't see uncommitted task!
+5. drainOutbox() finds nothing, returns
+6. Main transaction commits (too late)
+7. Task remains pending until external worker polls
+```
+
+Solution: Use `dispatchDelayMs >= 50` or `dispatchMode: 'external'`
+
+---
+
+## Production Troubleshooting
+
+### Playground Admin Panel (TODO)
+
+A future admin panel for manual inspection and re-triggering of computed update tasks:
+
+- View pending/processing/dead-letter tasks
+- Inspect task details (steps, edges, dirty records)
+- Manually re-trigger or cancel tasks
+- View task history and retry attempts
+
+### OpenTelemetry / Jaeger / Signoz
+
+Use distributed tracing to debug computed update chains:
+
+1. **Search by `computedRunId`**: Find all spans for a specific update run
+2. **Search by `computedTaskId`**: Find spans for a specific outbox task
+3. **Look for span gaps**: Missing child spans indicate failures
+4. **Check span durations**: Identify slow steps or DB queries
+
+Key span attributes to filter by:
+
+- `computed.runId`: Unique run identifier
+- `computed.phase`: `sync` or `async`
+- `step.tableId`, `step.fieldIds`: Specific step context
+- `edge.fromTableId`, `edge.toTableId`: Edge propagation
+
+### Sentry
+
+Configure Sentry for error aggregation and alerting:
+
+- Tag errors with `computedRunId` and `computedTaskId`
+- Set up alerts for repeated failures on the same task
+- Monitor dead-letter queue growth
+
+### Database Queries for Debugging
+
+```sql
+-- View pending outbox tasks
+SELECT id, base_id, seed_table_id, status, attempts, next_run_at, last_error, created_at
+FROM computed_update_outbox
+WHERE status = 'pending'
+ORDER BY created_at DESC
+LIMIT 50;
+
+-- View processing tasks (stuck?)
+SELECT id, base_id, status, attempts, locked_at, locked_by
+FROM computed_update_outbox
+WHERE status = 'processing'
+  AND locked_at < NOW() - INTERVAL '5 minutes';
+
+-- View dead letter tasks
+SELECT id, base_id, seed_table_id, attempts, last_error, failed_at
+FROM computed_update_dead_letter
+ORDER BY failed_at DESC
+LIMIT 50;
+
+-- Check dirty records for a specific table
+SELECT table_id, COUNT(*) as record_count
+FROM tmp_computed_dirty
+GROUP BY table_id;
+```
+
+### Log Queries
+
+Structured log analysis for debugging:
+
+```
+# Find all logs for a specific run
+computedRunId:"curXXXXXXXXXXXXXXX"
+
+# Find failed task logs
+message:"computed:outbox:task_failed"
+
+# Find retry scheduled logs
+message:"computed:outbox:retry_scheduled"
+
+# Find dead letter logs
+message:"computed:outbox:dead_letter"
+```
+
 ---
 
 ## Future Work

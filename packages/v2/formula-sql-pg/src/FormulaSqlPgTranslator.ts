@@ -30,6 +30,17 @@ export type FormulaSqlPgTranslatorOptions = {
   tableAlias: string;
   resolveFieldSql: FieldSqlResolver;
   allowFieldNameFallback?: boolean;
+  /**
+   * When true, formula field references are resolved via resolveFieldSql instead
+   * of recursively translating the formula expression.
+   *
+   * Use case: CTE batch updates where formula fields at earlier levels are already
+   * computed and stored in CTE columns. The formula reference should point to the
+   * CTE column (e.g., level_0.col_formula_a) instead of re-computing the expression.
+   *
+   * Default: false (recursively expand formula expressions)
+   */
+  skipFormulaExpansion?: boolean;
 };
 
 class FormulaParseErrorCollector implements ANTLRErrorListener<Token> {
@@ -56,6 +67,7 @@ export class FormulaSqlPgTranslator {
   private readonly fieldByName: Map<string, Field>;
   private readonly resolveFieldSql: FieldSqlResolver;
   private readonly allowNameFallback: boolean;
+  private readonly skipFormulaExpansion: boolean;
   private readonly formulaCache = new Map<string, Result<SqlExpr, DomainError>>();
   private readonly visiting = new Set<string>();
 
@@ -63,6 +75,7 @@ export class FormulaSqlPgTranslator {
     this.tableAlias = options.tableAlias;
     this.resolveFieldSql = options.resolveFieldSql;
     this.allowNameFallback = options.allowFieldNameFallback ?? true;
+    this.skipFormulaExpansion = options.skipFormulaExpansion ?? false;
     const fields = options.table.getFields();
     this.fieldById = new Map(fields.map((field) => [field.id().toString(), field]));
     this.fieldByName = new Map(
@@ -101,6 +114,12 @@ export class FormulaSqlPgTranslator {
 
   private resolveField(field: Field): Result<SqlExpr, DomainError> {
     if (field.type().equals(FieldType.formula())) {
+      // When skipFormulaExpansion is true, use resolveFieldSql for formula fields
+      // instead of recursively translating. This is used for CTE batch updates
+      // where the formula value is already computed in a previous CTE.
+      if (this.skipFormulaExpansion) {
+        return this.resolveFieldSql(field);
+      }
       return this.resolveFormulaField(field as FormulaField);
     }
     // For lookup fields, proxy to innerField's SQL generation logic

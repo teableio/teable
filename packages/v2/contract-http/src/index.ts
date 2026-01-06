@@ -8,6 +8,8 @@ export * from './table/createRecords';
 export * from './table/createTable';
 export * from './table/deleteField';
 export * from './table/deleteTable';
+export * from './table/deleteRecords';
+export * from './table/getRecordById';
 export * from './table/getTableById';
 export * from './table/importCsv';
 export * from './table/listTableRecords';

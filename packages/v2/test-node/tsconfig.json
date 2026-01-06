@@ -22,6 +22,9 @@
     "paths": {
       "@teable/v2-container-node-test": ["../container-node-test/src"],
       "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
+      "@teable/v2-adapter-record-repository-postgres": [
+        "../adapter-record-repository-postgres/src"
+      ],
       "@teable/v2-adapter-schema-repository-postgres": [
         "../adapter-schema-repository-postgres/src"
       ],
@@ -42,6 +45,7 @@
     "src",
     "../container-node-test/src",
     "../adapter-logger-console/src",
+    "../adapter-record-repository-postgres/src",
     "../adapter-schema-repository-postgres/src",
     "../adapter-repository-postgres/src",
     "../core/src",

@@ -15,4 +15,10 @@ export const v2RecordRepositoryPostgresTokens = {
     'v2.adapter.recordRepositoryPostgres.computedUpdateOutboxConfig'
   ),
   computedUpdateWorker: Symbol('v2.adapter.recordRepositoryPostgres.computedUpdateWorker'),
+  computedUpdatePollingConfig: Symbol(
+    'v2.adapter.recordRepositoryPostgres.computedUpdatePollingConfig'
+  ),
+  computedUpdatePollingService: Symbol(
+    'v2.adapter.recordRepositoryPostgres.computedUpdatePollingService'
+  ),
 } as const;

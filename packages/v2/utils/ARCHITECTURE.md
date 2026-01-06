@@ -7,5 +7,5 @@
 
 ## Folder Map
 
-- `src/printTable.ts`: Render domain tables and records into readable ASCII tables.
+- `src/printTable.ts`: Render domain tables and raw record payloads into readable ASCII tables.
 - `src/index.ts`: Public exports.

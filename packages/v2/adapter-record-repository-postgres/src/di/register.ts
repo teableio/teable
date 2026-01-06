@@ -4,17 +4,23 @@ import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
-import type { ComputedUpdateOutboxConfig, HybridWithOutboxStrategyConfig } from '../computed';
+import type {
+  ComputedUpdateOutboxConfig,
+  ComputedUpdatePollingConfig,
+  HybridWithOutboxStrategyConfig,
+} from '../computed';
 import {
   AsyncWithRetryStrategy,
   ComputedFieldUpdater,
   ComputedUpdateOutbox,
   ComputedUpdatePlanner,
+  ComputedUpdatePollingService,
   FieldDependencyGraph,
   HybridWithOutboxStrategy,
   SyncInTransactionStrategy,
   defaultComputedUpdateOutboxConfig,
   defaultHybridWithOutboxStrategyConfig,
+  defaultPollingConfig,
   ComputedUpdateWorker,
 } from '../computed';
 import { TableRecordQueryBuilderManager } from '../query-builder';
@@ -25,9 +31,20 @@ export interface IV2RecordRepositoryPostgresConfig {
   /** Kysely database instance */
   db: Kysely<V1TeableDatabase>;
   computedUpdate?: {
+    /**
+     * Strategy mode for computed field updates.
+     * @default 'hybrid'
+     */
     mode?: 'sync' | 'hybrid' | 'async';
     hybridConfig?: Partial<HybridWithOutboxStrategyConfig>;
     outboxConfig?: Partial<ComputedUpdateOutboxConfig>;
+    /**
+     * Polling config for background worker.
+     * When enabled, a background polling loop is started automatically.
+     * - For 'hybrid' dispatch: polling serves as fallback for missed inline pushes
+     * - For 'external' dispatch: polling is the primary execution mechanism
+     */
+    pollingConfig?: Partial<ComputedUpdatePollingConfig>;
   };
 }
 
@@ -69,12 +86,33 @@ export const registerV2RecordRepositoryPostgresAdapter = (
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig, hybridConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig, outboxConfig);
 
+  // Derive polling enabled from dispatch mode if not explicitly set
+  const dispatchMode = hybridConfig.dispatchMode ?? 'push';
+  const pollingEnabled =
+    config.computedUpdate?.pollingConfig?.enabled ??
+    (dispatchMode === 'hybrid' || dispatchMode === 'external');
+
+  const pollingConfig: ComputedUpdatePollingConfig = {
+    ...defaultPollingConfig,
+    enabled: pollingEnabled,
+    // More aggressive polling for external mode
+    pollIntervalMs: dispatchMode === 'external' ? 500 : 1000,
+    ...config.computedUpdate?.pollingConfig,
+  };
+
+  c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig, pollingConfig);
+
   c.register(v2RecordRepositoryPostgresTokens.computedUpdateOutbox, ComputedUpdateOutbox, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2RecordRepositoryPostgresTokens.computedUpdateWorker, ComputedUpdateWorker, {
     lifecycle: Lifecycle.Singleton,
   });
+  c.register(
+    v2RecordRepositoryPostgresTokens.computedUpdatePollingService,
+    ComputedUpdatePollingService,
+    { lifecycle: Lifecycle.Singleton }
+  );
 
   const strategyMode = config.computedUpdate?.mode ?? 'hybrid';
   if (strategyMode === 'hybrid') {

@@ -14,7 +14,9 @@ import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';
 import { executeCreateRecordsEndpoint } from './handlers/tables/createRecords';
 import { executeCreateTableEndpoint } from './handlers/tables/createTable';
 import { executeDeleteFieldEndpoint } from './handlers/tables/deleteField';
+import { executeDeleteRecordsEndpoint } from './handlers/tables/deleteRecords';
 import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
+import { executeGetRecordByIdEndpoint } from './handlers/tables/getRecordById';
 import { executeGetTableByIdEndpoint } from './handlers/tables/getTableById';
 import { executeImportCsvEndpoint } from './handlers/tables/importCsv';
 import { executeListTableRecordsEndpoint } from './handlers/tables/listTableRecords';
@@ -215,6 +217,39 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
+  const tablesDeleteRecords = os.tables.deleteRecords.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeDeleteRecordsEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
+  });
+
   const tablesDeleteField = os.tables.deleteField.handler(async ({ input }) => {
     let container: IHandlerResolver;
     try {
@@ -267,6 +302,39 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const result = await executeGetTableByIdEndpoint(executionContext, input, queryBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
+  });
+
+  const tablesGetRecord = os.tables.getRecord.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const result = await executeGetRecordByIdEndpoint(executionContext, input, queryBus);
 
     if (result.status === 200) return result.body;
 
@@ -449,9 +517,11 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       createRecord: tablesCreateRecord,
       createRecords: tablesCreateRecords,
       updateRecord: tablesUpdateRecord,
+      deleteRecords: tablesDeleteRecords,
       deleteField: tablesDeleteField,
       delete: tablesDelete,
       getById: tablesGetById,
+      getRecord: tablesGetRecord,
       importCsv: tablesImportCsv,
       list: tablesList,
       listRecords: tablesListRecords,

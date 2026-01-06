@@ -25,14 +25,51 @@ import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
 import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
 import type { IUpdateStrategy } from './IUpdateStrategy';
 
+/**
+ * Dispatch mode for async computed updates:
+ *
+ * - `push`: Inline dispatch after enqueue with configurable delay.
+ *           Fast but has race condition if delay is too short.
+ *           Use `dispatchDelayMs >= 50` to allow transaction commit.
+ *
+ * - `external`: No inline dispatch - relies on external worker polling.
+ *               Most reliable, recommended for production.
+ *               Latency depends on worker poll interval.
+ *
+ * - `hybrid`: Push with external fallback. Tries inline dispatch
+ *             but external worker catches any missed tasks.
+ *             Best of both worlds for production with low latency.
+ */
+export type DispatchMode = 'push' | 'external' | 'hybrid';
+
 export type HybridWithOutboxStrategyConfig = {
   syncPolicy: 'seedTableOnly' | 'threshold';
   syncMaxDirtyPerTable: number;
   syncMaxTotalDirty: number;
   syncMaxLevelHardCap: number;
-  dispatchAfterEnqueue: boolean;
+
+  /**
+   * Dispatch mode for async tasks.
+   * @see DispatchMode
+   */
+  dispatchMode: DispatchMode;
+
+  /**
+   * Worker batch size for inline dispatch.
+   * Only used when dispatchMode is 'push' or 'hybrid'.
+   */
   dispatchWorkerLimit: number;
+
+  /**
+   * Worker ID for inline dispatch.
+   */
   dispatchWorkerId: string;
+
+  /**
+   * Delay before inline dispatch (ms).
+   * Set to >= 50ms to avoid race condition with transaction commit.
+   * Only used when dispatchMode is 'push' or 'hybrid'.
+   */
   dispatchDelayMs: number;
 };
 
@@ -41,10 +78,29 @@ export const defaultHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConf
   syncMaxDirtyPerTable: 2000,
   syncMaxTotalDirty: 5000,
   syncMaxLevelHardCap: 1,
-  dispatchAfterEnqueue: true,
+  // Default to 'push' with 50ms delay for safety
+  dispatchMode: 'push',
   dispatchWorkerLimit: 50,
   dispatchWorkerId: 'computed-inline',
-  dispatchDelayMs: 0,
+  dispatchDelayMs: 50, // Changed from 0 to 50 to avoid race condition
+};
+
+/**
+ * Production-recommended config: external worker handles all async tasks.
+ */
+export const productionHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConfig = {
+  ...defaultHybridWithOutboxStrategyConfig,
+  dispatchMode: 'external', // Rely on external worker polling
+};
+
+/**
+ * Low-latency config: hybrid mode with short delay.
+ * External worker as backup for reliability.
+ */
+export const lowLatencyHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConfig = {
+  ...defaultHybridWithOutboxStrategyConfig,
+  dispatchMode: 'hybrid',
+  dispatchDelayMs: 50,
 };
 
 /**
@@ -228,17 +284,35 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
   }
 
   private scheduleDispatch(context: IExecutionContext): void {
-    if (!this.config.dispatchAfterEnqueue) return;
+    // 'external' mode: no inline dispatch, rely on external worker polling
+    if (this.config.dispatchMode === 'external') {
+      this.logger.debug('computed:outbox:dispatch_skipped', {
+        reason: 'external_mode',
+        message: 'Task enqueued, waiting for external worker to poll',
+      });
+      return;
+    }
+
+    // 'push' or 'hybrid' mode: schedule inline dispatch
     if (this.dispatchTimer) return;
+
     // Strip transaction so async work runs after commit on a fresh connection.
     const dispatchContext: IExecutionContext = {
       actorId: context.actorId,
       tracer: context.tracer,
     };
+
+    // Use delay to ensure transaction has committed before dispatch
+    const delay = this.config.dispatchDelayMs;
     this.dispatchTimer = setTimeout(() => {
       this.dispatchTimer = null;
       void this.drainOutbox(dispatchContext);
-    }, this.config.dispatchDelayMs);
+    }, delay);
+
+    this.logger.debug('computed:outbox:dispatch_scheduled', {
+      mode: this.config.dispatchMode,
+      delayMs: delay,
+    });
   }
 
   private async drainOutbox(context: IExecutionContext): Promise<void> {
