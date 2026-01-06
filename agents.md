@@ -87,9 +87,34 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 
 ## Source visibility (v2 packages)
 
-- Package consumers must be able to navigate TypeScript sources without built `dist/`.
-- In `package.json`, point `types` (and `exports` `types`) to `src/index.ts`, and include `src` in `files`.
-- In `tsconfig.json`, map workspace dependencies to their `src` paths (e.g. `@teable/v2-core: ["../core/src"]`) and include those sources.
+**All v2 packages must support source visibility** to allow consumers to reference TypeScript sources without building `dist/` outputs. This is required for development workflows, testing, and tools like Vitest/Vite that can consume TypeScript directly.
+
+**Required configuration:**
+
+- In `package.json`:
+  - Set `types` field to `"src/index.ts"` (not `"dist/index.d.ts"`)
+  - Set `exports["."].types` to `"./src/index.ts"` (not `"./dist/index.d.ts"`)
+  - Include `"src"` in the `files` array (in addition to `"dist"`)
+- In `tsconfig.json`:
+  - Map workspace dependencies to their `src` paths in `compilerOptions.paths` (e.g. `"@teable/v2-core": ["../core/src"]`)
+  - Include those source paths in the `include` array
+
+**Example `package.json` configuration:**
+```json
+{
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "src"]
+}
+```
+
+This ensures that tools like Vite/Vitest can resolve package entries from source files even when `dist/` is not built, enabling faster development cycles and avoiding build dependencies.
 
 ## Error handling (non-negotiable)
 
