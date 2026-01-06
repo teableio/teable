@@ -139,6 +139,11 @@ export class OpenTelemetryTracer implements ITracer {
     }
     return callback();
   }
+
+  getActiveSpan(): ISpan | undefined {
+    const span = trace.getActiveSpan();
+    return span ? new OpenTelemetrySpan(span) : undefined;
+  }
 }
 
 export const v2Tracer = new OpenTelemetryTracer('v2-core');

@@ -217,6 +217,20 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     })
   );
 
+  const deleteRecordsMutation = useMutation(
+    orpc.tables.deleteRecords.mutationOptions({
+      onSuccess: (response) => {
+        setEventCount(response.data.events.length);
+        const deletedCount = response.data.deletedRecordIds.length;
+        toast.success(`Deleted ${deletedCount} record${deletedCount === 1 ? '' : 's'}`);
+        void recordsQuery.refetch();
+      },
+      onError: (error) => {
+        toast.error(getErrorMessage(error, 'Failed to delete record'));
+      },
+    })
+  );
+
   useEffect(() => {
     setStoredBaseId(baseId);
     setStoredTableId(tableId);
@@ -347,6 +361,12 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     deleteFieldMutation.mutate({ baseId, tableId, fieldId });
   };
 
+  const handleDeleteRecords = (recordIds: string[]) => {
+    if (!recordIds.length) return;
+    deleteRecordsMutation.reset();
+    deleteRecordsMutation.mutate({ tableId, recordIds });
+  };
+
   const handleRecordCreated = () => {
     void recordsQuery.refetch();
   };
@@ -403,6 +423,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       recordsError={recordsError}
       isRecordsLoading={recordsQuery.isLoading}
       isRecordsFetching={recordsQuery.isFetching}
+      isDeletingRecord={deleteRecordsMutation.isPending}
       errorMessage={errorMessage}
       onRefresh={handleRefresh}
       onFieldCreated={handleFieldCreated}
@@ -413,6 +434,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       onImportCsv={handleImportCsv}
       onDelete={handleDelete}
       onDeleteField={handleDeleteField}
+      onDeleteRecords={handleDeleteRecords}
       onRename={handleRename}
     />
   );

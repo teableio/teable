@@ -1,0 +1,139 @@
+import type { DomainError } from '@teable/v2-core';
+import { sql } from 'kysely';
+import { ok, safeTry } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn';
+import type { SchemaRuleContext } from '../context/SchemaRuleContext';
+import type {
+  ISchemaRule,
+  SchemaRuleValidationResult,
+  TableSchemaStatementBuilder,
+} from '../core/ISchemaRule';
+import {
+  addGeneratedColumnStatement,
+  dropColumnStatement,
+  type TableIdentifier,
+} from '../helpers/StatementBuilders';
+
+/**
+ * Schema rule for creating/dropping a GENERATED ALWAYS AS column.
+ * Used for CreatedTime, LastModifiedTime (when tracking all), CreatedBy, LastModifiedBy, AutoNumber.
+ *
+ * Generated columns are automatically computed from a source column.
+ */
+export class GeneratedColumnRule implements ISchemaRule {
+  readonly id: string;
+  readonly description: string;
+  readonly dependencies: ReadonlyArray<string> = [];
+  readonly required = true;
+
+  /**
+   * @param fieldId - The field ID this generated column is for
+   * @param sourceColumn - The source column to generate from (e.g., '__created_time')
+   * @param columnType - The PostgreSQL column type (e.g., 'timestamptz', 'text', 'double precision')
+   * @param fieldName - The display name of the field (for description)
+   */
+  constructor(
+    private readonly fieldId: string,
+    private readonly sourceColumn: string,
+    private readonly columnType: string,
+    private readonly fieldName?: string
+  ) {
+    this.id = `generated_column:${fieldId}`;
+    this.description = this.buildDescription();
+  }
+
+  private buildDescription(): string {
+    const name = this.fieldName ?? this.fieldId;
+    return `Generated column "${name}" computed from ${this.sourceColumn} (${this.columnType})`;
+  }
+
+  /**
+   * Creates a GeneratedColumnRule for CreatedTime.
+   */
+  static forCreatedTime(fieldId: string, fieldName?: string): GeneratedColumnRule {
+    return new GeneratedColumnRule(fieldId, '__created_time', 'timestamptz', fieldName);
+  }
+
+  /**
+   * Creates a GeneratedColumnRule for LastModifiedTime (when tracking all).
+   */
+  static forLastModifiedTime(fieldId: string, fieldName?: string): GeneratedColumnRule {
+    return new GeneratedColumnRule(fieldId, '__last_modified_time', 'timestamptz', fieldName);
+  }
+
+  /**
+   * Creates a GeneratedColumnRule for CreatedBy.
+   */
+  static forCreatedBy(fieldId: string, fieldName?: string): GeneratedColumnRule {
+    return new GeneratedColumnRule(fieldId, '__created_by', 'text', fieldName);
+  }
+
+  /**
+   * Creates a GeneratedColumnRule for LastModifiedBy (when tracking all).
+   */
+  static forLastModifiedBy(fieldId: string, fieldName?: string): GeneratedColumnRule {
+    return new GeneratedColumnRule(fieldId, '__last_modified_by', 'text', fieldName);
+  }
+
+  /**
+   * Creates a GeneratedColumnRule for AutoNumber.
+   */
+  static forAutoNumber(fieldId: string, fieldName?: string): GeneratedColumnRule {
+    return new GeneratedColumnRule(fieldId, '__auto_number', 'double precision', fieldName);
+  }
+
+  async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
+    return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
+      const columnName = yield* resolveColumnName(ctx.field);
+      const columnResult = await ctx.introspector.getColumn(ctx.schema, ctx.tableName, columnName);
+      const column = yield* columnResult;
+
+      if (!column) {
+        return ok({
+          valid: false,
+          missing: [`generated column ${columnName}`],
+        });
+      }
+
+      if (!column.isGenerated) {
+        return ok({
+          valid: false,
+          missing: [`column ${columnName} exists but is not a GENERATED column`],
+        });
+      }
+
+      return ok({ valid: true });
+    });
+  }
+
+  up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const sourceColumn = this.sourceColumn;
+    const columnType = this.columnType;
+    const fieldId = this.fieldId;
+
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      const columnName = yield* resolveColumnName(ctx.field);
+      const definition = sql`${sql.raw(columnType)} generated always as (${sql.ref(sourceColumn)}) stored`;
+      const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
+      const statement = addGeneratedColumnStatement(table, columnName, definition);
+
+      // Update field meta to indicate this is persisted as a generated column
+      const updateMeta = ctx.db
+        .updateTable('field')
+        .set({ meta: JSON.stringify({ persistedAsGeneratedColumn: true }) })
+        .where('id', '=', fieldId);
+
+      return ok([statement, updateMeta]);
+    });
+  }
+
+  down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      const columnName = yield* resolveColumnName(ctx.field);
+      const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
+      return ok([dropColumnStatement(table, columnName)]);
+    });
+  }
+}

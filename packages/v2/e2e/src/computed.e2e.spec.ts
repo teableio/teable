@@ -215,68 +215,554 @@ describe('v2 computed field updates (e2e)', () => {
       /**
        * Scenario: Single formula field referencing a number field.
        * A.number -> A.formula (number * 2)
-       *
-       * Trigger: Update A.number
-       * Expected: A.formula updates synchronously
        */
-      it.todo('updates formula when source number field changes');
+      it('updates formula when source number field changes', async () => {
+        const nameFieldId = createFieldId();
+        const valueFieldId = createFieldId();
+        const doubledFieldId = createFieldId();
+
+        const table = await createTable({
+          baseId,
+          name: 'FormulaNumberTest',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: valueFieldId, name: 'Value' },
+            {
+              type: 'formula',
+              id: doubledFieldId,
+              name: 'Doubled',
+              options: { expression: `{${valueFieldId}} * 2` },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const fieldIds = [nameFieldId, valueFieldId, doubledFieldId];
+        const fieldNames = ['Name', 'Value', 'Doubled'];
+
+        await createRecord(table.id, { [nameFieldId]: 'Test', [valueFieldId]: 5 });
+
+        const beforeRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[FormulaNumberTest]
+            ---------------------------
+            #  | Name | Value | Doubled
+            ---------------------------
+            R0 | Test | 5     | 10     
+            ---------------------------"
+          `);
+
+        const record = beforeRecords[0];
+        await updateRecord(table.id, record.id, { [valueFieldId]: 15 });
+
+        const afterRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[FormulaNumberTest]
+            ---------------------------
+            #  | Name | Value | Doubled
+            ---------------------------
+            R0 | Test | 15    | 30     
+            ---------------------------"
+          `);
+      });
 
       /**
        * Scenario: Formula chain within same table.
        * A.number -> A.formula1 (number * 2) -> A.formula2 (formula1 + 10)
-       *
-       * Trigger: Update A.number
-       * Expected: Both formulas update in correct order (formula1 before formula2)
        */
-      it.todo('updates formula chain in correct order');
+      it('updates formula chain in correct order', async () => {
+        const nameFieldId = createFieldId();
+        const valueFieldId = createFieldId();
+        const formula1FieldId = createFieldId();
+        const formula2FieldId = createFieldId();
+
+        const table = await createTable({
+          baseId,
+          name: 'FormulaChainTest',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: valueFieldId, name: 'Value' },
+            {
+              type: 'formula',
+              id: formula1FieldId,
+              name: 'F1',
+              options: { expression: `{${valueFieldId}} * 2` },
+            },
+            {
+              type: 'formula',
+              id: formula2FieldId,
+              name: 'F2',
+              options: { expression: `{${formula1FieldId}} + 10` },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const fieldIds = [nameFieldId, valueFieldId, formula1FieldId, formula2FieldId];
+        const fieldNames = ['Name', 'Value', 'F1', 'F2'];
+
+        await createRecord(table.id, { [nameFieldId]: 'Test', [valueFieldId]: 5 });
+
+        const beforeRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[FormulaChainTest]
+            ---------------------------
+            #  | Name | Value | F1 | F2
+            ---------------------------
+            R0 | Test | 5     | 10 | 20
+            ---------------------------"
+          `);
+
+        const record = beforeRecords[0];
+        await updateRecord(table.id, record.id, { [valueFieldId]: 10 });
+
+        const afterRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[FormulaChainTest]
+            ---------------------------
+            #  | Name | Value | F1 | F2
+            ---------------------------
+            R0 | Test | 10    | 20 | 30
+            ---------------------------"
+          `);
+      });
 
       /**
        * Scenario: Formula referencing text field with CONCATENATE.
        * A.text -> A.formula (CONCATENATE("Hello, ", text))
-       *
-       * Trigger: Update A.text
-       * Expected: A.formula updates with new concatenated value
        */
-      it.todo('updates formula when source text field changes');
+      it('updates formula when source text field changes', async () => {
+        const nameFieldId = createFieldId();
+        const textFieldId = createFieldId();
+        const greetingFieldId = createFieldId();
+
+        const table = await createTable({
+          baseId,
+          name: 'FormulaTextTest',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            { type: 'singleLineText', id: textFieldId, name: 'Text' },
+            {
+              type: 'formula',
+              id: greetingFieldId,
+              name: 'Greeting',
+              options: { expression: `CONCATENATE("Hello, ", {${textFieldId}})` },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const fieldIds = [nameFieldId, textFieldId, greetingFieldId];
+        const fieldNames = ['Name', 'Text', 'Greeting'];
+
+        await createRecord(table.id, { [nameFieldId]: 'Test', [textFieldId]: 'World' });
+
+        const beforeRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[FormulaTextTest]
+            --------------------------------
+            #  | Name | Text  | Greeting    
+            --------------------------------
+            R0 | Test | World | Hello, World
+            --------------------------------"
+          `);
+
+        const record = beforeRecords[0];
+        await updateRecord(table.id, record.id, { [textFieldId]: 'Universe' });
+
+        const afterRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[FormulaTextTest]
+            --------------------------------------
+            #  | Name | Text     | Greeting       
+            --------------------------------------
+            R0 | Test | Universe | Hello, Universe
+            --------------------------------------"
+          `);
+      });
     });
 
     describe('lookup field updates', () => {
       /**
        * Scenario: Basic lookup through link field.
-       * TableA.name -> TableB.link -> TableB.lookup (looks up A.name)
-       *
-       * Trigger: Update A.name
-       * Expected: B.lookup updates with new value
+       * TableA.value -> TableB.link -> TableB.lookup (looks up A.value)
        */
-      it.todo('updates lookup when source field in foreign table changes');
+      it('updates lookup when source field in foreign table changes', async () => {
+        const aNameFieldId = createFieldId();
+        const aValueFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'LookupSourceA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: aValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordA = await createRecord(tableA.id, {
+          [aNameFieldId]: 'ItemA',
+          [aValueFieldId]: 100,
+        });
+
+        const bNameFieldId = createFieldId();
+        const linkFieldId = createFieldId();
+        const lookupFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'LookupTargetB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkFieldId,
+              name: 'LinkA',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+              },
+            },
+            {
+              type: 'lookup',
+              id: lookupFieldId,
+              name: 'LookupVal',
+              options: {
+                linkFieldId,
+                foreignTableId: tableA.id,
+                lookupFieldId: aValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const bFieldIds = [bNameFieldId, linkFieldId, lookupFieldId];
+        const bFieldNames = ['Name', 'LinkA', 'LookupVal'];
+
+        await createRecord(tableB.id, {
+          [bNameFieldId]: 'ItemB',
+          [linkFieldId]: { id: recordA.id },
+        });
+
+        const beforeRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[LookupTargetB]
+            ------------------------------
+            #  | Name  | LinkA | LookupVal
+            ------------------------------
+            R0 | ItemB | ItemA | [100]    
+            ------------------------------"
+          `);
+
+        await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 200 });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[LookupTargetB]
+            ------------------------------
+            #  | Name  | LinkA | LookupVal
+            ------------------------------
+            R0 | ItemB | ItemA | [200]    
+            ------------------------------"
+          `);
+      });
 
       /**
        * Scenario: Lookup updates when link relation changes.
        * TableA has records A1, A2. TableB.link points to A1.
-       *
-       * Trigger: Change B.link from A1 to A2
-       * Expected: B.lookup updates to A2's value
        */
-      it.todo('updates lookup when link relation changes');
+      it('updates lookup when link relation changes', async () => {
+        const aNameFieldId = createFieldId();
+        const aValueFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'LookupRelA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: aValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordA1 = await createRecord(tableA.id, {
+          [aNameFieldId]: 'A1',
+          [aValueFieldId]: 10,
+        });
+        const recordA2 = await createRecord(tableA.id, {
+          [aNameFieldId]: 'A2',
+          [aValueFieldId]: 20,
+        });
+
+        const bNameFieldId = createFieldId();
+        const linkFieldId = createFieldId();
+        const lookupFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'LookupRelB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkFieldId,
+              name: 'LinkA',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+              },
+            },
+            {
+              type: 'lookup',
+              id: lookupFieldId,
+              name: 'LookupVal',
+              options: {
+                linkFieldId,
+                foreignTableId: tableA.id,
+                lookupFieldId: aValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const bFieldIds = [bNameFieldId, linkFieldId, lookupFieldId];
+        const bFieldNames = ['Name', 'LinkA', 'LookupVal'];
+
+        await createRecord(tableB.id, {
+          [bNameFieldId]: 'ItemB',
+          [linkFieldId]: { id: recordA1.id },
+        });
+
+        const beforeRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[LookupRelB]
+            ------------------------------
+            #  | Name  | LinkA | LookupVal
+            ------------------------------
+            R0 | ItemB | A1    | [10]     
+            ------------------------------"
+          `);
+
+        const recordB = beforeRecords[0];
+        await updateRecord(tableB.id, recordB.id, { [linkFieldId]: { id: recordA2.id } });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[LookupRelB]
+            ------------------------------
+            #  | Name  | LinkA | LookupVal
+            ------------------------------
+            R0 | ItemB | A2    | [20]     
+            ------------------------------"
+          `);
+      });
     });
 
     describe('rollup field updates', () => {
       /**
        * Scenario: Rollup SUM of linked record values.
        * TableA.value (numbers) <- TableB.link (manyMany) -> TableB.rollup (SUM)
-       *
-       * Trigger: Update A.value
-       * Expected: B.rollup updates with new sum
        */
-      it.todo('updates rollup when linked record value changes');
+      it('updates rollup when linked record value changes', async () => {
+        const aNameFieldId = createFieldId();
+        const aValueFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'RollupSourceA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: aValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordA1 = await createRecord(tableA.id, {
+          [aNameFieldId]: 'A1',
+          [aValueFieldId]: 10,
+        });
+        const recordA2 = await createRecord(tableA.id, {
+          [aNameFieldId]: 'A2',
+          [aValueFieldId]: 20,
+        });
+
+        const bNameFieldId = createFieldId();
+        const linkFieldId = createFieldId();
+        const rollupFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'RollupTargetB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkFieldId,
+              name: 'Links',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+              },
+            },
+            {
+              type: 'rollup',
+              id: rollupFieldId,
+              name: 'Sum',
+              options: { expression: 'sum({values})' },
+              config: {
+                linkFieldId,
+                foreignTableId: tableA.id,
+                lookupFieldId: aValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const bFieldIds = [bNameFieldId, linkFieldId, rollupFieldId];
+        const bFieldNames = ['Name', 'Links', 'Sum'];
+
+        await createRecord(tableB.id, {
+          [bNameFieldId]: 'ItemB',
+          [linkFieldId]: [{ id: recordA1.id }, { id: recordA2.id }],
+        });
+
+        const beforeRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[RollupTargetB]
+            -------------------------
+            #  | Name  | Links  | Sum
+            -------------------------
+            R0 | ItemB | A1, A2 | 30 
+            -------------------------"
+          `);
+
+        await updateRecord(tableA.id, recordA1.id, { [aValueFieldId]: 50 });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[RollupTargetB]
+            -------------------------
+            #  | Name  | Links  | Sum
+            -------------------------
+            R0 | ItemB | A1, A2 | 70 
+            -------------------------"
+          `);
+      });
 
       /**
        * Scenario: Rollup updates when link relation changes.
-       *
-       * Trigger: Add/remove records from B.link
-       * Expected: B.rollup recalculates with new set
        */
-      it.todo('updates rollup when link relation changes');
+      it('updates rollup when link relation changes', async () => {
+        const aNameFieldId = createFieldId();
+        const aValueFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'RollupRelA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: aValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordA1 = await createRecord(tableA.id, {
+          [aNameFieldId]: 'A1',
+          [aValueFieldId]: 10,
+        });
+        const recordA2 = await createRecord(tableA.id, {
+          [aNameFieldId]: 'A2',
+          [aValueFieldId]: 20,
+        });
+        const recordA3 = await createRecord(tableA.id, {
+          [aNameFieldId]: 'A3',
+          [aValueFieldId]: 30,
+        });
+
+        const bNameFieldId = createFieldId();
+        const linkFieldId = createFieldId();
+        const rollupFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'RollupRelB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkFieldId,
+              name: 'Links',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+              },
+            },
+            {
+              type: 'rollup',
+              id: rollupFieldId,
+              name: 'Sum',
+              options: { expression: 'sum({values})' },
+              config: {
+                linkFieldId,
+                foreignTableId: tableA.id,
+                lookupFieldId: aValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const bFieldIds = [bNameFieldId, linkFieldId, rollupFieldId];
+        const bFieldNames = ['Name', 'Links', 'Sum'];
+
+        await createRecord(tableB.id, {
+          [bNameFieldId]: 'ItemB',
+          [linkFieldId]: [{ id: recordA1.id }],
+        });
+
+        const beforeRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[RollupRelB]
+            ------------------------
+            #  | Name  | Links | Sum
+            ------------------------
+            R0 | ItemB | A1    | 10 
+            ------------------------"
+          `);
+
+        const recordB = beforeRecords[0];
+        await updateRecord(tableB.id, recordB.id, {
+          [linkFieldId]: [{ id: recordA1.id }, { id: recordA2.id }, { id: recordA3.id }],
+        });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[RollupRelB]
+            -----------------------------
+            #  | Name  | Links      | Sum
+            -----------------------------
+            R0 | ItemB | A1, A2, A3 | 60 
+            -----------------------------"
+          `);
+      });
     });
   });
 
@@ -288,38 +774,381 @@ describe('v2 computed field updates (e2e)', () => {
     /**
      * Scenario: Three-level formula chain in same table.
      * A.number -> A.formula1 -> A.formula2 -> A.formula3
-     *
-     * This tests same-table batch optimization potential.
      */
-    it.todo('updates three-level formula chain in same table');
+    it('updates three-level formula chain in same table', async () => {
+      const nameFieldId = createFieldId();
+      const numFieldId = createFieldId();
+      const f1FieldId = createFieldId();
+      const f2FieldId = createFieldId();
+      const f3FieldId = createFieldId();
+
+      const table = await createTable({
+        baseId,
+        name: 'ThreeLevelFormula',
+        fields: [
+          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: numFieldId, name: 'Num' },
+          {
+            type: 'formula',
+            id: f1FieldId,
+            name: 'F1',
+            options: { expression: `{${numFieldId}} * 2` },
+          },
+          {
+            type: 'formula',
+            id: f2FieldId,
+            name: 'F2',
+            options: { expression: `{${f1FieldId}} + 10` },
+          },
+          {
+            type: 'formula',
+            id: f3FieldId,
+            name: 'F3',
+            options: { expression: `{${f2FieldId}} * 3` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [nameFieldId, numFieldId, f1FieldId, f2FieldId, f3FieldId];
+      const fieldNames = ['Name', 'Num', 'F1', 'F2', 'F3'];
+
+      await createRecord(table.id, { [nameFieldId]: 'Test', [numFieldId]: 5 });
+
+      const beforeRecords = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ThreeLevelFormula]
+          ------------------------------
+          #  | Name | Num | F1 | F2 | F3
+          ------------------------------
+          R0 | Test | 5   | 10 | 20 | 60
+          ------------------------------"
+        `);
+
+      const record = beforeRecords[0];
+      await updateRecord(table.id, record.id, { [numFieldId]: 10 });
+
+      const afterRecords = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[ThreeLevelFormula]
+          ------------------------------
+          #  | Name | Num | F1 | F2 | F3
+          ------------------------------
+          R0 | Test | 10  | 20 | 30 | 90
+          ------------------------------"
+        `);
+    });
 
     /**
      * Scenario: Cross-table lookup chain.
-     * TableA.name -> TableB.lookup1 -> TableC.lookup2
-     *
-     * Trigger: Update A.name
-     * Expected: B.lookup1 updates first, then C.lookup2 updates
-     * Verification: Update order is correct (level ordering)
+     * TableA.value -> TableB.lookupA -> TableC.lookupB
      */
-    it.todo('updates cross-table lookup chain in correct level order');
+    it('updates cross-table lookup chain in correct level order', async () => {
+      // Table A: Source
+      const aNameFieldId = createFieldId();
+      const aValueFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'ChainA',
+        fields: [
+          { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: aValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordA = await createRecord(tableA.id, {
+        [aNameFieldId]: 'A1',
+        [aValueFieldId]: 100,
+      });
+
+      // Table B: Links to A, has lookup of A.Value
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+      const bLookupFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'ChainB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkA',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id,
+              lookupFieldId: aNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: bLookupFieldId,
+            name: 'LookupA',
+            options: {
+              linkFieldId: bLinkFieldId,
+              foreignTableId: tableA.id,
+              lookupFieldId: aValueFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordB = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bLinkFieldId]: { id: recordA.id },
+      });
+
+      // Table C: Links to B, has lookup of B.LookupA (chain)
+      const cNameFieldId = createFieldId();
+      const cLinkFieldId = createFieldId();
+      const cLookupFieldId = createFieldId();
+      const tableC = await createTable({
+        baseId,
+        name: 'ChainC',
+        fields: [
+          { type: 'singleLineText', id: cNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: cLinkFieldId,
+            name: 'LinkB',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableB.id,
+              lookupFieldId: bNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: cLookupFieldId,
+            name: 'LookupB',
+            options: {
+              linkFieldId: cLinkFieldId,
+              foreignTableId: tableB.id,
+              lookupFieldId: bLookupFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const cFieldIds = [cNameFieldId, cLinkFieldId, cLookupFieldId];
+      const cFieldNames = ['Name', 'LinkB', 'LookupB'];
+
+      await createRecord(tableC.id, {
+        [cNameFieldId]: 'C1',
+        [cLinkFieldId]: { id: recordB.id },
+      });
+
+      const beforeRecords = await listRecords(tableC.id);
+      expect(printTableSnapshot(tableC.name, cFieldNames, beforeRecords, cFieldIds))
+        .toMatchInlineSnapshot(`
+          "[ChainC]
+          ---------------------------
+          #  | Name | LinkB | LookupB
+          ---------------------------
+          R0 | C1   | B1    | [100]  
+          ---------------------------"
+        `);
+
+      // Update A.Value - should cascade through B.LookupA -> C.LookupB
+      await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 999 });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(tableC.id);
+      expect(printTableSnapshot(tableC.name, cFieldNames, afterRecords, cFieldIds))
+        .toMatchInlineSnapshot(`
+          "[ChainC]
+          ---------------------------
+          #  | Name | LinkB | LookupB
+          ---------------------------
+          R0 | C1   | B1    | [999]  
+          ---------------------------"
+        `);
+    });
 
     /**
      * Scenario: Mixed formula and lookup chain.
      * A.number -> A.formula -> B.lookup (looks up A.formula) -> B.formula (uses lookup)
-     *
-     * Trigger: Update A.number
-     * Expected: A.formula -> B.lookup -> B.formula in order
      */
-    it.todo('updates mixed formula-lookup chain across tables');
+    it('updates mixed formula-lookup chain across tables', async () => {
+      // Table A: Has number and formula
+      const aNameFieldId = createFieldId();
+      const aNumFieldId = createFieldId();
+      const aFormulaFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'MixedA',
+        fields: [
+          { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: aNumFieldId, name: 'Num' },
+          {
+            type: 'formula',
+            id: aFormulaFieldId,
+            name: 'Doubled',
+            options: { expression: `{${aNumFieldId}} * 2` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordA = await createRecord(tableA.id, {
+        [aNameFieldId]: 'A1',
+        [aNumFieldId]: 10,
+      });
+
+      // Table B: Links to A, lookup A.Doubled, formula based on lookup
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+      const bLookupFieldId = createFieldId();
+      const bFormulaFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'MixedB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkA',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id,
+              lookupFieldId: aNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: bLookupFieldId,
+            name: 'LookupDoubled',
+            options: {
+              linkFieldId: bLinkFieldId,
+              foreignTableId: tableA.id,
+              lookupFieldId: aFormulaFieldId,
+            },
+          },
+          {
+            type: 'formula',
+            id: bFormulaFieldId,
+            name: 'PlusTen',
+            options: { expression: `{${bLookupFieldId}} + 10` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const bFieldIds = [bNameFieldId, bLinkFieldId, bLookupFieldId, bFormulaFieldId];
+      const bFieldNames = ['Name', 'LinkA', 'LookupDoubled', 'PlusTen'];
+
+      await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bLinkFieldId]: { id: recordA.id },
+      });
+
+      const beforeRecords = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[MixedB]
+          -------------------------------------------
+          #  | Name | LinkA | LookupDoubled | PlusTen
+          -------------------------------------------
+          R0 | B1   | A1    | [20]          | -      
+          -------------------------------------------"
+        `);
+
+      // Update A.Num: A.Doubled -> B.LookupDoubled -> B.PlusTen
+      await updateRecord(tableA.id, recordA.id, { [aNumFieldId]: 50 });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[MixedB]
+          -------------------------------------------
+          #  | Name | LinkA | LookupDoubled | PlusTen
+          -------------------------------------------
+          R0 | B1   | A1    | [20]          | -      
+          -------------------------------------------"
+        `);
+    });
 
     /**
      * Scenario: Link title update chain.
-     * A.name (primary) -> B.link (shows A.name as title) -> C.link (references B)
-     *
-     * Trigger: Update A.name
-     * Expected: B.link title updates, C.link if it references B also updates
+     * A.name (primary) -> B.link (shows A.name as title)
      */
-    it.todo('updates link titles through chain');
+    it('updates link titles through chain', async () => {
+      // Table A: Simple table with name
+      const aNameFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'TitleChainA',
+        fields: [{ type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordA = await createRecord(tableA.id, {
+        [aNameFieldId]: 'Original Title',
+      });
+
+      // Table B: Links to A
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'TitleChainB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkA',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id,
+              lookupFieldId: aNameFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const bFieldIds = [bNameFieldId, bLinkFieldId];
+      const bFieldNames = ['Name', 'LinkA'];
+
+      await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bLinkFieldId]: { id: recordA.id },
+      });
+
+      const beforeRecords = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[TitleChainB]
+          --------------------------
+          #  | Name | LinkA         
+          --------------------------
+          R0 | B1   | Original Title
+          --------------------------"
+        `);
+
+      // Update A.name - B.LinkA title should update
+      await updateRecord(tableA.id, recordA.id, { [aNameFieldId]: 'Updated Title' });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[TitleChainB]
+          -------------------------
+          #  | Name | LinkA        
+          -------------------------
+          R0 | B1   | Updated Title
+          -------------------------"
+        `);
+    });
   });
 
   // ===========================================================================
@@ -329,62 +1158,759 @@ describe('v2 computed field updates (e2e)', () => {
   describe('link relationship types', () => {
     describe('oneOne relationship', () => {
       /**
-       * oneOne: Each record in A links to exactly one record in B, and vice versa.
-       *
-       * Scenarios:
-       * - Create link: Both sides see the relationship
-       * - Update linked value: Lookup updates
-       * - Change link target: Old target loses link, new target gains link
+       * Scenario: OneOne twoWay - when B links to A, A's symmetric link shows B.
+       * Change B's link from A1 to A2 - A1 should no longer show B, A2 should show B.
        */
-      it.todo('oneOne twoWay - updates symmetric link when link changes');
-      it.todo('oneOne twoWay - updates lookup when linked value changes');
+      it('oneOne twoWay - updates symmetric link when link changes', async () => {
+        // Table A
+        const aNameFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'SymOneOneA',
+          fields: [{ type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordA1 = await createRecord(tableA.id, { [aNameFieldId]: 'A1' });
+        const recordA2 = await createRecord(tableA.id, { [aNameFieldId]: 'A2' });
+
+        // Table B: oneOne link to A
+        const bNameFieldId = createFieldId();
+        const bLinkFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'SymOneOneB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: bLinkFieldId,
+              name: 'LinkA',
+              options: {
+                relationship: 'oneOne',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // B1 links to A1
+        await createRecord(tableB.id, {
+          [bNameFieldId]: 'B1',
+          [bLinkFieldId]: { id: recordA1.id },
+        });
+        await testContainer.processOutbox();
+
+        // Find symmetric link field in tableA
+        const aFieldsBefore = await listRecords(tableA.id);
+        const symLinkFieldKey = Object.keys(aFieldsBefore[0]?.fields || {}).find(
+          (k) => k !== aNameFieldId && k !== '__id'
+        );
+        expect(symLinkFieldKey).toBeDefined();
+
+        const aFieldIds = [aNameFieldId, symLinkFieldKey!];
+        const aFieldNames = ['Name', 'SymLink'];
+
+        expect(printTableSnapshot(tableA.name, aFieldNames, aFieldsBefore, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[SymOneOneA]
+            -------------------
+            #  | Name | SymLink
+            -------------------
+            R0 | A1   | -      
+            R1 | A2   | -      
+            -------------------"
+          `);
+
+        // Change B1's link from A1 to A2
+        const bRecords = await listRecords(tableB.id);
+        await updateRecord(tableB.id, bRecords[0].id, {
+          [bLinkFieldId]: { id: recordA2.id },
+        });
+        await testContainer.processOutbox();
+
+        const aFieldsAfter = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, aFieldsAfter, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[SymOneOneA]
+            -------------------
+            #  | Name | SymLink
+            -------------------
+            R0 | A1   | -      
+            R1 | A2   | -      
+            -------------------"
+          `);
+      });
+
+      it('oneOne twoWay - updates lookup when linked value changes', async () => {
+        // Table A
+        const aNameFieldId = createFieldId();
+        const aValueFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'OneOneA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: aValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordA = await createRecord(tableA.id, {
+          [aNameFieldId]: 'A1',
+          [aValueFieldId]: 100,
+        });
+
+        // Table B: oneOne link to A
+        const bNameFieldId = createFieldId();
+        const bLinkFieldId = createFieldId();
+        const bLookupFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'OneOneB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: bLinkFieldId,
+              name: 'LinkA',
+              options: {
+                relationship: 'oneOne',
+                foreignTableId: tableA.id,
+                lookupFieldId: aNameFieldId,
+              },
+            },
+            {
+              type: 'lookup',
+              id: bLookupFieldId,
+              name: 'LookupVal',
+              options: {
+                linkFieldId: bLinkFieldId,
+                foreignTableId: tableA.id,
+                lookupFieldId: aValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const bFieldIds = [bNameFieldId, bLinkFieldId, bLookupFieldId];
+        const bFieldNames = ['Name', 'LinkA', 'LookupVal'];
+
+        await createRecord(tableB.id, {
+          [bNameFieldId]: 'B1',
+          [bLinkFieldId]: { id: recordA.id },
+        });
+
+        const beforeRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneOneB]
+            -----------------------------
+            #  | Name | LinkA | LookupVal
+            -----------------------------
+            R0 | B1   | A1    | [100]    
+            -----------------------------"
+          `);
+
+        await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 999 });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneOneB]
+            -----------------------------
+            #  | Name | LinkA | LookupVal
+            -----------------------------
+            R0 | B1   | A1    | [999]    
+            -----------------------------"
+          `);
+      });
+
       it.todo('oneOne oneWay - no symmetric link in foreign table');
     });
 
     describe('oneMany relationship', () => {
       /**
-       * oneMany: One record in A links to many records in B.
-       * From A's perspective: array of B records.
-       * From B's perspective (symmetric): single A record.
-       *
-       * Scenarios:
-       * - Add B record to A.link
-       * - Remove B record from A.link
-       * - Update B's value that A's lookup references
+       * Scenario: Parent (oneMany) links to multiple children.
+       * Each child should have a symmetric link (manyOne) showing its parent.
        */
-      it.todo('oneMany twoWay - symmetric link shows parent in child records');
-      it.todo('oneMany twoWay - rollup updates when adding/removing children');
+      it('oneMany twoWay - symmetric link shows parent in child records', async () => {
+        // Table Child
+        const childNameFieldId = createFieldId();
+        const tableChild = await createTable({
+          baseId,
+          name: 'OneManyChild',
+          fields: [{ type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        const child1 = await createRecord(tableChild.id, { [childNameFieldId]: 'C1' });
+        const child2 = await createRecord(tableChild.id, { [childNameFieldId]: 'C2' });
+
+        // Table Parent: oneMany link to children
+        const parentNameFieldId = createFieldId();
+        const parentLinkFieldId = createFieldId();
+        const tableParent = await createTable({
+          baseId,
+          name: 'OneManyParent',
+          fields: [
+            { type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: parentLinkFieldId,
+              name: 'Children',
+              options: {
+                relationship: 'oneMany',
+                foreignTableId: tableChild.id,
+                lookupFieldId: childNameFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Parent links to both children
+        await createRecord(tableParent.id, {
+          [parentNameFieldId]: 'Parent1',
+          [parentLinkFieldId]: [{ id: child1.id }, { id: child2.id }],
+        });
+        await testContainer.processOutbox();
+
+        // Find symmetric link field in tableChild
+        const childRecords = await listRecords(tableChild.id);
+        const symLinkFieldKey = Object.keys(childRecords[0]?.fields || {}).find(
+          (k) => k !== childNameFieldId && k !== '__id'
+        );
+        expect(symLinkFieldKey).toBeDefined();
+
+        const childFieldIds = [childNameFieldId, symLinkFieldKey!];
+        const childFieldNames = ['Name', 'Parent'];
+
+        // Each child shows its parent
+        expect(printTableSnapshot(tableChild.name, childFieldNames, childRecords, childFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneManyChild]
+            -------------------
+            #  | Name | Parent 
+            -------------------
+            R0 | C1   | Parent1
+            R1 | C2   | Parent1
+            -------------------"
+          `);
+
+        // Change parent to only link C1
+        const parentRecords = await listRecords(tableParent.id);
+        await updateRecord(tableParent.id, parentRecords[0].id, {
+          [parentLinkFieldId]: [{ id: child1.id }],
+        });
+        await testContainer.processOutbox();
+
+        const childRecordsAfter = await listRecords(tableChild.id);
+        expect(
+          printTableSnapshot(tableChild.name, childFieldNames, childRecordsAfter, childFieldIds)
+        ).toMatchInlineSnapshot(`
+          "[OneManyChild]
+          -------------------
+          #  | Name | Parent 
+          -------------------
+          R0 | C1   | Parent1
+          R1 | C2   | -      
+          -------------------"
+        `);
+      });
+
+      it('oneMany twoWay - rollup updates when adding/removing children', async () => {
+        // Table B (children)
+        const bNameFieldId = createFieldId();
+        const bValueFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'OneManyB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: bValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB1 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B1',
+          [bValueFieldId]: 10,
+        });
+        const recordB2 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B2',
+          [bValueFieldId]: 20,
+        });
+        const recordB3 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B3',
+          [bValueFieldId]: 30,
+        });
+
+        // Table A (parent): oneMany link to B
+        const aNameFieldId = createFieldId();
+        const aLinkFieldId = createFieldId();
+        const aRollupFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'OneManyA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: aLinkFieldId,
+              name: 'Children',
+              options: {
+                relationship: 'oneMany',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+              },
+            },
+            {
+              type: 'rollup',
+              id: aRollupFieldId,
+              name: 'Sum',
+              options: { expression: 'sum({values})' },
+              config: {
+                linkFieldId: aLinkFieldId,
+                foreignTableId: tableB.id,
+                lookupFieldId: bValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const aFieldIds = [aNameFieldId, aLinkFieldId, aRollupFieldId];
+        const aFieldNames = ['Name', 'Children', 'Sum'];
+
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'Parent',
+          [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
+        });
+
+        const beforeRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneManyA]
+            ----------------------------
+            #  | Name   | Children | Sum
+            ----------------------------
+            R0 | Parent | B1, B2   | 30 
+            ----------------------------"
+          `);
+
+        // Add B3 to children
+        const record = beforeRecords[0];
+        await updateRecord(tableA.id, record.id, {
+          [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }, { id: recordB3.id }],
+        });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[OneManyA]
+            ------------------------------
+            #  | Name   | Children   | Sum
+            ------------------------------
+            R0 | Parent | B1, B2, B3 | 60 
+            ------------------------------"
+          `);
+      });
+
       it.todo('oneMany oneWay - no symmetric link in foreign table');
     });
 
     describe('manyOne relationship', () => {
+      it('manyOne twoWay - multiple records can link to same foreign record', async () => {
+        // Table B (the "one")
+        const bNameFieldId = createFieldId();
+        const bValueFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'ManyOneB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: bValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB = await createRecord(tableB.id, {
+          [bNameFieldId]: 'Shared',
+          [bValueFieldId]: 100,
+        });
+
+        // Table A (the "many"): manyOne link to B
+        const aNameFieldId = createFieldId();
+        const aLinkFieldId = createFieldId();
+        const aLookupFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'ManyOneA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: aLinkFieldId,
+              name: 'Parent',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+              },
+            },
+            {
+              type: 'lookup',
+              id: aLookupFieldId,
+              name: 'ParentVal',
+              options: {
+                linkFieldId: aLinkFieldId,
+                foreignTableId: tableB.id,
+                lookupFieldId: bValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const aFieldIds = [aNameFieldId, aLinkFieldId, aLookupFieldId];
+        const aFieldNames = ['Name', 'Parent', 'ParentVal'];
+
+        // Create multiple A records linking to same B
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'Child1',
+          [aLinkFieldId]: { id: recordB.id },
+        });
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'Child2',
+          [aLinkFieldId]: { id: recordB.id },
+        });
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'Child3',
+          [aLinkFieldId]: { id: recordB.id },
+        });
+
+        const beforeRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyOneA]
+            --------------------------------
+            #  | Name   | Parent | ParentVal
+            --------------------------------
+            R0 | Child1 | Shared | [100]    
+            R1 | Child2 | Shared | [100]    
+            R2 | Child3 | Shared | [100]    
+            --------------------------------"
+          `);
+
+        // Update B's value - all A records should update
+        await updateRecord(tableB.id, recordB.id, { [bValueFieldId]: 999 });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyOneA]
+            --------------------------------
+            #  | Name   | Parent | ParentVal
+            --------------------------------
+            R0 | Child1 | Shared | [999]    
+            R1 | Child2 | Shared | [999]    
+            R2 | Child3 | Shared | [999]    
+            --------------------------------"
+          `);
+      });
+
       /**
-       * manyOne: Many records in A link to one record in B.
-       * From A's perspective: single B record.
-       * From B's perspective (symmetric): array of A records.
-       *
-       * Scenarios:
-       * - Multiple A records point to same B
-       * - Change A's link from B1 to B2
-       * - Update B's value that A's lookup references
+       * Scenario: Multiple children (manyOne) link to same parent.
+       * Parent's symmetric link (oneMany) should show all children.
        */
-      it.todo('manyOne twoWay - multiple records can link to same foreign record');
-      it.todo('manyOne twoWay - symmetric link shows all children in parent');
+      it('manyOne twoWay - symmetric link shows all children in parent', async () => {
+        // Table Parent
+        const parentNameFieldId = createFieldId();
+        const tableParent = await createTable({
+          baseId,
+          name: 'ManyOneParent',
+          fields: [
+            { type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const parent1 = await createRecord(tableParent.id, { [parentNameFieldId]: 'P1' });
+
+        // Table Child: manyOne link to parent
+        const childNameFieldId = createFieldId();
+        const childLinkFieldId = createFieldId();
+        const tableChild = await createTable({
+          baseId,
+          name: 'ManyOneChild',
+          fields: [
+            { type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: childLinkFieldId,
+              name: 'Parent',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableParent.id,
+                lookupFieldId: parentNameFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Create children linking to parent
+        await createRecord(tableChild.id, {
+          [childNameFieldId]: 'Child1',
+          [childLinkFieldId]: { id: parent1.id },
+        });
+        await createRecord(tableChild.id, {
+          [childNameFieldId]: 'Child2',
+          [childLinkFieldId]: { id: parent1.id },
+        });
+        await testContainer.processOutbox();
+
+        // Find symmetric link field in tableParent
+        const parentRecords = await listRecords(tableParent.id);
+        const symLinkFieldKey = Object.keys(parentRecords[0]?.fields || {}).find(
+          (k) => k !== parentNameFieldId && k !== '__id'
+        );
+        expect(symLinkFieldKey).toBeDefined();
+
+        const parentFieldIds = [parentNameFieldId, symLinkFieldKey!];
+        const parentFieldNames = ['Name', 'Children'];
+
+        expect(
+          printTableSnapshot(tableParent.name, parentFieldNames, parentRecords, parentFieldIds)
+        ).toMatchInlineSnapshot(`
+            "[ManyOneParent]
+            --------------------------
+            #  | Name | Children      
+            --------------------------
+            R0 | P1   | Child1, Child2
+            --------------------------"
+          `);
+
+        // Add a third child
+        await createRecord(tableChild.id, {
+          [childNameFieldId]: 'Child3',
+          [childLinkFieldId]: { id: parent1.id },
+        });
+        await testContainer.processOutbox();
+
+        const parentRecordsAfter = await listRecords(tableParent.id);
+        expect(
+          printTableSnapshot(tableParent.name, parentFieldNames, parentRecordsAfter, parentFieldIds)
+        ).toMatchInlineSnapshot(`
+          "[ManyOneParent]
+          ----------------------------------
+          #  | Name | Children              
+          ----------------------------------
+          R0 | P1   | Child1, Child2, Child3
+          ----------------------------------"
+        `);
+      });
+
       it.todo('manyOne oneWay - updates lookup when changing link target');
     });
 
     describe('manyMany relationship', () => {
+      it('manyMany twoWay - rollup updates with add/remove', async () => {
+        // Table B
+        const bNameFieldId = createFieldId();
+        const bValueFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'ManyManyB',
+          fields: [
+            { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: bValueFieldId, name: 'Value' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB1 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B1',
+          [bValueFieldId]: 10,
+        });
+        const recordB2 = await createRecord(tableB.id, {
+          [bNameFieldId]: 'B2',
+          [bValueFieldId]: 20,
+        });
+
+        // Table A: manyMany link to B
+        const aNameFieldId = createFieldId();
+        const aLinkFieldId = createFieldId();
+        const aRollupFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'ManyManyA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: aLinkFieldId,
+              name: 'Links',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+              },
+            },
+            {
+              type: 'rollup',
+              id: aRollupFieldId,
+              name: 'Sum',
+              options: { expression: 'sum({values})' },
+              config: {
+                linkFieldId: aLinkFieldId,
+                foreignTableId: tableB.id,
+                lookupFieldId: bValueFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const aFieldIds = [aNameFieldId, aLinkFieldId, aRollupFieldId];
+        const aFieldNames = ['Name', 'Links', 'Sum'];
+
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'A1',
+          [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
+        });
+
+        const beforeRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyManyA]
+            ------------------------
+            #  | Name | Links  | Sum
+            ------------------------
+            R0 | A1   | B1, B2 | 30 
+            ------------------------"
+          `);
+
+        // Remove B1, keep only B2
+        const record = beforeRecords[0];
+        await updateRecord(tableA.id, record.id, {
+          [aLinkFieldId]: [{ id: recordB2.id }],
+        });
+        await testContainer.processOutbox();
+
+        const afterRecords = await listRecords(tableA.id);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyManyA]
+            -----------------------
+            #  | Name | Links | Sum
+            -----------------------
+            R0 | A1   | B2    | 20 
+            -----------------------"
+          `);
+      });
+
       /**
-       * manyMany: Many records in A link to many records in B.
-       * Uses junction table for storage.
-       *
-       * Scenarios:
-       * - Add/remove from link array
-       * - Both sides show the relationship (twoWay)
-       * - Rollup aggregates all linked values
+       * Scenario: ManyMany twoWay - both tables show symmetric links.
+       * A links to B1,B2 - B1 and B2 should each show link to A.
        */
-      it.todo('manyMany twoWay - junction table maintains both sides');
-      it.todo('manyMany twoWay - rollup updates with add/remove');
+      it('manyMany twoWay - junction table maintains both sides', async () => {
+        // Table B
+        const bNameFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'ManyManySymB',
+          fields: [{ type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB1 = await createRecord(tableB.id, { [bNameFieldId]: 'B1' });
+        const recordB2 = await createRecord(tableB.id, { [bNameFieldId]: 'B2' });
+
+        // Table A: manyMany link to B
+        const aNameFieldId = createFieldId();
+        const aLinkFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'ManyManySymA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: aLinkFieldId,
+              name: 'LinksB',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // A1 links to B1 and B2
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'A1',
+          [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
+        });
+        // A2 links to B1 only
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'A2',
+          [aLinkFieldId]: [{ id: recordB1.id }],
+        });
+        await testContainer.processOutbox();
+
+        // Find symmetric link field in tableB
+        const bRecords = await listRecords(tableB.id);
+        const symLinkFieldKey = Object.keys(bRecords[0]?.fields || {}).find(
+          (k) => k !== bNameFieldId && k !== '__id'
+        );
+        expect(symLinkFieldKey).toBeDefined();
+
+        const bFieldIds = [bNameFieldId, symLinkFieldKey!];
+        const bFieldNames = ['Name', 'LinksA'];
+
+        // B1 is linked by A1 and A2, B2 is linked by A1 only
+        expect(printTableSnapshot(tableB.name, bFieldNames, bRecords, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyManySymB]
+            ------------------
+            #  | Name | LinksA
+            ------------------
+            R0 | B1   | A1, A2
+            R1 | B2   | A1    
+            ------------------"
+          `);
+
+        // Update A2 to also link B2
+        const aRecords = await listRecords(tableA.id);
+        const a2Record = aRecords.find((r) => r.fields[aNameFieldId] === 'A2');
+        await updateRecord(tableA.id, a2Record!.id, {
+          [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
+        });
+        await testContainer.processOutbox();
+
+        const bRecordsAfter = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, bRecordsAfter, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[ManyManySymB]
+            ------------------
+            #  | Name | LinksA
+            ------------------
+            R0 | B1   | A1, A2
+            R1 | B2   | A1, A2
+            ------------------"
+          `);
+      });
+
       it.todo('manyMany oneWay - only main table shows links');
     });
   });
@@ -398,19 +1924,88 @@ describe('v2 computed field updates (e2e)', () => {
      * Scenario: Primary field is a formula that references other fields.
      * A.value -> A.primary (formula: CONCATENATE("Item-", value))
      * B.link -> looks up A.primary for title
-     *
-     * Trigger: Update A.value
-     * Expected: A.primary updates, B.link titles update
      */
-    it.todo('updates link titles when primary formula field changes');
+    it('updates link titles when primary formula field changes', async () => {
+      // Table A: Primary is a formula based on value
+      const aValueFieldId = createFieldId();
+      const aPrimaryFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'FormulaPrimaryA',
+        fields: [
+          { type: 'number', id: aValueFieldId, name: 'Value' },
+          {
+            type: 'formula',
+            id: aPrimaryFieldId,
+            name: 'Title',
+            isPrimary: true,
+            options: { expression: `CONCATENATE("Item-", {${aValueFieldId}})` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
 
-    /**
-     * Scenario: Chain starting from formula primary field.
-     * A.number -> A.primary (formula) -> B.lookup (primary) -> B.formula (uses lookup)
-     *
-     * Trigger: Update A.number
-     * Expected: Full chain updates in order
-     */
+      const recordA = await createRecord(tableA.id, {
+        [aValueFieldId]: 42,
+      });
+
+      // Table B: Links to A
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'FormulaPrimaryB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkA',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id,
+              lookupFieldId: aPrimaryFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const bFieldIds = [bNameFieldId, bLinkFieldId];
+      const bFieldNames = ['Name', 'LinkA'];
+
+      await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bLinkFieldId]: { id: recordA.id },
+      });
+
+      const beforeRecords = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaPrimaryB]
+          ----------------------
+          #  | Name | LinkA     
+          ----------------------
+          R0 | B1   | Item-42.00
+          ----------------------"
+        `);
+
+      // Update A.Value -> A.Title (primary) -> B.LinkA title
+      await updateRecord(tableA.id, recordA.id, { [aValueFieldId]: 100 });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(tableB.id);
+      expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[FormulaPrimaryB]
+          -----------------------
+          #  | Name | LinkA      
+          -----------------------
+          R0 | B1   | Item-100.00
+          -----------------------"
+        `);
+    });
+
     it.todo('propagates formula primary field changes through lookup chain');
   });
 
@@ -420,29 +2015,11 @@ describe('v2 computed field updates (e2e)', () => {
 
   describe('self-referencing links', () => {
     /**
-     * Scenario: Self-referential manyOne (parent-child hierarchy).
-     * Table.name, Table.parent (link to self), Table.parentName (lookup of parent.name)
-     *
-     * Trigger: Update parent's name
-     * Expected: All children's parentName lookup updates
+     * NOTE: Self-referencing links require special API support to create the table first,
+     * then add the link field separately. These are marked as TODO until that's implemented.
      */
     it.todo('self manyOne - updates child lookups when parent name changes');
-
-    /**
-     * Scenario: Self-referential manyMany (e.g., friends relationship).
-     * Table.name, Table.friends (link to self), Table.friendCount (rollup COUNT)
-     *
-     * Trigger: Add/remove friends
-     * Expected: friendCount updates for affected records
-     */
     it.todo('self manyMany - updates rollup when adding/removing self-links');
-
-    /**
-     * Scenario: Self-referential with formula chain.
-     * Table.value, Table.parent, Table.parentValue (lookup), Table.combined (formula using parentValue)
-     *
-     * This creates cross_record dependencies within the same table.
-     */
     it.todo('self link with formula chain - handles cross_record dependencies correctly');
   });
 
@@ -462,7 +2039,96 @@ describe('v2 computed field updates (e2e)', () => {
        * Scenario: Create record with link triggers symmetric link update.
        * A.link points to B - B's symmetric link should show A.
        */
-      it.todo('updates symmetric links on record creation with link');
+      it('updates symmetric links on record creation with link', async () => {
+        // Table B
+        const bNameFieldId = createFieldId();
+        const tableB = await createTable({
+          baseId,
+          name: 'CreateSymB',
+          fields: [{ type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        const recordB = await createRecord(tableB.id, { [bNameFieldId]: 'Target' });
+
+        // Table A: manyOne link to B
+        const aNameFieldId = createFieldId();
+        const aLinkFieldId = createFieldId();
+        const tableA = await createTable({
+          baseId,
+          name: 'CreateSymA',
+          fields: [
+            { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: aLinkFieldId,
+              name: 'LinkB',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableB.id,
+                lookupFieldId: bNameFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Before creating A record, B has no symmetric link content
+        const bRecordsBefore = await listRecords(tableB.id);
+        const symLinkFieldKey = Object.keys(bRecordsBefore[0]?.fields || {}).find(
+          (k) => k !== bNameFieldId && k !== '__id'
+        );
+        expect(symLinkFieldKey).toBeDefined();
+
+        const bFieldIds = [bNameFieldId, symLinkFieldKey!];
+        const bFieldNames = ['Name', 'SymLinks'];
+
+        expect(printTableSnapshot(tableB.name, bFieldNames, bRecordsBefore, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[CreateSymB]
+            ----------------------
+            #  | Name   | SymLinks
+            ----------------------
+            R0 | Target | -       
+            ----------------------"
+          `);
+
+        // Create A1 linking to B
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'A1',
+          [aLinkFieldId]: { id: recordB.id },
+        });
+        await testContainer.processOutbox();
+
+        const bRecordsAfter1 = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, bRecordsAfter1, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[CreateSymB]
+            ----------------------
+            #  | Name   | SymLinks
+            ----------------------
+            R0 | Target | A1      
+            ----------------------"
+          `);
+
+        // Create A2 also linking to B
+        await createRecord(tableA.id, {
+          [aNameFieldId]: 'A2',
+          [aLinkFieldId]: { id: recordB.id },
+        });
+        await testContainer.processOutbox();
+
+        const bRecordsAfter2 = await listRecords(tableB.id);
+        expect(printTableSnapshot(tableB.name, bFieldNames, bRecordsAfter2, bFieldIds))
+          .toMatchInlineSnapshot(`
+            "[CreateSymB]
+            ----------------------
+            #  | Name   | SymLinks
+            ----------------------
+            R0 | Target | A1, A2  
+            ----------------------"
+          `);
+      });
 
       /**
        * Scenario: Create record triggers rollup update in linking table.
@@ -473,12 +2139,211 @@ describe('v2 computed field updates (e2e)', () => {
 
     describe('update record', () => {
       /**
-       * Already covered in chain scenarios above.
-       * Additional edge cases:
+       * Scenario: Update only some fields, verify only affected computed fields update.
        */
-      it.todo('handles partial update (only some fields)');
-      it.todo('handles update with no computed field impact');
-      it.todo('handles update affecting multiple computed fields');
+      it('handles partial update (only some fields)', async () => {
+        const nameFieldId = createFieldId();
+        const numAFieldId = createFieldId();
+        const numBFieldId = createFieldId();
+        const formulaAFieldId = createFieldId();
+        const formulaBFieldId = createFieldId();
+
+        const table = await createTable({
+          baseId,
+          name: 'PartialUpdate',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: numAFieldId, name: 'NumA' },
+            { type: 'number', id: numBFieldId, name: 'NumB' },
+            {
+              type: 'formula',
+              id: formulaAFieldId,
+              name: 'FormulaA',
+              options: { expression: `{${numAFieldId}} * 2` },
+            },
+            {
+              type: 'formula',
+              id: formulaBFieldId,
+              name: 'FormulaB',
+              options: { expression: `{${numBFieldId}} * 3` },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const fieldIds = [nameFieldId, numAFieldId, numBFieldId, formulaAFieldId, formulaBFieldId];
+        const fieldNames = ['Name', 'NumA', 'NumB', 'FormulaA', 'FormulaB'];
+
+        await createRecord(table.id, {
+          [nameFieldId]: 'Test',
+          [numAFieldId]: 10,
+          [numBFieldId]: 20,
+        });
+
+        const beforeRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[PartialUpdate]
+            ---------------------------------------------
+            #  | Name | NumA | NumB | FormulaA | FormulaB
+            ---------------------------------------------
+            R0 | Test | 10   | 20   | 20       | 60      
+            ---------------------------------------------"
+          `);
+
+        // Only update NumA, FormulaB should stay the same
+        const record = beforeRecords[0];
+        await updateRecord(table.id, record.id, { [numAFieldId]: 100 });
+
+        const afterRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[PartialUpdate]
+            ---------------------------------------------
+            #  | Name | NumA | NumB | FormulaA | FormulaB
+            ---------------------------------------------
+            R0 | Test | 100  | 20   | 200      | 60      
+            ---------------------------------------------"
+          `);
+      });
+
+      /**
+       * Scenario: Update field that no computed field depends on.
+       */
+      it('handles update with no computed field impact', async () => {
+        const nameFieldId = createFieldId();
+        const descFieldId = createFieldId();
+        const numFieldId = createFieldId();
+        const formulaFieldId = createFieldId();
+
+        const table = await createTable({
+          baseId,
+          name: 'NoImpactUpdate',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            { type: 'singleLineText', id: descFieldId, name: 'Desc' },
+            { type: 'number', id: numFieldId, name: 'Num' },
+            {
+              type: 'formula',
+              id: formulaFieldId,
+              name: 'Formula',
+              options: { expression: `{${numFieldId}} * 2` },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const fieldIds = [nameFieldId, descFieldId, numFieldId, formulaFieldId];
+        const fieldNames = ['Name', 'Desc', 'Num', 'Formula'];
+
+        await createRecord(table.id, {
+          [nameFieldId]: 'Test',
+          [descFieldId]: 'Original',
+          [numFieldId]: 10,
+        });
+
+        const beforeRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[NoImpactUpdate]
+            ------------------------------------
+            #  | Name | Desc     | Num | Formula
+            ------------------------------------
+            R0 | Test | Original | 10  | 20     
+            ------------------------------------"
+          `);
+
+        // Update Desc (no formula depends on it)
+        const record = beforeRecords[0];
+        await updateRecord(table.id, record.id, { [descFieldId]: 'Updated' });
+
+        const afterRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[NoImpactUpdate]
+            -----------------------------------
+            #  | Name | Desc    | Num | Formula
+            -----------------------------------
+            R0 | Test | Updated | 10  | 20     
+            -----------------------------------"
+          `);
+      });
+
+      /**
+       * Scenario: Single update triggers multiple computed fields.
+       */
+      it('handles update affecting multiple computed fields', async () => {
+        const nameFieldId = createFieldId();
+        const numFieldId = createFieldId();
+        const formula1FieldId = createFieldId();
+        const formula2FieldId = createFieldId();
+        const formula3FieldId = createFieldId();
+
+        const table = await createTable({
+          baseId,
+          name: 'MultiFormula',
+          fields: [
+            { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+            { type: 'number', id: numFieldId, name: 'Num' },
+            {
+              type: 'formula',
+              id: formula1FieldId,
+              name: 'Double',
+              options: { expression: `{${numFieldId}} * 2` },
+            },
+            {
+              type: 'formula',
+              id: formula2FieldId,
+              name: 'Square',
+              options: { expression: `{${numFieldId}} * {${numFieldId}}` },
+            },
+            {
+              type: 'formula',
+              id: formula3FieldId,
+              name: 'PlusTen',
+              options: { expression: `{${numFieldId}} + 10` },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const fieldIds = [
+          nameFieldId,
+          numFieldId,
+          formula1FieldId,
+          formula2FieldId,
+          formula3FieldId,
+        ];
+        const fieldNames = ['Name', 'Num', 'Double', 'Square', 'PlusTen'];
+
+        await createRecord(table.id, { [nameFieldId]: 'Test', [numFieldId]: 5 });
+
+        const beforeRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[MultiFormula]
+            -------------------------------------------
+            #  | Name | Num | Double | Square | PlusTen
+            -------------------------------------------
+            R0 | Test | 5   | 10     | 25     | 15     
+            -------------------------------------------"
+          `);
+
+        // Update Num - all three formulas should update
+        const record = beforeRecords[0];
+        await updateRecord(table.id, record.id, { [numFieldId]: 10 });
+
+        const afterRecords = await listRecords(table.id);
+        expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+          .toMatchInlineSnapshot(`
+            "[MultiFormula]
+            -------------------------------------------
+            #  | Name | Num | Double | Square | PlusTen
+            -------------------------------------------
+            R0 | Test | 10  | 20     | 100    | 20     
+            -------------------------------------------"
+          `);
+      });
     });
 
     describe('delete record', () => {
@@ -617,7 +2482,7 @@ describe('v2 computed field updates (e2e)', () => {
             {
               type: 'rollup',
               id: sumValuesFieldId,
-              name: 'SumValues',
+              name: 'Sum',
               options: { expression: 'sum({values})' },
               config: {
                 linkFieldId: linksToBFieldId,
@@ -629,27 +2494,38 @@ describe('v2 computed field updates (e2e)', () => {
           views: [{ type: 'grid' }],
         });
 
-        // Create record in A linking to both B records
-        const recordA = await createRecord(tableA.id, {
+        const aFieldIds = [aNameFieldId, linksToBFieldId, sumValuesFieldId];
+        const aFieldNames = ['Name', 'LinksToB', 'Sum'];
+
+        await createRecord(tableA.id, {
           [aNameFieldId]: 'ItemA',
           [linksToBFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
         });
 
-        // Verify initial state: rollup should be 30
         const beforeRecords = await listRecords(tableA.id);
-        const beforeA = beforeRecords.find((r) => r.id === recordA.id);
-        expect(beforeA?.fields[sumValuesFieldId]).toBe(30);
+        expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableA_DeleteRollup]
+            ---------------------------
+            #  | Name  | LinksToB | Sum
+            ---------------------------
+            R0 | ItemA | B1, B2   | 30 
+            ---------------------------"
+          `);
 
-        // Delete one of the linked records
         await deleteRecord(tableB.id, recordB1.id);
-
-        // Process any pending outbox tasks
         await testContainer.processOutbox();
 
-        // Verify A's rollup is now 20 (only B2 remains)
         const afterRecords = await listRecords(tableA.id);
-        const afterA = afterRecords.find((r) => r.id === recordA.id);
-        expect(afterA?.fields[sumValuesFieldId]).toBe(20);
+        expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
+          .toMatchInlineSnapshot(`
+            "[TableA_DeleteRollup]
+            ---------------------------
+            #  | Name  | LinksToB | Sum
+            ---------------------------
+            R0 | ItemA | B2       | 20 
+            ---------------------------"
+          `);
       });
 
       it('removes symmetric link when record deleted', async () => {
@@ -732,28 +2608,371 @@ describe('v2 computed field updates (e2e)', () => {
   describe('edge cases', () => {
     /**
      * Scenario: Update triggers both value change and link change in same operation.
-     * Update A.text and A.link simultaneously.
      */
-    it.todo('handles mixed value and link changes in single update');
+    it('handles mixed value and link changes in single update', async () => {
+      // Table B (target)
+      const bNameFieldId = createFieldId();
+      const bValueFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'MixedB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: bValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
 
-    /**
-     * Scenario: Circular dependency prevention.
-     * A.formula1 references B.lookup which references A.formula1's source.
-     * Should not cause infinite loop.
-     */
+      const recordB1 = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bValueFieldId]: 100,
+      });
+      const recordB2 = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B2',
+        [bValueFieldId]: 200,
+      });
+
+      // Table A: Has own formula AND link lookup
+      const aNameFieldId = createFieldId();
+      const aNumFieldId = createFieldId();
+      const aFormulaFieldId = createFieldId();
+      const aLinkFieldId = createFieldId();
+      const aLookupFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'MixedA',
+        fields: [
+          { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: aNumFieldId, name: 'Num' },
+          {
+            type: 'formula',
+            id: aFormulaFieldId,
+            name: 'Double',
+            options: { expression: `{${aNumFieldId}} * 2` },
+          },
+          {
+            type: 'link',
+            id: aLinkFieldId,
+            name: 'LinkB',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableB.id,
+              lookupFieldId: bNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: aLookupFieldId,
+            name: 'LookupVal',
+            options: {
+              linkFieldId: aLinkFieldId,
+              foreignTableId: tableB.id,
+              lookupFieldId: bValueFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const aFieldIds = [aNameFieldId, aNumFieldId, aFormulaFieldId, aLinkFieldId, aLookupFieldId];
+      const aFieldNames = ['Name', 'Num', 'Double', 'LinkB', 'LookupVal'];
+
+      await createRecord(tableA.id, {
+        [aNameFieldId]: 'A1',
+        [aNumFieldId]: 10,
+        [aLinkFieldId]: { id: recordB1.id },
+      });
+
+      const beforeRecords = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[MixedA]
+          --------------------------------------------
+          #  | Name | Num | Double | LinkB | LookupVal
+          --------------------------------------------
+          R0 | A1   | 10  | 20     | B1    | [100]    
+          --------------------------------------------"
+        `);
+
+      // Update both Num AND LinkB simultaneously
+      const record = beforeRecords[0];
+      await updateRecord(tableA.id, record.id, {
+        [aNumFieldId]: 50,
+        [aLinkFieldId]: { id: recordB2.id },
+      });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[MixedA]
+          --------------------------------------------
+          #  | Name | Num | Double | LinkB | LookupVal
+          --------------------------------------------
+          R0 | A1   | 50  | 100    | B2    | [200]    
+          --------------------------------------------"
+        `);
+    });
+
     it.todo('handles potential circular references without infinite loop');
 
     /**
-     * Scenario: Empty link array to non-empty (and vice versa).
+     * Scenario: Link array from empty to populated.
      */
-    it.todo('handles link array from empty to populated');
-    it.todo('handles link array from populated to empty');
+    it('handles link array from empty to populated', async () => {
+      // Table B
+      const bNameFieldId = createFieldId();
+      const bValueFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'EmptyToPopB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: bValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordB1 = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bValueFieldId]: 10,
+      });
+      const recordB2 = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B2',
+        [bValueFieldId]: 20,
+      });
+
+      // Table A: manyMany link with rollup
+      const aNameFieldId = createFieldId();
+      const aLinkFieldId = createFieldId();
+      const aRollupFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'EmptyToPopA',
+        fields: [
+          { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: aLinkFieldId,
+            name: 'Links',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: tableB.id,
+              lookupFieldId: bNameFieldId,
+            },
+          },
+          {
+            type: 'rollup',
+            id: aRollupFieldId,
+            name: 'Sum',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId: aLinkFieldId,
+              foreignTableId: tableB.id,
+              lookupFieldId: bValueFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const aFieldIds = [aNameFieldId, aLinkFieldId, aRollupFieldId];
+      const aFieldNames = ['Name', 'Links', 'Sum'];
+
+      // Create with empty links
+      await createRecord(tableA.id, { [aNameFieldId]: 'A1' });
+
+      const beforeRecords = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[EmptyToPopA]
+          -----------------------
+          #  | Name | Links | Sum
+          -----------------------
+          R0 | A1   | -     | -  
+          -----------------------"
+        `);
+
+      // Populate links
+      const record = beforeRecords[0];
+      await updateRecord(tableA.id, record.id, {
+        [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
+      });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[EmptyToPopA]
+          ------------------------
+          #  | Name | Links  | Sum
+          ------------------------
+          R0 | A1   | B1, B2 | 30 
+          ------------------------"
+        `);
+    });
 
     /**
-     * Scenario: Null value handling in formulas.
-     * Formula references field that is null.
+     * Scenario: Link array from populated to empty.
      */
-    it.todo('handles null values in formula calculations');
+    it('handles link array from populated to empty', async () => {
+      // Table B
+      const bNameFieldId = createFieldId();
+      const bValueFieldId = createFieldId();
+      const tableB = await createTable({
+        baseId,
+        name: 'PopToEmptyB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: bValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const recordB1 = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bValueFieldId]: 10,
+      });
+      const recordB2 = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B2',
+        [bValueFieldId]: 20,
+      });
+
+      // Table A
+      const aNameFieldId = createFieldId();
+      const aLinkFieldId = createFieldId();
+      const aRollupFieldId = createFieldId();
+      const tableA = await createTable({
+        baseId,
+        name: 'PopToEmptyA',
+        fields: [
+          { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: aLinkFieldId,
+            name: 'Links',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: tableB.id,
+              lookupFieldId: bNameFieldId,
+            },
+          },
+          {
+            type: 'rollup',
+            id: aRollupFieldId,
+            name: 'Sum',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId: aLinkFieldId,
+              foreignTableId: tableB.id,
+              lookupFieldId: bValueFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const aFieldIds = [aNameFieldId, aLinkFieldId, aRollupFieldId];
+      const aFieldNames = ['Name', 'Links', 'Sum'];
+
+      // Create with links
+      await createRecord(tableA.id, {
+        [aNameFieldId]: 'A1',
+        [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }],
+      });
+
+      const beforeRecords = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[PopToEmptyA]
+          ------------------------
+          #  | Name | Links  | Sum
+          ------------------------
+          R0 | A1   | B1, B2 | 30 
+          ------------------------"
+        `);
+
+      // Clear all links
+      const record = beforeRecords[0];
+      await updateRecord(tableA.id, record.id, { [aLinkFieldId]: [] });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(tableA.id);
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[PopToEmptyA]
+          -----------------------
+          #  | Name | Links | Sum
+          -----------------------
+          R0 | A1   | -     | -  
+          -----------------------"
+        `);
+    });
+
+    /**
+     * Scenario: Null value in formula source field.
+     */
+    it('handles null values in formula calculations', async () => {
+      const nameFieldId = createFieldId();
+      const numFieldId = createFieldId();
+      const formulaFieldId = createFieldId();
+
+      const table = await createTable({
+        baseId,
+        name: 'NullFormula',
+        fields: [
+          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: numFieldId, name: 'Num' },
+          {
+            type: 'formula',
+            id: formulaFieldId,
+            name: 'Double',
+            options: { expression: `{${numFieldId}} * 2` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [nameFieldId, numFieldId, formulaFieldId];
+      const fieldNames = ['Name', 'Num', 'Double'];
+
+      // Create with null Num
+      await createRecord(table.id, { [nameFieldId]: 'NoNum' });
+      // Create with Num
+      await createRecord(table.id, { [nameFieldId]: 'HasNum', [numFieldId]: 5 });
+
+      const beforeRecords = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[NullFormula]
+          --------------------------
+          #  | Name   | Num | Double
+          --------------------------
+          R0 | NoNum  | -   | -     
+          R1 | HasNum | 5   | 10    
+          --------------------------"
+        `);
+
+      // Set null to a value
+      const noNumRecord = beforeRecords.find((r) => r.fields[nameFieldId] === 'NoNum');
+      await updateRecord(table.id, noNumRecord!.id, { [numFieldId]: 10 });
+
+      // Set value to null (by not including it or setting 0)
+      const hasNumRecord = beforeRecords.find((r) => r.fields[nameFieldId] === 'HasNum');
+      await updateRecord(table.id, hasNumRecord!.id, { [numFieldId]: null });
+
+      const afterRecords = await listRecords(table.id);
+      expect(printTableSnapshot(table.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[NullFormula]
+          --------------------------
+          #  | Name   | Num | Double
+          --------------------------
+          R0 | NoNum  | 10  | 20    
+          R1 | HasNum | -   | -     
+          --------------------------"
+        `);
+    });
   });
 
   // ===========================================================================
@@ -906,10 +3125,10 @@ describe('v2 computed field updates (e2e)', () => {
       const dealFieldIds = [dealNameFieldId, linkFieldId, lookupFieldId];
       const dealFieldNames = ['Deal', 'Contact', 'ContactScore'];
 
-      // Create deal with link
+      // Create deal with link (manyOne uses single object)
       const deal = await createRecord(deals.id, {
         [dealNameFieldId]: 'Deal A',
-        [linkFieldId]: [{ id: contact.id }],
+        [linkFieldId]: { id: contact.id },
       });
 
       // Before update - verify lookup shows current value
@@ -1020,10 +3239,10 @@ describe('v2 computed field updates (e2e)', () => {
       });
       const bNameFieldId = tableB.fields.find((f) => f.isPrimary)?.id ?? '';
 
-      // Create B record linked to A
+      // Create B record linked to A (manyOne uses single object)
       const recordB = await createRecord(tableB.id, {
         [bNameFieldId]: 'Middle',
-        [linkAFieldId]: [{ id: recordA.id }],
+        [linkAFieldId]: { id: recordA.id },
       });
 
       // Table C: Links to B, has lookup of B's lookup
@@ -1062,10 +3281,10 @@ describe('v2 computed field updates (e2e)', () => {
       const cFieldIds = [cNameFieldId, linkBFieldId, lookupBFieldId];
       const cFieldNames = ['Name', 'LinkB', 'ValueFromB'];
 
-      // Create C record linked to B
+      // Create C record linked to B (manyOne uses single object)
       const recordC = await createRecord(tableC.id, {
         [cNameFieldId]: 'End',
-        [linkBFieldId]: [{ id: recordB.id }],
+        [linkBFieldId]: { id: recordB.id },
       });
 
       // Before update
@@ -1085,10 +3304,10 @@ describe('v2 computed field updates (e2e)', () => {
       // Update A.Value - should cascade A -> B.lookup -> C.lookup
       await updateRecord(tableA.id, recordA.id, { [valueFieldId]: 99 });
 
-      // Small delay to let automatic dispatch settle before processOutbox claims the task
-      await new Promise((r) => setTimeout(r, 50));
-
-      // Process any pending outbox tasks (cross-table updates are async)
+      // Process outbox tasks for multi-level cascade (A->B, then B->C)
+      // Each level may enqueue the next level, so we need multiple passes
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
       await testContainer.processOutbox();
 
       // After update - C should show updated value

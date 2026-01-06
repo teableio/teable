@@ -44,7 +44,7 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { JsonView } from 'react-json-view-lite';
@@ -68,6 +68,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,6 +92,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { ShareDbDocStatus } from '@/lib/shareDb';
 import { renderFieldOptions } from './fieldOptionsVisitor';
+import { SchemaCheckPanel } from './SchemaCheckPanel';
 
 const formatViewLabel = (view: View): string =>
   `${view.name().toString()} (${view.type().toString()})`;
@@ -659,7 +661,7 @@ const getDbTableName = (table: TableAggregate): string | null => {
   return nameResult.isOk() ? nameResult.value : null;
 };
 
-const tableTabValues = ['table', 'records', 'json', 'realtime'] as const;
+const tableTabValues = ['table', 'records', 'json', 'realtime', 'schema'] as const;
 type TableMetaTab = (typeof tableTabValues)[number];
 
 const isTableMetaTab = (value: string): value is TableMetaTab =>
@@ -703,6 +705,7 @@ type TableMetaPageProps = {
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
+  isDeletingRecord: boolean;
   isCreating: boolean;
   isDeleting: boolean;
   isDeletingField: boolean;
@@ -720,6 +723,7 @@ type TableMetaPageProps = {
   onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   onDelete: () => void;
   onDeleteField: (fieldId: string) => void;
+  onDeleteRecords: (recordIds: string[]) => void;
   onRename: (name: string) => void;
 };
 
@@ -740,6 +744,7 @@ export function TableMetaPage({
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
+  isDeletingRecord,
   isCreating,
   isDeleting,
   isDeletingField,
@@ -754,6 +759,7 @@ export function TableMetaPage({
   onImportCsv,
   onDelete,
   onDeleteField,
+  onDeleteRecords,
   onRename,
 }: TableMetaPageProps) {
   const [activeTab, setActiveTab] = useQueryState(
@@ -826,6 +832,12 @@ export function TableMetaPage({
                 >
                   Realtime
                 </TabsTrigger>
+                <TabsTrigger
+                  value="schema"
+                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                >
+                  Schema Check
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="table" className="mt-0 outline-none">
                 <PlaygroundMetaLayout
@@ -846,8 +858,10 @@ export function TableMetaPage({
                   recordsError={recordsError}
                   isRecordsLoading={isRecordsLoading}
                   isRecordsFetching={isRecordsFetching}
+                  isDeletingRecord={isDeletingRecord}
                   onRecordCreated={onRecordCreated}
                   onPaginationChange={onPaginationChange}
+                  onDeleteRecords={onDeleteRecords}
                 />
               </TabsContent>
               <TabsContent value="json" className="mt-0">
@@ -865,6 +879,12 @@ export function TableMetaPage({
                   realtimeFieldSnapshots={realtimeFieldSnapshots}
                   realtimeFieldStatus={realtimeFieldStatus}
                   realtimeFieldError={realtimeFieldError}
+                />
+              </TabsContent>
+              <TabsContent value="schema" className="mt-0 outline-none">
+                <SchemaCheckPanel
+                  tableId={table.id().toString()}
+                  tableName={table.name().toString()}
                 />
               </TabsContent>
             </Tabs>
@@ -1215,8 +1235,10 @@ type PlaygroundRecordsLayoutProps = {
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
+  isDeletingRecord: boolean;
   onRecordCreated?: () => void;
   onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
+  onDeleteRecords: (recordIds: string[]) => void;
 };
 
 function PlaygroundRecordsLayout({
@@ -1227,8 +1249,10 @@ function PlaygroundRecordsLayout({
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
+  isDeletingRecord,
   onRecordCreated,
   onPaginationChange,
+  onDeleteRecords,
 }: PlaygroundRecordsLayoutProps) {
   return (
     <div className="space-y-6 min-w-0">
@@ -1240,8 +1264,10 @@ function PlaygroundRecordsLayout({
         recordsError={recordsError}
         isRecordsLoading={isRecordsLoading}
         isRecordsFetching={isRecordsFetching}
+        isDeletingRecord={isDeletingRecord}
         onRecordCreated={onRecordCreated}
         onPaginationChange={onPaginationChange}
+        onDeleteRecords={onDeleteRecords}
       />
     </div>
   );
@@ -1440,8 +1466,10 @@ type TableRecordsCardProps = {
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
+  isDeletingRecord: boolean;
   onRecordCreated?: () => void;
   onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
+  onDeleteRecords: (recordIds: string[]) => void;
 };
 
 function TableRecordsCard({
@@ -1452,16 +1480,23 @@ function TableRecordsCard({
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
+  isDeletingRecord,
   onRecordCreated,
   onPaginationChange,
+  onDeleteRecords,
 }: TableRecordsCardProps) {
   const [, copyToClipboard] = useCopyToClipboard();
   const fields = table.getFields();
   const primaryFieldId = table.primaryFieldId().toString();
+  const tableId = table.id().toString();
   const totalRecords = recordsPagination?.total ?? records?.length ?? 0;
   const isInitialLoading = isRecordsLoading && !records;
   const [updateTarget, setUpdateTarget] = useState<ITableRecordDto | null>(null);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const [pendingDeleteLabel, setPendingDeleteLabel] = useState<string | null>(null);
 
   const handleUpdateOpen = useCallback((record: ITableRecordDto) => {
     setUpdateTarget(record);
@@ -1474,6 +1509,44 @@ function TableRecordsCard({
       setUpdateTarget(null);
     }
   }, []);
+
+  useEffect(() => {
+    setRowSelection({});
+  }, [recordsPagination?.offset, recordsPagination?.limit, tableId]);
+
+  const resolveRecordLabel = useCallback(
+    (record: ITableRecordDto) => {
+      const value = record.fields[primaryFieldId];
+      const label = stringifyRecordValue(value);
+      return label.trim() || record.id;
+    },
+    [primaryFieldId]
+  );
+
+  const selectedRecordIds = useMemo(
+    () =>
+      Object.entries(rowSelection)
+        .filter(([, selected]) => selected)
+        .map(([key]) => key),
+    [rowSelection]
+  );
+
+  const canDeleteSelected = selectedRecordIds.length > 0 && !isDeletingRecord;
+
+  const openDeleteDialog = useCallback((recordIds: string[], label?: string) => {
+    setPendingDeleteIds(recordIds);
+    setPendingDeleteLabel(label ?? null);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!pendingDeleteIds.length) return;
+    onDeleteRecords(pendingDeleteIds);
+    setDeleteDialogOpen(false);
+    setPendingDeleteIds([]);
+    setPendingDeleteLabel(null);
+    setRowSelection({});
+  }, [onDeleteRecords, pendingDeleteIds]);
 
   const columns = useMemo<ColumnDef<ITableRecordDto>[]>(() => {
     const handleCopyRecordId = (recordId: string) => {
@@ -1497,6 +1570,37 @@ function TableRecordsCard({
       if (bIsPrimary) return 1;
       return 0;
     });
+
+    const selectionColumn: ColumnDef<ITableRecordDto> = {
+      id: 'select',
+      header: ({ table }) => (
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected()
+                ? true
+                : table.getIsSomePageRowsSelected()
+                  ? 'indeterminate'
+                  : false
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(Boolean(value))}
+            aria-label="Select all rows"
+          />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
+            aria-label={`Select record ${row.original.id}`}
+          />
+        </div>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 36,
+    };
 
     const fieldColumns: ColumnDef<ITableRecordDto>[] = sortedFields.map((field) => ({
       id: field.id().toString(),
@@ -1535,21 +1639,39 @@ function TableRecordsCard({
               <Copy className="mr-2 h-4 w-4" />
               Copy Record ID
             </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              disabled={isDeletingRecord}
+              onClick={() => openDeleteDialog([row.original.id], resolveRecordLabel(row.original))}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete record
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
     };
 
-    return [...fieldColumns, actionsColumn];
-  }, [fields, primaryFieldId, copyToClipboard, handleUpdateOpen]);
+    return onDeleteRecords
+      ? [selectionColumn, ...fieldColumns, actionsColumn]
+      : [...fieldColumns, actionsColumn];
+  }, [
+    fields,
+    primaryFieldId,
+    copyToClipboard,
+    handleUpdateOpen,
+    onDeleteRecords,
+    openDeleteDialog,
+    resolveRecordLabel,
+  ]);
 
   const data = useMemo(() => (records ?? []) as ITableRecordDto[], [records]);
 
   const pinnedColumns = useMemo(
     () => ({
-      left: [primaryFieldId],
+      left: onDeleteRecords ? ['select', primaryFieldId] : [primaryFieldId],
     }),
-    [primaryFieldId]
+    [onDeleteRecords, primaryFieldId]
   );
 
   // Calculate pagination state for DataTable
@@ -1584,7 +1706,22 @@ function TableRecordsCard({
             </Badge>
           ) : null}
         </div>
-        {table && <RecordCreateDialog table={table} onSuccess={onRecordCreated} baseId={baseId} />}
+        <div className="flex items-center gap-2">
+          {selectedRecordIds.length > 0 ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-8 text-xs"
+              disabled={!canDeleteSelected}
+              onClick={() => openDeleteDialog(selectedRecordIds)}
+            >
+              Delete selected ({selectedRecordIds.length})
+            </Button>
+          ) : null}
+          {table && (
+            <RecordCreateDialog table={table} onSuccess={onRecordCreated} baseId={baseId} />
+          )}
+        </div>
       </div>
       {recordsError ? (
         <div className="flex items-center gap-2 text-sm text-destructive">
@@ -1617,6 +1754,10 @@ function TableRecordsCard({
           pinnedColumns={pinnedColumns}
           pagination={paginationForTable}
           onPaginationChange={onPaginationChange}
+          enableRowSelection={Boolean(onDeleteRecords)}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+          getRowId={(row) => row.id}
         />
       )}
       {updateTarget ? (
@@ -1629,6 +1770,39 @@ function TableRecordsCard({
           onSuccess={onRecordCreated}
         />
       ) : null}
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setPendingDeleteIds([]);
+            setPendingDeleteLabel(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete record</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDeleteIds.length > 1
+                ? `Delete ${pendingDeleteIds.length} records?`
+                : pendingDeleteLabel
+                  ? `Delete "${pendingDeleteLabel}"?`
+                  : 'Delete this record?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingRecord}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60"
+              onClick={handleDeleteConfirm}
+              disabled={!pendingDeleteIds.length || isDeletingRecord}
+            >
+              {isDeletingRecord ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

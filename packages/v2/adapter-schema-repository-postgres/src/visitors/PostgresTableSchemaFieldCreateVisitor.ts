@@ -1,6 +1,5 @@
 import {
   AbstractFieldVisitor,
-  getRandomString,
   type AttachmentField,
   type AutoNumberField,
   type ButtonField,
@@ -8,6 +7,7 @@ import {
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
+  type DomainError,
   type Field,
   type FormulaField,
   type LastModifiedByField,
@@ -23,146 +23,23 @@ import {
   type SingleSelectField,
   type Table,
   type UserField,
-  checkFieldNotNullValidationEnabled,
-  checkFieldUniqueValidationEnabled,
-  type DomainError,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type {
-  ColumnDefinitionBuilder,
-  CompiledQuery,
-  CreateTableBuilder,
-  Kysely,
-  QueryExecutorProvider,
-} from 'kysely';
-import { sql } from 'kysely';
+import type { CompiledQuery, CreateTableBuilder, Kysely, QueryExecutorProvider } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import {
-  resolveColumnName,
-  resolveColumnType,
-  type TableColumnDataType,
-} from './PostgresTableSchemaFieldColumn';
+  createFieldSchemaRules,
+  createSchemaRuleContext,
+  PostgresSchemaIntrospector,
+  schemaRuleResolver,
+  type FieldSchemaRulesContext,
+  type SchemaRuleContext,
+} from '../rules';
 
 export type TableSchemaStatementBuilder = {
   compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
-};
-
-type TableIdentifier = {
-  schema: string | null;
-  tableName: string;
-};
-
-const buildTableIdentifier = (target: TableIdentifier) => {
-  if (!target.schema) return sql.ref(target.tableName);
-  return sql`${sql.ref(target.schema)}.${sql.ref(target.tableName)}`;
-};
-
-/** Compress multi-line SQL into single line for cleaner logs */
-const compressSql = (sqlStr: string): string => sqlStr.replace(/\s+/g, ' ').trim();
-
-const createIndexStatement = (
-  target: TableIdentifier,
-  indexName: string,
-  columnName: string
-): TableSchemaStatementBuilder =>
-  sql`create index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(target)} (${sql.ref(columnName)})`;
-
-const createUniqueIndexStatement = (
-  target: TableIdentifier,
-  indexName: string,
-  columnName: string
-): TableSchemaStatementBuilder =>
-  sql`create unique index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(target)} (${sql.ref(columnName)})`;
-
-/**
- * Creates a FK constraint statement that checks if the target table exists first.
- * This is necessary because link fields may reference tables that don't exist yet
- * during table creation. The FK constraint will only be added if the target table exists.
- * Uses a PL/pgSQL DO block to conditionally add the constraint.
- */
-const createForeignKeyConstraintStatement = (
-  sourceTable: TableIdentifier,
-  constraintName: string,
-  columnName: string,
-  targetTable: TableIdentifier,
-  targetColumn: string,
-  onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE'
-): TableSchemaStatementBuilder => {
-  const sourceTableFull = sourceTable.schema
-    ? `"${sourceTable.schema}"."${sourceTable.tableName}"`
-    : `"${sourceTable.tableName}"`;
-  const targetTableFull = targetTable.schema
-    ? `"${targetTable.schema}"."${targetTable.tableName}"`
-    : `"${targetTable.tableName}"`;
-  const targetSchema = targetTable.schema ?? 'public';
-
-  // Use DO block to conditionally add FK only if target table exists
-  // This prevents errors when creating link fields before the foreign table exists
-  return sql.raw(
-    compressSql(`
-      DO $$
-      BEGIN
-        IF EXISTS (
-          SELECT 1 FROM information_schema.tables 
-          WHERE table_schema = '${targetSchema}' 
-          AND table_name = '${targetTable.tableName}'
-        ) THEN
-          BEGIN
-            ALTER TABLE ${sourceTableFull} 
-            ADD CONSTRAINT "${constraintName}" 
-            FOREIGN KEY ("${columnName}") 
-            REFERENCES ${targetTableFull} ("${targetColumn}") 
-            ON DELETE ${onDelete};
-          EXCEPTION WHEN duplicate_object THEN
-            NULL;
-          END;
-        END IF;
-      END
-      $$;
-    `)
-  );
-};
-
-const buildColumnConstraints = (
-  field: Field
-): ((col: ColumnDefinitionBuilder) => ColumnDefinitionBuilder) | undefined => {
-  const fieldType = field.type().toString();
-  const isComputed = field.computed().toBoolean();
-  const notNullEnabled = checkFieldNotNullValidationEnabled(fieldType, { isComputed });
-  const uniqueEnabled = checkFieldUniqueValidationEnabled(fieldType, { isComputed });
-  const notNull = notNullEnabled && field.notNull().toBoolean();
-  const unique = uniqueEnabled && field.unique().toBoolean();
-
-  if (!notNull && !unique) return undefined;
-  return (col) => {
-    let next = col;
-    if (notNull) next = next.notNull();
-    if (unique) next = next.unique();
-    return next;
-  };
-};
-
-const addGeneratedColumnStatement = (
-  target: TableIdentifier,
-  columnName: string,
-  definition: ReturnType<typeof sql>
-): TableSchemaStatementBuilder =>
-  sql`alter table ${buildTableIdentifier(target)} add column if not exists ${sql.ref(
-    columnName
-  )} ${definition}`;
-
-type PostgresTableSchemaFieldCreateVisitorParams = {
-  addColumn: (
-    columnName: string,
-    dataType: TableColumnDataType,
-    configure?: (col: ColumnDefinitionBuilder) => ColumnDefinitionBuilder
-  ) => Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>;
-  db: Kysely<V1TeableDatabase>;
-  currentSchema: string | null;
-  currentTableName: string;
-  currentTableId: string;
 };
 
 type ICreateTableBuilder = CreateTableBuilder<string, string>;
@@ -171,14 +48,29 @@ export interface ICreateTableBuilderRef {
   builder: ICreateTableBuilder;
 }
 
-// Owns field-level column creation and any field-specific side statements (e.g. formula references).
+/**
+ * Visitor that generates schema statements for field creation.
+ *
+ * This visitor uses the rules system internally to generate statements.
+ * It provides two modes:
+ * - `forTableCreation`: Adds columns to a CreateTableBuilder (for CREATE TABLE)
+ * - `forSchemaUpdate`: Generates ALTER TABLE statements (for adding fields to existing tables)
+ */
 export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
   ReadonlyArray<TableSchemaStatementBuilder>
 > {
-  constructor(private readonly params: PostgresTableSchemaFieldCreateVisitorParams) {
+  private constructor(
+    private readonly db: Kysely<V1TeableDatabase>,
+    private readonly rulesContext: FieldSchemaRulesContext,
+    private readonly builderRef?: ICreateTableBuilderRef
+  ) {
     super();
   }
 
+  /**
+   * Creates a visitor for table creation (adds columns to CreateTableBuilder).
+   * Used when creating a new table with CREATE TABLE.
+   */
   static forTableCreation(params: {
     builderRef: ICreateTableBuilderRef;
     db: Kysely<V1TeableDatabase>;
@@ -186,47 +78,31 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     tableName: string;
     tableId: string;
   }): PostgresTableSchemaFieldCreateVisitor {
-    return new PostgresTableSchemaFieldCreateVisitor({
-      addColumn: (columnName, dataType, configure) => {
-        params.builderRef.builder = (configure
-          ? params.builderRef.builder.addColumn(columnName, dataType, configure)
-          : params.builderRef.builder.addColumn(
-              columnName,
-              dataType
-            )) as unknown as ICreateTableBuilder;
-        return ok([]);
+    return new PostgresTableSchemaFieldCreateVisitor(
+      params.db,
+      {
+        schema: params.schema,
+        tableName: params.tableName,
+        tableId: params.tableId,
       },
-      db: params.db,
-      currentSchema: params.schema,
-      currentTableName: params.tableName,
-      currentTableId: params.tableId,
-    });
+      params.builderRef
+    );
   }
 
+  /**
+   * Creates a visitor for schema updates (generates ALTER TABLE statements).
+   * Used when adding fields to an existing table.
+   */
   static forSchemaUpdate(params: {
     db: Kysely<V1TeableDatabase>;
     schema: string | null;
     tableName: string;
     tableId: string;
   }): PostgresTableSchemaFieldCreateVisitor {
-    const schemaBuilder = params.schema
-      ? params.db.schema.withSchema(params.schema)
-      : params.db.schema;
-    return new PostgresTableSchemaFieldCreateVisitor({
-      addColumn: (columnName, dataType, configure) => {
-        const statement = configure
-          ? schemaBuilder
-              .alterTable(params.tableName)
-              .addColumn(columnName, dataType, (col) => configure(col).ifNotExists())
-          : schemaBuilder
-              .alterTable(params.tableName)
-              .addColumn(columnName, dataType, (col) => col.ifNotExists());
-        return ok([statement]);
-      },
-      db: params.db,
-      currentSchema: params.schema,
-      currentTableName: params.tableName,
-      currentTableId: params.tableId,
+    return new PostgresTableSchemaFieldCreateVisitor(params.db, {
+      schema: params.schema,
+      tableName: params.tableName,
+      tableId: params.tableId,
     });
   }
 
@@ -234,6 +110,9 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     return Array.isArray(value);
   }
 
+  /**
+   * Applies the visitor to a table or array of fields.
+   */
   apply(table: Table): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>;
   apply(
     fields: ReadonlyArray<Field>
@@ -257,547 +136,158 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     });
   }
 
+  /**
+   * Creates the rule context for a field.
+   */
+  private createRuleContext(field: Field): SchemaRuleContext {
+    return createSchemaRuleContext({
+      db: this.db,
+      introspector: new PostgresSchemaIntrospector(this.db),
+      schema: this.rulesContext.schema,
+      tableName: this.rulesContext.tableName,
+      tableId: this.rulesContext.tableId,
+      field,
+    });
+  }
+
+  /**
+   * Generates statements using the rules system.
+   * For table creation mode, it delegates to a specialized handler that
+   * modifies the CreateTableBuilder for column additions.
+   */
+  private generateStatementsFromRules(
+    field: Field
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(
+      function* (this: PostgresTableSchemaFieldCreateVisitor) {
+        const rulesResult = createFieldSchemaRules(field, this.rulesContext);
+        const rules = yield* rulesResult;
+
+        const ctx = this.createRuleContext(field);
+        const statementsResult = schemaRuleResolver.upAll(rules, ctx);
+        return statementsResult;
+      }.bind(this)
+    );
+  }
+
+  // All field types delegate to the rules system
   visitSingleLineTextField(
     field: SingleLineTextField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitLongTextField(
     field: LongTextField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitNumberField(
     field: NumberField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitRatingField(
     field: RatingField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitFormulaField(
     field: FormulaField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const columnStatements = yield* visitor.addColumnFromValueType(field);
-      const referenceStatements = yield* visitor.buildFormulaReferenceStatements(field);
-      return ok([...columnStatements, ...referenceStatements]);
-    });
+    return this.generateStatementsFromRules(field);
   }
 
   visitRollupField(
     field: RollupField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const columnStatements = yield* visitor.addColumnFromValueType(field);
-      const referenceStatements = yield* visitor.buildRollupReferenceStatements(field);
-      return ok([...columnStatements, ...referenceStatements]);
-    });
+    return this.generateStatementsFromRules(field);
   }
 
   visitSingleSelectField(
     field: SingleSelectField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitMultipleSelectField(
     field: MultipleSelectField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitCheckboxField(
     field: CheckboxField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitAttachmentField(
     field: AttachmentField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitDateField(
     field: DateField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitCreatedTimeField(
     field: CreatedTimeField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addGeneratedColumn(field, '__created_time', sql`timestamptz`);
+    return this.generateStatementsFromRules(field);
   }
 
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    if (!field.isTrackAll()) {
-      return this.addColumnFromValueType(field);
-    }
-    return this.addGeneratedColumn(field, '__last_modified_time', sql`timestamptz`);
+    return this.generateStatementsFromRules(field);
   }
 
   visitUserField(
     field: UserField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitCreatedByField(
     field: CreatedByField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addGeneratedColumn(field, '__created_by', sql`text`);
+    return this.generateStatementsFromRules(field);
   }
 
   visitLastModifiedByField(
     field: LastModifiedByField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    if (!field.isTrackAll()) {
-      return this.addColumnFromValueType(field);
-    }
-    return this.addGeneratedColumn(field, '__last_modified_by', sql`text`);
+    return this.generateStatementsFromRules(field);
   }
 
   visitAutoNumberField(
     field: AutoNumberField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addGeneratedColumn(field, '__auto_number', sql`double precision`);
+    return this.generateStatementsFromRules(field);
   }
 
   visitButtonField(
     field: ButtonField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return this.addColumnFromValueType(field);
+    return this.generateStatementsFromRules(field);
   }
 
   visitLinkField(
     field: LinkField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const addLinkValueColumn = this.addLinkValueColumn.bind(this);
-    const buildManyManyStatements = this.buildManyManyStatements.bind(this);
-    const buildOneManyJunctionStatements = this.buildOneManyJunctionStatements.bind(this);
-    const resolveFkHostTable = this.resolveFkHostTable.bind(this);
-    const isCurrentTable = this.isCurrentTable.bind(this);
-    const addForeignKeyColumns = this.addForeignKeyColumns.bind(this);
-    const buildLinkReferenceStatements = this.buildLinkReferenceStatements.bind(this);
-    const buildLinkOrderMetaStatements = this.buildLinkOrderMetaStatements.bind(this);
-
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const valueColumnStatements = yield* addLinkValueColumn(field);
-      const referenceStatements = yield* buildLinkReferenceStatements(field);
-      const relationship = field.relationship().toString();
-      if (relationship === 'manyMany') {
-        const statements = yield* buildManyManyStatements(field);
-        const metaStatements = yield* buildLinkOrderMetaStatements(field);
-        return ok([
-          ...valueColumnStatements,
-          ...referenceStatements,
-          ...statements,
-          ...metaStatements,
-        ]);
-      }
-      if (relationship === 'oneMany' && field.isOneWay()) {
-        const statements = yield* buildOneManyJunctionStatements(field);
-        return ok([...valueColumnStatements, ...referenceStatements, ...statements]);
-      }
-
-      const fkHostTable = yield* resolveFkHostTable(field);
-      if (!isCurrentTable(fkHostTable)) {
-        return ok([...valueColumnStatements, ...referenceStatements]);
-      }
-
-      const statements = yield* addForeignKeyColumns(field);
-      const metaStatements = yield* buildLinkOrderMetaStatements(field);
-      return ok([
-        ...valueColumnStatements,
-        ...referenceStatements,
-        ...statements,
-        ...metaStatements,
-      ]);
-    });
+    return this.generateStatementsFromRules(field);
   }
 
   override visitLookupField(
     field: LookupField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Lookup fields store data similarly to rollup fields
-    // They need both a column AND reference records
-    const visitor = this;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const columnStatements = yield* visitor.addColumnFromValueType(field);
-      const referenceStatements = yield* visitor.buildLookupReferenceStatements(field);
-      return ok([...columnStatements, ...referenceStatements]);
-    });
-  }
-
-  private addColumnFromValueType(
-    field: Field
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const params = this.params;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const columnName = yield* resolveColumnName(field);
-      const dataType = yield* resolveColumnType(field);
-      const statements = yield* params.addColumn(
-        columnName,
-        dataType,
-        buildColumnConstraints(field)
-      );
-      return ok(statements);
-    });
-  }
-
-  private addGeneratedColumn(
-    field: Field,
-    sourceColumn: string,
-    columnType: ReturnType<typeof sql>
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const params = this.params;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const columnName = yield* resolveColumnName(field);
-      const definition = sql`${columnType} generated always as (${sql.ref(sourceColumn)}) stored`;
-      const statement = addGeneratedColumnStatement(
-        { schema: params.currentSchema, tableName: params.currentTableName },
-        columnName,
-        definition
-      );
-      const updateMeta = params.db
-        .updateTable('field')
-        .set({ meta: JSON.stringify({ persistedAsGeneratedColumn: true }) })
-        .where('id', '=', field.id().toString());
-      return ok([statement, updateMeta]);
-    });
-  }
-
-  private addLinkValueColumn(
-    field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const params = this.params;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const columnName = yield* resolveColumnName(field);
-      const statements = yield* params.addColumn(
-        columnName,
-        'jsonb',
-        buildColumnConstraints(field)
-      );
-      return ok(statements);
-    });
-  }
-
-  private addForeignKeyColumns(
-    field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const relationship = field.relationship().toString();
-    const keyNameResult =
-      relationship === 'oneMany' ? field.selfKeyNameString() : field.foreignKeyNameString();
-
-    const params = this.params;
-    const currentTable = this.currentTable.bind(this);
-    const resolveForeignTable = this.resolveForeignTable.bind(this);
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const keyName = yield* keyNameResult;
-      const statements = yield* params.addColumn(keyName, 'text');
-      const orderColumnName = yield* field.orderColumnName();
-      const orderStatements = yield* params.addColumn(orderColumnName, 'double precision');
-
-      // Create index for FK column
-      const indexName = `index_${keyName}`;
-      const table = currentTable();
-
-      // OneOne requires UNIQUE index, others use regular index
-      const indexStatement =
-        relationship === 'oneOne'
-          ? createUniqueIndexStatement(table, indexName, keyName)
-          : createIndexStatement(table, indexName, keyName);
-
-      // Add FK constraint referencing the foreign table's __id column
-      const foreignTable = yield* resolveForeignTable(field);
-      const fkConstraintName = `fk_${keyName}`;
-      const fkConstraintStatement = createForeignKeyConstraintStatement(
-        table,
-        fkConstraintName,
-        keyName,
-        foreignTable,
-        '__id',
-        'CASCADE'
-      );
-
-      return ok([...statements, ...orderStatements, indexStatement, fkConstraintStatement]);
-    });
-  }
-
-  private currentTable(): TableIdentifier {
-    return { schema: this.params.currentSchema, tableName: this.params.currentTableName };
-  }
-
-  private buildManyManyStatements(
-    field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const params = this.params;
-    const resolveFkHostTable = this.resolveFkHostTable.bind(this);
-    const resolveForeignTable = this.resolveForeignTable.bind(this);
-    const currentTable = this.currentTable.bind(this);
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const fkHostTable = yield* resolveFkHostTable(field);
-      const selfKeyName = yield* field.selfKeyNameString();
-      const foreignKeyName = yield* field.foreignKeyNameString();
-      const schemaBuilder = fkHostTable.schema
-        ? params.db.schema.withSchema(fkHostTable.schema)
-        : params.db.schema;
-      const orderColumnName = yield* field.orderColumnName();
-      const uniqueConstraintName = `uniq_${selfKeyName}_${foreignKeyName}`;
-      const builder = schemaBuilder
-        .createTable(fkHostTable.tableName)
-        .ifNotExists()
-        .addColumn('__id', 'serial', (col) => col.primaryKey())
-        .addColumn(selfKeyName, 'text')
-        .addColumn(foreignKeyName, 'text')
-        .addColumn(orderColumnName, 'double precision')
-        .addUniqueConstraint(uniqueConstraintName, [selfKeyName, foreignKeyName]);
-
-      // Create indexes for junction table FK columns
-      const selfKeyIndexName = `index_${selfKeyName}`;
-      const foreignKeyIndexName = `index_${foreignKeyName}`;
-      const selfKeyIndexStatement = createIndexStatement(
-        fkHostTable,
-        selfKeyIndexName,
-        selfKeyName
-      );
-      const foreignKeyIndexStatement = createIndexStatement(
-        fkHostTable,
-        foreignKeyIndexName,
-        foreignKeyName
-      );
-
-      // Add FK constraints for junction table
-      // selfKeyName references current table's __id
-      // foreignKeyName references foreign table's __id
-      const foreignTable = yield* resolveForeignTable(field);
-      const selfFkConstraintName = `fk_${selfKeyName}`;
-      const foreignFkConstraintName = `fk_${foreignKeyName}`;
-
-      const selfFkConstraintStatement = createForeignKeyConstraintStatement(
-        fkHostTable,
-        selfFkConstraintName,
-        selfKeyName,
-        currentTable(),
-        '__id',
-        'CASCADE'
-      );
-      const foreignFkConstraintStatement = createForeignKeyConstraintStatement(
-        fkHostTable,
-        foreignFkConstraintName,
-        foreignKeyName,
-        foreignTable,
-        '__id',
-        'CASCADE'
-      );
-
-      return ok([
-        builder,
-        selfKeyIndexStatement,
-        foreignKeyIndexStatement,
-        selfFkConstraintStatement,
-        foreignFkConstraintStatement,
-      ]);
-    });
-  }
-
-  private buildOneManyJunctionStatements(
-    field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const params = this.params;
-    const resolveFkHostTable = this.resolveFkHostTable.bind(this);
-    const resolveForeignTable = this.resolveForeignTable.bind(this);
-    const currentTable = this.currentTable.bind(this);
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const fkHostTable = yield* resolveFkHostTable(field);
-      const selfKeyName = yield* field.selfKeyNameString();
-      const foreignKeyName = yield* field.foreignKeyNameString();
-      const orderColumnName = yield* field.orderColumnName();
-      const schemaBuilder = fkHostTable.schema
-        ? params.db.schema.withSchema(fkHostTable.schema)
-        : params.db.schema;
-      const constraintName = `index_${selfKeyName}_${foreignKeyName}`;
-      const builder = schemaBuilder
-        .createTable(fkHostTable.tableName)
-        .ifNotExists()
-        .addColumn('__id', 'serial', (col) => col.primaryKey())
-        .addColumn(selfKeyName, 'text')
-        .addColumn(foreignKeyName, 'text')
-        .addColumn(orderColumnName, 'double precision')
-        .addUniqueConstraint(constraintName, [selfKeyName, foreignKeyName]);
-
-      // Add FK constraints for junction table
-      // selfKeyName references current table's __id
-      // foreignKeyName references foreign table's __id
-      const foreignTable = yield* resolveForeignTable(field);
-      const selfFkConstraintName = `fk_${selfKeyName}`;
-      const foreignFkConstraintName = `fk_${foreignKeyName}`;
-
-      const selfFkConstraintStatement = createForeignKeyConstraintStatement(
-        fkHostTable,
-        selfFkConstraintName,
-        selfKeyName,
-        currentTable(),
-        '__id',
-        'CASCADE'
-      );
-      const foreignFkConstraintStatement = createForeignKeyConstraintStatement(
-        fkHostTable,
-        foreignFkConstraintName,
-        foreignKeyName,
-        foreignTable,
-        '__id',
-        'CASCADE'
-      );
-
-      return ok([builder, selfFkConstraintStatement, foreignFkConstraintStatement]);
-    });
-  }
-
-  private buildLinkOrderMetaStatements(
-    field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    if (!this.shouldPersistOrderColumnMeta(field)) return ok([]);
-
-    const update = this.params.db
-      .updateTable('field')
-      .set({ meta: JSON.stringify({ hasOrderColumn: true }) })
-      .where('id', '=', field.id().toString());
-    return ok([update]);
-  }
-
-  private shouldPersistOrderColumnMeta(field: LinkField): boolean {
-    const relationship = field.relationship().toString();
-    if (relationship === 'oneMany' && field.isOneWay()) return false;
-    return true;
-  }
-
-  private resolveFkHostTable(
-    field: LinkField
-  ): Result<{ schema: string | null; tableName: string }, DomainError> {
-    return field.fkHostTableName().split({ defaultSchema: this.params.currentSchema });
-  }
-
-  /**
-   * Resolves the foreign table's identifier for FK constraints.
-   * Uses the field's baseId if available, otherwise assumes same schema as current table.
-   */
-  private resolveForeignTable(
-    field: LinkField
-  ): Result<{ schema: string | null; tableName: string }, DomainError> {
-    const foreignTableId = field.foreignTableId().toString();
-    const baseId = field.baseId();
-
-    // If baseId is available, use it as the schema; otherwise use current schema
-    const schema = baseId ? baseId.toString() : this.params.currentSchema;
-
-    return ok({ schema, tableName: foreignTableId });
-  }
-
-  private isCurrentTable(target: { schema: string | null; tableName: string }): boolean {
-    const currentSchema = this.params.currentSchema ?? null;
-    const targetSchema = target.schema ?? null;
-    return (
-      targetSchema === currentSchema &&
-      (target.tableName === this.params.currentTableName ||
-        target.tableName === this.params.currentTableId)
-    );
-  }
-
-  private buildFormulaReferenceStatements(
-    field: FormulaField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const dependencies = field.dependencies();
-    if (dependencies.length === 0) return ok([]);
-
-    const toFieldId = field.id().toString();
-    const values = dependencies.map((dependency) => ({
-      id: getRandomString(25),
-      to_field_id: toFieldId,
-      from_field_id: dependency.toString(),
-    }));
-
-    const insert = this.params.db
-      .insertInto('reference')
-      .values(values)
-      .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
-    // TODO: task_reference insertion is handled by a separate spec.
-    return ok([insert]);
-  }
-
-  private buildLinkReferenceStatements(
-    field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const toFieldId = field.id().toString();
-    const fromFieldId = field.lookupFieldId().toString();
-    const insert = this.params.db
-      .insertInto('reference')
-      .values({
-        id: getRandomString(25),
-        to_field_id: toFieldId,
-        from_field_id: fromFieldId,
-      })
-      .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
-    return ok([insert]);
-  }
-
-  private buildRollupReferenceStatements(
-    field: RollupField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const toFieldId = field.id().toString();
-    const linkFieldId = field.linkFieldId().toString();
-    const lookupFieldId = field.lookupFieldId().toString();
-    const insert = this.params.db
-      .insertInto('reference')
-      .values([
-        {
-          id: getRandomString(25),
-          to_field_id: toFieldId,
-          from_field_id: linkFieldId,
-        },
-        {
-          id: getRandomString(25),
-          to_field_id: toFieldId,
-          from_field_id: lookupFieldId,
-        },
-      ])
-      .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
-    return ok([insert]);
-  }
-
-  private buildLookupReferenceStatements(
-    field: LookupField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const toFieldId = field.id().toString();
-    const linkFieldId = field.linkFieldId().toString();
-    const lookupFieldId = field.lookupFieldId().toString();
-    const insert = this.params.db
-      .insertInto('reference')
-      .values([
-        {
-          id: getRandomString(25),
-          to_field_id: toFieldId,
-          from_field_id: linkFieldId,
-        },
-        {
-          id: getRandomString(25),
-          to_field_id: toFieldId,
-          from_field_id: lookupFieldId,
-        },
-      ])
-      .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
-    return ok([insert]);
+    return this.generateStatementsFromRules(field);
   }
 }

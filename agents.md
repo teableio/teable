@@ -94,6 +94,8 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 - In `package.json`:
   - Set `types` field to `"src/index.ts"` (not `"dist/index.d.ts"`)
   - Set `exports["."].types` to `"./src/index.ts"` (not `"./dist/index.d.ts"`)
+  - Set `exports["."].import` to `"./src/index.ts"` (not `"./dist/index.js"`) to allow Vite/Vitest to use source files directly
+  - Keep `exports["."].require` pointing to `"./dist/index.cjs"` for CommonJS compatibility
   - Include `"src"` in the `files` array (in addition to `"dist"`)
 - In `tsconfig.json`:
   - Map workspace dependencies to their `src` paths in `compilerOptions.paths` (e.g. `"@teable/v2-core": ["../core/src"]`)
@@ -106,7 +108,7 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
   "exports": {
     ".": {
       "types": "./src/index.ts",
-      "import": "./dist/index.js",
+      "import": "./src/index.ts",
       "require": "./dist/index.cjs"
     }
   },
@@ -114,7 +116,7 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 }
 ```
 
-This ensures that tools like Vite/Vitest can resolve package entries from source files even when `dist/` is not built, enabling faster development cycles and avoiding build dependencies.
+**Note:** Since v2 packages are workspace-only (`"private": true`) and not published to npm, pointing `import` to source files is safe. Vite/Vitest can process TypeScript files directly, enabling faster development cycles without requiring `dist/` to be built first.
 
 ## Error handling (non-negotiable)
 

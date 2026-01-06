@@ -6,6 +6,7 @@ import {
   executeCreateRecordEndpoint,
   executeCreateTableEndpoint,
   executeDeleteFieldEndpoint,
+  executeDeleteRecordsEndpoint,
   executeDeleteTableEndpoint,
   executeGetTableByIdEndpoint,
   executeImportCsvEndpoint,
@@ -93,6 +94,12 @@ const createSandboxHandlers = (): Record<string, SandboxHandler> => ({
     const container = await createSandboxContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeUpdateRecordEndpoint(executionContext, input, commandBus);
+    return unwrapEndpointResult(result);
+  },
+  'tables.deleteRecords': async (input, executionContext) => {
+    const container = await createSandboxContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeDeleteRecordsEndpoint(executionContext, input, commandBus);
     return unwrapEndpointResult(result);
   },
   'tables.deleteField': async (input, executionContext) => {

@@ -3,7 +3,9 @@
 import {
   type ColumnDef,
   type ColumnPinningState,
+  type OnChangeFn,
   type PaginationState,
+  type RowSelectionState,
   flexRender,
   getCoreRowModel,
   useReactTable,
@@ -48,6 +50,14 @@ interface DataTableProps<TData, TValue> {
   onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
   /** Available page sizes */
   pageSizeOptions?: number[];
+  /** Enable row selection */
+  enableRowSelection?: boolean;
+  /** Controlled row selection */
+  rowSelection?: RowSelectionState;
+  /** Callback when row selection changes */
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  /** Get row id for stable selection */
+  getRowId?: (originalRow: TData, index: number) => string;
 }
 
 export function DataTable<TData, TValue>({
@@ -60,6 +70,10 @@ export function DataTable<TData, TValue>({
   pagination,
   onPaginationChange,
   pageSizeOptions = [10, 20, 50, 100],
+  enableRowSelection,
+  rowSelection,
+  onRowSelectionChange,
+  getRowId,
 }: DataTableProps<TData, TValue>) {
   const columnPinning = useMemo<ColumnPinningState>(
     () => ({
@@ -90,9 +104,11 @@ export function DataTable<TData, TValue>({
     // Server-side pagination
     manualPagination: Boolean(pagination),
     pageCount,
+    enableRowSelection: Boolean(enableRowSelection),
     state: {
       columnPinning,
       ...(paginationState && { pagination: paginationState }),
+      ...(rowSelection && { rowSelection }),
     },
     onPaginationChange: onPaginationChange
       ? (updater) => {
@@ -103,6 +119,8 @@ export function DataTable<TData, TValue>({
           onPaginationChange(newState);
         }
       : undefined,
+    onRowSelectionChange: onRowSelectionChange,
+    getRowId,
   });
 
   return (
