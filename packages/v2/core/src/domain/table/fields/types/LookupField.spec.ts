@@ -273,13 +273,20 @@ const createInnerFieldFactories = (): Record<FieldTypeLiteral, InnerFieldTestCas
           id: valuesFieldId,
           name: valuesFieldName,
         })._unsafeUnwrap();
+        // Create a dummy field ID for the filter condition (condition must have at least one filter item)
+        const filterFieldId = createFieldId('7')._unsafeUnwrap();
         const conditionalRollupConfig = ConditionalRollupConfig.create({
           foreignTableId: createTableId('2')._unsafeUnwrap().toString(),
           lookupFieldId: createFieldId('3')._unsafeUnwrap().toString(),
           condition: {
             filter: {
               conjunction: 'and',
-              filterSet: [],
+              filterSet: [
+                {
+                  fieldId: filterFieldId.toString(),
+                  operator: 'isNotEmpty',
+                },
+              ],
             },
           },
         })._unsafeUnwrap();
@@ -303,13 +310,20 @@ const createInnerFieldFactories = (): Record<FieldTypeLiteral, InnerFieldTestCas
           id: innerFieldId,
           name: innerFieldName,
         })._unsafeUnwrap();
+        // Create a dummy field ID for the filter condition (condition must have at least one filter item)
+        const filterFieldId = createFieldId('8')._unsafeUnwrap();
         const conditionalLookupOptions = ConditionalLookupOptions.create({
           foreignTableId: createTableId('5')._unsafeUnwrap().toString(),
           lookupFieldId: createFieldId('6')._unsafeUnwrap().toString(),
           condition: {
             filter: {
               conjunction: 'and',
-              filterSet: [],
+              filterSet: [
+                {
+                  fieldId: filterFieldId.toString(),
+                  operator: 'isNotEmpty',
+                },
+              ],
             },
           },
         })._unsafeUnwrap();

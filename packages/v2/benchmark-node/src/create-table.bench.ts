@@ -142,14 +142,14 @@ afterAll(async () => {
 const runCreateTable = async (
   target: IBenchTarget,
   scenario: string,
-  fields: ICreateTableRequestDto['fields']
+  fieldsFactory: () => ICreateTableRequestDto['fields']
 ) => {
   if (!baseId) throw new Error('BaseId is missing');
 
   const input = {
     baseId,
     name: createTableName(target.name, scenario),
-    fields,
+    fields: fieldsFactory(),
   };
 
   try {
@@ -163,10 +163,12 @@ const runCreateTable = async (
   }
 };
 
-const simpleFields = createSimpleFields();
-const baseFields = createAllBaseFields();
+const simpleFieldsFactory = () => createSimpleFields();
+const baseFieldsFactory = () => createAllBaseFields();
 const fields200 = createTextColumns(200);
 const fields1000 = createTextColumns(1000);
+const fields200Factory = () => fields200;
+const fields1000Factory = () => fields1000;
 
 const frameworks = ['express', 'fastify', 'hono'] as const;
 
@@ -182,13 +184,13 @@ const benchCreateTable = (
   framework: (typeof frameworks)[number],
   label: string,
   scenario: string,
-  fields: ICreateTableRequestDto['fields']
+  fieldsFactory: () => ICreateTableRequestDto['fields']
 ) => {
   bench(
     `${framework}: create table: ${label}`,
     async () => {
       await ensureSetup();
-      await runCreateTable(getTarget(framework), scenario, fields);
+      await runCreateTable(getTarget(framework), scenario, fieldsFactory);
     },
     benchOptions
   );
@@ -196,24 +198,24 @@ const benchCreateTable = (
 
 describe('CreateTable benchmarks: 3 columns', () => {
   for (const framework of frameworks) {
-    benchCreateTable(framework, '3 columns', 'simple', simpleFields);
+    benchCreateTable(framework, '3 columns', 'simple', simpleFieldsFactory);
   }
 });
 
 describe('CreateTable benchmarks: all base fields', () => {
   for (const framework of frameworks) {
-    benchCreateTable(framework, 'all base fields', 'base', baseFields);
+    benchCreateTable(framework, 'all base fields', 'base', baseFieldsFactory);
   }
 });
 
 describe('CreateTable benchmarks: 200 columns', () => {
   for (const framework of frameworks) {
-    benchCreateTable(framework, '200 columns', '200', fields200);
+    benchCreateTable(framework, '200 columns', '200', fields200Factory);
   }
 });
 
 describe('CreateTable benchmarks: 1000 columns', () => {
   for (const framework of frameworks) {
-    benchCreateTable(framework, '1000 columns', '1000', fields1000);
+    benchCreateTable(framework, '1000 columns', '1000', fields1000Factory);
   }
 });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
 import {
   createAllBaseFields,
@@ -26,20 +27,23 @@ export const runCreateTableBench = async (): Promise<void> => {
   const context = await createBunBenchTargets();
 
   try {
-    const simpleFields = createSimpleFields();
-    const baseFields = createAllBaseFields();
+    type FieldFactory = () => ICreateTableRequestDto['fields'];
+    const simpleFieldsFactory: FieldFactory = () => createSimpleFields();
+    const baseFieldsFactory: FieldFactory = () => createAllBaseFields();
     const fields200 = createTextColumns(200);
     const fields1000 = createTextColumns(1000);
+    const fields200Factory: FieldFactory = () => fields200;
+    const fields1000Factory: FieldFactory = () => fields1000;
 
     const runCreateTable = async (
       target: IBunBenchTarget,
       scenario: string,
-      fields: ICreateTableRequestDto['fields']
+      fieldsFactory: FieldFactory
     ) => {
       const input = {
         baseId: context.baseId,
         name: createTableName(target.name, scenario),
-        fields,
+        fields: fieldsFactory(),
       };
 
       const response = await target.client.tables.create(input);
@@ -48,15 +52,11 @@ export const runCreateTableBench = async (): Promise<void> => {
       }
     };
 
-    const runScenario = async (
-      label: string,
-      scenario: string,
-      fields: ICreateTableRequestDto['fields']
-    ) => {
+    const runScenario = async (label: string, scenario: string, fieldsFactory: FieldFactory) => {
       const bench = new Bench(benchOptions);
       for (const target of context.targets) {
         bench.add(`${target.name}: create table: ${label}`, async () => {
-          await runCreateTable(target, scenario, fields);
+          await runCreateTable(target, scenario, fieldsFactory);
         });
       }
 
@@ -67,10 +67,10 @@ export const runCreateTableBench = async (): Promise<void> => {
       console.table(bench.table());
     };
 
-    await runScenario('3 columns', 'simple', simpleFields);
-    await runScenario('all base fields', 'base', baseFields);
-    await runScenario('200 columns', '200', fields200);
-    await runScenario('1000 columns', '1000', fields1000);
+    await runScenario('3 columns', 'simple', simpleFieldsFactory);
+    await runScenario('all base fields', 'base', baseFieldsFactory);
+    await runScenario('200 columns', '200', fields200Factory);
+    await runScenario('1000 columns', '1000', fields1000Factory);
   } finally {
     await context.dispose();
   }

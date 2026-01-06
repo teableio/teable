@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { registerV2PostgresBunSqlDb } from '@teable/v2-adapter-db-postgres-bun-sql';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresDb } from '@teable/v2-adapter-db-postgres-pg';
@@ -87,8 +88,10 @@ export const runDbAdapterBench = async (): Promise<void> => {
     });
   }
 
-  const simpleFields = createSimpleFields();
+  type FieldFactory = () => ICreateTableRequestDto['fields'];
+  const simpleFieldsFactory: FieldFactory = () => createSimpleFields();
   const fields200 = createTextColumns(200);
+  const fields200Factory: FieldFactory = () => fields200;
 
   const getTarget = (name: string): IBenchTarget => {
     const target = targets.find((item) => item.name === name);
@@ -101,12 +104,12 @@ export const runDbAdapterBench = async (): Promise<void> => {
   const runCreateTable = async (
     target: IBenchTarget,
     scenario: string,
-    fields: ICreateTableRequestDto['fields']
+    fieldsFactory: FieldFactory
   ) => {
     const response = await target.client.tables.create({
       baseId: target.baseId,
       name: createTableName(target.name, scenario),
-      fields,
+      fields: fieldsFactory(),
     });
 
     if (!response.ok) {
@@ -146,7 +149,7 @@ export const runDbAdapterBench = async (): Promise<void> => {
       for (const adapter of adapters) {
         const name = adapter.name;
         bench.add(`bun + ${name}: create table (3 columns)`, async () => {
-          await runCreateTable(getTarget(name), simpleScenario, simpleFields);
+          await runCreateTable(getTarget(name), simpleScenario, simpleFieldsFactory);
         });
       }
     });
@@ -155,7 +158,7 @@ export const runDbAdapterBench = async (): Promise<void> => {
       for (const adapter of adapters) {
         const name = adapter.name;
         bench.add(`bun + ${name}: create table (200 columns)`, async () => {
-          await runCreateTable(getTarget(name), columns200Scenario, fields200);
+          await runCreateTable(getTarget(name), columns200Scenario, fields200Factory);
         });
       }
     });

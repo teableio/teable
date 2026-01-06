@@ -129,12 +129,12 @@ afterAll(async () => {
 const runCreateTable = async (
   target: IBenchTarget,
   scenario: string,
-  fields: ICreateTableRequestDto['fields']
+  fieldsFactory: () => ICreateTableRequestDto['fields']
 ) => {
   const response = await target.client.tables.create({
     baseId: target.baseId,
     name: createTableName(target.name, scenario),
-    fields,
+    fields: fieldsFactory(),
   });
 
   if (!response.ok) {
@@ -166,8 +166,9 @@ const getTarget = (name: string): IBenchTarget => {
   return target;
 };
 
-const simpleFields = createSimpleFields();
+const simpleFieldsFactory = () => createSimpleFields();
 const fields200 = createTextColumns(200);
+const fields200Factory = () => fields200;
 
 describe('DB adapter benchmarks (Hono): create table (3 columns)', () => {
   for (const adapter of adapters) {
@@ -175,7 +176,7 @@ describe('DB adapter benchmarks (Hono): create table (3 columns)', () => {
       `hono + ${adapter.name}: create table (3 columns)`,
       async () => {
         await ensureSetup();
-        await runCreateTable(getTarget(adapter.name), simpleScenario, simpleFields);
+        await runCreateTable(getTarget(adapter.name), simpleScenario, simpleFieldsFactory);
       },
       benchOptions
     );
@@ -188,7 +189,7 @@ describe('DB adapter benchmarks (Hono): create table (200 columns)', () => {
       `hono + ${adapter.name}: create table (200 columns)`,
       async () => {
         await ensureSetup();
-        await runCreateTable(getTarget(adapter.name), columns200Scenario, fields200);
+        await runCreateTable(getTarget(adapter.name), columns200Scenario, fields200Factory);
       },
       benchOptions
     );
