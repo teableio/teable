@@ -150,6 +150,22 @@
     "urlCopied": "URLをクリップボードにコピーしました！",
     "urlCopiedForDiscord": "URLをクリップボードにコピーしました！Discordに貼り付けることができます。",
     "publishSuccessDescription": "あなたの作品を世界に共有しましょう",
-    "shareWith": "共有先"
+    "shareWith": "共有先",
+    "unpublishedApps": {
+      "title": "未公開のアプリが検出されました",
+      "description": "以下のアプリはまだ公開されていません。公開が確認されていないアプリは、テンプレートでのデプロイに失敗し、正常なプレビューができない場合があります。今すぐ公開するか、そのまま続行できます。",
+      "publishAll": "すべて公開",
+      "publish": "公開",
+      "published": "公開済み",
+      "publishing": "公開中...",
+      "publishFailed": "公開に失敗しました",
+      "publishFailedTip1": "ソースアプリが正常に公開できるか確認してください",
+      "publishFailedTip2": "このテンプレートを再公開してみてください",
+      "notPublished": "未公開",
+      "ignoreAndContinue": "無視して続行",
+      "goToFix": "修正へ移動",
+      "redeploy": "再デプロイ",
+      "unnamedApp": "無名のアプリ"
+    }
   }
 }

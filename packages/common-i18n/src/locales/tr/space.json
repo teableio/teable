@@ -150,6 +150,22 @@
     "urlCopied": "URL panoya kopyalandı!",
     "urlCopiedForDiscord": "URL panoya kopyalandı! Discord'a yapıştırabilirsiniz.",
     "publishSuccessDescription": "Çalışmanızı dünyayla paylaşın",
-    "shareWith": "Şununla paylaş"
+    "shareWith": "Şununla paylaş",
+    "unpublishedApps": {
+      "title": "Yayınlanmamış Uygulamalar Tespit Edildi",
+      "description": "Aşağıdaki uygulamalar henüz yayınlanmadı. Yayınlanması doğrulanmamış uygulamalar şablonda dağıtılamayabilir ve normal önizlemeyi engelleyebilir. Şimdi yayınlayabilir veya yine de devam edebilirsiniz.",
+      "publishAll": "Tümünü Yayınla",
+      "publish": "Yayınla",
+      "published": "Yayınlandı",
+      "publishing": "Yayınlanıyor...",
+      "publishFailed": "Yayınlama başarısız",
+      "publishFailedTip1": "Kaynak uygulamanın başarıyla yayınlanıp yayınlanamayacağını kontrol edin",
+      "publishFailedTip2": "Bu şablonu yeniden yayınlamayı deneyin",
+      "notPublished": "Yayınlanmadı",
+      "ignoreAndContinue": "Yoksay ve Devam Et",
+      "goToFix": "Düzeltmeye Git",
+      "redeploy": "Yeniden Dağıt",
+      "unnamedApp": "Adsız Uygulama"
+    }
   }
 }

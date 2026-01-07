@@ -150,6 +150,22 @@
     "urlCopied": "¡URL copiada al portapapeles!",
     "urlCopiedForDiscord": "¡URL copiada al portapapeles! Puedes pegarla en Discord.",
     "publishSuccessDescription": "Comparte tu trabajo con el mundo",
-    "shareWith": "Compartir con"
+    "shareWith": "Compartir con",
+    "unpublishedApps": {
+      "title": "Apps no publicadas detectadas",
+      "description": "Las siguientes apps aún no han sido publicadas. Las apps que no han sido verificadas para publicarse correctamente pueden fallar al desplegarse en la plantilla, impidiendo la vista previa normal. Puede publicarlas ahora o continuar de todos modos.",
+      "publishAll": "Publicar todas",
+      "publish": "Publicar",
+      "published": "Publicada",
+      "publishing": "Publicando...",
+      "publishFailed": "Error al publicar",
+      "publishFailedTip1": "Verifique si la app de origen se puede publicar correctamente",
+      "publishFailedTip2": "Intente volver a publicar esta plantilla",
+      "notPublished": "No publicada",
+      "ignoreAndContinue": "Ignorar y continuar",
+      "goToFix": "Ir a corregir",
+      "redeploy": "Redesplegar",
+      "unnamedApp": "Aplicación sin nombre"
+    }
   }
 }

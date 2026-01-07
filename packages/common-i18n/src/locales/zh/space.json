@@ -154,6 +154,22 @@
     "urlCopied": "链接已复制到剪贴板！",
     "urlCopiedForDiscord": "链接已复制到剪贴板！你可以在 Discord 中粘贴。",
     "publishSuccessDescription": "分享你的作品到世界",
-    "shareWith": "分享到"
+    "shareWith": "分享到",
+    "unpublishedApps": {
+      "title": "检测到未发布的应用",
+      "description": "以下应用尚未发布。未验证能成功发布的应用，可能在模板中发布失败，以至于不能正常预览。您可以现在发布它们，或者忽略并继续。",
+      "publishAll": "全部发布",
+      "publish": "发布",
+      "published": "已发布",
+      "publishing": "发布中",
+      "notPublished": "未发布",
+      "publishFailed": "发布失败",
+      "publishFailedTip1": "检查源应用是否能正常发布",
+      "publishFailedTip2": "尝试重新发布此模板",
+      "ignoreAndContinue": "忽略并继续",
+      "goToFix": "去修复",
+      "redeploy": "重新部署",
+      "unnamedApp": "未命名应用"
+    }
   }
 }

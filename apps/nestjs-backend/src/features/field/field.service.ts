@@ -1447,6 +1447,33 @@ export class FieldService implements IReadonlyAdapterService {
     if (oldField.type === newField.type) {
       return;
     }
+
+    const usesPersistedGeneratedColumn = (field: IFieldInstance) => {
+      if (field.isLookup) {
+        return false;
+      }
+
+      const persistedAsGeneratedColumn = (
+        field.meta as { persistedAsGeneratedColumn?: boolean } | undefined
+      )?.persistedAsGeneratedColumn;
+
+      if (persistedAsGeneratedColumn !== undefined) {
+        return persistedAsGeneratedColumn === true;
+      }
+
+      if (field.type === FieldType.CreatedTime) {
+        return true;
+      }
+
+      if (field.type === FieldType.LastModifiedTime) {
+        const maybeLastModified = field as unknown as { isTrackAll?: () => boolean };
+        if (typeof maybeLastModified.isTrackAll === 'function') {
+          return maybeLastModified.isTrackAll();
+        }
+      }
+
+      return false;
+    };
     // If either side is Formula, we must reconcile the physical schema using modifyColumnSchema.
     // This ensures that converting to Formula creates generated columns (or proper projection),
     // and converting back from Formula recreates the original physical column.
@@ -1462,6 +1489,28 @@ export class FieldService implements IReadonlyAdapterService {
         await this.prismaService.txClient().$executeRawUnsafe(sql);
       }
       return;
+    }
+
+    // Some field types (e.g., CreatedTime / LastModifiedTime(track all)) are persisted as generated columns
+    // without a dbFieldType change. Converting them to a regular field type (e.g., Date) must recreate the
+    // physical column, otherwise UPDATEs will hit "cannot update a generated column".
+    if (oldField.dbFieldType === newField.dbFieldType) {
+      const oldGenerated = usesPersistedGeneratedColumn(oldField);
+      const newGenerated = usesPersistedGeneratedColumn(newField);
+
+      if (oldGenerated || newGenerated) {
+        const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableId);
+        const modifyColumnSql = this.dbProvider.modifyColumnSchema(
+          dbTableName,
+          oldField,
+          newField,
+          tableDomain
+        );
+        for (const sql of modifyColumnSql) {
+          await this.prismaService.txClient().$executeRawUnsafe(sql);
+        }
+        return;
+      }
     }
 
     await this.handleFormulaUpdate(tableId, dbTableName, oldField, newField);

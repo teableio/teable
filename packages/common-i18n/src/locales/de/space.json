@@ -152,6 +152,22 @@
     "urlCopied": "URL in die Zwischenablage kopiert!",
     "urlCopiedForDiscord": "URL in die Zwischenablage kopiert! Sie können sie in Discord einfügen.",
     "publishSuccessDescription": "Teilen Sie Ihre Arbeit mit der Welt",
-    "shareWith": "Teilen mit"
+    "shareWith": "Teilen mit",
+    "unpublishedApps": {
+      "title": "Unveröffentlichte Apps erkannt",
+      "description": "Die folgenden Apps wurden noch nicht veröffentlicht. Apps, deren erfolgreiche Veröffentlichung nicht verifiziert wurde, können in der Vorlage nicht bereitgestellt werden, was eine normale Vorschau verhindert. Sie können sie jetzt veröffentlichen oder trotzdem fortfahren.",
+      "publishAll": "Alle veröffentlichen",
+      "publish": "Veröffentlichen",
+      "published": "Veröffentlicht",
+      "publishing": "Veröffentlichen...",
+      "publishFailed": "Veröffentlichung fehlgeschlagen",
+      "publishFailedTip1": "Überprüfen Sie, ob die Quell-App erfolgreich veröffentlicht werden kann",
+      "publishFailedTip2": "Versuchen Sie, diese Vorlage erneut zu veröffentlichen",
+      "notPublished": "Nicht veröffentlicht",
+      "ignoreAndContinue": "Ignorieren und fortfahren",
+      "goToFix": "Zur Behebung",
+      "redeploy": "Erneut bereitstellen",
+      "unnamedApp": "Unbenannte App"
+    }
   }
 }

@@ -1344,6 +1344,10 @@ export class FieldConvertingService {
       return false;
     }
 
+    if (newField.hasError !== oldField.hasError) {
+      return true;
+    }
+
     if (majorFieldKeysChanged(oldField, newField)) {
       return true;
     }
@@ -1384,11 +1388,12 @@ export class FieldConvertingService {
       return;
     }
 
+    const errorStateChanged = newField.hasError !== oldField.hasError;
     const hasMajorChange = majorFieldKeysChanged(oldField, newField);
     const conditionalLookupDiff = this.hasConditionalLookupDiff(newField, oldField);
     const conditionalRollupDiff = this.hasConditionalRollupDiff(newField, oldField);
 
-    if (!hasMajorChange && !conditionalLookupDiff && !conditionalRollupDiff) {
+    if (!errorStateChanged && !hasMajorChange && !conditionalLookupDiff && !conditionalRollupDiff) {
       return;
     }
 

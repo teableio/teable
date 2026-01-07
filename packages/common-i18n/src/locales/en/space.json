@@ -154,6 +154,22 @@
     "urlCopied": "URL copied to clipboard!",
     "urlCopiedForDiscord": "URL copied to clipboard! You can paste it in Discord.",
     "publishSuccessDescription": "Share your work to the world",
-    "shareWith": "Share with"
+    "shareWith": "Share with",
+    "unpublishedApps": {
+      "title": "Unpublished Apps Detected",
+      "description": "The following apps have not been published yet. Apps that have not been verified to publish successfully may fail to deploy in the template, preventing normal preview. You can publish them now or continue anyway.",
+      "publishAll": "Publish All",
+      "publish": "Publish",
+      "published": "Published",
+      "publishing": "Publishing",
+      "notPublished": "Not Published",
+      "publishFailed": "Publish failed",
+      "publishFailedTip1": "Check if the source app can be published successfully",
+      "publishFailedTip2": "Try republishing this template",
+      "ignoreAndContinue": "Ignore & Continue",
+      "goToFix": "Go to Fix",
+      "redeploy": "Redeploy",
+      "unnamedApp": "Unnamed App"
+    }
   }
 }

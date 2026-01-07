@@ -150,6 +150,22 @@
     "urlCopied": "URL copiée dans le presse-papiers !",
     "urlCopiedForDiscord": "URL copiée dans le presse-papiers ! Vous pouvez la coller dans Discord.",
     "publishSuccessDescription": "Partagez votre travail avec le monde",
-    "shareWith": "Partager avec"
+    "shareWith": "Partager avec",
+    "unpublishedApps": {
+      "title": "Applications non publiées détectées",
+      "description": "Les applications suivantes n'ont pas encore été publiées. Les applications dont la publication n'a pas été vérifiée peuvent échouer à se déployer dans le modèle, empêchant l'aperçu normal. Vous pouvez les publier maintenant ou continuer quand même.",
+      "publishAll": "Tout publier",
+      "publish": "Publier",
+      "published": "Publiée",
+      "publishing": "Publication...",
+      "publishFailed": "Échec de la publication",
+      "publishFailedTip1": "Vérifiez si l'application source peut être publiée avec succès",
+      "publishFailedTip2": "Essayez de republier ce modèle",
+      "notPublished": "Non publiée",
+      "ignoreAndContinue": "Ignorer et continuer",
+      "goToFix": "Aller corriger",
+      "redeploy": "Redéployer",
+      "unnamedApp": "Application sans nom"
+    }
   }
 }

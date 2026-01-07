@@ -37,14 +37,17 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import confetti from 'canvas-confetti';
-import { Camera, Send, Copy } from 'lucide-react';
+import { Camera, Send, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { ROOT_ID } from '../../../base/base-node/hooks';
 import { useBaseNodeContext } from '../../../base/base-node/hooks/useBaseNodeContext';
+import { useAppPublishContext } from './AppPublishContext';
 import { NodeSelect } from './NodeSelect';
 import { NodeTreeSelect } from './NodeTreeSelect';
+import type { IUnpublishedApp } from './UnpublishedAppsDialog';
+import { UnpublishedAppsDialog, getUnpublishedAppNodes } from './UnpublishedAppsDialog';
 
 const attachmentManager = new AttachmentManager(1);
 
@@ -73,6 +76,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const baseId = base?.id;
   const { treeItems } = useBaseNodeContext();
   const isCloud = useIsCloud();
+  const appPublishContext = useAppPublishContext();
 
   const queryClient = useQueryClient();
 
@@ -210,6 +214,9 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+  const [unpublishedAppsDialogOpen, setUnpublishedAppsDialogOpen] = useState(false);
+  const [unpublishedApps, setUnpublishedApps] = useState<IUnpublishedApp[]>([]);
+  const [externalApps, setExternalApps] = useState<IUnpublishedApp[] | undefined>(undefined);
 
   // Initialize selected nodes on first load
   useEffect(() => {
@@ -348,6 +355,35 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     });
   };
 
+  const handlePublishClick = useCallback(() => {
+    if (!title || !description) {
+      toast.error(t('publishBase.tips.publishValidation'));
+      return;
+    }
+
+    if (selectedNodeIds.length === 0) {
+      toast.error(t('publishBase.tips.atLeastOneNode'));
+      return;
+    }
+
+    // Check for unpublished app nodes
+    const unpublishedAppNodes = getUnpublishedAppNodes(selectedNodeIds, treeItems);
+    if (unpublishedAppNodes.length > 0) {
+      setUnpublishedApps(unpublishedAppNodes);
+      setExternalApps(undefined); // Reset external apps state
+      setUnpublishedAppsDialogOpen(true);
+      return;
+    }
+
+    // No unpublished apps, proceed with publishing
+    publishBaseMutate({ title, description: description || '' });
+  }, [title, description, selectedNodeIds, treeItems, publishBaseMutate, t]);
+
+  const handleContinuePublish = useCallback(() => {
+    setUnpublishedAppsDialogOpen(false);
+    publishBaseMutate({ title, description: description || '' });
+  }, [title, description, publishBaseMutate]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -457,19 +493,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 )}
                 <Button
                   className="flex w-full items-center gap-2"
-                  onClick={() => {
-                    if (!title || !description) {
-                      toast.error(t('publishBase.tips.publishValidation'));
-                      return;
-                    }
-
-                    if (selectedNodeIds.length === 0) {
-                      toast.error(t('publishBase.tips.atLeastOneNode'));
-                      return;
-                    }
-
-                    publishBaseMutate({ title, description: description || '' });
-                  }}
+                  onClick={handlePublishClick}
                   disabled={publishBaseLoading}
                 >
                   <Send className="size-4" />
@@ -576,6 +600,14 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     >
                       <Copy className="size-4" />
                     </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-9 shrink-0 rounded-none border-l p-0"
+                      onClick={() => window.open(shareUrl, '_blank')}
+                    >
+                      <ExternalLink className="size-4" />
+                    </Button>
                   </div>
                 )}
               </div>
@@ -614,6 +646,14 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleCopyUrl}>
                 <Copy className="size-4" />
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="size-9 p-0"
+                onClick={() => window.open(shareUrl, '_blank')}
+              >
+                <ExternalLink className="size-4" />
+              </Button>
             </div>
 
             {isCloud && (
@@ -650,6 +690,16 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <UnpublishedAppsDialog
+        open={unpublishedAppsDialogOpen}
+        onOpenChange={setUnpublishedAppsDialogOpen}
+        unpublishedApps={unpublishedApps}
+        treeItems={treeItems}
+        onContinue={handleContinuePublish}
+        onPublishApp={appPublishContext.publishApp}
+        externalApps={externalApps}
+      />
     </>
   );
 };

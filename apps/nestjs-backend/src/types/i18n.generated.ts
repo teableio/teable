@@ -2948,6 +2948,22 @@ export type I18nTranslations = {
             "urlCopiedForDiscord": string;
             "publishSuccessDescription": string;
             "shareWith": string;
+            "unpublishedApps": {
+                "title": string;
+                "description": string;
+                "publishAll": string;
+                "publish": string;
+                "published": string;
+                "publishing": string;
+                "publishFailed": string;
+                "publishFailedTip1": string;
+                "publishFailedTip2": string;
+                "notPublished": string;
+                "ignoreAndContinue": string;
+                "goToFix": string;
+                "redeploy": string;
+                "unnamedApp": string;
+            };
         };
         "collaborators": string;
         "more": string;

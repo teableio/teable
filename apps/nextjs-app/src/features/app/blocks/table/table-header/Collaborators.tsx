@@ -2,10 +2,9 @@ import { ColorUtils, contractColorForTheme, getCollaboratorsChannel } from '@tea
 import { useTheme } from '@teable/next-themes';
 import type { ICollaboratorUser } from '@teable/sdk';
 import { useSession, CollaboratorWithHoverCard } from '@teable/sdk';
-import { useConnection } from '@teable/sdk/hooks';
+import { useConnection, useTableId } from '@teable/sdk/hooks';
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { chunk, isEmpty } from 'lodash';
-import { useRouter } from 'next/router';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
 
@@ -15,9 +14,8 @@ interface CollaboratorsProps {
 }
 
 export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvatarLen = 3 }) => {
-  const router = useRouter();
   const { connection } = useConnection();
-  const { tableId } = router.query;
+  const tableId = useTableId();
   const { user: sessionUser } = useSession();
   const { resolvedTheme } = useTheme();
 
