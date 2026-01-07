@@ -38,6 +38,7 @@
       "@teable/v2-adapter-realtime-sharedb": ["../adapter-realtime-sharedb/src"],
       "@teable/v2-di": ["../di/src"],
       "@teable/v2-table-templates": ["../table-templates/src"],
+      "@teable/v2-formula-sql-pg": ["../formula-sql-pg/src"],
       "@teable/v2-utils": ["../utils/src"]
     },
     "types": ["vitest/globals", "node"]
@@ -69,6 +70,7 @@
     "../adapter-realtime-sharedb/src",
     "../di/src",
     "../table-templates/src",
+    "../formula-sql-pg/src",
     "../utils/src"
   ]
 }

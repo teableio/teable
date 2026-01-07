@@ -346,7 +346,7 @@ describe('v2 computed field updates (e2e)', () => {
             ---------------------------
             #  | Name | Value | Doubled
             ---------------------------
-            R0 | Test | 5     | 10     
+            R0 | Test | 5     | 10
             ---------------------------"
           `);
 
@@ -360,7 +360,7 @@ describe('v2 computed field updates (e2e)', () => {
             ---------------------------
             #  | Name | Value | Doubled
             ---------------------------
-            R0 | Test | 15    | 30     
+            R0 | Test | 15    | 30
             ---------------------------"
           `);
       });
@@ -463,7 +463,7 @@ describe('v2 computed field updates (e2e)', () => {
           .toMatchInlineSnapshot(`
             "[FormulaTextTest]
             --------------------------------
-            #  | Name | Text  | Greeting    
+            #  | Name | Text  | Greeting
             --------------------------------
             R0 | Test | World | Hello, World
             --------------------------------"
@@ -477,7 +477,7 @@ describe('v2 computed field updates (e2e)', () => {
           .toMatchInlineSnapshot(`
             "[FormulaTextTest]
             --------------------------------------
-            #  | Name | Text     | Greeting       
+            #  | Name | Text     | Greeting
             --------------------------------------
             R0 | Test | Universe | Hello, Universe
             --------------------------------------"
@@ -536,7 +536,7 @@ describe('v2 computed field updates (e2e)', () => {
             ----------------------------------------
             #  | Name  | Amount | Score | ScoreLabel
             ----------------------------------------
-            R0 | Alpha | 5      | 10    | Score: 10 
+            R0 | Alpha | 5      | 10    | Score: 10
             ----------------------------------------"
           `);
 
@@ -552,7 +552,7 @@ describe('v2 computed field updates (e2e)', () => {
             ----------------------------------------
             #  | Name  | Amount | Score | ScoreLabel
             ----------------------------------------
-            R0 | Alpha | 7      | 14    | Score: 14 
+            R0 | Alpha | 7      | 14    | Score: 14
             ----------------------------------------"
           `);
         });
@@ -634,7 +634,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------
             #  | Name  | Value
             ------------------
-            R0 | ItemA | 100  
+            R0 | ItemA | 100
             ------------------"
           `);
 
@@ -645,7 +645,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------------
             #  | Name  | LinkA | LookupVal
             ------------------------------
-            R0 | ItemB | ItemA | [100]    
+            R0 | ItemB | ItemA | [100]
             ------------------------------"
           `);
 
@@ -659,7 +659,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------
             #  | Name  | Value
             ------------------
-            R0 | ItemA | 200  
+            R0 | ItemA | 200
             ------------------"
           `);
 
@@ -670,7 +670,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------------
             #  | Name  | LinkA | LookupVal
             ------------------------------
-            R0 | ItemB | ItemA | [200]    
+            R0 | ItemB | ItemA | [200]
             ------------------------------"
           `);
       });
@@ -751,7 +751,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------------
             #  | Name  | LinkA | LookupVal
             ------------------------------
-            R0 | ItemB | A1    | [10]     
+            R0 | ItemB | A1    | [10]
             ------------------------------"
           `);
 
@@ -766,7 +766,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------------
             #  | Name  | LinkA | LookupVal
             ------------------------------
-            R0 | ItemB | A2    | [20]     
+            R0 | ItemB | A2    | [20]
             ------------------------------"
           `);
       });
@@ -862,7 +862,7 @@ describe('v2 computed field updates (e2e)', () => {
           ).toMatchInlineSnapshot(`
             "[Contacts Source]
             --------------------------------
-            #  | Name  | Score | ScoreLabel 
+            #  | Name  | Score | ScoreLabel
             --------------------------------
             R0 | Alice | 2     | Score: 2.00
             --------------------------------"
@@ -881,7 +881,7 @@ describe('v2 computed field updates (e2e)', () => {
           expect(beforeSnapshot).toMatchInlineSnapshot(`
             "[Deals Target]
             -------------------------------------
-            #  | Deal   | Contact | ContactScore 
+            #  | Deal   | Contact | ContactScore
             -------------------------------------
             R0 | Deal A | Alice   | [Score: 2.00]
             -------------------------------------"
@@ -899,7 +899,7 @@ describe('v2 computed field updates (e2e)', () => {
           ).toMatchInlineSnapshot(`
             "[Contacts Source]
             --------------------------------
-            #  | Name  | Score | ScoreLabel 
+            #  | Name  | Score | ScoreLabel
             --------------------------------
             R0 | Alice | 8     | Score: 8.00
             --------------------------------"
@@ -918,7 +918,7 @@ describe('v2 computed field updates (e2e)', () => {
           expect(afterSnapshot).toMatchInlineSnapshot(`
             "[Deals Target]
             -------------------------------------
-            #  | Deal   | Contact | ContactScore 
+            #  | Deal   | Contact | ContactScore
             -------------------------------------
             R0 | Deal A | Alice   | [Score: 8.00]
             -------------------------------------"
@@ -1007,8 +1007,8 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------
             #  | Name | Value
             -----------------
-            R0 | A1   | 10   
-            R1 | A2   | 20   
+            R0 | A1   | 10
+            R1 | A2   | 20
             -----------------"
           `);
 
@@ -1019,7 +1019,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------------
             #  | Name  | Links  | Sum
             -------------------------
-            R0 | ItemB | A1, A2 | 30 
+            R0 | ItemB | A1, A2 | 30
             -------------------------"
           `);
 
@@ -1033,8 +1033,8 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------
             #  | Name | Value
             -----------------
-            R0 | A1   | 50   
-            R1 | A2   | 20   
+            R0 | A1   | 50
+            R1 | A2   | 20
             -----------------"
           `);
 
@@ -1045,7 +1045,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------------
             #  | Name  | Links  | Sum
             -------------------------
-            R0 | ItemB | A1, A2 | 70 
+            R0 | ItemB | A1, A2 | 70
             -------------------------"
           `);
       });
@@ -1130,7 +1130,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------
             #  | Name  | Links | Sum
             ------------------------
-            R0 | ItemB | A1    | 10 
+            R0 | ItemB | A1    | 10
             ------------------------"
           `);
 
@@ -1147,7 +1147,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------------------
             #  | Name  | Links      | Sum
             -----------------------------
-            R0 | ItemB | A1, A2, A3 | 60 
+            R0 | ItemB | A1, A2, A3 | 60
             -----------------------------"
           `);
       });
@@ -1344,7 +1344,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------
           #  | Name | Value
           -----------------
-          R0 | A1   | 100  
+          R0 | A1   | 100
           -----------------"
         `);
 
@@ -1355,7 +1355,7 @@ describe('v2 computed field updates (e2e)', () => {
           ---------------------------
           #  | Name | LinkB | LookupB
           ---------------------------
-          R0 | C1   | B1    | [100]  
+          R0 | C1   | B1    | [100]
           ---------------------------"
         `);
 
@@ -1370,7 +1370,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------
           #  | Name | Value
           -----------------
-          R0 | A1   | 999  
+          R0 | A1   | 999
           -----------------"
         `);
 
@@ -1381,7 +1381,7 @@ describe('v2 computed field updates (e2e)', () => {
           ---------------------------
           #  | Name | LinkB | LookupB
           ---------------------------
-          R0 | C1   | B1    | [999]  
+          R0 | C1   | B1    | [999]
           ---------------------------"
         `);
     });
@@ -1476,7 +1476,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------
           #  | Name | Num | Doubled
           -------------------------
-          R0 | A1   | 10  | 20     
+          R0 | A1   | 10  | 20
           -------------------------"
         `);
 
@@ -1487,7 +1487,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------------------------
           #  | Name | LinkA | LookupDoubled | PlusTen
           -------------------------------------------
-          R0 | B1   | A1    | [20]          | [30]   
+          R0 | B1   | A1    | [20]          | [30]
           -------------------------------------------"
         `);
 
@@ -1504,7 +1504,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------
           #  | Name | Num | Doubled
           -------------------------
-          R0 | A1   | 50  | 100    
+          R0 | A1   | 50  | 100
           -------------------------"
         `);
 
@@ -1515,7 +1515,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------------------------
           #  | Name | LinkA | LookupDoubled | PlusTen
           -------------------------------------------
-          R0 | B1   | A1    | [100]         | [110]  
+          R0 | B1   | A1    | [100]         | [110]
           -------------------------------------------"
         `);
     });
@@ -1652,7 +1652,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------------
           #  | Name | Links  | TotalSum
           -----------------------------
-          R0 | B1   | A1, A2 | 40      
+          R0 | B1   | A1, A2 | 40
           -----------------------------"
         `);
 
@@ -1663,7 +1663,7 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------
           #  | Name | LinkB | SumFromB
           ----------------------------
-          R0 | C1   | B1    | [40]    
+          R0 | C1   | B1    | [40]
           ----------------------------"
         `);
 
@@ -1679,7 +1679,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------------
           #  | Name | Links  | TotalSum
           -----------------------------
-          R0 | B1   | A1, A2 | 60      
+          R0 | B1   | A1, A2 | 60
           -----------------------------"
         `);
 
@@ -1690,7 +1690,7 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------
           #  | Name | LinkB | SumFromB
           ----------------------------
-          R0 | C1   | B1    | [60]    
+          R0 | C1   | B1    | [60]
           ----------------------------"
         `);
     });
@@ -1753,7 +1753,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[TitleChainA]
           -------------------
-          #  | Name          
+          #  | Name
           -------------------
           R0 | Original Title
           -------------------"
@@ -1764,7 +1764,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[TitleChainB]
           --------------------------
-          #  | Name | LinkA         
+          #  | Name | LinkA
           --------------------------
           R0 | B1   | Original Title
           --------------------------"
@@ -1779,7 +1779,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[TitleChainA]
           ------------------
-          #  | Name         
+          #  | Name
           ------------------
           R0 | Updated Title
           ------------------"
@@ -1790,7 +1790,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[TitleChainB]
           -------------------------
-          #  | Name | LinkA        
+          #  | Name | LinkA
           -------------------------
           R0 | B1   | Updated Title
           -------------------------"
@@ -1921,7 +1921,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name   | Value
             -------------------
-            R0 | Source | 10   
+            R0 | Source | 10
             -------------------"
           `);
 
@@ -1940,7 +1940,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------------
           #  | Name | LinkB  | ValueFromB
           -------------------------------
-          R0 | End  | Middle | [10]      
+          R0 | End  | Middle | [10]
           -------------------------------"
         `);
 
@@ -1960,7 +1960,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name   | Value
             -------------------
-            R0 | Source | 99   
+            R0 | Source | 99
             -------------------"
           `);
 
@@ -1974,7 +1974,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------------
           #  | Name | LinkB  | ValueFromB
           -------------------------------
-          R0 | End  | Middle | [99]      
+          R0 | End  | Middle | [99]
           -------------------------------"
         `);
       });
@@ -2049,8 +2049,8 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name | SymLink
             -------------------
-            R0 | A1   | -      
-            R1 | A2   | -      
+            R0 | A1   | -
+            R1 | A2   | -
             -------------------"
           `);
 
@@ -2068,8 +2068,8 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name | SymLink
             -------------------
-            R0 | A1   | -      
-            R1 | A2   | -      
+            R0 | A1   | -
+            R1 | A2   | -
             -------------------"
           `);
       });
@@ -2146,7 +2146,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------
             #  | Name | Value
             -----------------
-            R0 | A1   | 100  
+            R0 | A1   | 100
             -----------------"
           `);
 
@@ -2157,7 +2157,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------------------
             #  | Name | LinkA | LookupVal
             -----------------------------
-            R0 | B1   | A1    | [100]    
+            R0 | B1   | A1    | [100]
             -----------------------------"
           `);
 
@@ -2171,7 +2171,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------
             #  | Name | Value
             -----------------
-            R0 | A1   | 999  
+            R0 | A1   | 999
             -----------------"
           `);
 
@@ -2182,7 +2182,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------------------
             #  | Name | LinkA | LookupVal
             -----------------------------
-            R0 | B1   | A1    | [999]    
+            R0 | B1   | A1    | [999]
             -----------------------------"
           `);
       });
@@ -2235,7 +2235,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------
             #  | Name | LinkA
             -----------------
-            R0 | B1   | A1   
+            R0 | B1   | A1
             -----------------"
           `);
 
@@ -2248,7 +2248,7 @@ describe('v2 computed field updates (e2e)', () => {
             ---------
             #  | Name
             ---------
-            R0 | A1  
+            R0 | A1
             ---------"
           `);
         const extraKeys = Object.keys(aRecords[0]?.fields ?? {}).filter(
@@ -2311,13 +2311,13 @@ describe('v2 computed field updates (e2e)', () => {
         expect(
           printTableSnapshot(tableParent.name, parentFieldNames, parentRecords, parentFieldIds)
         ).toMatchInlineSnapshot(`
-            "[OneManyParent]
-            -----------------------
-            #  | Name    | Children
-            -----------------------
-            R0 | Parent1 | C1, C2  
-            -----------------------"
-          `);
+          "[OneManyParent]
+          -----------------------
+          #  | Name    | Children
+          -----------------------
+          R0 | Parent1 | C2, C1
+          -----------------------"
+        `);
 
         // Find symmetric link field in tableChild
         const childRecords = await listRecords(tableChild.id);
@@ -2334,12 +2334,12 @@ describe('v2 computed field updates (e2e)', () => {
           .toMatchInlineSnapshot(`
             "[OneManyChild]
             -------------------
-            #  | Name | Parent 
+            #  | Name | Parent
             -------------------
             R0 | C1   | Parent1
             R1 | C2   | Parent1
             -------------------"
-        `);
+          `);
 
         // Change parent to only link C1
         await updateRecord(tableParent.id, parentRecords[0].id, {
@@ -2355,7 +2355,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name    | Children
           -----------------------
-          R0 | Parent1 | C1      
+          R0 | Parent1 | C1
           -----------------------"
         `);
 
@@ -2365,10 +2365,10 @@ describe('v2 computed field updates (e2e)', () => {
         ).toMatchInlineSnapshot(`
           "[OneManyChild]
           -------------------
-          #  | Name | Parent 
+          #  | Name | Parent
           -------------------
           R0 | C1   | Parent1
-          R1 | C2   | -      
+          R1 | C2   | -
           -------------------"
         `);
       });
@@ -2449,7 +2449,7 @@ describe('v2 computed field updates (e2e)', () => {
             ----------------------------
             #  | Name   | Children | Sum
             ----------------------------
-            R0 | Parent | B1, B2   | 30 
+            R0 | Parent | B1, B2   | 30
             ----------------------------"
           `);
 
@@ -2467,7 +2467,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------------
             #  | Name   | Children   | Sum
             ------------------------------
-            R0 | Parent | B1, B2, B3 | 60 
+            R0 | Parent | B1, B2, B3 | 60
             ------------------------------"
           `);
       });
@@ -2518,13 +2518,13 @@ describe('v2 computed field updates (e2e)', () => {
         expect(
           printTableSnapshot(tableParent.name, parentFieldNames, parentRecords, parentFieldIds)
         ).toMatchInlineSnapshot(`
-            "[OneManyOneWayParent]
-            -----------------------
-            #  | Name    | Children
-            -----------------------
-            R0 | Parent1 | C1, C2  
-            -----------------------"
-          `);
+          "[OneManyOneWayParent]
+          -----------------------
+          #  | Name    | Children
+          -----------------------
+          R0 | Parent1 | C1, C2
+          -----------------------"
+        `);
 
         const childFieldIds = [childNameFieldId];
         const childFieldNames = ['Name'];
@@ -2535,8 +2535,8 @@ describe('v2 computed field updates (e2e)', () => {
             ---------
             #  | Name
             ---------
-            R0 | C1  
-            R1 | C2  
+            R0 | C1
+            R1 | C2
             ---------"
           `);
         childRecords.forEach((record) => {
@@ -2627,9 +2627,9 @@ describe('v2 computed field updates (e2e)', () => {
             --------------------------------
             #  | Name   | Parent | ParentVal
             --------------------------------
-            R0 | Child1 | Shared | [100]    
-            R1 | Child2 | Shared | [100]    
-            R2 | Child3 | Shared | [100]    
+            R0 | Child1 | Shared | [100]
+            R1 | Child2 | Shared | [100]
+            R2 | Child3 | Shared | [100]
             --------------------------------"
           `);
 
@@ -2640,7 +2640,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name   | Value
             -------------------
-            R0 | Shared | 100  
+            R0 | Shared | 100
             -------------------"
           `);
 
@@ -2655,7 +2655,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name   | Value
             -------------------
-            R0 | Shared | 999  
+            R0 | Shared | 999
             -------------------"
           `);
 
@@ -2666,9 +2666,9 @@ describe('v2 computed field updates (e2e)', () => {
             --------------------------------
             #  | Name   | Parent | ParentVal
             --------------------------------
-            R0 | Child1 | Shared | [999]    
-            R1 | Child2 | Shared | [999]    
-            R2 | Child3 | Shared | [999]    
+            R0 | Child1 | Shared | [999]
+            R1 | Child2 | Shared | [999]
+            R2 | Child3 | Shared | [999]
             --------------------------------"
           `);
       });
@@ -2745,8 +2745,8 @@ describe('v2 computed field updates (e2e)', () => {
             --------------------
             #  | Name   | Parent
             --------------------
-            R0 | Child1 | P1    
-            R1 | Child2 | P1    
+            R0 | Child1 | P1
+            R1 | Child2 | P1
             --------------------"
           `);
 
@@ -2763,13 +2763,13 @@ describe('v2 computed field updates (e2e)', () => {
         expect(
           printTableSnapshot(tableParent.name, parentFieldNames, parentRecords, parentFieldIds)
         ).toMatchInlineSnapshot(`
-            "[ManyOneParent]
-            --------------------------
-            #  | Name | Children      
-            --------------------------
-            R0 | P1   | Child1, Child2
-            --------------------------"
-          `);
+          "[ManyOneParent]
+          --------------------------
+          #  | Name | Children
+          --------------------------
+          R0 | P1   | Child1, Child2
+          --------------------------"
+        `);
 
         // Add a third child
         await createRecord(tableChild.id, {
@@ -2787,9 +2787,9 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------
           #  | Name   | Parent
           --------------------
-          R0 | Child1 | P1    
-          R1 | Child2 | P1    
-          R2 | Child3 | P1    
+          R0 | Child1 | P1
+          R1 | Child2 | P1
+          R2 | Child3 | P1
           --------------------"
         `);
 
@@ -2799,7 +2799,7 @@ describe('v2 computed field updates (e2e)', () => {
         ).toMatchInlineSnapshot(`
           "[ManyOneParent]
           ----------------------------------
-          #  | Name | Children              
+          #  | Name | Children
           ----------------------------------
           R0 | P1   | Child1, Child2, Child3
           ----------------------------------"
@@ -2875,7 +2875,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------------------
             #  | Name  | Parent | ParentVal
             -------------------------------
-            R0 | Child | B1     | [10]     
+            R0 | Child | B1     | [10]
             -------------------------------"
           `);
         const beforeRecord = beforeRecords.find((r) => r.id === recordA.id);
@@ -2893,7 +2893,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------------------
             #  | Name  | Parent | ParentVal
             -------------------------------
-            R0 | Child | B2     | [20]     
+            R0 | Child | B2     | [20]
             -------------------------------"
           `);
         const afterRecord = afterRecords.find((r) => r.id === recordA.id);
@@ -2976,7 +2976,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------
             #  | Name | Links  | Sum
             ------------------------
-            R0 | A1   | B1, B2 | 30 
+            R0 | A1   | B1, B2 | 30
             ------------------------"
           `);
 
@@ -2994,7 +2994,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------------
             #  | Name | Links | Sum
             -----------------------
-            R0 | A1   | B2    | 20 
+            R0 | A1   | B2    | 20
             -----------------------"
           `);
       });
@@ -3060,7 +3060,7 @@ describe('v2 computed field updates (e2e)', () => {
             #  | Name | LinksB
             ------------------
             R0 | A1   | B1, B2
-            R1 | A2   | B1    
+            R1 | A2   | B1
             ------------------"
           `);
 
@@ -3082,7 +3082,7 @@ describe('v2 computed field updates (e2e)', () => {
             #  | Name | LinksA
             ------------------
             R0 | B1   | A1, A2
-            R1 | B2   | A1    
+            R1 | B2   | A1
             ------------------"
           `);
 
@@ -3186,8 +3186,8 @@ describe('v2 computed field updates (e2e)', () => {
             ---------
             #  | Name
             ---------
-            R0 | B1  
-            R1 | B2  
+            R0 | B1
+            R1 | B2
             ---------"
           `);
         bRecords.forEach((record) => {
@@ -3272,7 +3272,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[FormulaPrimaryA]
           -----------------------
-          #  | Value | Title     
+          #  | Value | Title
           -----------------------
           R0 | 42    | Item-42.00
           -----------------------"
@@ -3283,7 +3283,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[FormulaPrimaryB]
           ----------------------
-          #  | Name | LinkA     
+          #  | Name | LinkA
           ----------------------
           R0 | B1   | Item-42.00
           ----------------------"
@@ -3298,7 +3298,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[FormulaPrimaryA]
           ------------------------
-          #  | Value | Title      
+          #  | Value | Title
           ------------------------
           R0 | 100   | Item-100.00
           ------------------------"
@@ -3309,7 +3309,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[FormulaPrimaryB]
           -----------------------
-          #  | Name | LinkA      
+          #  | Name | LinkA
           -----------------------
           R0 | B1   | Item-100.00
           -----------------------"
@@ -3420,11 +3420,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecordsA, aFieldIds))
         .toMatchInlineSnapshot(`
           "[FormulaPrimaryChainA]
-          -----------------------
-          #  | Value | Title     
-          -----------------------
+          ----------------------
+          #  | Value | Title
+          ----------------------
           R0 | 7     | Item-7.00
-          -----------------------"
+          ----------------------"
         `);
 
       const cFieldIds = [cNameFieldId, cLinkFieldId, cLookupFieldId];
@@ -3434,7 +3434,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[FormulaPrimaryChainC]
           -------------------------------
-          #  | Name | LinkB | TitleFromB 
+          #  | Name | LinkB | TitleFromB
           -------------------------------
           R0 | C1   | B1    | [Item-7.00]
           -------------------------------"
@@ -3451,7 +3451,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[FormulaPrimaryChainA]
           -----------------------
-          #  | Value | Title     
+          #  | Value | Title
           -----------------------
           R0 | 12    | Item-12.00
           -----------------------"
@@ -3462,7 +3462,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[FormulaPrimaryChainC]
           --------------------------------
-          #  | Name | LinkB | TitleFromB  
+          #  | Name | LinkB | TitleFromB
           --------------------------------
           R0 | C1   | B1    | [Item-12.00]
           --------------------------------"
@@ -3538,8 +3538,8 @@ describe('v2 computed field updates (e2e)', () => {
           ---------------------------------
           #  | Name   | Parent | ParentName
           ---------------------------------
-          R0 | Parent | -      | -         
-          R1 | Child  | Parent | [Parent]  
+          R0 | Parent | -      | -
+          R1 | Child  | Parent | [Parent]
           ---------------------------------"
         `);
       const beforeChild = beforeRecords.find((r) => r.id === child.id);
@@ -3555,8 +3555,8 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------------------
           #  | Name    | Parent  | ParentName
           -----------------------------------
-          R0 | Parent2 | -       | -         
-          R1 | Child   | Parent2 | [Parent2] 
+          R0 | Parent2 | -       | -
+          R1 | Child   | Parent2 | [Parent2]
           -----------------------------------"
         `);
       const afterChild = afterRecords.find((r) => r.id === child.id);
@@ -3633,15 +3633,15 @@ describe('v2 computed field updates (e2e)', () => {
       const fieldNames = ['Name', 'Links', 'Sum'];
       let records = await listRecords(table.id);
       expect(printTableSnapshot(table.name, fieldNames, records, fieldIds)).toMatchInlineSnapshot(`
-          "[SelfManyMany]
-          ------------------------
-          #  | Name | Links  | Sum
-          ------------------------
-          R0 | R1   | R2, R3 | 50 
-          R1 | R2   | -      | -  
-          R2 | R3   | -      | -  
-          ------------------------"
-        `);
+        "[SelfManyMany]
+        ------------------------
+        #  | Name | Links  | Sum
+        ------------------------
+        R0 | R1   | R2, R3 | 50
+        R1 | R2   | -      | -
+        R2 | R3   | -      | -
+        ------------------------"
+      `);
       let stored = records.find((r) => r.id === record1.id);
       expect(stored?.fields[rollupFieldId]).toBe(50);
 
@@ -3650,15 +3650,15 @@ describe('v2 computed field updates (e2e)', () => {
 
       records = await listRecords(table.id);
       expect(printTableSnapshot(table.name, fieldNames, records, fieldIds)).toMatchInlineSnapshot(`
-          "[SelfManyMany]
-          -----------------------
-          #  | Name | Links | Sum
-          -----------------------
-          R0 | R1   | R3    | 30 
-          R1 | R2   | -     | -  
-          R2 | R3   | -     | -  
-          -----------------------"
-        `);
+        "[SelfManyMany]
+        -----------------------
+        #  | Name | Links | Sum
+        -----------------------
+        R0 | R1   | R3    | 30
+        R1 | R2   | -     | -
+        R2 | R3   | -     | -
+        -----------------------"
+      `);
       stored = records.find((r) => r.id === record1.id);
       expect(stored?.fields[rollupFieldId]).toBe(30);
     });
@@ -3742,8 +3742,8 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------------------------------
           #  | Name   | Value | Double | Parent | ParentDouble
           ----------------------------------------------------
-          R0 | Parent | 10    | 20     | -      | -           
-          R1 | Child  | 5     | 10     | Parent | [20]        
+          R0 | Parent | 10    | 20     | -      | -
+          R1 | Child  | 5     | 10     | Parent | [20]
           ----------------------------------------------------"
         `);
       const beforeChild = beforeRecords.find((r) => r.id === child.id);
@@ -3759,8 +3759,8 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------------------------------
           #  | Name   | Value | Double | Parent | ParentDouble
           ----------------------------------------------------
-          R0 | Parent | 15    | 30     | -      | -           
-          R1 | Child  | 5     | 10     | Parent | [30]        
+          R0 | Parent | 15    | 30     | -      | -
+          R1 | Child  | 5     | 10     | Parent | [30]
           ----------------------------------------------------"
         `);
       const afterChild = afterRecords.find((r) => r.id === child.id);
@@ -3810,7 +3810,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------
             #  | Name | Num | Double
             ------------------------
-            R0 | Row1 | 3   | 6     
+            R0 | Row1 | 3   | 6
             ------------------------"
           `);
         const record = records[0];
@@ -3871,7 +3871,7 @@ describe('v2 computed field updates (e2e)', () => {
             ----------------------
             #  | Name   | SymLinks
             ----------------------
-            R0 | Target | -       
+            R0 | Target | -
             ----------------------"
           `);
 
@@ -3889,7 +3889,7 @@ describe('v2 computed field updates (e2e)', () => {
             ----------------------
             #  | Name   | SymLinks
             ----------------------
-            R0 | Target | A1      
+            R0 | Target | A1
             ----------------------"
           `);
 
@@ -3907,7 +3907,7 @@ describe('v2 computed field updates (e2e)', () => {
             ----------------------
             #  | Name   | SymLinks
             ----------------------
-            R0 | Target | A1, A2  
+            R0 | Target | A1, A2
             ----------------------"
           `);
       });
@@ -3996,7 +3996,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------------------
             #  | Name    | Children | Sum
             -----------------------------
-            R0 | Parent1 | Child1   | 10 
+            R0 | Parent1 | Child1   | 10
             -----------------------------"
           `);
         const storedParent = parentRecords.find((r) => r.id === parentRecord.id);
@@ -4054,7 +4054,7 @@ describe('v2 computed field updates (e2e)', () => {
             ---------------------------------------------
             #  | Name | NumA | NumB | FormulaA | FormulaB
             ---------------------------------------------
-            R0 | Test | 10   | 20   | 20       | 60      
+            R0 | Test | 10   | 20   | 20       | 60
             ---------------------------------------------"
           `);
 
@@ -4069,7 +4069,7 @@ describe('v2 computed field updates (e2e)', () => {
             ---------------------------------------------
             #  | Name | NumA | NumB | FormulaA | FormulaB
             ---------------------------------------------
-            R0 | Test | 100  | 20   | 200      | 60      
+            R0 | Test | 100  | 20   | 200      | 60
             ---------------------------------------------"
           `);
       });
@@ -4116,7 +4116,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------------------------
             #  | Name | Desc     | Num | Formula
             ------------------------------------
-            R0 | Test | Original | 10  | 20     
+            R0 | Test | Original | 10  | 20
             ------------------------------------"
           `);
 
@@ -4131,7 +4131,7 @@ describe('v2 computed field updates (e2e)', () => {
             -----------------------------------
             #  | Name | Desc    | Num | Formula
             -----------------------------------
-            R0 | Test | Updated | 10  | 20     
+            R0 | Test | Updated | 10  | 20
             -----------------------------------"
           `);
       });
@@ -4192,7 +4192,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------------------------------
             #  | Name | Num | Double | Square | PlusTen
             -------------------------------------------
-            R0 | Test | 5   | 10     | 25     | 15     
+            R0 | Test | 5   | 10     | 25     | 15
             -------------------------------------------"
           `);
 
@@ -4207,7 +4207,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------------------------------
             #  | Name | Num | Double | Square | PlusTen
             -------------------------------------------
-            R0 | Test | 10  | 20     | 100    | 20     
+            R0 | Test | 10  | 20     | 100    | 20
             -------------------------------------------"
           `);
       });
@@ -4288,7 +4288,7 @@ describe('v2 computed field updates (e2e)', () => {
             ------------------
             #  | Name  | Score
             ------------------
-            R0 | ItemB | 100  
+            R0 | ItemB | 100
             ------------------"
           `);
 
@@ -4300,7 +4300,7 @@ describe('v2 computed field updates (e2e)', () => {
             ----------------------------------
             #  | Name  | LinkToB | LookupScore
             ----------------------------------
-            R0 | ItemA | ItemB   | [100]      
+            R0 | ItemA | ItemB   | [100]
             ----------------------------------"
           `);
 
@@ -4323,7 +4323,7 @@ describe('v2 computed field updates (e2e)', () => {
             ----------------------------------
             #  | Name  | LinkToB | LookupScore
             ----------------------------------
-            R0 | ItemA | -       | -          
+            R0 | ItemA | -       | -
             ----------------------------------"
           `);
 
@@ -4423,7 +4423,7 @@ describe('v2 computed field updates (e2e)', () => {
             ---------------------------
             #  | Name  | LinksToB | Sum
             ---------------------------
-            R0 | ItemA | B1, B2   | 30 
+            R0 | ItemA | B1, B2   | 30
             ---------------------------"
           `);
 
@@ -4438,7 +4438,7 @@ describe('v2 computed field updates (e2e)', () => {
             ---------------------------
             #  | Name  | LinksToB | Sum
             ---------------------------
-            R0 | ItemA | B2       | 20 
+            R0 | ItemA | B2       | 20
             ---------------------------"
           `);
       });
@@ -4509,8 +4509,8 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name | SymLink
             -------------------
-            R0 | A1   | B      
-            R1 | A2   | B      
+            R0 | A1   | B
+            R1 | A2   | B
             -------------------"
           `);
 
@@ -4521,7 +4521,7 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name | LinkToA
             -------------------
-            R0 | B    | A1, A2 
+            R0 | B    | A1, A2
             -------------------"
           `);
 
@@ -4540,8 +4540,8 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------
             #  | Name | SymLink
             -------------------
-            R0 | A1   | -      
-            R1 | A2   | -      
+            R0 | A1   | -
+            R1 | A2   | -
             -------------------"
           `);
 
@@ -4655,7 +4655,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------------------------
           #  | Name | Num | Double | LinkB | LookupVal
           --------------------------------------------
-          R0 | A1   | 10  | 20     | B1    | [100]    
+          R0 | A1   | 10  | 20     | B1    | [100]
           --------------------------------------------"
         `);
 
@@ -4674,7 +4674,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------------------------
           #  | Name | Num | Double | LinkB | LookupVal
           --------------------------------------------
-          R0 | A1   | 50  | 100    | B2    | [200]    
+          R0 | A1   | 50  | 100    | B2    | [200]
           --------------------------------------------"
         `);
     });
@@ -4781,7 +4781,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------
           #  | Name | LinkB | BName
           -------------------------
-          R0 | A1   | B1    | [B1] 
+          R0 | A1   | B1    | [B1]
           -------------------------"
         `);
       expect(printTableSnapshot(tableB.name, bFieldNames, bRecords, bFieldIds))
@@ -4790,7 +4790,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------
           #  | Name | LinkA | AName
           -------------------------
-          R0 | B1   | A1    | [A1] 
+          R0 | B1   | A1    | [A1]
           -------------------------"
         `);
       const storedA = aRecords.find((r) => r.id === recordA.id);
@@ -4812,14 +4812,14 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------------
           #  | Name       | LinkB | BName
           -------------------------------
-          R0 | A1-updated | B1    | [B1] 
+          R0 | A1-updated | B1    | [B1]
           -------------------------------"
         `);
       expect(printTableSnapshot(tableB.name, bFieldNames, bRecords, bFieldIds))
         .toMatchInlineSnapshot(`
           "[CircularB]
           -------------------------------------
-          #  | Name | LinkA      | AName       
+          #  | Name | LinkA      | AName
           -------------------------------------
           R0 | B1   | A1-updated | [A1-updated]
           -------------------------------------"
@@ -4901,7 +4901,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name | Links | Sum
           -----------------------
-          R0 | A1   | -     | -  
+          R0 | A1   | -     | -
           -----------------------"
         `);
 
@@ -4919,7 +4919,7 @@ describe('v2 computed field updates (e2e)', () => {
           ------------------------
           #  | Name | Links  | Sum
           ------------------------
-          R0 | A1   | B1, B2 | 30 
+          R0 | A1   | B1, B2 | 30
           ------------------------"
         `);
     });
@@ -5000,7 +5000,7 @@ describe('v2 computed field updates (e2e)', () => {
           ------------------------
           #  | Name | Links  | Sum
           ------------------------
-          R0 | A1   | B1, B2 | 30 
+          R0 | A1   | B1, B2 | 30
           ------------------------"
         `);
 
@@ -5016,7 +5016,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name | Links | Sum
           -----------------------
-          R0 | A1   | -     | -  
+          R0 | A1   | -     | -
           -----------------------"
         `);
     });
@@ -5060,8 +5060,8 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name   | Num | Double
           --------------------------
-          R0 | NoNum  | -   | -     
-          R1 | HasNum | 5   | 10    
+          R0 | NoNum  | -   | -
+          R1 | HasNum | 5   | 10
           --------------------------"
         `);
 
@@ -5080,8 +5080,8 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name   | Num | Double
           --------------------------
-          R0 | NoNum  | 10  | 20    
-          R1 | HasNum | -   | -     
+          R0 | NoNum  | 10  | 20
+          R1 | HasNum | -   | -
           --------------------------"
         `);
     });
@@ -5177,7 +5177,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name  | Active Sum
           -----------------------
-          R0 | Host1 | 30        
+          R0 | Host1 | 30
           -----------------------"
         `);
 
@@ -5192,7 +5192,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name  | Active Sum
           -----------------------
-          R0 | Host1 | 35        
+          R0 | Host1 | 35
           -----------------------"
         `);
     });
@@ -5289,7 +5289,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------
           #  | Name  | Filtered Sum
           -------------------------
-          R0 | Host1 | 40          
+          R0 | Host1 | 40
           -------------------------"
         `);
     });
@@ -5381,7 +5381,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------
           #  | Name  | OR Sum
           -------------------
-          R0 | Host1 | 30    
+          R0 | Host1 | 30
           -------------------"
         `);
     });
@@ -5467,7 +5467,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name  | Sorted Max
           -----------------------
-          R0 | Host1 | 30        
+          R0 | Host1 | 30
           -----------------------"
         `);
     });
@@ -5559,7 +5559,7 @@ describe('v2 computed field updates (e2e)', () => {
           ------------------------
           #  | Name  | Limited Sum
           ------------------------
-          R0 | Host1 | 70         
+          R0 | Host1 | 70
           ------------------------"
         `);
     });
@@ -5666,7 +5666,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name  | Nested Sum
           -----------------------
-          R0 | Host1 | 30        
+          R0 | Host1 | 30
           -----------------------"
         `);
     });
@@ -5855,7 +5855,7 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------------------------
           #  | Name  | Sum | Average | Max | Min | Count
           ----------------------------------------------
-          R0 | Host1 | 60  | 20      | 30  | 10  | 3    
+          R0 | Host1 | 60  | 20      | 30  | 10  | 3
           ----------------------------------------------"
         `);
     });
@@ -5932,7 +5932,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name  | Active Sum
           -----------------------
-          R0 | Host1 | 10        
+          R0 | Host1 | 10
           -----------------------"
         `);
 
@@ -5951,7 +5951,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name  | Active Sum
           -----------------------
-          R0 | Host1 | 30        
+          R0 | Host1 | 30
           -----------------------"
         `);
     });
@@ -6228,7 +6228,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Active Values
           --------------------------
-          R0 | Host1 | [10, 20]     
+          R0 | Host1 | [10, 20]
           --------------------------"
         `);
 
@@ -6245,7 +6245,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Active Values
           --------------------------
-          R0 | Host1 | [20, 15]     
+          R0 | Host1 | [20, 15]
           --------------------------"
         `);
     });
@@ -6328,7 +6328,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Sorted Values
           --------------------------
-          R0 | Host1 | [30, 20, 10] 
+          R0 | Host1 | [30, 20, 10]
           --------------------------"
         `);
     });
@@ -6417,7 +6417,7 @@ describe('v2 computed field updates (e2e)', () => {
           ---------------------------
           #  | Name  | Limited Values
           ---------------------------
-          R0 | Host1 | [40, 30]      
+          R0 | Host1 | [40, 30]
           ---------------------------"
         `);
     });
@@ -6511,7 +6511,7 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------
           #  | Name  | Filtered Values
           ----------------------------
-          R0 | Host1 | [10, 30]       
+          R0 | Host1 | [10, 30]
           ----------------------------"
         `);
     });
@@ -6648,7 +6648,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Text Host]
           --------------------------
-          #  | Name  | Active Texts 
+          #  | Name  | Active Texts
           --------------------------
           R0 | Host1 | [Alpha, Beta]
           --------------------------"
@@ -6724,7 +6724,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Active Values
           --------------------------
-          R0 | Host1 | [10]         
+          R0 | Host1 | [10]
           --------------------------"
         `);
 
@@ -6743,7 +6743,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Active Values
           --------------------------
-          R0 | Host1 | [10, 20]     
+          R0 | Host1 | [10, 20]
           --------------------------"
         `);
     });
@@ -6847,7 +6847,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Nested Values
           --------------------------
-          R0 | Host1 | [10, 20]     
+          R0 | Host1 | [10, 20]
           --------------------------"
         `);
     });
@@ -6929,7 +6929,7 @@ describe('v2 computed field updates (e2e)', () => {
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Boolean Host]
           --------------------------
-          #  | Name  | Active Flags 
+          #  | Name  | Active Flags
           --------------------------
           R0 | Host1 | [true, false]
           --------------------------"
@@ -7058,7 +7058,7 @@ describe('v2 computed field updates (e2e)', () => {
           ------------------------------------------------------
           #  | Name  | Greater Than 15 | Less Than 25 | Equal 20
           ------------------------------------------------------
-          R0 | Host1 | [20, 30, 40]    | [10, 20]     | [20]    
+          R0 | Host1 | [20, 30, 40]    | [10, 20]     | [20]
           ------------------------------------------------------"
         `);
     });
@@ -7137,7 +7137,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Active Values
           --------------------------
-          R0 | Host1 | [10, 20]     
+          R0 | Host1 | [10, 20]
           --------------------------"
         `);
 
@@ -7152,7 +7152,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Active Values
           --------------------------
-          R0 | Host1 | [20]         
+          R0 | Host1 | [20]
           --------------------------"
         `);
     });
@@ -7291,7 +7291,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name  | Active Sum
           -----------------------
-          R0 | Host1 | 10        
+          R0 | Host1 | 10
           -----------------------"
         `);
 
@@ -7306,7 +7306,7 @@ describe('v2 computed field updates (e2e)', () => {
           -----------------------
           #  | Name  | Active Sum
           -----------------------
-          R0 | Host1 | 30        
+          R0 | Host1 | 30
           -----------------------"
         `);
     });
@@ -7385,7 +7385,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Active Values
           --------------------------
-          R0 | Host1 | [10]         
+          R0 | Host1 | [10]
           --------------------------"
         `);
 
@@ -7400,7 +7400,7 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------
           #  | Name  | Active Values
           --------------------------
-          R0 | Host1 | [10, 20]     
+          R0 | Host1 | [10, 20]
           --------------------------"
         `);
     });

@@ -6,6 +6,7 @@ import {
   v2CoreTokens,
   type DomainError,
   FieldType,
+  LinkRelationship,
   RecordByIdSpec,
   type ITableRecordQueryOptions,
   type ITableRecordQueryResult,
@@ -240,6 +241,15 @@ const resolveQueryMode = (
   mode: core.TableRecordQueryMode | undefined
 ): core.TableRecordQueryMode => {
   if (mode) return mode;
+  const needsComputedLinks = table.getFields().some((field) => {
+    if (!field.type().equals(FieldType.link())) return false;
+    const linkField = field as core.LinkField;
+    return (
+      linkField.relationship().equals(LinkRelationship.oneMany()) ||
+      linkField.relationship().equals(LinkRelationship.manyMany())
+    );
+  });
+  if (needsComputedLinks) return 'computed';
   const hasConditionalFields = table
     .getFields()
     .some(

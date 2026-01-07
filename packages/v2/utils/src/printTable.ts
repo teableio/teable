@@ -103,9 +103,10 @@ const buildAsciiTable = (
     return Math.max(column.length, rowWidth);
   });
 
-  const headerLine = buildRow(headerColumns, widths);
-  const separator = buildSeparator(headerLine.length);
-  const rowLines = rows.map((row) => buildRow(row, widths));
+  const headerLine = buildRow(headerColumns, widths).trimEnd();
+  const rowLines = rows.map((row) => buildRow(row, widths).trimEnd());
+  const maxLineLength = Math.max(headerLine.length, ...rowLines.map((line) => line.length));
+  const separator = buildSeparator(maxLineLength);
 
   return [
     buildHeaderPrefix(tableName),

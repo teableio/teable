@@ -102,7 +102,7 @@ describe('v2 http createTable (e2e)', () => {
 
   const listTableRecords = async (tableIdValue: string) => {
     const response = await fetch(
-      `${baseUrl}/tables/listRecords?tableId=${tableIdValue}&limit=50&offset=0`,
+      `${baseUrl}/tables/listRecords?tableId=${tableIdValue}&limit=1000&offset=0`,
       { method: 'GET' }
     );
     if (!response.ok) {
