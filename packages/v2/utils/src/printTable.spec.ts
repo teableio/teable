@@ -45,14 +45,14 @@ describe('printTable', () => {
     });
 
     expect(output).toMatchInlineSnapshot(`
-"[Links]
----------------------------------------
-#  | Name  | Links | Tags       | Meta 
----------------------------------------
-R0 | Alpha | A, B  | [x, y]     | meta1
-R1 | -     | []    | [foo, bar] | Obj  
----------------------------------------"
-`);
+      "[Links]
+      ---------------------------------------
+      #  | Name  | Links | Tags       | Meta
+      ---------------------------------------
+      R0 | Alpha | A, B  | [x, y]     | meta1
+      R1 | -     | []    | [foo, bar] | Obj
+      ---------------------------------------"
+    `);
   });
 
   it('prints domain table records with record ids', () => {
@@ -91,7 +91,7 @@ R1 | -     | []    | [foo, bar] | Obj
       ------------------------------------
       RecordId            | Title  | Count
       ------------------------------------
-      recaaaaaaaaaaaaaaaa | Widget | 7    
+      recaaaaaaaaaaaaaaaa | Widget | 7
       ------------------------------------"
     `);
   });

@@ -1,0 +1,115 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PostgresSchemaIntrospector Integration Tests > getColumn > returns column info for BOOLEAN column > BOOLEAN NOT NULL column 1`] = `
+{
+  "columnName": "bool_col",
+  "dataType": "boolean",
+  "isGenerated": false,
+  "isNullable": false,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getColumn > returns column info for DOUBLE PRECISION column > DOUBLE PRECISION column 1`] = `
+{
+  "columnName": "float_col",
+  "dataType": "double precision",
+  "isGenerated": false,
+  "isNullable": true,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getColumn > returns column info for INTEGER column > INTEGER column 1`] = `
+{
+  "columnName": "int_col",
+  "dataType": "integer",
+  "isGenerated": false,
+  "isNullable": true,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getColumn > returns column info for JSONB column > JSONB column 1`] = `
+{
+  "columnName": "json_col",
+  "dataType": "jsonb",
+  "isGenerated": false,
+  "isNullable": true,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getColumn > returns column info for NOT NULL column > NOT NULL TEXT column 1`] = `
+{
+  "columnName": "required_col",
+  "dataType": "text",
+  "isGenerated": false,
+  "isNullable": false,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getColumn > returns column info for TIMESTAMP column > TIMESTAMP WITH TIME ZONE column 1`] = `
+{
+  "columnName": "ts_col",
+  "dataType": "timestamp with time zone",
+  "isGenerated": false,
+  "isNullable": true,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getColumn > returns column info for generated column > generated column 1`] = `
+{
+  "columnName": "full_name",
+  "dataType": "text",
+  "isGenerated": true,
+  "isNullable": true,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getColumn > returns column info for nullable TEXT column > nullable TEXT column 1`] = `
+{
+  "columnName": "my_text_column",
+  "dataType": "text",
+  "isGenerated": false,
+  "isNullable": true,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getForeignKey > returns foreign key info for FK with custom column names > foreign key with custom column names 1`] = `
+{
+  "columnName": "cat_ref",
+  "constraintName": "fk_category",
+  "referencedColumn": "category_code",
+  "referencedTable": "categories",
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getForeignKey > returns foreign key info for simple FK > simple foreign key 1`] = `
+{
+  "columnName": "user_id",
+  "constraintName": "fk_user",
+  "referencedColumn": "__id",
+  "referencedTable": "users",
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getIndex > returns index info for multi-column index > multi-column index 1`] = `
+{
+  "columnNames": "{col_a,col_b,col_c}",
+  "indexName": "idx_multi",
+  "isUnique": false,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getIndex > returns index info for single-column index > single-column index 1`] = `
+{
+  "columnNames": "{my_col}",
+  "indexName": "idx_single",
+  "isUnique": false,
+}
+`;
+
+exports[`PostgresSchemaIntrospector Integration Tests > getIndex > returns index info for unique index > unique index 1`] = `
+{
+  "columnNames": "{unique_col}",
+  "indexName": "idx_unique",
+  "isUnique": true,
+}
+`;
