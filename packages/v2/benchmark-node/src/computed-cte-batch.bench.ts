@@ -17,13 +17,19 @@ import {
 import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import { NoopLogger, v2CoreTokens } from '@teable/v2-core';
+import { FieldId, NoopLogger, v2CoreTokens } from '@teable/v2-core';
 import express from 'express';
 import { afterAll, beforeAll, bench, describe } from 'vitest';
 
-const CONTEXT_NOT_INITIALIZED_ERROR = 'Context not initialized';
+const benchOptions = {
+  iterations: 0,
+  warmupIterations: 0,
+  time: 5000,
+  warmupTime: 1000,
+  throws: true,
+};
 
-const generateFieldId = () => `fld${Math.random().toString(36).substring(2, 17).padEnd(15, '0')}`;
+const generateFieldId = () => FieldId.mustGenerate().toString();
 
 const buildFormulaChainFields = (
   chainLength: number
@@ -55,17 +61,18 @@ const buildFormulaChainFields = (
   return { fields, baseValueFieldId };
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type BenchClient = any;
+type BenchClient = ReturnType<typeof createV2HttpClient>;
 
 type BenchContext = {
   testContainer: IV2NodeTestContainer;
   client: BenchClient;
   server: Server;
   baseId: string;
+  baseUrl: string;
 };
 
 let ctx: BenchContext | null = null;
+let setupPromise: Promise<BenchContext> | undefined;
 
 const setup = async (): Promise<BenchContext> => {
   const testContainer = await createV2NodeTestContainer();
@@ -91,7 +98,33 @@ const setup = async (): Promise<BenchContext> => {
     client,
     server,
     baseId: testContainer.baseId.toString(),
+    baseUrl,
   };
+};
+
+const ensureContext = async (): Promise<BenchContext> => {
+  if (!setupPromise) {
+    setupPromise = setup();
+  }
+  ctx = await setupPromise;
+  return ctx;
+};
+
+const updateRecord = async (
+  context: BenchContext,
+  input: { tableId: string; recordId: string; fields: Record<string, unknown> }
+) => {
+  const body = JSON.stringify(input);
+  const response = await fetch(`${context.baseUrl}/tables/updateRecord`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body,
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Update record failed: ${errorText}`);
+  }
+  await response.json();
 };
 
 const createFormulaChainTable = async (
@@ -100,13 +133,16 @@ const createFormulaChainTable = async (
 ): Promise<{ tableId: string; baseValueFieldId: string }> => {
   const { fields, baseValueFieldId } = buildFormulaChainFields(chainLength);
 
-  const result = await context.client.tables.create({
+  const response = await context.client.tables.create({
     baseId: context.baseId,
     name: `FormulaChain_${chainLength}_${Date.now()}`,
     fields,
   });
+  if (!response.ok) {
+    throw new Error('Create table failed');
+  }
 
-  return { tableId: result.id, baseValueFieldId };
+  return { tableId: response.data.table.id, baseValueFieldId };
 };
 
 const createRecords = async (
@@ -115,26 +151,22 @@ const createRecords = async (
   baseValueFieldId: string,
   count: number
 ): Promise<string[]> => {
-  const recordIds: string[] = [];
+  const records = Array.from({ length: count }, (_, index) => ({
+    fields: {
+      [baseValueFieldId]: index + 1,
+    },
+  }));
 
-  for (let i = 0; i < count; i++) {
-    const result = await context.client.tables.createRecord({
-      tableId,
-      record: {
-        fields: {
-          [baseValueFieldId]: i + 1,
-        },
-      },
-    });
-
-    recordIds.push(result.id);
+  const response = await context.client.tables.createRecords({ tableId, records });
+  if (!response.ok) {
+    throw new Error('Create records failed');
   }
 
-  return recordIds;
+  return response.data.records.map((record) => record.id);
 };
 
 beforeAll(async () => {
-  ctx = await setup();
+  await ensureContext();
 });
 
 afterAll(async () => {
@@ -144,130 +176,159 @@ afterAll(async () => {
   }
 });
 
-describe('Formula chain (5 levels) - single record', async () => {
-  let tableId: string;
-  let recordId: string;
-  let baseValueFieldId: string;
-  let counter = 0;
+type SingleRecordSetup = {
+  table5Id: string;
+  record5Id: string;
+  baseValue5FieldId: string;
+  table10Id: string;
+  record10Id: string;
+  baseValue10FieldId: string;
+};
 
-  beforeAll(async () => {
-    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
+let singleRecordSetupPromise: Promise<SingleRecordSetup> | undefined;
+let singleCounter5 = 0;
+let singleCounter10 = 0;
 
-    const table = await createFormulaChainTable(ctx, 5);
-    tableId = table.tableId;
-    baseValueFieldId = table.baseValueFieldId;
+const ensureSingleRecordSetup = async (): Promise<SingleRecordSetup> => {
+  if (!singleRecordSetupPromise) {
+    singleRecordSetupPromise = (async () => {
+      const context = await ensureContext();
 
-    const records = await createRecords(ctx, tableId, baseValueFieldId, 1);
-    recordId = records[0];
-  });
+      const table5 = await createFormulaChainTable(context, 5);
+      const records5 = await createRecords(context, table5.tableId, table5.baseValueFieldId, 1);
 
-  bench('update triggers 5-level formula chain', async () => {
-    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
-    counter++;
-    await ctx.client.tables.updateRecord({
-      tableId,
-      recordId,
-      record: {
+      const table10 = await createFormulaChainTable(context, 10);
+      const records10 = await createRecords(context, table10.tableId, table10.baseValueFieldId, 1);
+
+      return {
+        table5Id: table5.tableId,
+        record5Id: records5[0]!,
+        baseValue5FieldId: table5.baseValueFieldId,
+        table10Id: table10.tableId,
+        record10Id: records10[0]!,
+        baseValue10FieldId: table10.baseValueFieldId,
+      };
+    })();
+  }
+  return singleRecordSetupPromise;
+};
+
+describe('Formula chain - single record', () => {
+  bench(
+    'update triggers 5-level formula chain',
+    async () => {
+      const context = await ensureContext();
+      const setup = await ensureSingleRecordSetup();
+
+      singleCounter5 += 1;
+      await updateRecord(context, {
+        tableId: setup.table5Id,
+        recordId: setup.record5Id,
         fields: {
-          [baseValueFieldId]: counter,
+          [setup.baseValue5FieldId]: singleCounter5,
         },
-      },
-    });
-  });
+      });
+    },
+    benchOptions
+  );
+
+  bench(
+    'update triggers 10-level formula chain',
+    async () => {
+      const context = await ensureContext();
+      const setup = await ensureSingleRecordSetup();
+
+      singleCounter10 += 1;
+      await updateRecord(context, {
+        tableId: setup.table10Id,
+        recordId: setup.record10Id,
+        fields: {
+          [setup.baseValue10FieldId]: singleCounter10,
+        },
+      });
+    },
+    benchOptions
+  );
 });
 
-describe('Formula chain (10 levels) - single record', async () => {
-  let tableId: string;
-  let recordId: string;
-  let baseValueFieldId: string;
-  let counter = 0;
+type HundredRecordsSetup = {
+  table5Id: string;
+  record5Ids: string[];
+  baseValue5FieldId: string;
+  table10Id: string;
+  record10Ids: string[];
+  baseValue10FieldId: string;
+};
 
-  beforeAll(async () => {
-    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
+let hundredRecordsSetupPromise: Promise<HundredRecordsSetup> | undefined;
+let hundredCounter5 = 0;
+let hundredCounter10 = 0;
 
-    const table = await createFormulaChainTable(ctx, 10);
-    tableId = table.tableId;
-    baseValueFieldId = table.baseValueFieldId;
+const ensureHundredRecordsSetup = async (): Promise<HundredRecordsSetup> => {
+  if (!hundredRecordsSetupPromise) {
+    hundredRecordsSetupPromise = (async () => {
+      const context = await ensureContext();
 
-    const records = await createRecords(ctx, tableId, baseValueFieldId, 1);
-    recordId = records[0];
-  });
+      const table5 = await createFormulaChainTable(context, 5);
+      const record5Ids = await createRecords(context, table5.tableId, table5.baseValueFieldId, 100);
 
-  bench('update triggers 10-level formula chain', async () => {
-    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
-    counter++;
-    await ctx.client.tables.updateRecord({
-      tableId,
-      recordId,
-      record: {
+      const table10 = await createFormulaChainTable(context, 10);
+      const record10Ids = await createRecords(
+        context,
+        table10.tableId,
+        table10.baseValueFieldId,
+        100
+      );
+
+      return {
+        table5Id: table5.tableId,
+        record5Ids,
+        baseValue5FieldId: table5.baseValueFieldId,
+        table10Id: table10.tableId,
+        record10Ids,
+        baseValue10FieldId: table10.baseValueFieldId,
+      };
+    })();
+  }
+  return hundredRecordsSetupPromise;
+};
+
+describe('Formula chain - 100 records', () => {
+  bench(
+    'update single record triggers 5-level formula chain (100 records in table)',
+    async () => {
+      const context = await ensureContext();
+      const setup = await ensureHundredRecordsSetup();
+
+      hundredCounter5 += 1;
+      const recordId = setup.record5Ids[hundredCounter5 % setup.record5Ids.length]!;
+      await updateRecord(context, {
+        tableId: setup.table5Id,
+        recordId,
         fields: {
-          [baseValueFieldId]: counter,
+          [setup.baseValue5FieldId]: hundredCounter5,
         },
-      },
-    });
-  });
-});
+      });
+    },
+    benchOptions
+  );
 
-describe('Formula chain (5 levels) - 100 records', async () => {
-  let tableId: string;
-  let recordIds: string[];
-  let baseValueFieldId: string;
-  let counter = 0;
+  bench(
+    'update single record triggers 10-level formula chain (100 records in table)',
+    async () => {
+      const context = await ensureContext();
+      const setup = await ensureHundredRecordsSetup();
 
-  beforeAll(async () => {
-    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
-
-    const table = await createFormulaChainTable(ctx, 5);
-    tableId = table.tableId;
-    baseValueFieldId = table.baseValueFieldId;
-
-    recordIds = await createRecords(ctx, tableId, baseValueFieldId, 100);
-  });
-
-  bench('update single record triggers 5-level formula chain (100 records in table)', async () => {
-    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
-    counter++;
-    const recordId = recordIds[counter % recordIds.length];
-    await ctx.client.tables.updateRecord({
-      tableId,
-      recordId,
-      record: {
+      hundredCounter10 += 1;
+      const recordId = setup.record10Ids[hundredCounter10 % setup.record10Ids.length]!;
+      await updateRecord(context, {
+        tableId: setup.table10Id,
+        recordId,
         fields: {
-          [baseValueFieldId]: counter,
+          [setup.baseValue10FieldId]: hundredCounter10,
         },
-      },
-    });
-  });
-});
-
-describe('Formula chain (10 levels) - 100 records', async () => {
-  let tableId: string;
-  let recordIds: string[];
-  let baseValueFieldId: string;
-  let counter = 0;
-
-  beforeAll(async () => {
-    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
-
-    const table = await createFormulaChainTable(ctx, 10);
-    tableId = table.tableId;
-    baseValueFieldId = table.baseValueFieldId;
-
-    recordIds = await createRecords(ctx, tableId, baseValueFieldId, 100);
-  });
-
-  bench('update single record triggers 10-level formula chain (100 records in table)', async () => {
-    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
-    counter++;
-    const recordId = recordIds[counter % recordIds.length];
-    await ctx.client.tables.updateRecord({
-      tableId,
-      recordId,
-      record: {
-        fields: {
-          [baseValueFieldId]: counter,
-        },
-      },
-    });
-  });
+      });
+    },
+    benchOptions
+  );
 });

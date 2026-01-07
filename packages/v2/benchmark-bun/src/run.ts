@@ -1,3 +1,4 @@
+import { runComputedCteBatchBench } from './computed-cte-batch.bench';
 import { runCreateRecordBench } from './create-record.bench';
 import { runCreateTableBench } from './create-table.bench';
 import { runDbAdapterBench } from './db-adapter.bench';
@@ -23,6 +24,7 @@ const runAll = async () => {
   await runDbAdapterBench();
   await runCreateTableBench();
   await runCreateRecordBench();
+  await runComputedCteBatchBench();
   await runGetTableByIdBench();
   console.log('[bun-bench] benchmarks finished');
 };
