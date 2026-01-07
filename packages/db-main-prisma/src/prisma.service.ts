@@ -12,6 +12,12 @@ interface ITx {
   rawOpMaps?: unknown;
 }
 
+export type ITransactionIsolationLevel =
+  | 'ReadUncommitted'
+  | 'ReadCommitted'
+  | 'RepeatableRead'
+  | 'Serializable';
+
 function proxyClient(tx: Prisma.TransactionClient) {
   return new Proxy(tx, {
     get(target, p) {
@@ -20,6 +26,7 @@ function proxyClient(tx: Prisma.TransactionClient) {
           try {
             return await target[p](query, ...args);
           } catch (e: unknown) {
+            // @ts-expect-error PrismaClientKnownRequestError existed
             if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2028') {
               throw new TimeoutHttpException();
             }
@@ -33,10 +40,7 @@ function proxyClient(tx: Prisma.TransactionClient) {
 }
 
 @Injectable()
-export class PrismaService
-  extends PrismaClient<Prisma.PrismaClientOptions, 'query'>
-  implements OnModuleInit
-{
+export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
 
   private afterTxCb?: () => void;
@@ -94,7 +98,7 @@ export class PrismaService
     options?: {
       maxWait?: number;
       timeout?: number;
-      isolationLevel?: Prisma.TransactionIsolationLevel;
+      isolationLevel?: ITransactionIsolationLevel;
     }
   ): Promise<R> {
     let result: R = undefined as R;
@@ -111,11 +115,12 @@ export class PrismaService
     };
 
     await this.cls.runWith(this.cls.get(), async () => {
-      result = await super.$transaction<R>(async (prisma) => {
+      result = await super.$transaction(async (prisma: PrismaClient) => {
         prisma = proxyClient(prisma);
         this.cls.set('tx.client', prisma);
         this.cls.set('tx.id', nanoid());
         this.cls.set('tx.timeStr', new Date().toISOString());
+
         try {
           // can not delete await here
           return await fn(prisma);

@@ -35,11 +35,11 @@
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "22.18.0",
+    "@types/node": "catalog:",
     "cross-env": "7.0.3",
-    "eslint": "8.57.0",
-    "prettier": "3.2.5",
-    "rimraf": "5.0.5",
-    "typescript": "5.4.3"
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "rimraf": "catalog:",
+    "typescript": "catalog:"
   }
 }

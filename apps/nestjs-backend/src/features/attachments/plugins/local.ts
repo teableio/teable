@@ -319,7 +319,8 @@ export class LocalStorage implements StorageAdapter {
   ) {
     const name = getRandomString(12);
     const temPath = resolve(StorageAdapter.TEMPORARY_DIR, name);
-    if (stream instanceof Buffer) {
+
+    if (Buffer.isBuffer(stream)) {
       await fse.writeFile(temPath, stream);
     } else {
       const writer = createWriteStream(temPath);

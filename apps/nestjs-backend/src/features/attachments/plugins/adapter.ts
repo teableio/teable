@@ -1,6 +1,5 @@
 import type { Readable as ReadableStream } from 'node:stream';
 import { resolve } from 'path';
-import { BadRequestException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';

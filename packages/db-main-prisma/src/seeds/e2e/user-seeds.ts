@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import bcrypt from 'bcrypt';
-import type { Prisma } from '../../';
 import { AbstractSeed } from '../seed.abstract';
 
 export const CREATE_USER_NUM = 1;
@@ -11,12 +10,7 @@ const generatePassword = async (password: string) => {
   return { salt, password: hashPassword };
 };
 
-const createUser = (
-  baseId: string,
-  baseName: string,
-  pas: any,
-  index?: number
-): Prisma.UserCreateInput => {
+const createUser = (baseId: string, baseName: string, pas: any, index?: number) => {
   const id = index === undefined ? baseId : `${baseId}_${index}`;
   return {
     id,
@@ -30,7 +24,7 @@ const createUser = (
   };
 };
 
-export const generateUser = async (max: number): Promise<Prisma.UserCreateInput[]> => {
+export const generateUser = async (max: number) => {
   const userId = 'usrTestUserId';
   const userName = 'test';
   const pas = await generatePassword('12345678');
