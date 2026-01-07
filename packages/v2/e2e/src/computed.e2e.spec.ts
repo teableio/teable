@@ -8531,9 +8531,129 @@ describe('v2 computed field updates (e2e)', () => {
      * When table2.Amount changes, it should propagate:
      *   table2.Amount → table1.lookupAmount → table1.formula → table2.symmetricLink.title
      */
-    test.todo(
-      'Formula referencing lookup as link title: Need to verify symmetric link title updates when formula references lookup field'
-    );
+    it('updates symmetric link title when formula references lookup field', async () => {
+      const amountNameFieldId = createFieldId();
+      const amountValueFieldId = createFieldId();
+      const amountTable = await createTable({
+        baseId,
+        name: 'LinkTitleLookup_Amount',
+        fields: [
+          { type: 'singleLineText', id: amountNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: amountValueFieldId, name: 'Amount' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const amountRecord = await createRecord(amountTable.id, {
+        [amountNameFieldId]: 'INV-001',
+        [amountValueFieldId]: 100,
+      });
+
+      const hostLinkFieldId = createFieldId();
+      const hostLookupAmountFieldId = createFieldId();
+      const hostPrimaryFormulaFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'LinkTitleLookup_Host',
+        fields: [
+          {
+            type: 'link',
+            id: hostLinkFieldId,
+            name: 'Invoices',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: amountTable.id,
+              lookupFieldId: amountNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: hostLookupAmountFieldId,
+            name: 'InvoiceAmounts',
+            options: {
+              foreignTableId: amountTable.id,
+              linkFieldId: hostLinkFieldId,
+              lookupFieldId: amountValueFieldId,
+            },
+          },
+          {
+            type: 'formula',
+            id: hostPrimaryFormulaFieldId,
+            name: 'Title',
+            isPrimary: true,
+            options: { expression: `CONCATENATE("Host-", {${hostLookupAmountFieldId}})` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostRecord = await createRecord(hostTable.id, {
+        [hostLinkFieldId]: [{ id: amountRecord.id }],
+      });
+
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      const hostRecords = await listRecords(hostTable.id);
+      const hostRecordIndex = hostRecords.findIndex((r) => r.id === hostRecord.id);
+      expect(hostRecordIndex).toBeGreaterThanOrEqual(0);
+
+      const hostTitleBefore = hostRecords[hostRecordIndex]?.fields[hostPrimaryFormulaFieldId];
+      expect(typeof hostTitleBefore).toBe('string');
+      expectCellDisplay(hostRecords, hostRecordIndex, hostLookupAmountFieldId, '[100]');
+
+      const updatedAmountTable = await getTableById(amountTable.id);
+      const symmetricLinkFieldId = updatedAmountTable.fields.find(
+        (f) => f.type === 'link' && f.options.foreignTableId === hostTable.id
+      )?.id;
+      expect(symmetricLinkFieldId).toBeDefined();
+
+      const amountRecordsBefore = await listRecords(amountTable.id);
+      const amountRecordIndex = amountRecordsBefore.findIndex((r) => r.id === amountRecord.id);
+      expect(amountRecordIndex).toBeGreaterThanOrEqual(0);
+      expectCellDisplay(
+        amountRecordsBefore,
+        amountRecordIndex,
+        symmetricLinkFieldId!,
+        String(hostTitleBefore)
+      );
+
+      // Update Amount.Amount -> Host.lookup -> Host.Title -> Amount.symmetricLink.title
+      await updateRecord(amountTable.id, amountRecord.id, { [amountValueFieldId]: 200 });
+
+      let hostTitleAfter: unknown = hostTitleBefore;
+      let symmetricTitleAfter = '';
+      for (let i = 0; i < 20; i += 1) {
+        await testContainer.processOutbox();
+
+        const hostRecordsAfter = await listRecords(hostTable.id);
+        const storedHostAfter = hostRecordsAfter.find((r) => r.id === hostRecord.id);
+        hostTitleAfter = storedHostAfter?.fields[hostPrimaryFormulaFieldId];
+
+        const amountRecordsAfter = await listRecords(amountTable.id);
+        const amountRecordIndexAfter = amountRecordsAfter.findIndex(
+          (r) => r.id === amountRecord.id
+        );
+        const amountValueAfter =
+          amountRecordsAfter[amountRecordIndexAfter]?.fields[symmetricLinkFieldId!];
+        symmetricTitleAfter = formatCellValueForExpect(amountValueAfter);
+
+        if (
+          typeof hostTitleAfter === 'string' &&
+          hostTitleAfter !== hostTitleBefore &&
+          symmetricTitleAfter === String(hostTitleAfter)
+        ) {
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      expect(typeof hostTitleAfter).toBe('string');
+      expect(hostTitleAfter).not.toEqual(hostTitleBefore);
+      expect(symmetricTitleAfter).toBe(String(hostTitleAfter));
+    });
 
     /**
      * Scenario: Symmetric link title uses a formula that references a rollup field.
