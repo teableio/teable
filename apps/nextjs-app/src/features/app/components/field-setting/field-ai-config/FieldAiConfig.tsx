@@ -174,23 +174,25 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
             {getAiConfigRenderer()}
             {type && (
               <Fragment>
-                <div className="flex flex-col gap-y-2">
-                  <span>
-                    {t('table:field.aiConfig.label.model')}
-                    <RequireCom />
-                  </span>
-                  <AIModelSelect
-                    value={aiConfig?.modelKey || ''}
-                    onValueChange={(newValue) => {
-                      onConfigChange('modelKey', newValue);
-                    }}
-                    options={models}
-                    className="w-full px-2"
-                    modelDefinationMap={modelDefinationMap}
-                    needGroup
-                    onlyImageOutput={isCloud && fieldType === FieldType.Attachment}
-                  />
-                </div>
+                {/* Model selector - only show for non-attachment field types */}
+                {fieldType !== FieldType.Attachment && models.length > 0 && (
+                  <div className="flex flex-col gap-y-2">
+                    <span>
+                      {t('table:field.aiConfig.label.model')}
+                      <RequireCom />
+                    </span>
+                    <AIModelSelect
+                      value={aiConfig?.modelKey || ''}
+                      onValueChange={(newValue) => {
+                        onConfigChange('modelKey', newValue);
+                      }}
+                      options={models}
+                      className="w-full px-2"
+                      modelDefinationMap={modelDefinationMap}
+                      needGroup
+                    />
+                  </div>
+                )}
                 <div className="flex h-8 items-center">
                   <Switch
                     id="autoFill"

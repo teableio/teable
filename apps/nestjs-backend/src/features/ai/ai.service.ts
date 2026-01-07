@@ -355,6 +355,7 @@ export class AiService {
       lg: await this.getModelInstance(chatModel?.lg, llmProviders),
       ability: chatModel?.ability,
       isInstance: lgProvider.isInstance,
+      lgModelKey: chatModel.lg,
     };
   }
 }

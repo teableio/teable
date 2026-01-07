@@ -39,6 +39,8 @@ interface ILLMProviderManageProps {
   onToggleImageModel?: (modelKey: string, isImageModel: boolean) => void;
   onTestProvider?: (provider: LLMProvider) => void;
   testingProviders?: Set<string>;
+  /** Hide model rates config (for space-level settings where billing doesn't apply) */
+  hideModelRates?: boolean;
 }
 
 export const LLMProviderManage = ({
@@ -49,6 +51,7 @@ export const LLMProviderManage = ({
   onToggleImageModel,
   onTestProvider,
   testingProviders,
+  hideModelRates,
 }: ILLMProviderManageProps) => {
   const { t } = useTranslation('common');
   const handleAdd = (data: LLMProvider) => {
@@ -67,7 +70,7 @@ export const LLMProviderManage = ({
   };
 
   if (value.length === 0) {
-    return <NewLLMProviderForm onAdd={handleAdd} onTest={onTest} />;
+    return <NewLLMProviderForm onAdd={handleAdd} onTest={onTest} hideModelRates={hideModelRates} />;
   }
 
   return (
@@ -135,6 +138,7 @@ export const LLMProviderManage = ({
                     value={provider}
                     onChange={handleUpdate(index)}
                     onTest={onTest}
+                    hideModelRates={hideModelRates}
                   >
                     <Button size="xs" variant="ghost">
                       <SlidersHorizontalIcon className="size-4" />
@@ -166,7 +170,7 @@ export const LLMProviderManage = ({
             </div>
           );
         })}
-        <NewLLMProviderForm onAdd={handleAdd} onTest={onTest} />
+        <NewLLMProviderForm onAdd={handleAdd} onTest={onTest} hideModelRates={hideModelRates} />
       </div>
     </div>
   );

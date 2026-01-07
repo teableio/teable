@@ -32,6 +32,7 @@ import { useTranslation } from 'next-i18next';
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDERS } from './constant';
 
 interface TestResult {
@@ -138,6 +139,8 @@ interface LLMProviderFormProps {
   onChange?: (value: LLMProvider) => void;
   onAdd?: (data: LLMProvider) => void;
   onTest?: (data: Required<LLMProvider>) => Promise<ITestLLMVo>;
+  /** Hide model rates config (for space-level settings where billing doesn't apply) */
+  hideModelRates?: boolean;
 }
 
 export const UpdateLLMProviderForm = ({
@@ -145,6 +148,7 @@ export const UpdateLLMProviderForm = ({
   children,
   onChange,
   onTest,
+  hideModelRates,
 }: PropsWithChildren<Omit<LLMProviderFormProps, 'onAdd'>>) => {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation('common');
@@ -159,7 +163,12 @@ export const UpdateLLMProviderForm = ({
         <DialogHeader>
           <DialogTitle>{t('admin.setting.ai.updateLLMProvider')}</DialogTitle>
         </DialogHeader>
-        <LLMProviderForm value={value} onChange={handleChange} onTest={onTest} />
+        <LLMProviderForm
+          value={value}
+          onChange={handleChange}
+          onTest={onTest}
+          hideModelRates={hideModelRates}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -169,6 +178,7 @@ export const NewLLMProviderForm = ({
   children,
   onAdd,
   onTest,
+  hideModelRates,
 }: PropsWithChildren<Omit<LLMProviderFormProps, 'onChange'>>) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -191,11 +201,20 @@ export const NewLLMProviderForm = ({
           <DialogTitle>{t('admin.setting.ai.addProvider')}</DialogTitle>
           <DialogDescription>{t('admin.setting.ai.addProviderDescription')}</DialogDescription>
         </DialogHeader>
-        <LLMProviderForm onAdd={handleAdd} onTest={onTest} />
+        <LLMProviderForm onAdd={handleAdd} onTest={onTest} hideModelRates={hideModelRates} />
       </DialogContent>
     </Dialog>
   );
 };
+
+// Rate field keys for model configuration
+type RateFieldKey =
+  | 'inputRate'
+  | 'outputRate'
+  | 'cacheReadRate'
+  | 'cacheWriteRate'
+  | 'reasoningRate'
+  | 'imageRate';
 
 // Component for configuring rates per model
 interface ModelRatesConfigProps {
@@ -207,6 +226,7 @@ interface ModelRatesConfigProps {
 const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesConfigProps) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const modelList = useMemo(() => {
     return models
@@ -217,9 +237,9 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
 
   if (modelList.length === 0) return null;
 
-  const handleRateChange = (model: string, field: 'inputRate' | 'outputRate', value: string) => {
-    const numValue = parseFloat(value) || 0;
-    const currentConfig = modelConfigs[model] || { inputRate: 0, outputRate: 0 };
+  const handleRateChange = (model: string, field: RateFieldKey, value: string) => {
+    const numValue = value === '' ? undefined : parseFloat(value) || 0;
+    const currentConfig = modelConfigs[model] || {};
     onChange({
       ...modelConfigs,
       [model]: {
@@ -241,40 +261,140 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
       </button>
 
       {expanded && (
-        <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-          <div className="grid grid-cols-[1fr,80px,80px] gap-2 text-xs font-medium text-muted-foreground">
-            <div>{t('admin.setting.ai.model')}</div>
-            <div>{t('admin.setting.ai.inputRate')}</div>
-            <div>{t('admin.setting.ai.outputRate')}</div>
+        <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+          {/* Rate explanation */}
+          <div className="rounded bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+            <div className="font-medium">{t('admin.setting.ai.rateExplanationTitle')}</div>
+            <div className="mt-1 space-y-0.5 text-[11px] opacity-90">
+              <div>• {t('admin.setting.ai.rateExplanationFormula')}</div>
+              <div>• {t('admin.setting.ai.rateExplanationExample')}</div>
+            </div>
           </div>
-          {modelList.map((model) => {
-            const config = modelConfigs[model] || { inputRate: 0, outputRate: 0 };
-            return (
-              <div key={model} className="grid grid-cols-[1fr,80px,80px] items-center gap-2">
-                <div className="truncate text-sm" title={model}>
-                  {model}
-                </div>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  value={config.inputRate || ''}
-                  onChange={(e) => handleRateChange(model, 'inputRate', e.target.value)}
-                  placeholder="0"
-                  className="h-7 text-xs"
-                />
-                <Input
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  value={config.outputRate || ''}
-                  onChange={(e) => handleRateChange(model, 'outputRate', e.target.value)}
-                  placeholder="0"
-                  className="h-7 text-xs"
-                />
+
+          {/* Basic rates */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-[1fr,80px,80px] gap-2 text-xs font-medium text-muted-foreground">
+              <div>{t('admin.setting.ai.model')}</div>
+              <div title={t('admin.setting.ai.inputRateTip')}>
+                {t('admin.setting.ai.inputRate')}
               </div>
-            );
-          })}
+              <div title={t('admin.setting.ai.outputRateTip')}>
+                {t('admin.setting.ai.outputRate')}
+              </div>
+            </div>
+            {modelList.map((model) => {
+              const config = modelConfigs[model] || {};
+              return (
+                <div key={model} className="grid grid-cols-[1fr,80px,80px] items-center gap-2">
+                  <div className="truncate text-sm" title={model}>
+                    {model}
+                  </div>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    value={config.inputRate ?? ''}
+                    onChange={(e) => handleRateChange(model, 'inputRate', e.target.value)}
+                    placeholder="0"
+                    className="h-7 text-xs"
+                  />
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    value={config.outputRate ?? ''}
+                    onChange={(e) => handleRateChange(model, 'outputRate', e.target.value)}
+                    placeholder="0"
+                    className="h-7 text-xs"
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Advanced rates toggle */}
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {showAdvanced ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+            {t('admin.setting.ai.advancedRates')}
+          </button>
+
+          {/* Advanced rates (cache, reasoning, image) */}
+          {showAdvanced && (
+            <div className="space-y-2 rounded border bg-background/50 p-2">
+              <div className="grid grid-cols-[1fr,70px,70px,70px,70px] gap-1 text-[10px] font-medium text-muted-foreground">
+                <div>{t('admin.setting.ai.model')}</div>
+                <div title={t('admin.setting.ai.cacheReadRateTip')}>
+                  {t('admin.setting.ai.cacheRead')}
+                </div>
+                <div title={t('admin.setting.ai.cacheWriteRateTip')}>
+                  {t('admin.setting.ai.cacheWrite')}
+                </div>
+                <div title={t('admin.setting.ai.reasoningRateTip')}>
+                  {t('admin.setting.ai.reasoning')}
+                </div>
+                <div title={t('admin.setting.ai.imageRateTip')}>
+                  {t('admin.setting.ai.perImage')}
+                </div>
+              </div>
+              {modelList.map((model) => {
+                const config = modelConfigs[model] || {};
+                return (
+                  <div
+                    key={`adv-${model}`}
+                    className="grid grid-cols-[1fr,70px,70px,70px,70px] items-center gap-1"
+                  >
+                    <div className="truncate text-xs" title={model}>
+                      {model}
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      value={config.cacheReadRate ?? ''}
+                      onChange={(e) => handleRateChange(model, 'cacheReadRate', e.target.value)}
+                      placeholder="auto"
+                      className="h-6 text-[10px]"
+                    />
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      value={config.cacheWriteRate ?? ''}
+                      onChange={(e) => handleRateChange(model, 'cacheWriteRate', e.target.value)}
+                      placeholder="auto"
+                      className="h-6 text-[10px]"
+                    />
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      value={config.reasoningRate ?? ''}
+                      onChange={(e) => handleRateChange(model, 'reasoningRate', e.target.value)}
+                      placeholder="auto"
+                      className="h-6 text-[10px]"
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={config.imageRate ?? ''}
+                      onChange={(e) => handleRateChange(model, 'imageRate', e.target.value)}
+                      placeholder="0"
+                      className="h-6 text-[10px]"
+                    />
+                  </div>
+                );
+              })}
+              <p className="text-[10px] text-muted-foreground">
+                {t('admin.setting.ai.advancedRatesDescription')}
+              </p>
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground">{t('admin.setting.ai.ratesDescription')}</p>
         </div>
       )}
@@ -282,8 +402,15 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
   );
 };
 
-export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderFormProps) => {
+export const LLMProviderForm = ({
+  value,
+  onAdd,
+  onChange,
+  onTest,
+  hideModelRates,
+}: LLMProviderFormProps) => {
   const { t } = useTranslation();
+  const isCloud = useIsCloud();
   const [isTestLoading, setIsTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testPassed, setTestPassed] = useState(false);
@@ -503,12 +630,14 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
             )}
           />
 
-          {/* Model Rates Configuration */}
-          <ModelRatesConfig
-            models={form.watch('models') || ''}
-            modelConfigs={form.watch('modelConfigs')}
-            onChange={(configs) => form.setValue('modelConfigs', configs)}
-          />
+          {/* Model Rates Configuration (Cloud only - for billing, hidden in space settings) */}
+          {isCloud && !hideModelRates && (
+            <ModelRatesConfig
+              models={form.watch('models') || ''}
+              modelConfigs={form.watch('modelConfigs')}
+              onChange={(configs) => form.setValue('modelConfigs', configs)}
+            />
+          )}
 
           {/* Test Error Display */}
           {testResult && !testResult.success && (

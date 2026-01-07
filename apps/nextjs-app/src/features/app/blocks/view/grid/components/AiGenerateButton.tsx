@@ -1,10 +1,23 @@
 import { useMutation } from '@tanstack/react-query';
-import { Loader2, RefreshCcw } from '@teable/icons';
+import { RefreshCcw } from '@teable/icons';
 import { autoFillCell } from '@teable/openapi';
-import { Record, useFields, useTableId, useTablePermission } from '@teable/sdk';
+import {
+  Record,
+  TaskStatusCollectionContext,
+  useFields,
+  useTableId,
+  useTablePermission,
+} from '@teable/sdk';
 import type { IActiveCell, IGridRef, IRecordIndexMap } from '@teable/sdk';
 import { Button } from '@teable/ui-lib';
-import React, { useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, {
+  useCallback,
+  useRef,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+  useContext,
+} from 'react';
 
 interface IAIButtonProps {
   gridRef: React.RefObject<IGridRef>;
@@ -18,33 +31,21 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     const tableId = useTableId() as string;
     const fields = useFields();
     const permission = useTablePermission();
+    const taskStatusCollection = useContext(TaskStatusCollectionContext);
     const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
-    const [generatingCells, setGeneratingCells] = React.useState<Set<string>>(new Set());
 
     const { mutate: mutateGenerate } = useMutation({
       mutationFn: ({ recordId, fieldId }: { recordId: string; fieldId: string }) =>
         autoFillCell(tableId, recordId, fieldId),
-      onMutate: ({ recordId, fieldId }) => {
-        const cellKey = `${recordId}:${fieldId}`;
-        setGeneratingCells((prev) => new Set(prev).add(cellKey));
-        return { recordId, fieldId };
-      },
-      onSettled: (_, __, context) => {
-        if (context) {
-          const cellKey = `${context.recordId}:${context.fieldId}`;
-          setGeneratingCells((prev) => {
-            const updated = new Set(prev);
-            updated.delete(cellKey);
-            return updated;
-          });
-        }
-      },
     });
 
-    const isCellGenerating = (cell?: IActiveCell) => {
-      if (!cell) return false;
-      return generatingCells.has(`${cell.recordId}:${cell.fieldId}`);
+    // Check if cell is currently being processed by task queue (showing star animation)
+    const isCellInTaskQueue = (cell?: IActiveCell) => {
+      if (!cell || !taskStatusCollection?.cells) return false;
+      return taskStatusCollection.cells.some(
+        (c) => c.recordId === cell.recordId && c.fieldId === cell.fieldId
+      );
     };
 
     useImperativeHandle(ref, () => ({
@@ -106,29 +107,20 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     }, []);
 
     const onGenerate = () => {
-      if (!activeCell || isCellGenerating(activeCell)) return;
+      if (!activeCell || isCellInTaskQueue(activeCell)) return;
       mutateGenerate({
         recordId: activeCell.recordId,
         fieldId: activeCell.fieldId,
       });
     };
 
-    if (!style) return null;
+    // Hide button when cell is in task queue (star animation is showing)
+    if (!style || isCellInTaskQueue(activeCell)) return null;
 
     return (
       <div className="absolute z-50" style={style}>
-        <Button
-          variant="outline"
-          size="sm"
-          className="disabled:opacity-100"
-          onClick={onGenerate}
-          disabled={isCellGenerating(activeCell)}
-        >
-          {isCellGenerating(activeCell) ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCcw className="size-4" />
-          )}
+        <Button variant="outline" size="sm" onClick={onGenerate}>
+          <RefreshCcw className="size-4" />
         </Button>
       </div>
     );

@@ -569,9 +569,9 @@
           "cancel": "取消",
           "missingCapabilitiesWarning": "此模型不支持图片或PDF处理，可能会导致部分功能不可用。",
           "modelNotSuitable": "此模型可能不适合高级 AI 功能：",
-          "enableAITitle": "启用AI",
-          "enableAIDescription": "模型测试已完成。AI功能当前未启用。是否启用AI来使用这些模型能力？",
-          "enableAI": "启用AI",
+          "enableAITitle": "启用自定义模型",
+          "enableAIDescription": "模型测试已完成。自定义模型功能当前未启用。是否启用自定义模型来使用这些模型能力？",
+          "enableAI": "启用自定义模型",
           "skipTest": "跳过"
         },
         "chatModelAbility": {
@@ -631,15 +631,40 @@
         "isOpenRouter": "OpenRouter",
         "modelRates": "模型费率",
         "model": "模型",
-        "inputRate": "输入费率",
-        "outputRate": "输出费率",
-        "ratesDescription": "每 100 万 tokens 的美元费率（用于积分计算）",
+        "inputRate": "输入",
+        "outputRate": "输出",
+        "inputRateTip": "每 100 万输入 tokens 的积分",
+        "outputRateTip": "每 100 万输出 tokens 的积分",
+        "rateExplanationTitle": "费率说明 (1 美元 = 100 积分)",
+        "rateExplanationFormula": "积分 = Tokens × 费率 ÷ 1,000,000",
+        "rateExplanationExample": "例如：10,000 tokens，费率 300 = 10000 × 300 ÷ 1M = 3 积分",
+        "ratesDescription": "每 100 万 tokens 的费率（点击「获取定价」可从 OpenRouter 自动填充）",
+        "advancedRates": "高级费率（缓存、推理、图片）",
+        "advancedRatesDescription": "留空自动计算。缓存读取 ≈ 输入的 10%，缓存写入 ≈ 输入的 125%，推理 = 输出费率",
+        "cacheRead": "缓存↓",
+        "cacheWrite": "缓存↑",
+        "reasoning": "推理",
+        "perImage": "图片",
+        "cacheReadRateTip": "缓存命中的输入 token 费率（通常是输入费率的 10-50%，或免费为 0）",
+        "cacheWriteRateTip": "缓存写入的 token 费率（通常与输入相同或多 25%）",
+        "reasoningRateTip": "推理 token 费率，如 o1 的思考（通常与输出费率相同）",
+        "imageRateTip": "每张生成图片的积分",
         "imageModel": "生图模型",
         "imageGeneration": "图片生成",
         "imageToImage": "图生图",
         "clickToToggleImageModel": "💡 点击标记为生图模型",
         "markedAsImageModel": "已标记为生图模型，将测试文生图和图生图能力",
         "markedAsTextModel": "已标记为文本模型，将测试图片输入（视觉）能力",
+        "fetchPricing": "获取定价",
+        "fetchPricingTip": "从 OpenRouter API 获取模型定价并自动填充费率",
+        "fetchPricingError": "获取定价失败",
+        "pricingPreview": "定价预览",
+        "pricingPreviewDesc": "已匹配 {{total}} 个模型中的 {{matched}} 个",
+        "openRouterId": "OpenRouter ID",
+        "notFound": "未找到",
+        "applyPricing": "应用 ({{count}})",
+        "pricingApplied": "定价已应用",
+        "pricingAppliedCount": "已更新 {{count}} 个模型的定价",
         "hint": {
           "title": "建议",
           "missingV1Suffix": "Base URL 可能缺少 \"/v1\" 后缀。大多数 OpenAI 兼容的 API 需要以 \"/v1\" 结尾的 URL（例如：https://api.openai.com/v1）",
@@ -912,7 +937,15 @@
           "ai": {
             "failed": {
               "title": "AI 任务失败，表 {{tableName}}",
-              "message": "AI 任务在表 {{tableName}} 的字段 {{fieldName}} 中失败。\n\n{{errorMsg}}\n\n点击下面的按钮查看详细信息。"
+              "message": "AI 任务失败 - 表 \"{{tableName}}\" 字段 \"{{fieldName}}\"：{{errorMsg}}"
+            },
+            "cancelled": {
+              "title": "AI 任务已取消",
+              "rateLimit": "表 \"{{tableName}}\" 的 AI 任务因请求频率超限（429）已取消。请稍后重试。",
+              "creditExhausted": "表 \"{{tableName}}\" 的 AI 任务因算力额度已用尽已取消。请升级订阅或等待额度刷新。",
+              "authFailed": "表 \"{{tableName}}\" 的 AI 任务因认证失败已取消。请检查 API Key 配置。",
+              "serviceUnavailable": "表 \"{{tableName}}\" 的 AI 任务因 AI 服务暂时不可用已取消。请稍后重试。",
+              "unknown": "表 \"{{tableName}}\" 的 AI 任务已取消。错误：{{errorMessage}}"
             }
           }
         }

@@ -839,13 +839,38 @@ export type I18nTranslations = {
                     "model": string;
                     "inputRate": string;
                     "outputRate": string;
+                    "inputRateTip": string;
+                    "outputRateTip": string;
+                    "rateExplanationTitle": string;
+                    "rateExplanationFormula": string;
+                    "rateExplanationExample": string;
                     "ratesDescription": string;
+                    "advancedRates": string;
+                    "advancedRatesDescription": string;
+                    "cacheRead": string;
+                    "cacheWrite": string;
+                    "reasoning": string;
+                    "perImage": string;
+                    "cacheReadRateTip": string;
+                    "cacheWriteRateTip": string;
+                    "reasoningRateTip": string;
+                    "imageRateTip": string;
                     "imageModel": string;
                     "imageGeneration": string;
                     "imageToImage": string;
                     "clickToToggleImageModel": string;
                     "markedAsImageModel": string;
                     "markedAsTextModel": string;
+                    "fetchPricing": string;
+                    "fetchPricingTip": string;
+                    "fetchPricingError": string;
+                    "pricingPreview": string;
+                    "pricingPreviewDesc": string;
+                    "openRouterId": string;
+                    "notFound": string;
+                    "applyPricing": string;
+                    "pricingApplied": string;
+                    "pricingAppliedCount": string;
                     "hint": {
                         "title": string;
                         "missingV1Suffix": string;
@@ -1119,6 +1144,14 @@ export type I18nTranslations = {
                             "failed": {
                                 "title": string;
                                 "message": string;
+                            };
+                            "cancelled": {
+                                "title": string;
+                                "rateLimit": string;
+                                "creditExhausted": string;
+                                "authFailed": string;
+                                "serviceUnavailable": string;
+                                "unknown": string;
                             };
                         };
                     };
@@ -2993,8 +3026,15 @@ export type I18nTranslations = {
                     "tokenCreatedSuccess": string;
                     "copied": string;
                     "copy": string;
+                    "copyAIDoc": string;
+                    "aiDocPreview": string;
+                    "manageToken": string;
+                    "openInNewTab": string;
                     "advancedDesc": string;
                     "openAdvanced": string;
+                    "queryBuilderTitle": string;
+                    "queryBuilderDesc": string;
+                    "viewApiDocs": string;
                 };
                 "personalView": {
                     "personal": string;
@@ -3353,6 +3393,18 @@ export type I18nTranslations = {
                     "saveConfigOnly": string;
                     "generate": string;
                     "generateFailed": string;
+                    "generateMode": string;
+                    "emptyOnlyMode": string;
+                    "emptyOnlyModeDesc": string;
+                    "allMode": string;
+                    "allModeDesc": string;
+                    "saveOnlyMode": string;
+                    "saveOnlyModeDesc": string;
+                    "fillEmptyCells": string;
+                    "generateAll": string;
+                    "recommended": string;
+                    "taskLimited": string;
+                    "limitWarning": string;
                 };
                 "action": {
                     "addAttachment": string;
@@ -3858,6 +3910,7 @@ export type I18nTranslations = {
                 "tokens": string;
                 "totalTimeCost": string;
                 "totalCreditCost": string;
+                "customModel": string;
             };
             "tools": {
                 "getTeableApi": string;

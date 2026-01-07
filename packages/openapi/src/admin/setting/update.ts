@@ -48,10 +48,22 @@ export const imageModelAbilitySchema = z.object({
 
 export type IImageModelAbility = z.infer<typeof imageModelAbilitySchema>;
 
-// Model-specific configuration (rates per 1M tokens in USD + test results)
+// Model-specific configuration (rates in credits per 1M tokens + test results)
+// Rate conversion: credits = tokens * rate / 1M * TOKEN_TO_CREDIT_RATE
 export const modelConfigSchema = z.object({
-  inputRate: z.number().min(0).optional(),
-  outputRate: z.number().min(0).optional(),
+  // Standard rates (credits per 1M tokens)
+  inputRate: z.number().min(0).optional(), // Standard input rate
+  outputRate: z.number().min(0).optional(), // Standard output rate
+
+  // Detailed rates for cached/reasoning tokens (AI SDK 6 support)
+  // If not set, fallback to inputRate/outputRate
+  cacheReadRate: z.number().min(0).optional(), // Cached input tokens (usually 10-50% of inputRate, or 0 for free)
+  cacheWriteRate: z.number().min(0).optional(), // Cache write tokens (usually same as inputRate or 25% more)
+  reasoningRate: z.number().min(0).optional(), // Reasoning tokens like o1 (usually same as outputRate)
+
+  // Image generation rate (credits per image)
+  imageRate: z.number().min(0).optional(),
+
   // Mark as image generation model
   isImageModel: z.boolean().optional(),
   // Persisted test results for text models

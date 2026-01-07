@@ -20,6 +20,8 @@ interface IAIProviderCardProps {
   onToggleImageModel?: (modelKey: string, isImageModel: boolean) => void;
   onTestProvider?: (provider: LLMProvider) => void;
   testingProviders?: Set<string>;
+  /** Hide model rates config (for space-level settings where billing doesn't apply) */
+  hideModelRates?: boolean;
 }
 
 export const AIProviderCard = ({
@@ -30,6 +32,7 @@ export const AIProviderCard = ({
   onToggleImageModel,
   onTestProvider,
   testingProviders,
+  hideModelRates,
 }: IAIProviderCardProps) => {
   return (
     <Card className="pt-6 shadow-sm">
@@ -48,6 +51,7 @@ export const AIProviderCard = ({
                   onToggleImageModel={onToggleImageModel}
                   onTestProvider={onTestProvider}
                   testingProviders={testingProviders}
+                  hideModelRates={hideModelRates}
                 />
               </FormControl>
               <FormMessage />

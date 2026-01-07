@@ -36,12 +36,12 @@
         "databaseConnection": "数据库连接",
         "title": "API 访问",
         "aiContext": "复制给 AI",
-        "advanced": "高级配置",
+        "advanced": "高级",
         "generatingToken": "生成中...",
         "aiContextTitle": "AI 友好的 API 文档",
         "aiContextDescriptionNoToken": "将此文档复制给你的 AI 助手（ChatGPT、Claude 等）。点击「生成 API Token」创建一个自动填入文档的 Token。",
         "aiContextDescriptionWithToken": "将此文档复制给你的 AI 助手（ChatGPT、Claude 等）。已生成权限受限的 API Token 并填入文档中。",
-        "generateToken": "生成 API Token",
+        "generateToken": "生成 Token",
         "confirmTitle": "创建 API Token",
         "confirmDescription": "这将为此数据库创建一个具有以下权限的新 API Token：",
         "scopeTableRead": "读取表信息",
@@ -56,8 +56,15 @@
         "tokenCreatedSuccess": "Token 创建成功！点击复制即可使用。",
         "copied": "已复制！",
         "copy": "复制",
+        "copyAIDoc": "复制 AI 文档",
+        "aiDocPreview": "AI 文档预览",
+        "manageToken": "管理 Token",
+        "openInNewTab": "在新标签页打开",
         "advancedDesc": "打开高级 API 查询构建器，获取更多自定义选项。",
-        "openAdvanced": "打开查询构建器"
+        "openAdvanced": "打开查询构建器",
+        "queryBuilderTitle": "API 查询构建器",
+        "queryBuilderDesc": "可视化配置筛选、排序等参数，生成可直接运行的 API 请求代码。",
+        "viewApiDocs": "查看完整 API 文档"
       },
       "personalView": {
         "personal": "个人",
@@ -408,15 +415,27 @@
         "tip": "开启后，当前字段将跟随 AI 配置的内容变化而同步更新"
       },
       "autoFillFieldDialog": {
-        "title": "更新整列记录",
-        "description": "当前视图的所有记录将会更新，包括该字段生成的所有相关数据"
+        "title": "重新生成 AI 字段",
+        "description": "将对当前视图的 {{count}} 行执行生成，任务将在后台运行。"
       },
       "autoFillConfirm": {
-        "title": "是否生成整列？",
-        "description": "生成整列将更新 {{rowCount}} 行内容。本次操作可能消耗大量 AI 资源",
+        "title": "应用 AI 字段配置",
+        "description": "将对当前视图的 {{count}} 行执行生成，任务将在后台运行。",
+        "generateMode": "生成方式",
+        "emptyOnlyMode": "仅填充空单元格",
+        "emptyOnlyModeDesc": "只对空值生成，不会覆盖已有内容",
+        "allMode": "整列生成",
+        "allModeDesc": "对所有行生成，将覆盖已有内容",
+        "saveOnlyMode": "仅保存配置",
+        "saveOnlyModeDesc": "只保存字段配置，不写入任何单元格",
         "saveConfigOnly": "仅保存配置",
         "generate": "生成",
-        "generateFailed": "生成失败"
+        "fillEmptyCells": "填充空单元格",
+        "generateAll": "生成整列",
+        "recommended": "推荐",
+        "generateFailed": "生成失败",
+        "taskLimited": "由于行数限制，仅处理了前 {{processedCount}} 行（共 {{rowCount}} 行匹配）",
+        "limitWarning": "由于每次任务最多处理 1,000 行，仅会处理前 1,000 行。你可以再次运行任务来处理剩余的行。"
       },
       "action": {
         "addAttachment": "添加附件"
@@ -673,7 +692,7 @@
     "filterField": "按此字段筛选",
     "sortField": "按此字段排序",
     "groupField": "按此字段分组",
-    "autoFill": "更新整列记录",
+    "autoFill": "重新生成",
     "groupMenuTitle": "分组菜单",
     "expandGroup": "展开该组及子分组",
     "collapseGroup": "收起该组及子分组",
@@ -1148,7 +1167,8 @@
       "output": "输出",
       "tokens": "Tokens",
       "totalTimeCost": "总耗时",
-      "totalCreditCost": "总计"
+      "totalCreditCost": "总计",
+      "customModel": "自定义模型"
     },
     "dataVisualization": {
       "error": "数据可视化失败"

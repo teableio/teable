@@ -7,6 +7,9 @@ import { registerRoute, urlBuilder } from '../utils';
 
 export const AUTO_FILL_FIELD = '/table/{tableId}/field/{fieldId}/auto-fill';
 
+export const autoFillModeSchema = z.enum(['all', 'emptyOnly']).default('all');
+export type IAutoFillMode = z.infer<typeof autoFillModeSchema>;
+
 export const autoFillFieldRoSchema = contentQueryBaseSchema
   .pick({
     viewId: true,
@@ -15,12 +18,21 @@ export const autoFillFieldRoSchema = contentQueryBaseSchema
     groupBy: true,
     ignoreViewQuery: true,
   })
-  .partial();
+  .partial()
+  .extend({
+    mode: autoFillModeSchema.optional(),
+  });
 
 export type IAutoFillFieldRo = z.infer<typeof autoFillFieldRoSchema>;
 
 export const autoFillFieldVoSchema = z.object({
   taskId: z.string().nullable().optional(),
+  /** Actual row count that matched the query (before limit applied) */
+  rowCount: z.number().optional(),
+  /** Number of rows actually processed (after limit applied) */
+  processedCount: z.number().optional(),
+  /** Whether the row count exceeded the limit */
+  isLimited: z.boolean().optional(),
 });
 
 export type IAutoFillFieldVo = z.infer<typeof autoFillFieldVoSchema>;

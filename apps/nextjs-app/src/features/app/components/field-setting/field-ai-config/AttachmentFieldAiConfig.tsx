@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import type {
   IAttachmentFieldAIConfig,
   IAttachmentFieldCustomizeAIConfig,
@@ -5,13 +6,19 @@ import type {
 } from '@teable/core';
 import { FieldAIActionType, FieldType, ImageQuality } from '@teable/core';
 import { ImageGeneration, Pencil } from '@teable/icons';
-import { LLMProviderType } from '@teable/openapi';
+import { getAIConfig, LLMProviderType } from '@teable/openapi';
+import { useBaseId } from '@teable/sdk/hooks';
 import { Selector } from '@teable/ui-lib/base';
 import { Slider, Textarea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
-import { parseModelKey } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
+import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai-config/AiModelSelect';
+import {
+  generateModelKeyList,
+  parseModelKey,
+} from '@/features/app/blocks/admin/setting/components/ai-config/utils';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
 import { FieldSelect, PromptEditorContainer } from './components';
@@ -111,8 +118,18 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
   const { id, aiConfig } = field;
   const { type } = aiConfig ?? {};
   const modelKey = (aiConfig as IAttachmentFieldGenerateImageAIConfig)?.modelKey;
+  const baseId = useBaseId() as string;
+  const isCloud = useIsCloud();
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const { data: baseAiConfig } = useQuery({
+    queryKey: ['ai-config', baseId],
+    queryFn: () => getAIConfig(baseId).then(({ data }) => data),
+  });
+
+  const { llmProviders = [], modelDefinationMap } = baseAiConfig ?? {};
+  const models = generateModelKeyList(llmProviders);
 
   // Get model capabilities based on the selected model
   const modelCapabilities = useMemo(() => getModelCapabilities(modelKey), [modelKey]);
@@ -133,12 +150,19 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
   }, [t]);
 
   const onConfigChange = (
-    key: keyof IAttachmentFieldGenerateImageAIConfig | keyof IAttachmentFieldCustomizeAIConfig,
+    key:
+      | keyof IAttachmentFieldGenerateImageAIConfig
+      | keyof IAttachmentFieldCustomizeAIConfig
+      | 'modelKey',
     value: unknown
   ) => {
     switch (key) {
       case 'type':
         return onChange?.({ aiConfig: { type: value } as IAttachmentFieldAIConfig });
+      case 'modelKey':
+        return onChange?.({
+          aiConfig: { ...aiConfig, modelKey: value as string } as IAttachmentFieldAIConfig,
+        });
       case 'sourceFieldId':
         return onChange?.({
           aiConfig: { ...aiConfig, sourceFieldId: value as string } as IAttachmentFieldAIConfig,
@@ -220,6 +244,25 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
 
       {Boolean(type) && (
         <Fragment>
+          {/* AI Model - placed second, right after action type */}
+          <div className="flex flex-col gap-y-2">
+            <span>
+              {t('table:field.aiConfig.label.model')}
+              <RequireCom />
+            </span>
+            <AIModelSelect
+              value={modelKey || ''}
+              onValueChange={(newValue) => {
+                onConfigChange('modelKey', newValue);
+              }}
+              options={models}
+              className="w-full px-2"
+              modelDefinationMap={modelDefinationMap}
+              needGroup
+              onlyImageOutput={isCloud}
+            />
+          </div>
+
           {type === FieldAIActionType.Customization ? (
             <div className="flex flex-col gap-y-2">
               <PromptEditorContainer

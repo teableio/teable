@@ -25,10 +25,12 @@ import {
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { AIControlCard } from './AIControlCard';
 import { AIModelPreferencesCard } from './AIModelPreferencesCard';
 import { AIProviderCard } from './AIProviderCard';
 import { BatchTestModels } from './BatchTestModels';
+import { FetchPricing } from './FetchPricing';
 import type { IModelTestResult } from './LlmproviderManage';
 import { generateModelKeyList, parseModelKey } from './utils';
 
@@ -57,6 +59,7 @@ export function AIConfigForm({
   const models = generateModelKeyList(llmProviders);
   const { reset } = form;
   const { t } = useTranslation(['common', 'space']);
+  const isCloud = useIsCloud();
   const [modelTestResults, setModelTestResults] = useState<Map<string, IModelTestResult>>(
     new Map()
   );
@@ -168,6 +171,9 @@ export function AIConfigForm({
   const enableAi = form.watch('enable');
 
   const switchEnable = useMemo(() => {
+    if (enableAi) {
+      return false;
+    }
     if (!aiConfig?.chatModel?.lg && enableAi) {
       return false;
     }
@@ -263,16 +269,22 @@ export function AIConfigForm({
         <div>
           <div className="flex items-center justify-between pb-2">
             <div className="text-lg font-medium">{t('admin.setting.ai.provider')}</div>
-            <BatchTestModels
-              providers={llmProviders}
-              disabled={!llmProviders?.length}
-              onResultsChange={setModelTestResults}
-              onSaveResult={onSaveTestResult}
-              onTestingProvidersChange={setTestingProviders}
-              onTestProvider={(callback) => {
-                testProviderCallbackRef.current = callback;
-              }}
-            />
+            <div className="flex items-center gap-2">
+              {/* Fetch Pricing - Cloud only (for billing) */}
+              {isCloud && (
+                <FetchPricing providers={llmProviders} onUpdateProviders={updateProviders} />
+              )}
+              <BatchTestModels
+                providers={llmProviders}
+                disabled={!llmProviders?.length}
+                onResultsChange={setModelTestResults}
+                onSaveResult={onSaveTestResult}
+                onTestingProvidersChange={setTestingProviders}
+                onTestProvider={(callback) => {
+                  testProviderCallbackRef.current = callback;
+                }}
+              />
+            </div>
           </div>
           <AIProviderCard
             control={form.control}

@@ -572,9 +572,9 @@
           "cancel": "Cancel",
           "missingCapabilitiesWarning": "This model does not support image or PDF processing, which may cause some features to be unavailable.",
           "modelNotSuitable": "This model may not be suitable for advanced AI features:",
-          "enableAITitle": "Enable AI",
-          "enableAIDescription": "Model test completed. AI is not currently enabled. Do you want to enable AI to use these model capabilities?",
-          "enableAI": "Enable AI",
+          "enableAITitle": "Enable Custom Model",
+          "enableAIDescription": "Model test completed. Custom model is not currently enabled. Do you want to enable custom model to use these model capabilities?",
+          "enableAI": "Enable Custom Model",
           "skipTest": "Skip"
         },
         "chatModelAbility": {
@@ -634,15 +634,40 @@
         "isOpenRouter": "OpenRouter",
         "modelRates": "Model Rates",
         "model": "Model",
-        "inputRate": "Input Rate",
-        "outputRate": "Output Rate",
-        "ratesDescription": "Token rates per 1M tokens in USD (for credit calculation)",
+        "inputRate": "Input",
+        "outputRate": "Output",
+        "inputRateTip": "Credits per 1M input tokens",
+        "outputRateTip": "Credits per 1M output tokens",
+        "rateExplanationTitle": "How rates work (1 USD = 100 credits)",
+        "rateExplanationFormula": "Credits = Tokens × Rate ÷ 1,000,000",
+        "rateExplanationExample": "Example: 10,000 tokens with rate 300 = 10000 × 300 ÷ 1M = 3 credits",
+        "ratesDescription": "Rates per 1M tokens (click 'Fetch Pricing' to auto-fill from OpenRouter)",
+        "advancedRates": "Advanced rates (cache, reasoning, image)",
+        "advancedRatesDescription": "Leave blank for auto-calculation. Cache read ≈ 10% of input, cache write ≈ 125% of input, reasoning = output rate.",
+        "cacheRead": "Cache↓",
+        "cacheWrite": "Cache↑",
+        "reasoning": "Reason",
+        "perImage": "Image",
+        "cacheReadRateTip": "Rate for cached input tokens (usually 10-50% of input rate, or 0 for free)",
+        "cacheWriteRateTip": "Rate for cache write tokens (usually same as input or 25% more)",
+        "reasoningRateTip": "Rate for reasoning tokens like o1 (usually same as output rate)",
+        "imageRateTip": "Credits per generated image",
         "imageModel": "Image Model",
         "imageGeneration": "Image Generation",
         "imageToImage": "Image-to-Image",
         "clickToToggleImageModel": "💡 Click to mark as image generation model",
         "markedAsImageModel": "Marked as image generation model. Will test text-to-image and image-to-image capabilities.",
         "markedAsTextModel": "Marked as text model. Will test vision (image input) capability.",
+        "fetchPricing": "Fetch Pricing",
+        "fetchPricingTip": "Fetch model pricing from OpenRouter API and auto-fill rates",
+        "fetchPricingError": "Failed to fetch pricing",
+        "pricingPreview": "Pricing Preview",
+        "pricingPreviewDesc": "Found pricing for {{matched}} of {{total}} models",
+        "openRouterId": "OpenRouter ID",
+        "notFound": "Not found",
+        "applyPricing": "Apply ({{count}})",
+        "pricingApplied": "Pricing applied",
+        "pricingAppliedCount": "Updated pricing for {{count}} models",
         "hint": {
           "title": "Suggestions",
           "missingV1Suffix": "The Base URL might be missing the \"/v1\" suffix. Most OpenAI-compatible APIs require URLs ending with \"/v1\" (e.g., https://api.openai.com/v1)",
@@ -915,7 +940,15 @@
           "ai": {
             "failed": {
               "title": "AI task failed in table {{tableName}}",
-              "message": "The AI task for field {{fieldName}} in table {{tableName}} (Record ID: {{recordId}}) has failed.\n\n{{errorMsg}}\n\nClick the button below to view details."
+              "message": "AI task failed for field \"{{fieldName}}\" in table \"{{tableName}}\": {{errorMsg}}"
+            },
+            "cancelled": {
+              "title": "AI task cancelled",
+              "rateLimit": "AI task for table \"{{tableName}}\" was cancelled due to rate limiting (429). Please try again later.",
+              "creditExhausted": "AI task for table \"{{tableName}}\" was cancelled because credits have been exhausted. Please upgrade your subscription or wait for credits to refresh.",
+              "authFailed": "AI task for table \"{{tableName}}\" was cancelled due to authentication failure. Please check your API key configuration.",
+              "serviceUnavailable": "AI task for table \"{{tableName}}\" was cancelled because the AI service is temporarily unavailable. Please try again later.",
+              "unknown": "AI task for table \"{{tableName}}\" was cancelled. Error: {{errorMessage}}"
             }
           }
         }
