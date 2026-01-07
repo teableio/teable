@@ -876,87 +876,108 @@ const propagateDirtyRecords = async (
   context?: IExecutionContext
 ): Promise<Result<void, DomainError>> => {
   try {
-    for (let i = 0; i < edges.length; i++) {
-      const edge = edges[i];
+    const countDirtyRecords = async (): Promise<number> => {
+      const result = await db
+        .selectFrom(DIRTY_TABLE)
+        .select(sql<number>`count(*)`.as('count'))
+        .executeTakeFirst();
+      return result ? Number(result.count) : 0;
+    };
 
-      // Resolve table and field names for better tracing readability
-      const sourceTable = tableById.get(edge.fromTableId.toString());
-      const targetTable = tableById.get(edge.toTableId.toString());
+    const maxPasses = Math.max(edges.length, 1);
+    let previousCount = await countDirtyRecords();
 
-      const sourceTableName = sourceTable
-        ? sourceTable
-            .dbTableName()
-            .andThen((n) => n.value())
-            .unwrapOr(edge.fromTableId.toString())
-        : edge.fromTableId.toString();
+    for (let pass = 0; pass < maxPasses; pass += 1) {
+      for (let i = 0; i < edges.length; i++) {
+        const edge = edges[i];
 
-      const targetTableName = targetTable
-        ? targetTable
-            .dbTableName()
-            .andThen((n) => n.value())
-            .unwrapOr(edge.toTableId.toString())
-        : edge.toTableId.toString();
+        // Resolve table and field names for better tracing readability
+        const sourceTable = tableById.get(edge.fromTableId.toString());
+        const targetTable = tableById.get(edge.toTableId.toString());
 
-      // Resolve field names
-      let fromFieldName = edge.fromFieldId.toString();
-      let toFieldName = edge.toFieldId.toString();
-      let linkFieldName = edge.linkFieldId?.toString() ?? '';
+        const sourceTableName = sourceTable
+          ? sourceTable
+              .dbTableName()
+              .andThen((n) => n.value())
+              .unwrapOr(edge.fromTableId.toString())
+          : edge.fromTableId.toString();
 
-      if (sourceTable) {
-        const fieldResult = sourceTable.getField((f) => f.id().equals(edge.fromFieldId));
-        if (fieldResult.isOk()) {
-          fromFieldName = fieldResult.value.name().toString();
-        }
-      }
+        const targetTableName = targetTable
+          ? targetTable
+              .dbTableName()
+              .andThen((n) => n.value())
+              .unwrapOr(edge.toTableId.toString())
+          : edge.toTableId.toString();
 
-      if (targetTable) {
-        const fieldResult = targetTable.getField((f) => f.id().equals(edge.toFieldId));
-        if (fieldResult.isOk()) {
-          toFieldName = fieldResult.value.name().toString();
-        }
+        // Resolve field names
+        let fromFieldName = edge.fromFieldId.toString();
+        let toFieldName = edge.toFieldId.toString();
+        let linkFieldName = edge.linkFieldId?.toString() ?? '';
 
-        if (edge.linkFieldId) {
-          const linkFieldResult = targetTable.getField((f) => f.id().equals(edge.linkFieldId!));
-          if (linkFieldResult.isOk()) {
-            linkFieldName = linkFieldResult.value.name().toString();
+        if (sourceTable) {
+          const fieldResult = sourceTable.getField((f) => f.id().equals(edge.fromFieldId));
+          if (fieldResult.isOk()) {
+            fromFieldName = fieldResult.value.name().toString();
           }
         }
-      }
 
-      const edgeSpan = context?.tracer?.startSpan('teable.ComputedFieldUpdater.propagateEdge', {
-        // Edge index and order
-        'edge.index': i,
-        'edge.order': edge.order,
-        // Source info (IDs and names)
-        'edge.fromTableId': edge.fromTableId.toString(),
-        'edge.fromTableName': sourceTableName,
-        'edge.fromFieldId': edge.fromFieldId.toString(),
-        'edge.fromFieldName': fromFieldName,
-        // Target info (IDs and names)
-        'edge.toTableId': edge.toTableId.toString(),
-        'edge.toTableName': targetTableName,
-        'edge.toFieldId': edge.toFieldId.toString(),
-        'edge.toFieldName': toFieldName,
-        // Link field info
-        'edge.linkFieldId': edge.linkFieldId?.toString() ?? '',
-        'edge.linkFieldName': linkFieldName,
-        // Direction description for quick understanding
-        'edge.description': `${sourceTableName}.${fromFieldName} → ${targetTableName}.${toFieldName}`,
-      });
+        if (targetTable) {
+          const fieldResult = targetTable.getField((f) => f.id().equals(edge.toFieldId));
+          if (fieldResult.isOk()) {
+            toFieldName = fieldResult.value.name().toString();
+          }
 
-      try {
-        const insertResult = buildPropagationInsert(db, edge, tableById);
-        if (insertResult.isErr()) {
-          edgeSpan?.recordError(insertResult.error.message);
-          return err(insertResult.error);
+          if (edge.linkFieldId) {
+            const linkFieldResult = targetTable.getField((f) => f.id().equals(edge.linkFieldId!));
+            if (linkFieldResult.isOk()) {
+              linkFieldName = linkFieldResult.value.name().toString();
+            }
+          }
         }
 
-        const compiled = insertResult.value.compile();
-        edgeSpan?.setAttribute('edge.sql', compiled.sql);
-        await db.executeQuery(compiled);
-      } finally {
-        edgeSpan?.end();
+        const edgeSpan = context?.tracer?.startSpan('teable.ComputedFieldUpdater.propagateEdge', {
+          // Edge index and order
+          'edge.index': i,
+          'edge.order': edge.order,
+          // Source info (IDs and names)
+          'edge.fromTableId': edge.fromTableId.toString(),
+          'edge.fromTableName': sourceTableName,
+          'edge.fromFieldId': edge.fromFieldId.toString(),
+          'edge.fromFieldName': fromFieldName,
+          // Target info (IDs and names)
+          'edge.toTableId': edge.toTableId.toString(),
+          'edge.toTableName': targetTableName,
+          'edge.toFieldId': edge.toFieldId.toString(),
+          'edge.toFieldName': toFieldName,
+          // Link field info
+          'edge.linkFieldId': edge.linkFieldId?.toString() ?? '',
+          'edge.linkFieldName': linkFieldName,
+          // Direction description for quick understanding
+          'edge.description': `${sourceTableName}.${fromFieldName} → ${targetTableName}.${toFieldName}`,
+          // Pass information for debugging propagation order
+          'edge.pass': pass,
+        });
+
+        try {
+          const insertResult = buildPropagationInsert(db, edge, tableById);
+          if (insertResult.isErr()) {
+            edgeSpan?.recordError(insertResult.error.message);
+            return err(insertResult.error);
+          }
+
+          const compiled = insertResult.value.compile();
+          edgeSpan?.setAttribute('edge.sql', compiled.sql);
+          await db.executeQuery(compiled);
+        } finally {
+          edgeSpan?.end();
+        }
       }
+
+      const nextCount = await countDirtyRecords();
+      if (nextCount === previousCount) {
+        break;
+      }
+      previousCount = nextCount;
     }
     return ok(undefined);
   } catch (error) {

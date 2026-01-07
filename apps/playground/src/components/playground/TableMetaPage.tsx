@@ -718,7 +718,7 @@ type TableMetaPageProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (
     template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
+    options: { includeRecords: boolean }
   ) => void;
   onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   onDelete: () => void;
@@ -907,7 +907,7 @@ type PlaygroundHeaderProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (
     template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
+    options: { includeRecords: boolean }
   ) => void;
   onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   onDelete: () => void;
@@ -1160,7 +1160,7 @@ type PlaygroundEmptyStateProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (
     template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
+    options: { includeRecords: boolean }
   ) => void;
   onImportCsv?: (data: {
     tableName: string;

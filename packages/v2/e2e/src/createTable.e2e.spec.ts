@@ -218,11 +218,13 @@ describe('v2 http createTable (e2e)', () => {
     expect(second.baseId).toBe(baseId);
   });
 
-  it('creates tables for every template', async () => {
+  it('creates tables for every template with seeded records', async () => {
     let index = 0;
     for (const template of tableTemplates) {
       const name = `Template ${template.key} ${index + 1}`;
-      const created = await createTables(template.createInput(baseId, { namePrefix: name }));
+      const created = await createTables(
+        template.createInput(baseId, { namePrefix: name, includeRecords: true })
+      );
 
       expect(created.length).toBe(template.tables.length);
       for (let tableIndex = 0; tableIndex < created.length; tableIndex += 1) {
@@ -233,6 +235,12 @@ describe('v2 http createTable (e2e)', () => {
         expect(table.name).toBe(expectedName);
         expect(table.baseId).toBe(baseId);
         expect(table.fields.length).toBeGreaterThan(0);
+
+        const records = await listTableRecords(table.id);
+        expect(records).toHaveLength(templateTable.defaultRecordCount);
+        if (templateTable.defaultRecordCount > 0) {
+          expect(Object.keys(records[0]!.fields)).not.toHaveLength(0);
+        }
       }
       index += 1;
     }

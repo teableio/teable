@@ -2,8 +2,11 @@ import type {
   DomainError,
   FieldId,
   IExecutionContext,
+  ISpecification,
   ITableRepository,
+  ITableRecordConditionSpecVisitor,
   Table,
+  TableRecord,
 } from '@teable/v2-core';
 import type { SelectQueryBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
@@ -102,10 +105,10 @@ export interface ITableRecordQueryBuilder {
   orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this;
 
   /**
-   * Filter by record ID.
-   * @param recordId - The record ID to filter by
+   * Apply a record condition specification.
+   * @param spec - Specification to filter records by
    */
-  whereRecordId(recordId: string): this;
+  where(spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>): this;
 
   /**
    * Prepare the query builder by loading any required data.

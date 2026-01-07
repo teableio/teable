@@ -53,16 +53,28 @@ export class CreateRecordHandler
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
       // 2. Create the record (validates and applies field values internally)
-      const createRecordSpan = context.tracer?.startSpan('teable.CreateRecordHandler.createRecord');
+      const tracer = context.tracer;
+      const createRecordSpan = tracer?.startSpan('teable.CreateRecordHandler.createRecord');
       const record = yield* table.createRecord(command.fieldValues);
-      createRecordSpan?.end();
-
-      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
-        return safeTry<void, DomainError>(async function* () {
-          yield* await handler.tableRecordRepository.insert(transactionContext, table, record);
-          return ok(undefined);
-        });
-      });
+      try {
+        const runTransaction = () =>
+          handler.unitOfWork.withTransaction(context, async (transactionContext) => {
+            return safeTry<void, DomainError>(async function* () {
+              yield* await handler.tableRecordRepository.insert(transactionContext, table, record);
+              return ok(undefined);
+            });
+          });
+        const transactionResult =
+          tracer && createRecordSpan
+            ? await tracer.withSpan(createRecordSpan, runTransaction)
+            : await runTransaction();
+        if (transactionResult.isErr()) {
+          createRecordSpan?.recordError(transactionResult.error.toString());
+        }
+        yield* transactionResult;
+      } finally {
+        createRecordSpan?.end();
+      }
 
       // 4. Publish events (if any) - only after transaction succeeds
       const events: IDomainEvent[] = [];

@@ -105,6 +105,7 @@ describe('ListTableRecordsHandler', () => {
   it('maps missing tables to not found', async () => {
     const tableRepo: ITableRepository = {
       insert: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
+      insertMany: async (_context, _tables) => err(domainError.notFound({ message: 'Not found' })),
       findOne: async (_context, _spec) => err(domainError.notFound({ message: 'Not found' })),
       find: async (_context, _spec, _options) =>
         err(domainError.notFound({ message: 'Not found' })),

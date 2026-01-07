@@ -8,6 +8,10 @@ import type { IExecutionContext } from './ExecutionContext';
 
 export interface ITableSchemaRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
+  insertMany(
+    context: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>>;
   update(
     context: IExecutionContext,
     table: Table,

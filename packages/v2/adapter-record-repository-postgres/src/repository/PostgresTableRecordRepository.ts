@@ -8,7 +8,7 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { sql, type Kysely, type Transaction } from 'kysely';
+import { sql, type Expression, type Kysely, type SqlBool, type Transaction } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -23,6 +23,7 @@ import type { DynamicDB } from '../query-builder';
 import {
   FieldInsertValueVisitor,
   LinkChangeCollectorVisitor,
+  TableRecordConditionWhereVisitor,
   createEmptyCollectedLinkChanges,
   mergeCollectedLinkChange,
   type CollectedLinkChanges,
@@ -465,16 +466,22 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     );
   }
 
-  async delete(
+  async deleteMany(
     context: core.IExecutionContext,
     table: core.Table,
-    recordId: core.RecordId
+    spec: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     return safeTry<void, DomainError>(
       async function* (this: PostgresTableRecordRepository) {
         const dbTableName = yield* table.dbTableName();
         const tableName = yield* dbTableName.value();
-        const recordIdValue = recordId.toString();
+
+        const whereVisitor = new TableRecordConditionWhereVisitor();
+        const acceptResult = spec.accept(whereVisitor);
+        if (acceptResult.isErr()) return err(acceptResult.error);
+        const whereResult = whereVisitor.where();
+        if (whereResult.isErr()) return err(whereResult.error);
+        const whereClause = whereResult.value;
 
         // Use transaction-aware database connection
         const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
@@ -483,32 +490,58 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
         >();
 
+        const whereExpression = whereClause as unknown as Expression<SqlBool>;
+        const recordIdRows = await db
+          .selectFrom(tableName)
+          .select(sql.ref(RECORD_ID_COLUMN).as('record_id'))
+          .where(whereExpression)
+          .execute();
+
+        const recordIds: core.RecordId[] = [];
+        const recordIdStrings: string[] = [];
+        for (const row of recordIdRows) {
+          const rawId = row.record_id;
+          if (!rawId || typeof rawId !== 'string') {
+            continue;
+          }
+          const recordIdResult = core.RecordId.create(rawId);
+          if (recordIdResult.isErr()) return err(recordIdResult.error);
+          recordIds.push(recordIdResult.value);
+          recordIdStrings.push(rawId);
+        }
+
+        if (recordIds.length === 0) {
+          return ok(undefined);
+        }
+
         const linkFields = table
           .getFields()
           .filter((field): field is core.LinkField => field.type().equals(core.FieldType.link()));
 
-        for (const linkField of linkFields) {
-          const existingLinks = yield* await loadExistingLinkRecordIds(
-            db,
-            tableName,
-            recordIdValue,
-            linkField
-          );
-          const mergeResult = mergeExtraSeedRecords(
-            extraSeedMap,
-            linkField.foreignTableId(),
-            existingLinks
-          );
-          if (mergeResult.isErr()) return err(mergeResult.error);
+        for (const recordIdValue of recordIdStrings) {
+          for (const linkField of linkFields) {
+            const existingLinks = yield* await loadExistingLinkRecordIds(
+              db,
+              tableName,
+              recordIdValue,
+              linkField
+            );
+            const mergeResult = mergeExtraSeedRecords(
+              extraSeedMap,
+              linkField.foreignTableId(),
+              existingLinks
+            );
+            if (mergeResult.isErr()) return err(mergeResult.error);
+          }
         }
 
         try {
-          await db.deleteFrom(tableName).where(RECORD_ID_COLUMN, '=', recordIdValue).execute();
+          await db.deleteFrom(tableName).where(whereExpression).execute();
 
-          const computedResult = await this.runComputedDeleteUpdate(
+          const computedResult = await this.runComputedDeleteUpdateMany(
             context,
             table,
-            recordId,
+            recordIds,
             finalizeExtraSeedRecords(extraSeedMap)
           );
           if (computedResult.isErr()) {
@@ -517,9 +550,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         } catch (error) {
           return err(
             domainError.infrastructure({
-              message: `Failed to delete record: ${describeError(error)}`,
-              code: 'infrastructure.database.delete_failed',
-              details: { tableName, recordId: recordId.toString(), error: describeError(error) },
+              message: `Failed to delete records: ${describeError(error)}`,
+              code: 'infrastructure.database.delete_many_failed',
+              details: { tableName, count: recordIds.length, error: describeError(error) },
             })
           );
         }
@@ -588,17 +621,18 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     return this.computedUpdateStrategy.execute(this.computedFieldUpdater, plan, context);
   }
 
-  private async runComputedDeleteUpdate(
+  private async runComputedDeleteUpdateMany(
     context: core.IExecutionContext,
     table: core.Table,
-    recordId: core.RecordId,
+    recordIds: ReadonlyArray<core.RecordId>,
     extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = []
   ): Promise<Result<void, DomainError>> {
+    if (recordIds.length === 0) return ok(undefined);
     const allFieldIds = table.getFields().map((field) => field.id());
     const planResult = await this.computedUpdatePlanner.plan({
       table,
       changedFieldIds: allFieldIds,
-      changedRecordIds: [recordId],
+      changedRecordIds: [...recordIds],
       changeType: 'delete',
     });
     if (planResult.isErr()) return err(planResult.error);

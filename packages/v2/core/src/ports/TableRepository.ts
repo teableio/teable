@@ -10,6 +10,10 @@ import type { IFindOptions } from './RepositoryQuery';
 
 export interface ITableRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>>;
+  insertMany(
+    context: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>>;
   findOne(
     context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>

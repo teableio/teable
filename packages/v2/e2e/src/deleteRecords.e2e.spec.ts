@@ -5,6 +5,7 @@ import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
+  deleteRecordsOkResponseSchema,
   listTableRecordsOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
@@ -147,5 +148,28 @@ describe('v2 http deleteRecords (e2e)', () => {
     });
 
     expect(response.status).toBe(400);
+  });
+
+  it('returns ok response for batch delete', async () => {
+    const r1 = await createRecord(tableId, { [primaryFieldId]: 'batch-1' });
+    const r2 = await createRecord(tableId, { [primaryFieldId]: 'batch-2' });
+
+    const response = await fetch(`${baseUrl}/tables/deleteRecords`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId,
+        recordIds: [r1.id, r2.id],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const rawBody = await response.json();
+    const parsed = deleteRecordsOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.ok).toBe(true);
+      expect(parsed.data.data.deletedRecordIds).toEqual([r1.id, r2.id]);
+    }
   });
 });

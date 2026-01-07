@@ -1359,8 +1359,10 @@ export class FormulaSqlPgExpressionBuilder {
       op(elementNumber.valueSql, scalarNumber.valueSql),
       elementErrorCondition
     );
+    const elementValueJson = `to_jsonb(${elementValueSql})`;
+    const elementErrorJson = `to_jsonb(${elementErrorMessage ?? buildErrorLiteral('TYPE', 'cannot_cast_to_number')})`;
     const elementSql = elementErrorCondition
-      ? `CASE WHEN ${elementErrorCondition} THEN ${elementErrorMessage ?? buildErrorLiteral('TYPE', 'cannot_cast_to_number')} ELSE ${elementValueSql} END`
+      ? `CASE WHEN ${elementErrorCondition} THEN ${elementErrorJson} ELSE ${elementValueJson} END`
       : elementValueSql;
 
     const valueSql = `(SELECT jsonb_agg(${elementSql} ORDER BY ord)
@@ -1388,8 +1390,10 @@ export class FormulaSqlPgExpressionBuilder {
     const elementErrorMessage =
       elementNumber.errorMessageSql ?? buildErrorLiteral('TYPE', 'cannot_cast_to_number');
     const elementValueSql = guardValueSql(op(elementNumber.valueSql), elementErrorCondition);
+    const elementValueJson = `to_jsonb(${elementValueSql})`;
+    const elementErrorJson = `to_jsonb(${elementErrorMessage})`;
     const elementSql = elementErrorCondition
-      ? `CASE WHEN ${elementErrorCondition} THEN ${elementErrorMessage} ELSE ${elementValueSql} END`
+      ? `CASE WHEN ${elementErrorCondition} THEN ${elementErrorJson} ELSE ${elementValueJson} END`
       : elementValueSql;
 
     const valueSql = `(SELECT jsonb_agg(${elementSql} ORDER BY ord)

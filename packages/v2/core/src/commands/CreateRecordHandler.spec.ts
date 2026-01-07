@@ -10,6 +10,7 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -38,6 +39,11 @@ class FakeTableRepository implements ITableRepository {
   async insert(_context: IExecutionContext, table: Table) {
     this.tables.push(table);
     return ok(table);
+  }
+
+  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
+    this.tables.push(...tables);
+    return ok([...tables]);
   }
 
   async findOne(
@@ -137,10 +143,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok(undefined);
   }
 
-  async delete(
+  async deleteMany(
     _context: IExecutionContext,
     _table: Table,
-    _recordId: unknown
+    _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }

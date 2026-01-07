@@ -13,8 +13,8 @@ describe('ListTablesQuery', () => {
 
     const query = queryResult._unsafeUnwrap();
     const [field] = query.sort.fields();
-    expect(field.key.toString()).toBe('name');
-    expect(field.direction.toString()).toBe('asc');
+    expect(field.key.toString()).toBe('createdTime');
+    expect(field.direction.toString()).toBe('desc');
     expect(query.pagination).toBeUndefined();
   });
 

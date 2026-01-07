@@ -17,6 +17,12 @@ export type FieldCreationSideEffectServiceInput = {
   table: Table;
   fields: ReadonlyArray<Field>;
   foreignTables: ReadonlyArray<Table>;
+  tableState?: ReadonlyMap<string, Table>;
+};
+
+export type FieldCreationSideEffectServiceResult = {
+  events: ReadonlyArray<IDomainEvent>;
+  tableState: ReadonlyMap<string, Table>;
 };
 
 @injectable()
@@ -32,42 +38,52 @@ export class FieldCreationSideEffectService {
   async execute(
     context: ExecutionContextPort.IExecutionContext,
     input: FieldCreationSideEffectServiceInput
-  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
+  ): Promise<Result<FieldCreationSideEffectServiceResult, DomainError>> {
     const service = this;
-    const result = await safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-      if (input.fields.length === 0) return ok([]);
+    const result = await safeTry<FieldCreationSideEffectServiceResult, DomainError>(
+      async function* () {
+        const foreignTableState = input.tableState
+          ? new Map<string, Table>(input.tableState)
+          : new Map<string, Table>(
+              input.foreignTables.map((foreignTable) => [
+                foreignTable.id().toString(),
+                foreignTable,
+              ])
+            );
 
-      const sideEffects = yield* FieldCreationSideEffectVisitor.collect(input.fields, {
-        table: input.table,
-        foreignTables: input.foreignTables,
-      });
-      if (sideEffects.length === 0) return ok([]);
+        if (input.fields.length === 0) {
+          return ok({ events: [], tableState: foreignTableState });
+        }
 
-      const foreignTableState = new Map<string, Table>(
-        input.foreignTables.map((foreignTable) => [foreignTable.id().toString(), foreignTable])
-      );
-      const events: IDomainEvent[] = [];
+        const sideEffects = yield* FieldCreationSideEffectVisitor.collect(input.fields, {
+          table: input.table,
+          foreignTables: input.foreignTables,
+        });
+        if (sideEffects.length === 0) return ok({ events: [], tableState: foreignTableState });
 
-      for (const sideEffect of sideEffects) {
-        const foreignTable = foreignTableState.get(sideEffect.foreignTable.id().toString());
-        if (!foreignTable)
-          return err(domainError.notFound({ message: 'Foreign table not found in state' }));
+        const events: IDomainEvent[] = [];
 
-        const updateResult = yield* await service.tableUpdateFlow.execute(
-          context,
-          { table: foreignTable },
-          (candidate) =>
-            sideEffect.mutateSpec
-              .mutate(candidate)
-              .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
-          { publishEvents: false }
-        );
-        foreignTableState.set(updateResult.table.id().toString(), updateResult.table);
-        events.push(...updateResult.events);
+        for (const sideEffect of sideEffects) {
+          const foreignTable = foreignTableState.get(sideEffect.foreignTable.id().toString());
+          if (!foreignTable)
+            return err(domainError.notFound({ message: 'Foreign table not found in state' }));
+
+          const updateResult = yield* await service.tableUpdateFlow.execute(
+            context,
+            { table: foreignTable },
+            (candidate) =>
+              sideEffect.mutateSpec
+                .mutate(candidate)
+                .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
+            { publishEvents: false }
+          );
+          foreignTableState.set(updateResult.table.id().toString(), updateResult.table);
+          events.push(...updateResult.events);
+        }
+
+        return ok({ events, tableState: foreignTableState });
       }
-
-      return ok(events);
-    });
+    );
     return result;
   }
 }

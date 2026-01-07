@@ -8,6 +8,11 @@ import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPay
 import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
 import { ComputedUpdateWorker } from './ComputedUpdateWorker';
 
+const BASE_ID = `bse${'a'.repeat(16)}`;
+const TABLE_ID = `tbl${'b'.repeat(16)}`;
+const FIELD_ID = `fld${'c'.repeat(16)}`;
+const RECORD_ID = `rec${'d'.repeat(16)}`;
+
 // Create a mock logger
 const createLogger = (): ILogger => ({
   info: vi.fn(),
@@ -20,7 +25,7 @@ const createLogger = (): ILogger => ({
 
 // Create a mock hasher
 const createHasher = (): IHasher => ({
-  hash: vi.fn().mockReturnValue('hash123'),
+  sha256: vi.fn().mockReturnValue('hash123'),
 });
 
 // Create a mock unit of work
@@ -33,22 +38,22 @@ const createMockTask = (
   overrides: Partial<ComputedUpdateOutboxItem> = {}
 ): ComputedUpdateOutboxItem => ({
   id: 'cuo123456789012345',
-  baseId: 'bseTestBase123456',
-  seedTableId: 'tblTestTable123456',
-  seedRecordIds: ['rec123'],
+  baseId: BASE_ID,
+  seedTableId: TABLE_ID,
+  seedRecordIds: [RECORD_ID],
   extraSeedRecords: [],
-  steps: [{ level: 0, tableId: 'tblTestTable123456', fieldIds: ['fld123'] }],
+  steps: [{ level: 0, tableId: TABLE_ID, fieldIds: [FIELD_ID] }],
   edges: [],
   estimatedComplexity: 1,
   changeType: 'update',
   planHash: 'abc123',
-  dirtyStats: [{ tableId: 'tblTestTable123456', recordCount: 1 }],
+  dirtyStats: [{ tableId: TABLE_ID, recordCount: 1 }],
   runId: 'run123',
   originRunIds: ['run123'],
   runTotalSteps: 1,
   runCompletedStepsBefore: 0,
-  affectedTableIds: ['tblTestTable123456'],
-  affectedFieldIds: ['fld123'],
+  affectedTableIds: [TABLE_ID],
+  affectedFieldIds: [FIELD_ID],
   syncMaxLevel: 0,
   status: 'processing',
   attempts: 0,

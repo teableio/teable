@@ -235,7 +235,7 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
 
   const handleCreateTemplate = (
     template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
+    options: { includeRecords: boolean }
   ) => {
     createTableMutation.reset();
     createTableMutation.mutate(template.createInput(baseId, options));
@@ -300,7 +300,7 @@ type PlaygroundBasePageProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (
     template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
+    options: { includeRecords: boolean }
   ) => void;
 };
 
@@ -361,7 +361,7 @@ type PlaygroundBaseHeaderProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (
     template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
+    options: { includeRecords: boolean }
   ) => void;
 };
 
@@ -519,7 +519,7 @@ type PlaygroundBaseEmptyStateProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (
     template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
+    options: { includeRecords: boolean }
   ) => void;
 };
 

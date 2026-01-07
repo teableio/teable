@@ -320,17 +320,6 @@ export class TableFieldPersistenceBuilder {
   }
 
   private serializeLookupOptions(field: ITableFieldPersistenceDTO): string | null {
-    // Handle rollup fields (config contains linkFieldId, foreignTableId, lookupFieldId)
-    if (field.type === 'rollup' && field.config) {
-      const linkOptions = this.resolveLinkFieldOptions(field.config.linkFieldId);
-      if (!linkOptions) return JSON.stringify(field.config);
-      return JSON.stringify({
-        ...linkOptions,
-        ...field.config,
-        linkFieldId: field.config.linkFieldId,
-      });
-    }
-
     // Handle lookup fields (lookupOptions is directly on the DTO)
     if (field.isLookup && field.lookupOptions) {
       const linkOptions = this.resolveLinkFieldOptions(field.lookupOptions.linkFieldId);
@@ -342,18 +331,29 @@ export class TableFieldPersistenceBuilder {
       });
     }
 
+    // Handle rollup fields (config contains linkFieldId, foreignTableId, lookupFieldId)
+    if (field.type === 'rollup' && field.config) {
+      const linkOptions = this.resolveLinkFieldOptions(field.config.linkFieldId);
+      if (!linkOptions) return JSON.stringify(field.config);
+      return JSON.stringify({
+        ...linkOptions,
+        ...field.config,
+        linkFieldId: field.config.linkFieldId,
+      });
+    }
+
     return null;
   }
 
   private resolveLookupLinkedFieldId(field: ITableFieldPersistenceDTO): string | null {
-    // Handle rollup fields
-    if (field.type === 'rollup' && field.config) {
-      return field.config.linkFieldId ?? null;
-    }
-
     // Handle lookup fields
     if (field.isLookup && field.lookupOptions) {
       return field.lookupOptions.linkFieldId ?? null;
+    }
+
+    // Handle rollup fields
+    if (field.type === 'rollup' && field.config) {
+      return field.config.linkFieldId ?? null;
     }
 
     return null;

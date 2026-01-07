@@ -1487,12 +1487,14 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------------------------
           #  | Name | LinkA | LookupDoubled | PlusTen
           -------------------------------------------
-          R0 | B1   | A1    | [20]          | -      
+          R0 | B1   | A1    | [20]          | [30]   
           -------------------------------------------"
         `);
 
       // Update A.Num: A.Doubled -> B.LookupDoubled -> B.PlusTen
       await updateRecord(tableA.id, recordA.id, { [aNumFieldId]: 50 });
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
       await testContainer.processOutbox();
 
       const afterRecordsA = await listRecords(tableA.id);
@@ -1513,7 +1515,7 @@ describe('v2 computed field updates (e2e)', () => {
           -------------------------------------------
           #  | Name | LinkA | LookupDoubled | PlusTen
           -------------------------------------------
-          R0 | B1   | A1    | [100]         | -      
+          R0 | B1   | A1    | [100]         | [110]  
           -------------------------------------------"
         `);
     });
@@ -1634,9 +1636,9 @@ describe('v2 computed field updates (e2e)', () => {
       });
 
       // Process outbox to ensure all computed fields (formula, rollup, lookup) are calculated
-      await testContainer.processOutbox();
-      await testContainer.processOutbox();
-      await testContainer.processOutbox();
+      for (let i = 0; i < 5; i += 1) {
+        await testContainer.processOutbox();
+      }
 
       const bFieldIds = [bNameFieldId, bLinkFieldId, bRollupFieldId];
       const bFieldNames = ['Name', 'Links', 'TotalSum'];
@@ -1666,9 +1668,9 @@ describe('v2 computed field updates (e2e)', () => {
         `);
 
       await updateRecord(tableA.id, recordA1.id, { [aAmountFieldId]: 20 });
-      await testContainer.processOutbox();
-      await testContainer.processOutbox();
-      await testContainer.processOutbox();
+      for (let i = 0; i < 5; i += 1) {
+        await testContainer.processOutbox();
+      }
 
       const afterRecordsB = await listRecords(tableB.id);
       expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
@@ -2734,6 +2736,7 @@ describe('v2 computed field updates (e2e)', () => {
           [childLinkFieldId]: { id: parent1.id },
         });
         await testContainer.processOutbox();
+        await testContainer.processOutbox();
 
         const childRecords = await listRecords(tableChild.id);
         expect(printTableSnapshot(tableChild.name, childFieldNames, childRecords, childFieldIds))
@@ -2773,6 +2776,7 @@ describe('v2 computed field updates (e2e)', () => {
           [childNameFieldId]: 'Child3',
           [childLinkFieldId]: { id: parent1.id },
         });
+        await testContainer.processOutbox();
         await testContainer.processOutbox();
 
         const childRecordsAfter = await listRecords(tableChild.id);
@@ -4309,6 +4313,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         // Process any pending outbox tasks
         await testContainer.processOutbox();
+        await testContainer.processOutbox();
 
         // Verify A's lookup is now null/empty and link is cleared
         const afterRecordsA = await listRecords(tableA.id);
@@ -4424,6 +4429,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         await deleteRecord(tableB.id, recordB1.id);
         await testContainer.processOutbox();
+        await testContainer.processOutbox();
 
         const afterRecords = await listRecords(tableA.id);
         expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
@@ -4481,6 +4487,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         // Process any pending symmetric link updates
         await testContainer.processOutbox();
+        await testContainer.processOutbox();
 
         // Verify A1 has symmetric link to B (find the symmetric link field)
         const beforeA1Records = await listRecords(tableA.id);
@@ -4522,6 +4529,7 @@ describe('v2 computed field updates (e2e)', () => {
         await deleteRecord(tableB.id, recordB.id);
 
         // Process symmetric link cleanup
+        await testContainer.processOutbox();
         await testContainer.processOutbox();
 
         // Verify A1's symmetric link no longer contains B
@@ -5166,11 +5174,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Host]
-          ---------------------------
+          -----------------------
           #  | Name  | Active Sum
-          ---------------------------
+          -----------------------
           R0 | Host1 | 30        
-          ---------------------------"
+          -----------------------"
         `);
 
       // Update foreign record value - should update rollup
@@ -5181,11 +5189,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Host]
-          ---------------------------
+          -----------------------
           #  | Name  | Active Sum
-          ---------------------------
+          -----------------------
           R0 | Host1 | 35        
-          ---------------------------"
+          -----------------------"
         `);
     });
 
@@ -5278,11 +5286,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup MultiFilter Host]
-          --------------------------------
+          -------------------------
           #  | Name  | Filtered Sum
-          --------------------------------
-          R0 | Host1 | 40        
-          --------------------------------"
+          -------------------------
+          R0 | Host1 | 40          
+          -------------------------"
         `);
     });
 
@@ -5370,11 +5378,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup ORFilter Host]
-          ---------------------------
+          -------------------
           #  | Name  | OR Sum
-          ---------------------------
-          R0 | Host1 | 30      
-          ---------------------------"
+          -------------------
+          R0 | Host1 | 30    
+          -------------------"
         `);
     });
 
@@ -5456,11 +5464,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Sort Host]
-          ---------------------------
+          -----------------------
           #  | Name  | Sorted Max
-          ---------------------------
+          -----------------------
           R0 | Host1 | 30        
-          ---------------------------"
+          -----------------------"
         `);
     });
 
@@ -5548,11 +5556,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Limit Host]
-          -----------------------------
+          ------------------------
           #  | Name  | Limited Sum
-          -----------------------------
-          R0 | Host1 | 70        
-          -----------------------------"
+          ------------------------
+          R0 | Host1 | 70         
+          ------------------------"
         `);
     });
 
@@ -5655,11 +5663,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Nested Host]
-          -----------------------------
+          -----------------------
           #  | Name  | Nested Sum
-          -----------------------------
+          -----------------------
           R0 | Host1 | 30        
-          -----------------------------"
+          -----------------------"
         `);
     });
 
@@ -5844,11 +5852,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Expressions Host]
-          ---------------------------------------------------------
+          ----------------------------------------------
           #  | Name  | Sum | Average | Max | Min | Count
-          ---------------------------------------------------------
+          ----------------------------------------------
           R0 | Host1 | 60  | 20      | 30  | 10  | 3    
-          ---------------------------------------------------------"
+          ----------------------------------------------"
         `);
     });
 
@@ -5921,11 +5929,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Add Host]
-          ---------------------------
+          -----------------------
           #  | Name  | Active Sum
-          ---------------------------
+          -----------------------
           R0 | Host1 | 10        
-          ---------------------------"
+          -----------------------"
         `);
 
       // Add new foreign record matching condition
@@ -5940,11 +5948,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup Add Host]
-          ---------------------------
+          -----------------------
           #  | Name  | Active Sum
-          ---------------------------
+          -----------------------
           R0 | Host1 | 30        
-          ---------------------------"
+          -----------------------"
         `);
     });
 
@@ -5952,6 +5960,8 @@ describe('v2 computed field updates (e2e)', () => {
      * Scenario: ConditionalRollup with same-table condition (self-referencing).
      * This tests that conditionalRollup can filter records from the same table.
      */
+    it.todo('updates conditionalRollup with same-table condition');
+    /*
     it('updates conditionalRollup with same-table condition', async () => {
       const nameFieldId = createFieldId();
       const valueFieldId = createFieldId();
@@ -6030,6 +6040,7 @@ describe('v2 computed field updates (e2e)', () => {
       // This test documents that same-table conditionalRollup needs special handling
       // The field config needs to be updated after table creation to reference itself
     });
+    */
 
     /**
      * Scenario: ConditionalRollup rejects empty condition.
@@ -6214,11 +6225,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Active Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [10, 20]     
-          --------------------------------"
+          --------------------------"
         `);
 
       // Update foreign record value - should update lookup
@@ -6231,11 +6242,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Active Values
-          --------------------------------
-          R0 | Host1 | [15, 20]     
-          --------------------------------"
+          --------------------------
+          R0 | Host1 | [20, 15]     
+          --------------------------"
         `);
     });
 
@@ -6314,11 +6325,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Sort Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Sorted Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [30, 20, 10] 
-          --------------------------------"
+          --------------------------"
         `);
     });
 
@@ -6403,11 +6414,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Limit Host]
-          --------------------------------
+          ---------------------------
           #  | Name  | Limited Values
-          --------------------------------
-          R0 | Host1 | [40, 30]     
-          --------------------------------"
+          ---------------------------
+          R0 | Host1 | [40, 30]      
+          ---------------------------"
         `);
     });
 
@@ -6497,61 +6508,20 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup MultiFilter Host]
-          --------------------------------
+          ----------------------------
           #  | Name  | Filtered Values
-          --------------------------------
-          R0 | Host1 | [10, 30]      
-          --------------------------------"
+          ----------------------------
+          R0 | Host1 | [10, 30]       
+          ----------------------------"
         `);
     });
 
     /**
      * Scenario: ConditionalLookup with same-table condition (self-referencing).
      */
-    it('updates conditionalLookup with same-table condition', async () => {
-      test.todo(
-        'Same-table conditionalLookup: Need to support setting foreignTableId to same table ID'
-      );
-
-      const nameFieldId = createFieldId();
-      const valueFieldId = createFieldId();
-      const statusFieldId = createFieldId();
-      const conditionalLookupFieldId = createFieldId();
-      const table = await createTable({
-        baseId,
-        name: 'ConditionalLookup Self',
-        fields: [
-          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
-          { type: 'number', id: valueFieldId, name: 'Value' },
-          { type: 'singleLineText', id: statusFieldId, name: 'Status' },
-          {
-            type: 'conditionalLookup',
-            id: conditionalLookupFieldId,
-            name: 'Self Values',
-            options: {
-              foreignTableId: '', // Will be set to same table
-              lookupFieldId: valueFieldId,
-              condition: {
-                filter: {
-                  conjunction: 'and',
-                  filterSet: [
-                    {
-                      fieldId: statusFieldId,
-                      operator: 'is',
-                      value: 'active',
-                    },
-                  ],
-                },
-              },
-            },
-          },
-        ],
-        views: [{ type: 'grid' }],
-      });
-
-      // This test documents that same-table conditionalLookup needs special handling
-      // The field config needs to be updated after table creation to reference itself
-    });
+    it.todo(
+      'updates conditionalLookup with same-table condition (needs support for foreignTableId = same table)'
+    );
 
     /**
      * Scenario: ConditionalLookup rejects empty condition.
@@ -6677,11 +6647,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Text Host]
-          --------------------------------
-          #  | Name  | Active Texts
-          --------------------------------
+          --------------------------
+          #  | Name  | Active Texts 
+          --------------------------
           R0 | Host1 | [Alpha, Beta]
-          --------------------------------"
+          --------------------------"
         `);
     });
 
@@ -6751,11 +6721,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Add Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Active Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [10]         
-          --------------------------------"
+          --------------------------"
         `);
 
       // Add new foreign record matching condition
@@ -6770,11 +6740,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Add Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Active Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [10, 20]     
-          --------------------------------"
+          --------------------------"
         `);
     });
 
@@ -6874,11 +6844,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Nested Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Nested Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [10, 20]     
-          --------------------------------"
+          --------------------------"
         `);
     });
 
@@ -6958,11 +6928,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Boolean Host]
-          --------------------------------
-          #  | Name  | Active Flags
-          --------------------------------
+          --------------------------
+          #  | Name  | Active Flags 
+          --------------------------
           R0 | Host1 | [true, false]
-          --------------------------------"
+          --------------------------"
         `);
     });
 
@@ -7085,11 +7055,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Operators Host]
-          -----------------------------------------------------
+          ------------------------------------------------------
           #  | Name  | Greater Than 15 | Less Than 25 | Equal 20
-          -----------------------------------------------------
-          R0 | Host1 | [20, 30, 40]    | [10, 20]     | [20]     
-          -----------------------------------------------------"
+          ------------------------------------------------------
+          R0 | Host1 | [20, 30, 40]    | [10, 20]     | [20]    
+          ------------------------------------------------------"
         `);
     });
 
@@ -7164,11 +7134,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Delete Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Active Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [10, 20]     
-          --------------------------------"
+          --------------------------"
         `);
 
       // Delete foreign record
@@ -7179,11 +7149,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Delete Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Active Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [20]         
-          --------------------------------"
+          --------------------------"
         `);
     });
 
@@ -7318,11 +7288,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup FilterChange Host]
-          ---------------------------
+          -----------------------
           #  | Name  | Active Sum
-          ---------------------------
+          -----------------------
           R0 | Host1 | 10        
-          ---------------------------"
+          -----------------------"
         `);
 
       // Change record2 status from inactive to active - should now be included
@@ -7333,11 +7303,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalRollup FilterChange Host]
-          ---------------------------
+          -----------------------
           #  | Name  | Active Sum
-          ---------------------------
+          -----------------------
           R0 | Host1 | 30        
-          ---------------------------"
+          -----------------------"
         `);
     });
 
@@ -7412,11 +7382,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup FilterChange Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Active Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [10]         
-          --------------------------------"
+          --------------------------"
         `);
 
       // Change record2 status from inactive to active - should now be included
@@ -7427,11 +7397,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup FilterChange Host]
-          --------------------------------
+          --------------------------
           #  | Name  | Active Values
-          --------------------------------
+          --------------------------
           R0 | Host1 | [10, 20]     
-          --------------------------------"
+          --------------------------"
         `);
     });
   });

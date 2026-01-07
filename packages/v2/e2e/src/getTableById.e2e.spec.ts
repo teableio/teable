@@ -157,7 +157,7 @@ describe('v2 http getTableById (e2e)', () => {
     const view = body.data.table.views[0];
     const columnMeta = view?.columnMeta ?? {};
     expect(Object.keys(columnMeta).sort()).toEqual(
-      [nameFieldId, amountFieldId, notesFieldId].sort()
+      [nameFieldId, amountFieldId, notesFieldId, linkFieldId, lookupFieldId].sort()
     );
     expect(columnMeta[amountFieldId]?.order).toBe(0);
     expect(columnMeta[nameFieldId]?.order).toBe(1);

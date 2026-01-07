@@ -2,7 +2,7 @@ import * as core from '@teable/v2-core';
 import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { Kysely, sql, type CompiledQuery, type Transaction } from 'kysely';
+import { Kysely, sql, type CompiledQuery, type InsertObject, type Transaction } from 'kysely';
 import { jsonArrayFrom } from 'kysely/helpers/postgres';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -306,6 +306,161 @@ export class PostgresTableRepository implements core.ITableRepository {
     if (applyDbMetaResult.isErr()) return err(applyDbMetaResult.error);
 
     return ok(table);
+  }
+
+  @core.TraceSpan()
+  async insertMany(
+    context: core.IExecutionContext,
+    tables: ReadonlyArray<core.Table>
+  ): Promise<Result<ReadonlyArray<core.Table>, DomainError>> {
+    if (tables.length === 0) return ok([]);
+
+    const now = new Date();
+    const actorId = context.actorId.toString();
+
+    const transaction = getPostgresTransaction<V1TeableDatabase>(context);
+    const persist = async (
+      trx: Kysely<V1TeableDatabase>
+    ): Promise<Result<ReadonlyMap<string, ITableDbMeta>, DomainError>> => {
+      type TableMetaRow = InsertObject<V1TeableDatabase, 'table_meta'>;
+      type FieldRow = InsertObject<V1TeableDatabase, 'field'>;
+      type ViewRow = InsertObject<V1TeableDatabase, 'view'>;
+
+      const baseIds = [...new Set(tables.map((table) => table.baseId().toString()))];
+      const baseOrderById = new Map<string, number>();
+      for (const baseId of baseIds) {
+        const row = await trx
+          .selectFrom('table_meta')
+          .select(sql<number>`coalesce(max("order"), 0)`.as('maxOrder'))
+          .where('base_id', '=', baseId)
+          .executeTakeFirst();
+        baseOrderById.set(baseId, Number(row?.maxOrder ?? 0));
+      }
+
+      const baseOffsetById = new Map<string, number>();
+      const tableMetaRows: TableMetaRow[] = [];
+      const fieldRows: FieldRow[] = [];
+      const viewRows: ViewRow[] = [];
+      const tableDbMetaById = new Map<string, ITableDbMeta>();
+
+      for (const table of tables) {
+        const baseId = table.baseId().toString();
+        const nextOffset = (baseOffsetById.get(baseId) ?? 0) + 1;
+        baseOffsetById.set(baseId, nextOffset);
+        const order = (baseOrderById.get(baseId) ?? 0) + nextOffset;
+
+        const existingDbTableNameResult = table.dbTableName().andThen((name) => name.value());
+        const dbTableNameResult = existingDbTableNameResult.isOk()
+          ? ok(existingDbTableNameResult.value)
+          : ok(joinDbTableName(baseId, table.id().toString()));
+        if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
+        const dbTableName = dbTableNameResult.value;
+
+        const dtoResult = this.tableMapper.toDTO(table);
+        if (dtoResult.isErr()) return err(dtoResult.error);
+        const dto = dtoResult.value;
+
+        const fieldRowBuilder = new TableFieldPersistenceBuilder({
+          table,
+          tableMapper: this.tableMapper,
+          now,
+          actorId,
+          dto,
+        });
+        const dbFieldMetaResult = fieldRowBuilder.buildDbFieldMeta();
+        if (dbFieldMetaResult.isErr()) return err(dbFieldMetaResult.error);
+        const tableDbMetaResult = await this.buildTableDbMeta(
+          trx,
+          dto,
+          baseId,
+          dbFieldMetaResult.value,
+          dbTableName
+        );
+        const tableDbMeta = tableDbMetaResult;
+        const fieldValuesResult = fieldRowBuilder.buildRowsFromDbMeta(tableDbMeta.fields);
+        if (fieldValuesResult.isErr()) return err(fieldValuesResult.error);
+
+        tableDbMetaById.set(table.id().toString(), tableDbMeta);
+        tableMetaRows.push({
+          id: dto.id,
+          base_id: baseId,
+          name: dto.name,
+          description: null,
+          icon: null,
+          db_table_name: tableDbMeta.dbTableName,
+          db_view_name: null,
+          version: 1,
+          order,
+          created_time: now,
+          last_modified_time: now,
+          deleted_time: null,
+          created_by: actorId,
+          last_modified_by: actorId,
+        });
+
+        fieldRows.push(...(fieldValuesResult.value as FieldRow[]));
+        viewRows.push(
+          ...dto.views.map((view, index) => ({
+            id: view.id,
+            name: view.name,
+            description: null,
+            table_id: dto.id,
+            type: view.type,
+            sort: null,
+            filter: null,
+            group: null,
+            options: null,
+            order: index + 1,
+            version: 1,
+            column_meta: JSON.stringify(view.columnMeta),
+            is_locked: null,
+            enable_share: null,
+            share_id: null,
+            share_meta: null,
+            created_time: now,
+            last_modified_time: now,
+            deleted_time: null,
+            created_by: actorId,
+            last_modified_by: actorId,
+          }))
+        );
+      }
+
+      if (tableMetaRows.length > 0) {
+        await trx.insertInto('table_meta').values(tableMetaRows).execute();
+      }
+      if (fieldRows.length > 0) {
+        await trx.insertInto('field').values(fieldRows).execute();
+      }
+      if (viewRows.length > 0) {
+        await trx.insertInto('view').values(viewRows).execute();
+      }
+
+      return ok(tableDbMetaById);
+    };
+
+    let tableDbMetaById: ReadonlyMap<string, ITableDbMeta>;
+    try {
+      const persistResult = transaction
+        ? await persist(transaction)
+        : await this.db.transaction().execute(async (trx) => persist(trx));
+      if (persistResult.isErr()) return err(persistResult.error);
+      tableDbMetaById = persistResult.value;
+    } catch (error) {
+      return err(
+        domainError.infrastructure({ message: `Failed to insert tables: ${describeError(error)}` })
+      );
+    }
+
+    for (const table of tables) {
+      const tableDbMeta = tableDbMetaById.get(table.id().toString());
+      if (!tableDbMeta)
+        return err(domainError.validation({ message: 'Missing table db metadata' }));
+      const applyDbMetaResult = this.applyDbMeta(table, tableDbMeta);
+      if (applyDbMetaResult.isErr()) return err(applyDbMetaResult.error);
+    }
+
+    return ok([...tables]);
   }
 
   @core.TraceSpan()
@@ -647,8 +802,11 @@ export class PostgresTableRepository implements core.ITableRepository {
     return ok(domainResult.value);
   }
 
-  private resolveSortColumn(key: core.TableSortKey): 'name' | 'id' {
-    return key.toString() === 'name' ? 'name' : 'id';
+  private resolveSortColumn(key: core.TableSortKey): 'name' | 'id' | 'created_time' {
+    const value = key.toString();
+    if (value === 'name') return 'name';
+    if (value === 'createdTime') return 'created_time';
+    return 'id';
   }
 
   private deserializeFieldDto(row: {

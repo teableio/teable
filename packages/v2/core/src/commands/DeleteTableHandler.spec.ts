@@ -50,6 +50,14 @@ class FakeTableRepository implements ITableRepository {
     return ok(table);
   }
 
+  async insertMany(
+    _: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
+    this.tables.push(...tables);
+    return ok([...tables]);
+  }
+
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -87,6 +95,13 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
   failDelete: DomainError | undefined;
 
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  async insertMany(
+    _: IExecutionContext,
+    __: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 

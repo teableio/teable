@@ -56,7 +56,7 @@ export const dropConstraintStatement = (
   target: TableIdentifier,
   constraintName: string
 ): TableSchemaStatementBuilder =>
-  sql`alter table ${buildTableIdentifier(target)} drop constraint if exists ${sql.ref(constraintName)}`;
+  sql`alter table if exists ${buildTableIdentifier(target)} drop constraint if exists ${sql.ref(constraintName)}`;
 
 /**
  * Creates a CREATE INDEX statement.

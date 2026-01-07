@@ -79,7 +79,7 @@ export class FormulaTypeVisitor
   visitUnaryOp(ctx: UnaryOpContext): Result<TypedValue, DomainError> {
     const exprResult = ctx.expr().accept(this);
     if (exprResult.isErr()) return err(exprResult.error);
-    return ok(new TypedValue(null, CellValueType.Number));
+    return ok(new TypedValue(null, CellValueType.Number, exprResult.value.isMultiple ?? false));
   }
 
   visitBinaryOp(ctx: BinaryOpContext): Result<TypedValue, DomainError> {
@@ -89,7 +89,8 @@ export class FormulaTypeVisitor
     if (rightResult.isErr()) return err(rightResult.error);
 
     const valueType = this.getBinaryOpValueType(ctx, leftResult.value, rightResult.value);
-    return ok(new TypedValue(null, valueType));
+    const isMultiple = Boolean(leftResult.value.isMultiple || rightResult.value.isMultiple);
+    return ok(new TypedValue(null, valueType, isMultiple));
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): Result<TypedValue, DomainError> {

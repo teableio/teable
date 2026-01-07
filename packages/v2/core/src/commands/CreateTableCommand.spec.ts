@@ -53,7 +53,7 @@ describe('CreateTableCommand', () => {
     })._unsafeUnwrap();
 
     expect(command.records).toHaveLength(1);
-    expect(command.records[0]?.get(fieldId)).toBe('Alpha');
+    expect(command.records[0]?.fieldValues.get(fieldId)).toBe('Alpha');
   });
 
   it('creates command with all field types and view types', () => {

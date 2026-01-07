@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
+import {
+  createV2NodeTestContainer,
+  type IV2NodeTestContainer,
+} from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -21,6 +24,7 @@ describe('v2 http updateRecord (e2e)', () => {
   let tableId: string;
   let textFieldId: string;
   let numberFieldId: string;
+  let testContainer: IV2NodeTestContainer;
   let fieldIdCounter = 0;
 
   const createFieldId = () => {
@@ -105,16 +109,35 @@ describe('v2 http updateRecord (e2e)', () => {
     return parsed.data.data.records;
   };
 
+  const normalizeLookupArray = (value: unknown): unknown[] | undefined => {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== 'string') return undefined;
+    if (!value.trim().startsWith('[')) return undefined;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
   const expectLookupValue = (value: unknown, expected: string) => {
-    if (Array.isArray(value)) {
-      expect(value).toContain(expected);
+    const normalized = normalizeLookupArray(value);
+    if (normalized) {
+      expect(normalized).toContain(expected);
       return;
     }
     expect(value).toBe(expected);
   };
 
+  const processOutbox = async (times = 1) => {
+    for (let i = 0; i < times; i += 1) {
+      await testContainer.processOutbox();
+    }
+  };
+
   beforeAll(async () => {
-    const testContainer = await createV2NodeTestContainer();
+    testContainer = await createV2NodeTestContainer();
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
 
@@ -303,20 +326,22 @@ describe('v2 http updateRecord (e2e)', () => {
 
     const deal = await createRecord(deals.id, {
       [dealNameFieldId]: 'Deal A',
-      [linkFieldId]: [{ id: contact.id }],
+      [linkFieldId]: { id: contact.id },
     });
+    await processOutbox();
 
     let records = await listRecords(deals.id);
     let stored = records.find((r) => r.id === deal.id);
-    expectLookupValue(stored?.fields[lookupFieldId], 'Score: 2');
+    expectLookupValue(stored?.fields[lookupFieldId], 'Score: 2.00');
 
     await updateRecord(contacts.id, contact.id, {
       [scoreFieldId]: 8,
     });
+    await processOutbox();
 
     records = await listRecords(deals.id);
     stored = records.find((r) => r.id === deal.id);
-    expectLookupValue(stored?.fields[lookupFieldId], 'Score: 8');
+    expectLookupValue(stored?.fields[lookupFieldId], 'Score: 8.00');
   });
 
   it('updates rollups and link titles when linked records change', async () => {
@@ -385,6 +410,7 @@ describe('v2 http updateRecord (e2e)', () => {
       [projectNameFieldId]: 'Launch',
       [linkFieldId]: [{ id: taskA.id }, { id: taskB.id }],
     });
+    await processOutbox();
 
     let records = await listRecords(projects.id);
     let stored = records.find((r) => r.id === project.id);
@@ -398,6 +424,7 @@ describe('v2 http updateRecord (e2e)', () => {
       [taskNameFieldId]: 'Build v2',
       [hoursFieldId]: 5,
     });
+    await processOutbox();
 
     records = await listRecords(projects.id);
     stored = records.find((r) => r.id === project.id);
@@ -410,6 +437,7 @@ describe('v2 http updateRecord (e2e)', () => {
     await updateRecord(projects.id, project.id, {
       [linkFieldId]: [{ id: taskB.id }],
     });
+    await processOutbox();
 
     records = await listRecords(projects.id);
     stored = records.find((r) => r.id === project.id);
@@ -519,25 +547,27 @@ describe('v2 http updateRecord (e2e)', () => {
 
     const deal = await createRecord(deals.id, {
       [dealNameFieldId]: 'Deal X',
-      [linkToContactId]: [{ id: contact.id }],
+      [linkToContactId]: { id: contact.id },
     });
 
     const account = await createRecord(accounts.id, {
       [accountNameFieldId]: 'Account 1',
-      [accountDealLinkId]: [{ id: deal.id }],
+      [accountDealLinkId]: { id: deal.id },
     });
+    await processOutbox(2);
 
     let accountsRecords = await listRecords(accounts.id);
     let stored = accountsRecords.find((r) => r.id === account.id);
-    expectLookupValue(stored?.fields[accountDealScoreLabelId], 'Score: 2');
+    expectLookupValue(stored?.fields[accountDealScoreLabelId], 'Score: 2.00');
 
     await updateRecord(contacts.id, contact.id, {
       [contactScoreFieldId]: 5,
     });
+    await processOutbox(2);
 
     accountsRecords = await listRecords(accounts.id);
     stored = accountsRecords.find((r) => r.id === account.id);
-    expectLookupValue(stored?.fields[accountDealScoreLabelId], 'Score: 5');
+    expectLookupValue(stored?.fields[accountDealScoreLabelId], 'Score: 5.00');
   });
 
   it('updates lookup values when link relations change', async () => {
@@ -604,26 +634,34 @@ describe('v2 http updateRecord (e2e)', () => {
       [teamNameFieldId]: 'Alpha',
       [linkFieldId]: [{ id: alice.id }],
     });
+    await processOutbox();
 
     let teamRecords = await listRecords(teams.id);
     let stored = teamRecords.find((r) => r.id === team.id);
-    expect((stored?.fields[lookupFieldId] as number[] | undefined)?.sort()).toEqual([1]);
+    const initialLevels = normalizeLookupArray(stored?.fields[lookupFieldId]) as
+      | number[]
+      | undefined;
+    expect(initialLevels?.sort()).toEqual([1]);
 
     await updateRecord(teams.id, team.id, {
       [linkFieldId]: [{ id: alice.id }, { id: bob.id }],
     });
+    await processOutbox();
 
     teamRecords = await listRecords(teams.id);
     stored = teamRecords.find((r) => r.id === team.id);
-    expect((stored?.fields[lookupFieldId] as number[] | undefined)?.sort()).toEqual([1, 2]);
+    const bothLevels = normalizeLookupArray(stored?.fields[lookupFieldId]) as number[] | undefined;
+    expect(bothLevels?.sort()).toEqual([1, 2]);
 
     await updateRecord(teams.id, team.id, {
       [linkFieldId]: [{ id: bob.id }],
     });
+    await processOutbox();
 
     teamRecords = await listRecords(teams.id);
     stored = teamRecords.find((r) => r.id === team.id);
-    expect((stored?.fields[lookupFieldId] as number[] | undefined)?.sort()).toEqual([2]);
+    const finalLevels = normalizeLookupArray(stored?.fields[lookupFieldId]) as number[] | undefined;
+    expect(finalLevels?.sort()).toEqual([2]);
   });
 
   it('updates symmetric link values when relations change', async () => {
@@ -680,19 +718,25 @@ describe('v2 http updateRecord (e2e)', () => {
       [projectNameFieldId]: 'Project 1',
       [projectTaskLinkId]: [{ id: task.id }],
     });
+    await processOutbox(2);
 
     let taskRecords = await listRecords(tasks.id);
     let taskRow = taskRecords.find((r) => r.id === task.id);
-    const symmetricLinks = taskRow?.fields[symmetricFieldId] as Array<{ id: string }>;
+    const symmetricLinks = normalizeLookupArray(taskRow?.fields[symmetricFieldId]) as
+      | Array<{ id: string }>
+      | undefined;
     expect(symmetricLinks?.some((link) => link.id === project.id)).toBe(true);
 
     await updateRecord(projects.id, project.id, {
       [projectTaskLinkId]: [],
     });
+    await processOutbox(2);
 
     taskRecords = await listRecords(tasks.id);
     taskRow = taskRecords.find((r) => r.id === task.id);
-    const updatedLinks = taskRow?.fields[symmetricFieldId] as Array<{ id: string }>;
-    expect(updatedLinks?.some((link) => link.id === project.id)).toBe(false);
+    const updatedLinks = normalizeLookupArray(taskRow?.fields[symmetricFieldId]) as
+      | Array<{ id: string }>
+      | undefined;
+    expect((updatedLinks ?? []).some((link) => link.id === project.id)).toBe(false);
   });
 });

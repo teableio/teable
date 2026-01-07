@@ -336,7 +336,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
 
   const handleCreateTemplate = (
     template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
+    options: { includeRecords: boolean }
   ) => {
     createTableMutation.reset();
     createTableMutation.mutate(template.createInput(baseId, options));

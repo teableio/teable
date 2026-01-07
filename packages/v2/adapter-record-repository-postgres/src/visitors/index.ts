@@ -15,4 +15,5 @@ export {
 export {
   TableRecordConditionWhereVisitor,
   type RecordConditionWhere,
+  type TableRecordConditionWhereVisitorOptions,
 } from './TableRecordConditionWhereVisitor';

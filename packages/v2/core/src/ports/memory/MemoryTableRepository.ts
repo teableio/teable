@@ -14,6 +14,8 @@ import type { ITableRepository } from '../TableRepository';
 
 export class MemoryTableRepository implements ITableRepository {
   private readonly savedTables: Table[] = [];
+  private readonly createdSequenceById = new Map<string, number>();
+  private createdSequence = 0;
 
   tables(): ReadonlyArray<Table> {
     return [...this.savedTables];
@@ -23,7 +25,25 @@ export class MemoryTableRepository implements ITableRepository {
     const exists = this.savedTables.some((t) => t.id().equals(table.id()));
     if (exists) return err(domainError.conflict({ message: 'Table already exists' }));
     this.savedTables.push(table);
+    this.createdSequenceById.set(table.id().toString(), this.createdSequence);
+    this.createdSequence += 1;
     return ok(table);
+  }
+
+  async insertMany(
+    _: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
+    for (const table of tables) {
+      const exists = this.savedTables.some((t) => t.id().equals(table.id()));
+      if (exists) return err(domainError.conflict({ message: 'Table already exists' }));
+    }
+    for (const table of tables) {
+      this.savedTables.push(table);
+      this.createdSequenceById.set(table.id().toString(), this.createdSequence);
+      this.createdSequence += 1;
+    }
+    return ok([...tables]);
   }
 
   async findOne(
@@ -64,6 +84,7 @@ export class MemoryTableRepository implements ITableRepository {
     const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
     if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
     this.savedTables.splice(index, 1);
+    this.createdSequenceById.delete(table.id().toString());
     return ok(undefined);
   }
 
@@ -101,6 +122,11 @@ export class MemoryTableRepository implements ITableRepository {
     }
     if (keyValue === 'id') {
       return left.id().toString().localeCompare(right.id().toString());
+    }
+    if (keyValue === 'createdTime') {
+      const leftOrder = this.createdSequenceById.get(left.id().toString()) ?? 0;
+      const rightOrder = this.createdSequenceById.get(right.id().toString()) ?? 0;
+      return leftOrder - rightOrder;
     }
     return 0;
   }

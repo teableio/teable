@@ -3,7 +3,6 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
-  createFieldErrorResponseSchema,
   createFieldOkResponseSchema,
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -205,7 +204,18 @@ describe('v2 http conditionalFields (e2e)', () => {
         config: {
           foreignTableId,
           lookupFieldId: foreignNumberFieldId,
-          condition: { filter: null },
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignNumberFieldId,
+                  operator: 'isGreater',
+                  value: 0,
+                },
+              ],
+            },
+          },
         },
       });
 
@@ -275,7 +285,7 @@ describe('v2 http conditionalFields (e2e)', () => {
     });
 
     it('rejects conditionalRollup as primary field', async () => {
-      const { status, rawBody } = await createField(hostTableId, {
+      const { status } = await createField(hostTableId, {
         type: 'conditionalRollup',
         id: createFieldId(),
         name: 'Primary Conditional',
@@ -369,7 +379,18 @@ describe('v2 http conditionalFields (e2e)', () => {
         options: {
           foreignTableId,
           lookupFieldId: foreignPrimaryFieldId,
-          condition: { filter: null },
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignPrimaryFieldId,
+                  operator: 'is',
+                  value: 'Seed',
+                },
+              ],
+            },
+          },
         },
       });
 
@@ -515,7 +536,18 @@ describe('v2 http conditionalFields (e2e)', () => {
               config: {
                 foreignTableId: foreignTable.id,
                 lookupFieldId: foreignNumberFieldId,
-                condition: { filter: null },
+                condition: {
+                  filter: {
+                    conjunction: 'and',
+                    filterSet: [
+                      {
+                        fieldId: foreignNumberFieldId,
+                        operator: 'isGreater',
+                        value: 0,
+                      },
+                    ],
+                  },
+                },
               },
             },
           ],
@@ -568,7 +600,18 @@ describe('v2 http conditionalFields (e2e)', () => {
               options: {
                 foreignTableId: foreignTable.id,
                 lookupFieldId: foreignPrimaryFieldId,
-                condition: { filter: null },
+                condition: {
+                  filter: {
+                    conjunction: 'and',
+                    filterSet: [
+                      {
+                        fieldId: foreignPrimaryFieldId,
+                        operator: 'is',
+                        value: 'Seed',
+                      },
+                    ],
+                  },
+                },
               },
             },
           ],

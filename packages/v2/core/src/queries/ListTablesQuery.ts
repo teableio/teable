@@ -56,7 +56,9 @@ export class ListTablesQuery {
     const key = data.sortBy ? TableSortKey.from(data.sortBy) : TableSortKey.default();
     const direction = data.sortDirection
       ? SortDirection.from(data.sortDirection)
-      : SortDirection.asc();
+      : data.sortBy
+        ? SortDirection.asc()
+        : SortDirection.desc();
 
     return Sort.create([{ key, direction }]);
   }

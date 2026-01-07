@@ -5,6 +5,8 @@ import {
   ButtonResetCount,
   ButtonWorkflow,
   CheckboxDefaultValue,
+  ConditionalLookupOptions,
+  ConditionalRollupConfig,
   DateDefaultValue,
   DateTimeFormatting,
   DbFieldName,
@@ -46,6 +48,8 @@ import {
   createButtonField,
   createCalendarView,
   createCheckboxField,
+  createConditionalLookupFieldPending,
+  createConditionalRollupFieldPending,
   createCreatedByField,
   createCreatedTimeField,
   createDateField,
@@ -156,6 +160,14 @@ const applyFormulaResultType = (
 const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, DomainError> => {
   return FieldId.create(dto.id).andThen((id) =>
     FieldName.create(dto.name).andThen((name) => {
+      if (dto.isLookup && dto.conditionalLookupOptions) {
+        return ConditionalLookupOptions.create(dto.conditionalLookupOptions).andThen(
+          (conditionalLookupOptions) =>
+            createConditionalLookupFieldPending({ id, name, conditionalLookupOptions })
+              .andThen((field) => applyFieldValidation(field, dto.notNull, dto.unique))
+              .andThen((field) => applyDbFieldName(field, dto.dbFieldName))
+        );
+      }
       if (dto.isLookup && dto.lookupOptions) {
         return LookupOptions.create(dto.lookupOptions).andThen((lookupOptions) =>
           createLookupFieldPending({ id, name, lookupOptions })
@@ -239,6 +251,28 @@ const mapBaseFieldDtoToDomain = (
               parseFormulaFormatting(options.formatting).andThen((formatting) =>
                 parseFormulaShowAs(options.showAs).andThen((showAs) =>
                   createRollupFieldPending({
+                    id,
+                    name,
+                    config,
+                    expression,
+                    timeZone,
+                    formatting,
+                    showAs,
+                  })
+                )
+              )
+            )
+          )
+        );
+      }
+      case 'conditionalRollup': {
+        const options = dto.options;
+        return RollupExpression.create(options.expression).andThen((expression) =>
+          ConditionalRollupConfig.create(dto.config).andThen((config) =>
+            optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+              parseFormulaFormatting(options.formatting).andThen((formatting) =>
+                parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                  createConditionalRollupFieldPending({
                     id,
                     name,
                     config,

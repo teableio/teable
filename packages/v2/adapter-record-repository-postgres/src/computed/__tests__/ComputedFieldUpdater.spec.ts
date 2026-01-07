@@ -116,6 +116,8 @@ const createLogger = (): ILogger => {
 const createTableRepository = (tables: ReadonlyArray<Table>): ITableRepository => ({
   insert: async () =>
     err(domainError.notImplemented({ message: 'ITableRepository.insert not used in tests' })),
+  insertMany: async () =>
+    err(domainError.notImplemented({ message: 'ITableRepository.insertMany not used in tests' })),
   findOne: async () =>
     err(domainError.notImplemented({ message: 'ITableRepository.findOne not used in tests' })),
   find: async () => ok(tables),

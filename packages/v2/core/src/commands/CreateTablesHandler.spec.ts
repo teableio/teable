@@ -2,13 +2,14 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
-import type { RecordId } from '../domain/table/records/RecordId';
+import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
@@ -42,6 +43,11 @@ class FakeTableRepository implements ITableRepository {
   async insert(_context: IExecutionContext, table: Table) {
     this.inserted.push(table);
     return ok(table);
+  }
+
+  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
+    this.inserted.push(...tables);
+    return ok([...tables]);
   }
 
   async findOne(
@@ -85,6 +91,11 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async insert(_context: IExecutionContext, table: Table) {
     this.inserted.push(table);
+    return ok(undefined);
+  }
+
+  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
+    this.inserted.push(...tables);
     return ok(undefined);
   }
 
@@ -139,7 +150,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok(undefined);
   }
 
-  async delete(_context: IExecutionContext, _table: Table, _recordId: RecordId) {
+  async deleteMany(
+    _context: IExecutionContext,
+    _table: Table,
+    _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  ) {
     return ok(undefined);
   }
 }
@@ -218,6 +233,7 @@ describe('CreateTablesHandler', () => {
       eventBus,
       unitOfWork
     );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
 
     const handler = new CreateTablesHandler(
@@ -225,7 +241,7 @@ describe('CreateTablesHandler', () => {
       schemaRepository,
       recordRepository,
       foreignTableLoaderService,
-      tableUpdateFlow,
+      fieldCreationSideEffectService,
       tableMapper,
       eventBus,
       unitOfWork
@@ -278,6 +294,7 @@ describe('CreateTablesHandler', () => {
       eventBus,
       unitOfWork
     );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
 
     const handler = new CreateTablesHandler(
@@ -285,7 +302,7 @@ describe('CreateTablesHandler', () => {
       schemaRepository,
       recordRepository,
       foreignTableLoaderService,
-      tableUpdateFlow,
+      fieldCreationSideEffectService,
       tableMapper,
       eventBus,
       unitOfWork

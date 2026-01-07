@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { domainError, type DomainError } from '../shared/DomainError';
 import { ValueObject } from '../shared/ValueObject';
 
-export const tableSortKeyValues = ['name', 'id'] as const;
+export const tableSortKeyValues = ['name', 'id', 'createdTime'] as const;
 export const tableSortKeySchema = z.enum(tableSortKeyValues);
 export type TableSortKeyValue = z.infer<typeof tableSortKeySchema>;
 
@@ -32,8 +32,12 @@ export class TableSortKey extends ValueObject {
     return new TableSortKey('id');
   }
 
+  static createdTime(): TableSortKey {
+    return new TableSortKey('createdTime');
+  }
+
   static default(): TableSortKey {
-    return TableSortKey.name();
+    return TableSortKey.createdTime();
   }
 
   equals(other: TableSortKey): boolean {

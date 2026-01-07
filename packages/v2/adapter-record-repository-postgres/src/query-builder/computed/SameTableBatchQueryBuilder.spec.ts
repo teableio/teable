@@ -1,19 +1,17 @@
 import {
   BaseId,
   DbFieldName,
-  DbTableName,
+  createFormulaField,
+  createNumberField,
   FieldId,
   FieldName,
-  FieldType,
   FormulaExpression,
-  FormulaField,
-  NumberField,
   Table,
   TableId,
   TableName,
 } from '@teable/v2-core';
 import type { Kysely } from 'kysely';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
 import { SameTableBatchQueryBuilder } from './SameTableBatchQueryBuilder';
@@ -23,106 +21,129 @@ const createFieldId = (id: string) => FieldId.create(id)._unsafeUnwrap();
 const createFieldName = (name: string) => FieldName.create(name)._unsafeUnwrap();
 
 // Create a minimal mock Kysely instance
-const createMockKysely = () =>
-  ({
+const createMockKysely = () => {
+  const executor = {
+    transformQuery: (node: unknown) => node,
+    compileQuery: () => ({ sql: '', parameters: [] }),
+    executeQuery: async () => ({ rows: [] }),
+    withPlugins: () => executor,
+  };
+
+  return {
+    getExecutor: () => executor,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as unknown as Kysely<DynamicDB>;
+  } as unknown as Kysely<DynamicDB>;
+};
 
 // Create a simple table with formula fields for testing
 const createSingleFormulaTable = () => {
-  const baseId = BaseId.create('bseTestBase123456')._unsafeUnwrap();
-  const tableId = TableId.create('tblTestTable123456')._unsafeUnwrap();
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
   const tableName = TableName.create('TestTable')._unsafeUnwrap();
+  const dbTableName = `${baseId.toString()}.${tableId.toString()}`;
 
-  const numberFieldId = createFieldId('fldNumber12345678');
-  const formulaFieldId = createFieldId('fldFormula1234567');
+  const numberFieldId = createFieldId(`fld${'n'.repeat(16)}`);
+  const formulaFieldId = createFieldId(`fld${'f'.repeat(16)}`);
 
-  const numberField = NumberField.create({
+  const numberFieldResult = createNumberField({
     id: numberFieldId,
     name: createFieldName('Value'),
-    tableId,
-    isPrimary: false,
-  })._unsafeUnwrap();
-  numberField.setDbFieldName(DbFieldName.create('Value')._unsafeUnwrap());
+  }).andThen((field) =>
+    DbFieldName.rehydrate('Value').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
 
-  const formulaField = FormulaField.create({
+  const formulaFieldResult = createFormulaField({
     id: formulaFieldId,
     name: createFieldName('Doubled'),
-    tableId,
-    isPrimary: false,
     expression: FormulaExpression.create(`{${numberFieldId.toString()}} * 2`)._unsafeUnwrap(),
-  })._unsafeUnwrap();
-  formulaField.setDbFieldName(DbFieldName.create('Doubled')._unsafeUnwrap());
+  }).andThen((field) =>
+    DbFieldName.rehydrate('Doubled').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
 
   const table = Table.builder()
-    .id(tableId)
-    .name(tableName)
-    .baseId(baseId)
-    .fields([numberField, formulaField])
+    .withId(tableId)
+    .withName(tableName)
+    .withBaseId(baseId)
+    .addFieldFromResult(numberFieldResult)
+    .addFieldFromResult(formulaFieldResult)
+    .view()
+    .defaultGrid()
+    .done()
     .build()
     ._unsafeUnwrap();
 
-  table.setDbTableName(DbTableName.create('tblTestTable123456')._unsafeUnwrap());
-
-  return { table, numberFieldId, formulaFieldId };
+  return { table, numberFieldId, formulaFieldId, dbTableName };
 };
 
 // Create a table with parallel formulas at the same level
 const createParallelFormulaTable = () => {
-  const baseId = BaseId.create('bseTestBase123456')._unsafeUnwrap();
-  const tableId = TableId.create('tblTestTable123456')._unsafeUnwrap();
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
   const tableName = TableName.create('TestTable')._unsafeUnwrap();
+  const dbTableName = `${baseId.toString()}.${tableId.toString()}`;
 
-  const valueAId = createFieldId('fldValueA12345678');
-  const valueBId = createFieldId('fldValueB12345678');
-  const doubledAId = createFieldId('fldDoubledA123456');
-  const doubledBId = createFieldId('fldDoubledB123456');
+  const valueAId = createFieldId(`fld${'a'.repeat(16)}`);
+  const valueBId = createFieldId(`fld${'b'.repeat(16)}`);
+  const doubledAId = createFieldId(`fld${'c'.repeat(16)}`);
+  const doubledBId = createFieldId(`fld${'d'.repeat(16)}`);
 
-  const valueA = NumberField.create({
+  const valueAResult = createNumberField({
     id: valueAId,
     name: createFieldName('ValueA'),
-    tableId,
-    isPrimary: false,
-  })._unsafeUnwrap();
-  valueA.setDbFieldName(DbFieldName.create('ValueA')._unsafeUnwrap());
+  }).andThen((field) =>
+    DbFieldName.rehydrate('ValueA').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
 
-  const valueB = NumberField.create({
+  const valueBResult = createNumberField({
     id: valueBId,
     name: createFieldName('ValueB'),
-    tableId,
-    isPrimary: false,
-  })._unsafeUnwrap();
-  valueB.setDbFieldName(DbFieldName.create('ValueB')._unsafeUnwrap());
+  }).andThen((field) =>
+    DbFieldName.rehydrate('ValueB').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
 
-  const doubledA = FormulaField.create({
+  const doubledAResult = createFormulaField({
     id: doubledAId,
     name: createFieldName('DoubledA'),
-    tableId,
-    isPrimary: false,
     expression: FormulaExpression.create(`{${valueAId.toString()}} * 2`)._unsafeUnwrap(),
-  })._unsafeUnwrap();
-  doubledA.setDbFieldName(DbFieldName.create('DoubledA')._unsafeUnwrap());
+  }).andThen((field) =>
+    DbFieldName.rehydrate('DoubledA').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
 
-  const doubledB = FormulaField.create({
+  const doubledBResult = createFormulaField({
     id: doubledBId,
     name: createFieldName('DoubledB'),
-    tableId,
-    isPrimary: false,
     expression: FormulaExpression.create(`{${valueBId.toString()}} * 2`)._unsafeUnwrap(),
-  })._unsafeUnwrap();
-  doubledB.setDbFieldName(DbFieldName.create('DoubledB')._unsafeUnwrap());
+  }).andThen((field) =>
+    DbFieldName.rehydrate('DoubledB').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
 
   const table = Table.builder()
-    .id(tableId)
-    .name(tableName)
-    .baseId(baseId)
-    .fields([valueA, valueB, doubledA, doubledB])
+    .withId(tableId)
+    .withName(tableName)
+    .withBaseId(baseId)
+    .addFieldFromResult(valueAResult)
+    .addFieldFromResult(valueBResult)
+    .addFieldFromResult(doubledAResult)
+    .addFieldFromResult(doubledBResult)
+    .view()
+    .defaultGrid()
+    .done()
     .build()
     ._unsafeUnwrap();
 
-  table.setDbTableName(DbTableName.create('tblTestTable123456')._unsafeUnwrap());
-
-  return { table, valueAId, valueBId, doubledAId, doubledBId };
+  return { table, valueAId, valueBId, doubledAId, doubledBId, dbTableName };
 };
 
 describe('SameTableBatchQueryBuilder', () => {
@@ -144,7 +165,7 @@ describe('SameTableBatchQueryBuilder', () => {
     it('builds single-level CTE update query', () => {
       const db = createMockKysely();
       const builder = new SameTableBatchQueryBuilder(db);
-      const { table, formulaFieldId } = createSingleFormulaTable();
+      const { table, formulaFieldId, dbTableName } = createSingleFormulaTable();
 
       const result = builder.build({
         table,
@@ -159,7 +180,7 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(fieldMappings).toHaveLength(1);
       expect(fieldMappings[0].columnName).toBe('Doubled');
       expect(fieldMappings[0].cteName).toBe('level_0');
-      expect(tableName).toBe('tblTestTable123456');
+      expect(tableName).toBe(dbTableName);
     });
 
     it('builds parallel formulas at same level', () => {
@@ -184,7 +205,7 @@ describe('SameTableBatchQueryBuilder', () => {
     it('includes table schema (baseId.tableId) in generated SQL', () => {
       const db = createMockKysely();
       const builder = new SameTableBatchQueryBuilder(db);
-      const { table, formulaFieldId } = createSingleFormulaTable();
+      const { table, formulaFieldId, dbTableName } = createSingleFormulaTable();
 
       const result = builder.build({
         table,
@@ -193,7 +214,7 @@ describe('SameTableBatchQueryBuilder', () => {
 
       expect(result.isOk()).toBe(true);
       const { tableName } = result._unsafeUnwrap();
-      expect(tableName).toBe('tblTestTable123456');
+      expect(tableName).toBe(dbTableName);
     });
   });
 

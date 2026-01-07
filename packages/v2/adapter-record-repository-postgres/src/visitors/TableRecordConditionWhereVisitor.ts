@@ -28,6 +28,18 @@ const fieldIsJson = (field: core.Field): boolean => {
   return jsonSpecResult.value.isSatisfiedBy(field);
 };
 
+/**
+ * Options for TableRecordConditionWhereVisitor.
+ */
+export interface TableRecordConditionWhereVisitorOptions {
+  /**
+   * Optional table alias to prefix column references.
+   * When set, column references become `{tableAlias}.{column}` instead of just `{column}`.
+   * This is needed for lateral join subqueries where the foreign table uses an alias (e.g. 'f').
+   */
+  tableAlias?: string;
+}
+
 class DateUtil {
   constructor(private readonly timeZone: string) {}
 
@@ -77,11 +89,12 @@ class DateUtil {
   }
 }
 
-const resolveColumn = (field: core.Field): Result<string, DomainError> => {
+const resolveColumn = (field: core.Field, tableAlias?: string): Result<string, DomainError> => {
   return safeTry<string, DomainError>(function* () {
     const dbFieldName = yield* field.dbFieldName();
     const column = yield* dbFieldName.value();
-    return ok(column);
+    // If tableAlias is provided, return prefixed column name for use in subqueries
+    return ok(tableAlias ? `${tableAlias}.${column}` : column);
   }).mapErr((error) =>
     core.domainError.invariant({
       message: `Missing db field name for field ${field.id().toString()}: ${error.message}`,
@@ -92,14 +105,15 @@ const resolveColumn = (field: core.Field): Result<string, DomainError> => {
 };
 
 const resolvePrimitiveOperand = (
-  value: core.RecordConditionValue
+  value: core.RecordConditionValue,
+  tableAlias?: string
 ): Result<PrimitiveOperand, DomainError> => {
   if (core.isRecordConditionLiteralValue(value)) {
     return ok({ kind: 'literal', value: value.toValue() });
   }
   if (core.isRecordConditionFieldReferenceValue(value)) {
     return safeTry<PrimitiveOperand, DomainError>(function* () {
-      const column = yield* resolveColumn(value.field());
+      const column = yield* resolveColumn(value.field(), tableAlias);
       return ok({ kind: 'field', column });
     });
   }
@@ -316,9 +330,12 @@ const resolveDateRange = (
   });
 };
 
-const buildIsEmptyCondition = (field: core.Field): Result<RecordConditionWhere, DomainError> => {
+const buildIsEmptyCondition = (
+  field: core.Field,
+  tableAlias?: string
+): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    const column = yield* resolveColumn(field);
+    const column = yield* resolveColumn(field, tableAlias);
     const valueType = yield* field.accept(new core.FieldValueTypeVisitor());
     const columnRef = sql.ref(column);
     const isMultiple = valueType.isMultipleCellValue.isMultiple();
@@ -339,9 +356,12 @@ const buildIsEmptyCondition = (field: core.Field): Result<RecordConditionWhere, 
   });
 };
 
-const buildIsNotEmptyCondition = (field: core.Field): Result<RecordConditionWhere, DomainError> => {
+const buildIsNotEmptyCondition = (
+  field: core.Field,
+  tableAlias?: string
+): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    const column = yield* resolveColumn(field);
+    const column = yield* resolveColumn(field, tableAlias);
     const valueType = yield* field.accept(new core.FieldValueTypeVisitor());
     const columnRef = sql.ref(column);
     const isMultiple = valueType.isMultipleCellValue.isMultiple();
@@ -368,18 +388,19 @@ const buildIsNotEmptyCondition = (field: core.Field): Result<RecordConditionWher
 
 const buildIsCondition = (
   field: core.Field,
-  value: core.RecordConditionValue | undefined
+  value: core.RecordConditionValue | undefined,
+  tableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
-    const column = yield* resolveColumn(field);
+    const column = yield* resolveColumn(field, tableAlias);
     const columnRef = sql.ref(column);
     if (core.isRecordConditionDateValue(value)) {
       const range = yield* resolveDateRange(value, resolveDateFormatting(field));
       return ok(sql`${columnRef} between ${range.start} and ${range.end}`);
     }
-    const operand = yield* resolvePrimitiveOperand(value);
+    const operand = yield* resolvePrimitiveOperand(value, tableAlias);
     const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
     return ok(sql`${columnRef} = ${right}`);
   });
@@ -387,12 +408,13 @@ const buildIsCondition = (
 
 const buildIsNotCondition = (
   field: core.Field,
-  value: core.RecordConditionValue | undefined
+  value: core.RecordConditionValue | undefined,
+  tableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
-    const column = yield* resolveColumn(field);
+    const column = yield* resolveColumn(field, tableAlias);
     const columnRef = sql.ref(column);
     if (core.isRecordConditionDateValue(value)) {
       const range = yield* resolveDateRange(value, resolveDateFormatting(field));
@@ -400,7 +422,7 @@ const buildIsNotCondition = (
         sql`(${columnRef} not between ${range.start} and ${range.end} or ${columnRef} is null)`
       );
     }
-    const operand = yield* resolvePrimitiveOperand(value);
+    const operand = yield* resolvePrimitiveOperand(value, tableAlias);
     const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
     return ok(sql`${columnRef} != ${right}`);
   });
@@ -409,13 +431,14 @@ const buildIsNotCondition = (
 const buildContainsCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
-  isNegative: boolean
+  isNegative: boolean,
+  tableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
-    const column = yield* resolveColumn(field);
-    const operand = yield* resolvePrimitiveOperand(value);
+    const column = yield* resolveColumn(field, tableAlias);
+    const operand = yield* resolvePrimitiveOperand(value, tableAlias);
     if (operand.kind === 'literal' && typeof operand.value !== 'string') {
       return err(
         core.domainError.unexpected({ message: 'Record condition requires string value' })
@@ -436,13 +459,14 @@ const buildContainsCondition = (
 const buildNumericComparisonCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
-  operator: ComparisonOperator
+  operator: ComparisonOperator,
+  tableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
-    const column = yield* resolveColumn(field);
-    const operand = yield* resolvePrimitiveOperand(value);
+    const column = yield* resolveColumn(field, tableAlias);
+    const operand = yield* resolvePrimitiveOperand(value, tableAlias);
     if (operand.kind === 'literal' && typeof operand.value !== 'number') {
       return err(
         core.domainError.unexpected({ message: 'Record condition requires numeric value' })
@@ -460,12 +484,13 @@ const buildNumericComparisonCondition = (
 const buildDateComparisonCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
-  operator: ComparisonOperator
+  operator: ComparisonOperator,
+  tableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
-    const column = yield* resolveColumn(field);
+    const column = yield* resolveColumn(field, tableAlias);
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
     const columnRef = sql.ref(column);
@@ -480,12 +505,13 @@ const buildDateComparisonCondition = (
 
 const buildIsWithinCondition = (
   field: core.Field,
-  value: core.RecordConditionValue | undefined
+  value: core.RecordConditionValue | undefined,
+  tableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
-    const column = yield* resolveColumn(field);
+    const column = yield* resolveColumn(field, tableAlias);
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
     const columnRef = sql.ref(column);
@@ -496,12 +522,13 @@ const buildIsWithinCondition = (
 const buildListCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
-  kind: ListOperatorKind
+  kind: ListOperatorKind,
+  tableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
-    const column = yield* resolveColumn(field);
+    const column = yield* resolveColumn(field, tableAlias);
     const values = yield* resolveListValues(value);
     if (values.length === 0)
       return err(core.domainError.unexpected({ message: 'Record condition requires list values' }));
@@ -533,8 +560,15 @@ export class TableRecordConditionWhereVisitor
   extends core.AbstractSpecFilterVisitor<RecordConditionWhere>
   implements core.ITableRecordConditionSpecVisitor<RecordConditionWhere>
 {
+  private readonly tableAlias: string | undefined;
+
+  constructor(options?: TableRecordConditionWhereVisitorOptions) {
+    super();
+    this.tableAlias = options?.tableAlias;
+  }
+
   clone(): this {
-    return new TableRecordConditionWhereVisitor() as this;
+    return new TableRecordConditionWhereVisitor({ tableAlias: this.tableAlias }) as this;
   }
 
   and(left: RecordConditionWhere, right: RecordConditionWhere): RecordConditionWhere {
@@ -550,7 +584,8 @@ export class TableRecordConditionWhereVisitor
   }
 
   visitRecordById(spec: core.RecordByIdSpec): Result<RecordConditionWhere, DomainError> {
-    return ok(sql`${sql.ref('__id')} = ${spec.recordId().toString()}`);
+    const column = this.tableAlias ? `${this.tableAlias}.__id` : '__id';
+    return this.addCondition(sql`${sql.ref(column)} = ${spec.recordId().toString()}`);
   }
 
   visitSingleLineTextIs(
@@ -1390,36 +1425,36 @@ export class TableRecordConditionWhereVisitor
     field: core.Field,
     value: core.RecordConditionValue | undefined
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildIsCondition(field, value));
+    return this.addConditionResult(buildIsCondition(field, value, this.tableAlias));
   }
 
   private applyIsNot(
     field: core.Field,
     value: core.RecordConditionValue | undefined
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildIsNotCondition(field, value));
+    return this.addConditionResult(buildIsNotCondition(field, value, this.tableAlias));
   }
 
   private applyContains(
     field: core.Field,
     value: core.RecordConditionValue | undefined
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildContainsCondition(field, value, false));
+    return this.addConditionResult(buildContainsCondition(field, value, false, this.tableAlias));
   }
 
   private applyDoesNotContain(
     field: core.Field,
     value: core.RecordConditionValue | undefined
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildContainsCondition(field, value, true));
+    return this.addConditionResult(buildContainsCondition(field, value, true, this.tableAlias));
   }
 
   private applyIsEmpty(field: core.Field): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildIsEmptyCondition(field));
+    return this.addConditionResult(buildIsEmptyCondition(field, this.tableAlias));
   }
 
   private applyIsNotEmpty(field: core.Field): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildIsNotEmptyCondition(field));
+    return this.addConditionResult(buildIsNotEmptyCondition(field, this.tableAlias));
   }
 
   private applyNumericComparison(
@@ -1427,7 +1462,9 @@ export class TableRecordConditionWhereVisitor
     value: core.RecordConditionValue | undefined,
     operator: ComparisonOperator
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildNumericComparisonCondition(field, value, operator));
+    return this.addConditionResult(
+      buildNumericComparisonCondition(field, value, operator, this.tableAlias)
+    );
   }
 
   private applyDateComparison(
@@ -1435,14 +1472,16 @@ export class TableRecordConditionWhereVisitor
     value: core.RecordConditionValue | undefined,
     operator: ComparisonOperator
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildDateComparisonCondition(field, value, operator));
+    return this.addConditionResult(
+      buildDateComparisonCondition(field, value, operator, this.tableAlias)
+    );
   }
 
   private applyIsWithin(
     field: core.Field,
     value: core.RecordConditionValue | undefined
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildIsWithinCondition(field, value));
+    return this.addConditionResult(buildIsWithinCondition(field, value, this.tableAlias));
   }
 
   private applyListCondition(
@@ -1450,6 +1489,6 @@ export class TableRecordConditionWhereVisitor
     value: core.RecordConditionValue | undefined,
     kind: ListOperatorKind
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildListCondition(field, value, kind));
+    return this.addConditionResult(buildListCondition(field, value, kind, this.tableAlias));
   }
 }

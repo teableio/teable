@@ -8,7 +8,6 @@ import {
   type CreatedByField,
   type CreatedTimeField,
   type DateField,
-  domainError,
   type DomainError,
   type Field,
   type FieldCondition,

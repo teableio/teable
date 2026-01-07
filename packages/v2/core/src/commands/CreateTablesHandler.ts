@@ -2,17 +2,15 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
-import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { AbstractTableUpdatedEvent } from '../domain/table/events/AbstractTableUpdatedEvent';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
-import { FieldCreationSideEffectVisitor } from '../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { Table } from '../domain/table/Table';
-import { TableUpdateResult } from '../domain/table/TableMutator';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
@@ -93,8 +91,8 @@ export class CreateTablesHandler
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
-    @inject(v2CoreTokens.tableUpdateFlow)
-    private readonly tableUpdateFlow: TableUpdateFlow,
+    @inject(v2CoreTokens.fieldCreationSideEffectService)
+    private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
     @inject(v2CoreTokens.tableMapper)
     private readonly tableMapper: TableMapperPort.ITableMapper,
     @inject(v2CoreTokens.eventBus)
@@ -132,31 +130,29 @@ export class CreateTablesHandler
 
       const foreignTables = [...externalTables, ...builtTables];
       for (const table of builtTables) {
-        const validationResult = validateForeignTablesForFields(table.getFields(), {
+        yield* validateForeignTablesForFields(table.getFields(), {
           hostTable: table,
           foreignTables,
         });
-        if (validationResult.isErr()) return err(validationResult.error);
       }
 
       const transactionResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
           return safeTry<TransactionResult, DomainError>(async function* () {
-            const persistedTables: Table[] = [];
-            const persistedById = new Map<string, Table>();
+            const persistedTables = yield* await handler.tableRepository.insertMany(
+              transactionContext,
+              builtTables
+            );
+            yield* await handler.tableSchemaRepository.insertMany(
+              transactionContext,
+              persistedTables
+            );
+            const persistedById = new Map(
+              persistedTables.map((table) => [table.id().toString(), table] as const)
+            );
 
-            for (const table of builtTables) {
-              const persisted = yield* await handler.tableRepository.insert(
-                transactionContext,
-                table
-              );
-              yield* await handler.tableSchemaRepository.insert(transactionContext, persisted);
-              persistedTables.push(persisted);
-              persistedById.set(persisted.id().toString(), persisted);
-            }
-
-            const tableState = new Map<string, Table>();
+            let tableState = new Map<string, Table>();
             for (const table of externalTables) {
               tableState.set(table.id().toString(), table);
             }
@@ -172,33 +168,17 @@ export class CreateTablesHandler
                 return err(domainError.notFound({ message: 'Persisted table not found' }));
               }
 
-              const sideEffects = yield* FieldCreationSideEffectVisitor.collect(
-                persistedTable.getFields(),
+              const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
+                transactionContext,
                 {
                   table: persistedTable,
+                  fields: persistedTable.getFields(),
                   foreignTables: [...tableState.values()],
+                  tableState,
                 }
               );
-
-              for (const sideEffect of sideEffects) {
-                const foreignTableId = sideEffect.foreignTable.id().toString();
-                const foreignTable = tableState.get(foreignTableId);
-                if (!foreignTable)
-                  return err(domainError.notFound({ message: 'Foreign table not found in state' }));
-
-                const updateResult = yield* await handler.tableUpdateFlow.execute(
-                  transactionContext,
-                  { table: foreignTable },
-                  (candidate) =>
-                    sideEffect.mutateSpec
-                      .mutate(candidate)
-                      .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
-                  { publishEvents: false }
-                );
-
-                tableState.set(updateResult.table.id().toString(), updateResult.table);
-                sideEffectEvents.push(...updateResult.events);
-              }
+              sideEffectEvents.push(...sideEffectResult.events);
+              tableState = new Map(sideEffectResult.tableState);
             }
 
             for (let index = 0; index < tableCommands.length; index += 1) {

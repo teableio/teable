@@ -43,6 +43,11 @@ class InMemoryTableRepository implements ITableRepository {
     return ok(table);
   }
 
+  async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
+    this.tables.push(...tables);
+    return ok([...tables]);
+  }
+
   async findOne(
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -78,6 +83,10 @@ class InMemoryTableRepository implements ITableRepository {
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   async insert(_context: IExecutionContext, _table: Table) {
+    return ok(undefined);
+  }
+
+  async insertMany(_context: IExecutionContext, _tables: ReadonlyArray<Table>) {
     return ok(undefined);
   }
 

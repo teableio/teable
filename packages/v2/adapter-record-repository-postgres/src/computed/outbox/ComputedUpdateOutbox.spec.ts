@@ -97,50 +97,55 @@ describe('ComputedUpdateOutbox', () => {
     });
 
     it('calculates correct exponential backoff for each attempt', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
       const backoffs: number[] = [];
-
-      const mockDb = {
-        transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
-        }),
-        updateTable: vi.fn().mockReturnValue({
-          set: vi.fn().mockImplementation((values) => {
-            const now = new Date();
-            const delay = values.next_run_at.getTime() - now.getTime();
-            backoffs.push(delay);
-            return {
-              where: vi.fn().mockReturnValue({
-                execute: vi.fn().mockResolvedValue([]),
-              }),
-            };
+      try {
+        const mockDb = {
+          transaction: () => ({
+            execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
           }),
-        }),
-      } as unknown as MockDb;
+          updateTable: vi.fn().mockReturnValue({
+            set: vi.fn().mockImplementation((values) => {
+              const now = new Date();
+              const delay = values.next_run_at.getTime() - now.getTime();
+              backoffs.push(delay);
+              return {
+                where: vi.fn().mockReturnValue({
+                  execute: vi.fn().mockResolvedValue([]),
+                }),
+              };
+            }),
+          }),
+        } as unknown as MockDb;
 
-      const config: ComputedUpdateOutboxConfig = {
-        ...defaultComputedUpdateOutboxConfig,
-        baseBackoffMs: 1000,
-        maxBackoffMs: 60000,
-      };
+        const config: ComputedUpdateOutboxConfig = {
+          ...defaultComputedUpdateOutboxConfig,
+          baseBackoffMs: 1000,
+          maxBackoffMs: 60000,
+        };
 
-      const logger = createLogger();
-      const outbox = new ComputedUpdateOutbox(mockDb, config, logger);
+        const logger = createLogger();
+        const outbox = new ComputedUpdateOutbox(mockDb, config, logger);
 
-      // Test backoff for different attempt numbers
-      for (const attempts of [0, 1, 2, 3]) {
-        const task = createMockTask({ attempts, maxAttempts: 8 });
-        await outbox.markFailed(task, 'Test error');
+        // Test backoff for different attempt numbers
+        for (const attempts of [0, 1, 2, 3]) {
+          const task = createMockTask({ attempts, maxAttempts: 8 });
+          await outbox.markFailed(task, 'Test error');
+        }
+
+        // Expected: 1000 * 2^0 = 1000, 1000 * 2^1 = 2000, 1000 * 2^2 = 4000, 1000 * 2^3 = 8000
+        expect(backoffs[0]).toBeGreaterThanOrEqual(1000);
+        expect(backoffs[0]).toBeLessThan(2000);
+        expect(backoffs[1]).toBeGreaterThanOrEqual(2000);
+        expect(backoffs[1]).toBeLessThan(4000);
+        expect(backoffs[2]).toBeGreaterThanOrEqual(4000);
+        expect(backoffs[2]).toBeLessThan(8000);
+        expect(backoffs[3]).toBeGreaterThanOrEqual(8000);
+        expect(backoffs[3]).toBeLessThan(16000);
+      } finally {
+        vi.useRealTimers();
       }
-
-      // Expected: 1000 * 2^0 = 1000, 1000 * 2^1 = 2000, 1000 * 2^2 = 4000, 1000 * 2^3 = 8000
-      expect(backoffs[0]).toBeGreaterThanOrEqual(1000);
-      expect(backoffs[0]).toBeLessThan(2000);
-      expect(backoffs[1]).toBeGreaterThanOrEqual(2000);
-      expect(backoffs[1]).toBeLessThan(4000);
-      expect(backoffs[2]).toBeGreaterThanOrEqual(4000);
-      expect(backoffs[2]).toBeLessThan(8000);
-      expect(backoffs[3]).toBeGreaterThanOrEqual(8000);
-      expect(backoffs[3]).toBeLessThan(16000);
     });
 
     it('moves task to dead letter queue when maxAttempts reached', async () => {

@@ -14,6 +14,13 @@ export class NoopTableSchemaRepository implements ITableSchemaRepository {
     return ok(undefined);
   }
 
+  async insertMany(
+    _: IExecutionContext,
+    __: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async update(
     _: IExecutionContext,
     __: Table,

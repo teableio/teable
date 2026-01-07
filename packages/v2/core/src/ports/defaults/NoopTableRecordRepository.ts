@@ -2,7 +2,8 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
-import type { RecordId } from '../../domain/table/records/RecordId';
+import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../ExecutionContext';
@@ -64,7 +65,11 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
     return ok(undefined);
   }
 
-  async delete(_: IExecutionContext, __: Table, ___: RecordId): Promise<Result<void, DomainError>> {
+  async deleteMany(
+    _: IExecutionContext,
+    __: Table,
+    ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }

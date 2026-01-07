@@ -2,6 +2,7 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
+import type { SpecBuilderMode } from '../../shared/specification/SpecBuilder';
 import type { FieldId } from '../fields/FieldId';
 import type { TableId } from '../TableId';
 import type { RecordId } from './RecordId';
@@ -40,8 +41,8 @@ export class TableRecord extends Entity<RecordId> {
     return this.fieldsValue;
   }
 
-  static specs(): RecordConditionSpecBuilder {
-    return RecordConditionSpecBuilder.create();
+  static specs(mode: SpecBuilderMode = 'and'): RecordConditionSpecBuilder {
+    return RecordConditionSpecBuilder.create(mode);
   }
 
   /**

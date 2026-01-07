@@ -310,7 +310,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'expr', field.expression().toString());
     pushToken(tokens, 'foreign', field.foreignTableId().toString());
     pushToken(tokens, 'lookup', field.lookupFieldId().toString());
-    const condition = field.condition();
+    const condition = field.config().condition();
     if (condition.hasFilter()) {
       pushToken(tokens, 'filtered', 'yes');
     }
@@ -333,7 +333,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     } else {
       pushToken(tokens, 'inner', 'pending');
     }
-    const condition = field.condition();
+    const condition = field.conditionalLookupOptions().condition();
     if (condition.hasFilter()) {
       pushToken(tokens, 'filtered', 'yes');
     }

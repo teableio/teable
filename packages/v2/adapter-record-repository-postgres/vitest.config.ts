@@ -13,6 +13,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@teable/formula': resolve(rootDir, '../../formula/src/index.ts'),
+      '@teable/v2-core': resolve(rootDir, '../core/src/index.ts'),
     },
   },
   cacheDir: '../../../.cache/vitest/v2-adapter-record-repository-postgres',
@@ -31,6 +32,7 @@ export default defineConfig({
       provider: 'v8',
       extension: ['.js', '.ts'],
       include: ['src/**/*'],
+      exclude: ['**/*.md'],
     },
     clearMocks: true,
     mockReset: true,

@@ -4,8 +4,10 @@ import type { ISpecification } from '../../../shared/specification/ISpecificatio
 import { SpecBuilder } from '../../../shared/specification/SpecBuilder';
 import type { SpecBuilderMode } from '../../../shared/specification/SpecBuilder';
 import type { Field } from '../../fields/Field';
+import type { RecordId } from '../RecordId';
 import type { TableRecord } from '../TableRecord';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
+import { RecordByIdSpec } from './RecordByIdSpec';
 import type { RecordConditionOperator } from './RecordConditionOperators';
 import type { RecordConditionValue } from './RecordConditionValues';
 
@@ -41,6 +43,11 @@ export class RecordConditionSpecBuilder extends SpecBuilder<
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
   ): RecordConditionSpecBuilder {
     this.addSpec(spec);
+    return this;
+  }
+
+  recordId(recordId: RecordId): RecordConditionSpecBuilder {
+    this.addSpec(RecordByIdSpec.create(recordId));
     return this;
   }
 

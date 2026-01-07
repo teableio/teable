@@ -1,6 +1,6 @@
 import type { TableTemplateDefinition } from '@teable/v2-table-templates';
 import type { VariantProps } from 'class-variance-authority';
-import { FileUp, Plus } from 'lucide-react';
+import { FileUp, Loader2, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { cn } from '@/lib/utils';
@@ -15,8 +15,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { ImportCsvDialog } from './ImportCsvDialog';
@@ -24,10 +22,7 @@ import { ImportCsvDialog } from './ImportCsvDialog';
 type CreateTableDropdownProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   isCreating: boolean;
-  onSelect: (
-    template: TableTemplateDefinition,
-    options: { includeRecords: boolean; recordCount: number }
-  ) => void;
+  onSelect: (template: TableTemplateDefinition, options: { includeRecords: boolean }) => void;
   onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
   label?: string;
   variant?: VariantProps<typeof buttonVariants>['variant'];
@@ -45,16 +40,17 @@ export function CreateTableDropdown({
   size = 'sm',
   className,
 }: CreateTableDropdownProps) {
-  const initialRecordCount = templates[0]?.defaultRecordCount ?? 0;
   const [open, setOpen] = useState(false);
   const [selectedKey, setSelectedKey] = useState(templates[0]?.key ?? '');
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.key === selectedKey) ?? templates[0] ?? null,
     [selectedKey, templates]
   );
-  const [includeRecords, setIncludeRecords] = useState(initialRecordCount > 0);
-  const [recordCount, setRecordCount] = useState(initialRecordCount);
+  const [includeRecords, setIncludeRecords] = useState((templates[0]?.defaultRecordCount ?? 0) > 0);
   const [seedSelectionLocked, setSeedSelectionLocked] = useState(false);
+  const [pendingClose, setPendingClose] = useState(false);
+  const [createStarted, setCreateStarted] = useState(false);
+  const isBusy = isCreating || pendingClose;
 
   useEffect(() => {
     if (!templates.length) {
@@ -68,38 +64,55 @@ export function CreateTableDropdown({
 
   useEffect(() => {
     if (!selectedTemplate) return;
-    const defaultCount = selectedTemplate.defaultRecordCount ?? 0;
-    setRecordCount(defaultCount);
     if (!seedSelectionLocked) {
-      setIncludeRecords(defaultCount > 0);
+      setIncludeRecords((selectedTemplate.defaultRecordCount ?? 0) > 0);
     }
   }, [seedSelectionLocked, selectedTemplate?.key]);
 
-  const supportsRecords = (selectedTemplate?.defaultRecordCount ?? 0) > 0;
-  const selectedTables = selectedTemplate?.tables ?? [];
-
-  const handleRecordCountChange = (value: string) => {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) {
-      setRecordCount(0);
+  useEffect(() => {
+    if (!pendingClose) {
+      if (createStarted) {
+        setCreateStarted(false);
+      }
       return;
     }
-    setSeedSelectionLocked(true);
-    setRecordCount(Math.max(0, Math.floor(parsed)));
-  };
+    if (isCreating) {
+      if (!createStarted) {
+        setCreateStarted(true);
+      }
+      return;
+    }
+    if (createStarted) {
+      setOpen(false);
+      setPendingClose(false);
+      setCreateStarted(false);
+    }
+  }, [createStarted, isCreating, pendingClose]);
+
+  const supportsRecords = (selectedTemplate?.defaultRecordCount ?? 0) > 0;
+  const selectedTables = selectedTemplate?.tables ?? [];
 
   const handleCreate = () => {
     if (!selectedTemplate) return;
     onSelect(selectedTemplate, {
       includeRecords: includeRecords && supportsRecords,
-      recordCount: includeRecords && supportsRecords ? recordCount : 0,
     });
-    setOpen(false);
+    setPendingClose(true);
   };
 
   return (
     <div className="flex items-center gap-2">
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (isBusy) return;
+          setOpen(nextOpen);
+          if (!nextOpen) {
+            setPendingClose(false);
+            setCreateStarted(false);
+          }
+        }}
+      >
         <DialogTrigger asChild>
           <Button
             variant={variant}
@@ -124,7 +137,7 @@ export function CreateTableDropdown({
                 Templates
               </div>
               <ScrollArea className="min-h-0 flex-1">
-                <div className="p-2">
+                <div className="p-2 space-y-2">
                   {templates.map((template) => {
                     const selected = template.key === selectedTemplate?.key;
                     const seedCount = template.defaultRecordCount ?? 0;
@@ -138,8 +151,10 @@ export function CreateTableDropdown({
                           'flex w-full flex-col gap-1.5 rounded-md border px-2.5 py-2 text-left text-sm transition',
                           selected
                             ? 'border-primary/60 bg-primary/10'
-                            : 'border-border/70 hover:border-foreground/40'
+                            : 'border-border/70 hover:border-foreground/40',
+                          isBusy && 'pointer-events-none opacity-60'
                         )}
+                        disabled={isBusy}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-semibold text-foreground">
@@ -238,21 +253,7 @@ export function CreateTableDropdown({
                           setSeedSelectionLocked(true);
                           setIncludeRecords(checked);
                         }}
-                        disabled={!supportsRecords}
-                      />
-                    </div>
-                    <div className="mt-3 grid gap-2">
-                      <Label htmlFor="record-count" className="text-xs text-muted-foreground">
-                        Records per table
-                      </Label>
-                      <Input
-                        id="record-count"
-                        type="number"
-                        min={0}
-                        value={recordCount}
-                        onChange={(event) => handleRecordCountChange(event.target.value)}
-                        disabled={!supportsRecords || !includeRecords}
-                        className="h-8 text-xs"
+                        disabled={!supportsRecords || isBusy}
                       />
                     </div>
                   </div>
@@ -261,16 +262,12 @@ export function CreateTableDropdown({
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setOpen(false)}
-              disabled={isCreating}
-            >
+            <Button variant="secondary" size="sm" onClick={() => setOpen(false)} disabled={isBusy}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleCreate} disabled={isCreating || !selectedTemplate}>
-              {isCreating
+            <Button size="sm" onClick={handleCreate} disabled={isBusy || !selectedTemplate}>
+              {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isBusy
                 ? 'Creating...'
                 : selectedTemplate && selectedTemplate.tables.length > 1
                   ? 'Create tables'

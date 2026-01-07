@@ -1,12 +1,17 @@
 import {
+  AndSpec,
   domainError,
   FieldId,
   FieldType,
   LinkForeignTableReferenceVisitor,
   LinkRelationship,
   type DomainError,
+  type FieldCondition,
+  type ITableRecordConditionSpecVisitor,
+  type ISpecification,
   type LinkField,
   type Table,
+  type TableRecord,
 } from '@teable/v2-core';
 import {
   sql,
@@ -58,7 +63,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private orderByColumnValue: OrderByColumn | null = null;
   private orderByDirection: 'asc' | 'desc' = 'asc';
   private foreignTables: ReadonlyMap<string, Table>;
-  private recordIdFilter: string | null = null;
+  private whereSpecs: Array<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>> = [];
 
   readonly mode: QueryMode = 'computed';
 
@@ -95,8 +100,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return this;
   }
 
-  whereRecordId(recordId: string): this {
-    this.recordIdFilter = recordId;
+  where(spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>): this {
+    this.whereSpecs.push(spec);
     return this;
   }
 
@@ -191,20 +196,24 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         // Resolve orderBy column name
         const orderByColumn = yield* this.resolveOrderByColumn(table);
 
+        const whereClauseResult = this.buildWhereCondition();
+        if (whereClauseResult.isErr()) {
+          return err(whereClauseResult.error);
+        }
+        const whereClause = whereClauseResult.value;
         const query = this.db
           .selectFrom(`${tableName} as ${T}`)
           .select(() => selectColumns)
           .$call(applyLateralJoins)
           .$call(applyConditionalJoins)
-          .$if(this.recordIdFilter !== null, (qb) =>
-            qb.where(sql`${sql.ref(`${T}.__id`)}`, '=', this.recordIdFilter!)
+          .$if(whereClause !== null, (qb) =>
+            qb.where(whereClause as unknown as Expression<SqlBool>)
           )
           .$if(orderByColumn !== null, (qb) =>
             qb.orderBy(sql`${sql.ref(`${T}.${orderByColumn}`)}`, this.orderByDirection)
           )
           .$if(this.limitValue !== null, (qb) => qb.limit(this.limitValue!))
           .$if(this.offsetValue !== null, (qb) => qb.offset(this.offsetValue!));
-
         return ok(query);
       }.bind(this)
     );
@@ -399,27 +408,69 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const foreignDbTableName = yield* foreignTable.dbTableName();
           const foreignTableName = yield* foreignDbTableName.value();
 
-          const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+          const firstColumnType = lateral.columns[0]?.columnType;
+          const condition = match(firstColumnType)
+            .with({ type: 'conditionalLookup' }, (c) => c.condition)
+            .with({ type: 'conditionalRollup' }, (c) => c.condition)
+            .otherwise(() => undefined);
 
+          // Build WHERE clause from condition filter
+          const whereClause = yield* this.buildConditionWhere(foreignTable, firstColumnType);
+
+          const sortClause = condition
+            ? yield* this.resolveConditionalSort(foreignTable, condition)
+            : null;
+          const limitValue = condition?.limit();
+          const needsSubquery = Boolean(sortClause || limitValue);
+          const sourceAlias = needsSubquery ? `${lateral.alias}_src` : F;
+
+          const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
           for (const col of lateral.columns) {
             selectExprs.push(
-              yield* this.buildConditionalSelectExpr(foreignTable, col.columnType, col.outputAlias)
+              yield* this.buildConditionalSelectExpr(
+                foreignTable,
+                col.columnType,
+                col.outputAlias,
+                {
+                  tableAlias: sourceAlias,
+                  orderBy: sortClause ?? undefined,
+                }
+              )
             );
           }
 
-          // Build WHERE clause from condition filter
-          const whereClause = yield* this.buildConditionWhere(
-            foreignTable,
-            lateral.columns[0]?.columnType
-          );
+          const query = needsSubquery
+            ? (() => {
+                let baseQuery = this.db.selectFrom(`${foreignTableName} as ${F}`).selectAll();
+                if (whereClause !== null) {
+                  baseQuery = baseQuery.where(whereClause);
+                }
+                if (sortClause !== null) {
+                  baseQuery = baseQuery.orderBy(
+                    sql.ref(`${F}.${sortClause.column}`),
+                    sortClause.direction
+                  );
+                }
+                if (limitValue !== undefined) {
+                  baseQuery = baseQuery.limit(limitValue);
+                }
 
-          subqueries.push(
-            this.db
-              .selectFrom(`${foreignTableName} as ${F}`)
-              .select(selectExprs)
-              .$if(whereClause !== null, (qb) => qb.where(whereClause!))
-              .as(lateral.alias)
-          );
+                return this.db
+                  .selectFrom(baseQuery.as(sourceAlias))
+                  .select(selectExprs)
+                  .as(lateral.alias);
+              })()
+            : (() => {
+                let baseQuery = this.db
+                  .selectFrom(`${foreignTableName} as ${F}`)
+                  .select(selectExprs);
+                if (whereClause !== null) {
+                  baseQuery = baseQuery.where(whereClause);
+                }
+                return baseQuery.as(lateral.alias);
+              })();
+
+          subqueries.push(query);
         }
 
         return ok((qb: QB) =>
@@ -465,11 +516,59 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       }
 
       // Use the visitor pattern to translate spec to SQL WHERE clause
-      const visitor = new TableRecordConditionWhereVisitor();
-      const whereClause = yield* spec.accept(visitor);
-
-      return ok(whereClause as unknown as Expression<SqlBool>);
+      // Pass 'f' as the table alias since lateral join subqueries use 'f' for foreign table
+      const visitor = new TableRecordConditionWhereVisitor({ tableAlias: F });
+      const acceptResult = spec.accept(visitor);
+      if (acceptResult.isErr()) {
+        return err(acceptResult.error);
+      }
+      const whereResult = visitor.where();
+      if (whereResult.isErr()) {
+        return err(whereResult.error);
+      }
+      return ok(whereResult.value as unknown as Expression<SqlBool>);
     });
+  }
+
+  private resolveConditionalSort(
+    foreignTable: Table,
+    condition: FieldCondition
+  ): Result<{ column: string; direction: 'asc' | 'desc' } | null, DomainError> {
+    if (!condition.hasSort()) {
+      return ok(null);
+    }
+
+    return safeTry<{ column: string; direction: 'asc' | 'desc' } | null, DomainError>(function* () {
+      const sort = condition.sort();
+      if (!sort) return ok(null);
+
+      const field = yield* foreignTable.getField((f) => f.id().equals(sort.fieldId()));
+      const dbFieldName = yield* field.dbFieldName();
+      const column = yield* dbFieldName.value();
+      return ok({ column, direction: sort.order() });
+    });
+  }
+
+  private buildWhereCondition(): Result<Expression<SqlBool> | null, DomainError> {
+    if (this.whereSpecs.length === 0) {
+      return ok(null);
+    }
+
+    let combinedSpec = this.whereSpecs[0];
+    for (let i = 1; i < this.whereSpecs.length; i += 1) {
+      combinedSpec = new AndSpec(combinedSpec, this.whereSpecs[i]);
+    }
+
+    const visitor = new TableRecordConditionWhereVisitor({ tableAlias: T });
+    const acceptResult = combinedSpec.accept(visitor);
+    if (acceptResult.isErr()) {
+      return err(acceptResult.error);
+    }
+    const whereResult = visitor.where();
+    if (whereResult.isErr()) {
+      return err(whereResult.error);
+    }
+    return ok(whereResult.value as unknown as Expression<SqlBool>);
   }
 
   /**
@@ -478,17 +577,25 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private buildConditionalSelectExpr(
     foreignTable: Table,
     columnType: LateralColumnType,
-    outputAlias: string
+    outputAlias: string,
+    options?: {
+      tableAlias?: string;
+      orderBy?: { column: string; direction: 'asc' | 'desc' };
+    }
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    const tableAlias = options?.tableAlias ?? F;
     return (
       match(columnType)
         .with({ type: 'conditionalLookup' }, ({ foreignFieldId }) =>
           // For conditional lookup, aggregate all matching values as a JSONB array
-          this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias)
+          this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias, {
+            tableAlias,
+            orderBy: options?.orderBy,
+          })
         )
         .with({ type: 'conditionalRollup' }, ({ foreignFieldId, aggregate }) =>
           // For conditional rollup, apply the aggregate function
-          this.getForeignColRef(foreignTable, foreignFieldId).map((colRef) =>
+          this.getForeignColRef(foreignTable, foreignFieldId, tableAlias).map((colRef) =>
             sql`${sql.raw(aggregate)}(${colRef})`.as(outputAlias)
           )
         )
@@ -566,7 +673,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
   private getForeignColRef(
     foreignTable: Table,
-    foreignFieldId: FieldId
+    foreignFieldId: FieldId,
+    tableAlias: string = F
   ): Result<RawBuilder<unknown>, DomainError> {
     return foreignTable
       .getField((f) => f.id().equals(foreignFieldId))
@@ -574,7 +682,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         field
           .dbFieldName()
           .andThen((dbFieldName) => dbFieldName.value())
-          .map((columnName) => sql`${sql.ref(`${F}.${columnName}`)}`)
+          .map((columnName) => sql`${sql.ref(`${tableAlias}.${columnName}`)}`)
       );
   }
 
@@ -596,8 +704,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private buildLookupAggExpr(
     foreignTable: Table,
     foreignFieldId: FieldId,
-    outputAlias: string
+    outputAlias: string,
+    options?: { tableAlias?: string; orderBy?: { column: string; direction: 'asc' | 'desc' } }
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    const tableAlias = options?.tableAlias ?? F;
+    const orderBy = options?.orderBy;
     return foreignTable
       .getField((f) => f.id().equals(foreignFieldId))
       .andThen((foreignField) =>
@@ -605,13 +716,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           .dbFieldName()
           .andThen((dbFieldName) => dbFieldName.value())
           .map((columnName) => {
-            const colRef = sql.ref(`${F}.${columnName}`);
+            const colRef = sql.ref(`${tableAlias}.${columnName}`);
+            const orderByRef = orderBy
+              ? sql`order by ${sql.ref(`${tableAlias}.${orderBy.column}`)} ${sql.raw(
+                  orderBy.direction
+                )}`
+              : sql``;
 
-            // Check if the foreign field stores data as JSONB (lookup, rollup, link)
+            // Check if the foreign field stores data as JSONB (lookup, link)
             // These fields already contain JSONB arrays and should not be wrapped with to_jsonb()
             const isJsonbStorage =
               foreignField.type().equals(FieldType.lookup()) ||
-              foreignField.type().equals(FieldType.rollup()) ||
               foreignField.type().equals(FieldType.link());
 
             if (isJsonbStorage) {
@@ -622,7 +737,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               // 2. Then apply recursive flattening to unwrap nested arrays
               //
               // The recursive CTE extracts all non-array leaf values.
-              const aggExpr = sql`jsonb_agg(${colRef}::jsonb)`;
+              const aggExpr = sql`jsonb_agg(${colRef}::jsonb ${orderByRef})`;
 
               return sql`(
                 WITH RECURSIVE __flat(e) AS (
@@ -637,7 +752,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             }
 
             // For regular columns, use to_jsonb() to convert to JSONB
-            return sql`jsonb_agg(to_jsonb(${colRef}))`.as(outputAlias);
+            return sql`jsonb_agg(to_jsonb(${colRef}) ${orderByRef})`.as(outputAlias);
           })
       );
   }

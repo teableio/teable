@@ -15,6 +15,13 @@ export class NoopTableRepository implements ITableRepository {
     return ok(table);
   }
 
+  async insertMany(
+    _: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
+    return ok([...tables]);
+  }
+
   async findOne(
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>

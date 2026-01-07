@@ -92,6 +92,18 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   }
 
   @TraceSpan()
+  async insertMany(
+    context: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
+    for (const table of tables) {
+      const result = await this.insert(context, table);
+      if (result.isErr()) return err(result.error);
+    }
+    return ok(undefined);
+  }
+
+  @TraceSpan()
   async update(
     context: IExecutionContext,
     table: Table,

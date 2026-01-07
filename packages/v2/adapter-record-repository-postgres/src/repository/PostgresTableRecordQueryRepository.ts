@@ -5,14 +5,20 @@ import {
   isDomainError,
   v2CoreTokens,
   type DomainError,
+  FieldType,
+  RecordByIdSpec,
   type ITableRecordQueryOptions,
   type ITableRecordQueryResult,
   type RecordId,
+  type ISpecification,
+  type ITableRecordConditionSpecVisitor,
+  type Table,
   type TableRecordReadModel,
+  type TableRecord,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Kysely } from 'kysely';
+import type { Expression, Kysely, SqlBool } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -24,8 +30,10 @@ import {
   TableRecordQueryBuilderManager,
   type DynamicDB,
 } from '../query-builder';
+import { TableRecordConditionWhereVisitor } from '../visitors';
 
 const RECORD_ID_COLUMN = '__id';
+const TABLE_ALIAS = 't';
 
 @injectable()
 export class PostgresTableRecordQueryRepository implements core.ITableRecordQueryRepository {
@@ -41,7 +49,7 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
   async find(
     context: core.IExecutionContext,
     table: core.Table,
-    _spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>,
+    spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>,
     options?: core.ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
     return safeTry<ITableRecordQueryResult, DomainError>(
@@ -52,7 +60,7 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
         try {
           // Create query builder via manager (it handles prepare)
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
-            mode: options?.mode,
+            mode: resolveQueryMode(table, options?.mode),
           });
 
           // Default ordering by auto_number
@@ -62,6 +70,16 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
           if (options?.pagination) {
             queryBuilder.limit(options.pagination.limit().toNumber());
             queryBuilder.offset(options.pagination.offset().toNumber());
+          }
+
+          // Apply filter spec if provided
+          if (spec) {
+            queryBuilder.where(spec);
+          }
+
+          const whereClause = spec ? buildWhereClause(spec) : ok(null);
+          if (whereClause.isErr()) {
+            return err(whereClause.error);
           }
 
           // Build the query
@@ -80,7 +98,12 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
             const dbTableName = yield* table.dbTableName();
             const name = yield* dbTableName.value();
             const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
-            const countQuery = dynamicDb.selectFrom(name).select(sql<string>`count(*)`.as('count'));
+            const countQuery = dynamicDb
+              .selectFrom(`${name} as ${TABLE_ALIAS}`)
+              .select(sql<string>`count(*)`.as('count'))
+              .$if(whereClause.value !== null, (qb) =>
+                qb.where(whereClause.value as Expression<SqlBool>)
+              );
 
             const [rows, countResult] = await Promise.all([
               builtQuery.execute(),
@@ -119,11 +142,12 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
         try {
           // Create query builder via manager
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
-            mode: options?.mode,
+            mode: resolveQueryMode(table, options?.mode),
           });
 
-          // Filter by record ID
-          queryBuilder.whereRecordId(recordId.toString());
+          // Filter by record ID via specification
+          const recordSpec = RecordByIdSpec.create(recordId);
+          queryBuilder.where(recordSpec);
 
           // Limit to 1
           queryBuilder.limit(1);
@@ -194,4 +218,34 @@ const describeError = (error: unknown): string => {
   } catch {
     return String(error);
   }
+};
+
+const buildWhereClause = (
+  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+): Result<Expression<SqlBool> | null, DomainError> => {
+  const visitor = new TableRecordConditionWhereVisitor({ tableAlias: TABLE_ALIAS });
+  const acceptResult = spec.accept(visitor);
+  if (acceptResult.isErr()) {
+    return err(acceptResult.error);
+  }
+  const whereResult = visitor.where();
+  if (whereResult.isErr()) {
+    return err(whereResult.error);
+  }
+  return ok(whereResult.value as unknown as Expression<SqlBool>);
+};
+
+const resolveQueryMode = (
+  table: Table,
+  mode: core.TableRecordQueryMode | undefined
+): core.TableRecordQueryMode => {
+  if (mode) return mode;
+  const hasConditionalFields = table
+    .getFields()
+    .some(
+      (field) =>
+        field.type().equals(FieldType.conditionalRollup()) ||
+        field.type().equals(FieldType.conditionalLookup())
+    );
+  return hasConditionalFields ? 'computed' : 'stored';
 };

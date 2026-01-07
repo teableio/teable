@@ -74,16 +74,14 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
               safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
                 if (!createdField)
                   return err(domainError.unexpected({ message: 'Field not created' }));
-                const events = yield* await handler.fieldCreationSideEffectService.execute(
-                  transactionContext,
-                  {
+                const sideEffectResult =
+                  yield* await handler.fieldCreationSideEffectService.execute(transactionContext, {
                     table: updatedTable,
                     fields: [createdField],
                     foreignTables,
-                  }
-                );
+                  });
 
-                return ok(events);
+                return ok(sideEffectResult.events);
               }),
           },
         }

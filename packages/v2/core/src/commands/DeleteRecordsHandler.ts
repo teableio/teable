@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -50,18 +51,22 @@ export class DeleteRecordsHandler
     return safeTry<DeleteRecordsResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
-      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
-        for (const recordId of command.recordIds) {
-          const deleteResult = await handler.tableRecordRepository.delete(
-            transactionContext,
-            table,
-            recordId
-          );
+      const specBuilder = TableRecord.specs('or');
+      for (const recordId of command.recordIds) {
+        specBuilder.recordId(recordId);
+      }
+      const deleteSpec = yield* specBuilder.build();
 
-          if (deleteResult.isErr()) {
-            if (isNotFoundError(deleteResult.error)) continue;
-            return err(deleteResult.error);
-          }
+      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
+        const deleteResult = await handler.tableRecordRepository.deleteMany(
+          transactionContext,
+          table,
+          deleteSpec
+        );
+
+        if (deleteResult.isErr()) {
+          if (isNotFoundError(deleteResult.error)) return ok(undefined);
+          return err(deleteResult.error);
         }
 
         return ok(undefined);

@@ -77,11 +77,11 @@ export const ensureServerOtel = async (): Promise<NodeSDK> => {
   globalAny.__teablePlaygroundOtelSdk = sdk;
   try {
     sdk.start();
-    globalAny.__teablePlaygroundOtelStart = Promise.resolve(sdk);
   } catch (err) {
     console.error('Playground OTEL start error', err);
-    globalAny.__teablePlaygroundOtelStart = Promise.resolve(sdk);
   }
+  const startPromise = Promise.resolve(sdk);
+  globalAny.__teablePlaygroundOtelStart = startPromise;
 
   const shutdown = () =>
     sdk.shutdown().then(
@@ -95,9 +95,14 @@ export const ensureServerOtel = async (): Promise<NodeSDK> => {
   try {
     // Force load pg after SDK start to ensure it is instrumented.
     // In Nitro/Vite dev environments, this helps ensure the patch is applied before the app uses it.
-    require('pg');
+    const adapterRequire = createRequire(require.resolve('@teable/v2-adapter-db-postgres-pg'));
+    adapterRequire('pg');
   } catch {
-    // Ignore if pg is not available in the current environment
+    try {
+      require('pg');
+    } catch {
+      // Ignore if pg is not available in the current environment
+    }
   }
 
   return globalAny.__teablePlaygroundOtelStart;

@@ -95,9 +95,10 @@ describe('NoopTableRecordRepository', () => {
     actorIdResult._unsafeUnwrap();
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
+    const deleteSpec = TableRecord.specs().recordId(record.id()).build()._unsafeUnwrap();
     (await repo.insert(context, table, record))._unsafeUnwrap();
     (await repo.update(context, table, record))._unsafeUnwrap();
-    (await repo.delete(context, table, record.id()))._unsafeUnwrap();
+    (await repo.deleteMany(context, table, deleteSpec))._unsafeUnwrap();
   });
 });
 

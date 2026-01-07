@@ -84,6 +84,7 @@ describe('ListTablesHandler', () => {
 
     const repo: ITableRepository = {
       insert: async () => err(domainError.unexpected({ message: 'nope' })),
+      insertMany: async () => err(domainError.unexpected({ message: 'nope' })),
       findOne: async () => err(domainError.unexpected({ message: 'nope' })),
       find: async () => err(domainError.unexpected({ message: 'repository error' })),
       updateOne: async (_context, _table, _mutateSpec) =>

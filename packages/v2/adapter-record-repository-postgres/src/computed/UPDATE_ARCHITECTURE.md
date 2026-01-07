@@ -563,38 +563,90 @@ Solution: Use `dispatchDelayMs >= 50` or `dispatchMode: 'external'`
 
 ## Production Troubleshooting
 
-### Playground Admin Panel (TODO)
+### Playground Built-in Panel (Hybrid Mode)
 
-A future admin panel for manual inspection and re-triggering of computed update tasks:
+Playground is the fastest place to build an **internal-only** panel for:
 
-- View pending/processing/dead-letter tasks
-- Inspect task details (steps, edges, dirty records)
-- Manually re-trigger or cancel tasks
-- View task history and retry attempts
+- Seeing whether a computed plan actually executed (and how far it got)
+- Inspecting outbox / dead-letter payloads
+- **Replaying dead-letter tasks with the original task id**
 
-### OpenTelemetry / Jaeger / Signoz
+The panel should be driven by **v2-only context** (container + adapters), and the backend should emit **OTel logs + metrics** that the panel and alerts can rely on.
 
-Use distributed tracing to debug computed update chains:
+#### What the panel shows
 
-1. **Search by `computedRunId`**: Find all spans for a specific update run
-2. **Search by `computedTaskId`**: Find spans for a specific outbox task
-3. **Look for span gaps**: Missing child spans indicate failures
-4. **Check span durations**: Identify slow steps or DB queries
+- **Dead letters (highest priority)**
+  - `taskId`, `runId`, `originRunIds`, `baseId`, `seedTableId`
+  - `attempts/maxAttempts`, `failedAt`, `lastError`
+  - `estimatedComplexity`, `syncMaxLevel`, `dirtyStats`
+  - preview of `steps` (levels/tableIds/fieldIds) and `edges` count
+- **Outbox pending/processing**
+  - `taskId`, `status`, `attempts`, `nextRunAt`, `lockedAt`, `lockedBy`, `lastError`
+  - "stuck" detection for `processing` tasks
 
-Key span attributes to filter by:
+#### DLQ replay semantics (original id)
 
-- `computed.runId`: Unique run identifier
-- `computed.phase`: `sync` or `async`
-- `step.tableId`, `step.fieldIds`: Specific step context
-- `edge.fromTableId`, `edge.toTableId`: Edge propagation
+Replay is a **move** from `computed_update_dead_letter` back to `computed_update_outbox` using the **same `id`**.
 
-### Sentry
+- Keep:
+  - `id` (task id), `run_id`, `origin_run_ids`, `plan_hash`
+  - `steps`, `edges`, `seed_record_ids`
+  - `run_total_steps`, `run_completed_steps_before` (so progress stays interpretable)
+- Reset:
+  - `status = 'pending'`
+  - `attempts = 0` (or keep, but recommend reset for clean retry accounting)
+  - `next_run_at = now()`
+  - `locked_at/locked_by = null`, `last_error = null`
+  - `updated_at = now()`
 
-Configure Sentry for error aggregation and alerting:
+If `seed_record_ids` is too large for inline storage (exceeds `seedInlineLimit`), spill into `computed_update_outbox_seed` and set `seed_record_ids = null`.
 
-- Tag errors with `computedRunId` and `computedTaskId`
-- Set up alerts for repeated failures on the same task
-- Monitor dead-letter queue growth
+Pseudocode (DB transaction):
+
+```ts
+// ReplayDeadLetter(taskId)
+// 1) SELECT row FROM computed_update_dead_letter WHERE id = $taskId FOR UPDATE
+// 2) INSERT INTO computed_update_outbox (id, ..., status, attempts, next_run_at, ...) VALUES (...)
+// 3) IF needSeedTable: INSERT computed_update_outbox_seed rows
+// 4) DELETE FROM computed_update_dead_letter WHERE id = $taskId
+```
+
+#### OTel-only observability contract (logs + metrics)
+
+The panel and alerting should not depend on Sentry.
+
+- **Logs**: rely on structured logs already emitted (`computed:run:*`, `computed:outbox:*`, `computed:polling:*`). Ensure each log includes:
+
+  - `computedRunId`, `computedTaskId`, `computedRunPhase`
+  - `baseId`, `seedTableId`, `planHash`, `attempts`, `maxAttempts`
+  - `estimatedComplexity`, `dirtyStats` (or summarized counts)
+
+- **Metrics**: add a small set of stable instruments (names are examples; keep them consistent):
+  - `teable_computed_outbox_enqueue_total{merged=bool, change_type}`
+  - `teable_computed_outbox_claim_total`
+  - `teable_computed_outbox_retry_scheduled_total`
+  - `teable_computed_outbox_dead_letter_total`
+  - `teable_computed_worker_task_duration_ms` (histogram)
+  - `teable_computed_worker_task_failed_total`
+  - `teable_computed_dlq_replay_total{result="ok"|"err"}`
+
+#### Alerting rules (simple, strict)
+
+- **DLQ non-empty** (priority-0): alert if `teable_computed_outbox_dead_letter_total` increases, or `computed_update_dead_letter` count > 0 (collector side query/receiver specific).
+- **Stuck processing** (priority-1): alert when `computed_update_outbox.status='processing'` and `locked_at < now()-5m`.
+- **Too complex** (priority-1): alert when a task is dead-lettered with `estimated_complexity` above a threshold, or when `dirty_stats.total` is above a threshold.
+
+### OpenTelemetry / Jaeger / SigNoz
+
+Use tracing to debug a single run, and logs/metrics to operate the system.
+
+- Trace filters:
+  - `computed.runId`, `computed.taskId`, `computed.phase`
+- Log queries:
+  - `message:"computed:outbox:dead_letter"` + `computedTaskId:<id>`
+  - `message:"computed:outbox:retry_scheduled"` + `taskId:<id>`
+- Metrics:
+  - Use the counters above for dashboards and alerts
 
 ### Database Queries for Debugging
 

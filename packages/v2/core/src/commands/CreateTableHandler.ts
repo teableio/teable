@@ -101,7 +101,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
               table
             );
             yield* await handler.tableSchemaRepository.insert(transactionContext, persistedTable);
-            const sideEffectEvents = yield* await handler.fieldCreationSideEffectService.execute(
+            const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
               transactionContext,
               {
                 table,
@@ -109,6 +109,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
                 foreignTables: foreignTablesForSideEffects,
               }
             );
+            const sideEffectEvents = sideEffectResult.events;
             if (recordsFieldValues.length > 0) {
               const recordSpan = transactionContext.tracer?.startSpan(
                 'teable.CreateTableHandler.createRecords'

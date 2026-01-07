@@ -13,7 +13,7 @@ import type { ISpecification } from '../domain/shared/specification/ISpecificati
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
-import type { RecordId } from '../domain/table/records/RecordId';
+import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -55,6 +55,13 @@ class FakeTableRepository implements ITableRepository {
     if (this.failInsert) return err(this.failInsert);
     this.inserted.push(table);
     return ok(table);
+  }
+
+  async insertMany(context: IExecutionContext, tables: ReadonlyArray<Table>) {
+    this.lastContext = context;
+    if (this.failInsert) return err(this.failInsert);
+    this.inserted.push(...tables);
+    return ok([...tables]);
   }
 
   async findOne(
@@ -103,6 +110,13 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
     this.lastContext = context;
     if (this.failInsert) return err(this.failInsert);
     this.inserted.push(table);
+    return ok(undefined);
+  }
+
+  async insertMany(context: IExecutionContext, tables: ReadonlyArray<Table>) {
+    this.lastContext = context;
+    if (this.failInsert) return err(this.failInsert);
+    this.inserted.push(...tables);
     return ok(undefined);
   }
 
@@ -158,7 +172,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok(undefined);
   }
 
-  async delete(_context: IExecutionContext, _table: Table, _recordId: RecordId) {
+  async deleteMany(
+    _context: IExecutionContext,
+    _table: Table,
+    _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  ) {
     return ok(undefined);
   }
 }

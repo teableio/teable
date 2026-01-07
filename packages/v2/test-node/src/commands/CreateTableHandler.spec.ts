@@ -16,6 +16,7 @@ import {
   type FormulaField,
   type RollupField,
   type Table,
+  type DomainError,
   type ITableSchemaRepository,
   type ITableSpecVisitor,
   FieldValueTypeVisitor,
@@ -24,7 +25,7 @@ import {
 } from '@teable/v2-core';
 import { domainError } from '@teable/v2-core';
 import { injectable } from '@teable/v2-di';
-import { err, ok } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { getV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
@@ -446,8 +447,20 @@ describe('CreateTableHandler', () => {
     const { container, baseId } = getV2NodeTestContainer();
 
     class FailingTableSchemaRepository implements ITableSchemaRepository {
+      private static readonly failureMessage = 'Forced schema failure';
+
+      private fail(): Result<void, DomainError> {
+        return err(
+          domainError.unexpected({ message: FailingTableSchemaRepository.failureMessage })
+        );
+      }
+
       async insert(_: IExecutionContext, __: Table) {
-        return err(domainError.unexpected({ message: 'Forced schema failure' }));
+        return this.fail();
+      }
+
+      async insertMany(_: IExecutionContext, __: ReadonlyArray<Table>) {
+        return this.fail();
       }
 
       async update(_: IExecutionContext, __: Table, ___: ISpecification<Table, ITableSpecVisitor>) {

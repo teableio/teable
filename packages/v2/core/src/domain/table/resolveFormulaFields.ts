@@ -92,7 +92,10 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
     if (field.type().equals(FieldType.formula())) continue;
     const typeResult = field.accept(valueTypeVisitor);
     if (typeResult.isErr()) {
-      if (field.type().equals(FieldType.rollup())) {
+      if (
+        field.type().equals(FieldType.rollup()) ||
+        field.type().equals(FieldType.conditionalRollup())
+      ) {
         continue;
       }
       return err(typeResult.error);

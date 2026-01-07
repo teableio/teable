@@ -245,9 +245,18 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
               : IndexRule.forFkColumn(field, keyName, fkColumnRule);
           rules.push(indexRule);
 
+          const onDelete = 'SET NULL';
+
           // FK constraint
           rules.push(
-            ForeignKeyRule.forField(field, keyName, foreignTable, fkColumnRule, foreignTableId)
+            ForeignKeyRule.forField(
+              field,
+              keyName,
+              foreignTable,
+              fkColumnRule,
+              foreignTableId,
+              onDelete
+            )
           );
 
           // Order column

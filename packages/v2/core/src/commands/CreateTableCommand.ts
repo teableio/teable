@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import { RecordId } from '../domain/table/records/RecordId';
 import { Table } from '../domain/table/Table';
 import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
@@ -37,6 +38,7 @@ export const createTableInputSchema = z.object({
   records: z
     .array(
       z.object({
+        id: z.string().optional(),
         fields: z.record(z.string(), z.unknown()).default({}),
       })
     )
@@ -44,6 +46,11 @@ export const createTableInputSchema = z.object({
 });
 
 export type ICreateTableCommandInput = z.input<typeof createTableInputSchema>;
+
+export type CreateTableRecordSeed = {
+  id?: RecordId;
+  fieldValues: RecordFieldValues;
+};
 
 export interface ICreateTableViewSpec {
   applyTo(builder: TableBuilder): void;
@@ -136,7 +143,7 @@ export class CreateTableCommand {
     readonly tableName: TableName,
     readonly fields: ReadonlyArray<ICreateTableFieldSpec>,
     readonly views: ReadonlyArray<ICreateTableViewSpec>,
-    readonly records: ReadonlyArray<RecordFieldValues>
+    readonly records: ReadonlyArray<CreateTableRecordSeed>
   ) {}
 
   static create(raw: unknown): Result<CreateTableCommand, DomainError> {
@@ -248,16 +255,20 @@ export class CreateTableCommand {
 
   private static parseRecords(
     rawRecords: z.output<typeof createTableInputSchema>['records']
-  ): Result<ReadonlyArray<RecordFieldValues>, DomainError> {
+  ): Result<ReadonlyArray<CreateTableRecordSeed>, DomainError> {
     if (!rawRecords || rawRecords.length === 0) {
       return ok([]);
     }
 
-    const recordsFieldValues = rawRecords.map(
-      (record) => new Map(Object.entries(record.fields)) as RecordFieldValues
-    );
+    const records = rawRecords.map((record) => {
+      const fieldValues = new Map(Object.entries(record.fields)) as RecordFieldValues;
+      if (!record.id) {
+        return ok({ fieldValues });
+      }
+      return RecordId.create(record.id).map((id) => ({ id, fieldValues }));
+    });
 
-    return ok(recordsFieldValues);
+    return sequence(records);
   }
 }
 

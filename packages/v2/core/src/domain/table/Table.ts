@@ -379,7 +379,7 @@ export class Table extends AggregateRoot<TableId> {
    * 2. Creates each record using the same logic as createRecord
    * 3. Returns all created records or the first validation error
    *
-   * @param recordsFieldValues - Array of field value maps, one per record
+   * @param recordsFieldValues - Array of record seeds (field values and optional IDs)
    * @returns Result containing array of new records or validation error
    *
    * @example
@@ -391,13 +391,25 @@ export class Table extends AggregateRoot<TableId> {
    * ```
    */
   createRecords(
-    recordsFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>>
+    recordsFieldValues: ReadonlyArray<
+      ReadonlyMap<string, unknown> | { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> }
+    >
   ): Result<ReadonlyArray<TableRecord>, DomainError> {
     const table = this;
     return safeTry<ReadonlyArray<TableRecord>, DomainError>(function* () {
       const records: TableRecord[] = [];
-      for (const fieldValues of recordsFieldValues) {
-        const record = yield* table.buildRecord(fieldValues);
+      const isSeedRecord = (
+        input:
+          | ReadonlyMap<string, unknown>
+          | { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> }
+      ): input is { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> } =>
+        typeof input === 'object' && input !== null && 'fieldValues' in input;
+
+      for (const input of recordsFieldValues) {
+        const { fieldValues, recordId } = isSeedRecord(input)
+          ? { fieldValues: input.fieldValues, recordId: input.id }
+          : { fieldValues: input, recordId: undefined };
+        const record = yield* table.buildRecord(fieldValues, recordId);
         records.push(record);
       }
       return ok(records);
@@ -503,11 +515,14 @@ export class Table extends AggregateRoot<TableId> {
    * Internal method to build a single record with the given field values.
    * Used by both createRecord, createRecords, and createRecordsStream.
    */
-  private buildRecord(fieldValues: ReadonlyMap<string, unknown>): Result<TableRecord, DomainError> {
+  private buildRecord(
+    fieldValues: ReadonlyMap<string, unknown>,
+    recordId?: RecordId
+  ): Result<TableRecord, DomainError> {
     const table = this;
     return safeTry<TableRecord, DomainError>(function* () {
       // 1. Generate a new record ID
-      const recordId = yield* RecordId.generate();
+      const resolvedRecordId = recordId ?? (yield* RecordId.generate());
 
       // 2. Build mutation specs from field values with default value support
       const builder = RecordMutationSpecBuilder.create();
@@ -541,7 +556,7 @@ export class Table extends AggregateRoot<TableId> {
       // 4. Create an empty record
       const emptyFields = yield* TableRecordFields.create([]);
       const emptyRecord = yield* TableRecord.create({
-        id: recordId,
+        id: resolvedRecordId,
         tableId: table.id(),
         fieldValues: emptyFields.entries(),
       });

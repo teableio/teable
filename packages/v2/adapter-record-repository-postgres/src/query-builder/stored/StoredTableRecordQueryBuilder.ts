@@ -1,8 +1,18 @@
-import { domainError, FieldId, type DomainError, type Table } from '@teable/v2-core';
-import { sql, type AliasedRawBuilder, type Kysely } from 'kysely';
+import {
+  AndSpec,
+  domainError,
+  FieldId,
+  type DomainError,
+  type ITableRecordConditionSpecVisitor,
+  type ISpecification,
+  type Table,
+  type TableRecord,
+} from '@teable/v2-core';
+import { sql, type AliasedRawBuilder, type Expression, type Kysely, type SqlBool } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 
+import { TableRecordConditionWhereVisitor } from '../../visitors';
 import type {
   DynamicDB,
   IQueryBuilderDeps,
@@ -27,7 +37,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private offsetValue: number | null = null;
   private orderByColumnValue: OrderByColumn | null = null;
   private orderByDirection: 'asc' | 'desc' = 'asc';
-  private recordIdFilter: string | null = null;
+  private whereSpecs: Array<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>> = [];
 
   readonly mode: QueryMode = 'stored';
 
@@ -59,8 +69,8 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     return this;
   }
 
-  whereRecordId(recordId: string): this {
-    this.recordIdFilter = recordId;
+  where(spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>): this {
+    this.whereSpecs.push(spec);
     return this;
   }
 
@@ -92,18 +102,22 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
         // Resolve orderBy column name
         const orderByColumn = yield* this.resolveOrderByColumn(table);
 
+        const whereClauseResult = this.buildWhereCondition();
+        if (whereClauseResult.isErr()) {
+          return err(whereClauseResult.error);
+        }
+        const whereClause = whereClauseResult.value;
         const query = this.db
           .selectFrom(`${tableName} as ${T}`)
           .select(() => [idColumn, ...selectColumns])
-          .$if(this.recordIdFilter !== null, (qb) =>
-            qb.where(sql`${sql.ref(`${T}.__id`)}`, '=', this.recordIdFilter!)
+          .$if(whereClause !== null, (qb) =>
+            qb.where(whereClause as unknown as Expression<SqlBool>)
           )
           .$if(orderByColumn !== null, (qb) =>
             qb.orderBy(sql`${sql.ref(`${T}.${orderByColumn}`)}`, this.orderByDirection)
           )
           .$if(this.limitValue !== null, (qb) => qb.limit(this.limitValue!))
           .$if(this.offsetValue !== null, (qb) => qb.offset(this.offsetValue!));
-
         return ok(query);
       }.bind(this)
     );
@@ -148,5 +162,27 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
 
     // System column - use as-is
     return ok(this.orderByColumnValue);
+  }
+
+  private buildWhereCondition(): Result<Expression<SqlBool> | null, DomainError> {
+    if (this.whereSpecs.length === 0) {
+      return ok(null);
+    }
+
+    let combinedSpec = this.whereSpecs[0];
+    for (let i = 1; i < this.whereSpecs.length; i += 1) {
+      combinedSpec = new AndSpec(combinedSpec, this.whereSpecs[i]);
+    }
+
+    const visitor = new TableRecordConditionWhereVisitor({ tableAlias: T });
+    const acceptResult = combinedSpec.accept(visitor);
+    if (acceptResult.isErr()) {
+      return err(acceptResult.error);
+    }
+    const whereResult = visitor.where();
+    if (whereResult.isErr()) {
+      return err(whereResult.error);
+    }
+    return ok(whereResult.value as unknown as Expression<SqlBool>);
   }
 }

@@ -378,67 +378,86 @@ export class FieldCondition extends ValueObject {
   toRecordConditionSpec(
     table: Table
   ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null, DomainError> {
-    if (!this.hasFilter()) {
+    if (!this.rawFilterValue) {
       return ok(null);
     }
 
-    const self = this;
-    return safeTry<
-      ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null,
-      DomainError
-    >(function* () {
-      const builder = RecordConditionSpecBuilder.create(self.conjunctionValue);
-      const fields = table.getFields();
+    const fields = table.getFields();
+    const buildSpecFromFilter = (
+      filter: IFilterDTO
+    ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> =>
+      safeTry<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError>(
+        function* () {
+          const builder = RecordConditionSpecBuilder.create(filter.conjunction);
 
-      for (const item of self.filterItemsValue) {
-        // Look up the field by ID
-        const field = fields.find((f) => f.id().equals(item.fieldId));
-        if (!field) {
-          return err(
-            domainError.notFound({
-              code: 'field.condition.field_not_found',
-              message: `Field not found: ${item.fieldId.toString()}`,
-              details: { fieldId: item.fieldId.toString() },
-            })
-          );
-        }
+          for (const entry of filter.filterSet) {
+            if ('filterSet' in entry) {
+              const nestedSpec = yield* buildSpecFromFilter(entry as IFilterDTO);
+              builder.addConditionSpec(nestedSpec);
+              continue;
+            }
 
-        // Create the value object
-        let conditionValue: RecordConditionValue | undefined;
-
-        if (item.value !== undefined) {
-          if (item.isSymbol) {
-            // This is a field reference (column-to-column comparison)
-            const refFieldId = yield* FieldId.create(String(item.value));
-            const refField = fields.find((f) => f.id().equals(refFieldId));
-            if (!refField) {
+            const filterItemEntry = entry as IFilterItemDTO;
+            const operatorResult = recordConditionOperatorSchema.safeParse(
+              filterItemEntry.operator
+            );
+            if (!operatorResult.success) {
               return err(
-                domainError.notFound({
-                  code: 'field.condition.reference_field_not_found',
-                  message: `Reference field not found: ${String(item.value)}`,
-                  details: { fieldId: String(item.value) },
+                domainError.validation({
+                  code: 'field.condition.invalid_operator',
+                  message: `Invalid operator: ${filterItemEntry.operator}`,
                 })
               );
             }
-            conditionValue = yield* RecordConditionFieldReferenceValue.create(refField);
-          } else if (Array.isArray(item.value)) {
-            // Array value for list operators
-            conditionValue = yield* RecordConditionLiteralListValue.create(item.value);
-          } else {
-            // Literal value
-            conditionValue = yield* RecordConditionLiteralValue.create(item.value);
+
+            const fieldIdResult = FieldId.create(filterItemEntry.fieldId);
+            if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+            const field = fields.find((f) => f.id().equals(fieldIdResult.value));
+            if (!field) {
+              return err(
+                domainError.notFound({
+                  code: 'field.condition.field_not_found',
+                  message: `Field not found: ${filterItemEntry.fieldId}`,
+                  details: { fieldId: filterItemEntry.fieldId },
+                })
+              );
+            }
+
+            let conditionValue: RecordConditionValue | undefined;
+            if (filterItemEntry.value !== undefined) {
+              if (filterItemEntry.isSymbol) {
+                const refFieldId = yield* FieldId.create(String(filterItemEntry.value));
+                const refField = fields.find((f) => f.id().equals(refFieldId));
+                if (!refField) {
+                  return err(
+                    domainError.notFound({
+                      code: 'field.condition.reference_field_not_found',
+                      message: `Reference field not found: ${String(filterItemEntry.value)}`,
+                      details: { fieldId: String(filterItemEntry.value) },
+                    })
+                  );
+                }
+                conditionValue = yield* RecordConditionFieldReferenceValue.create(refField);
+              } else if (Array.isArray(filterItemEntry.value)) {
+                conditionValue = yield* RecordConditionLiteralListValue.create(
+                  filterItemEntry.value
+                );
+              } else {
+                conditionValue = yield* RecordConditionLiteralValue.create(filterItemEntry.value);
+              }
+            }
+
+            builder.addCondition({
+              field,
+              operator: operatorResult.data,
+              value: conditionValue,
+            });
           }
+
+          return builder.build();
         }
+      );
 
-        // Add the condition to the builder
-        builder.addCondition({
-          field,
-          operator: item.operator,
-          value: conditionValue,
-        });
-      }
-
-      return builder.build();
-    });
+    return buildSpecFromFilter(this.rawFilterValue);
   }
 }
