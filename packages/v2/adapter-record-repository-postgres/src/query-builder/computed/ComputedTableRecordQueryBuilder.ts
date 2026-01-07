@@ -717,8 +717,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           .andThen((dbFieldName) => dbFieldName.value())
           .map((columnName) => {
             const colRef = sql.ref(`${tableAlias}.${columnName}`);
+            // Include leading space in orderByRef so no trailing space when empty
             const orderByRef = orderBy
-              ? sql`order by ${sql.ref(`${tableAlias}.${orderBy.column}`)} ${sql.raw(
+              ? sql` order by ${sql.ref(`${tableAlias}.${orderBy.column}`)} ${sql.raw(
                   orderBy.direction
                 )}`
               : sql``;
@@ -737,7 +738,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               // 2. Then apply recursive flattening to unwrap nested arrays
               //
               // The recursive CTE extracts all non-array leaf values.
-              const aggExpr = sql`jsonb_agg(${colRef}::jsonb ${orderByRef})`;
+              const aggExpr = sql`jsonb_agg(${colRef}::jsonb${orderByRef})`;
 
               return sql`(
                 WITH RECURSIVE __flat(e) AS (
@@ -752,7 +753,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             }
 
             // For regular columns, use to_jsonb() to convert to JSONB
-            return sql`jsonb_agg(to_jsonb(${colRef}) ${orderByRef})`.as(outputAlias);
+            return sql`jsonb_agg(to_jsonb(${colRef})${orderByRef})`.as(outputAlias);
           })
       );
   }

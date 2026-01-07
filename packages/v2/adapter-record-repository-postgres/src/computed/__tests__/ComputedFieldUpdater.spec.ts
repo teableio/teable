@@ -487,10 +487,18 @@ describe('ComputedFieldUpdater', () => {
           "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
         },
         {
+          "parameters": [],
+          "sql": "select count(*) as "count" from "tmp_computed_dirty"",
+        },
+        {
           "parameters": [
             "tblcccccccccccccccc",
           ],
           "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblbbbbbbbbbbbbbbbb' as "table_id", "j"."__fk_fldffffffffffffffff" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" as "j" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "j"."__fk_fldeeeeeeeeeeeeeeee" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
+        },
+        {
+          "parameters": [],
+          "sql": "select count(*) as "count" from "tmp_computed_dirty"",
         },
         {
           "parameters": [],
@@ -612,6 +620,10 @@ describe('ComputedFieldUpdater', () => {
           "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
         },
         {
+          "parameters": [],
+          "sql": "select count(*) as "count" from "tmp_computed_dirty"",
+        },
+        {
           "parameters": [
             "tblkkkkkkkkkkkkkkkk",
           ],
@@ -628,6 +640,10 @@ describe('ComputedFieldUpdater', () => {
             "tblllllllllllllllll",
           ],
           "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblmmmmmmmmmmmmmmmm' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldtttttttttttttttt" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
+        },
+        {
+          "parameters": [],
+          "sql": "select count(*) as "count" from "tmp_computed_dirty"",
         },
         {
           "parameters": [],
@@ -655,16 +671,7 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblmmmmmmmmmmmmmmmm",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "col_lookup_c" = to_jsonb("c"."col_lookup_c") from (select "t"."__id" as "__id", "lat_fldtttttttttttttttt"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (
-                      WITH RECURSIVE __flat(e) AS (
-                        SELECT jsonb_agg("f"."col_rollup_b"::jsonb)
-                        UNION ALL
-                        SELECT jsonb_array_elements(__flat.e)
-                        FROM __flat
-                        WHERE jsonb_typeof(__flat.e) = 'array'
-                      )
-                      SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM __flat
-                    ) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt" on true where "t"."__id" in (select "d"."record_id" as "record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c" where "u"."__id" = "c"."__id"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "col_lookup_c" = to_jsonb("c"."col_lookup_c") from (select "t"."__id" as "__id", "lat_fldtttttttttttttttt"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt" on true where "t"."__id" in (select "d"."record_id" as "record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c" where "u"."__id" = "c"."__id"",
         },
       ]
     `);

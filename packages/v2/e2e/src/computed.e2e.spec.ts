@@ -4151,9 +4151,167 @@ describe('v2 computed field updates (e2e)', () => {
      *
      * Ensures computed propagation works for deep dependency chains and remains stable after duplication.
      */
-    test.todo(
-      'Self ancestry lookup chain with COUNTA: Need to verify deep parent/ancestor lookups and COUNTA formula stability'
-    );
+    it('counts every non-empty ancestor link even when the field is duplicated', async () => {
+      const titleFieldId = createFieldId();
+      const table = await createTable({
+        baseId,
+        name: 'SelfAncestryCounTA',
+        fields: [{ type: 'singleLineText', id: titleFieldId, name: 'Title', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const parentFieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'link',
+          id: parentFieldId,
+          name: 'parent',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: table.id,
+            lookupFieldId: titleFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      const ancestor1FieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'lookup',
+          id: ancestor1FieldId,
+          name: 'ancestor1',
+          options: {
+            foreignTableId: table.id,
+            linkFieldId: parentFieldId,
+            lookupFieldId: parentFieldId,
+          },
+        },
+      });
+
+      const ancestor2FieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'lookup',
+          id: ancestor2FieldId,
+          name: 'ancestor2',
+          options: {
+            foreignTableId: table.id,
+            linkFieldId: parentFieldId,
+            lookupFieldId: ancestor1FieldId,
+          },
+        },
+      });
+
+      const ancestor3FieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'lookup',
+          id: ancestor3FieldId,
+          name: 'ancestor3',
+          options: {
+            foreignTableId: table.id,
+            linkFieldId: parentFieldId,
+            lookupFieldId: ancestor2FieldId,
+          },
+        },
+      });
+
+      const ancestor4FieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'lookup',
+          id: ancestor4FieldId,
+          name: 'ancestor4',
+          options: {
+            foreignTableId: table.id,
+            linkFieldId: parentFieldId,
+            lookupFieldId: ancestor3FieldId,
+          },
+        },
+      });
+
+      const ancestor5FieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'lookup',
+          id: ancestor5FieldId,
+          name: 'ancestor5',
+          options: {
+            foreignTableId: table.id,
+            linkFieldId: parentFieldId,
+            lookupFieldId: ancestor4FieldId,
+          },
+        },
+      });
+
+      const levelExpression = `COUNTA({${ancestor5FieldId}},{${ancestor4FieldId}},{${ancestor3FieldId}},{${ancestor2FieldId}},{${ancestor1FieldId}},{${parentFieldId}})+1`;
+
+      const levelFieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'formula',
+          id: levelFieldId,
+          name: 'level',
+          options: { expression: levelExpression },
+        },
+      });
+
+      const levelCopyFieldId = createFieldId();
+      await createField({
+        baseId,
+        tableId: table.id,
+        field: {
+          type: 'formula',
+          id: levelCopyFieldId,
+          name: 'level_copy',
+          options: { expression: levelExpression },
+        },
+      });
+
+      const root = await createRecord(table.id, { [titleFieldId]: 'root' });
+      const child = await createRecord(table.id, {
+        [titleFieldId]: 'child',
+        [parentFieldId]: { id: root.id },
+      });
+      const grandchild = await createRecord(table.id, {
+        [titleFieldId]: 'grandchild',
+        [parentFieldId]: { id: child.id },
+      });
+      const greatGrandchild = await createRecord(table.id, {
+        [titleFieldId]: 'great-grandchild',
+        [parentFieldId]: { id: grandchild.id },
+      });
+
+      // Allow computed lookups to propagate through the ancestry chain.
+      for (let i = 0; i < 10; i += 1) {
+        const drained = await testContainer.processOutbox();
+        if (drained === 0) break;
+      }
+
+      const records = await listRecords(table.id);
+      const leafIndex = records.findIndex((r) => r.id === greatGrandchild.id);
+      expect(leafIndex).toBeGreaterThanOrEqual(0);
+
+      // Leaf should have parent link set and both duplicated formulas should match.
+      expectCellDisplay(records, leafIndex, parentFieldId, 'grandchild');
+      expectCellDisplay(records, leafIndex, levelFieldId, '4');
+      expectCellDisplay(records, leafIndex, levelCopyFieldId, '4');
+    });
   });
 
   // ===========================================================================
