@@ -24,6 +24,11 @@ import type { Result } from 'neverthrow';
 
 import { v2PostgresDdlTokens } from '../di/tokens';
 import {
+  createFieldSchemaRules,
+  createSchemaRuleContext,
+  PostgresSchemaIntrospector,
+} from '../rules';
+import {
   ICreateTableBuilderRef,
   PostgresTableSchemaFieldCreateVisitor,
 } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
@@ -35,6 +40,58 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     @inject(v2PostgresDdlTokens.db)
     private readonly db: Kysely<V1TeableDatabase>
   ) {}
+
+  private async ensureDeferredForeignKeys(
+    context: IExecutionContext,
+    tables: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return safeTry<void, DomainError>(async function* () {
+      const db = resolvePostgresDb(repository.db, context) as Kysely<V1TeableDatabase>;
+      const introspector = new PostgresSchemaIntrospector(db);
+
+      for (const table of tables) {
+        const { schema, tableName } = yield* table
+          .dbTableName()
+          .andThen((name) => name.split({ defaultSchema: null }));
+
+        for (const field of table.getFields()) {
+          const rulesResult = createFieldSchemaRules(field, {
+            schema,
+            tableName,
+            tableId: table.id().toString(),
+          });
+          const rules = yield* rulesResult;
+
+          const ctx = createSchemaRuleContext({
+            db,
+            introspector,
+            schema,
+            tableName,
+            tableId: table.id().toString(),
+            field,
+            table,
+          });
+
+          const deferredFkRules = rules.filter(
+            (rule) => rule.id.startsWith('fk:') || rule.id.startsWith('junction_fk:')
+          );
+
+          if (deferredFkRules.length === 0) continue;
+
+          for (const rule of deferredFkRules) {
+            const statements = yield* rule.up(ctx);
+            await executeCompiledQueries(
+              db,
+              statements.map((statement) => statement.compile(db))
+            );
+          }
+        }
+      }
+
+      return ok(undefined);
+    });
+  }
 
   @TraceSpan()
   async insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
@@ -100,6 +157,13 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const result = await this.insert(context, table);
       if (result.isErr()) return err(result.error);
     }
+
+    // Some FK constraints are conditionally created only if the target table already exists.
+    // In batch table creation, referenced tables might be created later, so we do a second pass
+    // to (idempotently) add any missing FK constraints once all tables exist.
+    const ensureFkResult = await this.ensureDeferredForeignKeys(context, tables);
+    if (ensureFkResult.isErr()) return err(ensureFkResult.error);
+
     return ok(undefined);
   }
 

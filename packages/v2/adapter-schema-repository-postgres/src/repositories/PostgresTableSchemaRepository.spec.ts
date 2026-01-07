@@ -1639,7 +1639,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       expect(fkLinkConstraint).toBeDefined();
       expect(fkLinkConstraint?.foreignTableName).toBe(foreignTable.id().toString());
       expect(fkLinkConstraint?.foreignColumnName).toBe('__id');
-      expect(fkLinkConstraint?.deleteRule).toBe('CASCADE');
+      expect(fkLinkConstraint?.deleteRule).toBe('SET NULL');
     });
 
     /**
@@ -1857,7 +1857,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
      * This test directly operates on the database to verify FK CASCADE behavior
      * for ManyOne relationship where FK column is in the host table.
      */
-    it('FK constraint CASCADE sets NULL when foreign record is deleted (manyOne)', async () => {
+    it('FK constraint SET NULL clears FK when foreign record is deleted (manyOne)', async () => {
       const c = testContainer.container;
       const db = testContainer.db;
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
@@ -2022,20 +2022,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       `.execute(db);
       expect(beforeDelete.rows[0].fkValue).toBe(foreignRecordId);
 
-      // Step 4: Delete foreign record - CASCADE should delete host record
-      // (Since we use ON DELETE CASCADE, the entire host row is deleted)
+      // Step 4: Delete foreign record - ON DELETE SET NULL should clear the FK
       await sql`
         DELETE FROM ${sql.ref(foreignSchema)}.${sql.ref(foreignDbTableName)}
         WHERE "__id" = ${foreignRecordId}
       `.execute(db);
 
-      // Step 5: Verify host record was CASCADE deleted
-      const afterDelete = await sql<{ count: string }>`
-        SELECT COUNT(*) as count FROM ${sql.ref(hostSchema)}.${sql.ref(hostDbTableName)}
+      // Step 5: Verify host record is preserved and FK was cleared
+      const afterDelete = await sql<{ fkValue: string | null }>`
+        SELECT ${sql.ref(fkColumnName)} as "fkValue"
+        FROM ${sql.ref(hostSchema)}.${sql.ref(hostDbTableName)}
         WHERE "__id" = ${hostRecordId}
       `.execute(db);
-      // With ON DELETE CASCADE on the FK column, the entire host record is deleted
-      expect(parseInt(afterDelete.rows[0].count, 10)).toBe(0);
+      expect(afterDelete.rows[0].fkValue).toBeNull();
     });
   });
 });

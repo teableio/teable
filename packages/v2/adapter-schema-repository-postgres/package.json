@@ -41,6 +41,7 @@
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/v2-container-node-test": "workspace:*",
+    "@teable/v2-table-templates": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
     "@testcontainers/postgresql": "11.10.0",
     "@types/node": "22.18.0",

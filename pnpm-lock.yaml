@@ -379,7 +379,7 @@ importers:
         version: 2.2.2(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(@nestjs/swagger@7.3.0(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1))(reflect-metadata@0.2.1)
       next:
         specifier: 14.2.35
-        version: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       node-fetch:
         specifier: 2.7.0
         version: 2.7.0(encoding@0.1.13)
@@ -659,7 +659,7 @@ importers:
         version: 1.4.4(@swc/core@1.13.3(@swc/helpers@0.5.17))(rollup@4.53.5)
       vite-tsconfig-paths:
         specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(lightningcss@1.30.2)(terser@5.37.0))
       vitest:
         specifier: 2.1.5
         version: 2.1.5(@types/node@22.18.0)(happy-dom@15.11.6)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)
@@ -749,7 +749,7 @@ importers:
         version: 1.3.0(react@18.3.1)
       '@sentry/nextjs':
         specifier: 7.108.0
-        version: 7.108.0(encoding@0.1.13)(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17)))
+        version: 7.108.0(encoding@0.1.13)(next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17)))
       '@sentry/react':
         specifier: 7.108.0
         version: 7.108.0(react@18.3.1)
@@ -854,16 +854,16 @@ importers:
         version: 0.363.0(react@18.3.1)
       next:
         specifier: 14.2.35
-        version: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-i18next:
         specifier: 15.2.0
-        version: 15.2.0(i18next@23.10.1)(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-i18next@14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        version: 15.2.0(i18next@23.10.1)(next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-i18next@14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       next-secure-headers:
         specifier: 2.2.0
         version: 2.2.0
       next-seo:
         specifier: 6.5.0
-        version: 6.5.0(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 6.5.0(next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-transpile-modules:
         specifier: 10.0.1
         version: 10.0.1
@@ -1757,7 +1757,7 @@ importers:
         version: 5.4.3
       vite-tsconfig-paths:
         specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(lightningcss@1.30.2)(terser@5.37.0))
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
       vitest:
         specifier: 2.1.5
         version: 2.1.5(@types/node@22.18.0)(happy-dom@15.11.6)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)
@@ -2183,7 +2183,7 @@ importers:
         version: 5.4.3
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
       vite-tsconfig-paths:
         specifier: 4.3.2
         version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
@@ -3138,6 +3138,9 @@ importers:
       '@teable/v2-container-node-test':
         specifier: workspace:*
         version: link:../container-node-test
+      '@teable/v2-table-templates':
+        specifier: workspace:*
+        version: link:../table-templates
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
@@ -4509,7 +4512,7 @@ importers:
         version: 0.363.0(react@18.3.1)
       next:
         specifier: 14.2.35
-        version: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-secure-headers:
         specifier: 2.2.0
         version: 2.2.0
@@ -30097,6 +30100,14 @@ snapshots:
     optionalDependencies:
       rollup: 2.78.0
 
+  '@rollup/pluginutils@5.1.4(rollup@2.79.2)':
+    dependencies:
+      '@types/estree': 1.0.8
+      estree-walker: 2.0.2
+      picomatch: 4.0.3
+    optionalDependencies:
+      rollup: 2.79.2
+
   '@rollup/pluginutils@5.1.4(rollup@4.53.5)':
     dependencies:
       '@types/estree': 1.0.8
@@ -30252,7 +30263,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@sentry/nextjs@7.108.0(encoding@0.1.13)(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17)))':
+  '@sentry/nextjs@7.108.0(encoding@0.1.13)(next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17)))':
     dependencies:
       '@rollup/plugin-commonjs': 24.0.0(rollup@2.78.0)
       '@sentry/core': 7.108.0
@@ -30264,7 +30275,7 @@ snapshots:
       '@sentry/vercel-edge': 7.108.0
       '@sentry/webpack-plugin': 1.21.0(encoding@0.1.13)
       chalk: 3.0.0
-      next: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       resolve: 1.22.8
       rollup: 2.78.0
@@ -41315,7 +41326,7 @@ snapshots:
     optionalDependencies:
       '@rollup/rollup-linux-x64-gnu': 4.53.5
 
-  next-i18next@15.2.0(i18next@23.10.1)(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-i18next@14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
+  next-i18next@15.2.0(i18next@23.10.1)(next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-i18next@14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
     dependencies:
       '@babel/runtime': 7.27.1
       '@types/hoist-non-react-statics': 3.3.6
@@ -41323,15 +41334,15 @@ snapshots:
       hoist-non-react-statics: 3.3.2
       i18next: 23.10.1
       i18next-fs-backend: 2.6.0
-      next: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-i18next: 14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
   next-secure-headers@2.2.0: {}
 
-  next-seo@6.5.0(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  next-seo@6.5.0(next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      next: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
@@ -41339,7 +41350,7 @@ snapshots:
     dependencies:
       enhanced-resolve: 5.17.1
 
-  next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@next/env': 14.2.35
       '@swc/helpers': 0.5.5
@@ -41349,7 +41360,7 @@ snapshots:
       postcss: 8.4.31
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      styled-jsx: 5.1.1(@babel/core@7.26.0)(react@18.3.1)
+      styled-jsx: 5.1.1(@babel/core@7.28.5)(react@18.3.1)
     optionalDependencies:
       '@next/swc-darwin-arm64': 14.2.33
       '@next/swc-darwin-x64': 14.2.33
@@ -45322,12 +45333,12 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.4
 
-  styled-jsx@5.1.1(@babel/core@7.26.0)(react@18.3.1):
+  styled-jsx@5.1.1(@babel/core@7.28.5)(react@18.3.1):
     dependencies:
       client-only: 0.0.1
       react: 18.3.1
     optionalDependencies:
-      '@babel/core': 7.26.0
+      '@babel/core': 7.28.5
 
   styled-jsx@5.1.1(@babel/core@7.28.5)(react@19.2.3):
     dependencies:
@@ -46599,9 +46610,9 @@ snapshots:
       - supports-color
       - typescript
 
-  vite-plugin-svgr@4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)):
+  vite-plugin-svgr@4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)):
     dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@4.53.5)
+      '@rollup/pluginutils': 5.1.4(rollup@2.79.2)
       '@svgr/core': 8.1.0(typescript@5.4.3)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.4.3))
       vite: 7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)

@@ -20,6 +20,7 @@
     "rootDir": "../",
     "outDir": "dist",
     "paths": {
+      "@teable/v2-contract-http": ["../contract-http/src"],
       "@teable/v2-container-node-test": ["../container-node-test/src"],
       "@teable/v2-adapter-schema-repository-postgres": [
         "../adapter-schema-repository-postgres/src"
@@ -30,7 +31,9 @@
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"],
-      "@teable/v2-postgres-schema": ["../postgres-schema/src"]
+      "@teable/v2-formula-sql-pg": ["../formula-sql-pg/src"],
+      "@teable/v2-postgres-schema": ["../postgres-schema/src"],
+      "@teable/v2-table-templates": ["../table-templates/src"]
     },
     "types": ["vitest/globals"]
   },
@@ -41,9 +44,12 @@
     "../adapter-db-postgres-shared/src",
     "../adapter-logger-console/src",
     "../adapter-repository-postgres/src",
+    "../contract-http/src",
     "../container-node-test/src",
     "../core/src",
     "../di/src",
-    "../postgres-schema/src"
+    "../formula-sql-pg/src",
+    "../postgres-schema/src",
+    "../table-templates/src"
   ]
 }

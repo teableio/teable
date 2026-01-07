@@ -776,7 +776,8 @@ describe('Schema Rules Integration Tests', () => {
       const field = fieldResult._unsafeUnwrap();
 
       const linkField = createMockLinkField('fld001', 'Link');
-      const rule = new JunctionTableExistsRule(linkField, createJunctionConfig());
+      const junctionRule = new JunctionTableExistsRule(linkField, createJunctionConfig());
+      const rule = junctionRule.createUniqueConstraintRule();
       const ctx = createContext(SOURCE_TABLE, field);
 
       const result = await rule.isValid(ctx);
