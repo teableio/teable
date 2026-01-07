@@ -87,7 +87,12 @@ export class ListTableRecordsHandler
             context,
             table,
             filterSpec,
-            { pagination: query.pagination }
+            {
+              pagination: query.pagination,
+              // !!!IMPORTANT: List table records are always using stored values
+              // never change this to 'computed'
+              mode: 'stored',
+            }
           );
           queryRecordsSpan?.end();
 

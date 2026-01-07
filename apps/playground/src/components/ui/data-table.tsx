@@ -123,75 +123,111 @@ export function DataTable<TData, TValue>({
     getRowId,
   });
 
+  // Calculate cumulative offsets for pinned columns
+  const getPinnedStyle = (columnId: string, isPinned: string | false) => {
+    if (!isPinned || isPinned !== 'left' || !pinnedColumns?.left) return {};
+
+    const pinnedIndex = pinnedColumns.left.indexOf(columnId);
+    if (pinnedIndex <= 0) return { left: 0 };
+
+    // Calculate cumulative width of all previous pinned columns
+    let offset = 0;
+    for (let i = 0; i < pinnedIndex; i++) {
+      const colId = pinnedColumns.left[i];
+      const col = table.getColumn(colId);
+      // Use column size if defined, otherwise use a default
+      offset += col?.getSize() ?? (colId === 'select' ? 50 : 150);
+    }
+    return { left: offset };
+  };
+
   return (
-    <div className={cn('w-full space-y-4 min-w-0', className)}>
-      <div className="rounded-sm border overflow-x-auto max-w-full">
-        <table className="w-full min-w-max caption-bottom text-sm">
-          {caption && <caption className="text-muted-foreground mt-4 text-xs">{caption}</caption>}
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header, index) => {
-                  const isPinned = header.column.getIsPinned();
-                  const isFirstColumn = index === 0;
-                  return (
-                    <TableHead
-                      key={header.id}
-                      className={cn(
-                        isPinned && 'bg-background sticky',
-                        isPinned === 'left' && 'left-0',
-                        isPinned === 'right' && 'right-0',
-                        isFirstColumn && isPinned && 'font-semibold'
-                      )}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                  className="hover:bg-transparent"
-                >
-                  {row.getVisibleCells().map((cell, index) => {
-                    const isPinned = cell.column.getIsPinned();
-                    const isFirstColumn = index === 0;
+    <div className={cn('w-full space-y-4', className)}>
+      <div className="rounded-lg border overflow-hidden">
+        <div className="overflow-auto max-h-[calc(100vh-300px)]">
+          <table
+            className="w-full caption-bottom text-sm border-collapse"
+            style={{ minWidth: 'max-content' }}
+          >
+            {caption && <caption className="text-muted-foreground mt-4 text-xs">{caption}</caption>}
+            <TableHeader className="sticky top-0 z-20 bg-muted/95 backdrop-blur-sm">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="hover:bg-transparent border-b">
+                  {headerGroup.headers.map((header) => {
+                    const isPinned = header.column.getIsPinned();
+                    const pinnedStyle = getPinnedStyle(header.column.id, isPinned);
+                    const colSize = header.column.getSize();
                     return (
-                      <TableCell
-                        key={cell.id}
+                      <TableHead
+                        key={header.id}
                         className={cn(
-                          isPinned && 'bg-background sticky',
-                          isPinned === 'left' && 'left-0',
-                          isPinned === 'right' && 'right-0',
-                          isFirstColumn && isPinned && 'font-medium'
+                          'whitespace-nowrap',
+                          isPinned && 'sticky z-30 bg-muted/95 backdrop-blur-sm',
+                          isPinned === 'left' &&
+                            'border-r border-border/50 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.15)]',
+                          isPinned === 'right' && 'right-0'
                         )}
+                        style={{
+                          ...pinnedStyle,
+                          width: colSize,
+                          minWidth: colSize,
+                        }}
                       >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
                     );
                   })}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-sm text-muted-foreground"
-                >
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && 'selected'}
+                    className="hover:bg-muted/30"
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const isPinned = cell.column.getIsPinned();
+                      const pinnedStyle = getPinnedStyle(cell.column.id, isPinned);
+                      const colSize = cell.column.getSize();
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={cn(
+                            isPinned && 'sticky z-10 bg-background',
+                            isPinned === 'left' &&
+                              'border-r border-border/50 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.15)]',
+                            isPinned === 'right' && 'right-0'
+                          )}
+                          style={{
+                            ...pinnedStyle,
+                            width: colSize,
+                            minWidth: colSize,
+                          }}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center text-sm text-muted-foreground"
+                  >
+                    {emptyMessage}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </table>
+        </div>
       </div>
 
       {/* Pagination controls */}

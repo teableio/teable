@@ -93,6 +93,7 @@ import { cn } from '@/lib/utils';
 import type { ShareDbDocStatus } from '@/lib/shareDb';
 import { renderFieldOptions } from './fieldOptionsVisitor';
 import { SchemaCheckPanel } from './SchemaCheckPanel';
+import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 
 const formatViewLabel = (view: View): string =>
   `${view.name().toString()} (${view.type().toString()})`;
@@ -806,35 +807,39 @@ export function TableMetaPage({
               onImportCsv={onImportCsv}
             />
           ) : (
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-              <TabsList className="h-8 w-fit p-0.5 bg-transparent border-none">
+            <Tabs
+              value={activeTab}
+              onValueChange={handleTabChange}
+              className="space-y-4 animate-fade-in"
+            >
+              <TabsList className="h-9 w-fit p-1 bg-muted/50 rounded-lg border border-border/40">
                 <TabsTrigger
                   value="table"
-                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   Table
                 </TabsTrigger>
                 <TabsTrigger
                   value="records"
-                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   Records
                 </TabsTrigger>
                 <TabsTrigger
                   value="json"
-                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   JSON
                 </TabsTrigger>
                 <TabsTrigger
                   value="realtime"
-                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   Realtime
                 </TabsTrigger>
                 <TabsTrigger
                   value="schema"
-                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   Schema Check
                 </TabsTrigger>
@@ -972,13 +977,15 @@ function PlaygroundHeader({
   }, [renameOpen, table]);
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border/60 bg-gradient-to-r from-background via-muted/30 to-background px-4 glass-subtle">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1" />
-        <div className="h-4 w-px bg-border mx-1" />
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <TableIcon className="h-4 w-4 text-muted-foreground" />
-          <span>{tableName}</span>
+        <div className="h-5 w-px bg-gradient-to-b from-transparent via-border to-transparent mx-2" />
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
+            <TableIcon className="h-4 w-4 text-primary" />
+          </div>
+          <span className="text-sm font-semibold">{tableName}</span>
           {appTableUrl ? (
             <Button variant="ghost" size="icon-sm" className="h-6 w-6" asChild>
               <a href={appTableUrl} target="_blank" rel="noreferrer" title="Open in App">
@@ -991,7 +998,7 @@ function PlaygroundHeader({
           {fieldCount !== null ? (
             <Badge
               variant="secondary"
-              className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+              className="h-5 px-2 text-[10px] font-medium uppercase tracking-wider bg-gradient-to-r from-secondary to-secondary/80"
             >
               {fieldCount} fields
             </Badge>
@@ -1176,22 +1183,39 @@ function PlaygroundEmptyState({
   onImportCsv,
 }: PlaygroundEmptyStateProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Build a table in seconds</CardTitle>
+    <Card className="overflow-hidden border-2 border-dashed border-border/60 bg-gradient-to-br from-background via-muted/20 to-background">
+      <CardHeader className="pb-2 pt-8 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-2 ring-primary/20 animate-float">
+          <TableIcon className="h-8 w-8 text-primary" />
+        </div>
+        <CardTitle className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+          Build a table in seconds
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 text-sm text-muted-foreground">
-        <p>
+      <CardContent className="space-y-6 pb-8 text-center">
+        <p className="mx-auto max-w-md text-sm text-muted-foreground leading-relaxed">
           This playground uses Teable v2 core with a fixed actor. Pick a template to create a table,
           view its schema, or switch the base ID from the sidebar.
         </p>
-        <CreateTableDropdown
-          templates={templates}
-          isCreating={isCreating}
-          onSelect={onCreateTemplate}
-          onImportCsv={onImportCsv}
-          label="Create table"
-        />
+        <div className="flex justify-center">
+          <CreateTableDropdown
+            templates={templates}
+            isCreating={isCreating}
+            onSelect={onCreateTemplate}
+            onImportCsv={onImportCsv}
+            label="Create table"
+          />
+        </div>
+        <div className="flex items-center justify-center gap-8 pt-4 text-xs text-muted-foreground/60">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500/60" />
+            <span>Templates available</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-sky-500/60" />
+            <span>CSV import supported</span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -1345,14 +1369,16 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
   const deleteFieldLabel = deleteTarget ? deleteTarget.name().toString() : 'this field';
 
   return (
-    <section className="space-y-3 min-w-0">
+    <section className="space-y-4 min-w-0 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-          <TableIcon className="h-4 w-4 text-muted-foreground" />
-          {table.name().toString()}
+        <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-primary/20">
+            <TableIcon className="h-4 w-4 text-primary" />
+          </div>
+          <span className="font-semibold">{table.name().toString()}</span>
           <Badge
             variant="secondary"
-            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+            className="h-5 px-2 text-[10px] font-medium uppercase tracking-wider"
           >
             {fields.length} fields
           </Badge>
@@ -1360,14 +1386,14 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs font-normal"
+          className="h-7 text-xs font-normal hover:bg-primary/5 hover:border-primary/30 transition-colors"
           onClick={handleCopyTableJson}
         >
           <Copy className="h-3.5 w-3.5" />
           Copy JSON
         </Button>
       </div>
-      <div className="overflow-auto rounded-md border border-border/60">
+      <div className="overflow-auto rounded-xl border border-border/50 bg-gradient-to-b from-muted/20 to-transparent shadow-sm">
         <UITable>
           <TableHeader>
             <TableRow>
@@ -1385,9 +1411,16 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
               const dbFieldName = getDbFieldName(field);
               const isPrimary = field.id().equals(primaryFieldId);
               const disableDelete = isPrimary || isDeletingField;
+              const fieldType = field.type().toString();
+              const FieldIcon = getFieldTypeIcon(fieldType);
               return (
                 <TableRow key={field.id().toString()}>
-                  <TableCell className="font-medium">{field.name().toString()}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <FieldIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {field.name().toString()}
+                    </div>
+                  </TableCell>
                   <TableCell className="break-all font-mono text-xs text-muted-foreground">
                     {field.id().toString()}
                   </TableCell>
@@ -1602,22 +1635,33 @@ function TableRecordsCard({
       size: 36,
     };
 
-    const fieldColumns: ColumnDef<ITableRecordDto>[] = sortedFields.map((field) => ({
-      id: field.id().toString(),
-      header: field.name().toString(),
-      cell: ({ row }) => {
-        const value = row.original.fields[field.id().toString()];
-        const formattedValue = formatRecordValue(field, value);
-        return (
-          <div
-            className={cn('max-w-[240px]', formattedValue.cellClassName)}
-            title={formattedValue.text}
-          >
-            {formattedValue.node}
+    const fieldColumns: ColumnDef<ITableRecordDto>[] = sortedFields.map((field) => {
+      const fieldType = field.type().toString();
+      const FieldIcon = getFieldTypeIcon(fieldType);
+      const isPrimary = field.id().toString() === primaryFieldId;
+      return {
+        id: field.id().toString(),
+        header: () => (
+          <div className="flex items-center gap-2">
+            <FieldIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {field.name().toString()}
           </div>
-        );
-      },
-    }));
+        ),
+        cell: ({ row }) => {
+          const value = row.original.fields[field.id().toString()];
+          const formattedValue = formatRecordValue(field, value);
+          return (
+            <div
+              className={cn('max-w-[240px]', formattedValue.cellClassName)}
+              title={formattedValue.text}
+            >
+              {formattedValue.node}
+            </div>
+          );
+        },
+        size: isPrimary ? 180 : 150,
+      };
+    });
 
     const actionsColumn: ColumnDef<ITableRecordDto> = {
       id: 'actions',
@@ -1686,14 +1730,16 @@ function TableRecordsCard({
   }, [recordsPagination, onPaginationChange]);
 
   return (
-    <section className="space-y-3 min-w-0 overflow-hidden">
+    <section className="space-y-4 min-w-0 overflow-hidden animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-          <TableIcon className="h-4 w-4 text-muted-foreground" />
-          Records
+        <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 ring-1 ring-emerald-500/20">
+            <TableIcon className="h-4 w-4 text-emerald-600" />
+          </div>
+          <span>Records</span>
           <Badge
             variant="secondary"
-            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+            className="h-5 px-2 text-[10px] font-medium uppercase tracking-wider"
           >
             {totalRecords} total
           </Badge>
@@ -1820,20 +1866,22 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
   };
 
   return (
-    <section className="space-y-3 min-w-0">
+    <section className="space-y-4 min-w-0 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-          <FileJson className="h-4 w-4 text-muted-foreground" />
-          Table JSON
+        <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500/15 to-amber-500/5 ring-1 ring-amber-500/20">
+            <FileJson className="h-4 w-4 text-amber-600" />
+          </div>
+          <span>Table JSON</span>
           <Badge
             variant="secondary"
-            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+            className="h-5 px-2 text-[10px] font-medium uppercase tracking-wider"
           >
             {table.getFields().length} fields
           </Badge>
           <Badge
             variant="outline"
-            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+            className="h-5 px-2 text-[10px] font-medium uppercase tracking-wider"
           >
             {table.views().length} views
           </Badge>
@@ -1841,14 +1889,14 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs font-normal"
+          className="h-7 text-xs font-normal hover:bg-primary/5 hover:border-primary/30 transition-colors"
           onClick={handleCopyTableJson}
         >
           <Copy className="h-3.5 w-3.5" />
           Copy JSON
         </Button>
       </div>
-      <div className="overflow-hidden rounded-md border border-border/60">
+      <div className="overflow-hidden rounded-xl border border-border/50 bg-gradient-to-b from-muted/20 to-transparent shadow-sm">
         {tableJsonError ? (
           <div className="px-6 py-4 text-sm text-destructive">
             Unable to render JSON: {tableJsonError}

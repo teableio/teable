@@ -13,23 +13,6 @@ import {
   Table2,
   Copy,
   ExternalLink,
-  Type,
-  Hash,
-  Calendar,
-  CheckSquare,
-  Link2,
-  User,
-  List,
-  FileText,
-  Calculator,
-  Eye,
-  Mail,
-  Phone,
-  Star,
-  Percent,
-  DollarSign,
-  Paperclip,
-  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -42,36 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-// Field type to icon mapping
-const fieldTypeIcons: Record<string, LucideIcon> = {
-  singleLineText: Type,
-  longText: FileText,
-  number: Hash,
-  date: Calendar,
-  createdTime: Calendar,
-  lastModifiedTime: Calendar,
-  checkbox: CheckSquare,
-  link: Link2,
-  user: User,
-  createdBy: User,
-  lastModifiedBy: User,
-  singleSelect: List,
-  multipleSelect: List,
-  formula: Calculator,
-  rollup: Calculator,
-  lookup: Eye,
-  email: Mail,
-  phone: Phone,
-  rating: Star,
-  percent: Percent,
-  currency: DollarSign,
-  attachment: Paperclip,
-};
-
-function getFieldTypeIcon(fieldType: string): LucideIcon {
-  return fieldTypeIcons[fieldType] || Type;
-}
+import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 
 interface ExplainResultPanelProps {
   result: IExplainResultDto;

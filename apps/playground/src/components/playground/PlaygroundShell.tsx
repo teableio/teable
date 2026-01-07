@@ -97,7 +97,7 @@ export function PlaygroundShell({
     >
       {isSandbox ? (
         <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2">
-          <div className="rounded-b-2xl border border-emerald-700/50 bg-emerald-600 px-4 py-1 text-[10px] font-semibold tracking-[0.24em] text-emerald-50 shadow-sm">
+          <div className="rounded-b-xl border border-t-0 border-emerald-500/50 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 px-5 py-1.5 text-[10px] font-bold tracking-[0.3em] text-white shadow-lg shadow-emerald-500/20">
             SANDBOX
           </div>
         </div>
@@ -227,13 +227,15 @@ function PlaygroundSidebar({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
-                <div className="flex items-center gap-2">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <GalleryVerticalEnd className="size-4" />
+                <div className="flex items-center gap-3">
+                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md glow-primary-sm">
+                    <GalleryVerticalEnd className="size-5" />
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-semibold text-sm">Teable v2</span>
-                    <span className="text-[10px] text-muted-foreground">Playground</span>
+                    <span className="font-bold text-sm bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                      Teable v2
+                    </span>
+                    <span className="text-[10px] font-medium text-primary/80">Playground</span>
                   </div>
                 </div>
               </SidebarMenuButton>
@@ -311,12 +313,20 @@ function PlaygroundSidebar({
                       <span>{errorMessage}</span>
                     </div>
                   ) : tables.length ? (
-                    <SidebarMenu>
+                    <SidebarMenu className="space-y-1">
                       {tables.map((table) => {
                         const isActive = table.id === activeTableId;
                         return (
                           <SidebarMenuItem key={table.id}>
-                            <SidebarMenuButton asChild isActive={isActive} size="sm">
+                            <SidebarMenuButton
+                              asChild
+                              isActive={isActive}
+                              size="sm"
+                              className={cn(
+                                'transition-all duration-200',
+                                isActive && 'bg-primary/10 border-l-2 border-primary shadow-sm'
+                              )}
+                            >
                               <Link
                                 to={env.routes.table}
                                 params={{ baseId, tableId: table.id }}
@@ -325,7 +335,12 @@ function PlaygroundSidebar({
                                   ...(searchValue ? { q: searchValue } : {}),
                                 })}
                               >
-                                <TableIcon className="h-4 w-4" />
+                                <TableIcon
+                                  className={cn(
+                                    'h-4 w-4 transition-colors',
+                                    isActive && 'text-primary'
+                                  )}
+                                />
                                 <span className="truncate">{table.name}</span>
                               </Link>
                             </SidebarMenuButton>
@@ -345,8 +360,14 @@ function PlaygroundSidebar({
                       })}
                     </SidebarMenu>
                   ) : (
-                    <div className="mx-2 rounded-lg border border-dashed border-sidebar-border p-4 text-sm text-muted-foreground text-center">
-                      No tables found.
+                    <div className="mx-2 rounded-xl border-2 border-dashed border-sidebar-border/60 bg-gradient-to-br from-muted/30 to-muted/10 p-6 text-center">
+                      <div className="mb-2 text-3xl opacity-40">
+                        <TableIcon className="mx-auto h-8 w-8" />
+                      </div>
+                      <p className="text-sm font-medium text-muted-foreground">No tables found</p>
+                      <p className="mt-1 text-xs text-muted-foreground/70">
+                        Create a table to get started
+                      </p>
                     </div>
                   )}
                 </div>
@@ -366,10 +387,10 @@ function PlaygroundSidebar({
                   >
                     <div
                       className={cn(
-                        'flex size-9 items-center justify-center rounded-lg border',
+                        'flex size-9 items-center justify-center rounded-xl border-2 shadow-sm transition-all duration-200',
                         isSandbox
-                          ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-600'
-                          : 'border-sky-500/50 bg-sky-500/10 text-sky-600'
+                          ? 'border-emerald-400/60 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 text-emerald-600'
+                          : 'border-sky-400/60 bg-gradient-to-br from-sky-500/20 to-sky-600/10 text-sky-600'
                       )}
                     >
                       {isSandbox ? (
