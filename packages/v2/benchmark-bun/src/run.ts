@@ -1,3 +1,4 @@
+import { runCreateRecordBench } from './create-record.bench';
 import { runCreateTableBench } from './create-table.bench';
 import { runDbAdapterBench } from './db-adapter.bench';
 import { runGetTableByIdBench } from './get-table-by-id.bench';
@@ -21,6 +22,7 @@ const runAll = async () => {
   console.log('[bun-bench] starting benchmarks');
   await runDbAdapterBench();
   await runCreateTableBench();
+  await runCreateRecordBench();
   await runGetTableByIdBench();
   console.log('[bun-bench] benchmarks finished');
 };

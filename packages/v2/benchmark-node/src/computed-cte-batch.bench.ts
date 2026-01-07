@@ -21,6 +21,8 @@ import { NoopLogger, v2CoreTokens } from '@teable/v2-core';
 import express from 'express';
 import { afterAll, beforeAll, bench, describe } from 'vitest';
 
+const CONTEXT_NOT_INITIALIZED_ERROR = 'Context not initialized';
+
 const generateFieldId = () => `fld${Math.random().toString(36).substring(2, 17).padEnd(15, '0')}`;
 
 const buildFormulaChainFields = (
@@ -149,7 +151,7 @@ describe('Formula chain (5 levels) - single record', async () => {
   let counter = 0;
 
   beforeAll(async () => {
-    if (!ctx) throw new Error('Context not initialized');
+    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
 
     const table = await createFormulaChainTable(ctx, 5);
     tableId = table.tableId;
@@ -160,7 +162,7 @@ describe('Formula chain (5 levels) - single record', async () => {
   });
 
   bench('update triggers 5-level formula chain', async () => {
-    if (!ctx) throw new Error('Context not initialized');
+    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
     counter++;
     await ctx.client.tables.updateRecord({
       tableId,
@@ -181,7 +183,7 @@ describe('Formula chain (10 levels) - single record', async () => {
   let counter = 0;
 
   beforeAll(async () => {
-    if (!ctx) throw new Error('Context not initialized');
+    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
 
     const table = await createFormulaChainTable(ctx, 10);
     tableId = table.tableId;
@@ -192,7 +194,7 @@ describe('Formula chain (10 levels) - single record', async () => {
   });
 
   bench('update triggers 10-level formula chain', async () => {
-    if (!ctx) throw new Error('Context not initialized');
+    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
     counter++;
     await ctx.client.tables.updateRecord({
       tableId,
@@ -213,7 +215,7 @@ describe('Formula chain (5 levels) - 100 records', async () => {
   let counter = 0;
 
   beforeAll(async () => {
-    if (!ctx) throw new Error('Context not initialized');
+    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
 
     const table = await createFormulaChainTable(ctx, 5);
     tableId = table.tableId;
@@ -223,7 +225,7 @@ describe('Formula chain (5 levels) - 100 records', async () => {
   });
 
   bench('update single record triggers 5-level formula chain (100 records in table)', async () => {
-    if (!ctx) throw new Error('Context not initialized');
+    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
     counter++;
     const recordId = recordIds[counter % recordIds.length];
     await ctx.client.tables.updateRecord({
@@ -245,7 +247,7 @@ describe('Formula chain (10 levels) - 100 records', async () => {
   let counter = 0;
 
   beforeAll(async () => {
-    if (!ctx) throw new Error('Context not initialized');
+    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
 
     const table = await createFormulaChainTable(ctx, 10);
     tableId = table.tableId;
@@ -255,7 +257,7 @@ describe('Formula chain (10 levels) - 100 records', async () => {
   });
 
   bench('update single record triggers 10-level formula chain (100 records in table)', async () => {
-    if (!ctx) throw new Error('Context not initialized');
+    if (!ctx) throw new Error(CONTEXT_NOT_INITIALIZED_ERROR);
     counter++;
     const recordId = recordIds[counter % recordIds.length];
     await ctx.client.tables.updateRecord({
