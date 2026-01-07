@@ -1,5 +1,5 @@
 {
-  "name": "@teable/v2-contract-http-implementation",
+  "name": "@teable/v2-command-explain",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -7,44 +7,39 @@
   "sideEffects": false,
   "main": "dist/index.cjs",
   "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "module": "./dist/index.js",
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
       "require": "./dist/index.cjs"
-    },
-    "./handlers": {
-      "types": "./dist/handlers/index.d.ts",
-      "import": "./dist/handlers/index.js",
-      "module": "./dist/handlers/index.js",
-      "require": "./dist/handlers/index.cjs"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-contract-http-implementation.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-command-explain.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test-unit": "vitest run --silent",
     "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@orpc/server": "1.13.0",
-    "@teable/v2-command-explain": "workspace:*",
-    "@teable/v2-container-node": "workspace:*",
     "@teable/v2-core": "workspace:*",
-    "@teable/v2-contract-http": "workspace:*"
+    "@teable/v2-di": "workspace:*",
+    "@teable/v2-adapter-record-repository-postgres": "workspace:*",
+    "@teable/v2-postgres-schema": "workspace:*",
+    "kysely": "0.28.9",
+    "neverthrow": "8.2.0"
   },
   "devDependencies": {
-    "@teable/eslint-config-bases": "workspace:^",
     "@teable/v2-tsdown-config": "workspace:*",
+    "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "22.18.0",
     "@vitest/coverage-v8": "4.0.16",
     "eslint": "8.57.0",

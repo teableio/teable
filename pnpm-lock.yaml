@@ -1336,6 +1336,9 @@ importers:
       sonner:
         specifier: 1.7.3
         version: 1.7.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      sql-formatter:
+        specifier: ^15.4.10
+        version: 15.6.7
       tailwind-merge:
         specifier: ^3.0.2
         version: 3.4.0
@@ -3354,6 +3357,61 @@ importers:
         specifier: 4.0.16
         version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/v2/command-explain:
+    dependencies:
+      '@teable/v2-adapter-record-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-record-repository-postgres
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      '@teable/v2-postgres-schema':
+        specifier: workspace:*
+        version: link:../postgres-schema
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      '@vitest/coverage-v8':
+        specifier: 4.0.16
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.16
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
+
   packages/v2/container-browser:
     dependencies:
       '@teable/v2-adapter-csv-parser-papaparse':
@@ -3554,6 +3612,9 @@ importers:
       '@teable/v2-adapter-schema-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-schema-repository-postgres
+      '@teable/v2-command-explain':
+        specifier: workspace:*
+        version: link:../command-explain
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
@@ -3918,6 +3979,9 @@ importers:
       '@orpc/server':
         specifier: 1.13.0
         version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)
+      '@teable/v2-command-explain':
+        specifier: workspace:*
+        version: link:../command-explain
       '@teable/v2-container-node':
         specifier: workspace:*
         version: link:../container-node
@@ -33095,7 +33159,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/typescript-estree': 7.3.1(typescript@5.4.3)
       '@typescript-eslint/utils': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
-      debug: 4.4.0
+      debug: 4.4.3
       eslint: 8.57.0
       ts-api-utils: 1.4.3(typescript@5.4.3)
     optionalDependencies:
@@ -33125,7 +33189,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 7.3.1
       '@typescript-eslint/visitor-keys': 7.3.1
-      debug: 4.4.0
+      debug: 4.4.3
       globby: 11.1.0
       is-glob: 4.0.3
       minimatch: 9.0.3

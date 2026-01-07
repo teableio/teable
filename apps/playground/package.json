@@ -86,6 +86,7 @@
     "react-json-view-lite": "^2.5.0",
     "sharedb": "4.1.2",
     "sonner": "1.7.3",
+    "sql-formatter": "^15.4.10",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.0.6",
     "ts-pattern": "5.1.1",

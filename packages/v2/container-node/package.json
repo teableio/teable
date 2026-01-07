@@ -35,6 +35,7 @@
     "@teable/v2-adapter-record-repository-postgres": "workspace:*",
     "@teable/v2-adapter-repository-postgres": "workspace:*",
     "@teable/v2-adapter-schema-repository-postgres": "workspace:*",
+    "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*"
   },

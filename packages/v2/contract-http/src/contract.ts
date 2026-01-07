@@ -26,6 +26,12 @@ import { createTablesOkResponseSchema } from './table/createTables';
 import { deleteFieldOkResponseSchema } from './table/deleteField';
 import { deleteRecordsOkResponseSchema } from './table/deleteRecords';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
+import {
+  explainCreateRecordInputSchema,
+  explainDeleteRecordsInputSchema,
+  explainOkResponseSchema,
+  explainUpdateRecordInputSchema,
+} from './table/explainCommand';
 import { getRecordByIdOkResponseSchema } from './table/getRecordById';
 import { getTableByIdOkResponseSchema } from './table/getTableById';
 import { importCsvOkResponseSchema } from './table/importCsv';
@@ -42,6 +48,9 @@ const TABLES_CREATE_RECORDS_PATH = '/tables/createRecords';
 const TABLES_DELETE_RECORDS_PATH = '/tables/deleteRecords';
 const TABLES_DELETE_FIELD_PATH = '/tables/deleteField';
 const TABLES_DELETE_PATH = '/tables/delete';
+const TABLES_EXPLAIN_CREATE_RECORD_PATH = '/tables/explainCreateRecord';
+const TABLES_EXPLAIN_UPDATE_RECORD_PATH = '/tables/explainUpdateRecord';
+const TABLES_EXPLAIN_DELETE_RECORDS_PATH = '/tables/explainDeleteRecords';
 const TABLES_GET_PATH = '/tables/get';
 const TABLES_GET_RECORD_PATH = '/tables/getRecord';
 const TABLES_IMPORT_CSV_PATH = '/tables/importCsv';
@@ -202,6 +211,36 @@ export const v2Contract = {
       })
       .input(updateRecordInputSchema)
       .output(updateRecordOkResponseSchema),
+    explainCreateRecord: oc
+      .route({
+        method: 'POST',
+        path: TABLES_EXPLAIN_CREATE_RECORD_PATH,
+        successStatus: 200,
+        summary: 'Explain create record command',
+        tags: ['tables', 'explain'],
+      })
+      .input(explainCreateRecordInputSchema)
+      .output(explainOkResponseSchema),
+    explainUpdateRecord: oc
+      .route({
+        method: 'POST',
+        path: TABLES_EXPLAIN_UPDATE_RECORD_PATH,
+        successStatus: 200,
+        summary: 'Explain update record command',
+        tags: ['tables', 'explain'],
+      })
+      .input(explainUpdateRecordInputSchema)
+      .output(explainOkResponseSchema),
+    explainDeleteRecords: oc
+      .route({
+        method: 'POST',
+        path: TABLES_EXPLAIN_DELETE_RECORDS_PATH,
+        successStatus: 200,
+        summary: 'Explain delete records command',
+        tags: ['tables', 'explain'],
+      })
+      .input(explainDeleteRecordsInputSchema)
+      .output(explainOkResponseSchema),
   },
 } as const satisfies AnyContractRouter;
 

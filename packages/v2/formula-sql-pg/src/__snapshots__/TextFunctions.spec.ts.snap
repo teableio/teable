@@ -79,6 +79,59 @@ exports[`text functions > 'Concatenate' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'Concatenate' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "CONCATENATE({ConditionalLookupType}, "-x")",
+  "funcId": "Concatenate",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "-x",
+  "sql": "CONCAT((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ), '-x')",
+}
+`;
+
+exports[`text functions > 'Concatenate' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "CONCATENATE({ConditionalRollupType}, "-x")",
+  "funcId": "Concatenate",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "-x",
+  "sql": "CONCAT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '-x')",
+}
+`;
+
 exports[`text functions > 'Concatenate' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -492,6 +545,59 @@ exports[`text functions > 'EncodeUrlComponent' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'EncodeUrlComponent' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ENCODE_URL_COMPONENT({ConditionalLookupType})",
+  "funcId": "EncodeUrlComponent",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "encode((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  )::bytea, 'escape')",
+}
+`;
+
+exports[`text functions > 'EncodeUrlComponent' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ENCODE_URL_COMPONENT({ConditionalRollupType})",
+  "funcId": "EncodeUrlComponent",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "encode(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::bytea, 'escape')",
+}
+`;
+
 exports[`text functions > 'EncodeUrlComponent' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -902,6 +1008,59 @@ exports[`text functions > 'Find' with 'checkbox' 1`] = `
   },
   "result": "0",
   "sql": "POSITION('1' IN SUBSTRING(("t"."Checkbox")::text FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+}
+`;
+
+exports[`text functions > 'Find' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "FIND("1", {ConditionalLookupType}, 1)",
+  "funcId": "Find",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "POSITION('1' IN SUBSTRING((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+}
+`;
+
+exports[`text functions > 'Find' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "FIND("1", {ConditionalRollupType}, 1)",
+  "funcId": "Find",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "POSITION('1' IN SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1336,6 +1495,59 @@ exports[`text functions > 'Left' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'Left' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "LEFT({ConditionalLookupType}, 1)",
+  "funcId": "Left",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "LEFT((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ), (1)::double precision::integer)",
+}
+`;
+
+exports[`text functions > 'Left' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "LEFT({ConditionalRollupType}, 1)",
+  "funcId": "Left",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "LEFT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (1)::double precision::integer)",
+}
+`;
+
 exports[`text functions > 'Left' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -1746,6 +1958,59 @@ exports[`text functions > 'Len' with 'checkbox' 1`] = `
   },
   "result": "4",
   "sql": "LENGTH(("t"."Checkbox")::text)",
+}
+`;
+
+exports[`text functions > 'Len' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "LEN({ConditionalLookupType})",
+  "funcId": "Len",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "LENGTH((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ))",
+}
+`;
+
+exports[`text functions > 'Len' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "LEN({ConditionalRollupType})",
+  "funcId": "Len",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "LENGTH(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
 
@@ -2162,6 +2427,59 @@ exports[`text functions > 'Lower' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'Lower' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "LOWER({ConditionalLookupType})",
+  "funcId": "Lower",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "LOWER((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ))",
+}
+`;
+
+exports[`text functions > 'Lower' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "LOWER({ConditionalRollupType})",
+  "funcId": "Lower",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "LOWER(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
+}
+`;
+
 exports[`text functions > 'Lower' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -2572,6 +2890,59 @@ exports[`text functions > 'Mid' with 'checkbox' 1`] = `
   },
   "result": "tr",
   "sql": "SUBSTRING(("t"."Checkbox")::text FROM (1)::double precision::integer FOR (2)::double precision::integer)",
+}
+`;
+
+exports[`text functions > 'Mid' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "MID({ConditionalLookupType}, 1, 2)",
+  "funcId": "Mid",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "SUBSTRING((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ) FROM (1)::double precision::integer FOR (2)::double precision::integer)",
+}
+`;
+
+exports[`text functions > 'Mid' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "MID({ConditionalRollupType}, 1, 2)",
+  "funcId": "Mid",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
 
@@ -2988,6 +3359,59 @@ exports[`text functions > 'RegExpReplace' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'RegExpReplace' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "REGEXP_REPLACE({ConditionalLookupType}, "1", "x")",
+  "funcId": "RegExpReplace",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "REGEXP_REPLACE((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ), '1', 'x', 'g')",
+}
+`;
+
+exports[`text functions > 'RegExpReplace' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "REGEXP_REPLACE({ConditionalRollupType}, "1", "x")",
+  "funcId": "RegExpReplace",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "REGEXP_REPLACE(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '1', 'x', 'g')",
+}
+`;
+
 exports[`text functions > 'RegExpReplace' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -3398,6 +3822,59 @@ exports[`text functions > 'Replace' with 'checkbox' 1`] = `
   },
   "result": "xrue",
   "sql": "OVERLAY(("t"."Checkbox")::text PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
+}
+`;
+
+exports[`text functions > 'Replace' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "REPLACE({ConditionalLookupType}, 1, 1, "x")",
+  "funcId": "Replace",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "OVERLAY((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ) PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
+}
+`;
+
+exports[`text functions > 'Replace' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "REPLACE({ConditionalRollupType}, 1, 1, "x")",
+  "funcId": "Replace",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "OVERLAY(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
 
@@ -3814,6 +4291,59 @@ exports[`text functions > 'Rept' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'Rept' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "REPT({ConditionalLookupType}, 2)",
+  "funcId": "Rept",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "REPEAT((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ), (2)::double precision::integer)",
+}
+`;
+
+exports[`text functions > 'Rept' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "REPT({ConditionalRollupType}, 2)",
+  "funcId": "Rept",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "REPEAT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (2)::double precision::integer)",
+}
+`;
+
 exports[`text functions > 'Rept' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -4227,6 +4757,59 @@ exports[`text functions > 'Right' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'Right' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "RIGHT({ConditionalLookupType}, 1)",
+  "funcId": "Right",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "RIGHT((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ), (1)::double precision::integer)",
+}
+`;
+
+exports[`text functions > 'Right' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "RIGHT({ConditionalRollupType}, 1)",
+  "funcId": "Right",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "RIGHT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (1)::double precision::integer)",
+}
+`;
+
 exports[`text functions > 'Right' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -4637,6 +5220,59 @@ exports[`text functions > 'Search' with 'checkbox' 1`] = `
   },
   "result": "0",
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(("t"."Checkbox")::text FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+}
+`;
+
+exports[`text functions > 'Search' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "SEARCH("1", {ConditionalLookupType}, 1)",
+  "funcId": "Search",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+}
+`;
+
+exports[`text functions > 'Search' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "SEARCH("1", {ConditionalRollupType}, 1)",
+  "funcId": "Search",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -5071,6 +5707,59 @@ exports[`text functions > 'Substitute' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'Substitute' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "SUBSTITUTE({ConditionalLookupType}, "1", "x")",
+  "funcId": "Substitute",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "REPLACE((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ), '1', 'x')",
+}
+`;
+
+exports[`text functions > 'Substitute' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "SUBSTITUTE({ConditionalRollupType}, "1", "x")",
+  "funcId": "Substitute",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "REPLACE(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '1', 'x')",
+}
+`;
+
 exports[`text functions > 'Substitute' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -5477,6 +6166,59 @@ exports[`text functions > 'T' with 'checkbox' 1`] = `
       "formattedValue": "true",
       "formatting": undefined,
       "rawValue": "true",
+    },
+  },
+  "result": null,
+  "sql": "NULL",
+}
+`;
+
+exports[`text functions > 'T' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "T({ConditionalLookupType})",
+  "funcId": "T",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  )",
+}
+`;
+
+exports[`text functions > 'T' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "T({ConditionalRollupType})",
+  "funcId": "T",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
     },
   },
   "result": null,
@@ -5897,6 +6639,59 @@ exports[`text functions > 'Trim' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`text functions > 'Trim' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "TRIM({ConditionalLookupType})",
+  "funcId": "Trim",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "TRIM((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ))",
+}
+`;
+
+exports[`text functions > 'Trim' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "TRIM({ConditionalRollupType})",
+  "funcId": "Trim",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "TRIM(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
+}
+`;
+
 exports[`text functions > 'Trim' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -6307,6 +7102,59 @@ exports[`text functions > 'Upper' with 'checkbox' 1`] = `
   },
   "result": "TRUE",
   "sql": "UPPER(("t"."Checkbox")::text)",
+}
+`;
+
+exports[`text functions > 'Upper' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "UPPER({ConditionalLookupType})",
+  "funcId": "Upper",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "UPPER((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ))",
+}
+`;
+
+exports[`text functions > 'Upper' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "UPPER({ConditionalRollupType})",
+  "funcId": "Upper",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "UPPER(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
 

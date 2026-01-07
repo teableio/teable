@@ -10,6 +10,7 @@ export * from './table/createTables';
 export * from './table/deleteField';
 export * from './table/deleteTable';
 export * from './table/deleteRecords';
+export * from './table/explainCommand';
 export * from './table/getRecordById';
 export * from './table/getTableById';
 export * from './table/importCsv';

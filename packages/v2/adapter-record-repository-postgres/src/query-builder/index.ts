@@ -12,3 +12,9 @@ export * from './computed';
 
 // Stored query builder (direct column reads, pre-stored values)
 export * from './stored';
+
+// Insert query builder
+export * from './insert';
+
+// Update query builder
+export * from './update';

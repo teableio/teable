@@ -98,6 +98,69 @@ exports[`logical functions > 'And' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "AND({ConditionalLookupType}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "((CASE
+      WHEN (SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v) IS NULL THEN NULL
+      WHEN BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND TRUE)",
+}
+`;
+
 exports[`logical functions > 'And' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -676,6 +739,69 @@ exports[`logical functions > 'If' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "IF({ConditionalLookupType}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE
+      WHEN (SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v) IS NULL THEN NULL
+      WHEN BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
 exports[`logical functions > 'If' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -1176,6 +1302,59 @@ exports[`logical functions > 'IsError' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "IS_ERROR({ConditionalLookupType})",
+  "funcId": "IsError",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "IS_ERROR({ConditionalRollupType})",
+  "funcId": "IsError",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') LIKE '#ERROR:%')",
+}
+`;
+
 exports[`logical functions > 'IsError' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -1605,6 +1784,69 @@ exports[`logical functions > 'Not' with 'checkbox' 1`] = `
   },
   "result": "false",
   "sql": "(NOT "t"."Checkbox")",
+}
+`;
+
+exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "NOT({ConditionalLookupType})",
+  "funcId": "Not",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(NOT (CASE
+      WHEN (SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v) IS NULL THEN NULL
+      WHEN BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
 }
 `;
 
@@ -2127,6 +2369,69 @@ exports[`logical functions > 'Or' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "OR({ConditionalLookupType}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "((CASE
+      WHEN (SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v) IS NULL THEN NULL
+      WHEN BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR FALSE)",
+}
+`;
+
 exports[`logical functions > 'Or' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -2627,6 +2932,59 @@ exports[`logical functions > 'Switch' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "SWITCH({ConditionalLookupType}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN (
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS t(elem, ord)
+  ) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "SWITCH({ConditionalRollupType}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
 exports[`logical functions > 'Switch' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -3056,6 +3414,69 @@ exports[`logical functions > 'Xor' with 'checkbox' 1`] = `
   },
   "result": "false",
   "sql": "(((CASE WHEN "t"."Checkbox" THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "XOR({ConditionalLookupType}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(((CASE WHEN (CASE
+      WHEN (SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v) IS NULL THEN NULL
+      WHEN BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((SELECT CASE
+        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+        ELSE (CASE
+    WHEN jsonb_typeof(v.elem) = 'object' THEN COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+    WHEN jsonb_typeof(v.elem) = 'array' THEN NULL
+    ELSE v.elem #>> '{}'
+  END)
+      END
+      FROM (SELECT ((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }
 `;
 

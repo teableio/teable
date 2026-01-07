@@ -9,6 +9,7 @@ import { registerV2RecordRepositoryPostgresAdapter } from '@teable/v2-adapter-re
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
+import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
   AsyncMemoryEventBus,
   MemoryCommandBus,
@@ -142,6 +143,9 @@ export const registerV2NodePgDependencies = async (
 
   // Register core services (uses defaults unless already registered)
   registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
+
+  // Register command explain module
+  registerCommandExplainModule(c);
 
   return c;
 };

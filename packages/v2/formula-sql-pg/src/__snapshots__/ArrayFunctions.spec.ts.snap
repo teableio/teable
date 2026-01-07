@@ -370,6 +370,199 @@ exports[`array functions > 'ArrayCompact' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`array functions > 'ArrayCompact' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ARRAYCOMPACT({ConditionalLookupType}, {ConditionalLookupType})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ARRAYCOMPACT({ConditionalRollupType}, {ConditionalRollupType})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+    WHEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END) IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'array' THEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)
+    ELSE jsonb_build_array((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END))
+  END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+    WHEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END) IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'array' THEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)
+    ELSE jsonb_build_array((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END))
+  END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
 exports[`array functions > 'ArrayCompact' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -2683,6 +2876,195 @@ exports[`array functions > 'ArrayFlatten' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`array functions > 'ArrayFlatten' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ARRAYFLATTEN({ConditionalLookupType}, {ConditionalLookupType})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ARRAYFLATTEN({ConditionalRollupType}, {ConditionalRollupType})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+    WHEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END) IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'array' THEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)
+    ELSE jsonb_build_array((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END))
+  END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+    WHEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END) IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'array' THEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)
+    ELSE jsonb_build_array((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END))
+  END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
 exports[`array functions > 'ArrayFlatten' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -4831,6 +5213,126 @@ exports[`array functions > 'ArrayJoin' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`array functions > 'ArrayJoin' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ARRAYJOIN({ConditionalLookupType}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ARRAYJOIN({ConditionalRollupType}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+    WHEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END) IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'array' THEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)
+    ELSE jsonb_build_array((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END))
+  END)) AS elem
+    )",
+}
+`;
+
 exports[`array functions > 'ArrayJoin' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -6347,6 +6849,195 @@ exports[`array functions > 'ArrayUnique' with 'checkbox' 1`] = `
         ELSE to_jsonb(("t"."Checkbox"))
       END
     ELSE to_jsonb(("t"."Checkbox"))
+  END))
+  END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ARRAYUNIQUE({ConditionalLookupType}, {ConditionalLookupType})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ARRAYUNIQUE({ConditionalRollupType}, {ConditionalRollupType})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+    WHEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END) IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'array' THEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)
+    ELSE jsonb_build_array((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END))
+  END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+    WHEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END) IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)) = 'array' THEN (CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
+  END)
+    ELSE jsonb_build_array((CASE
+    WHEN ("t"."ConditionalRollupType") IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'jsonb'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) = 'json'::regtype THEN to_jsonb(("t"."ConditionalRollupType"))
+    WHEN pg_typeof(("t"."ConditionalRollupType")) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM((("t"."ConditionalRollupType"))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((("t"."ConditionalRollupType"))::text), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalRollupType"))::text, 'jsonb') THEN ((("t"."ConditionalRollupType"))::text)::jsonb
+        ELSE to_jsonb(("t"."ConditionalRollupType"))
+      END
+    ELSE to_jsonb(("t"."ConditionalRollupType"))
   END))
   END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
@@ -8350,6 +9041,52 @@ exports[`array functions > 'Count' with 'checkbox' 1`] = `
 }
 `;
 
+exports[`array functions > 'Count' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "COUNT({ConditionalLookupType})",
+  "funcId": "Count",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(COALESCE(jsonb_array_length((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)), 0))",
+}
+`;
+
+exports[`array functions > 'Count' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "COUNT({ConditionalRollupType})",
+  "funcId": "Count",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."ConditionalRollupType" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
 exports[`array functions > 'Count' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -8756,6 +9493,60 @@ exports[`array functions > 'CountA' with 'checkbox' 1`] = `
   },
   "result": "1",
   "sql": "(CASE WHEN "t"."Checkbox" IS NULL OR ("t"."Checkbox")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "COUNTA({ConditionalLookupType})",
+  "funcId": "CountA",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END)) <> ''
+        ))",
+}
+`;
+
+exports[`array functions > 'CountA' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "COUNTA({ConditionalRollupType})",
+  "funcId": "CountA",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."ConditionalRollupType" IS NULL OR ("t"."ConditionalRollupType")::text = '' THEN 0 ELSE 1 END)",
 }
 `;
 
@@ -9181,6 +9972,52 @@ exports[`array functions > 'CountAll' with 'checkbox' 1`] = `
   },
   "result": "1",
   "sql": "CASE WHEN "t"."Checkbox" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "COUNTALL({ConditionalLookupType})",
+  "funcId": "CountAll",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "COALESCE(jsonb_array_length((CASE
+        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
+        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
+      END)), 0)",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "COUNTALL({ConditionalRollupType})",
+  "funcId": "CountAll",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "CASE WHEN "t"."ConditionalRollupType" IS NULL THEN 0 ELSE 1 END",
 }
 `;
 

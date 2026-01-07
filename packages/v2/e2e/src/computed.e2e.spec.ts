@@ -8666,9 +8666,174 @@ describe('v2 computed field updates (e2e)', () => {
      * When table2.Amount changes or link membership changes, it should propagate:
      *   table2.Amount → table1.rollup → table1.formulaRollup → table2.symmetricLink.title
      */
-    test.todo(
-      'Formula referencing rollup as link title: Need to verify symmetric link title updates when formula references rollup field'
-    );
+    it('updates symmetric link title when formula references rollup field', async () => {
+      const amountNameFieldId = createFieldId();
+      const amountValueFieldId = createFieldId();
+      const amountTable = await createTable({
+        baseId,
+        name: 'LinkTitleRollup_Amount',
+        fields: [
+          { type: 'singleLineText', id: amountNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: amountValueFieldId, name: 'Amount' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const amountRecord1 = await createRecord(amountTable.id, {
+        [amountNameFieldId]: 'INV-001',
+        [amountValueFieldId]: 100,
+      });
+      const amountRecord2 = await createRecord(amountTable.id, {
+        [amountNameFieldId]: 'INV-002',
+        [amountValueFieldId]: 20,
+      });
+
+      const hostLinkFieldId = createFieldId();
+      const hostRollupFieldId = createFieldId();
+      const hostPrimaryFormulaFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'LinkTitleRollup_Host',
+        fields: [
+          {
+            type: 'link',
+            id: hostLinkFieldId,
+            name: 'Invoices',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: amountTable.id,
+              lookupFieldId: amountNameFieldId,
+            },
+          },
+          {
+            type: 'rollup',
+            id: hostRollupFieldId,
+            name: 'Total',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId: hostLinkFieldId,
+              foreignTableId: amountTable.id,
+              lookupFieldId: amountValueFieldId,
+            },
+          },
+          {
+            type: 'formula',
+            id: hostPrimaryFormulaFieldId,
+            name: 'Title',
+            isPrimary: true,
+            options: { expression: `CONCATENATE("Total-", {${hostRollupFieldId}})` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostRecord = await createRecord(hostTable.id, {
+        [hostLinkFieldId]: [{ id: amountRecord1.id }],
+      });
+
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      const hostRecords = await listRecords(hostTable.id);
+      const hostRecordIndex = hostRecords.findIndex((r) => r.id === hostRecord.id);
+      expect(hostRecordIndex).toBeGreaterThanOrEqual(0);
+
+      const hostTitleBefore = hostRecords[hostRecordIndex]?.fields[hostPrimaryFormulaFieldId];
+      expect(typeof hostTitleBefore).toBe('string');
+      expectCellDisplay(hostRecords, hostRecordIndex, hostRollupFieldId, '100');
+
+      const updatedAmountTable = await getTableById(amountTable.id);
+      const symmetricLinkFieldId = updatedAmountTable.fields.find(
+        (f) => f.type === 'link' && f.options.foreignTableId === hostTable.id
+      )?.id;
+      expect(symmetricLinkFieldId).toBeDefined();
+
+      const amountRecordsBefore = await listRecords(amountTable.id);
+      const amountRecordIndex1 = amountRecordsBefore.findIndex((r) => r.id === amountRecord1.id);
+      expect(amountRecordIndex1).toBeGreaterThanOrEqual(0);
+      expectCellDisplay(
+        amountRecordsBefore,
+        amountRecordIndex1,
+        symmetricLinkFieldId!,
+        String(hostTitleBefore)
+      );
+
+      // Update Amount.Amount -> Host.rollup -> Host.Title -> Amount.symmetricLink.title
+      await updateRecord(amountTable.id, amountRecord1.id, { [amountValueFieldId]: 200 });
+
+      let hostTitleAfterValueChange: unknown = hostTitleBefore;
+      let symmetricTitleAfterValueChange = '';
+      for (let i = 0; i < 20; i += 1) {
+        await testContainer.processOutbox();
+
+        const hostRecordsAfter = await listRecords(hostTable.id);
+        const storedHostAfter = hostRecordsAfter.find((r) => r.id === hostRecord.id);
+        hostTitleAfterValueChange = storedHostAfter?.fields[hostPrimaryFormulaFieldId];
+
+        const amountRecordsAfter = await listRecords(amountTable.id);
+        const amountRecordIndexAfter = amountRecordsAfter.findIndex(
+          (r) => r.id === amountRecord1.id
+        );
+        const amountValueAfter =
+          amountRecordsAfter[amountRecordIndexAfter]?.fields[symmetricLinkFieldId!];
+        symmetricTitleAfterValueChange = formatCellValueForExpect(amountValueAfter);
+
+        if (
+          typeof hostTitleAfterValueChange === 'string' &&
+          hostTitleAfterValueChange !== hostTitleBefore &&
+          symmetricTitleAfterValueChange === String(hostTitleAfterValueChange)
+        ) {
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      expect(typeof hostTitleAfterValueChange).toBe('string');
+      expect(hostTitleAfterValueChange).not.toEqual(hostTitleBefore);
+      expect(symmetricTitleAfterValueChange).toBe(String(hostTitleAfterValueChange));
+
+      // Link membership change -> should also update rollup/formula and symmetric link title.
+      await updateRecord(hostTable.id, hostRecord.id, {
+        [hostLinkFieldId]: [{ id: amountRecord1.id }, { id: amountRecord2.id }],
+      });
+
+      let hostTitleAfterLinkChange: unknown = hostTitleAfterValueChange;
+      let symmetricTitleAfterLinkChange1 = '';
+      let symmetricTitleAfterLinkChange2 = '';
+      for (let i = 0; i < 20; i += 1) {
+        await testContainer.processOutbox();
+
+        const hostRecordsAfter = await listRecords(hostTable.id);
+        const storedHostAfter = hostRecordsAfter.find((r) => r.id === hostRecord.id);
+        hostTitleAfterLinkChange = storedHostAfter?.fields[hostPrimaryFormulaFieldId];
+
+        const amountRecordsAfter = await listRecords(amountTable.id);
+        const idx1 = amountRecordsAfter.findIndex((r) => r.id === amountRecord1.id);
+        const idx2 = amountRecordsAfter.findIndex((r) => r.id === amountRecord2.id);
+        const val1 = amountRecordsAfter[idx1]?.fields[symmetricLinkFieldId!];
+        const val2 = amountRecordsAfter[idx2]?.fields[symmetricLinkFieldId!];
+        symmetricTitleAfterLinkChange1 = formatCellValueForExpect(val1);
+        symmetricTitleAfterLinkChange2 = formatCellValueForExpect(val2);
+
+        if (
+          typeof hostTitleAfterLinkChange === 'string' &&
+          hostTitleAfterLinkChange !== hostTitleAfterValueChange &&
+          symmetricTitleAfterLinkChange1 === String(hostTitleAfterLinkChange) &&
+          symmetricTitleAfterLinkChange2 === String(hostTitleAfterLinkChange)
+        ) {
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      expect(typeof hostTitleAfterLinkChange).toBe('string');
+      expect(hostTitleAfterLinkChange).not.toEqual(hostTitleAfterValueChange);
+      expect(symmetricTitleAfterLinkChange1).toBe(String(hostTitleAfterLinkChange));
+      expect(symmetricTitleAfterLinkChange2).toBe(String(hostTitleAfterLinkChange));
+    });
 
     /**
      * Scenario: Multi-value datetime lookup used inside a formula.
@@ -8680,9 +8845,124 @@ describe('v2 computed field updates (e2e)', () => {
      *
      * Tests that datetime lookup values are properly formatted when concatenated in a formula.
      */
-    test.todo(
-      'Formula with multi-value datetime lookup: Need to verify datetime lookup formatting when used in formula concatenation'
-    );
+    it('formats multi-value datetime lookups when used in formula concatenation', async () => {
+      const contractNameFieldId = createFieldId();
+      const contractStartFieldId = createFieldId();
+      const contractTable = await createTable({
+        baseId,
+        name: 'LinkTitleDateTimeLookup_Contract',
+        fields: [
+          { type: 'singleLineText', id: contractNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'date',
+            id: contractStartFieldId,
+            name: 'ContractStart',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const start1 = new Date('2020-01-01T12:34:56.000Z');
+      const start2 = new Date('2020-02-03T01:02:03.000Z');
+      const contract1 = await createRecord(contractTable.id, {
+        [contractNameFieldId]: 'C1',
+        [contractStartFieldId]: start1.toISOString(),
+      });
+      const contract2 = await createRecord(contractTable.id, {
+        [contractNameFieldId]: 'C2',
+        [contractStartFieldId]: start2.toISOString(),
+      });
+
+      const projectNameFieldId = createFieldId();
+      const projectContractsLinkFieldId = createFieldId();
+      const projectContractStartsLookupFieldId = createFieldId();
+      const projectLookupPathFormulaFieldId = createFieldId();
+      const projectTable = await createTable({
+        baseId,
+        name: 'LinkTitleDateTimeLookup_Project',
+        fields: [
+          { type: 'singleLineText', id: projectNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: projectContractsLinkFieldId,
+            name: 'Contracts',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: contractTable.id,
+              lookupFieldId: contractNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: projectContractStartsLookupFieldId,
+            name: 'ContractStarts',
+            options: {
+              foreignTableId: contractTable.id,
+              linkFieldId: projectContractsLinkFieldId,
+              lookupFieldId: contractStartFieldId,
+            },
+          },
+          {
+            type: 'formula',
+            id: projectLookupPathFormulaFieldId,
+            name: 'LookupPath',
+            options: {
+              expression: `CONCATENATE("prefix-", {${projectContractStartsLookupFieldId}})`,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const projectRecord = await createRecord(projectTable.id, {
+        [projectNameFieldId]: 'P1',
+        [projectContractsLinkFieldId]: [{ id: contract1.id }, { id: contract2.id }],
+      });
+
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      const projectRecords = await listRecords(projectTable.id);
+      const projectRecordIndex = projectRecords.findIndex((r) => r.id === projectRecord.id);
+      expect(projectRecordIndex).toBeGreaterThanOrEqual(0);
+
+      const startsDisplay = formatCellValueForExpect(
+        projectRecords[projectRecordIndex]?.fields[projectContractStartsLookupFieldId]
+      );
+      expect(startsDisplay).toContain('2020-01-01');
+      expect(startsDisplay).toContain('2020-02-03');
+
+      const formulaBefore =
+        projectRecords[projectRecordIndex]?.fields[projectLookupPathFormulaFieldId];
+      expect(typeof formulaBefore).toBe('string');
+      expect(String(formulaBefore)).toContain('prefix-');
+      expect(String(formulaBefore)).toContain('2020-01-01');
+      expect(String(formulaBefore)).toContain('2020-02-03');
+
+      // Update ContractStart in a linked record; the lookup array and formula string should update.
+      const updatedStart1 = new Date('2021-03-04T05:06:07.000Z').toISOString();
+      await updateRecord(contractTable.id, contract1.id, { [contractStartFieldId]: updatedStart1 });
+
+      let formulaAfter: unknown = formulaBefore;
+      for (let i = 0; i < 20; i += 1) {
+        await testContainer.processOutbox();
+        const recordsAfter = await listRecords(projectTable.id);
+        const storedAfter = recordsAfter.find((r) => r.id === projectRecord.id);
+        formulaAfter = storedAfter?.fields[projectLookupPathFormulaFieldId];
+        if (typeof formulaAfter === 'string' && formulaAfter !== formulaBefore) break;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      expect(typeof formulaAfter).toBe('string');
+      expect(formulaAfter).not.toEqual(formulaBefore);
+      expect(String(formulaAfter)).toContain('prefix-');
+      expect(String(formulaAfter)).toContain('2021-03-04');
+      expect(String(formulaAfter)).toContain('2020-02-03');
+    });
 
     /**
      * Scenario: Formula string concatenation over multi-value fields (e.g., multi-select) does not hit CASE type mismatches.

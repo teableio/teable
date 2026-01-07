@@ -21,6 +21,10 @@ import type {
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 import {
+  RecordInsertBuilder,
+  type CompiledSqlStatement,
+} from '../query-builder/insert/RecordInsertBuilder';
+import {
   FieldInsertValueVisitor,
   LinkChangeCollectorVisitor,
   TableRecordConditionWhereVisitor,
@@ -31,24 +35,33 @@ import {
   type QueryExecutor,
 } from '../visitors';
 
-// System columns
+// System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';
-const CREATED_TIME_COLUMN = '__created_time';
-const CREATED_BY_COLUMN = '__created_by';
 const LAST_MODIFIED_TIME_COLUMN = '__last_modified_time';
 const LAST_MODIFIED_BY_COLUMN = '__last_modified_by';
 const VERSION_COLUMN = '__version';
 // Note: __auto_number is a serial primary key - do NOT insert it manually
 
-interface RecordInsertData {
-  values: Record<string, unknown>;
-  queryExecutors: QueryExecutor<DynamicDB>[];
-}
-
 type ExtraSeedRecordGroup = {
   tableId: core.TableId;
   recordIds: core.RecordId[];
 };
+
+/**
+ * Convert a TableRecord's fields to a Map<string, unknown> for use with RecordInsertBuilder.
+ */
+function recordFieldsToMap(table: core.Table, record: core.TableRecord): Map<string, unknown> {
+  const fieldValues = new Map<string, unknown>();
+  const recordFields = record.fields();
+
+  for (const field of table.getFields()) {
+    const cellValue = recordFields.get(field.id());
+    const rawValue = cellValue?.toValue() ?? null;
+    fieldValues.set(field.id().toString(), rawValue);
+  }
+
+  return fieldValues;
+}
 
 /**
  * PostgreSQL implementation of TableRecordRepository.
@@ -70,77 +83,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     private readonly computedUpdateStrategy: IUpdateStrategy
   ) {}
 
-  /**
-   * Build insert data for a single record.
-   * This is shared between insert and insertMany.
-   */
-  private buildRecordInsertData(
-    table: core.Table,
-    record: core.TableRecord,
-    context: core.IExecutionContext,
-    now: string
-  ): RecordInsertData {
-    const recordId = record.id().toString();
-    const actorId = context.actorId.toString();
-
-    // Build the insert values with system columns
-    const values: Record<string, unknown> = {
-      [RECORD_ID_COLUMN]: recordId,
-      [CREATED_TIME_COLUMN]: now,
-      [CREATED_BY_COLUMN]: actorId,
-      [LAST_MODIFIED_TIME_COLUMN]: now,
-      [LAST_MODIFIED_BY_COLUMN]: actorId,
-      [VERSION_COLUMN]: 1,
-    };
-
-    // Collect query executors (junction inserts, FK updates, etc.)
-    const queryExecutors: QueryExecutor<DynamicDB>[] = [];
-
-    // Map field values to database columns using FieldInsertValueVisitor
-    const fields = table.getFields();
-    const recordFields = record.fields();
-
-    for (const field of fields) {
-      // Skip computed fields
-      if (field.computed().toBoolean()) {
-        continue;
-      }
-
-      const dbFieldNameResult = field.dbFieldName();
-      if (dbFieldNameResult.isErr()) {
-        continue;
-      }
-      const dbFieldNameValueResult = dbFieldNameResult.value.value();
-      if (dbFieldNameValueResult.isErr()) {
-        continue;
-      }
-      const dbFieldName = dbFieldNameValueResult.value;
-
-      const cellValue = recordFields.get(field.id());
-      const rawValue = cellValue?.toValue() ?? null;
-
-      // Use visitor to get column values and query executors
-      const insertVisitor = FieldInsertValueVisitor.create(rawValue, {
-        recordId,
-        dbFieldName,
-      });
-      const insertResult: Result<FieldInsertResult, DomainError> = field.accept(insertVisitor);
-
-      if (insertResult.isOk()) {
-        const { columnValues, queryExecutors: executors } = insertResult.value;
-        // Merge column values into main insert
-        Object.assign(values, columnValues);
-        // Collect query executors
-        queryExecutors.push(...executors);
-      } else {
-        // Fallback: just use raw value
-        values[dbFieldName] = rawValue;
-      }
-    }
-
-    return { values, queryExecutors };
-  }
-
   async insert(
     context: core.IExecutionContext,
     table: core.Table,
@@ -152,21 +94,34 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const tableName = yield* dbTableName.value();
 
         const now = new Date().toISOString();
-        const { values, queryExecutors } = this.buildRecordInsertData(table, record, context, now);
-
-        this.logger.debug(`insert:table=${tableName}`, { values });
-
-        // Use transaction-aware database connection
         const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+
+        // Use RecordInsertBuilder to build insert data
+        const insertBuilder = new RecordInsertBuilder(db);
+        const fieldValues = recordFieldsToMap(table, record);
+        const insertDataResult = insertBuilder.buildInsertData({
+          table,
+          fieldValues,
+          context: {
+            recordId: record.id().toString(),
+            actorId: context.actorId.toString(),
+            now,
+          },
+        });
+
+        if (insertDataResult.isErr()) {
+          return err(insertDataResult.error);
+        }
+
+        const { values, additionalStatements } = insertDataResult.value;
+        this.logger.debug(`insert:table=${tableName}`, { values });
 
         try {
           // Execute the main insert
           await db.insertInto(tableName).values(values).execute();
 
-          // Execute additional queries from visitors (junction inserts, FK updates, etc.)
-          for (const executor of queryExecutors) {
-            await executor(db);
-          }
+          // Execute additional statements (junction inserts, FK updates, etc.)
+          await RecordInsertBuilder.executeStatements(db, additionalStatements);
 
           const computedResult = await this.runComputedUpdate(context, table, record, 'insert');
           if (computedResult.isErr()) {
@@ -208,26 +163,34 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const tableName = yield* dbTableName.value();
 
         const now = new Date().toISOString();
+        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
 
-        // Build insert data for all records
+        // Use RecordInsertBuilder to build insert data for all records
+        const insertBuilder = new RecordInsertBuilder(db);
         const allValues: Record<string, unknown>[] = [];
-        const allQueryExecutors: QueryExecutor<DynamicDB>[] = [];
+        const allAdditionalStatements: CompiledSqlStatement[] = [];
 
         for (const record of records) {
-          const { values, queryExecutors } = this.buildRecordInsertData(
+          const fieldValues = recordFieldsToMap(table, record);
+          const insertDataResult = insertBuilder.buildInsertData({
             table,
-            record,
-            context,
-            now
-          );
-          allValues.push(values);
-          allQueryExecutors.push(...queryExecutors);
+            fieldValues,
+            context: {
+              recordId: record.id().toString(),
+              actorId: context.actorId.toString(),
+              now,
+            },
+          });
+
+          if (insertDataResult.isErr()) {
+            return err(insertDataResult.error);
+          }
+
+          allValues.push(insertDataResult.value.values);
+          allAdditionalStatements.push(...insertDataResult.value.additionalStatements);
         }
 
         this.logger.debug(`insertMany:table=${tableName}`, { count: records.length });
-
-        // Use transaction-aware database connection
-        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
 
         try {
           // Execute batch inserts to stay under PG parameter limit
@@ -237,10 +200,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             await db.insertInto(tableName).values(batch).execute();
           }
 
-          // Execute additional queries from visitors (junction inserts, FK updates, etc.)
-          for (const executor of allQueryExecutors) {
-            await executor(db);
-          }
+          // Execute additional statements (junction inserts, FK updates, etc.)
+          await RecordInsertBuilder.executeStatements(db, allAdditionalStatements);
 
           const computedResult = await this.runComputedUpdateMany(
             context,

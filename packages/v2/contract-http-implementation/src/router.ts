@@ -8,6 +8,8 @@ import {
   type IQueryBus,
   v2CoreTokens,
 } from '@teable/v2-core';
+import type { IExplainService } from '@teable/v2-command-explain';
+import { v2CommandExplainTokens } from '@teable/v2-command-explain';
 
 import { executeCreateFieldEndpoint } from './handlers/tables/createField';
 import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';
@@ -17,6 +19,11 @@ import { executeCreateTablesEndpoint } from './handlers/tables/createTables';
 import { executeDeleteFieldEndpoint } from './handlers/tables/deleteField';
 import { executeDeleteRecordsEndpoint } from './handlers/tables/deleteRecords';
 import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
+import {
+  executeExplainCreateRecordEndpoint,
+  executeExplainDeleteRecordsEndpoint,
+  executeExplainUpdateRecordEndpoint,
+} from './handlers/tables/explainCommand';
 import { executeGetRecordByIdEndpoint } from './handlers/tables/getRecordById';
 import { executeGetTableByIdEndpoint } from './handlers/tables/getTableById';
 import { executeImportCsvEndpoint } from './handlers/tables/importCsv';
@@ -540,6 +547,123 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
+  const tablesExplainCreateRecord = os.tables.explainCreateRecord.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const explainService = container.resolve<IExplainService>(
+      v2CommandExplainTokens.explainService
+    );
+    const result = await executeExplainCreateRecordEndpoint(
+      executionContext,
+      input,
+      explainService
+    );
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
+  });
+
+  const tablesExplainUpdateRecord = os.tables.explainUpdateRecord.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const explainService = container.resolve<IExplainService>(
+      v2CommandExplainTokens.explainService
+    );
+    const result = await executeExplainUpdateRecordEndpoint(
+      executionContext,
+      input,
+      explainService
+    );
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
+  });
+
+  const tablesExplainDeleteRecords = os.tables.explainDeleteRecords.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const explainService = container.resolve<IExplainService>(
+      v2CommandExplainTokens.explainService
+    );
+    const result = await executeExplainDeleteRecordsEndpoint(
+      executionContext,
+      input,
+      explainService
+    );
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
+  });
+
   return os.router({
     tables: {
       create: tablesCreate,
@@ -557,6 +681,9 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       list: tablesList,
       listRecords: tablesListRecords,
       rename: tablesRename,
+      explainCreateRecord: tablesExplainCreateRecord,
+      explainUpdateRecord: tablesExplainUpdateRecord,
+      explainDeleteRecords: tablesExplainDeleteRecords,
     },
   });
 };
