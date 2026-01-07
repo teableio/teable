@@ -641,7 +641,18 @@ const createHostTable = async (params: {
   );
   table = (await executeCommand<{ table: Table }>(container, rollupCommand)).table;
 
-  const emptyCondition = { filter: { conjunction: 'and' as const, filterSet: [] as const } };
+  const nonEmptyCondition = {
+    filter: {
+      conjunction: 'and' as const,
+      filterSet: [
+        {
+          fieldId: foreignNumber.id().toString(),
+          operator: 'isNotEmpty' as const,
+          value: null,
+        },
+      ] as const,
+    },
+  };
 
   const conditionalLookupCommand = unwrapOrThrow(
     CreateFieldCommand.create({
@@ -653,7 +664,7 @@ const createHostTable = async (params: {
         options: {
           foreignTableId: foreignTable.id().toString(),
           lookupFieldId: foreignNumber.id().toString(),
-          condition: emptyCondition,
+          condition: nonEmptyCondition,
         },
       },
     }),
@@ -672,7 +683,7 @@ const createHostTable = async (params: {
         config: {
           foreignTableId: foreignTable.id().toString(),
           lookupFieldId: foreignNumber.id().toString(),
-          condition: emptyCondition,
+          condition: nonEmptyCondition,
         },
       },
     }),

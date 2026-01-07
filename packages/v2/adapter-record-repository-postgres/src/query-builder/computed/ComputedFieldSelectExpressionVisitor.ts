@@ -186,6 +186,42 @@ export class ComputedFieldSelectExpressionVisitor
         return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
       }
 
+      if (field.type().equals(FieldType.conditionalLookup())) {
+        const conditionalLookupField = field as ConditionalLookupField;
+        const options = conditionalLookupField.conditionalLookupOptions();
+        const lateralAlias = this.lateral.addConditionalColumn(
+          conditionalLookupField.id(),
+          options.foreignTableId().toString(),
+          colAlias,
+          {
+            type: 'conditionalLookup',
+            foreignFieldId: options.lookupFieldId(),
+            condition: options.condition(),
+          }
+        );
+        return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
+      }
+
+      if (field.type().equals(FieldType.conditionalRollup())) {
+        const conditionalRollupField = field as ConditionalRollupField;
+        const config = conditionalRollupField.config();
+        const aggregate = rollupExpressionToSqlAggregate(
+          conditionalRollupField.expression().toString()
+        );
+        const lateralAlias = this.lateral.addConditionalColumn(
+          conditionalRollupField.id(),
+          config.foreignTableId().toString(),
+          colAlias,
+          {
+            type: 'conditionalRollup',
+            foreignFieldId: config.lookupFieldId(),
+            aggregate,
+            condition: config.condition(),
+          }
+        );
+        return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
+      }
+
       return ok(makeExpr(this.qualify(this.tableAlias, colAlias), 'unknown', false));
     });
   }

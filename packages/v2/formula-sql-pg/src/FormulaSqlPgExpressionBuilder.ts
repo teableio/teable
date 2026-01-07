@@ -1030,7 +1030,9 @@ export class FormulaSqlPgExpressionBuilder {
     invalidSql: string;
   } {
     const numericPattern = sqlStringLiteral(
-      '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))([eE][+-]?\\d+)?$'
+      // Intentionally disallow scientific notation (e.g. "3.7e+35") so that SUM/AVERAGE over
+      // multi-value lookups can safely ignore such strings instead of coercing them into malformed numerics.
+      '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$'
     );
     const valueExpr = this.withValueAlias(valueSql, (ref) => {
       const textSql = `(${ref})::text`;

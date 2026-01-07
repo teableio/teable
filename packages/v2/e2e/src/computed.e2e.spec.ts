@@ -386,7 +386,7 @@ describe('v2 computed field updates (e2e)', () => {
 
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
-  });
+  }, 120_000);
 
   afterAll(async () => {
     if (server) {
@@ -2137,6 +2137,112 @@ describe('v2 computed field updates (e2e)', () => {
         `);
       });
     });
+
+    /**
+     * Scenario: SUM over lookup values containing scientific-notation strings.
+     * v1 reference: formula-lookup-sum-regression.e2e-spec.ts
+     *
+     * Regression: SUM({lookupTextValues}) should safely coerce numeric strings and ignore invalid
+     * numeric inputs (like scientific-notation strings that used to form malformed numerics),
+     * and updates should not raise Postgres 22P02.
+     *
+     * Chain: invoiceTable.AmountText (singleLineText) -> planTable.link -> planTable.lookup -> planTable.formula (SUM)
+     *
+     * In v1, scientific-notation strings are coerced to NULL (ignored), and valid numeric strings are summed.
+     * Expected result: 5250 + 4000 = 9250 (ignoring '3.7525002300010774e+35').
+     */
+    it('safely sums lookup values containing scientific-notation strings during updates', async () => {
+      // Source table with text amounts (one contains scientific notation).
+      const invoiceNameFieldId = createFieldId();
+      const amountTextFieldId = createFieldId();
+      const invoiceTable = await createTable({
+        baseId,
+        name: 'sum_reg_invoices_v2',
+        fields: [
+          { type: 'singleLineText', id: invoiceNameFieldId, name: 'Invoice', isPrimary: true },
+          { type: 'singleLineText', id: amountTextFieldId, name: 'AmountText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const invoice1 = await createRecord(invoiceTable.id, {
+        [invoiceNameFieldId]: 'INV-001',
+        [amountTextFieldId]: '5250.00',
+      });
+      const invoice2 = await createRecord(invoiceTable.id, {
+        [invoiceNameFieldId]: 'INV-002',
+        [amountTextFieldId]: '4000.00',
+      });
+      const invoice3 = await createRecord(invoiceTable.id, {
+        [invoiceNameFieldId]: 'INV-003',
+        [amountTextFieldId]: '3.7525002300010774e+35', // should be ignored
+      });
+
+      // Target table with link -> lookup -> formula SUM.
+      const titleFieldId = createFieldId();
+      const linkFieldId = createFieldId();
+      const lookupFieldId = createFieldId();
+      const formulaFieldId = createFieldId();
+
+      const planTable = await createTable({
+        baseId,
+        name: 'sum_reg_plans_v2',
+        fields: [
+          { type: 'singleLineText', id: titleFieldId, name: 'Title', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Invoices',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: invoiceTable.id,
+              lookupFieldId: invoiceNameFieldId,
+              isOneWay: true,
+            },
+          },
+          {
+            type: 'lookup',
+            id: lookupFieldId,
+            name: 'InvoiceAmounts',
+            options: {
+              foreignTableId: invoiceTable.id,
+              linkFieldId,
+              lookupFieldId: amountTextFieldId,
+            },
+          },
+          {
+            type: 'formula',
+            id: formulaFieldId,
+            name: 'Total',
+            options: { expression: `SUM({${lookupFieldId}})` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const planRecord = await createRecord(planTable.id, { [titleFieldId]: 'Plan A' });
+
+      // Link all invoice records to the plan.
+      await updateRecord(planTable.id, planRecord.id, {
+        [linkFieldId]: [{ id: invoice1.id }, { id: invoice2.id }, { id: invoice3.id }],
+      });
+
+      // Trigger an additional update to simulate the PATCH scenario from the report.
+      await updateRecord(planTable.id, planRecord.id, { [titleFieldId]: 'Plan A updated' });
+
+      // Drain async tasks if any were enqueued by the updates.
+      for (let i = 0; i < 5; i += 1) {
+        const drained = await testContainer.processOutbox();
+        if (drained === 0) break;
+      }
+
+      const records = await listRecords(planTable.id);
+      const updated = records.find((r) => r.id === planRecord.id);
+      const total = updated?.fields[formulaFieldId];
+
+      // The scientific-notation string is ignored (coerces to NULL -> 0), valid numbers are summed.
+      expect(total).toBe(9250);
+    });
   });
 
   // ===========================================================================
@@ -3432,6 +3538,27 @@ describe('v2 computed field updates (e2e)', () => {
         });
       });
     });
+
+    /**
+     * Scenario: Link field conversion one-way -> two-way backfills symmetric values.
+     * v1 reference: computed-orchestrator.e2e-spec.ts (post-convert persists symmetric link values on foreign table)
+     *
+     * NOTE: Implement after v2 supports link conversion and "update columns" backfill for existing link rows.
+     */
+    test.todo(
+      'Link convert (one-way → two-way) backfill: Implement after v2 link conversion + update-columns backfill is supported'
+    );
+
+    /**
+     * Scenario: Link null handling does not produce [{"id": null, "title": null}] artifacts.
+     * v1 reference: link-field-null-handling.e2e-spec.ts
+     *
+     * NOTE: This may belong in a dedicated "link serialization" e2e suite; add here only if we want
+     * computed/lookup consumers to explicitly assert the absence of null-link artifacts.
+     */
+    test.todo(
+      'Link null handling artifacts: Need to verify empty links do not serialize as [{id:null,title:null}] and do not break computed consumers'
+    );
   });
 
   // ===========================================================================
@@ -4014,6 +4141,19 @@ describe('v2 computed field updates (e2e)', () => {
       const afterChild = afterRecords.find((r) => r.id === child.id);
       expect(afterChild?.fields[parentLookupFieldId]).toBe('[30]');
     });
+
+    /**
+     * Scenario: Multi-level self ancestry links + lookup chain + COUNTA formula.
+     * v1 reference: formula-counta-lookup-ancestry.e2e-spec.ts
+     *
+     * Tests deep self-referencing parent chains where:
+     *   parent (link) -> ancestor1..ancestorN (lookup of link) -> level formula (COUNTA over ancestors)
+     *
+     * Ensures computed propagation works for deep dependency chains and remains stable after duplication.
+     */
+    test.todo(
+      'Self ancestry lookup chain with COUNTA: Need to verify deep parent/ancestor lookups and COUNTA formula stability'
+    );
   });
 
   // ===========================================================================
@@ -5366,6 +5506,167 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------"
         `);
     });
+
+    /**
+     * Scenario: Circular dependency including formulas (not just link+lookup).
+     * v1 reference: link-formula-recursion.e2e-spec.ts
+     *
+     * v2 currently covers circular link/lookups; this extends coverage to include formulas in the cycle:
+     *   A.lookup -> A.formula -> B.lookup(A.formula) while B links back to A (cycle)
+     *
+     * Should not overflow the stack or deadlock, and updates should converge.
+     */
+    it('handles circular dependencies that include formula + lookup without infinite loop', async () => {
+      const aNameFieldId = createFieldId();
+      const aLinkToBFieldId = createFieldId();
+      const aLookupBNameFieldId = createFieldId();
+      const aFormulaFieldId = createFieldId();
+
+      const bNameFieldId = createFieldId();
+      const bLinkToAFieldId = createFieldId();
+      const bLookupALabelFieldId = createFieldId();
+
+      // Create tables first (minimal schema), then add fields to form:
+      // B.Name -> A.lookup(B.Name) -> A.formula -> B.lookup(A.formula), while A<->B are linked.
+      const tableA = await createTable({
+        baseId,
+        name: 'CycleA',
+        fields: [{ type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const tableB = await createTable({
+        baseId,
+        name: 'CycleB',
+        fields: [{ type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      // Table A: Link to B -> Lookup B.Name -> Formula uses lookup value.
+      await createField({
+        baseId,
+        tableId: tableA.id,
+        field: {
+          type: 'link',
+          id: aLinkToBFieldId,
+          name: 'LinkB',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: tableB.id,
+            lookupFieldId: bNameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      await createField({
+        baseId,
+        tableId: tableA.id,
+        field: {
+          type: 'lookup',
+          id: aLookupBNameFieldId,
+          name: 'BName',
+          options: {
+            linkFieldId: aLinkToBFieldId,
+            foreignTableId: tableB.id,
+            lookupFieldId: bNameFieldId,
+          },
+        },
+      });
+      await createField({
+        baseId,
+        tableId: tableA.id,
+        field: {
+          type: 'formula',
+          id: aFormulaFieldId,
+          name: 'ALabel',
+          options: { expression: `CONCATENATE("A-", {${aLookupBNameFieldId}})` },
+        },
+      });
+
+      // Table B: Link to A -> Lookup A.ALabel (depends on B.Name through A.BName).
+      await createField({
+        baseId,
+        tableId: tableB.id,
+        field: {
+          type: 'link',
+          id: bLinkToAFieldId,
+          name: 'LinkA',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: tableA.id,
+            lookupFieldId: aNameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      await createField({
+        baseId,
+        tableId: tableB.id,
+        field: {
+          type: 'lookup',
+          id: bLookupALabelFieldId,
+          name: 'ALabelFromA',
+          options: {
+            foreignTableId: tableA.id,
+            linkFieldId: bLinkToAFieldId,
+            lookupFieldId: aFormulaFieldId,
+          },
+        },
+      });
+
+      const recordA = await createRecord(tableA.id, { [aNameFieldId]: 'A1' });
+      const recordB = await createRecord(tableB.id, { [bNameFieldId]: 'B1' });
+
+      await updateRecord(tableA.id, recordA.id, { [aLinkToBFieldId]: { id: recordB.id } });
+      await updateRecord(tableB.id, recordB.id, { [bLinkToAFieldId]: { id: recordA.id } });
+
+      // Drain any async tasks; should converge and not loop infinitely.
+      let drained = -1;
+      for (let i = 0; i < 10; i += 1) {
+        drained = await testContainer.processOutbox();
+        if (drained === 0) break;
+      }
+      expect(drained).toBe(0);
+
+      let aRecords = await listRecords(tableA.id);
+      let bRecords = await listRecords(tableB.id);
+
+      expectCellDisplay(aRecords, 0, aLookupBNameFieldId, '[B1]');
+      expectCellDisplay(aRecords, 0, aFormulaFieldId, 'A-B1');
+      expectCellDisplay(bRecords, 0, bLookupALabelFieldId, '[A-B1]');
+
+      // Update B name; should propagate: B.Name -> A.BName -> A.ALabel -> B.ALabelFromA
+      await updateRecord(tableB.id, recordB.id, { [bNameFieldId]: 'B1-updated' });
+
+      drained = -1;
+      for (let i = 0; i < 10; i += 1) {
+        drained = await testContainer.processOutbox();
+        if (drained === 0) break;
+      }
+      expect(drained).toBe(0);
+
+      aRecords = await listRecords(tableA.id);
+      bRecords = await listRecords(tableB.id);
+
+      expectCellDisplay(aRecords, 0, aLookupBNameFieldId, '[B1-updated]');
+      expectCellDisplay(aRecords, 0, aFormulaFieldId, 'A-B1-updated');
+      expectCellDisplay(bRecords, 0, bLookupALabelFieldId, '[A-B1-updated]');
+    });
+
+    /**
+     * Scenario: Deleting a foreign table used in nested link/lookup chains.
+     * v1 reference: computed-orchestrator.e2e-spec.ts (skips joining missing nested link CTEs when a foreign table is deleted)
+     *
+     * Tests that after deleting the leaf table in a nested chain (T3.lookup(T2.lookup(T1.field))),
+     * further updates on remaining tables do not crash and the computed values degrade gracefully.
+     *
+     * NOTE: Not implemented yet (blocked on stable delete-table semantics):
+     * - Table deletion/cleanup impacts computed dependency graphs, CTE joins, and outbox orchestration
+     * - Add this after we have a clear policy for cascading cleanup + recompute strategy on table deletion
+     */
+    test.todo(
+      'Nested lookup chain survives foreign table deletion: Implement after delete-table semantics + computed dependency cleanup are stabilized'
+    );
   });
 
   // ===========================================================================
@@ -5478,6 +5779,104 @@ describe('v2 computed field updates (e2e)', () => {
           R0 | Host1 | 35
           -----------------------"
         `);
+    });
+
+    /**
+     * Scenario: Formula referencing conditionalRollup field.
+     *
+     * Regression: Conditional fields are computed via a conditional lateral join; formulas that reference
+     * conditionalRollup must reference the conditional lateral alias instead of the base table column alias,
+     * otherwise the formula sees NULL and breaks downstream updates.
+     */
+    it('allows formulas to reference conditionalRollup (regression)', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignAmountFieldId = createFieldId();
+
+      const foreignTable = await createTable({
+        baseId,
+        name: 'CR_FormulaRef_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+          { type: 'number', id: foreignAmountFieldId, name: 'Amount' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const active1 = await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'A1',
+        [foreignStatusFieldId]: 'active',
+        [foreignAmountFieldId]: 5,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'A2',
+        [foreignStatusFieldId]: 'active',
+        [foreignAmountFieldId]: 10,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'I1',
+        [foreignStatusFieldId]: 'inactive',
+        [foreignAmountFieldId]: 999,
+      });
+
+      const hostNameFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const formulaFieldId = createFieldId();
+
+      const hostTable = await createTable({
+        baseId,
+        name: 'CR_FormulaRef_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'ActiveSum',
+            options: { expression: 'sum({values})' },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignAmountFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [{ fieldId: foreignStatusFieldId, operator: 'is', value: 'active' }],
+                },
+              },
+            },
+          },
+          {
+            type: 'formula',
+            id: formulaFieldId,
+            name: 'ActiveSumPlus1',
+            options: { expression: `{${conditionalRollupFieldId}} + 1` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(hostTable.id, { [hostNameFieldId]: 'Host1' });
+
+      for (let i = 0; i < 5; i += 1) {
+        const drained = await testContainer.processOutbox();
+        if (drained === 0) break;
+      }
+
+      let records = await listRecords(hostTable.id);
+      expectCellDisplay(records, 0, conditionalRollupFieldId, '15');
+      expectCellDisplay(records, 0, formulaFieldId, '16');
+
+      // Update a foreign record; both conditionalRollup and the referencing formula should update.
+      await updateRecord(foreignTable.id, active1.id, { [foreignAmountFieldId]: 7 });
+
+      for (let i = 0; i < 5; i += 1) {
+        const drained = await testContainer.processOutbox();
+        if (drained === 0) break;
+      }
+
+      records = await listRecords(hostTable.id);
+      expectCellDisplay(records, 0, conditionalRollupFieldId, '17');
+      expectCellDisplay(records, 0, formulaFieldId, '18');
     });
 
     /**
@@ -6437,6 +6836,44 @@ describe('v2 computed field updates (e2e)', () => {
 
       expect(response.status).toBe(400);
     });
+
+    /**
+     * Scenario: ConditionalRollup referencing another ConditionalRollup field.
+     * v1 reference: conditional-lookup.e2e-spec.ts (lines 2412-2710)
+     *
+     * Tests that a conditionalRollup can aggregate another conditionalRollup field:
+     *   - suppliers.supplierRatingConditionalRollup (rollup of products.Rating filtered by Rating isNotEmpty)
+     *   - suppliers.conditionalRollupMirrorField (rollup of supplierRatingConditionalRollup filtered by value > 0)
+     */
+    test.todo(
+      'ConditionalRollup referencing another ConditionalRollup: Need to verify nested conditionalRollup dependencies work correctly'
+    );
+
+    /**
+     * Scenario: Multi-layer conditional rollup chain with field-reference filter.
+     * v1 reference: lookup.e2e-spec.ts (lines 1691-1939)
+     *
+     * Tests a three-table chain with conditionalRollup aggregating nested rollup values:
+     *   - Root.FilteredLeafScoreSum = conditionalRollup of Middle.LeafScoreTotal
+     *     where Middle.Category is Root.CategoryFilter
+     *   - Filter uses `value: { type: 'field', fieldId: rootCategoryFilterFieldId }`
+     */
+    test.todo(
+      'Multi-layer conditional rollup chain: Need to verify 3-table chain with field-reference filter in conditionalRollup'
+    );
+
+    /**
+     * Scenario: Select option name synchronization in conditionalRollup filters.
+     * v1 reference: conditional-rollup.e2e-spec.ts (lines 531-604)
+     *
+     * When a SingleSelect/MultiSelect field's option name changes, conditionalRollup
+     * filters that reference that option value should be automatically updated.
+     * Example: If filter has `value: 'Active'` and 'Active' is renamed to 'Active Plus',
+     * the filter should update to `value: 'Active Plus'`.
+     */
+    test.todo(
+      'Select option name synchronization in conditionalRollup: Need to verify filters update when select option names change'
+    );
   });
 
   describe('conditionalLookup field updates', () => {
@@ -7712,5 +8149,293 @@ describe('v2 computed field updates (e2e)', () => {
           --------------------------"
         `);
     });
+
+    /**
+     * Scenario: ConditionalLookup referencing another ConditionalLookup field.
+     * v1 reference: conditional-lookup.e2e-spec.ts (lines 2412-2710)
+     *
+     * Tests that a conditionalLookup can look up another conditionalLookup field,
+     * creating a nested dependency chain:
+     *   - suppliers.supplierRatingConditionalLookup (lookup of products.Rating filtered by Rating isNotEmpty)
+     *   - suppliers.conditionalLookupMirrorField (lookup of supplierRatingConditionalLookup filtered by value isNotEmpty)
+     */
+    test.todo(
+      'ConditionalLookup referencing another ConditionalLookup: Need to verify nested conditionalLookup dependencies work correctly'
+    );
+
+    /**
+     * Scenario: Multi-layer conditional lookup chain with field-reference filter.
+     * v1 reference: lookup.e2e-spec.ts (lines 1691-1939)
+     *
+     * Tests a three-table chain where the root table has a conditionalLookup
+     * that filters based on a field reference to the host table:
+     *   - Leaf table: LeafName, LeafScore
+     *   - Middle table: Category, LeafLink (→Leaf), LeafNames (lookup), LeafScores (lookup), LeafScoreTotal (rollup)
+     *   - Root table: CategoryFilter, FilteredLeafNames (conditionalLookup of LeafNames where Category is CategoryFilter)
+     *
+     * The filter uses `value: { type: 'field', fieldId: rootCategoryFilterFieldId }` to compare
+     * middle.Category against root.CategoryFilter dynamically per-record.
+     */
+    test.todo(
+      'Multi-layer conditional lookup chain: Need to verify 3-table chain with field-reference filter in conditionalLookup'
+    );
+
+    /**
+     * Scenario: Select option name synchronization in conditionalLookup filters.
+     * v1 reference: conditional-rollup.e2e-spec.ts (lines 531-604)
+     *
+     * When a SingleSelect/MultiSelect field's option name changes, conditionalLookup
+     * filters that reference that option value should be automatically updated.
+     * Example: If filter has `value: 'Active'` and 'Active' is renamed to 'Active Plus',
+     * the filter should update to `value: 'Active Plus'`.
+     */
+    test.todo(
+      'Select option name synchronization in conditionalLookup: Need to verify filters update when select option names change'
+    );
+
+    /**
+     * Scenario: Conditional fields comparing link titles to host text.
+     * v1 reference: computed-orchestrator.e2e-spec.ts (evaluates equality filter comparing link titles to host text)
+     *
+     * Tests a conditionalRollup/conditionalLookup filter where a criterion compares:
+     *   foreign.<someLink>.title (or link-derived text) against host.<textField>
+     *
+     * This is a common "join-on-title" style condition and must recompute when:
+     *   - host text changes
+     *   - foreign link target changes
+     *   - the linked record's primary/title changes
+     */
+    test.todo(
+      'Conditional fields comparing link titles to host text: Need to verify equality filters over link-derived titles recompute correctly'
+    );
+
+    /**
+     * Scenario: Conditional fields mark dependencies as errored when referenced fields are removed.
+     * v1 reference: computed-orchestrator.e2e-spec.ts (marks hasError when referenced lookup or filter fields are removed)
+     *
+     * Tests that conditionalLookup/conditionalRollup fields become hasError=true when:
+     *   - the referenced lookupFieldId is deleted/converted to incompatible type
+     *   - any filterSet fieldId is deleted/converted to incompatible type
+     *
+     * NOTE: Implement after v2 exposes/stabilizes computed field `hasError` semantics via the v2 HTTP DTOs.
+     */
+    test.todo(
+      'Conditional fields hasError on missing dependencies: Implement after v2 exposes computed field error status in HTTP DTOs'
+    );
+
+    /**
+     * Scenario: ConditionalLookup used inside a formula IF branch (type coercion).
+     * v1 reference: formula-conditional-lookup-numeric-if.e2e-spec.ts
+     *
+     * Regression: IF/CASE branches returning conditionalLookup (json/jsonb array) values must be
+     * coerced correctly when the overall formula is numeric; otherwise Postgres may error with
+     * "CASE types <numeric> and jsonb cannot be matched" during computed updates.
+     */
+    it('coerces conditionalLookup arrays in numeric IF/CASE branches (regression)', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignAmountFieldId = createFieldId();
+
+      const foreignTable = await createTable({
+        baseId,
+        name: 'CL_IF_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+          { type: 'number', id: foreignAmountFieldId, name: 'Amount' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'A',
+        [foreignStatusFieldId]: 'active',
+        [foreignAmountFieldId]: 5,
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'B',
+        [foreignStatusFieldId]: 'inactive',
+        [foreignAmountFieldId]: 999,
+      });
+
+      const hostNameFieldId = createFieldId();
+      const hostFlagFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const formulaFieldId = createFieldId();
+
+      const hostTable = await createTable({
+        baseId,
+        name: 'CL_IF_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'checkbox', id: hostFlagFieldId, name: 'Flag' },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'ActiveAmounts',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignAmountFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      value: 'active',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostRecord = await createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Host1',
+        [hostFlagFieldId]: true,
+      });
+
+      for (let i = 0; i < 5; i += 1) {
+        const drained = await testContainer.processOutbox();
+        if (drained === 0) break;
+      }
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expectCellDisplay(beforeRecords, 0, conditionalLookupFieldId, '[5]');
+
+      // Create formula field after conditionalLookup is populated to ensure evaluation reads the computed column.
+      await createField({
+        baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'Delta',
+          options: {
+            expression: `1 - IF({${hostFlagFieldId}}, {${conditionalLookupFieldId}}, 0)`,
+          },
+        },
+      });
+
+      for (let i = 0; i < 5; i += 1) {
+        const drained = await testContainer.processOutbox();
+        if (drained === 0) break;
+      }
+
+      const fieldIds = [hostNameFieldId, hostFlagFieldId, conditionalLookupFieldId, formulaFieldId];
+      const fieldNames = ['Name', 'Flag', 'ActiveAmounts', 'Delta'];
+
+      const withFormulaRecords = await listRecords(hostTable.id);
+      expectCellDisplay(withFormulaRecords, 0, conditionalLookupFieldId, '[5]');
+      expectCellDisplay(withFormulaRecords, 0, formulaFieldId, '-4');
+      expect(printTableSnapshot(hostTable.name, fieldNames, withFormulaRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CL_IF_Host]
+          -----------------------------------------
+          #  | Name  | Flag | ActiveAmounts | Delta
+          -----------------------------------------
+          R0 | Host1 | true | [5]           | -4
+          -----------------------------------------"
+        `);
+
+      // Toggle to the ELSE branch; must remain type-compatible even though THEN returns JSONB.
+      await updateRecord(hostTable.id, hostRecord.id, { [hostFlagFieldId]: false });
+
+      const afterRecords = await listRecords(hostTable.id);
+      expectCellDisplay(afterRecords, 0, conditionalLookupFieldId, '[5]');
+      expectCellDisplay(afterRecords, 0, formulaFieldId, '1');
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CL_IF_Host]
+          ------------------------------------------
+          #  | Name  | Flag  | ActiveAmounts | Delta
+          ------------------------------------------
+          R0 | Host1 | false | [5]           | 1
+          ------------------------------------------"
+        `);
+    });
+  });
+
+  describe('formula referencing computed fields as link title', () => {
+    /**
+     * Scenario: Symmetric link title uses a formula that references a lookup field.
+     * v1 reference: link-api.e2e-spec.ts (lines 3325-3548)
+     *
+     * Chain: table1.lookupAmount (lookup of table2.Amount)
+     *        → table1.formula ({lookupAmount})
+     *        → table2.symmetricLink (title uses table1.formula)
+     *
+     * When table2.Amount changes, it should propagate:
+     *   table2.Amount → table1.lookupAmount → table1.formula → table2.symmetricLink.title
+     */
+    test.todo(
+      'Formula referencing lookup as link title: Need to verify symmetric link title updates when formula references lookup field'
+    );
+
+    /**
+     * Scenario: Symmetric link title uses a formula that references a rollup field.
+     * v1 reference: link-api.e2e-spec.ts (lines 3446-3498)
+     *
+     * Chain: table1.rollup (sum of table2.Amount via link)
+     *        → table1.formulaRollup ({rollup})
+     *        → table2.symmetricLink (title uses table1.formulaRollup)
+     *
+     * When table2.Amount changes or link membership changes, it should propagate:
+     *   table2.Amount → table1.rollup → table1.formulaRollup → table2.symmetricLink.title
+     */
+    test.todo(
+      'Formula referencing rollup as link title: Need to verify symmetric link title updates when formula references rollup field'
+    );
+
+    /**
+     * Scenario: Multi-value datetime lookup used inside a formula.
+     * v1 reference: lookup.e2e-spec.ts (lines 1941-2094)
+     *
+     * Chain: contractTable.ContractStart (datetime)
+     *        → projectTable.ContractStarts (lookup, multi-value datetime array)
+     *        → projectTable.LookupPath (formula: "prefix-" & {ContractStarts})
+     *
+     * Tests that datetime lookup values are properly formatted when concatenated in a formula.
+     */
+    test.todo(
+      'Formula with multi-value datetime lookup: Need to verify datetime lookup formatting when used in formula concatenation'
+    );
+
+    /**
+     * Scenario: Formula string concatenation over multi-value fields (e.g., multi-select) does not hit CASE type mismatches.
+     * v1 reference: computed-orchestrator.e2e-spec.ts (computes string formula referencing multi-value field without CASE type mismatch)
+     *
+     * NOTE: Implement after v2 "update columns" (computed persistence / SQL expression casting) is implemented,
+     * since this regression historically surfaced during computed persistence in Postgres.
+     */
+    test.todo(
+      'String formula over multi-value fields: Implement after update-columns to ensure no CASE type mismatches in persisted computed SQL'
+    );
+
+    /**
+     * Scenario: Multi-value date/datetime lookup used inside date functions with timeZone.
+     * v1 reference: computed-orchestrator.e2e-spec.ts (timezone cast regressions, datetime + blank guard regressions)
+     *
+     * NOTE: Implement after v2 "update columns" is implemented, since these issues are tied to
+     * Postgres casts/column types when persisting computed results.
+     */
+    test.todo(
+      'Date/datetime lookup + timeZone formula persistence: Implement after update-columns to guard against timestamptz/jsonb cast regressions'
+    );
+
+    /**
+     * Scenario: Divide/modulo by zero does not crash computed persistence.
+     * v1 reference: computed-orchestrator.e2e-spec.ts (handles divide and modulo by zero during computed persistence)
+     *
+     * NOTE: Implement after v2 "update columns" is implemented, to validate persistence/update stability.
+     */
+    test.todo(
+      'Divide/modulo by zero in formula persistence: Implement after update-columns to ensure computed updates remain stable'
+    );
   });
 });

@@ -11,6 +11,7 @@ import { AbstractTableUpdatedEvent } from '../domain/table/events/AbstractTableU
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { Table } from '../domain/table/Table';
+import type { TableId } from '../domain/table/TableId';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
@@ -22,7 +23,7 @@ import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
-import { buildTable } from './CreateTableCommand';
+import { buildTable, type CreateTableRecordSeed } from './CreateTableCommand';
 import { CreateTablesCommand } from './CreateTablesCommand';
 
 type TransactionResult = {
@@ -61,6 +62,124 @@ const isInternalReference = (
 ): boolean => {
   if (ref.baseId && !ref.baseId.equals(baseId)) return false;
   return internalTableIds.has(ref.foreignTableId.toString());
+};
+
+type TableWithRecords = {
+  tableId: TableId;
+  table: Table;
+  recordsFieldValues: ReadonlyArray<CreateTableRecordSeed>;
+};
+
+/**
+ * Extracts record IDs from link field values in the input records.
+ * Returns record IDs that the records in this table reference.
+ */
+const extractReferencedRecordIds = (records: ReadonlyArray<CreateTableRecordSeed>): Set<string> => {
+  const referencedIds = new Set<string>();
+
+  for (const record of records) {
+    for (const value of record.fieldValues.values()) {
+      // Link values can be { id: string } or [{ id: string }]
+      if (value && typeof value === 'object') {
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            if (item && typeof item === 'object' && 'id' in item && typeof item.id === 'string') {
+              referencedIds.add(item.id);
+            }
+          }
+        } else if ('id' in value && typeof value.id === 'string') {
+          referencedIds.add(value.id);
+        }
+      }
+    }
+  }
+
+  return referencedIds;
+};
+
+/**
+ * Extracts record IDs defined in the input records.
+ * Returns record IDs that are being created in this table.
+ */
+const extractDefinedRecordIds = (records: ReadonlyArray<CreateTableRecordSeed>): Set<string> => {
+  const definedIds = new Set<string>();
+
+  for (const record of records) {
+    if (record.id) {
+      definedIds.add(record.id.toString());
+    }
+  }
+
+  return definedIds;
+};
+
+/**
+ * Sorts tables by record-level dependencies using topological sort.
+ * Tables whose records are referenced by other tables' records should be inserted first.
+ */
+const sortTablesByRecordDependencies = (
+  tablesWithRecords: ReadonlyArray<TableWithRecords>
+): ReadonlyArray<TableWithRecords> => {
+  // Build a map of record ID -> table index
+  const recordIdToTableIndex = new Map<string, number>();
+  for (let i = 0; i < tablesWithRecords.length; i++) {
+    const definedIds = extractDefinedRecordIds(tablesWithRecords[i]!.recordsFieldValues);
+    for (const id of definedIds) {
+      recordIdToTableIndex.set(id, i);
+    }
+  }
+
+  // Build adjacency list for dependencies
+  // edge: tableA -> tableB means tableA's records reference tableB's records
+  const dependencies: Set<number>[] = tablesWithRecords.map(() => new Set());
+  for (let i = 0; i < tablesWithRecords.length; i++) {
+    const referencedIds = extractReferencedRecordIds(tablesWithRecords[i]!.recordsFieldValues);
+    for (const refId of referencedIds) {
+      const depTableIndex = recordIdToTableIndex.get(refId);
+      if (depTableIndex !== undefined && depTableIndex !== i) {
+        dependencies[i]!.add(depTableIndex);
+      }
+    }
+  }
+
+  // Topological sort using Kahn's algorithm
+  const inDegree = tablesWithRecords.map(() => 0);
+  for (const deps of dependencies) {
+    for (const dep of deps) {
+      inDegree[dep]!++;
+    }
+  }
+
+  // Queue: tables with no incoming edges (no one depends on them for record references)
+  const queue: number[] = [];
+  for (let i = 0; i < inDegree.length; i++) {
+    if (inDegree[i] === 0) {
+      queue.push(i);
+    }
+  }
+
+  // Process in reverse: tables that are depended on should come first
+  const sorted: number[] = [];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    sorted.push(current);
+    for (const dep of dependencies[current]!) {
+      inDegree[dep]!--;
+      if (inDegree[dep] === 0) {
+        queue.push(dep);
+      }
+    }
+  }
+
+  // Reverse to get the correct order (tables that are referenced first)
+  sorted.reverse();
+
+  // If there's a cycle, fall back to original order
+  if (sorted.length !== tablesWithRecords.length) {
+    return tablesWithRecords;
+  }
+
+  return sorted.map((index) => tablesWithRecords[index]!);
 };
 
 export class CreateTablesResult {
@@ -181,11 +300,25 @@ export class CreateTablesHandler
               tableState = new Map(sideEffectResult.tableState);
             }
 
+            // Build list of tables with their records for dependency sorting
+            const tablesWithRecords: TableWithRecords[] = [];
             for (let index = 0; index < tableCommands.length; index += 1) {
               const persistedTable = persistedTables[index];
               const recordsFieldValues = tableCommands[index]?.records ?? [];
-              if (!persistedTable || recordsFieldValues.length === 0) continue;
+              if (persistedTable && recordsFieldValues.length > 0) {
+                tablesWithRecords.push({
+                  tableId: persistedTable.id(),
+                  table: persistedTable,
+                  recordsFieldValues,
+                });
+              }
+            }
 
+            // Sort tables by record-level dependencies
+            const sortedTablesWithRecords = sortTablesByRecordDependencies(tablesWithRecords);
+
+            // Insert records in dependency order
+            for (const { table: persistedTable, recordsFieldValues } of sortedTablesWithRecords) {
               const recordSpan = transactionContext.tracer?.startSpan(
                 'teable.CreateTablesHandler.createRecords'
               );
