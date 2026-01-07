@@ -4,6 +4,7 @@ import { Inject } from '@nestjs/common';
 import { DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import { getDriverName } from '../utils/db-helpers';
+import { MysqlProvider } from './mysql.provider';
 import { PostgresProvider } from './postgres.provider';
 import { SqliteProvider } from './sqlite.provider';
 
@@ -20,6 +21,10 @@ export const DbProvider: Provider = {
         return new SqliteProvider(knex);
       case DriverClient.Pg:
         return new PostgresProvider(knex);
+      case DriverClient.Mysql:
+        return new MysqlProvider(knex);
+      default:
+        throw new Error(`Unsupported database driver: ${driverClient}`);
     }
   },
   inject: ['CUSTOM_KNEX'],

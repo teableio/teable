@@ -142,8 +142,24 @@ export class PrismaService
     return txClient;
   }
 
+  /**
+   * Validates the database connection by executing a simple query
+   * @throws Error if connection validation fails
+   */
+  async validateConnection(): Promise<void> {
+    try {
+      await this.$queryRawUnsafe('SELECT 1');
+      this.logger.log('Database connection validated successfully');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Database connection validation failed: ${errorMessage}`);
+      throw new Error(`Failed to validate database connection: ${errorMessage}`);
+    }
+  }
+
   async onModuleInit() {
     await this.$connect();
+    await this.validateConnection();
 
     if (process.env.NODE_ENV === 'production') return;
 

@@ -34,6 +34,7 @@ export const validateRoleOperations = (sql: string) => {
 const databaseTypeMap = {
   [DriverClient.Pg]: 'postgresql',
   [DriverClient.Sqlite]: 'sqlite',
+  [DriverClient.Mysql]: 'mysql',
 };
 
 const collectWithNames = (ast?: AST) => {

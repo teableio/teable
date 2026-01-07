@@ -19,7 +19,14 @@ export function parseDsn(dsn: string): IDsn {
     throw new Error(`DATABASE_URL must provide a port`);
   }
 
-  return parsedDsn.value;
+  // Convert mysql:// to mysql2 for Knex compatibility
+  // Prisma uses mysql:// but Knex uses mysql2
+  const result = parsedDsn.value;
+  if (result.driver === 'mysql') {
+    result.driver = 'mysql2';
+  }
+
+  return result;
 }
 
 export function isParsableDsn(dsn: unknown) {
@@ -29,4 +36,5 @@ export function isParsableDsn(dsn: unknown) {
 export enum DriverClient {
   Pg = 'postgresql',
   Sqlite = 'sqlite3',
+  Mysql = 'mysql2',
 }

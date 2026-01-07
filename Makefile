@@ -46,6 +46,7 @@ UNAME_S := $(shell uname -s)
 SQLITE_PRISMA_DATABASE_URL ?= file:../../db/main.db
 # set param statement_cache_size=1 to avoid query error `ERROR: cached plan must not change result type` after alter column type (modify field type)
 POSTGES_PRISMA_DATABASE_URL ?= postgresql://teable:teable\@127.0.0.1:5432/teable?schema=public\&statement_cache_size=1
+MYSQL_PRISMA_DATABASE_URL ?= mysql://root:your_password\@127.0.0.1:3306/your_database_name
 
 # If the first make argument is "start", "stop"...
 ifeq (docker.start,$(firstword $(MAKECMDGOALS)))
@@ -113,13 +114,15 @@ DOCKER_COMPOSE_ARGS := DOCKER_UID=$(shell id -u) \
 define print_db_mode_options
 @echo -e "\nSelect a database to start.\n"
 @echo -e "1)sqlite			Lightweight embedded, ideal for mobile and embedded systems, simple, resource-efficient, easy integration (default database)"
-@echo -e "2)postges(pg)			Powerful and scalable, suitable for complex enterprise needs, highly customizable, rich community support\n"
+@echo -e "2)postges(pg)			Powerful and scalable, suitable for complex enterprise needs, highly customizable, rich community support"
+@echo -e "3)mysql				Popular open-source relational database, widely used in web applications, good performance and reliability\n"
 endef
 
 define print_db_push_options
 @echo -e "The 'db pull' command connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.\n"
 @echo -e "1) sqlite"
-@echo -e "2) postges(pg)\n"
+@echo -e "2) postges(pg)"
+@echo -e "3) mysql\n"
 endef
 
 .PHONY: db-mode sqlite.mode postgres.mode gen-prisma-schema gen-sqlite-prisma-schema gen-postgres-prisma-schema
@@ -228,7 +231,16 @@ gen-postgres-prisma-schema:
 		echo '{ "PRISMA_PROVIDER": "postgres" }' | pnpm mustache - ./prisma/template.prisma > ./prisma/postgres/schema.prisma
 	@echo 'generate【 prisma/postgres/schema.prisma 】success.'
 
-gen-prisma-schema: gen-sqlite-prisma-schema gen-postgres-prisma-schema		## Generate 'schema.prisma' files for all versions of the system
+gen-mysql-prisma-schema:
+	@cd ./packages/db-main-prisma; \
+		echo '{ "PRISMA_PROVIDER": "mysql" }' | pnpm mustache - ./prisma/template.prisma > ./prisma/mysql/schema.prisma; \
+		sed -i '' 's/detailDesc       String?   @map("detail_desc")/detailDesc       String?   @map("detail_desc") @db.Text/' ./prisma/mysql/schema.prisma || true; \
+		sed -i '' 's/i18n             String?/i18n             String?   @db.Text/' ./prisma/mysql/schema.prisma || true; \
+		sed -i '' 's/config           String?/config           String?   @db.Text/' ./prisma/mysql/schema.prisma || true; \
+		sed -i '' 's/positions        String/positions        String   @db.Text/' ./prisma/mysql/schema.prisma || true
+	@echo 'generate【 prisma/mysql/schema.prisma 】success.'
+
+gen-prisma-schema: gen-sqlite-prisma-schema gen-postgres-prisma-schema gen-mysql-prisma-schema		## Generate 'schema.prisma' files for all versions of the system
 
 sqlite-db.push:		## db.push by sqlite
 	@cd ./packages/db-main-prisma; \
@@ -237,6 +249,12 @@ sqlite-db.push:		## db.push by sqlite
 postgres-db.push:		## db.push by postgres
 	@cd ./packages/db-main-prisma; \
 		pnpm prisma-db-push --schema ./prisma/postgres/schema.prisma
+
+mysql-db.push:		## db.push by mysql
+	@cd ./packages/db-main-prisma; \
+		echo "Note: If you have existing tables with foreign keys, you may need to disable foreign key checks first."; \
+		echo "Run: mysql -u root -p your_database_name -e \"SET FOREIGN_KEY_CHECKS=0;\" before this command if needed."; \
+		pnpm prisma-db-push --schema ./prisma/mysql/schema.prisma --accept-data-loss
 
 db.push:		## connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.
 	$(print_db_push_options)
@@ -247,6 +265,9 @@ db.push:		## connects to your database and adds Prisma models to your Prisma sch
     elif [ "$$command" = "2" ] || [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
       	make gen-postgres-prisma-schema; \
 		make postgres-db.push; \
+    elif [ "$$command" = "3" ] || [ "$$command" = "mysql" ]; then \
+      	make gen-mysql-prisma-schema; \
+		make mysql-db.push; \
     else echo "Unknown command.";  fi
 
 sqlite-db-migration:
@@ -275,6 +296,17 @@ postgres.mode:		## postgres.mode
 	@cd ./packages/db-main-prisma; \
 		pnpm prisma-generate --schema ./prisma/postgres/schema.prisma; \
 		pnpm prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
+
+mysql.mode:		## mysql.mode
+	@cd ./packages/db-main-prisma; \
+		pnpm prisma-generate --schema ./prisma/mysql/schema.prisma; \
+		if [ -d "./prisma/mysql/migrations" ] && [ "$(ls -A ./prisma/mysql/migrations 2>/dev/null)" ]; then \
+			pnpm prisma-migrate deploy --schema ./prisma/mysql/schema.prisma; \
+		else \
+			echo "No migrations found. Using db push instead of migrate deploy."; \
+			pnpm prisma-db-push --schema ./prisma/mysql/schema.prisma --skip-generate || true; \
+		fi
+
 # Override environment variable files based on variables
 RUN_DB_MODE ?= sqlite
 FILE_ENV_PATHS = $(ENV_PATH)/.env.development* $(ENV_PATH)/.env.test*
@@ -294,6 +326,11 @@ else ifeq ($(CI)-$(RUN_DB_MODE),0-postges)
 		echo $$file; \
 		perl -i -pe 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(POSTGES_PRISMA_DATABASE_URL)~' $$file; \
 	done
+else ifeq ($(CI)-$(RUN_DB_MODE),0-mysql)
+	@for file in $(FILE_ENV_PATHS); do \
+		echo $$file; \
+		perl -i -pe 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(MYSQL_PRISMA_DATABASE_URL)~' $$file; \
+	done
 endif
 
 switch-db-mode:		## Switch Database environment
@@ -307,6 +344,9 @@ switch-db-mode:		## Switch Database environment
 		make docker.up teable-postgres; \
     	make docker.await teable-postgres; \
     	make postgres.mode; \
+    elif [ "$$command" = "3" ] || [ "$$command" = "mysql" ]; then \
+      	make switch.prisma.env RUN_DB_MODE=mysql; \
+    	make mysql.mode; \
     else \
       	echo "Unknown command.";  fi
 

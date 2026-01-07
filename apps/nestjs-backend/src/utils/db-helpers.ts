@@ -13,3 +13,7 @@ export function isPostgreSQL(knex: Knex) {
 export function isSQLite(knex: Knex) {
   return getDriverName(knex) === DriverClient.Sqlite;
 }
+
+export function isMySQL(knex: Knex) {
+  return getDriverName(knex) === DriverClient.Mysql;
+}
