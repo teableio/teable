@@ -9,28 +9,55 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Settings, Users } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { CollaboratorPage } from './collaborator';
 import { GeneralPage } from './general';
 
 interface ISpaceInnerSettingModalProps {
+  open?: boolean;
+  setOpen?: (open: boolean) => void;
+  defaultTab?: SettingTab;
   children: React.ReactNode;
 }
 
-enum SettingTab {
+export enum SettingTab {
   General = 'general',
   Collaborator = 'collaborator',
 }
 
 export const SpaceInnerSettingModal = (props: ISpaceInnerSettingModalProps) => {
-  const { children } = props;
+  const {
+    children,
+    open: controlledOpen,
+    setOpen: controlledSetOpen,
+    defaultTab = SettingTab.General,
+  } = props;
 
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = useCallback(
+    (value: boolean) => {
+      if (controlledSetOpen) {
+        controlledSetOpen(value);
+      }
+      if (!isControlled) {
+        setInternalOpen(value);
+      }
+    },
+    [controlledSetOpen, isControlled, setInternalOpen]
+  );
 
-  const [tab, setTab] = useState(SettingTab.General);
+  const [tab, setTab] = useState(defaultTab);
+  useEffect(() => {
+    if (open) {
+      setTab(defaultTab);
+    }
+  }, [open, defaultTab]);
+
   const tabList = useMemo(() => {
     return [
       {
@@ -79,7 +106,10 @@ export const SpaceInnerSettingModal = (props: ISpaceInnerSettingModalProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="flex h-[85%] max-h-[85%] max-w-[80%] flex-col gap-0 p-0 transition-[max-width] duration-300">
+      <DialogContent
+        className="flex h-[85%] max-h-[85%] max-w-[80%] flex-col gap-0 p-0 transition-[max-width] duration-300"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         {content}
       </DialogContent>
     </Dialog>

@@ -73,6 +73,7 @@ export class SettingOpenApiController {
       SettingKey.AI_CONFIG,
       SettingKey.APP_CONFIG,
       SettingKey.WEB_SEARCH_CONFIG,
+      SettingKey.ENABLE_CREDIT_REWARD,
     ]);
     const { aiConfig, appConfig, webSearchConfig, ...rest } = setting;
     return {

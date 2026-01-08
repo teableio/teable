@@ -20,6 +20,7 @@ export const settingVoSchema = z.object({
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   appConfig: appConfigSchema.nullable().optional(),
   webSearchConfig: webSearchConfigSchema.nullable().optional(),
+  enableCreditReward: z.boolean().optional(),
   createdTime: z.string().optional(),
 });
 
