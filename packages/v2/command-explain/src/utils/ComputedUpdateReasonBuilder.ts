@@ -123,8 +123,25 @@ export const buildComputedUpdateReason = (
     }
   }
 
+  const implicitLinkSeedIds = new Set<string>();
+  for (const fieldId of targetFieldIds) {
+    const meta = fieldsById.get(fieldId.toString());
+    if (!meta || meta.type !== 'link') {
+      continue;
+    }
+    const targetId = fieldId.toString();
+    if (seedFieldIdSet.has(targetId)) {
+      implicitLinkSeedIds.add(targetId);
+    }
+    const symmetricFieldId = meta.options?.symmetricFieldId;
+    if (symmetricFieldId && seedFieldIdSet.has(symmetricFieldId)) {
+      implicitLinkSeedIds.add(symmetricFieldId);
+    }
+  }
+
+  const effectiveSeedIds = new Set<string>([...seededDependencyIds, ...implicitLinkSeedIds]);
   const seedFields: ComputedUpdateSeedField[] = changedFieldIds
-    .filter((fieldId) => seededDependencyIds.has(fieldId.toString()))
+    .filter((fieldId) => effectiveSeedIds.has(fieldId.toString()))
     .map((fieldId) => {
       const meta = fieldsById.get(fieldId.toString());
       const tableId = meta?.tableId ?? plan.seedTableId;
