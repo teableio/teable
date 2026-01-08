@@ -337,13 +337,12 @@ const resolveUpdateImpact = (
 };
 
 /**
- * Value changes propagate through all edges (both same_record and cross_record).
- * When a field's value changes, all dependent fields need to be updated.
+ * Value changes propagate through all edges except lookup_link dependencies.
+ * lookup_link represents link-relation dependencies, which should only update
+ * when the relation changes (not when link titles change).
  */
 const isEdgeRelevantForValue = (edge: FieldDependencyEdge): boolean =>
-  // All edge types are relevant for value changes - both same_record (formula in same table)
-  // and cross_record (lookup/link title from foreign table) need updates.
-  edge.kind === 'same_record' || edge.kind === 'cross_record';
+  edge.kind === 'cross_record' || (edge.kind === 'same_record' && edge.semantic !== 'lookup_link');
 
 /**
  * Link relation changes only propagate through edges that depend on the link relationship.
