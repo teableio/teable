@@ -2,7 +2,9 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
@@ -69,10 +71,24 @@ export interface ITableRecordRepository {
     options?: InsertManyStreamOptions
   ): Promise<Result<InsertManyStreamResult, DomainError>>;
 
-  update(
+  /**
+   * Update a single record using a mutation specification.
+   *
+   * The mutation spec describes what changes to apply to the record.
+   * Repository adapters convert the spec into optimized SQL statements
+   * (e.g., atomic increments, junction table updates for links).
+   *
+   * @param context - Execution context (may contain transaction)
+   * @param table - Target table
+   * @param recordId - ID of the record to update
+   * @param mutateSpec - Specification describing the mutations to apply
+   * @returns Result indicating success or error
+   */
+  updateOne(
     context: IExecutionContext,
     table: Table,
-    record: TableRecord
+    recordId: RecordId,
+    mutateSpec: ICellValueSpec
   ): Promise<Result<void, DomainError>>;
   deleteMany(
     context: IExecutionContext,

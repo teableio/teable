@@ -269,7 +269,10 @@ const normalizeTemporalText = (value: string | null): string | null => {
 
 const normalizeLinkRawValue = (value: string | null): string | null => {
   if (!value) return value;
-  return value.replace(/"id"\s*:\s*"rec[^"]+"/g, '"id": "rec_*"');
+  // Handle both escaped quotes (in JSON strings) and regular quotes
+  return value
+    .replace(/"id"\s*:\s*"rec[^"]+"/g, '"id": "rec_*"')
+    .replace(/\\"id\\"\s*:\s*\\"rec[^"\\]+\\"/g, '\\"id\\": \\"rec_*\\"');
 };
 
 const VOLATILE_DATE_PART_FUNCTIONS = new Set([
@@ -972,11 +975,16 @@ export const buildFormulaSnapshotContext = async (
     ([, snapshot]) =>
       snapshot.fieldType === 'createdTime' || snapshot.fieldType === 'lastModifiedTime'
   );
-  const normalizedResult = normalizeVolatileResult(
+  const hasLinkInput = inputValues.some(([, snapshot]) => snapshot.fieldType === 'link');
+  let normalizedResult = normalizeVolatileResult(
     result,
     hasTemporalInput,
     formulaDefinition.expression
   );
+  // Normalize link record IDs in result to make snapshots stable
+  if (hasLinkInput && normalizedResult) {
+    normalizedResult = normalizeLinkRawValue(normalizedResult);
+  }
 
   return {
     formulaName: formulaFieldName,

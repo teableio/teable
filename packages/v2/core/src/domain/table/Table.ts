@@ -30,6 +30,7 @@ import {
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
 import { RecordId } from './records/RecordId';
 import { RecordMutationSpecBuilder } from './records/RecordMutationSpecBuilder';
+import { RecordUpdateResult } from './records/RecordUpdateResult';
 import { TableRecord } from './records/TableRecord';
 import { TableRecordFields } from './records/TableRecordFields';
 import { resolveFormulaFields } from './resolveFormulaFields';
@@ -333,18 +334,21 @@ export class Table extends AggregateRoot<TableId> {
    * This method:
    * 1. Validates provided field values (no defaults are applied)
    * 2. Builds a mutation spec for the provided fields
-   * 3. Returns a record containing only the updated fields
+   * 3. Returns both the mutated record and the mutation spec
+   *
+   * The mutation spec can be used by repository adapters to generate
+   * optimized SQL statements (e.g., atomic increments, batch updates).
    *
    * @param recordId - The record to update
    * @param fieldValues - Map of field IDs to raw values
-   * @returns Result containing the updated record or validation error
+   * @returns Result containing the RecordUpdateResult (record + mutateSpec) or validation error
    */
   updateRecord(
     recordId: RecordId,
     fieldValues: ReadonlyMap<string, unknown>
-  ): Result<TableRecord, DomainError> {
+  ): Result<RecordUpdateResult, DomainError> {
     const table = this;
-    return safeTry<TableRecord, DomainError>(function* () {
+    return safeTry<RecordUpdateResult, DomainError>(function* () {
       const builder = RecordMutationSpecBuilder.create();
       const fields = table.getEditableFields();
 
@@ -360,6 +364,8 @@ export class Table extends AggregateRoot<TableId> {
         return err(builder.getErrors()[0]!);
       }
 
+      const mutateSpec = yield* builder.build();
+
       const emptyFields = yield* TableRecordFields.create([]);
       const emptyRecord = yield* TableRecord.create({
         id: recordId,
@@ -367,7 +373,9 @@ export class Table extends AggregateRoot<TableId> {
         fieldValues: emptyFields.entries(),
       });
 
-      return ok(yield* builder.buildAndMutate(emptyRecord));
+      const record = yield* mutateSpec.mutate(emptyRecord);
+
+      return ok(RecordUpdateResult.create(record, mutateSpec));
     });
   }
 

@@ -3,7 +3,9 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type { RecordId } from '../../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../ExecutionContext';
@@ -57,10 +59,11 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
     return ok({ totalInserted });
   }
 
-  async update(
-    _: IExecutionContext,
-    __: Table,
-    ___: TableRecord
+  async updateOne(
+    _context: IExecutionContext,
+    _table: Table,
+    _recordId: RecordId,
+    _mutateSpec: ICellValueSpec
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }

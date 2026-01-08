@@ -272,7 +272,7 @@ exports[`text functions > 'Concatenate' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "10-x",
@@ -308,15 +308,15 @@ exports[`text functions > 'Concatenate' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": "-x",
+  "result": "10-x",
   "sql": "CONCAT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ), '-x')",
 }
 `;
@@ -738,7 +738,7 @@ exports[`text functions > 'EncodeUrlComponent' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "10",
@@ -774,15 +774,15 @@ exports[`text functions > 'EncodeUrlComponent' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "encode((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     )::bytea, 'escape')",
 }
 `;
@@ -1204,7 +1204,7 @@ exports[`text functions > 'Find' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "1",
@@ -1240,15 +1240,15 @@ exports[`text functions > 'Find' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "POSITION('1' IN SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
@@ -1688,7 +1688,7 @@ exports[`text functions > 'Left' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "1",
@@ -1724,15 +1724,15 @@ exports[`text functions > 'Left' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "LEFT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ), (1)::double precision::integer)",
 }
 `;
@@ -2154,7 +2154,7 @@ exports[`text functions > 'Len' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "2",
@@ -2190,15 +2190,15 @@ exports[`text functions > 'Len' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "2",
   "sql": "LENGTH((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ))",
 }
 `;
@@ -2620,7 +2620,7 @@ exports[`text functions > 'Lower' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "10",
@@ -2656,15 +2656,15 @@ exports[`text functions > 'Lower' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "LOWER((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ))",
 }
 `;
@@ -3086,7 +3086,7 @@ exports[`text functions > 'Mid' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "10",
@@ -3122,15 +3122,15 @@ exports[`text functions > 'Mid' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ) FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
@@ -3552,7 +3552,7 @@ exports[`text functions > 'RegExpReplace' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "x0",
@@ -3588,15 +3588,15 @@ exports[`text functions > 'RegExpReplace' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "x0",
   "sql": "REGEXP_REPLACE((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ), '1', 'x', 'g')",
 }
 `;
@@ -4018,7 +4018,7 @@ exports[`text functions > 'Replace' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "x0",
@@ -4054,15 +4054,15 @@ exports[`text functions > 'Replace' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "x0",
   "sql": "OVERLAY((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ) PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
@@ -4484,7 +4484,7 @@ exports[`text functions > 'Rept' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "1010",
@@ -4520,15 +4520,15 @@ exports[`text functions > 'Rept' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "1010",
   "sql": "REPEAT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ), (2)::double precision::integer)",
 }
 `;
@@ -4950,7 +4950,7 @@ exports[`text functions > 'Right' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "0",
@@ -4986,15 +4986,15 @@ exports[`text functions > 'Right' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "0",
   "sql": "RIGHT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ), (1)::double precision::integer)",
 }
 `;
@@ -5416,7 +5416,7 @@ exports[`text functions > 'Search' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "1",
@@ -5452,15 +5452,15 @@ exports[`text functions > 'Search' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
@@ -5900,7 +5900,7 @@ exports[`text functions > 'Substitute' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "x0",
@@ -5936,15 +5936,15 @@ exports[`text functions > 'Substitute' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "x0",
   "sql": "REPLACE((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ), '1', 'x')",
 }
 `;
@@ -6366,10 +6366,10 @@ exports[`text functions > 'T' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
-  "result": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+  "result": "{"id": "rec_*", "title": "10"}",
   "sql": ""t"."LinkType"",
 }
 `;
@@ -6402,15 +6402,15 @@ exports[`text functions > 'T' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "(
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     )",
 }
 `;
@@ -6832,7 +6832,7 @@ exports[`text functions > 'Trim' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "10",
@@ -6868,15 +6868,15 @@ exports[`text functions > 'Trim' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "TRIM((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ))",
 }
 `;
@@ -7298,7 +7298,7 @@ exports[`text functions > 'Upper' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recncPAOBIQIvmZuNWK", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "10",
@@ -7334,15 +7334,15 @@ exports[`text functions > 'Upper' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "UPPER((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ))",
 }
 `;

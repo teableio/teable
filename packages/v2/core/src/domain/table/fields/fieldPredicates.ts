@@ -4,6 +4,7 @@ import type { AttachmentField } from './types/AttachmentField';
 import type { AutoNumberField } from './types/AutoNumberField';
 import type { ButtonField } from './types/ButtonField';
 import type { CheckboxField } from './types/CheckboxField';
+import type { ConditionalRollupField } from './types/ConditionalRollupField';
 import type { DateField } from './types/DateField';
 import type { FormulaField } from './types/FormulaField';
 import type { MultipleSelectField } from './types/MultipleSelectField';
@@ -18,6 +19,10 @@ export function isFormulaField(f: Field): f is FormulaField {
 
 export function isRollupField(f: Field): f is RollupField {
   return f.type().equals(FieldType.rollup());
+}
+
+export function isConditionalRollupField(f: Field): f is ConditionalRollupField {
+  return f.type().equals(FieldType.conditionalRollup());
 }
 
 export function isNumericField(f: Field): f is NumberField | RatingField | AutoNumberField {

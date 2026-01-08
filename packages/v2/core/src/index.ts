@@ -116,6 +116,7 @@ export * from './domain/table/records/specs/values/SetUserValueSpec';
 export * from './domain/table/records/specs/values/SetFieldValueSpecFactory';
 export * from './domain/table/records/values/CellValue';
 export * from './domain/table/records/RecordMutationSpecBuilder';
+export * from './domain/table/records/RecordUpdateResult';
 export * from './domain/table/fields/visitors/FieldCellValueSchemaVisitor';
 export * from './domain/table/fields/visitors/FieldDefaultValueVisitor';
 export * from './domain/table/fields/visitors/SetFieldValueSpecFactoryVisitor';

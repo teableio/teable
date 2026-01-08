@@ -89,7 +89,13 @@ export class FormulaTypeVisitor
     if (rightResult.isErr()) return err(rightResult.error);
 
     const valueType = this.getBinaryOpValueType(ctx, leftResult.value, rightResult.value);
-    const isMultiple = Boolean(leftResult.value.isMultiple || rightResult.value.isMultiple);
+    // Comparison operators always return a single boolean value,
+    // even when comparing arrays (the array is unwrapped to its first element in SQL).
+    // Logical operators (||, &&) also return single boolean.
+    const isComparisonOrLogical = this.isComparisonOrLogicalOp(ctx);
+    const isMultiple = isComparisonOrLogical
+      ? false
+      : Boolean(leftResult.value.isMultiple || rightResult.value.isMultiple);
     return ok(new TypedValue(null, valueType, isMultiple));
   }
 
@@ -138,6 +144,19 @@ export class FormulaTypeVisitor
     if (returnResult.isErr()) return err(returnResult.error);
 
     return ok(new TypedValue(null, returnResult.value.type, returnResult.value.isMultiple));
+  }
+
+  private isComparisonOrLogicalOp(ctx: BinaryOpContext): boolean {
+    return Boolean(
+      ctx.PIPE_PIPE() ||
+        ctx.AMP_AMP() ||
+        ctx.EQUAL() ||
+        ctx.BANG_EQUAL() ||
+        ctx.GT() ||
+        ctx.GTE() ||
+        ctx.LT() ||
+        ctx.LTE()
+    );
   }
 
   private getBinaryOpValueType(

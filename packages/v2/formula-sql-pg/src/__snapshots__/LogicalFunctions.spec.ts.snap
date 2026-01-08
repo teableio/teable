@@ -161,6 +161,28 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
 }
 `;
 
+exports[`logical functions > 'And' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "AND({ConditionalRollupType}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "((CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) AND TRUE)",
+}
+`;
+
 exports[`logical functions > 'And' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -326,7 +348,7 @@ exports[`logical functions > 'And' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recLlplZUQ1kdtq9Vea", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "true",
@@ -372,28 +394,28 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND TRUE)",
 }
@@ -617,13 +639,13 @@ exports[`logical functions > 'Compare' handles constant formula 1`] = `
   },
   "result": "true",
   "sql": "(CASE
-      WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))([eE][+-]?\\d+)?$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))([eE][+-]?\\d+)?$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
+      WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
-        WHEN (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))([eE][+-]?\\d+)?$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric')) THEN (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''))::double precision
+        WHEN (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric')) THEN (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''))::double precision
         ELSE NULL
       END) FROM (SELECT "t"."SingleLineText" AS val) AS v) = (SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
-        WHEN (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))([eE][+-]?\\d+)?$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric')) THEN (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''))::double precision
+        WHEN (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric')) THEN (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''))::double precision
         ELSE NULL
       END) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v))
       ELSE ("t"."SingleLineText" = to_char(("t"."Number")::numeric, 'FM999999990D00'))
@@ -802,6 +824,28 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
 }
 `;
 
+exports[`logical functions > 'If' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "IF({ConditionalRollupType}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
 exports[`logical functions > 'If' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -967,7 +1011,7 @@ exports[`logical functions > 'If' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recLlplZUQ1kdtq9Vea", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "yes",
@@ -1013,28 +1057,28 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": "no",
+  "result": "yes",
   "sql": "(CASE WHEN (CASE
       WHEN (SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
 }
@@ -1495,7 +1539,7 @@ exports[`logical functions > 'IsError' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recLlplZUQ1kdtq9Vea", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "false",
@@ -1531,15 +1575,15 @@ exports[`logical functions > 'IsError' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "false",
   "sql": "((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ) LIKE '#ERROR:%')",
 }
 `;
@@ -1850,6 +1894,28 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
 }
 `;
 
+exports[`logical functions > 'Not' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "NOT({ConditionalRollupType})",
+  "funcId": "Not",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(NOT (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END))",
+}
+`;
+
 exports[`logical functions > 'Not' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -2015,7 +2081,7 @@ exports[`logical functions > 'Not' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recLlplZUQ1kdtq9Vea", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "false",
@@ -2061,28 +2127,28 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "false",
   "sql": "(NOT (CASE
       WHEN (SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
 }
@@ -2432,6 +2498,28 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
 }
 `;
 
+exports[`logical functions > 'Or' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "OR({ConditionalRollupType}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "((CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) OR FALSE)",
+}
+`;
+
 exports[`logical functions > 'Or' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -2597,7 +2685,7 @@ exports[`logical functions > 'Or' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recLlplZUQ1kdtq9Vea", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "true",
@@ -2643,28 +2731,28 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": null,
+  "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR FALSE)",
 }
@@ -3125,7 +3213,7 @@ exports[`logical functions > 'Switch' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recLlplZUQ1kdtq9Vea", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "ten",
@@ -3161,15 +3249,15 @@ exports[`logical functions > 'Switch' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": "other",
+  "result": "ten",
   "sql": "(CASE WHEN (
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
     ) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
@@ -3480,6 +3568,28 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
 }
 `;
 
+exports[`logical functions > 'Xor' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "XOR({ConditionalRollupType}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(((CASE WHEN (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
 exports[`logical functions > 'Xor' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -3645,7 +3755,7 @@ exports[`logical functions > 'Xor' with 'link' 1`] = `
       "fieldType": "link",
       "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": "{"id": "recLlplZUQ1kdtq9Vea", "title": "10"}",
+      "rawValue": "{"id": "rec_*", "title": "10"}",
     },
   },
   "result": "false",
@@ -3691,28 +3801,28 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "["10"]",
     },
   },
-  "result": "true",
+  "result": "false",
   "sql": "(((CASE WHEN (CASE
       WHEN (SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
           WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
           ELSE v.elem #>> '{}'
         END
-        FROM (SELECT (COALESCE(NULLIF(("t"."LookupDate")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+        FROM (SELECT (COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }

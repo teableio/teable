@@ -3,6 +3,7 @@ import {
   type DomainError,
   type Field,
   isBooleanField,
+  isConditionalRollupField,
   isDateField,
   isFormulaField,
   isJsonValueField,
@@ -43,6 +44,17 @@ export const resolveColumnType = (field: Field): Result<TableColumnDataType, Dom
         )
     )
     .when(isRollupField, (f) =>
+      f
+        .cellValueType()
+        .andThen((cellValueType) =>
+          f
+            .isMultipleCellValue()
+            .map((isMultiple) =>
+              resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
+            )
+        )
+    )
+    .when(isConditionalRollupField, (f) =>
       f
         .cellValueType()
         .andThen((cellValueType) =>
