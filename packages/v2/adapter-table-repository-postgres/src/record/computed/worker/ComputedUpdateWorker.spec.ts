@@ -1,4 +1,12 @@
-import { domainError, type ILogger, type IHasher, type IUnitOfWork } from '@teable/v2-core';
+import {
+  domainError,
+  FieldId,
+  type ILogger,
+  type IHasher,
+  type IUnitOfWork,
+  RecordId,
+  TableId,
+} from '@teable/v2-core';
 import { ok, err } from 'neverthrow';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -201,6 +209,56 @@ describe('ComputedUpdateWorker', () => {
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBe(3);
       expect(markDone).toHaveBeenCalledTimes(3);
+    });
+
+    it('downgrades insert changeType to update when planning next async stage', async () => {
+      const task = createMockTask({ changeType: 'insert' });
+      const markDone = vi.fn().mockResolvedValue(ok(undefined));
+
+      const outbox: IComputedUpdateOutbox = {
+        enqueueOrMerge: vi.fn(),
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        markDone,
+        markFailed: vi.fn(),
+      };
+
+      const updater = {
+        execute: vi.fn().mockResolvedValue(ok(undefined)),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(
+          ok([
+            {
+              tableId: TableId.create(TABLE_ID)._unsafeUnwrap(),
+              recordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
+            },
+          ])
+        ),
+      } as unknown as ComputedFieldUpdater;
+
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const logger = createLogger();
+      const hasher = createHasher();
+      const unitOfWork: IUnitOfWork = {
+        withTransaction: vi.fn().mockImplementation(async (_ctx, fn) => {
+          return fn(_ctx);
+        }),
+      };
+
+      const worker = new ComputedUpdateWorker(outbox, updater, planner, unitOfWork, logger, hasher);
+
+      await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      // After the first insert stage completes, plan subsequent stages as updates to avoid
+      // re-planning seed-table computed fields.
+      expect(planner.planStage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changeType: 'update',
+          changedFieldIds: [FieldId.create(FIELD_ID)._unsafeUnwrap()],
+        }),
+        expect.anything()
+      );
     });
 
     it('logs task failure with run context', async () => {

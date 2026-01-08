@@ -24,7 +24,7 @@ import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun } from '../ComputedUpdateRun';
 import type {
   ComputedUpdateOutboxItem,
-  type ComputedUpdateOutboxPayload,
+  ComputedUpdateOutboxPayload,
 } from '../outbox/ComputedUpdateOutboxPayload';
 import {
   buildOutboxTaskInput,

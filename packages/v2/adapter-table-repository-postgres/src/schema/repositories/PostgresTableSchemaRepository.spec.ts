@@ -32,7 +32,7 @@ import {
   v2CoreTokens,
   validateForeignTablesForFields,
 } from '@teable/v2-core';
-import { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { ok } from 'neverthrow';
