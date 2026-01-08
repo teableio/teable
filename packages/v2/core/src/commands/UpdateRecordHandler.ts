@@ -52,12 +52,17 @@ export class UpdateRecordHandler
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
       const updateRecordSpan = context.tracer?.startSpan('teable.UpdateRecordHandler.updateRecord');
-      const record = yield* table.updateRecord(command.recordId, command.fieldValues);
+      const recordUpdateResult = yield* table.updateRecord(command.recordId, command.fieldValues);
       updateRecordSpan?.end();
 
       yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
         return safeTry<void, DomainError>(async function* () {
-          yield* await handler.tableRecordRepository.update(transactionContext, table, record);
+          yield* await handler.tableRecordRepository.updateOne(
+            transactionContext,
+            table,
+            command.recordId,
+            recordUpdateResult.mutateSpec
+          );
           return ok(undefined);
         });
       });
@@ -65,7 +70,7 @@ export class UpdateRecordHandler
       const events: IDomainEvent[] = [];
       yield* await handler.eventBus.publishMany(context, events);
 
-      return ok(UpdateRecordResult.create(record, events));
+      return ok(UpdateRecordResult.create(recordUpdateResult.record, events));
     });
   }
 }

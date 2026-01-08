@@ -14,9 +14,9 @@ export default defineConfig({
     alias: {
       '@teable/v2-core': resolve(rootDir, '../core/src/index.ts'),
       '@teable/v2-di': resolve(rootDir, '../di/src/index.ts'),
-      '@teable/v2-adapter-record-repository-postgres': resolve(
+      '@teable/v2-adapter-table-repository-postgres': resolve(
         rootDir,
-        '../adapter-record-repository-postgres/src/index.ts'
+        '../adapter-table-repository-postgres/src/index.ts'
       ),
       '@teable/v2-postgres-schema': resolve(rootDir, '../postgres-schema/src/index.ts'),
     },

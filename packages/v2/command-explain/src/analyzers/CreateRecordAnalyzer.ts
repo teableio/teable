@@ -25,7 +25,7 @@ import {
   UpdateFromSelectBuilder,
   type DynamicDB,
   RecordInsertBuilder,
-} from '@teable/v2-adapter-record-repository-postgres';
+} from '@teable/v2-adapter-table-repository-postgres';
 
 import type { ICommandAnalyzer } from './ICommandAnalyzer';
 import type {
@@ -243,7 +243,7 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
         } else {
           // Fallback to placeholder if building real SQL fails
           sqlExplains.push({
-            stepDescription: 'Insert new record',
+            stepDescription: `Insert new record into ${tableName}`,
             sql: `-- INSERT INTO "${tableName}" (...) VALUES (...)\n-- Failed to build SQL: ${insertResult.error.message}`,
             parameters: [],
             explainAnalyze: null,

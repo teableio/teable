@@ -6,6 +6,7 @@ import { ActorId } from '../../domain/shared/ActorId';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { RecordId } from '../../domain/table/records/RecordId';
+import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import { TableRecordCellValue } from '../../domain/table/records/TableRecordFields';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
@@ -96,8 +97,13 @@ describe('NoopTableRecordRepository', () => {
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
     const deleteSpec = TableRecord.specs().recordId(record.id()).build()._unsafeUnwrap();
+    const mutateSpec: ICellValueSpec = {
+      isSatisfiedBy: () => true,
+      mutate: () => ok(record),
+      accept: () => ok(undefined),
+    };
     (await repo.insert(context, table, record))._unsafeUnwrap();
-    (await repo.update(context, table, record))._unsafeUnwrap();
+    (await repo.updateOne(context, table, record.id(), mutateSpec))._unsafeUnwrap();
     (await repo.deleteMany(context, table, deleteSpec))._unsafeUnwrap();
   });
 });

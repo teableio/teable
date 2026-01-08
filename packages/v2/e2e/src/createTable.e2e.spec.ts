@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
+import {
+  createV2NodeTestContainer,
+  type IV2NodeTestContainer,
+} from '@teable/v2-container-node-test';
 import {
   createTableOkResponseSchema,
   createTablesOkResponseSchema,
@@ -20,6 +23,7 @@ describe('v2 http createTable (e2e)', () => {
   let baseUrl: string;
   let dispose: (() => Promise<void>) | undefined;
   let baseId: string;
+  let testContainer: IV2NodeTestContainer;
   let fieldIdCounter = 0;
   const createFieldId = () => {
     const suffix = fieldIdCounter.toString(36).padStart(16, '0');
@@ -118,7 +122,7 @@ describe('v2 http createTable (e2e)', () => {
   };
 
   beforeAll(async () => {
-    const testContainer = await createV2NodeTestContainer();
+    testContainer = await createV2NodeTestContainer();
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
 
@@ -226,6 +230,10 @@ describe('v2 http createTable (e2e)', () => {
         template.createInput(baseId, { namePrefix: name, includeRecords: true })
       );
 
+      if (template.key === 'bug-triage') {
+        await testContainer.processOutbox();
+      }
+
       expect(created.length).toBe(template.tables.length);
       for (let tableIndex = 0; tableIndex < created.length; tableIndex += 1) {
         const table = created[tableIndex]!;
@@ -240,6 +248,39 @@ describe('v2 http createTable (e2e)', () => {
         expect(records).toHaveLength(templateTable.defaultRecordCount);
         if (templateTable.defaultRecordCount > 0) {
           expect(Object.keys(records[0]!.fields)).not.toHaveLength(0);
+        }
+
+        if (template.key === 'bug-triage' && templateTable.key === 'bugs') {
+          const uiComponentsField = table.fields.find((f) => f.name === 'UI Components');
+          const uiComponentCountField = table.fields.find((f) => f.name === 'UI Component Count');
+          expect(uiComponentsField).toBeTruthy();
+          expect(uiComponentCountField).toBeTruthy();
+          if (!uiComponentsField || !uiComponentCountField) return;
+
+          const first = records[0]!;
+          const uiValue = first.fields[uiComponentsField.id];
+          const countValue = first.fields[uiComponentCountField.id];
+
+          const uiComponents = (() => {
+            if (Array.isArray(uiValue)) {
+              return uiValue.filter((value): value is string => typeof value === 'string');
+            }
+            if (typeof uiValue === 'string') {
+              try {
+                const parsed: unknown = JSON.parse(uiValue);
+                if (Array.isArray(parsed)) {
+                  return parsed.filter((value): value is string => typeof value === 'string');
+                }
+              } catch {
+                // fall back to treating the raw string as a single value
+              }
+              return [uiValue];
+            }
+            return [];
+          })();
+
+          expect(uiComponents).toContain('UI');
+          expect(Number(countValue)).toBe(1);
         }
       }
       index += 1;
@@ -386,6 +427,114 @@ describe('v2 http createTable (e2e)', () => {
         (field) => field.type === 'link' && field.options.symmetricFieldId === linkFieldId
       );
       expect(symmetric).toBeDefined();
+    });
+
+    it('createTables with internal manyMany link and records updates symmetric link correctly', async () => {
+      // Test scenario:
+      // 1. Use createTables to create two tables with internal manyMany link
+      // 2. Table B has records: B1, B2
+      // 3. Table A has records: A1 with link to [B1, B2]
+      // 4. After processOutbox, verify:
+      //    - A1's link field shows [B1, B2]
+      //    - B1's symmetric link shows [A1]
+      //    - B2's symmetric link shows [A1]
+
+      const tableAId = `tbl${'a'.repeat(16)}`;
+      const tableBId = `tbl${'b'.repeat(16)}`;
+      const aPrimaryFieldId = createFieldId();
+      const bPrimaryFieldId = createFieldId();
+      const aLinkFieldId = createFieldId();
+      const recordB1Id = `rec${'1'.repeat(16)}`;
+      const recordB2Id = `rec${'2'.repeat(16)}`;
+      const recordA1Id = `rec${'3'.repeat(16)}`;
+
+      const tables = await createTables({
+        baseId,
+        tables: [
+          {
+            tableId: tableBId,
+            name: 'LinkTestB',
+            fields: [
+              { type: 'singleLineText', id: bPrimaryFieldId, name: 'Name', isPrimary: true },
+            ],
+            views: [{ type: 'grid' }],
+            records: [
+              { id: recordB1Id, fields: { [bPrimaryFieldId]: 'B1' } },
+              { id: recordB2Id, fields: { [bPrimaryFieldId]: 'B2' } },
+            ],
+          },
+          {
+            tableId: tableAId,
+            name: 'LinkTestA',
+            fields: [
+              { type: 'singleLineText', id: aPrimaryFieldId, name: 'Name', isPrimary: true },
+              {
+                type: 'link',
+                id: aLinkFieldId,
+                name: 'LinkToB',
+                options: {
+                  relationship: 'manyMany',
+                  foreignTableId: tableBId,
+                  lookupFieldId: bPrimaryFieldId,
+                },
+              },
+            ],
+            views: [{ type: 'grid' }],
+            records: [
+              {
+                id: recordA1Id,
+                fields: {
+                  [aPrimaryFieldId]: 'A1',
+                  [aLinkFieldId]: [
+                    { id: recordB1Id, title: 'B1' },
+                    { id: recordB2Id, title: 'B2' },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(tables).toHaveLength(2);
+
+      // Process outbox multiple times to ensure all computed updates complete
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      // Verify Table A records
+      const recordsA = await listTableRecords(tableAId);
+      expect(recordsA).toHaveLength(1);
+
+      const linkValueA = recordsA[0]?.fields[aLinkFieldId] as Array<{ id: string; title?: string }>;
+      expect(linkValueA).toBeDefined();
+      expect(Array.isArray(linkValueA)).toBe(true);
+      expect(linkValueA.length).toBe(2);
+      expect(linkValueA.map((l) => l.id).sort()).toEqual([recordB1Id, recordB2Id].sort());
+
+      // Verify Table B records have symmetric link
+      const recordsB = await listTableRecords(tableBId);
+      expect(recordsB).toHaveLength(2);
+
+      // Find the symmetric link field in table B
+      const tableB = await getTableById(baseId, tableBId);
+      const symmetricLinkField = tableB.fields.find(
+        (f) => f.type === 'link' && f.options.symmetricFieldId === aLinkFieldId
+      );
+      expect(symmetricLinkField).toBeDefined();
+      if (!symmetricLinkField) return;
+
+      const symFieldId = symmetricLinkField.id;
+
+      // Both B1 and B2 should have A1 in their symmetric link
+      for (const recordB of recordsB) {
+        const symLinkValue = recordB.fields[symFieldId] as Array<{ id: string; title?: string }>;
+        expect(symLinkValue).toBeDefined();
+        expect(Array.isArray(symLinkValue)).toBe(true);
+        expect(symLinkValue.length).toBe(1);
+        expect(symLinkValue[0]?.id).toBe(recordA1Id);
+      }
     });
   });
 });

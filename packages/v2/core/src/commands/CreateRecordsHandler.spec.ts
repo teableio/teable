@@ -10,7 +10,9 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -136,10 +138,11 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({ totalInserted });
   }
 
-  async update(
+  async updateOne(
     _context: IExecutionContext,
     _table: Table,
-    _record: TableRecord
+    _recordId: RecordId,
+    _mutateSpec: ICellValueSpec
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }

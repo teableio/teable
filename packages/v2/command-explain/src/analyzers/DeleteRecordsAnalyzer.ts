@@ -23,7 +23,7 @@ import {
   type FieldDependencyGraphData,
   ComputedTableRecordQueryBuilder,
   UpdateFromSelectBuilder,
-} from '@teable/v2-adapter-record-repository-postgres';
+} from '@teable/v2-adapter-table-repository-postgres';
 
 import type { ICommandAnalyzer } from './ICommandAnalyzer';
 import type {

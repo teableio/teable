@@ -4,7 +4,7 @@ import {
   createSchemaChecker,
   PostgresSchemaIntrospector,
   type SchemaCheckResult,
-} from '@teable/v2-adapter-schema-repository-postgres';
+} from '@teable/v2-adapter-table-repository-postgres';
 import { ActorId, TableByIdSpec, TableId, v2CoreTokens } from '@teable/v2-core';
 import type { IExecutionContext, ITableRepository } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';

@@ -13,7 +13,9 @@ import type { ISpecification } from '../domain/shared/specification/ISpecificati
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
+import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -168,7 +170,12 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok(result);
   }
 
-  async update(_context: IExecutionContext, _table: Table, _record: TableRecord) {
+  async updateOne(
+    _context: IExecutionContext,
+    _table: Table,
+    _recordId: RecordId,
+    _mutateSpec: ICellValueSpec
+  ) {
     return ok(undefined);
   }
 

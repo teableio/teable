@@ -20,9 +20,7 @@
     "rootDir": "../",
     "outDir": "dist",
     "paths": {
-      "@teable/v2-adapter-schema-repository-postgres": [
-        "../adapter-schema-repository-postgres/src"
-      ],
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-schema-repository-postgres/src"],
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],

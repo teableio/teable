@@ -4,10 +4,8 @@ import {
   registerV2PostgresDb,
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
-import { registerV2RecordRepositoryPostgresAdapter } from '@teable/v2-adapter-record-repository-postgres';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
-import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
   AsyncMemoryEventBus,
   MemoryCommandBus,
@@ -98,10 +96,6 @@ export const registerV2BunPgDependencies = async (
     ensureSchema: options.ensureSchema,
     seed: options.seed as IV2PostgresStateAdapterConfig['seed'],
   });
-
-  registerV2RecordRepositoryPostgresAdapter(c, { db });
-
-  await registerV2PostgresDdlAdapter(c, { db });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,

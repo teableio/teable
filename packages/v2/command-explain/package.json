@@ -32,7 +32,7 @@
   "dependencies": {
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
-    "@teable/v2-adapter-record-repository-postgres": "workspace:*",
+    "@teable/v2-adapter-table-repository-postgres": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
     "kysely": "0.28.9",
     "neverthrow": "8.2.0"

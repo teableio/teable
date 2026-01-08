@@ -8,12 +8,11 @@ import {
 } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import {
-  registerV2RecordRepositoryPostgresAdapter,
+  registerV2TableRepositoryPostgresAdapter,
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
-} from '@teable/v2-adapter-record-repository-postgres';
+} from '@teable/v2-adapter-table-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
-import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import type { IHasher, ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
@@ -108,10 +107,6 @@ export const createV2NodeTestContainer = async (
     db,
     ensureSchema,
   });
-
-  registerV2RecordRepositoryPostgresAdapter(c, { db });
-
-  await registerV2PostgresDdlAdapter(c, { db });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,

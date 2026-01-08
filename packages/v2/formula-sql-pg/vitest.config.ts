@@ -14,9 +14,9 @@ export default defineConfig({
     alias: {
       '@teable/formula': resolve(rootDir, '../../formula/src/index.ts'),
       '@teable/v2-container-node-test': resolve(rootDir, '../container-node-test/src/index.ts'),
-      '@teable/v2-adapter-record-repository-postgres': resolve(
+      '@teable/v2-adapter-table-repository-postgres': resolve(
         rootDir,
-        '../adapter-record-repository-postgres/src/index.ts'
+        '../adapter-table-repository-postgres/src/index.ts'
       ),
       '@teable/v2-adapter-db-postgres-pg': resolve(
         rootDir,
@@ -30,9 +30,9 @@ export default defineConfig({
         rootDir,
         '../adapter-repository-postgres/src/index.ts'
       ),
-      '@teable/v2-adapter-schema-repository-postgres': resolve(
+      '@teable/v2-adapter-table-repository-postgres': resolve(
         rootDir,
-        '../adapter-schema-repository-postgres/src/index.ts'
+        '../adapter-table-repository-postgres/src/index.ts'
       ),
       '@teable/v2-adapter-csv-parser-papaparse': resolve(
         rootDir,

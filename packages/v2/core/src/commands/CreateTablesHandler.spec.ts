@@ -9,7 +9,9 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
@@ -146,7 +148,12 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok(result);
   }
 
-  async update(_context: IExecutionContext, _table: Table, _record: TableRecord) {
+  async updateOne(
+    _context: IExecutionContext,
+    _table: Table,
+    _recordId: RecordId,
+    _mutateSpec: ICellValueSpec
+  ) {
     return ok(undefined);
   }
 

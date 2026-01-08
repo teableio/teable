@@ -30,9 +30,7 @@
       "@teable/v2-contract-http": ["../contract-http/src"],
       "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
       "@teable/v2-adapter-csv-parser-papaparse": ["../adapter-csv-parser-papaparse/src"],
-      "@teable/v2-adapter-schema-repository-postgres": [
-        "../adapter-schema-repository-postgres/src"
-      ],
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-schema-repository-postgres/src"],
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-adapter-record-repository-postgres": [
         "../adapter-record-repository-postgres/src"

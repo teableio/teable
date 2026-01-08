@@ -8,8 +8,8 @@
  *
  * Uses real database via createV2NodeTestContainer.
  */
-import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-record-repository-postgres';
-import type { FieldDependencyGraph } from '@teable/v2-adapter-record-repository-postgres';
+import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
+import type { FieldDependencyGraph } from '@teable/v2-adapter-table-repository-postgres';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   ActorId,

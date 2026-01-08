@@ -621,8 +621,8 @@ describe('Table.updateRecord', () => {
       [numberFieldId, 123],
     ]);
 
-    const recordResult = table.updateRecord(recordId, fieldValues);
-    const record = recordResult._unsafeUnwrap();
+    const updateResult = table.updateRecord(recordId, fieldValues);
+    const { record } = updateResult._unsafeUnwrap();
 
     expect(record.id().equals(recordId)).toBe(true);
     expect(record.tableId().equals(table.id())).toBe(true);
@@ -644,8 +644,8 @@ describe('Table.updateRecord', () => {
       ['fldUnknownField12345', 'Ignored'],
     ]);
 
-    const recordResult = table.updateRecord(recordId, fieldValues);
-    const record = recordResult._unsafeUnwrap();
+    const updateResult = table.updateRecord(recordId, fieldValues);
+    const { record } = updateResult._unsafeUnwrap();
 
     expect(record.fields().entries().length).toBe(1);
   });

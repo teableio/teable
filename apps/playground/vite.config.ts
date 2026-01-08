@@ -38,7 +38,7 @@ const v2ServerPackages = [
   // Repository Adapters
   '@teable/v2-adapter-repository-postgres',
   '@teable/v2-adapter-record-repository-postgres',
-  '@teable/v2-adapter-schema-repository-postgres',
+  '@teable/v2-adapter-table-repository-postgres',
   // Other Adapters
   '@teable/v2-adapter-bullmq',
   '@teable/v2-adapter-csv-parser-papaparse',
