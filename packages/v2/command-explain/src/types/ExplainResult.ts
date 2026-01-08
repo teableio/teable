@@ -111,6 +111,55 @@ export type ExplainAnalyzeOutput = {
 };
 
 /**
+ * Seed field that triggered computed updates.
+ */
+export type ComputedUpdateSeedField = {
+  readonly fieldId: string;
+  readonly fieldName: string;
+  readonly fieldType: string;
+  readonly tableId: string;
+  readonly tableName: string;
+  readonly impact: 'value' | 'link_relation';
+};
+
+/**
+ * Direct dependency of a computed field.
+ */
+export type ComputedUpdateDependency = {
+  readonly fromFieldId: string;
+  readonly fromFieldName: string;
+  readonly fromFieldType: string;
+  readonly fromTableId: string;
+  readonly fromTableName: string;
+  readonly kind: 'same_record' | 'cross_record';
+  readonly semantic?: string;
+  readonly linkFieldId?: string;
+  readonly isSeed: boolean;
+};
+
+/**
+ * Computed field updated in a batch, including dependencies.
+ */
+export type ComputedUpdateTargetField = {
+  readonly fieldId: string;
+  readonly fieldName: string;
+  readonly fieldType: string;
+  readonly tableId: string;
+  readonly tableName: string;
+  readonly dependencies: ReadonlyArray<ComputedUpdateDependency>;
+};
+
+/**
+ * Reason details for computed update batches.
+ */
+export type ComputedUpdateReason = {
+  readonly changeType: 'insert' | 'update' | 'delete';
+  readonly seedFields: ReadonlyArray<ComputedUpdateSeedField>;
+  readonly targetFields: ReadonlyArray<ComputedUpdateTargetField>;
+  readonly notes: ReadonlyArray<string>;
+};
+
+/**
  * SQL explain information for a single step.
  */
 export type SqlExplainInfo = {
@@ -119,6 +168,7 @@ export type SqlExplainInfo = {
   readonly parameters: ReadonlyArray<unknown>;
   readonly explainAnalyze: ExplainAnalyzeOutput | null;
   readonly explainOnly: ExplainOutput | null;
+  readonly computedReason?: ComputedUpdateReason;
 };
 
 /**

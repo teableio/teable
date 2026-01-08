@@ -45,6 +45,7 @@ import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
 import { SqlExplainRunner } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
+import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 
 /**
  * Analyzer for CreateRecordCommand.
@@ -266,6 +267,14 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
             for (const step of batch.steps) {
               batchFieldIds.push(...step.fieldIds);
             }
+            const computedReason = buildComputedUpdateReason({
+              plan,
+              graphData,
+              tableById,
+              changedFieldIds,
+              targetFieldIds: batchFieldIds,
+              changeType: plan.changeType,
+            });
 
             // Get batch table name
             const batchTableNameResult = batchTable.dbTableName();
@@ -290,6 +299,7 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                computedReason,
               });
               continue;
             }
@@ -302,6 +312,7 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                computedReason,
               });
               continue;
             }
@@ -322,6 +333,7 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                computedReason,
               });
               continue;
             }
@@ -372,6 +384,7 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
               parameters: compiled.parameters as unknown[],
               explainAnalyze,
               explainOnly,
+              computedReason,
             });
           }
         }

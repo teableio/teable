@@ -32,6 +32,8 @@ interface ExplainResultPanelProps {
   className?: string;
 }
 
+type ComputedUpdateReason = NonNullable<IExplainResultDto['sqlExplains'][number]['computedReason']>;
+
 function ComplexityScoreCard({ level, score }: { level: string; score: number }) {
   const config: Record<string, { bg: string; border: string; text: string; label: string }> = {
     trivial: {
@@ -144,6 +146,100 @@ function ExplainOutputBlock({
         {output.estimatedCost !== undefined && (
           <span>Est. cost: {output.estimatedCost.toFixed(2)}</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ComputedReasonBlock({ reason }: { reason: ComputedUpdateReason }) {
+  return (
+    <div className="mt-4 rounded-md border bg-muted/40 p-3 text-xs space-y-3">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <GitBranch className="h-4 w-4" />
+        <span className="font-medium">Computed Update Reason</span>
+        <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase">
+          {reason.changeType}
+        </Badge>
+      </div>
+      {reason.notes.length > 0 && (
+        <div className="text-muted-foreground">{reason.notes.join(' ')}</div>
+      )}
+      <div>
+        <div className="text-[11px] font-medium text-muted-foreground mb-1">Triggered By</div>
+        <div className="flex flex-wrap gap-1.5">
+          {reason.seedFields.length > 0 ? (
+            reason.seedFields.map((seed) => {
+              const Icon = getFieldTypeIcon(seed.fieldType);
+              return (
+                <div
+                  key={seed.fieldId}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-background border text-[11px]"
+                  title={`${seed.tableName} · ${seed.fieldType}`}
+                >
+                  <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <span className="font-medium">{seed.fieldName}</span>
+                  <span className="text-muted-foreground">({seed.fieldType})</span>
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                    {seed.impact === 'link_relation' ? 'link' : 'value'}
+                  </Badge>
+                </div>
+              );
+            })
+          ) : (
+            <span className="text-muted-foreground">No seed fields</span>
+          )}
+        </div>
+      </div>
+      <div>
+        <div className="text-[11px] font-medium text-muted-foreground mb-1">Updates</div>
+        <div className="space-y-2">
+          {reason.targetFields.length > 0 ? (
+            reason.targetFields.map((target) => {
+              const Icon = getFieldTypeIcon(target.fieldType);
+              return (
+                <div key={target.fieldId} className="rounded-md border bg-background px-2 py-2">
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-3 w-3 text-muted-foreground" />
+                    <span className="font-medium">{target.fieldName}</span>
+                    <span className="text-muted-foreground">({target.fieldType})</span>
+                  </div>
+                  <div className="mt-1 space-y-1 text-[11px]">
+                    {target.dependencies.length > 0 ? (
+                      target.dependencies.map((dep, index) => (
+                        <div
+                          key={`${dep.fromFieldId}-${index}`}
+                          className="flex flex-wrap items-center gap-1.5 text-muted-foreground"
+                        >
+                          <span className="font-medium text-foreground">
+                            {dep.fromTableName}.{dep.fromFieldName}
+                          </span>
+                          <span>({dep.fromFieldType})</span>
+                          <Badge variant="outline" className="text-[10px] h-4 px-1">
+                            {dep.kind}
+                          </Badge>
+                          {dep.semantic && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1">
+                              {dep.semantic}
+                            </Badge>
+                          )}
+                          {dep.isSeed && (
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                              seed
+                            </Badge>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground">No direct dependencies</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <span className="text-muted-foreground">No computed targets</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -584,6 +680,9 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
                         </div>
                       )}
                     </div>
+                    {sqlInfo.computedReason && (
+                      <ComputedReasonBlock reason={sqlInfo.computedReason} />
+                    )}
                   </div>
                 </div>
               ))}

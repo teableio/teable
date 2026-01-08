@@ -54,12 +54,60 @@ const explainAnalyzeOutputSchema = z.object({
   estimatedRows: z.number().optional(),
 });
 
+const computedUpdateSeedFieldSchema = z.object({
+  fieldId: z.string(),
+  fieldName: z.string(),
+  fieldType: z.string(),
+  tableId: z.string(),
+  tableName: z.string(),
+  impact: z.enum(['value', 'link_relation']),
+});
+
+const computedUpdateDependencySchema = z.object({
+  fromFieldId: z.string(),
+  fromFieldName: z.string(),
+  fromFieldType: z.string(),
+  fromTableId: z.string(),
+  fromTableName: z.string(),
+  kind: z.enum(['same_record', 'cross_record']),
+  semantic: z
+    .enum([
+      'formula_ref',
+      'lookup_source',
+      'lookup_link',
+      'link_title',
+      'rollup_source',
+      'conditional_rollup_source',
+      'conditional_lookup_source',
+    ])
+    .optional(),
+  linkFieldId: z.string().optional(),
+  isSeed: z.boolean(),
+});
+
+const computedUpdateTargetFieldSchema = z.object({
+  fieldId: z.string(),
+  fieldName: z.string(),
+  fieldType: z.string(),
+  tableId: z.string(),
+  tableName: z.string(),
+  dependencies: z.array(computedUpdateDependencySchema),
+});
+
+const computedUpdateReasonSchema = z.object({
+  changeType: z.enum(['insert', 'update', 'delete']),
+  seedFields: z.array(computedUpdateSeedFieldSchema),
+  targetFields: z.array(computedUpdateTargetFieldSchema),
+  notes: z.array(z.string()),
+});
+
 const sqlExplainInfoSchema = z.object({
   stepDescription: z.string(),
   sql: z.string(),
   parameters: z.array(z.unknown()),
   explainAnalyze: explainAnalyzeOutputSchema.nullable(),
   explainOnly: explainOutputSchema.nullable(),
+  computedReason: computedUpdateReasonSchema.optional(),
 });
 
 const dependencyEdgeInfoSchema = z.object({

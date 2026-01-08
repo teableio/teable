@@ -43,6 +43,7 @@ import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
 import { SqlExplainRunner } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
+import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 
 /**
  * Analyzer for DeleteRecordsCommand.
@@ -112,6 +113,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
       let computedImpact: ComputedImpactInfo;
       let plan: ComputedUpdatePlan | null = null;
       let tableById: Map<string, Table> | null = null;
+      let graphData: FieldDependencyGraphData | null = null;
 
       if (linkFieldIds.length > 0) {
         plan = yield* await analyzer.planner.plan({
@@ -122,7 +124,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
         });
         planningMs = Date.now() - graphStartTime;
 
-        const graphData = yield* await analyzer.dependencyGraph.load(table.baseId());
+        graphData = yield* await analyzer.dependencyGraph.load(table.baseId());
         dependencyGraphMs = Date.now() - graphStartTime;
 
         // Load tables for name resolution
@@ -136,7 +138,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
           mergedOptions
         );
       } else {
-        const graphData = yield* await analyzer.dependencyGraph.load(table.baseId());
+        graphData = yield* await analyzer.dependencyGraph.load(table.baseId());
         dependencyGraphMs = Date.now() - graphStartTime;
         planningMs = dependencyGraphMs;
 
@@ -192,7 +194,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
         });
 
         // Generate SQL for computed field updates on linked tables
-        if (plan && plan.sameTableBatches.length > 0 && tableById) {
+        if (plan && plan.sameTableBatches.length > 0 && tableById && graphData) {
           for (let i = 0; i < plan.sameTableBatches.length; i++) {
             const batch = plan.sameTableBatches[i];
             const batchTable = tableById.get(batch.tableId.toString());
@@ -206,6 +208,14 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
             for (const step of batch.steps) {
               batchFieldIds.push(...step.fieldIds);
             }
+            const computedReason = buildComputedUpdateReason({
+              plan,
+              graphData,
+              tableById,
+              changedFieldIds: linkFieldIds,
+              targetFieldIds: batchFieldIds,
+              changeType: plan.changeType,
+            });
 
             // Get batch table name
             const batchTableNameResult = batchTable.dbTableName();
@@ -230,6 +240,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                computedReason,
               });
               continue;
             }
@@ -242,6 +253,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                computedReason,
               });
               continue;
             }
@@ -262,6 +274,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                computedReason,
               });
               continue;
             }
@@ -312,6 +325,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
               parameters: compiled.parameters as unknown[],
               explainAnalyze,
               explainOnly,
+              computedReason,
             });
           }
         }
