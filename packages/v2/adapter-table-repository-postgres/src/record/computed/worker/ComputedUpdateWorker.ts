@@ -228,7 +228,9 @@ export class ComputedUpdateWorker {
         seedRecordIds: seedSplit.seedRecordIds,
         extraSeedRecords: seedSplit.extraSeedRecords,
         changedFieldIds: seedFieldIds,
-        changeType: plan.changeType,
+        // After the initial insert is processed, subsequent stages should behave like updates.
+        // This avoids re-planning seed-table computed fields on every async stage.
+        changeType: plan.changeType === 'insert' ? 'update' : plan.changeType,
         impact: {
           valueFieldIds: seedFieldIds,
           linkFieldIds: [],

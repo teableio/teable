@@ -1,11 +1,5 @@
 import { domainError, FieldId, TableId } from '@teable/v2-core';
-import type {
-  BaseId,
-  type DomainError,
-  type IExecutionContext,
-  type RecordId,
-  type Table,
-} from '@teable/v2-core';
+import type { BaseId, DomainError, IExecutionContext, RecordId, Table } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
