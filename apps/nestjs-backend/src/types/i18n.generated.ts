@@ -2971,6 +2971,7 @@ export type I18nTranslations = {
     "system": {
         "notFound": {
             "title": string;
+            "description": string;
         };
         "links": {
             "backToHome": string;
@@ -2980,6 +2981,10 @@ export type I18nTranslations = {
             "description": string;
         };
         "paymentRequired": {
+            "title": string;
+            "description": string;
+        };
+        "error": {
             "title": string;
             "description": string;
         };
