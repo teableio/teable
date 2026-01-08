@@ -119,10 +119,16 @@ export function RecordUpdateDialog({
     defaultValues,
     validatorAdapter,
     validators: recordSchema ? { onSubmit: recordSchema } : {},
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ value, formApi }) => {
       const fields: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(value)) {
-        if (val !== undefined) fields[key] = val;
+        if (formApi.state.fieldMeta[key]?.isDirty) {
+          fields[key] = val;
+        }
+      }
+      if (Object.keys(fields).length === 0) {
+        toast.info('No changes to update');
+        return;
       }
       updateRecordMutation.mutate({ tableId, recordId: record.id, fields });
     },
@@ -132,7 +138,13 @@ export function RecordUpdateDialog({
     const value = form.state.values;
     const fields: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value)) {
-      if (val !== undefined) fields[key] = val;
+      if (form.state.fieldMeta[key]?.isDirty) {
+        fields[key] = val;
+      }
+    }
+    if (Object.keys(fields).length === 0) {
+      toast.info('No changes to explain');
+      return;
     }
     explainMutation.mutate({
       tableId,
@@ -142,7 +154,7 @@ export function RecordUpdateDialog({
       includeSql: true,
       includeGraph: false,
     });
-  }, [explainMutation, form.state.values, tableId, record.id, analyzeMode]);
+  }, [explainMutation, form.state.values, form.state.fieldMeta, tableId, record.id, analyzeMode]);
 
   const lastOpenRef = useRef(false);
   const lastRecordIdRef = useRef<string | null>(null);
