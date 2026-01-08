@@ -18,8 +18,9 @@ import { PinList } from './PinList';
 
 export const SpaceInnerSideBar = (props: {
   renderSettingModal?: (children: React.ReactNode) => React.ReactNode;
+  renderWinFreeCredit?: (spaceId: string) => React.ReactNode;
 }) => {
-  const { renderSettingModal } = props;
+  const { renderSettingModal, renderWinFreeCredit } = props;
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { spaceId } = useParams<{ spaceId: string }>();
@@ -149,6 +150,7 @@ export const SpaceInnerSideBar = (props: {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <PinList />
       </div>
+      {renderWinFreeCredit && renderWinFreeCredit(spaceId)}
     </>
   );
 };
