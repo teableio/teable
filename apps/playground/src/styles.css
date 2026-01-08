@@ -26,111 +26,113 @@ code {
 }
 
 :root {
-  --background: oklch(0.995 0.002 300);
-  --foreground: oklch(0.25 0.02 290);
+  /* Notion/Stripe inspired neutral theme */
+  --background: oklch(0.995 0 0);
+  --foreground: oklch(0.23 0.005 250);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.02 290);
+  --card-foreground: oklch(0.23 0.005 250);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 290);
-  --primary: oklch(0.55 0.22 295);
+  --popover-foreground: oklch(0.23 0.005 250);
+  --primary: oklch(0.45 0.18 260);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.96 0.015 290);
-  --secondary-foreground: oklch(0.4 0.08 290);
-  --muted: oklch(0.97 0.008 290);
-  --muted-foreground: oklch(0.5 0.03 290);
-  --accent: oklch(0.94 0.04 300);
-  --accent-foreground: oklch(0.4 0.15 295);
-  --destructive: oklch(0.6 0.22 25);
+  --secondary: oklch(0.965 0.003 250);
+  --secondary-foreground: oklch(0.35 0.01 250);
+  --muted: oklch(0.97 0.002 250);
+  --muted-foreground: oklch(0.55 0.01 250);
+  --accent: oklch(0.96 0.015 260);
+  --accent-foreground: oklch(0.35 0.08 260);
+  --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.92 0.015 290);
-  --input: oklch(0.92 0.015 290);
-  --ring: oklch(0.55 0.22 295);
-  --chart-1: oklch(0.65 0.2 295);
-  --chart-2: oklch(0.55 0.22 300);
-  --chart-3: oklch(0.5 0.2 310);
-  --chart-4: oklch(0.45 0.18 320);
-  --chart-5: oklch(0.6 0.15 280);
-  --sidebar: oklch(0.98 0.01 295);
-  --sidebar-foreground: oklch(0.25 0.02 290);
-  --sidebar-primary: oklch(0.55 0.22 295);
+  --border: oklch(0.92 0.003 250);
+  --input: oklch(0.92 0.003 250);
+  --ring: oklch(0.45 0.18 260);
+  --chart-1: oklch(0.55 0.18 260);
+  --chart-2: oklch(0.6 0.15 200);
+  --chart-3: oklch(0.55 0.12 160);
+  --chart-4: oklch(0.6 0.14 50);
+  --chart-5: oklch(0.5 0.16 350);
+  --sidebar: oklch(0.985 0.002 250);
+  --sidebar-foreground: oklch(0.23 0.005 250);
+  --sidebar-primary: oklch(0.45 0.18 260);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.94 0.04 300);
-  --sidebar-accent-foreground: oklch(0.4 0.15 295);
-  --sidebar-border: oklch(0.92 0.015 290);
-  --sidebar-ring: oklch(0.55 0.22 295);
-  --font-sans: Inter, sans-serif;
-  --font-serif: Source Serif 4, serif;
-  --font-mono: JetBrains Mono, monospace;
-  --radius: 0.5rem;
+  --sidebar-accent: oklch(0.96 0.015 260);
+  --sidebar-accent-foreground: oklch(0.35 0.08 260);
+  --sidebar-border: oklch(0.92 0.003 250);
+  --sidebar-ring: oklch(0.45 0.18 260);
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'SF Mono', SFMono-Regular, Consolas, monospace;
+  --radius: 0.375rem;
   --shadow-x: 0;
   --shadow-y: 1px;
   --shadow-blur: 3px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.1;
-  --shadow-color: oklch(0.3 0.05 295);
-  --shadow-2xs: 0 1px 2px 0px oklch(0.3 0.05 295 / 0.04);
-  --shadow-xs: 0 1px 3px 0px oklch(0.3 0.05 295 / 0.06);
-  --shadow-sm: 0 1px 3px 0px oklch(0.3 0.05 295 / 0.08), 0 1px 2px -1px oklch(0.3 0.05 295 / 0.08);
-  --shadow: 0 2px 4px 0px oklch(0.3 0.05 295 / 0.08), 0 1px 2px -1px oklch(0.3 0.05 295 / 0.08);
-  --shadow-md: 0 4px 6px -1px oklch(0.3 0.05 295 / 0.1), 0 2px 4px -2px oklch(0.3 0.05 295 / 0.1);
-  --shadow-lg: 0 10px 15px -3px oklch(0.3 0.05 295 / 0.1), 0 4px 6px -4px oklch(0.3 0.05 295 / 0.1);
-  --shadow-xl: 0 20px 25px -5px oklch(0.3 0.05 295 / 0.1), 0 8px 10px -6px oklch(0.3 0.05 295 / 0.1);
-  --shadow-2xl: 0 25px 50px -12px oklch(0.3 0.05 295 / 0.25);
+  --shadow-color: oklch(0.3 0 0);
+  --shadow-2xs: 0 1px 2px 0px oklch(0.3 0 0 / 0.04);
+  --shadow-xs: 0 1px 3px 0px oklch(0.3 0 0 / 0.05);
+  --shadow-sm: 0 1px 2px 0px oklch(0.3 0 0 / 0.06), 0 1px 3px -1px oklch(0.3 0 0 / 0.06);
+  --shadow: 0 2px 4px 0px oklch(0.3 0 0 / 0.06), 0 1px 2px -1px oklch(0.3 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px oklch(0.3 0 0 / 0.08), 0 2px 4px -2px oklch(0.3 0 0 / 0.08);
+  --shadow-lg: 0 10px 15px -3px oklch(0.3 0 0 / 0.08), 0 4px 6px -4px oklch(0.3 0 0 / 0.08);
+  --shadow-xl: 0 20px 25px -5px oklch(0.3 0 0 / 0.1), 0 8px 10px -6px oklch(0.3 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px oklch(0.3 0 0 / 0.2);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 }
 
 .dark {
-  --background: oklch(0.18 0.02 295);
-  --foreground: oklch(0.92 0.01 290);
-  --card: oklch(0.22 0.025 295);
-  --card-foreground: oklch(0.92 0.01 290);
-  --popover: oklch(0.22 0.025 295);
-  --popover-foreground: oklch(0.92 0.01 290);
-  --primary: oklch(0.7 0.18 295);
-  --primary-foreground: oklch(0.15 0.02 295);
-  --secondary: oklch(0.25 0.03 295);
-  --secondary-foreground: oklch(0.9 0.01 290);
-  --muted: oklch(0.22 0.02 295);
-  --muted-foreground: oklch(0.65 0.02 290);
-  --accent: oklch(0.35 0.12 300);
-  --accent-foreground: oklch(0.9 0.05 295);
-  --destructive: oklch(0.55 0.22 25);
+  /* Dark mode - Notion/Stripe inspired */
+  --background: oklch(0.14 0.005 250);
+  --foreground: oklch(0.92 0.005 250);
+  --card: oklch(0.18 0.008 250);
+  --card-foreground: oklch(0.92 0.005 250);
+  --popover: oklch(0.18 0.008 250);
+  --popover-foreground: oklch(0.92 0.005 250);
+  --primary: oklch(0.65 0.16 260);
+  --primary-foreground: oklch(0.12 0.01 250);
+  --secondary: oklch(0.22 0.01 250);
+  --secondary-foreground: oklch(0.88 0.005 250);
+  --muted: oklch(0.2 0.008 250);
+  --muted-foreground: oklch(0.62 0.01 250);
+  --accent: oklch(0.28 0.04 260);
+  --accent-foreground: oklch(0.88 0.04 260);
+  --destructive: oklch(0.5 0.2 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.32 0.03 295);
-  --input: oklch(0.32 0.03 295);
-  --ring: oklch(0.7 0.18 295);
-  --chart-1: oklch(0.75 0.15 295);
-  --chart-2: oklch(0.65 0.18 300);
-  --chart-3: oklch(0.6 0.16 310);
-  --chart-4: oklch(0.55 0.14 320);
-  --chart-5: oklch(0.7 0.12 280);
-  --sidebar: oklch(0.16 0.02 295);
-  --sidebar-foreground: oklch(0.92 0.01 290);
-  --sidebar-primary: oklch(0.7 0.18 295);
-  --sidebar-primary-foreground: oklch(0.15 0.02 295);
-  --sidebar-accent: oklch(0.35 0.12 300);
-  --sidebar-accent-foreground: oklch(0.9 0.05 295);
-  --sidebar-border: oklch(0.32 0.03 295);
-  --sidebar-ring: oklch(0.7 0.18 295);
-  --font-sans: Inter, sans-serif;
-  --font-serif: Source Serif 4, serif;
-  --font-mono: JetBrains Mono, monospace;
-  --radius: 0.5rem;
+  --border: oklch(0.28 0.01 250);
+  --input: oklch(0.28 0.01 250);
+  --ring: oklch(0.65 0.16 260);
+  --chart-1: oklch(0.65 0.15 260);
+  --chart-2: oklch(0.65 0.12 200);
+  --chart-3: oklch(0.6 0.1 160);
+  --chart-4: oklch(0.65 0.12 50);
+  --chart-5: oklch(0.6 0.14 350);
+  --sidebar: oklch(0.12 0.005 250);
+  --sidebar-foreground: oklch(0.92 0.005 250);
+  --sidebar-primary: oklch(0.65 0.16 260);
+  --sidebar-primary-foreground: oklch(0.12 0.01 250);
+  --sidebar-accent: oklch(0.28 0.04 260);
+  --sidebar-accent-foreground: oklch(0.88 0.04 260);
+  --sidebar-border: oklch(0.28 0.01 250);
+  --sidebar-ring: oklch(0.65 0.16 260);
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'SF Mono', SFMono-Regular, Consolas, monospace;
+  --radius: 0.375rem;
   --shadow-x: 0;
   --shadow-y: 1px;
   --shadow-blur: 3px;
   --shadow-spread: 0px;
   --shadow-opacity: 0.1;
   --shadow-color: oklch(0 0 0);
-  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
-  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
-  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
-  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.1);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.12);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.15), 0 1px 2px -1px hsl(0 0% 0% / 0.15);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.15), 0 1px 2px -1px hsl(0 0% 0% / 0.15);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.18), 0 2px 4px -1px hsl(0 0% 0% / 0.18);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.2), 0 4px 6px -1px hsl(0 0% 0% / 0.2);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.22), 0 8px 10px -1px hsl(0 0% 0% / 0.22);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.3);
 }
 
 @theme inline {
@@ -208,11 +210,11 @@ code {
 }
 
 .bg-gradient-radial {
-  background: radial-gradient(ellipse at top, oklch(0.94 0.04 295) 0%, transparent 50%);
+  background: radial-gradient(ellipse at top, oklch(0.96 0.02 260) 0%, transparent 50%);
 }
 
 .dark .bg-gradient-radial {
-  background: radial-gradient(ellipse at top, oklch(0.25 0.06 295) 0%, transparent 50%);
+  background: radial-gradient(ellipse at top, oklch(0.22 0.03 260) 0%, transparent 50%);
 }
 
 /* Glassmorphism effects */
@@ -248,7 +250,7 @@ code {
   border: 1px solid transparent;
   background:
     linear-gradient(var(--background), var(--background)) padding-box,
-    linear-gradient(var(--gradient-angle), var(--primary), oklch(0.65 0.18 320), var(--primary))
+    linear-gradient(var(--gradient-angle), var(--primary), oklch(0.55 0.14 200), var(--primary))
       border-box;
   animation: gradient-rotate 4s linear infinite;
 }
