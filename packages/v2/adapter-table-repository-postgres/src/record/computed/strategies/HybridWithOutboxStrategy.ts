@@ -162,6 +162,11 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     const runId = baseRun.runId;
     const originRunIds = baseRun.originRunIds;
 
+    // Track already-updated fields to prevent duplicate updates across stages.
+    // Without this, computed fields in the dependency chain would be updated multiple times
+    // because collectStepFieldIds passes them as changedFieldIds to the next stage.
+    const updatedFieldIds = new Set<string>();
+
     while (currentPlan.steps.length > 0) {
       const prepared = await updater.prepareDirtyState(currentPlan, context);
       if (prepared.isErr()) return err(prepared.error);
@@ -209,6 +214,13 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       if (syncResult.isErr()) return err(syncResult.error);
 
       completedSteps += syncSteps.length;
+
+      // Record updated fields to avoid re-updating them in subsequent stages
+      for (const step of syncSteps) {
+        for (const fieldId of step.fieldIds) {
+          updatedFieldIds.add(fieldId.toString());
+        }
+      }
 
       if (asyncSteps.length > 0) {
         const stageFieldIds = collectStepFieldIds(currentPlan);
@@ -280,9 +292,18 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         seedGroups.value
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
-      if (nextPlanResult.value.steps.length === 0) break;
 
-      currentPlan = nextPlanResult.value;
+      // Filter out already-updated fields from the next plan's steps
+      const filteredSteps = nextPlanResult.value.steps
+        .map((step) => ({
+          ...step,
+          fieldIds: step.fieldIds.filter((id) => !updatedFieldIds.has(id.toString())),
+        }))
+        .filter((step) => step.fieldIds.length > 0);
+
+      if (filteredSteps.length === 0) break;
+
+      currentPlan = { ...nextPlanResult.value, steps: filteredSteps };
       totalSteps += currentPlan.steps.length;
     }
 

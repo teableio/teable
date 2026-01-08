@@ -27,11 +27,7 @@ import {
 import { RecordUpdateBuilder } from '../query-builder/update/RecordUpdateBuilder';
 import {
   FieldInsertValueVisitor,
-  LinkChangeCollectorVisitor,
   TableRecordConditionWhereVisitor,
-  createEmptyCollectedLinkChanges,
-  mergeCollectedLinkChange,
-  type CollectedLinkChanges,
   type FieldInsertResult,
   type QueryExecutor,
 } from '../visitors';
@@ -294,17 +290,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         // Use RecordUpdateBuilder to build all SQL statements from mutateSpec
         const updateBuilder = new RecordUpdateBuilder(db);
-        const buildResult = updateBuilder.build({
+        const { mainUpdate, additionalStatements, impact } = yield* await updateBuilder.build({
           table,
           tableName,
           mutateSpec,
           recordId: recordIdStr,
           context: { actorId, now },
         });
-        if (buildResult.isErr()) {
-          return err(buildResult.error);
-        }
-        const { mainUpdate, additionalStatements, changedFieldIds } = buildResult.value;
+        const { impactHint, extraSeedRecords } = impact;
 
         try {
           // Execute main UPDATE statement
@@ -321,8 +314,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             table,
             recordId,
             'update',
-            { valueFieldIds: changedFieldIds, linkFieldIds: [] },
-            []
+            impactHint,
+            extraSeedRecords
           );
           if (computedResult.isErr()) {
             return err(computedResult.error);
@@ -561,115 +554,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   }
 }
 
-type LinkItem = { id: string };
-
-const normalizeLinkItems = (rawValue: unknown): Result<ReadonlyArray<LinkItem>, DomainError> => {
-  if (rawValue === null || rawValue === undefined) return ok([]);
-  const items = Array.isArray(rawValue) ? rawValue : [rawValue];
-  const normalized: LinkItem[] = [];
-
-  for (const item of items) {
-    if (item && typeof item === 'object' && 'id' in item) {
-      const id = (item as { id?: unknown }).id;
-      if (typeof id === 'string') {
-        normalized.push({ id });
-        continue;
-      }
-    }
-    return err(domainError.validation({ message: 'Invalid link item' }));
-  }
-
-  return ok(normalized);
-};
-
-// Note: classifyLinkChange logic has been moved to LinkChangeCollectorVisitor
-
 const resolveFkHostTableName = (field: core.LinkField): Result<string, DomainError> => {
   return field
     .fkHostTableName()
     .split({ defaultSchema: 'public' })
     .map((split) => (split.schema ? `${split.schema}.${split.tableName}` : split.tableName));
-};
-
-const buildLinkUpdateOperationsFromItems = (
-  field: core.LinkField,
-  linkItems: ReadonlyArray<LinkItem>,
-  recordId: string,
-  seed: FieldInsertResult<DynamicDB> = { columnValues: {}, queryExecutors: [] }
-): Result<FieldInsertResult<DynamicDB>, DomainError> => {
-  return safeTry<FieldInsertResult<DynamicDB>, DomainError>(function* () {
-    const { columnValues, queryExecutors } = seed;
-
-    const relationship = field.relationship().toString();
-    const hasOrderColumn = field.hasOrderColumn();
-    const orderColumnName = hasOrderColumn ? yield* field.orderColumnName() : null;
-
-    if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
-      const tableName = yield* resolveFkHostTableName(field);
-      const selfKeyName = yield* field.selfKeyNameString();
-      const foreignKeyName = yield* field.foreignKeyNameString();
-
-      // Replace all existing links for this record to avoid stale relationships.
-      queryExecutors.push(async (db) => {
-        await db.deleteFrom(tableName).where(selfKeyName, '=', recordId).execute();
-
-        for (let i = 0; i < linkItems.length; i++) {
-          const linkItem = linkItems[i];
-          const insertValues: Record<string, unknown> = {
-            [selfKeyName]: recordId,
-            [foreignKeyName]: linkItem.id,
-          };
-          if (orderColumnName) {
-            insertValues[orderColumnName] = i + 1;
-          }
-          await db.insertInto(tableName).values(insertValues).execute();
-        }
-      });
-
-      return ok({ columnValues, queryExecutors });
-    }
-
-    if (relationship === 'manyOne' || relationship === 'oneOne') {
-      const foreignKeyName = yield* field.foreignKeyNameString();
-      columnValues[foreignKeyName] = linkItems[0]?.id ?? null;
-      return ok({ columnValues, queryExecutors });
-    }
-
-    if (relationship === 'oneMany') {
-      const tableName = yield* resolveFkHostTableName(field);
-      const selfKeyName = yield* field.selfKeyNameString();
-
-      // Clear previous links, then apply the new ordered list.
-      queryExecutors.push(async (db) => {
-        const clearValues: Record<string, unknown> = { [selfKeyName]: null };
-        if (orderColumnName) {
-          clearValues[orderColumnName] = null;
-        }
-        await db
-          .updateTable(tableName)
-          .set(clearValues)
-          .where(selfKeyName, '=', recordId)
-          .execute();
-
-        for (let i = 0; i < linkItems.length; i++) {
-          const linkItem = linkItems[i];
-          const updateValues: Record<string, unknown> = { [selfKeyName]: recordId };
-          if (orderColumnName) {
-            updateValues[orderColumnName] = i + 1;
-          }
-          await db
-            .updateTable(tableName)
-            .set(updateValues)
-            .where('__id', '=', linkItem.id)
-            .execute();
-        }
-      });
-
-      return ok({ columnValues, queryExecutors });
-    }
-
-    return err(domainError.validation({ message: 'Unsupported link relationship' }));
-  });
 };
 
 const loadExistingLinkRecordIds = async (
@@ -784,13 +673,6 @@ const mergeExtraSeedRecords = (
 
   extraSeedMap.set(tableId.toString(), entry);
   return ok(undefined);
-};
-
-const buildImpactHint = (
-  valueFieldIds: ReadonlyArray<core.FieldId>,
-  linkFieldIds: ReadonlyArray<core.FieldId>
-): UpdateImpactHint => {
-  return { valueFieldIds, linkFieldIds };
 };
 
 const finalizeExtraSeedRecords = (

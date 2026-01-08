@@ -49,6 +49,11 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
     const runId = baseRun.runId;
     const originRunIds = baseRun.originRunIds;
 
+    // Track already-updated fields to prevent duplicate updates across stages.
+    // Without this, computed fields in the dependency chain would be updated multiple times
+    // because collectStepFieldIds passes them as changedFieldIds to the next stage.
+    const updatedFieldIds = new Set<string>();
+
     while (currentPlan.steps.length > 0) {
       const run = createComputedUpdateRun({
         runId,
@@ -61,6 +66,13 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
       if (stageResult.isErr()) return err(stageResult.error);
 
       completedSteps += currentPlan.steps.length;
+
+      // Record updated fields to avoid re-updating them in subsequent stages
+      for (const step of currentPlan.steps) {
+        for (const fieldId of step.fieldIds) {
+          updatedFieldIds.add(fieldId.toString());
+        }
+      }
 
       const tableIds = collectStepTableIds(currentPlan);
       const seedGroups = await updater.collectDirtySeedGroups(context, tableIds);
@@ -75,9 +87,17 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
 
-      if (nextPlanResult.value.steps.length === 0) break;
+      // Filter out already-updated fields from the next plan's steps
+      const filteredSteps = nextPlanResult.value.steps
+        .map((step) => ({
+          ...step,
+          fieldIds: step.fieldIds.filter((id) => !updatedFieldIds.has(id.toString())),
+        }))
+        .filter((step) => step.fieldIds.length > 0);
 
-      currentPlan = nextPlanResult.value;
+      if (filteredSteps.length === 0) break;
+
+      currentPlan = { ...nextPlanResult.value, steps: filteredSteps };
       totalSteps += currentPlan.steps.length;
     }
 

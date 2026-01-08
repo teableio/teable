@@ -298,6 +298,12 @@ describe('PostgresTableRecordRepository.updateOne', () => {
       [
         {
           "parameters": [
+            "rechhhhhhhhhhhhhhhh",
+          ],
+          "sql": "select "__fk_fldeeeeeeeeeeeeeeee" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" = $1",
+        },
+        {
+          "parameters": [
             "2025-01-01T00:00:00.000Z",
             "usr_test",
             "rechhhhhhhhhhhhhhhh",
@@ -396,6 +402,12 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 
     expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
       [
+        {
+          "parameters": [
+            "rechhhhhhhhhhhhhhhh",
+          ],
+          "sql": "select "__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" where "__fk_fldffffffffffffffff" = $1",
+        },
         {
           "parameters": [
             "2025-01-01T00:00:00.000Z",

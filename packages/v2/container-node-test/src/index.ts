@@ -108,6 +108,9 @@ export const createV2NodeTestContainer = async (
     ensureSchema,
   });
 
+  // Register table repository postgres adapter (schema + record repositories)
+  registerV2TableRepositoryPostgresAdapter(c, { db });
+
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });

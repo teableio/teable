@@ -23,6 +23,8 @@ import {
   ComputedTableRecordQueryBuilder,
   UpdateFromSelectBuilder,
   RecordUpdateBuilder,
+  type RecordUpdateSqlResult,
+  type UpdateImpactHint,
   type DynamicDB,
 } from '@teable/v2-adapter-table-repository-postgres';
 
@@ -124,13 +126,42 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
         changeType: 'update',
       };
 
+      const recordUpdateResult = table.updateRecord(command.recordId, command.fieldValues);
+      let updateSqlResult: RecordUpdateSqlResult | null = null;
+      let updateBuildError: DomainError | null = null;
+      let impactHint: UpdateImpactHint | undefined;
+
+      if (recordUpdateResult.isOk()) {
+        const { mutateSpec } = recordUpdateResult.value;
+        const updateBuilder = new RecordUpdateBuilder(analyzer.db as unknown as Kysely<DynamicDB>);
+        const updateResult = await updateBuilder.build({
+          table,
+          tableName,
+          tableDisplayName: table.name().toString(),
+          mutateSpec,
+          recordId: command.recordId.toString(),
+          context: {
+            actorId: 'explain_placeholder',
+            now: new Date().toISOString(),
+          },
+        });
+
+        if (updateResult.isOk()) {
+          updateSqlResult = updateResult.value;
+          impactHint = updateResult.value.impact.impactHint;
+        } else {
+          updateBuildError = updateResult.error;
+        }
+      }
+
       // 4. Plan computed field updates
       const graphStartTime = Date.now();
       const plan = yield* await analyzer.planner.plan({
         table,
-        changedFieldIds,
+        changedFieldIds: updateSqlResult?.changedFieldIds ?? changedFieldIds,
         changedRecordIds: [command.recordId],
         changeType: 'update',
+        impact: impactHint,
       });
       planningMs = Date.now() - graphStartTime;
 
@@ -155,9 +186,6 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
       const sqlExplains: SqlExplainInfo[] = [];
 
       if (mergedOptions.includeSql) {
-        // First, call table.updateRecord to get the mutateSpec
-        const recordUpdateResult = table.updateRecord(command.recordId, command.fieldValues);
-
         if (recordUpdateResult.isErr()) {
           // If domain validation fails (e.g., button field), add an error entry
           sqlExplains.push({
@@ -167,99 +195,90 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             explainAnalyze: null,
             explainOnly: null,
           });
+        } else if (!updateSqlResult) {
+          const errorMessage = updateBuildError
+            ? updateBuildError.message
+            : 'Failed to build update SQL';
+          sqlExplains.push({
+            stepDescription: `Update record in ${table.name().toString()} (build failed)`,
+            sql: `-- Failed: ${errorMessage}`,
+            parameters: [],
+            explainAnalyze: null,
+            explainOnly: null,
+          });
         } else {
-          const { mutateSpec } = recordUpdateResult.value;
+          const { mainUpdate, additionalStatements } = updateSqlResult;
 
-          // Generate the primary UPDATE statement using RecordUpdateBuilder
-          const updateBuilder = new RecordUpdateBuilder(
-            analyzer.db as unknown as Kysely<DynamicDB>
-          );
-          const updateResult = updateBuilder.build({
-            table,
-            tableName,
-            tableDisplayName: table.name().toString(),
-            mutateSpec,
-            recordId: command.recordId.toString(),
-            context: {
-              actorId: 'explain_placeholder',
-              now: new Date().toISOString(),
-            },
+          // Run EXPLAIN on main UPDATE
+          let mainExplainAnalyze: ExplainAnalyzeOutput | null = null;
+          let mainExplainOnly: ExplainOutput | null = null;
+
+          if (mergedOptions.analyze) {
+            const analyzeResult = await analyzer.sqlExplainRunner.explain(
+              analyzer.db,
+              mainUpdate.compiled.sql,
+              mainUpdate.compiled.parameters as unknown[],
+              true
+            );
+            if (analyzeResult.isOk()) {
+              mainExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+            }
+          } else {
+            const explainResult = await analyzer.sqlExplainRunner.explain(
+              analyzer.db,
+              mainUpdate.compiled.sql,
+              mainUpdate.compiled.parameters as unknown[],
+              false
+            );
+            if (explainResult.isOk()) {
+              mainExplainOnly = explainResult.value as ExplainOutput;
+            }
+          }
+
+          sqlExplains.push({
+            stepDescription: mainUpdate.description,
+            sql: mainUpdate.compiled.sql,
+            parameters: mainUpdate.compiled.parameters as unknown[],
+            explainAnalyze: mainExplainAnalyze,
+            explainOnly: mainExplainOnly,
           });
 
-          if (updateResult.isOk()) {
-            const { mainUpdate, additionalStatements } = updateResult.value;
-
-            // Run EXPLAIN on main UPDATE
-            let mainExplainAnalyze: ExplainAnalyzeOutput | null = null;
-            let mainExplainOnly: ExplainOutput | null = null;
+          // Add additional SQLs (link field operations)
+          for (const stmt of additionalStatements) {
+            let additionalExplainAnalyze: ExplainAnalyzeOutput | null = null;
+            let additionalExplainOnly: ExplainOutput | null = null;
 
             if (mergedOptions.analyze) {
               const analyzeResult = await analyzer.sqlExplainRunner.explain(
                 analyzer.db,
-                mainUpdate.compiled.sql,
-                mainUpdate.compiled.parameters as unknown[],
+                stmt.compiled.sql,
+                stmt.compiled.parameters as unknown[],
                 true
               );
               if (analyzeResult.isOk()) {
-                mainExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+                additionalExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
               }
             } else {
               const explainResult = await analyzer.sqlExplainRunner.explain(
                 analyzer.db,
-                mainUpdate.compiled.sql,
-                mainUpdate.compiled.parameters as unknown[],
+                stmt.compiled.sql,
+                stmt.compiled.parameters as unknown[],
                 false
               );
               if (explainResult.isOk()) {
-                mainExplainOnly = explainResult.value as ExplainOutput;
+                additionalExplainOnly = explainResult.value as ExplainOutput;
               }
             }
 
             sqlExplains.push({
-              stepDescription: mainUpdate.description,
-              sql: mainUpdate.compiled.sql,
-              parameters: mainUpdate.compiled.parameters as unknown[],
-              explainAnalyze: mainExplainAnalyze,
-              explainOnly: mainExplainOnly,
+              stepDescription: stmt.description,
+              sql: stmt.compiled.sql,
+              parameters: stmt.compiled.parameters as unknown[],
+              explainAnalyze: additionalExplainAnalyze,
+              explainOnly: additionalExplainOnly,
             });
-
-            // Add additional SQLs (link field operations)
-            for (const stmt of additionalStatements) {
-              let additionalExplainAnalyze: ExplainAnalyzeOutput | null = null;
-              let additionalExplainOnly: ExplainOutput | null = null;
-
-              if (mergedOptions.analyze) {
-                const analyzeResult = await analyzer.sqlExplainRunner.explain(
-                  analyzer.db,
-                  stmt.compiled.sql,
-                  stmt.compiled.parameters as unknown[],
-                  true
-                );
-                if (analyzeResult.isOk()) {
-                  additionalExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
-                }
-              } else {
-                const explainResult = await analyzer.sqlExplainRunner.explain(
-                  analyzer.db,
-                  stmt.compiled.sql,
-                  stmt.compiled.parameters as unknown[],
-                  false
-                );
-                if (explainResult.isOk()) {
-                  additionalExplainOnly = explainResult.value as ExplainOutput;
-                }
-              }
-
-              sqlExplains.push({
-                stepDescription: stmt.description,
-                sql: stmt.compiled.sql,
-                parameters: stmt.compiled.parameters as unknown[],
-                explainAnalyze: additionalExplainAnalyze,
-                explainOnly: additionalExplainOnly,
-              });
-            }
           }
-        } // close else block for recordUpdateResult.isErr()
+        }
 
         // Then generate SQL for computed field updates
         if (plan.sameTableBatches.length > 0) {
