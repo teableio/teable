@@ -3135,9 +3135,15 @@ importers:
         specifier: 4.1.8
         version: 4.1.8
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.3.14
+        version: 0.3.14
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../eslint-config-bases
+      '@teable/v2-adapter-db-postgres-pglite':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pglite
       '@teable/v2-container-node-test':
         specifier: workspace:*
         version: link:../container-node-test
