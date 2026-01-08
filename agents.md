@@ -2,6 +2,10 @@
 
 This repo is introducing a new `packages/v2/*` architecture. Keep `v2` strict and boring: **domain first**, **interfaces first**, **Result-only errors**, **specifications for querying**, **builders/factories for creation**.
 
+## Git hygiene
+
+- Ignore git changes that you did not make by default; never revert unknown/unrelated modifications unless explicitly instructed.
+
 ## v2 layering (strict)
 
 `packages/v2/core` is the domain/core.
