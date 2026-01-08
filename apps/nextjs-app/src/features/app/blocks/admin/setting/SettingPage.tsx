@@ -26,10 +26,11 @@ import { scrollToTarget } from './utils';
 
 export interface ISettingPageProps {
   settingServerData?: ISettingVo;
+  rewardManage?: React.ReactNode;
 }
 
 export const SettingPage = (props: ISettingPageProps) => {
-  const { settingServerData } = props;
+  const { settingServerData, rewardManage } = props;
   const queryClient = useQueryClient();
   const { t } = useTranslation('common');
 
@@ -263,6 +264,8 @@ export const SettingPage = (props: ISettingPageProps) => {
               </div>
             </div>
           )}
+
+          {rewardManage}
 
           {/* email config */}
           <div className="pb-6" ref={emailRef}>
