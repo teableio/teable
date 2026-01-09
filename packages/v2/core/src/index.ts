@@ -299,6 +299,8 @@ export * from './domain/shared/specification/SpecBuilder';
 export * from './domain/shared/specification/visitors/AbstractSpecFilterVisitor';
 export * from './domain/shared/specification/visitors/ISpecFilterVisitor';
 
+export * from './domain/shared/graph/topologicalSort';
+
 export * from './domain/table/specs/TableByBaseIdSpec';
 export * from './domain/table/specs/TableSpecBuilder';
 

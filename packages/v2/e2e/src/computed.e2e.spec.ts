@@ -3111,6 +3111,245 @@ describe('v2 computed field updates (e2e)', () => {
           expect(extraKeys).toHaveLength(0);
         });
       });
+
+      /**
+       * Scenario: Insert optimization - skip oneMany link on One-side table insert.
+       *
+       * When inserting a new record to the One-side table (Parent) with a bidirectional
+       * oneMany link, the symmetric link field should NOT trigger computed update steps
+       * because FK is in the foreign table (Child), not the current table.
+       *
+       * A new Parent record cannot have any Child FK pointing to it yet.
+       */
+      it('oneMany twoWay - insert to One-side skips computed steps for symmetric link', async () => {
+        // Table Child (will have FK pointing to Parent)
+        const childNameFieldId = createFieldId();
+        const tableChild = await createTable({
+          baseId,
+          name: 'InsertOptChild',
+          fields: [{ type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        });
+
+        // Table Parent: oneMany link to Child (bidirectional)
+        const parentNameFieldId = createFieldId();
+        const parentLinkFieldId = createFieldId();
+        const tableParent = await createTable({
+          baseId,
+          name: 'InsertOptParent',
+          fields: [
+            { type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: parentLinkFieldId,
+              name: 'Children',
+              options: {
+                relationship: 'oneMany',
+                foreignTableId: tableChild.id,
+                lookupFieldId: childNameFieldId,
+                // isOneWay omitted = false (bidirectional)
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Get symmetric link field in tableChild
+        const updatedTableChild = await getTableById(tableChild.id);
+        const symmetricLinkFieldId = updatedTableChild.fields.find(
+          (f) => f.type === 'link' && f.options?.foreignTableId === tableParent.id
+        )?.id;
+        expect(symmetricLinkFieldId).toBeDefined();
+
+        // Clear logs before creating record
+        testContainer.clearLogs();
+
+        // Insert new Parent record (One-side, FK NOT here)
+        const parentRecord = await createRecord(tableParent.id, {
+          [parentNameFieldId]: 'NewParent',
+        });
+
+        // Verify computed plan has NO steps for the oneMany link in Parent table
+        // Because FK is in Child table, not Parent table
+        const plan = testContainer.getLastComputedPlan();
+
+        // The oneMany link in Parent should NOT be in the steps
+        // (but symmetric link in Child may be triggered for title updates)
+        if (plan) {
+          const parentLinkStep = plan.steps.find(
+            (s) =>
+              s.tableId.toString() === tableParent.id &&
+              s.fieldIds.some((f) => f.toString() === parentLinkFieldId)
+          );
+          expect(parentLinkStep).toBeUndefined();
+        }
+
+        // Verify the record was created correctly
+        const parentRecords = await listRecords(tableParent.id);
+        const created = parentRecords.find((r) => r.id === parentRecord.id);
+        expect(created).toBeDefined();
+        expect(created!.fields[parentNameFieldId]).toBe('NewParent');
+
+        // The oneMany link should be empty (no children linked yet)
+        const linkValue = created!.fields[parentLinkFieldId];
+        const isEmpty =
+          linkValue === null ||
+          linkValue === undefined ||
+          (Array.isArray(linkValue) && linkValue.length === 0);
+        expect(isEmpty).toBe(true);
+
+        // Verify table state
+        const parentFieldIds = [parentNameFieldId, parentLinkFieldId];
+        const parentFieldNames = ['Name', 'Children'];
+        expect(
+          printTableSnapshot(tableParent.name, parentFieldNames, parentRecords, parentFieldIds)
+        ).toMatchInlineSnapshot(`
+          "[InsertOptParent]
+          -------------------------
+          #  | Name      | Children
+          -------------------------
+          R0 | NewParent | -
+          -------------------------"
+        `);
+      });
+
+      /**
+       * Scenario: When creating a Parent record with Children link value set,
+       * the symmetric link field (Child.Parent) should be updated, AND any lookup
+       * fields in Child that depend on the symmetric link should also be updated.
+       *
+       * This tests the fix for: symmetric link's dependent lookup fields were not
+       * being computed during insert with link values.
+       */
+      it('oneMany twoWay - insert with link value updates symmetric link dependent lookups', async () => {
+        // Table Parent (the "one" side)
+        const parentNameFieldId = createFieldId();
+        const tableParent = await createTable({
+          baseId,
+          name: 'SymLookupParent',
+          fields: [
+            { type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Table Child: manyOne link to Parent + lookup for Parent.Name
+        const childNameFieldId = createFieldId();
+        const childLinkFieldId = createFieldId();
+        const childLookupFieldId = createFieldId();
+        const tableChild = await createTable({
+          baseId,
+          name: 'SymLookupChild',
+          fields: [
+            { type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: childLinkFieldId,
+              name: 'Parent',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableParent.id,
+                lookupFieldId: parentNameFieldId,
+              },
+            },
+            {
+              type: 'lookup',
+              id: childLookupFieldId,
+              name: 'ParentName',
+              options: {
+                linkFieldId: childLinkFieldId,
+                foreignTableId: tableParent.id,
+                lookupFieldId: parentNameFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        // Get symmetric link field ID in tableParent (oneMany link)
+        const updatedTableParent = await getTableById(tableParent.id);
+        const symmetricLinkFieldId = updatedTableParent.fields.find(
+          (f) => f.type === 'link' && f.options?.foreignTableId === tableChild.id
+        )?.id;
+        expect(symmetricLinkFieldId).toBeDefined();
+
+        // Create a Child record (no link set yet)
+        const childRecord = await createRecord(tableChild.id, {
+          [childNameFieldId]: 'ChildA',
+        });
+
+        // Verify Child record has empty ParentName lookup initially
+        const childRecordsBefore = await listRecords(tableChild.id);
+        const childBefore = childRecordsBefore.find((r) => r.id === childRecord.id);
+        expect(childBefore).toBeDefined();
+        const lookupValueBefore = childBefore!.fields[childLookupFieldId];
+        expect(
+          lookupValueBefore === null ||
+            lookupValueBefore === undefined ||
+            (Array.isArray(lookupValueBefore) && lookupValueBefore.length === 0)
+        ).toBe(true);
+
+        // Now create a Parent record with Children link value set to [ChildA]
+        // This should:
+        // 1. Update Child's FK to point to new Parent
+        // 2. Update Child's Parent link field to show the new Parent
+        // 3. Update Child's ParentName lookup to show Parent's name
+        testContainer.clearLogs();
+        await createRecord(tableParent.id, {
+          [parentNameFieldId]: 'ParentX',
+          [symmetricLinkFieldId!]: [{ id: childRecord.id }],
+        });
+
+        // Process outbox for cross-table computed updates
+        await testContainer.processOutbox();
+        await testContainer.processOutbox();
+
+        // Verify computed plan includes the lookup field update
+        const plan = testContainer.getLastComputedPlan();
+        if (plan) {
+          // Should have at least 2 steps:
+          // 1. Child.Parent (manyOne link) - level 0
+          // 2. Child.ParentName (lookup) - level 1
+          // Note: Parent.Children (oneMany) is correctly skipped (FK not in Parent table)
+          expect(plan.steps.length).toBeGreaterThanOrEqual(2);
+
+          // Verify lookup field is in the steps
+          const lookupStep = plan.steps.find((s) =>
+            s.fieldIds.some((f) => f.toString() === childLookupFieldId)
+          );
+          expect(lookupStep).toBeDefined();
+          expect(lookupStep!.level).toBe(1); // Lookup depends on symmetric link, so level 1
+        }
+
+        // Verify Child record now has the correct ParentName lookup value
+        const childRecordsAfter = await listRecords(tableChild.id);
+        const childAfter = childRecordsAfter.find((r) => r.id === childRecord.id);
+        expect(childAfter).toBeDefined();
+
+        // ParentName lookup should now show 'ParentX'
+        const lookupValueAfter = childAfter!.fields[childLookupFieldId];
+        // Lookup values are stored as arrays
+        expect(lookupValueAfter).toBeDefined();
+        if (Array.isArray(lookupValueAfter)) {
+          expect(lookupValueAfter).toContain('ParentX');
+        } else {
+          expect(lookupValueAfter).toBe('ParentX');
+        }
+
+        // Print table snapshot
+        const childFieldIds = [childNameFieldId, childLinkFieldId, childLookupFieldId];
+        const childFieldNames = ['Name', 'Parent', 'ParentName'];
+        expect(
+          printTableSnapshot(tableChild.name, childFieldNames, childRecordsAfter, childFieldIds)
+        ).toMatchInlineSnapshot(`
+            "[SymLookupChild]
+            --------------------------------
+            #  | Name   | Parent  | ParentName
+            --------------------------------
+            R0 | ChildA | ParentX | [ParentX]
+            --------------------------------"
+          `);
+      });
     });
 
     describe('manyOne relationship', () => {

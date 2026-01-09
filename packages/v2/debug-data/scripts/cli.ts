@@ -36,6 +36,21 @@ Commands:
     --level <n>               Optional: Max depth (default: unlimited)
     --same-table              Optional: Only traverse same-table relations
 
+  explain <subcommand>        Explain command execution plan (computed field updates)
+    create                    Explain CreateRecord command
+      --table-id <id>         Required: Table ID
+      --fields <json>         Optional: JSON object of field values (default: {})
+      --analyze               Optional: Run EXPLAIN ANALYZE (default: false)
+    update                    Explain UpdateRecord command
+      --table-id <id>         Required: Table ID
+      --record-id <id>        Required: Record ID
+      --fields <json>         Required: JSON object of field values to update
+      --analyze               Optional: Run EXPLAIN ANALYZE (default: false)
+    delete                    Explain DeleteRecords command
+      --table-id <id>         Required: Table ID
+      --record-ids <ids>      Required: Comma-separated record IDs
+      --analyze               Optional: Run EXPLAIN ANALYZE (default: false)
+
 Global Options:
   --connection <dsn>          Override DATABASE_URL/PRISMA_DATABASE_URL
   --help                      Show this help message
@@ -46,6 +61,12 @@ Examples:
 
   # View field dependencies (diagnose computed field propagation)
   pnpm --filter @teable/v2-debug-data cli relations --field-id fld... --direction up --level 2
+
+  # Explain CreateRecord command (see computed update plan)
+  pnpm --filter @teable/v2-debug-data cli explain create --table-id tbl...
+
+  # Explain UpdateRecord with specific fields
+  pnpm --filter @teable/v2-debug-data cli explain update --table-id tbl... --record-id rec... --fields '{"Name":"test"}'
 `);
 };
 
@@ -368,6 +389,228 @@ const run = async (): Promise<void> => {
     }
 
     printOutput(createSuccessOutput('relations', input, result.value));
+    return;
+  }
+
+  if (command === 'explain') {
+    const subcommand = args[1];
+    if (!subcommand) {
+      printOutput(
+        createErrorOutput('explain', {}, { message: 'Missing subcommand (create/update/delete)' })
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    // Import explain-related packages
+    const { registerCommandExplainModule, v2CommandExplainTokens } = await import(
+      '@teable/v2-command-explain'
+    );
+    const { CreateRecordCommand, UpdateRecordCommand, DeleteRecordsCommand, RecordId } =
+      await import('@teable/v2-core');
+
+    // Register command-explain module
+    registerCommandExplainModule(container);
+    const explainService = container.resolve(v2CommandExplainTokens.explainService);
+
+    // Create execution context
+    const context = {
+      userId: 'cli-debug',
+      requestId: `cli-${Date.now()}`,
+    };
+
+    const analyze = hasFlag('analyze');
+    const fieldsJson = readOption('fields');
+
+    if (subcommand === 'create') {
+      const tableId = readOption('table-id');
+      if (!tableId) {
+        printOutput(createErrorOutput('explain.create', {}, { message: 'Missing --table-id' }));
+        process.exitCode = 1;
+        return;
+      }
+
+      let fields: Record<string, unknown> = {};
+      if (fieldsJson) {
+        try {
+          fields = JSON.parse(fieldsJson) as Record<string, unknown>;
+        } catch {
+          printOutput(
+            createErrorOutput(
+              'explain.create',
+              { tableId },
+              { message: 'Invalid JSON in --fields' }
+            )
+          );
+          process.exitCode = 1;
+          return;
+        }
+      }
+
+      const input = { tableId, fields, analyze };
+
+      const commandResult = CreateRecordCommand.create({ tableId, fields });
+      if (commandResult.isErr()) {
+        printOutput(createErrorOutput('explain.create', input, commandResult.error));
+        process.exitCode = 1;
+        return;
+      }
+
+      const result = await explainService.explain(context, commandResult.value, {
+        analyze,
+        includeSql: true,
+        includeGraph: false,
+        includeLocks: true,
+      });
+
+      if (result.isErr()) {
+        printOutput(createErrorOutput('explain.create', input, result.error));
+        process.exitCode = 1;
+        return;
+      }
+
+      printOutput(createSuccessOutput('explain.create', input, result.value));
+      return;
+    }
+
+    if (subcommand === 'update') {
+      const tableId = readOption('table-id');
+      const recordId = readOption('record-id');
+
+      if (!tableId) {
+        printOutput(createErrorOutput('explain.update', {}, { message: 'Missing --table-id' }));
+        process.exitCode = 1;
+        return;
+      }
+      if (!recordId) {
+        printOutput(
+          createErrorOutput('explain.update', { tableId }, { message: 'Missing --record-id' })
+        );
+        process.exitCode = 1;
+        return;
+      }
+      if (!fieldsJson) {
+        printOutput(
+          createErrorOutput(
+            'explain.update',
+            { tableId, recordId },
+            { message: 'Missing --fields' }
+          )
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      let fields: Record<string, unknown>;
+      try {
+        fields = JSON.parse(fieldsJson) as Record<string, unknown>;
+      } catch {
+        printOutput(
+          createErrorOutput(
+            'explain.update',
+            { tableId, recordId },
+            { message: 'Invalid JSON in --fields' }
+          )
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      const input = { tableId, recordId, fields, analyze };
+
+      const commandResult = UpdateRecordCommand.create({ tableId, recordId, fields });
+      if (commandResult.isErr()) {
+        printOutput(createErrorOutput('explain.update', input, commandResult.error));
+        process.exitCode = 1;
+        return;
+      }
+
+      const result = await explainService.explain(context, commandResult.value, {
+        analyze,
+        includeSql: true,
+        includeGraph: false,
+        includeLocks: true,
+      });
+
+      if (result.isErr()) {
+        printOutput(createErrorOutput('explain.update', input, result.error));
+        process.exitCode = 1;
+        return;
+      }
+
+      printOutput(createSuccessOutput('explain.update', input, result.value));
+      return;
+    }
+
+    if (subcommand === 'delete') {
+      const tableId = readOption('table-id');
+      const recordIdsStr = readOption('record-ids');
+
+      if (!tableId) {
+        printOutput(createErrorOutput('explain.delete', {}, { message: 'Missing --table-id' }));
+        process.exitCode = 1;
+        return;
+      }
+      if (!recordIdsStr) {
+        printOutput(
+          createErrorOutput('explain.delete', { tableId }, { message: 'Missing --record-ids' })
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      const recordIds = recordIdsStr.split(',').map((id) => id.trim());
+
+      // Validate record IDs
+      for (const id of recordIds) {
+        const recordIdResult = RecordId.create(id);
+        if (recordIdResult.isErr()) {
+          printOutput(
+            createErrorOutput(
+              'explain.delete',
+              { tableId, recordIds },
+              { message: `Invalid record ID: ${id}` }
+            )
+          );
+          process.exitCode = 1;
+          return;
+        }
+      }
+
+      const input = { tableId, recordIds, analyze };
+
+      const commandResult = DeleteRecordsCommand.create({ tableId, recordIds });
+      if (commandResult.isErr()) {
+        printOutput(createErrorOutput('explain.delete', input, commandResult.error));
+        process.exitCode = 1;
+        return;
+      }
+
+      const result = await explainService.explain(context, commandResult.value, {
+        analyze,
+        includeSql: true,
+        includeGraph: false,
+        includeLocks: true,
+      });
+
+      if (result.isErr()) {
+        printOutput(createErrorOutput('explain.delete', input, result.error));
+        process.exitCode = 1;
+        return;
+      }
+
+      printOutput(createSuccessOutput('explain.delete', input, result.value));
+      return;
+    }
+
+    printOutput(
+      createErrorOutput(
+        'explain',
+        { subcommand },
+        { message: `Unknown subcommand: ${subcommand}. Use create, update, or delete.` }
+      )
+    );
+    process.exitCode = 1;
     return;
   }
 

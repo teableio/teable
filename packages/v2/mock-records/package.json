@@ -1,5 +1,5 @@
 {
-  "name": "@teable/v2-debug-data",
+  "name": "@teable/v2-mock-records",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -24,20 +24,19 @@
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
     "cli": "tsx scripts/cli.ts",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-debug-data.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-mock-records.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
-    "@teable/v2-postgres-schema": "workspace:*",
-    "kysely": "0.28.9",
+    "@faker-js/faker": "^9.0.0",
     "neverthrow": "8.2.0"
   },
   "devDependencies": {
-    "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
@@ -48,6 +47,7 @@
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
     "tsx": "4.19.4",
-    "typescript": "5.4.3"
+    "typescript": "5.4.3",
+    "vitest": "2.0.5"
   }
 }

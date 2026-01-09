@@ -1,11 +1,5 @@
 import { domainError, FieldType } from '@teable/v2-core';
-import type {
-  FieldId,
-  type DomainError,
-  type Field,
-  type FormulaField,
-  type Table,
-} from '@teable/v2-core';
+import type { FieldId, DomainError, Field, FormulaField, Table } from '@teable/v2-core';
 import {
   FormulaSqlPgTranslator,
   guardValueSql,

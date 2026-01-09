@@ -1,6 +1,6 @@
 ---
 name: teable-v2-debug-data
-description: Read-only Teable v2 debug access for base/table/field metadata and field dependency relations. Use when asked to inspect underlying DB data (table_meta, field) by baseId/tableId/fieldId, to debug lookup/rollup/link/formula dependencies, or to explain upstream/downstream field relationships.
+description: Read-only Teable v2 debug access for base/table/field metadata, field dependency relations, and command explain. Use when asked to inspect underlying DB data (table_meta, field) by baseId/tableId/fieldId, to debug lookup/rollup/link/formula dependencies, to explain upstream/downstream field relationships, or to analyze computed field update plans.
 ---
 
 # Teable V2 Debug Data
@@ -11,6 +11,7 @@ Use this skill when you need to:
 - View table/field configuration details
 - Diagnose formula/lookup/rollup issues
 - Understand field dependency relationships
+- **Analyze computed field update plans (explain commands)**
 
 ## Quick Commands
 
@@ -26,7 +27,17 @@ pnpm --filter @teable/v2-debug-data cli underlying field --field-id fld...
 pnpm --filter @teable/v2-debug-data cli relations --field-id fld... --direction up --level 2
 ```
 
-## Two-Layer Architecture
+### Explain CreateRecord (analyze computed update plan)
+```bash
+pnpm --filter @teable/v2-debug-data cli explain create --table-id tbl...
+```
+
+### Explain UpdateRecord
+```bash
+pnpm --filter @teable/v2-debug-data cli explain update --table-id tbl... --record-id rec... --fields '{"Name":"test"}'
+```
+
+## Three-Layer Architecture
 
 ### 1. Underlying Layer (`underlying` command)
 
@@ -50,6 +61,33 @@ Query field dependency graphs. Useful for understanding computed field propagati
 | `--level <n>` | Max traversal depth (default: unlimited) |
 | `--same-table` | Only traverse same-table relations |
 
+### 3. Explain Layer (`explain` command)
+
+Analyze command execution plans. Shows computed field update steps, SQL explains, locks, and complexity.
+
+| Subcommand | Description |
+|------------|-------------|
+| `explain create --table-id <id>` | Explain CreateRecord command |
+| `explain update --table-id <id> --record-id <id> --fields <json>` | Explain UpdateRecord command |
+| `explain delete --table-id <id> --record-ids <ids>` | Explain DeleteRecords command |
+
+**Explain Options:**
+| Option | Description |
+|--------|-------------|
+| `--table-id <id>` | Required: Table ID |
+| `--record-id <id>` | Required for update: Record ID |
+| `--record-ids <ids>` | Required for delete: Comma-separated record IDs |
+| `--fields <json>` | JSON object of field values (required for update, optional for create) |
+| `--analyze` | Run EXPLAIN ANALYZE for actual execution stats (default: false) |
+
+**Explain Output includes:**
+- `command`: Command info (type, tableId, recordIds, changedFields, changeType)
+- `computedImpact`: Computed field update plan (updateSteps, sameTableBatches, affectedRecordEstimates)
+- `computedLocks`: Lock strategy (mode, recordLocks, tableLocks)
+- `sqlExplains`: SQL statements with EXPLAIN output
+- `complexity`: Complexity score and recommendations
+- `timing`: Execution timing breakdown
+
 ## Common Diagnostic Scenarios
 
 ### Scenario 1: Formula Field Calculation Error
@@ -66,6 +104,17 @@ Query field dependency graphs. Useful for understanding computed field propagati
 1. Find downstream dependents: `relations --field-id fld... --direction up --level 3`
 2. Check if any dependent field has errors: look for `hasError: true` in output
 3. View specific field config: `underlying field --field-id <dependent-field-id>`
+
+### Scenario 4: Analyze Computed Update Performance
+1. Explain the command: `explain create --table-id tbl...`
+2. Check `computedImpact.updateSteps` for the update plan
+3. Look at `complexity.score` and `recommendations`
+4. Use `--analyze` flag for actual execution timing
+
+### Scenario 5: Verify Insert Optimization
+1. Run: `explain create --table-id tbl...`
+2. For tables with oneMany links (FK not in current table), `updateSteps` should be empty
+3. Check that unnecessary link fields are not being computed
 
 ## Global Options
 
@@ -96,3 +145,4 @@ When queries return no data, the CLI provides clear feedback:
 - **Read-only access only** - do not write or mutate data
 - Use `--level` to constrain relation traversal when graphs are large
 - Output is always TOON format for AI consumption
+- For explain commands, use `--analyze` sparingly as it actually executes queries

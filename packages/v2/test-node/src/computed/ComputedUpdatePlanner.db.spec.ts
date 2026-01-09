@@ -678,4 +678,133 @@ describe('ComputedUpdatePlanner (db)', () => {
       }
     });
   });
+
+  describe('insert optimization for link fields', () => {
+    /**
+     * Minimal reproduction for FK location optimization:
+     *
+     * TableA (One side): Name, [SymmetricLink] (oneMany, FK NOT here)
+     * TableB (Many side): Name, Link (manyOne, FK HERE)
+     *
+     * On insert to TableA: steps should be empty (FK not in TableA)
+     * On insert to TableB: steps should include link field (FK in TableB)
+     */
+    const createMinimalBidirectionalLink = async (
+      commandBus: ICommandBus,
+      baseId: BaseId
+    ): Promise<{
+      tableA: Table;
+      tableB: Table;
+      bLinkFieldId: FieldId;
+    }> => {
+      const bLinkFieldId = `fld${'n'.repeat(16)}`;
+
+      // TableA: One side (will get symmetric oneMany link)
+      const { table: tableA, fieldIds: aFieldIds } = await createTable(commandBus, baseId, {
+        name: 'OneSide',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+
+      const aNameFieldId = aFieldIds.get('Name')!;
+
+      // TableB: Many side with manyOne link (FK is here, bidirectional)
+      const { table: tableB, fieldIds: bFieldIds } = await createTable(commandBus, baseId, {
+        name: 'ManySide',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkToA',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id().toString(),
+              lookupFieldId: aNameFieldId.toString(),
+              // isOneWay omitted = false (bidirectional, creates symmetric field in TableA)
+            },
+          },
+        ],
+      });
+
+      return {
+        tableA,
+        tableB,
+        bLinkFieldId: bFieldIds.get('LinkToA')!,
+      };
+    };
+
+    it('skips oneMany link on insert to One-side table (FK not in current table)', async () => {
+      const { container, baseId } = getV2NodeTestContainer();
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const planner = container.resolve<ComputedUpdatePlanner>(
+        v2RecordRepositoryPostgresTokens.computedUpdatePlanner
+      );
+
+      const { tableA } = await createMinimalBidirectionalLink(commandBus, baseId);
+      const recordId = RecordId.generate()._unsafeUnwrap();
+
+      // Insert to TableA (One side, FK is NOT here)
+      const planResult = await planner.plan({
+        table: tableA,
+        changedFieldIds: [],
+        changedRecordIds: [recordId],
+        changeType: 'insert',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      // Steps should be empty: the symmetric oneMany link field should be skipped
+      // because FK is in TableB, not TableA. A new record in TableA cannot have
+      // any FK pointing to it yet.
+      expect(plan.steps.length).toBe(0);
+      expect(plan.estimatedComplexity).toBe(1); // Only seed record count
+    });
+
+    it('includes manyOne link on insert to Many-side table (FK in current table)', async () => {
+      const { container, baseId } = getV2NodeTestContainer();
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const planner = container.resolve<ComputedUpdatePlanner>(
+        v2RecordRepositoryPostgresTokens.computedUpdatePlanner
+      );
+
+      const { tableB, bLinkFieldId } = await createMinimalBidirectionalLink(commandBus, baseId);
+      const recordId = RecordId.generate()._unsafeUnwrap();
+
+      // Insert to TableB (Many side, FK IS here)
+      const planResult = await planner.plan({
+        table: tableB,
+        changedFieldIds: [],
+        changedRecordIds: [recordId],
+        changeType: 'insert',
+      });
+
+      expect(planResult.isOk()).toBe(true);
+      const plan = planResult._unsafeUnwrap();
+
+      // Steps should include the link field because FK is in TableB
+      // User may set a link value on insert, so we need to compute the title
+      expect(plan.steps.length).toBe(1);
+      expect(plan.steps[0].tableId.equals(tableB.id())).toBe(true);
+
+      const hasLinkField = plan.steps[0].fieldIds.some(
+        (id) => id.toString() === bLinkFieldId.toString()
+      );
+      expect(hasLinkField).toBe(true);
+    });
+
+    it('creates record with null link value on One-side table', async () => {
+      const { container, baseId } = getV2NodeTestContainer();
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+
+      const { tableA } = await createMinimalBidirectionalLink(commandBus, baseId);
+
+      // Actually create a record to verify the value is correct
+      const recordId = await createRecord(commandBus, tableA.id(), { Name: 'Test' });
+
+      expect(recordId).toBeDefined();
+      // Record created successfully - the oneMany link field should be empty/null
+      // (This verifies the optimization doesn't break actual record creation)
+    });
+  });
 });

@@ -42,10 +42,11 @@ import type {
   SqlExplainInfo,
   ExplainAnalyzeOutput,
   ExplainOutput,
+  ComputedUpdateReason,
 } from '../types';
 import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
-import { SqlExplainRunner } from '../utils/SqlExplainRunner';
+import { SqlExplainRunner, type BatchExplainStatement } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
@@ -185,101 +186,29 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
         if (insertResult.isOk()) {
           const { mainInsert, additionalStatements } = insertResult.value;
 
-          // Run EXPLAIN on main INSERT
-          let mainExplainAnalyze: ExplainAnalyzeOutput | null = null;
-          let mainExplainOnly: ExplainOutput | null = null;
-          let mainExplainError: string | null = null;
+          // Collect all statement metadata
+          type StatementMeta = BatchExplainStatement & {
+            computedReason?: ComputedUpdateReason;
+          };
+          const statementMetas: StatementMeta[] = [];
 
-          if (mergedOptions.analyze) {
-            const analyzeResult = await analyzer.sqlExplainRunner.explain(
-              analyzer.db,
-              mainInsert.compiled.sql,
-              mainInsert.compiled.parameters as unknown[],
-              true
-            );
-            if (analyzeResult.isOk()) {
-              mainExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
-            } else {
-              mainExplainError = analyzeResult.error.message;
-            }
-          } else {
-            const explainResult = await analyzer.sqlExplainRunner.explain(
-              analyzer.db,
-              mainInsert.compiled.sql,
-              mainInsert.compiled.parameters as unknown[],
-              false
-            );
-            if (explainResult.isOk()) {
-              mainExplainOnly = explainResult.value as ExplainOutput;
-            } else {
-              mainExplainError = explainResult.error.message;
-            }
-          }
-
-          sqlExplains.push({
-            stepDescription: mainInsert.description,
+          // Add main INSERT
+          statementMetas.push({
+            description: mainInsert.description,
             sql: mainInsert.compiled.sql,
             parameters: mainInsert.compiled.parameters as unknown[],
-            explainAnalyze: mainExplainAnalyze,
-            explainOnly: mainExplainOnly,
-            explainError: mainExplainError,
           });
 
-          // Add additional SQLs (junction table inserts, FK updates for link fields)
+          // Add additional statements (FK updates, junction table inserts)
           for (const stmt of additionalStatements) {
-            let additionalExplainAnalyze: ExplainAnalyzeOutput | null = null;
-            let additionalExplainOnly: ExplainOutput | null = null;
-            let additionalExplainError: string | null = null;
-
-            if (mergedOptions.analyze) {
-              const analyzeResult = await analyzer.sqlExplainRunner.explain(
-                analyzer.db,
-                stmt.compiled.sql,
-                stmt.compiled.parameters as unknown[],
-                true
-              );
-              if (analyzeResult.isOk()) {
-                additionalExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
-              } else {
-                additionalExplainError = analyzeResult.error.message;
-              }
-            } else {
-              const explainResult = await analyzer.sqlExplainRunner.explain(
-                analyzer.db,
-                stmt.compiled.sql,
-                stmt.compiled.parameters as unknown[],
-                false
-              );
-              if (explainResult.isOk()) {
-                additionalExplainOnly = explainResult.value as ExplainOutput;
-              } else {
-                additionalExplainError = explainResult.error.message;
-              }
-            }
-
-            sqlExplains.push({
-              stepDescription: stmt.description,
+            statementMetas.push({
+              description: stmt.description,
               sql: stmt.compiled.sql,
               parameters: stmt.compiled.parameters as unknown[],
-              explainAnalyze: additionalExplainAnalyze,
-              explainOnly: additionalExplainOnly,
-              explainError: additionalExplainError,
             });
           }
-        } else {
-          // Fallback to placeholder if building real SQL fails
-          sqlExplains.push({
-            stepDescription: `Insert new record into ${tableName}`,
-            sql: `-- INSERT INTO "${tableName}" (...) VALUES (...)\n-- Failed to build SQL: ${insertResult.error.message}`,
-            parameters: [],
-            explainAnalyze: null,
-            explainOnly: null,
-            explainError: insertResult.error.message,
-          });
-        }
 
-        // Generate SQL for computed field updates
-        if (plan.sameTableBatches.length > 0) {
+          // Build computed update statements
           for (let i = 0; i < plan.sameTableBatches.length; i++) {
             const batch = plan.sameTableBatches[i];
             const batchTable = tableById.get(batch.tableId.toString());
@@ -319,13 +248,10 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
               tableRepository: analyzer.tableRepository,
             });
             if (prepareResult.isErr()) {
-              sqlExplains.push({
-                stepDescription: `Computed update batch ${i + 1}: ${batchTableName} (prepare failed)`,
+              statementMetas.push({
+                description: `Computed update batch ${i + 1}: ${batchTableName} (prepare failed)`,
                 sql: `-- Failed to prepare: ${prepareResult.error.message}`,
                 parameters: [],
-                explainAnalyze: null,
-                explainOnly: null,
-                explainError: prepareResult.error.message,
                 computedReason,
               });
               continue;
@@ -333,13 +259,10 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
 
             const selectQueryResult = selectBuilder.build();
             if (selectQueryResult.isErr()) {
-              sqlExplains.push({
-                stepDescription: `Computed update batch ${i + 1}: ${batchTableName} (build failed)`,
+              statementMetas.push({
+                description: `Computed update batch ${i + 1}: ${batchTableName} (build failed)`,
                 sql: `-- Failed to build SELECT: ${selectQueryResult.error.message}`,
                 parameters: [],
-                explainAnalyze: null,
-                explainOnly: null,
-                explainError: selectQueryResult.error.message,
                 computedReason,
               });
               continue;
@@ -355,13 +278,10 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
             });
 
             if (compiledResult.isErr()) {
-              sqlExplains.push({
-                stepDescription: `Computed update batch ${i + 1}: ${batchTableName} (update build failed)`,
+              statementMetas.push({
+                description: `Computed update batch ${i + 1}: ${batchTableName} (update build failed)`,
                 sql: `-- Failed to build UPDATE: ${compiledResult.error.message}`,
                 parameters: [],
-                explainAnalyze: null,
-                explainOnly: null,
-                explainError: compiledResult.error.message,
                 computedReason,
               });
               continue;
@@ -383,45 +303,139 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
             const batchTableDisplayName = batchTable.name().toString();
             const stepDescription = `Computed update batch ${i + 1}: table ${batchTableDisplayName}, fields [${fieldDescriptions.join(', ')}], levels ${batch.minLevel}-${batch.maxLevel}`;
 
-            // Run EXPLAIN on the compiled SQL
-            let explainAnalyze: ExplainAnalyzeOutput | null = null;
-            let explainOnly: ExplainOutput | null = null;
-            let explainError: string | null = null;
-
-            if (mergedOptions.analyze) {
-              const analyzeResult = await analyzer.sqlExplainRunner.explainCompiled(
-                analyzer.db,
-                compiled,
-                true
-              );
-              if (analyzeResult.isOk()) {
-                explainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
-              } else {
-                explainError = analyzeResult.error.message;
-              }
-            } else {
-              const explainResult = await analyzer.sqlExplainRunner.explainCompiled(
-                analyzer.db,
-                compiled,
-                false
-              );
-              if (explainResult.isOk()) {
-                explainOnly = explainResult.value as ExplainOutput;
-              } else {
-                explainError = explainResult.error.message;
-              }
-            }
-
-            sqlExplains.push({
-              stepDescription,
+            statementMetas.push({
+              description: stepDescription,
               sql: compiled.sql,
               parameters: compiled.parameters as unknown[],
-              explainAnalyze,
-              explainOnly,
-              explainError,
               computedReason,
             });
           }
+
+          // Run EXPLAIN on all statements
+          if (mergedOptions.analyze) {
+            // Filter out failed statements (those starting with --)
+            const validStatements = statementMetas.filter((m) => !m.sql.startsWith('--'));
+            const failedStatements = statementMetas.filter((m) => m.sql.startsWith('--'));
+
+            // Add failed statements directly to results
+            for (const meta of failedStatements) {
+              sqlExplains.push({
+                stepDescription: meta.description,
+                sql: meta.sql,
+                parameters: meta.parameters as unknown[],
+                explainAnalyze: null,
+                explainOnly: null,
+                explainError: 'SQL build failed',
+                computedReason: meta.computedReason,
+              });
+            }
+
+            // Run all valid statements in a single transaction
+            if (validStatements.length > 0) {
+              const batchResult = await analyzer.sqlExplainRunner.explainBatchInTransaction(
+                analyzer.db,
+                validStatements
+              );
+
+              if (batchResult.isOk()) {
+                const results = batchResult.value;
+                for (let i = 0; i < validStatements.length; i++) {
+                  const meta = validStatements[i];
+                  const result = results[i];
+                  if ('error' in result) {
+                    sqlExplains.push({
+                      stepDescription: meta.description,
+                      sql: meta.sql,
+                      parameters: meta.parameters as unknown[],
+                      explainAnalyze: null,
+                      explainOnly: null,
+                      explainError: result.error,
+                      computedReason: meta.computedReason,
+                    });
+                  } else {
+                    sqlExplains.push({
+                      stepDescription: meta.description,
+                      sql: meta.sql,
+                      parameters: meta.parameters as unknown[],
+                      explainAnalyze: result,
+                      explainOnly: null,
+                      explainError: null,
+                      computedReason: meta.computedReason,
+                    });
+                  }
+                }
+              } else {
+                // Batch failed entirely, add error to all statements
+                for (const meta of validStatements) {
+                  sqlExplains.push({
+                    stepDescription: meta.description,
+                    sql: meta.sql,
+                    parameters: meta.parameters as unknown[],
+                    explainAnalyze: null,
+                    explainOnly: null,
+                    explainError: batchResult.error.message,
+                    computedReason: meta.computedReason,
+                  });
+                }
+              }
+            }
+          } else {
+            // Run EXPLAIN only (no transaction needed, each statement independent)
+            for (const meta of statementMetas) {
+              if (meta.sql.startsWith('--')) {
+                // Failed statement
+                sqlExplains.push({
+                  stepDescription: meta.description,
+                  sql: meta.sql,
+                  parameters: meta.parameters as unknown[],
+                  explainAnalyze: null,
+                  explainOnly: null,
+                  explainError: 'SQL build failed',
+                  computedReason: meta.computedReason,
+                });
+                continue;
+              }
+
+              const explainResult = await analyzer.sqlExplainRunner.explain(
+                analyzer.db,
+                meta.sql,
+                meta.parameters,
+                false
+              );
+
+              if (explainResult.isOk()) {
+                sqlExplains.push({
+                  stepDescription: meta.description,
+                  sql: meta.sql,
+                  parameters: meta.parameters as unknown[],
+                  explainAnalyze: null,
+                  explainOnly: explainResult.value as ExplainOutput,
+                  explainError: null,
+                  computedReason: meta.computedReason,
+                });
+              } else {
+                sqlExplains.push({
+                  stepDescription: meta.description,
+                  sql: meta.sql,
+                  parameters: meta.parameters as unknown[],
+                  explainAnalyze: null,
+                  explainOnly: null,
+                  explainError: explainResult.error.message,
+                  computedReason: meta.computedReason,
+                });
+              }
+            }
+          }
+        } else {
+          // Fallback to placeholder if building real SQL fails
+          sqlExplains.push({
+            stepDescription: `Insert new record into ${tableName}`,
+            sql: `-- INSERT INTO "${tableName}" (...) VALUES (...)\n-- Failed to build SQL: ${insertResult.error.message}`,
+            parameters: [],
+            explainAnalyze: null,
+            explainOnly: null,
+            explainError: insertResult.error.message,
+          });
         }
       }
       sqlExplainMs = Date.now() - sqlExplainStartTime;

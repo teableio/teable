@@ -46,10 +46,16 @@ export type LookupOptionsMeta = {
   lookupFieldId: string;
 };
 
+export type LinkRelationship = 'oneMany' | 'manyOne' | 'oneOne' | 'manyMany';
+
 export type LinkOptionsMeta = {
   foreignTableId: string;
   lookupFieldId: string;
   symmetricFieldId?: string;
+  /** FK host table name (format: baseDbName.tableDbName) */
+  fkHostTableName?: string;
+  /** Link relationship type */
+  relationship?: LinkRelationship;
 };
 
 /**
@@ -435,11 +441,17 @@ const parseLinkOptions = (raw: string | null): Result<LinkOptionsMeta | null, Do
   if (lookupFieldId.isErr()) return err(lookupFieldId.error);
   const symmetricFieldId = readOptionalString(value, 'symmetricFieldId');
   if (symmetricFieldId.isErr()) return err(symmetricFieldId.error);
+  const fkHostTableName = readOptionalString(value, 'fkHostTableName');
+  if (fkHostTableName.isErr()) return err(fkHostTableName.error);
+  const relationship = readOptionalString(value, 'relationship');
+  if (relationship.isErr()) return err(relationship.error);
 
   return ok({
     foreignTableId: foreignTableId.value,
     lookupFieldId: lookupFieldId.value,
     ...(symmetricFieldId.value ? { symmetricFieldId: symmetricFieldId.value } : {}),
+    ...(fkHostTableName.value ? { fkHostTableName: fkHostTableName.value } : {}),
+    ...(relationship.value ? { relationship: relationship.value as LinkRelationship } : {}),
   });
 };
 

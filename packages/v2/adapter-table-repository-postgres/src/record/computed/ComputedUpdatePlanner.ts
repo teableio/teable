@@ -206,8 +206,21 @@ export class ComputedUpdatePlanner {
           for (const fieldId of linkSeedFieldIds.values()) {
             affectedFieldIds.add(fieldId.toString());
           }
+
+          // Add symmetric link fields and traverse from them to find dependent lookups
+          const symmetricFieldIds: FieldId[] = [];
           for (const edge of symmetricLinkEdges) {
             affectedFieldIds.add(edge.toFieldId.toString());
+            symmetricFieldIds.push(edge.toFieldId);
+          }
+
+          // Traverse from symmetric link fields to find lookups that depend on them
+          // e.g., when setting Parent.Children link, Child.Parent (symmetric) gets updated,
+          // and Child.ParentName (lookup via Child.Parent) should also be updated
+          if (symmetricFieldIds.length > 0) {
+            for (const fieldId of collectDirectAffectedFieldIds(linkEdges, symmetricFieldIds)) {
+              affectedFieldIds.add(fieldId);
+            }
           }
         }
 
@@ -215,11 +228,38 @@ export class ComputedUpdatePlanner {
           // On insert, always compute computed fields in the seed table so stored columns
           // (e.g. conditionalLookup/conditionalRollup) get initial values even if their
           // dependencies live in other tables.
+          //
+          // However, skip link fields where FK is NOT in current table.
+          // For such links (oneMany One-side, manyOne One-side, oneOne non-FK-side),
+          // a new record cannot have any FK pointing to it, so there's nothing to compute.
           for (const meta of fieldsById.values()) {
             if (!meta.tableId.equals(context.seedTableId)) continue;
-            if (isComputedFieldType(meta.type)) {
-              affectedFieldIds.add(meta.id.toString());
+            if (!isComputedFieldType(meta.type)) continue;
+
+            // Skip link fields where FK is not in current table
+            if (meta.type === 'link' && meta.options) {
+              // Use relationship to determine FK location:
+              // - oneMany: FK is in foreign table (current table is One-side) → skip
+              // - manyOne: FK is in current table → need to compute
+              // - oneOne/manyMany: use fkHostTableName to check (conservative: compute if unsure)
+              const relationship = meta.options.relationship;
+              if (relationship === 'oneMany') {
+                // oneMany means current table is One-side, FK is in foreign table
+                // A new record cannot have FKs pointing to it yet
+                continue;
+              }
+              // For oneOne, check fkHostTableName if available
+              if (relationship === 'oneOne' && meta.options.fkHostTableName) {
+                const seedTableIdStr = context.seedTableId.toString();
+                const fkTablePart = meta.options.fkHostTableName.split('.').pop() ?? '';
+                if (fkTablePart !== seedTableIdStr) {
+                  continue;
+                }
+              }
+              // manyOne and manyMany: FK is in current table or junction table → compute
             }
+
+            affectedFieldIds.add(meta.id.toString());
           }
         }
 

@@ -19,6 +19,22 @@ class RollbackSignal extends Error {
 }
 
 /**
+ * Error class used to signal intentional rollback after batch EXPLAIN ANALYZE.
+ */
+class BatchRollbackSignal extends Error {
+  constructor(readonly results: Array<ExplainAnalyzeOutput | ExplainOutput | { error: string }>) {
+    super('Intentional rollback after batch EXPLAIN ANALYZE');
+    this.name = 'BatchRollbackSignal';
+  }
+}
+
+export type BatchExplainStatement = {
+  sql: string;
+  parameters: ReadonlyArray<unknown>;
+  description: string;
+};
+
+/**
  * Utility for running SQL EXPLAIN statements.
  */
 @injectable()
@@ -61,6 +77,100 @@ export class SqlExplainRunner {
     analyze: boolean
   ): Promise<Result<ExplainAnalyzeOutput | ExplainOutput, DomainError>> {
     return this.explain(db, compiled.sql, compiled.parameters as unknown[], analyze);
+  }
+
+  /**
+   * Run EXPLAIN ANALYZE on multiple SQL statements in a single transaction.
+   * This is useful when statements depend on each other (e.g., INSERT followed by FK updates).
+   *
+   * All statements are executed in order within the same transaction, then rolled back.
+   * If a statement fails with EXPLAIN ANALYZE, it falls back to EXPLAIN ONLY.
+   *
+   * @param db - Kysely database instance
+   * @param statements - Array of SQL statements to explain
+   * @returns Array of explain outputs, one per statement
+   */
+  async explainBatchInTransaction(
+    db: Kysely<V1TeableDatabase>,
+    statements: ReadonlyArray<BatchExplainStatement>
+  ): Promise<Result<Array<ExplainAnalyzeOutput | ExplainOutput | { error: string }>, DomainError>> {
+    if (statements.length === 0) {
+      return ok([]);
+    }
+
+    try {
+      await db.transaction().execute(async (trx) => {
+        const results: Array<ExplainAnalyzeOutput | ExplainOutput | { error: string }> = [];
+
+        for (let i = 0; i < statements.length; i++) {
+          const stmt = statements[i];
+
+          try {
+            const explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) ${stmt.sql}`;
+            const query = sql`${sql.raw(explainSql)}`;
+            const compiled = query.compile(trx);
+            const finalQuery = {
+              ...compiled,
+              parameters: [...stmt.parameters],
+            };
+
+            const result = await trx.executeQuery<{ 'QUERY PLAN': string }>(finalQuery);
+            results.push(this.parseExplainAnalyze(result.rows));
+          } catch (stmtError) {
+            // On EXPLAIN ANALYZE failure, try EXPLAIN ONLY as fallback
+            const savepointName = `recover_${i}`;
+            try {
+              await sql`SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+
+              // Try EXPLAIN ONLY
+              const explainOnlySql = `EXPLAIN (FORMAT TEXT) ${stmt.sql}`;
+              const explainOnlyQuery = sql`${sql.raw(explainOnlySql)}`;
+              const explainOnlyCompiled = explainOnlyQuery.compile(trx);
+              const explainOnlyFinalQuery = {
+                ...explainOnlyCompiled,
+                parameters: [...stmt.parameters],
+              };
+
+              const explainOnlyResult = await trx.executeQuery<{ 'QUERY PLAN': string }>(
+                explainOnlyFinalQuery
+              );
+              const explainOnly = this.parseExplainOnly(explainOnlyResult.rows);
+
+              // Return EXPLAIN ONLY result with a note about the ANALYZE failure
+              results.push({
+                ...explainOnly,
+                analyzeError: `EXPLAIN ANALYZE failed (FK constraint), showing EXPLAIN ONLY: ${stmtError instanceof Error ? stmtError.message : String(stmtError)}`,
+              } as ExplainOutput & { analyzeError: string });
+            } catch (fallbackError) {
+              // Both EXPLAIN ANALYZE and EXPLAIN ONLY failed
+              results.push({
+                error: `EXPLAIN failed: ${stmtError instanceof Error ? stmtError.message : String(stmtError)}`,
+              });
+            }
+          }
+        }
+
+        // Always rollback - we just want the explain output
+        throw new BatchRollbackSignal(results);
+      });
+
+      // Should not reach here
+      return err(
+        domainError.invariant({
+          message: 'Transaction should have rolled back',
+        })
+      );
+    } catch (error) {
+      if (error instanceof BatchRollbackSignal) {
+        return ok(error.results);
+      }
+      return err(
+        domainError.infrastructure({
+          message: `Batch EXPLAIN failed: ${error instanceof Error ? error.message : String(error)}`,
+        })
+      );
+    }
   }
 
   private async runExplainAnalyzeInTransaction(
