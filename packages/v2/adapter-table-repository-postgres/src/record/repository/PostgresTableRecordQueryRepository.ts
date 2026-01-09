@@ -28,8 +28,8 @@ import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { FieldOutputColumnVisitor } from '../query-builder';
 import type {
   TableRecordQueryBuilderManager,
-  type FieldOutputColumn,
-  type DynamicDB,
+  FieldOutputColumn,
+  DynamicDB,
 } from '../query-builder';
 import { TableRecordConditionWhereVisitor } from '../visitors';
 

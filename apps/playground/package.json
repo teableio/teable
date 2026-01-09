@@ -69,6 +69,7 @@
     "@teable/v2-di": "workspace:^",
     "@teable/v2-postgres-schema": "workspace:^",
     "@teable/v2-table-templates": "workspace:^",
+    "@toon-format/toon": "2.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",

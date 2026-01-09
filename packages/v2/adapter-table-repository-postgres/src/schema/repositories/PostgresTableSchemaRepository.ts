@@ -14,10 +14,10 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql } from 'kysely';
 import type {
   Kysely,
-  type ColumnDefinitionBuilder,
-  type CompiledQuery,
-  type CreateTableBuilder,
-  type Transaction,
+  ColumnDefinitionBuilder,
+  CompiledQuery,
+  CreateTableBuilder,
+  Transaction,
 } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';

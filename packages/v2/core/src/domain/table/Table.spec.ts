@@ -483,7 +483,8 @@ describe('Table.createRecord', () => {
     ]);
 
     const recordResult = table.createRecord(fieldValues);
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     expect(record.id().toString()).toMatch(/^rec/);
     expect(record.tableId().equals(table.id())).toBe(true);
@@ -503,7 +504,8 @@ describe('Table.createRecord', () => {
 
     const fieldValues = new Map<string, unknown>();
     const recordResult = table.createRecord(fieldValues);
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     expect(record.id().toString()).toMatch(/^rec/);
     expect(record.tableId().equals(table.id())).toBe(true);
@@ -518,7 +520,8 @@ describe('Table.createRecord', () => {
     ]);
 
     const recordResult = table.createRecord(fieldValues);
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     expect(record.fields().entries().length).toBe(1);
   });
@@ -537,10 +540,10 @@ describe('Table.createRecord', () => {
   it('generates unique record IDs for each call', () => {
     const { table } = buildSimpleTable();
 
-    const record1 = table.createRecord(new Map())._unsafeUnwrap();
-    const record2 = table.createRecord(new Map())._unsafeUnwrap();
+    const result1 = table.createRecord(new Map())._unsafeUnwrap();
+    const result2 = table.createRecord(new Map())._unsafeUnwrap();
 
-    expect(record1.id().equals(record2.id())).toBe(false);
+    expect(result1.record.id().equals(result2.record.id())).toBe(false);
   });
 
   it('creates record input schema for editable fields only', () => {
@@ -693,7 +696,8 @@ describe('Table.createRecord with default values', () => {
 
     // Create record without providing the text field value
     const recordResult = table.createRecord(new Map());
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     const textFieldIdObj = textFieldId._unsafeUnwrap();
     expect(record.fields().get(textFieldIdObj)?.toValue()).toBe('Default Title');
@@ -727,7 +731,8 @@ describe('Table.createRecord with default values', () => {
 
     // Create record without providing the number field value
     const recordResult = table.createRecord(new Map());
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     const numberFieldIdObj = numberFieldId._unsafeUnwrap();
     expect(record.fields().get(numberFieldIdObj)?.toValue()).toBe(100);
@@ -761,7 +766,8 @@ describe('Table.createRecord with default values', () => {
 
     // Create record without providing the checkbox field value
     const recordResult = table.createRecord(new Map());
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     const checkboxFieldIdObj = checkboxFieldId._unsafeUnwrap();
     expect(record.fields().get(checkboxFieldIdObj)?.toValue()).toBe(true);
@@ -791,7 +797,8 @@ describe('Table.createRecord with default values', () => {
       [textFieldId._unsafeUnwrap().toString(), 'My Custom Title'],
     ]);
     const recordResult = table.createRecord(fieldValues);
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     const textFieldIdObj = textFieldId._unsafeUnwrap();
     expect(record.fields().get(textFieldIdObj)?.toValue()).toBe('My Custom Title');
@@ -834,7 +841,8 @@ describe('Table.createRecord with default values', () => {
 
     // Create record without any field values
     const recordResult = table.createRecord(new Map());
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     expect(record.fields().get(textFieldId._unsafeUnwrap())?.toValue()).toBe('Default Text');
     expect(record.fields().get(numberFieldId._unsafeUnwrap())?.toValue()).toBe(50);
@@ -873,7 +881,8 @@ describe('Table.createRecord with default values', () => {
       [textFieldId._unsafeUnwrap().toString(), 'Explicit Title'],
     ]);
     const recordResult = table.createRecord(fieldValues);
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     expect(record.fields().get(textFieldId._unsafeUnwrap())?.toValue()).toBe('Explicit Title');
     expect(record.fields().get(numberFieldId._unsafeUnwrap())?.toValue()).toBe(10);
@@ -901,7 +910,8 @@ describe('Table.createRecord with default values', () => {
     // Explicitly pass null - should use the default value since null is treated as "not provided"
     const fieldValues = new Map<string, unknown>([[textFieldId._unsafeUnwrap().toString(), null]]);
     const recordResult = table.createRecord(fieldValues);
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     // null is treated as "empty", so default value should be applied
     expect(record.fields().get(textFieldId._unsafeUnwrap())?.toValue()).toBe('Default Title');
@@ -934,7 +944,8 @@ describe('Table.createRecord with default values', () => {
     const table = builder.build()._unsafeUnwrap();
 
     const recordResult = table.createRecord(new Map());
-    const record = recordResult._unsafeUnwrap();
+    const result = recordResult._unsafeUnwrap();
+    const record = result.record;
 
     expect(record.fields().get(longTextFieldId._unsafeUnwrap())?.toValue()).toBe(
       'Default description text'

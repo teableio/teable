@@ -204,6 +204,7 @@ export type SqlExplainInfo = {
   readonly parameters: ReadonlyArray<unknown>;
   readonly explainAnalyze: ExplainAnalyzeOutput | null;
   readonly explainOnly: ExplainOutput | null;
+  readonly explainError?: string | null;
   readonly computedReason?: ComputedUpdateReason;
 };
 

@@ -177,6 +177,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
         // Run EXPLAIN on delete
         let deleteExplainAnalyze: ExplainAnalyzeOutput | null = null;
         let deleteExplainOnly: ExplainOutput | null = null;
+        let deleteExplainError: string | null = null;
 
         if (mergedOptions.analyze) {
           const analyzeResult = await analyzer.sqlExplainRunner.explain(
@@ -187,6 +188,8 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
           );
           if (analyzeResult.isOk()) {
             deleteExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+          } else {
+            deleteExplainError = analyzeResult.error.message;
           }
         } else {
           const explainResult = await analyzer.sqlExplainRunner.explain(
@@ -197,6 +200,8 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
           );
           if (explainResult.isOk()) {
             deleteExplainOnly = explainResult.value as ExplainOutput;
+          } else {
+            deleteExplainError = explainResult.error.message;
           }
         }
 
@@ -206,6 +211,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
           parameters: [],
           explainAnalyze: deleteExplainAnalyze,
           explainOnly: deleteExplainOnly,
+          explainError: deleteExplainError,
         });
 
         // Generate SQL for computed field updates on linked tables
@@ -255,6 +261,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                explainError: prepareResult.error.message,
                 computedReason,
               });
               continue;
@@ -268,6 +275,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                explainError: selectQueryResult.error.message,
                 computedReason,
               });
               continue;
@@ -289,6 +297,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                explainError: compiledResult.error.message,
                 computedReason,
               });
               continue;
@@ -313,6 +322,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
             // Run EXPLAIN on the compiled SQL
             let explainAnalyze: ExplainAnalyzeOutput | null = null;
             let explainOnly: ExplainOutput | null = null;
+            let explainError: string | null = null;
 
             if (mergedOptions.analyze) {
               const analyzeResult = await analyzer.sqlExplainRunner.explainCompiled(
@@ -322,6 +332,8 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
               );
               if (analyzeResult.isOk()) {
                 explainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+              } else {
+                explainError = analyzeResult.error.message;
               }
             } else {
               const explainResult = await analyzer.sqlExplainRunner.explainCompiled(
@@ -331,6 +343,8 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
               );
               if (explainResult.isOk()) {
                 explainOnly = explainResult.value as ExplainOutput;
+              } else {
+                explainError = explainResult.error.message;
               }
             }
 
@@ -340,6 +354,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
               parameters: compiled.parameters as unknown[],
               explainAnalyze,
               explainOnly,
+              explainError,
               computedReason,
             });
           }

@@ -19,3 +19,5 @@ export const v2TsdownBaseConfig = {
     };
   },
 };
+
+export default v2TsdownBaseConfig;

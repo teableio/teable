@@ -9,6 +9,7 @@ import type { TableRecord } from '../../TableRecord';
 import type { SetAttachmentValueSpec } from './SetAttachmentValueSpec';
 import type { SetCheckboxValueSpec } from './SetCheckboxValueSpec';
 import type { SetDateValueSpec } from './SetDateValueSpec';
+import type { SetLinkValueByTitleSpec } from './SetLinkValueByTitleSpec';
 import type { SetLinkValueSpec } from './SetLinkValueSpec';
 import type { SetLongTextValueSpec } from './SetLongTextValueSpec';
 import type { SetMultipleSelectValueSpec } from './SetMultipleSelectValueSpec';
@@ -53,6 +54,9 @@ export interface ICellValueSpecVisitor extends ISpecVisitor {
   visitSetAttachmentValue(spec: SetAttachmentValueSpec): Result<void, DomainError>;
   visitSetLinkValue(spec: SetLinkValueSpec): Result<void, DomainError>;
   visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError>;
+
+  // Typecast operations (require SQL lookup)
+  visitSetLinkValueByTitle(spec: SetLinkValueByTitleSpec): Result<void, DomainError>;
 
   // Future: increment operations
   // visitIncrementNumber(spec: IncrementNumberValueSpec): Result<void, DomainError>;

@@ -110,6 +110,7 @@ const sqlExplainInfoSchema = z.object({
   parameters: z.array(z.unknown()),
   explainAnalyze: explainAnalyzeOutputSchema.nullable(),
   explainOnly: explainOutputSchema.nullable(),
+  explainError: z.string().nullable().optional(),
   computedReason: computedUpdateReasonSchema.optional(),
 });
 

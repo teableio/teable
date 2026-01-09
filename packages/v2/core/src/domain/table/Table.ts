@@ -28,6 +28,7 @@ import {
   LinkForeignTableReferenceVisitor,
   type LinkForeignTableReference,
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
+import { RecordCreateResult } from './records/RecordCreateResult';
 import { RecordId } from './records/RecordId';
 import { RecordMutationSpecBuilder } from './records/RecordMutationSpecBuilder';
 import { RecordUpdateResult } from './records/RecordUpdateResult';
@@ -314,7 +315,9 @@ export class Table extends AggregateRoot<TableId> {
    * 3. Returns the fully constructed record
    *
    * @param fieldValues - Map of field IDs to raw values
-   * @returns Result containing the new record or validation error
+   * @param options - Optional configuration
+   * @param options.typecast - If true, values are converted to the expected type (e.g., "123" → 123)
+   * @returns Result containing the RecordCreateResult (record + mutateSpec) or validation error
    *
    * @example
    * ```typescript
@@ -324,8 +327,11 @@ export class Table extends AggregateRoot<TableId> {
    * ]));
    * ```
    */
-  createRecord(fieldValues: ReadonlyMap<string, unknown>): Result<TableRecord, DomainError> {
-    return this.buildRecord(fieldValues);
+  createRecord(
+    fieldValues: ReadonlyMap<string, unknown>,
+    options?: { typecast?: boolean }
+  ): Result<RecordCreateResult, DomainError> {
+    return this.buildRecordWithSpec(fieldValues, undefined, options);
   }
 
   /**
@@ -341,15 +347,19 @@ export class Table extends AggregateRoot<TableId> {
    *
    * @param recordId - The record to update
    * @param fieldValues - Map of field IDs to raw values
+   * @param options - Optional configuration
+   * @param options.typecast - If true, values are converted to the expected type (e.g., "123" → 123)
    * @returns Result containing the RecordUpdateResult (record + mutateSpec) or validation error
    */
   updateRecord(
     recordId: RecordId,
-    fieldValues: ReadonlyMap<string, unknown>
+    fieldValues: ReadonlyMap<string, unknown>,
+    options?: { typecast?: boolean }
   ): Result<RecordUpdateResult, DomainError> {
     const table = this;
+    const { typecast = false } = options ?? {};
     return safeTry<RecordUpdateResult, DomainError>(function* () {
-      const builder = RecordMutationSpecBuilder.create();
+      const builder = RecordMutationSpecBuilder.create().withTypecast(typecast);
       const fields = table.getEditableFields();
 
       for (const field of fields) {
@@ -521,19 +531,21 @@ export class Table extends AggregateRoot<TableId> {
 
   /**
    * Internal method to build a single record with the given field values.
-   * Used by both createRecord, createRecords, and createRecordsStream.
+   * Returns both the record and the mutation spec for link title resolution.
    */
-  private buildRecord(
+  private buildRecordWithSpec(
     fieldValues: ReadonlyMap<string, unknown>,
-    recordId?: RecordId
-  ): Result<TableRecord, DomainError> {
+    recordId?: RecordId,
+    options?: { typecast?: boolean }
+  ): Result<RecordCreateResult, DomainError> {
     const table = this;
-    return safeTry<TableRecord, DomainError>(function* () {
+    const { typecast = false } = options ?? {};
+    return safeTry<RecordCreateResult, DomainError>(function* () {
       // 1. Generate a new record ID
       const resolvedRecordId = recordId ?? (yield* RecordId.generate());
 
       // 2. Build mutation specs from field values with default value support
-      const builder = RecordMutationSpecBuilder.create();
+      const builder = RecordMutationSpecBuilder.create().withTypecast(typecast);
       const fields = table.getEditableFields();
       const defaultValueVisitor = FieldDefaultValueVisitor.create();
 
@@ -571,10 +583,24 @@ export class Table extends AggregateRoot<TableId> {
 
       // 5. Apply mutation spec if there are any values to set
       if (builder.hasSpecs()) {
-        return ok(yield* builder.buildAndMutate(emptyRecord));
+        const mutateSpec = yield* builder.build();
+        const record = yield* mutateSpec.mutate(emptyRecord);
+        return ok(RecordCreateResult.create(record, mutateSpec));
       }
-      return ok(emptyRecord);
+      return ok(RecordCreateResult.create(emptyRecord, null));
     });
+  }
+
+  /**
+   * Internal method to build a single record with the given field values.
+   * Used by createRecords and createRecordsStream.
+   */
+  private buildRecord(
+    fieldValues: ReadonlyMap<string, unknown>,
+    recordId?: RecordId,
+    options?: { typecast?: boolean }
+  ): Result<TableRecord, DomainError> {
+    return this.buildRecordWithSpec(fieldValues, recordId, options).map((result) => result.record);
   }
 
   viewIds(): ReadonlyArray<ViewId> {

@@ -223,6 +223,7 @@ export class FieldDependencyGraph {
           'f.type as type',
           'f.is_computed as is_computed',
           'f.is_lookup as is_lookup',
+          'f.is_conditional_lookup as is_conditional_lookup',
           'f.options as options',
           'f.lookup_options as lookup_options',
           'f.meta as meta',
@@ -243,27 +244,36 @@ export class FieldDependencyGraph {
         if (options.isErr()) return err(options.error);
 
         // Lookup fields are stored with `is_lookup=true` and type set to inner field type (v1 format)
+        // Conditional lookup uses `is_conditional_lookup=true` with lookup_options (no linkFieldId)
         // Rollup fields have type='rollup'
         const isLookupField = Boolean(row.is_lookup);
+        const isConditionalLookup = Boolean(row.is_conditional_lookup);
         const isRollupField = row.type === 'rollup';
         const lookupOptions =
-          isLookupField || isRollupField
+          (isLookupField && !isConditionalLookup) || isRollupField
             ? parseLookupOptions(row.lookup_options)
             : ok<LookupOptionsMeta | null>(null);
         if (lookupOptions.isErr()) return err(lookupOptions.error);
 
         // Conditional fields (conditionalRollup/conditionalLookup) store their config differently
         const isConditionalField =
-          row.type === 'conditionalRollup' || row.type === 'conditionalLookup';
+          row.type === 'conditionalRollup' ||
+          row.type === 'conditionalLookup' ||
+          isConditionalLookup;
         const conditionalOptions = isConditionalField
-          ? parseConditionalFieldOptions(row.options)
+          ? parseConditionalFieldOptions(isConditionalLookup ? row.lookup_options : row.options)
           : ok<ConditionalFieldOptionsMeta | null>(null);
         if (conditionalOptions.isErr()) return err(conditionalOptions.error);
 
         // Normalize the type for graph processing:
         // - lookup fields: use 'lookup' as type (regardless of inner field type)
+        // - conditional lookup (v1): use 'conditionalLookup' to avoid linkFieldId requirement
         // - other fields: use stored type
-        const normalizedType = isLookupField ? 'lookup' : row.type;
+        const normalizedType = isConditionalLookup
+          ? 'conditionalLookup'
+          : isLookupField
+            ? 'lookup'
+            : row.type;
 
         fields.push({
           id: fieldId.value,

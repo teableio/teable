@@ -96,7 +96,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // Use RecordInsertBuilder to build insert data
         const insertBuilder = new RecordInsertBuilder(db);
         const fieldValues = recordFieldsToMap(table, record);
-        const insertDataResult = insertBuilder.buildInsertData({
+        const { values, additionalStatements } = yield* insertBuilder.buildInsertData({
           table,
           fieldValues,
           context: {
@@ -106,11 +106,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           },
         });
 
-        if (insertDataResult.isErr()) {
-          return err(insertDataResult.error);
-        }
-
-        const { values, additionalStatements } = insertDataResult.value;
         this.logger.debug(`insert:table=${tableName}`, { values });
 
         try {

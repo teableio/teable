@@ -242,12 +242,18 @@ export class TableFieldPersistenceBuilder {
     const notNull = typeof params.fieldDto.notNull === 'boolean' ? params.fieldDto.notNull : null;
     const unique = typeof params.fieldDto.unique === 'boolean' ? params.fieldDto.unique : null;
 
-    const isLookup =
-      typeof params.fieldDto.isLookup === 'boolean' ? params.fieldDto.isLookup : null;
-    const isConditionalLookup =
-      typeof params.fieldDto.isConditionalLookup === 'boolean'
+    const isConditionalLookupField = params.fieldDto.type === 'conditionalLookup';
+    const isLookup = isConditionalLookupField
+      ? true
+      : typeof params.fieldDto.isLookup === 'boolean'
+        ? params.fieldDto.isLookup
+        : null;
+    const isConditionalLookup = isConditionalLookupField
+      ? true
+      : typeof params.fieldDto.isConditionalLookup === 'boolean'
         ? params.fieldDto.isConditionalLookup
         : null;
+    const persistedType = this.resolvePersistedFieldType(params.fieldDto);
 
     return {
       id: params.fieldDto.id,
@@ -256,7 +262,7 @@ export class TableFieldPersistenceBuilder {
       options: this.serializeFieldOptions(params.fieldDto),
       meta: this.serializeFieldMeta(params.fieldDto),
       ai_config: null,
-      type: params.fieldDto.type,
+      type: persistedType,
       cell_value_type: params.storageType.cellValueType,
       is_multiple_cell_value: params.storageType.isMultipleCellValue,
       db_field_type: params.storageType.dbFieldType,
@@ -286,6 +292,12 @@ export class TableFieldPersistenceBuilder {
   private serializeFieldOptions(field: ITableFieldPersistenceDTO): string | null {
     if (field.options === undefined) return null;
 
+    if (field.type === 'conditionalLookup') {
+      const innerOptions = field.innerOptions;
+      if (innerOptions === undefined) return null;
+      return JSON.stringify(innerOptions);
+    }
+
     // For conditionalRollup, match v1 format: flatten config into options
     // v1 stores: expression, timeZone, formatting, showAs, foreignTableId, lookupFieldId, filter, sort, limit
     if (field.type === 'conditionalRollup' && field.config) {
@@ -302,8 +314,10 @@ export class TableFieldPersistenceBuilder {
       });
     }
 
-    // For conditionalLookup, options already has foreignTableId, lookupFieldId, condition
-    // Convert to v1 format (flatten condition into options)
+    return JSON.stringify(field.options);
+  }
+
+  private serializeLookupOptions(field: ITableFieldPersistenceDTO): string | null {
     if (field.type === 'conditionalLookup') {
       const opts = field.options as Record<string, unknown>;
       const condition = opts.condition as Record<string, unknown> | undefined;
@@ -316,10 +330,6 @@ export class TableFieldPersistenceBuilder {
       });
     }
 
-    return JSON.stringify(field.options);
-  }
-
-  private serializeLookupOptions(field: ITableFieldPersistenceDTO): string | null {
     // Handle lookup fields (lookupOptions is directly on the DTO)
     if (field.isLookup && field.lookupOptions) {
       const linkOptions = this.resolveLinkFieldOptions(field.lookupOptions.linkFieldId);
@@ -346,6 +356,10 @@ export class TableFieldPersistenceBuilder {
   }
 
   private resolveLookupLinkedFieldId(field: ITableFieldPersistenceDTO): string | null {
+    if (field.type === 'conditionalLookup') {
+      return null;
+    }
+
     // Handle lookup fields
     if (field.isLookup && field.lookupOptions) {
       return field.lookupOptions.linkFieldId ?? null;
@@ -375,5 +389,11 @@ export class TableFieldPersistenceBuilder {
       return JSON.stringify(field.meta);
     }
     return null;
+  }
+
+  private resolvePersistedFieldType(field: ITableFieldPersistenceDTO): string {
+    if (field.type !== 'conditionalLookup') return field.type;
+    if (field.innerType && field.innerType.length > 0) return field.innerType;
+    return 'singleLineText';
   }
 }

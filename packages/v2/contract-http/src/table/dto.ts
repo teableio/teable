@@ -524,21 +524,25 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     if (formatting) options.formatting = formatting.toDto();
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
-    return field
-      .cellValueType()
-      .andThen((cellValueType) =>
-        field.isMultipleCellValue().map((isMultipleCellValue) => ({
-          cellValueType,
-          isMultipleCellValue,
-        }))
-      )
-      .map(({ cellValueType, isMultipleCellValue }) => ({
-        ...this.baseField(field),
-        type: 'formula',
-        options,
-        cellValueType: cellValueType.toString(),
-        isMultipleCellValue: isMultipleCellValue.toBoolean(),
-      }));
+    const base = {
+      ...this.baseField(field),
+      type: 'formula' as const,
+      options,
+    };
+    const resultType = field.cellValueType().andThen((cellValueType) =>
+      field.isMultipleCellValue().map((isMultipleCellValue) => ({
+        cellValueType,
+        isMultipleCellValue,
+      }))
+    );
+    if (resultType.isErr()) {
+      return ok(base);
+    }
+    return ok({
+      ...base,
+      cellValueType: resultType.value.cellValueType.toString(),
+      isMultipleCellValue: resultType.value.isMultipleCellValue.toBoolean(),
+    });
   }
 
   visitRollupField(field: RollupField): Result<IFieldDto, DomainError> {

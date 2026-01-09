@@ -22,6 +22,92 @@ describe('v2 http createRecord (e2e)', () => {
   let textFieldId: string;
   let numberFieldId: string;
   let checkboxFieldId: string;
+  let typecastTableId: string;
+  let typecastPrimaryFieldId: string;
+  let typecastNumberFieldId: string;
+  let typecastCheckboxFieldId: string;
+  let typecastDateFieldId: string;
+  let typecastSingleSelectFieldId: string;
+  let typecastMultiSelectFieldId: string;
+  let typecastRatingFieldId: string;
+  let typecastSingleSelectOpenOptionId: string;
+  let typecastMultiSelectTagAId: string;
+  let typecastMultiSelectTagCId: string;
+
+  const typecastCaseKeys = [
+    'number',
+    'checkbox',
+    'date',
+    'singleSelect',
+    'multipleSelect',
+    'rating',
+  ] as const;
+
+  type TypecastCaseKey = (typeof typecastCaseKeys)[number];
+
+  interface TypecastCase {
+    name: TypecastCaseKey;
+    fieldId: () => string;
+    input: unknown;
+    assert: (value: unknown) => void;
+  }
+
+  const createTypecastCases = () =>
+    ({
+      number: {
+        name: 'number',
+        fieldId: () => typecastNumberFieldId,
+        input: '123.5',
+        assert: (value) => {
+          expect(value).toBe(123.5);
+        },
+      },
+      checkbox: {
+        name: 'checkbox',
+        fieldId: () => typecastCheckboxFieldId,
+        input: 'true',
+        assert: (value) => {
+          expect(value).toBe(true);
+        },
+      },
+      date: {
+        name: 'date',
+        fieldId: () => typecastDateFieldId,
+        input: '2024-01-02T03:04:05.000Z',
+        assert: (value) => {
+          expect(value).toBe('2024-01-02T03:04:05.000Z');
+        },
+      },
+      singleSelect: {
+        name: 'singleSelect',
+        fieldId: () => typecastSingleSelectFieldId,
+        input: 'Open',
+        assert: (value) => {
+          expect(value).toBe(typecastSingleSelectOpenOptionId);
+        },
+      },
+      multipleSelect: {
+        name: 'multipleSelect',
+        fieldId: () => typecastMultiSelectFieldId,
+        input: ['Tag A', 'Tag C'],
+        assert: (value) => {
+          expect(Array.isArray(value)).toBe(true);
+          expect(value).toEqual([typecastMultiSelectTagAId, typecastMultiSelectTagCId]);
+        },
+      },
+      rating: {
+        name: 'rating',
+        fieldId: () => typecastRatingFieldId,
+        input: '4',
+        assert: (value) => {
+          expect(value).toBe(4);
+        },
+      },
+    }) satisfies Record<TypecastCaseKey, TypecastCase>;
+  const typecastCaseMap = createTypecastCases();
+  const _exhaustiveCheck: Record<TypecastCaseKey, TypecastCase> = typecastCaseMap;
+  void _exhaustiveCheck;
+  const typecastCases = Object.values(typecastCaseMap);
 
   const createTable = async (payload: ICreateTableCommandInput) => {
     const response = await fetch(`${baseUrl}/tables/create`, {
@@ -76,6 +162,59 @@ describe('v2 http createRecord (e2e)', () => {
     textFieldId = fields.find((f) => f.name === 'Title')?.id ?? '';
     numberFieldId = fields.find((f) => f.name === 'Amount')?.id ?? '';
     checkboxFieldId = fields.find((f) => f.name === 'Approved')?.id ?? '';
+
+    const typecastTable = await createTable({
+      baseId,
+      name: 'Typecast Record Table',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'number', name: 'Number' },
+        { type: 'checkbox', name: 'Checkbox' },
+        { type: 'date', name: 'Date' },
+        {
+          type: 'singleSelect',
+          name: 'Status',
+          options: ['Open', 'Closed'],
+        },
+        {
+          type: 'multipleSelect',
+          name: 'Tags',
+          options: ['Tag A', 'Tag B', 'Tag C'],
+        },
+        { type: 'rating', name: 'Score' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    typecastTableId = typecastTable.id;
+    typecastPrimaryFieldId = typecastTable.fields.find((f) => f.name === 'Title')?.id ?? '';
+    typecastNumberFieldId = typecastTable.fields.find((f) => f.name === 'Number')?.id ?? '';
+    typecastCheckboxFieldId = typecastTable.fields.find((f) => f.name === 'Checkbox')?.id ?? '';
+    typecastDateFieldId = typecastTable.fields.find((f) => f.name === 'Date')?.id ?? '';
+    typecastSingleSelectFieldId = typecastTable.fields.find((f) => f.name === 'Status')?.id ?? '';
+    typecastMultiSelectFieldId = typecastTable.fields.find((f) => f.name === 'Tags')?.id ?? '';
+    typecastRatingFieldId = typecastTable.fields.find((f) => f.name === 'Score')?.id ?? '';
+
+    const singleSelectField = typecastTable.fields.find((f) => f.name === 'Status');
+    const singleSelectChoices =
+      (singleSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
+      [];
+    typecastSingleSelectOpenOptionId =
+      singleSelectChoices.find((choice) => choice.name === 'Open')?.id ?? '';
+    if (!typecastSingleSelectOpenOptionId) {
+      throw new Error('Missing single select option "Open"');
+    }
+
+    const multiSelectField = typecastTable.fields.find((f) => f.name === 'Tags');
+    const multiSelectChoices =
+      (multiSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
+      [];
+    typecastMultiSelectTagAId =
+      multiSelectChoices.find((choice) => choice.name === 'Tag A')?.id ?? '';
+    typecastMultiSelectTagCId =
+      multiSelectChoices.find((choice) => choice.name === 'Tag C')?.id ?? '';
+    if (!typecastMultiSelectTagAId || !typecastMultiSelectTagCId) {
+      throw new Error('Missing multi select options');
+    }
   });
 
   afterAll(async () => {
@@ -225,6 +364,36 @@ describe('v2 http createRecord (e2e)', () => {
 
     expect(response.status).toBe(400);
   });
+
+  it.each(typecastCases)('creates a record with typecast $name', async (testCase) => {
+    const fieldId = testCase.fieldId();
+    const response = await fetch(`${baseUrl}/tables/createRecord`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: typecastTableId,
+        typecast: true,
+        fields: {
+          [typecastPrimaryFieldId]: `Typecast ${testCase.name}`,
+          [fieldId]: testCase.input,
+        },
+      }),
+    });
+
+    expect(response.status).toBe(201);
+
+    const rawBody = await response.json();
+    const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    const body = parsed.data;
+
+    expect(body.ok).toBe(true);
+    if (!body.ok) return;
+
+    const value = body.data.record.fields[fieldId];
+    testCase.assert(value);
+  });
 });
 
 describe('v2 http createRecord with link fields (e2e)', () => {
@@ -237,6 +406,7 @@ describe('v2 http createRecord with link fields (e2e)', () => {
   let mainTextFieldId: string;
   let linkFieldId: string;
   let foreignRecordId: string;
+  const foreignRecordTitle = 'Foreign Record 1';
 
   const createTable = async (payload: ICreateTableCommandInput) => {
     const response = await fetch(`${baseUrl}/tables/create`, {
@@ -326,7 +496,7 @@ describe('v2 http createRecord with link fields (e2e)', () => {
 
     // Create a record in the foreign table
     const foreignRecord = await createRecord(foreignTableId, {
-      [foreignTextFieldId]: 'Foreign Record 1',
+      [foreignTextFieldId]: foreignRecordTitle,
     });
     foreignRecordId = foreignRecord.id;
 
@@ -405,6 +575,44 @@ describe('v2 http createRecord with link fields (e2e)', () => {
 
     const linkArray = linkValue as Array<{ id: string; title?: string }>;
     expect(linkArray.length).toBeGreaterThanOrEqual(1);
+    expect(linkArray.some((link) => link.id === foreignRecordId)).toBe(true);
+  });
+
+  it('creates a record with link titles when typecast is enabled', async () => {
+    const response = await fetch(`${baseUrl}/tables/createRecord`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: mainTableId,
+        typecast: true,
+        fields: {
+          [mainTextFieldId]: 'Main Record With Title Link',
+          [linkFieldId]: [foreignRecordTitle],
+        },
+      }),
+    });
+
+    expect(response.status).toBe(201);
+
+    const rawBody = await response.json();
+    const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    const body = parsed.data;
+
+    expect(body.ok).toBe(true);
+    if (!body.ok) return;
+
+    const createdRecordId = body.data.record.id;
+    const records = await listRecords(mainTableId);
+    const foundRecord = records.find((r) => r.id === createdRecordId);
+
+    expect(foundRecord).toBeDefined();
+    if (!foundRecord) return;
+
+    const linkValue = foundRecord.fields[linkFieldId] as unknown;
+    expect(Array.isArray(linkValue)).toBe(true);
+    const linkArray = linkValue as Array<{ id: string; title?: string }>;
     expect(linkArray.some((link) => link.id === foreignRecordId)).toBe(true);
   });
 

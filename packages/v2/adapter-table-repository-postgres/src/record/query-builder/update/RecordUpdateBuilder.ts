@@ -10,6 +10,7 @@ import type {
   SetAttachmentValueSpec,
   SetCheckboxValueSpec,
   SetDateValueSpec,
+  SetLinkValueByTitleSpec,
   SetLongTextValueSpec,
   SetMultipleSelectValueSpec,
   SetNumberValueSpec,
@@ -246,6 +247,12 @@ class LinkValueCollectorVisitor implements ICellValueSpecVisitor {
 
   visitSetLinkValue(spec: SetLinkValueSpec): Result<void, DomainError> {
     this.linkValues.set(spec.fieldId.toString(), spec.value.toValue());
+    return ok(undefined);
+  }
+
+  visitSetLinkValueByTitle(_spec: SetLinkValueByTitleSpec): Result<void, DomainError> {
+    // SetLinkValueByTitle doesn't have resolved IDs yet, so we don't collect link values
+    // The title resolution should happen before this point
     return ok(undefined);
   }
 

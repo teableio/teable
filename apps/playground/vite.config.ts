@@ -71,6 +71,12 @@ const config = defineConfig(({ mode }) => {
   if (!process.env.PRISMA_DATABASE_URL && env.PRISMA_DATABASE_URL) {
     process.env.PRISMA_DATABASE_URL = env.PRISMA_DATABASE_URL;
   }
+  if (!process.env.VITE_PLAYGROUND_DB_URL) {
+    const defaultDbUrl = env.VITE_PLAYGROUND_DB_URL ?? env.DATABASE_URL;
+    if (defaultDbUrl) {
+      process.env.VITE_PLAYGROUND_DB_URL = defaultDbUrl;
+    }
+  }
 
   return {
     envDir,

@@ -8,8 +8,8 @@ import type {
   TableByNameLikeSpec,
   TableByNameSpec,
   TableUpdateViewColumnMetaSpec,
-  type ITableSpecVisitor,
-  type DomainError,
+  ITableSpecVisitor,
+  DomainError,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';

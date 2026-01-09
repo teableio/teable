@@ -7,6 +7,7 @@ import type {
   SetAttachmentValueSpec,
   SetCheckboxValueSpec,
   SetDateValueSpec,
+  SetLinkValueByTitleSpec,
   SetLinkValueSpec,
   SetLongTextValueSpec,
   SetMultipleSelectValueSpec,
@@ -343,6 +344,117 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       }
 
       return ok(undefined);
+    });
+  }
+
+  // --- Link field by title (typecast mode) ---
+
+  /**
+   * Handle SetLinkValueByTitleSpec - used when typecast mode provides titles instead of IDs.
+   *
+   * This implementation requires pre-loaded foreign table information because PostgreSQL
+   * doesn't support dynamic table references in standard SQL. The foreign table's db_table_name
+   * and the lookup field's db_field_name must be available either:
+   * 1. From the table's baseId (assuming db_table_name follows the pattern: baseId.tableId)
+   * 2. From pre-loaded foreign tables passed to the visitor
+   *
+   * For now, this implementation returns an error indicating that titles should be
+   * pre-resolved to IDs in the handler layer before calling the repository.
+   * The recommended approach is to use a dedicated title-to-ID resolution service.
+   */
+  visitSetLinkValueByTitle(spec: SetLinkValueByTitleSpec): Result<void, DomainError> {
+    const visitor = this;
+
+    return safeTry<void, DomainError>(function* () {
+      const fieldIdStr = spec.fieldId.toString();
+      const titles = spec.titles;
+
+      const fieldIdResult = FieldId.create(fieldIdStr);
+      if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+      const fieldId = fieldIdResult.value;
+
+      const fieldResult = visitor.table.getField((candidate) => candidate.id().equals(fieldId));
+      if (fieldResult.isErr()) return err(fieldResult.error);
+      const field = fieldResult.value;
+
+      if (!field.type().equals(FieldType.link())) {
+        return err(domainError.validation({ message: 'Field is not a link field' }));
+      }
+
+      const linkField = field as LinkField;
+      visitor.changedFieldIds.push(fieldId);
+
+      // If titles is empty, treat as clearing the link
+      if (titles.length === 0) {
+        // Handle like SetLinkValue with empty value
+        const relationship = linkField.relationship().toString();
+        const hasOrderColumn = linkField.hasOrderColumn();
+        const orderColumnName = hasOrderColumn ? yield* linkField.orderColumnName() : null;
+
+        if (relationship === 'manyMany' || (relationship === 'oneMany' && linkField.isOneWay())) {
+          const fkHostTableName = linkField.fkHostTableName();
+          const fkHostTableSplit = yield* fkHostTableName.split({ defaultSchema: 'public' });
+          const junctionTableName = fkHostTableSplit.schema
+            ? `${fkHostTableSplit.schema}.${fkHostTableSplit.tableName}`
+            : fkHostTableSplit.tableName;
+          const selfKeyName = yield* linkField.selfKeyNameString();
+
+          const deleteQuery = visitor.db
+            .deleteFrom(junctionTableName)
+            .where(selfKeyName, '=', visitor.ctx.recordId)
+            .compile();
+          visitor.additionalStatements.push(deleteQuery);
+        } else if (relationship === 'manyOne' || relationship === 'oneOne') {
+          const foreignKeyName = yield* linkField.foreignKeyNameString();
+          visitor.setClauses[foreignKeyName] = null;
+        } else if (relationship === 'oneMany') {
+          const fkHostTableName = linkField.fkHostTableName();
+          const fkHostTableSplit = yield* fkHostTableName.split({ defaultSchema: 'public' });
+          const foreignTableName = fkHostTableSplit.schema
+            ? `${fkHostTableSplit.schema}.${fkHostTableSplit.tableName}`
+            : fkHostTableSplit.tableName;
+          const selfKeyName = yield* linkField.selfKeyNameString();
+
+          const clearValues: Record<string, unknown> = { [selfKeyName]: null };
+          if (orderColumnName) {
+            clearValues[orderColumnName] = null;
+          }
+          const clearQuery = visitor.db
+            .updateTable(foreignTableName)
+            .set(clearValues)
+            .where(selfKeyName, '=', visitor.ctx.recordId)
+            .compile();
+          visitor.additionalStatements.push(clearQuery);
+        }
+
+        return ok(undefined);
+      }
+
+      // For non-empty titles, we need async resolution which is not supported
+      // in this synchronous visitor. The handler should pre-resolve titles to IDs.
+      //
+      // TODO: Implement async title resolution in a higher layer:
+      // 1. Handler receives typecast=true with title values
+      // 2. Handler queries foreign table to resolve titles to record IDs
+      // 3. Handler converts SetLinkValueByTitleSpec to SetLinkValueSpec with resolved IDs
+      // 4. Repository receives SetLinkValueSpec and processes normally
+      //
+      // Alternative: Create an AsyncCellValueMutateVisitor that supports async operations
+
+      return err(
+        domainError.validation({
+          code: 'validation.link.title_resolution_required',
+          message:
+            'SetLinkValueByTitle requires title-to-ID resolution before repository processing. ' +
+            'The handler layer should resolve link titles to record IDs using a dedicated query, ' +
+            'then convert to SetLinkValueSpec. This ensures proper error handling and validation.',
+          details: {
+            fieldId: fieldIdStr,
+            foreignTableId: spec.foreignTableId.toString(),
+            titlesCount: titles.length,
+          },
+        })
+      );
     });
   }
 

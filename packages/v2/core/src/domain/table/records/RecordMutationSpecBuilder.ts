@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { AndSpec } from '../../shared/specification/AndSpec';
 import type { Field } from '../fields/Field';
+import { FieldToSpecVisitor } from '../fields/visitors/FieldToSpecVisitor';
 import type { ICellValueSpec, ICellValueSpecVisitor } from './specs/values/ICellValueSpecVisitor';
 import { SetFieldValueSpecFactory } from './specs/values/SetFieldValueSpecFactory';
 import type { TableRecord } from './TableRecord';
@@ -27,10 +28,17 @@ import type { TableRecord } from './TableRecord';
  * const specResult = builder.build();
  * const recordResult = specResult.andThen(spec => spec.mutate(record));
  * ```
+ *
+ * With typecast:
+ * ```typescript
+ * const builder = RecordMutationSpecBuilder.create().withTypecast(true);
+ * builder.set(numberField, '123'); // String will be converted to number
+ * ```
  */
 export class RecordMutationSpecBuilder {
   private readonly specs: ICellValueSpec[] = [];
   private readonly errors: DomainError[] = [];
+  private typecastMode: boolean = false;
 
   private constructor() {}
 
@@ -42,7 +50,59 @@ export class RecordMutationSpecBuilder {
   }
 
   /**
+   * Enable or disable typecast mode.
+   *
+   * When typecast is enabled:
+   * - Values are converted to the expected type (e.g., "123" → 123 for number fields)
+   * - Select fields accept option names in addition to option IDs
+   * - Link fields accept record titles (requires Repository SQL lookup)
+   * - Invalid values are converted to null instead of returning errors
+   *
+   * @param typecast - Whether to enable typecast mode
+   * @returns this builder for chaining
+   */
+  withTypecast(typecast: boolean): this {
+    this.typecastMode = typecast;
+    return this;
+  }
+
+  /**
    * Add a set operation for a field.
+   *
+   * When typecast is disabled (default):
+   * - The value is validated against the field's schema before being added.
+   * - If validation fails, the error is collected and will be returned on build().
+   *
+   * When typecast is enabled:
+   * - Values are converted to the expected type when possible.
+   * - Invalid values are converted to null.
+   *
+   * @param field - The field to set
+   * @param value - The raw value to set
+   * @returns this builder for chaining
+   */
+  set(field: Field, value: unknown): this {
+    if (this.typecastMode) {
+      // Use FieldToSpecVisitor for typecast mode
+      const visitor = FieldToSpecVisitor.create(value, true);
+      const result = field.accept(visitor);
+      result.match(
+        (spec) => this.specs.push(spec),
+        (error) => this.errors.push(error)
+      );
+    } else {
+      // Use SetFieldValueSpecFactory for strict validation
+      const result = SetFieldValueSpecFactory.create(field, value);
+      result.match(
+        (spec) => this.specs.push(spec),
+        (error) => this.errors.push(error)
+      );
+    }
+    return this;
+  }
+
+  /**
+   * Add a set operation with strict validation (ignores typecast mode).
    *
    * The value is validated against the field's schema before being added.
    * If validation fails, the error is collected and will be returned on build().
@@ -51,7 +111,7 @@ export class RecordMutationSpecBuilder {
    * @param value - The raw value to set
    * @returns this builder for chaining
    */
-  set(field: Field, value: unknown): this {
+  setStrict(field: Field, value: unknown): this {
     const result = SetFieldValueSpecFactory.create(field, value);
     result.match(
       (spec) => this.specs.push(spec),

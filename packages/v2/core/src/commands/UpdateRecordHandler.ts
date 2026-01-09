@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -36,6 +37,8 @@ export class UpdateRecordHandler
     private readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
+    @inject(v2CoreTokens.linkTitleResolverService)
+    private readonly linkTitleResolver: LinkTitleResolverService,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
@@ -52,8 +55,16 @@ export class UpdateRecordHandler
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
       const updateRecordSpan = context.tracer?.startSpan('teable.UpdateRecordHandler.updateRecord');
-      const recordUpdateResult = yield* table.updateRecord(command.recordId, command.fieldValues);
+      const recordUpdateResult = yield* table.updateRecord(command.recordId, command.fieldValues, {
+        typecast: command.typecast,
+      });
       updateRecordSpan?.end();
+
+      // Resolve link titles to IDs if typecast mode is enabled
+      let mutateSpec = recordUpdateResult.mutateSpec;
+      if (command.typecast && handler.linkTitleResolver.needsResolution(mutateSpec)) {
+        mutateSpec = yield* await handler.linkTitleResolver.resolveAndReplace(context, mutateSpec);
+      }
 
       yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
         return safeTry<void, DomainError>(async function* () {
@@ -61,7 +72,7 @@ export class UpdateRecordHandler
             transactionContext,
             table,
             command.recordId,
-            recordUpdateResult.mutateSpec
+            mutateSpec
           );
           return ok(undefined);
         });

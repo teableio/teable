@@ -26,6 +26,92 @@ describe('v2 http updateRecord (e2e)', () => {
   let numberFieldId: string;
   let testContainer: IV2NodeTestContainer;
   let fieldIdCounter = 0;
+  let typecastTableId: string;
+  let typecastPrimaryFieldId: string;
+  let typecastNumberFieldId: string;
+  let typecastCheckboxFieldId: string;
+  let typecastDateFieldId: string;
+  let typecastSingleSelectFieldId: string;
+  let typecastMultiSelectFieldId: string;
+  let typecastRatingFieldId: string;
+  let typecastSingleSelectOpenOptionId: string;
+  let typecastMultiSelectTagAId: string;
+  let typecastMultiSelectTagCId: string;
+
+  const typecastCaseKeys = [
+    'number',
+    'checkbox',
+    'date',
+    'singleSelect',
+    'multipleSelect',
+    'rating',
+  ] as const;
+
+  type TypecastCaseKey = (typeof typecastCaseKeys)[number];
+
+  interface TypecastCase {
+    name: TypecastCaseKey;
+    fieldId: () => string;
+    input: unknown;
+    assert: (value: unknown) => void;
+  }
+
+  const createTypecastCases = () =>
+    ({
+      number: {
+        name: 'number',
+        fieldId: () => typecastNumberFieldId,
+        input: '123.5',
+        assert: (value) => {
+          expect(value).toBe(123.5);
+        },
+      },
+      checkbox: {
+        name: 'checkbox',
+        fieldId: () => typecastCheckboxFieldId,
+        input: 'true',
+        assert: (value) => {
+          expect(value).toBe(true);
+        },
+      },
+      date: {
+        name: 'date',
+        fieldId: () => typecastDateFieldId,
+        input: '2024-01-02T03:04:05.000Z',
+        assert: (value) => {
+          expect(value).toBe('2024-01-02T03:04:05.000Z');
+        },
+      },
+      singleSelect: {
+        name: 'singleSelect',
+        fieldId: () => typecastSingleSelectFieldId,
+        input: 'Open',
+        assert: (value) => {
+          expect(value).toBe(typecastSingleSelectOpenOptionId);
+        },
+      },
+      multipleSelect: {
+        name: 'multipleSelect',
+        fieldId: () => typecastMultiSelectFieldId,
+        input: ['Tag A', 'Tag C'],
+        assert: (value) => {
+          expect(Array.isArray(value)).toBe(true);
+          expect(value).toEqual([typecastMultiSelectTagAId, typecastMultiSelectTagCId]);
+        },
+      },
+      rating: {
+        name: 'rating',
+        fieldId: () => typecastRatingFieldId,
+        input: '4',
+        assert: (value) => {
+          expect(value).toBe(4);
+        },
+      },
+    }) satisfies Record<TypecastCaseKey, TypecastCase>;
+  const typecastCaseMap = createTypecastCases();
+  const _exhaustiveCheck: Record<TypecastCaseKey, TypecastCase> = typecastCaseMap;
+  void _exhaustiveCheck;
+  const typecastCases = Object.values(typecastCaseMap);
 
   const createFieldId = () => {
     const suffix = fieldIdCounter.toString(36).padStart(16, '0');
@@ -168,6 +254,59 @@ describe('v2 http updateRecord (e2e)', () => {
     const fields = table.fields;
     textFieldId = fields.find((f) => f.name === 'Title')?.id ?? '';
     numberFieldId = fields.find((f) => f.name === 'Amount')?.id ?? '';
+
+    const typecastTable = await createTable({
+      baseId,
+      name: 'Typecast Update Table',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'number', name: 'Number' },
+        { type: 'checkbox', name: 'Checkbox' },
+        { type: 'date', name: 'Date' },
+        {
+          type: 'singleSelect',
+          name: 'Status',
+          options: ['Open', 'Closed'],
+        },
+        {
+          type: 'multipleSelect',
+          name: 'Tags',
+          options: ['Tag A', 'Tag B', 'Tag C'],
+        },
+        { type: 'rating', name: 'Score' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    typecastTableId = typecastTable.id;
+    typecastPrimaryFieldId = typecastTable.fields.find((f) => f.name === 'Title')?.id ?? '';
+    typecastNumberFieldId = typecastTable.fields.find((f) => f.name === 'Number')?.id ?? '';
+    typecastCheckboxFieldId = typecastTable.fields.find((f) => f.name === 'Checkbox')?.id ?? '';
+    typecastDateFieldId = typecastTable.fields.find((f) => f.name === 'Date')?.id ?? '';
+    typecastSingleSelectFieldId = typecastTable.fields.find((f) => f.name === 'Status')?.id ?? '';
+    typecastMultiSelectFieldId = typecastTable.fields.find((f) => f.name === 'Tags')?.id ?? '';
+    typecastRatingFieldId = typecastTable.fields.find((f) => f.name === 'Score')?.id ?? '';
+
+    const singleSelectField = typecastTable.fields.find((f) => f.name === 'Status');
+    const singleSelectChoices =
+      (singleSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
+      [];
+    typecastSingleSelectOpenOptionId =
+      singleSelectChoices.find((choice) => choice.name === 'Open')?.id ?? '';
+    if (!typecastSingleSelectOpenOptionId) {
+      throw new Error('Missing single select option "Open"');
+    }
+
+    const multiSelectField = typecastTable.fields.find((f) => f.name === 'Tags');
+    const multiSelectChoices =
+      (multiSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
+      [];
+    typecastMultiSelectTagAId =
+      multiSelectChoices.find((choice) => choice.name === 'Tag A')?.id ?? '';
+    typecastMultiSelectTagCId =
+      multiSelectChoices.find((choice) => choice.name === 'Tag C')?.id ?? '';
+    if (!typecastMultiSelectTagAId || !typecastMultiSelectTagCId) {
+      throw new Error('Missing multi select options');
+    }
   });
 
   afterAll(async () => {
@@ -214,6 +353,126 @@ describe('v2 http updateRecord (e2e)', () => {
     const updated = records.find((r) => r.id === record.id);
     expect(updated?.fields[textFieldId]).toBe('Updated');
     expect(updated?.fields[numberFieldId]).toBe(99);
+  });
+
+  it.each(typecastCases)('updates a record with typecast $name', async (testCase) => {
+    const fieldId = testCase.fieldId();
+    const record = await createRecord(typecastTableId, {
+      [typecastPrimaryFieldId]: `Typecast ${testCase.name}`,
+    });
+
+    const response = await fetch(`${baseUrl}/tables/updateRecord`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: typecastTableId,
+        recordId: record.id,
+        typecast: true,
+        fields: {
+          [fieldId]: testCase.input,
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const rawBody = await response.json();
+    const parsed = updateRecordOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    const body = parsed.data;
+
+    expect(body.ok).toBe(true);
+    if (!body.ok) return;
+
+    const value = body.data.record.fields[fieldId];
+    testCase.assert(value);
+
+    const records = await listRecords(typecastTableId);
+    const updated = records.find((r) => r.id === record.id);
+    expect(updated).toBeDefined();
+    if (!updated) return;
+    testCase.assert(updated.fields[fieldId]);
+  });
+
+  it('updates link fields by title when typecast is enabled', async () => {
+    const foreignRecordTitle = 'Foreign A';
+    const foreignTable = await createTable({
+      baseId,
+      name: 'Typecast Link Foreign',
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const foreignTitleFieldId = foreignTable.fields.find((f) => f.name === 'Name')?.id ?? '';
+    if (!foreignTitleFieldId) {
+      throw new Error('Missing foreign title field');
+    }
+    const foreignRecord = await createRecord(foreignTable.id, {
+      [foreignTitleFieldId]: foreignRecordTitle,
+    });
+
+    const linkFieldId = createFieldId();
+    const mainTable = await createTable({
+      baseId,
+      name: 'Typecast Link Main',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Related',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignTitleFieldId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const mainTitleFieldId = mainTable.fields.find((f) => f.name === 'Title')?.id ?? '';
+    if (!mainTitleFieldId) {
+      throw new Error('Missing main title field');
+    }
+
+    const record = await createRecord(mainTable.id, {
+      [mainTitleFieldId]: 'Main Row',
+    });
+
+    const response = await fetch(`${baseUrl}/tables/updateRecord`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: mainTable.id,
+        recordId: record.id,
+        typecast: true,
+        fields: {
+          [linkFieldId]: [foreignRecordTitle],
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const rawBody = await response.json();
+    const parsed = updateRecordOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    const body = parsed.data;
+
+    expect(body.ok).toBe(true);
+    if (!body.ok) return;
+
+    const records = await listRecords(mainTable.id);
+    const updated = records.find((r) => r.id === record.id);
+    expect(updated).toBeDefined();
+    if (!updated) return;
+
+    const linkValue = updated.fields[linkFieldId] as unknown;
+    expect(Array.isArray(linkValue)).toBe(true);
+    const linkArray = linkValue as Array<{ id: string; title?: string }>;
+    expect(linkArray.some((link) => link.id === foreignRecord.id)).toBe(true);
   });
 
   it('updates formula chains in a real-world table', async () => {

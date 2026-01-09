@@ -11,6 +11,7 @@ export const updateRecordInputSchema = z.object({
   tableId: z.string(),
   recordId: z.string(),
   fields: z.record(z.string(), z.unknown()).default({}),
+  typecast: z.boolean().optional().default(false),
 });
 
 export type IUpdateRecordCommandInput = z.input<typeof updateRecordInputSchema>;
@@ -19,7 +20,8 @@ export class UpdateRecordCommand {
   private constructor(
     readonly tableId: TableId,
     readonly recordId: RecordId,
-    readonly fieldValues: RecordFieldValues
+    readonly fieldValues: RecordFieldValues,
+    readonly typecast: boolean
   ) {}
 
   static create(raw: unknown): Result<UpdateRecordCommand, DomainError> {
@@ -36,7 +38,7 @@ export class UpdateRecordCommand {
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
       RecordId.create(parsed.data.recordId).map((recordId) => {
         const fieldValues = new Map(Object.entries(parsed.data.fields));
-        return new UpdateRecordCommand(tableId, recordId, fieldValues);
+        return new UpdateRecordCommand(tableId, recordId, fieldValues, parsed.data.typecast);
       })
     );
   }

@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -36,6 +37,8 @@ export class CreateRecordHandler
     private readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
+    @inject(v2CoreTokens.linkTitleResolverService)
+    private readonly linkTitleResolver: LinkTitleResolverService,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
@@ -55,7 +58,25 @@ export class CreateRecordHandler
       // 2. Create the record (validates and applies field values internally)
       const tracer = context.tracer;
       const createRecordSpan = tracer?.startSpan('teable.CreateRecordHandler.createRecord');
-      const record = yield* table.createRecord(command.fieldValues);
+      const createResult = yield* table.createRecord(command.fieldValues, {
+        typecast: command.typecast,
+      });
+
+      // 3. Resolve link titles to IDs if typecast mode is enabled and spec exists
+      let record = createResult.record;
+      if (
+        command.typecast &&
+        createResult.mutateSpec &&
+        handler.linkTitleResolver.needsResolution(createResult.mutateSpec)
+      ) {
+        const resolvedSpec = yield* await handler.linkTitleResolver.resolveAndReplace(
+          context,
+          createResult.mutateSpec
+        );
+        // Re-apply the resolved spec to get the correct record values
+        record = yield* resolvedSpec.mutate(record);
+      }
+
       try {
         const runTransaction = () =>
           handler.unitOfWork.withTransaction(context, async (transactionContext) => {

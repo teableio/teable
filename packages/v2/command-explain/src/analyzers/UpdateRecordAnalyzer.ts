@@ -207,6 +207,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             parameters: [],
             explainAnalyze: null,
             explainOnly: null,
+            explainError: recordUpdateResult.error.message,
           });
         } else if (!updateSqlResult) {
           const errorMessage = updateBuildError
@@ -218,6 +219,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             parameters: [],
             explainAnalyze: null,
             explainOnly: null,
+            explainError: errorMessage,
           });
         } else {
           const { mainUpdate, additionalStatements } = updateSqlResult;
@@ -225,6 +227,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
           // Run EXPLAIN on main UPDATE
           let mainExplainAnalyze: ExplainAnalyzeOutput | null = null;
           let mainExplainOnly: ExplainOutput | null = null;
+          let mainExplainError: string | null = null;
 
           if (mergedOptions.analyze) {
             const analyzeResult = await analyzer.sqlExplainRunner.explain(
@@ -235,6 +238,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             );
             if (analyzeResult.isOk()) {
               mainExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+            } else {
+              mainExplainError = analyzeResult.error.message;
             }
           } else {
             const explainResult = await analyzer.sqlExplainRunner.explain(
@@ -245,6 +250,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             );
             if (explainResult.isOk()) {
               mainExplainOnly = explainResult.value as ExplainOutput;
+            } else {
+              mainExplainError = explainResult.error.message;
             }
           }
 
@@ -254,12 +261,14 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             parameters: mainUpdate.compiled.parameters as unknown[],
             explainAnalyze: mainExplainAnalyze,
             explainOnly: mainExplainOnly,
+            explainError: mainExplainError,
           });
 
           // Add additional SQLs (link field operations)
           for (const stmt of additionalStatements) {
             let additionalExplainAnalyze: ExplainAnalyzeOutput | null = null;
             let additionalExplainOnly: ExplainOutput | null = null;
+            let additionalExplainError: string | null = null;
 
             if (mergedOptions.analyze) {
               const analyzeResult = await analyzer.sqlExplainRunner.explain(
@@ -270,6 +279,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               );
               if (analyzeResult.isOk()) {
                 additionalExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+              } else {
+                additionalExplainError = analyzeResult.error.message;
               }
             } else {
               const explainResult = await analyzer.sqlExplainRunner.explain(
@@ -280,6 +291,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               );
               if (explainResult.isOk()) {
                 additionalExplainOnly = explainResult.value as ExplainOutput;
+              } else {
+                additionalExplainError = explainResult.error.message;
               }
             }
 
@@ -289,6 +302,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               parameters: stmt.compiled.parameters as unknown[],
               explainAnalyze: additionalExplainAnalyze,
               explainOnly: additionalExplainOnly,
+              explainError: additionalExplainError,
             });
           }
         }
@@ -341,6 +355,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                explainError: prepareResult.error.message,
                 computedReason,
               });
               continue;
@@ -354,6 +369,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                explainError: selectQueryResult.error.message,
                 computedReason,
               });
               continue;
@@ -375,6 +391,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
+                explainError: compiledResult.error.message,
                 computedReason,
               });
               continue;
@@ -399,6 +416,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             // Run EXPLAIN on the compiled SQL
             let explainAnalyze: ExplainAnalyzeOutput | null = null;
             let explainOnly: ExplainOutput | null = null;
+            let explainError: string | null = null;
 
             if (mergedOptions.analyze) {
               const analyzeResult = await analyzer.sqlExplainRunner.explainCompiled(
@@ -408,6 +426,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               );
               if (analyzeResult.isOk()) {
                 explainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+              } else {
+                explainError = analyzeResult.error.message;
               }
             } else {
               const explainResult = await analyzer.sqlExplainRunner.explainCompiled(
@@ -417,6 +437,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               );
               if (explainResult.isOk()) {
                 explainOnly = explainResult.value as ExplainOutput;
+              } else {
+                explainError = explainResult.error.message;
               }
             }
 
@@ -426,6 +448,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               parameters: compiled.parameters as unknown[],
               explainAnalyze,
               explainOnly,
+              explainError,
               computedReason,
             });
           }

@@ -834,7 +834,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const asLookupOptions = <T>(): T | undefined =>
       hasLookupOptions ? (lookupParsed as T) : undefined;
     const resolveLookupOptions = (): core.ILookupOptionsDTO | undefined => {
-      if (!row.is_lookup || !hasLookupOptions) return undefined;
+      if (!row.is_lookup || row.is_conditional_lookup || !hasLookupOptions) return undefined;
       const candidate = asLookupOptions<core.ILookupOptionsDTO>();
       if (!candidate) return undefined;
       if (core.FieldId.create(candidate.linkFieldId).isErr()) return undefined;
@@ -842,15 +842,40 @@ export class PostgresTableRepository implements core.ITableRepository {
       if (core.TableId.create(candidate.foreignTableId).isErr()) return undefined;
       return candidate;
     };
+    const buildConditionalLookupOptions = (
+      value: Record<string, unknown>
+    ): core.IConditionalLookupOptionsDTO | undefined => {
+      const foreignTableId =
+        typeof value.foreignTableId === 'string' ? value.foreignTableId : undefined;
+      const lookupFieldId =
+        typeof value.lookupFieldId === 'string' ? value.lookupFieldId : undefined;
+      if (!foreignTableId || !lookupFieldId) return undefined;
+      const condition =
+        value.condition && typeof value.condition === 'object'
+          ? (value.condition as core.IConditionalLookupOptionsDTO['condition'])
+          : {
+              filter: value.filter as core.IConditionalLookupOptionsDTO['condition']['filter'],
+              sort: value.sort as { fieldId: string; order: 'asc' | 'desc' } | undefined,
+              limit: typeof value.limit === 'number' ? value.limit : undefined,
+            };
+      return {
+        foreignTableId,
+        lookupFieldId,
+        condition,
+      };
+    };
     const lookupOptions = resolveLookupOptions();
     const dbFieldName = row.db_field_name ?? undefined;
-    const base = {
+    const baseCommon = {
       id: row.id,
       name: row.name,
       dbFieldName,
       ...(row.not_null ? { notNull: true } : {}),
       ...(row.unique ? { unique: true } : {}),
       ...(row.is_computed ? { isComputed: true } : {}),
+    };
+    const base = {
+      ...baseCommon,
       ...(lookupOptions ? { isLookup: true } : {}),
       ...(row.is_conditional_lookup && lookupOptions ? { isConditionalLookup: true } : {}),
       ...(lookupOptions ? { lookupOptions } : {}),
@@ -858,6 +883,23 @@ export class PostgresTableRepository implements core.ITableRepository {
     const metaParsed = this.parseOptions(row.meta);
     const hasMeta = Object.keys(metaParsed).length > 0;
     const asMeta = <T>(): T | undefined => (hasMeta ? (metaParsed as T) : undefined);
+
+    if (row.is_conditional_lookup) {
+      const conditionalOptions = hasLookupOptions
+        ? buildConditionalLookupOptions(lookupParsed)
+        : undefined;
+      if (conditionalOptions) {
+        return {
+          ...baseCommon,
+          type: 'conditionalLookup',
+          options: conditionalOptions,
+          innerType: row.type,
+          innerOptions: asOptions<unknown>(),
+          isLookup: true,
+          isConditionalLookup: true,
+        };
+      }
+    }
 
     if (row.type === 'rating') {
       const options = {
@@ -1037,22 +1079,14 @@ export class PostgresTableRepository implements core.ITableRepository {
     // conditionalLookup: v1 format stores foreignTableId, lookupFieldId, filter, sort, limit in options
     if (row.type === 'conditionalLookup') {
       const v1Options = parsed as Record<string, unknown>;
-      const options: core.IConditionalLookupOptionsDTO = {
-        foreignTableId:
-          typeof v1Options.foreignTableId === 'string' ? v1Options.foreignTableId : '',
-        lookupFieldId: typeof v1Options.lookupFieldId === 'string' ? v1Options.lookupFieldId : '',
-        condition: {
-          filter: v1Options.filter as core.IConditionalLookupOptionsDTO['condition']['filter'],
-          sort: v1Options.sort as { fieldId: string; order: 'asc' | 'desc' } | undefined,
-          limit: typeof v1Options.limit === 'number' ? v1Options.limit : undefined,
-        },
-      };
-      return {
-        ...base,
-        type: 'conditionalLookup',
-        options,
-        innerType: row.cell_value_type ?? undefined,
-      };
+      const options = buildConditionalLookupOptions(v1Options);
+      if (options) {
+        return {
+          ...baseCommon,
+          type: 'conditionalLookup',
+          options,
+        };
+      }
     }
     return {
       ...base,

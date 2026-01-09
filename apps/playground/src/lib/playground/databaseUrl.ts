@@ -20,6 +20,26 @@ export const readPlaygroundDbUrl = (): string | null => {
   return parseStoredValue(raw);
 };
 
+export const readPlaygroundDbUrlFromEnv = (): string | null => {
+  if (typeof import.meta === 'undefined') return null;
+  const envUrl = import.meta.env?.VITE_PLAYGROUND_DB_URL ?? import.meta.env?.VITE_DATABASE_URL;
+  if (!envUrl) return null;
+  const trimmed = envUrl.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+export const maskPlaygroundDbUrl = (value: string): string => {
+  try {
+    const url = new URL(value);
+    if (url.password) {
+      url.password = '';
+    }
+    return url.toString().replace(/:@/, '@');
+  } catch {
+    return value.replace(/\/\/([^:/?#]+):([^@/]+)@/, '//$1@');
+  }
+};
+
 export const writePlaygroundDbUrl = (value: string | null): void => {
   if (typeof window === 'undefined') return;
   if (!value) {

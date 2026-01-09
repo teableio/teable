@@ -1,5 +1,5 @@
 import { domainError, FieldType } from '@teable/v2-core';
-import type { FieldId, TableId, type DomainError, type Table } from '@teable/v2-core';
+import type { FieldId, TableId, DomainError, Table } from '@teable/v2-core';
 import type {
   CompiledQuery,
   ExpressionBuilder,

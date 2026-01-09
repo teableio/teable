@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import type { IExplainResultDto } from '@teable/v2-contract-http';
 import { format } from 'sql-formatter';
+import { encode } from '@toon-format/toon';
 import {
   ChevronDown,
   ChevronRight,
@@ -13,7 +14,6 @@ import {
   Lock,
   Table2,
   Copy,
-  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -24,10 +24,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
+import {
+  maskPlaygroundDbUrl,
+  readPlaygroundDbUrl,
+  readPlaygroundDbUrlFromEnv,
+} from '@/lib/playground/databaseUrl';
+import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 
 interface ExplainResultPanelProps {
   result: IExplainResultDto;
@@ -105,8 +110,10 @@ function SqlBlock({ sql, parameters }: { sql: string; parameters: readonly unkno
   }, [sql]);
 
   return (
-    <div className="rounded-md bg-muted/50 p-3 font-mono text-xs overflow-x-auto">
-      <pre className="whitespace-pre-wrap">{formattedSql}</pre>
+    <div className="rounded-md bg-muted/50 p-3 font-mono text-xs">
+      <ScrollArea className="h-64 w-full">
+        <pre className="whitespace-pre-wrap pr-4">{formattedSql}</pre>
+      </ScrollArea>
       {parameters.length > 0 && (
         <div className="mt-2 pt-2 border-t border-border/50">
           <span className="text-muted-foreground">Parameters: </span>
@@ -154,95 +161,111 @@ function ExplainOutputBlock({
 }
 
 function ComputedReasonBlock({ reason }: { reason: ComputedUpdateReason }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="mt-4 rounded-md border bg-muted/40 p-3 text-xs space-y-3">
-      <div className="flex items-center gap-2 text-muted-foreground">
+    <div className="mt-4 rounded-md border bg-muted/40 text-xs">
+      <button
+        type="button"
+        className="w-full px-3 py-2 flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        onClick={() => setOpen((value) => !value)}
+      >
+        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         <GitBranch className="h-4 w-4" />
         <span className="font-medium">Computed Update Reason</span>
         <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase">
           {reason.changeType}
         </Badge>
-      </div>
-      {reason.notes.length > 0 && (
-        <div className="text-muted-foreground">{reason.notes.join(' ')}</div>
-      )}
-      <div>
-        <div className="text-[11px] font-medium text-muted-foreground mb-1">Triggered By</div>
-        <div className="flex flex-wrap gap-1.5">
-          {reason.seedFields.length > 0 ? (
-            reason.seedFields.map((seed) => {
-              const Icon = getFieldTypeIcon(seed.fieldType);
-              return (
-                <div
-                  key={seed.fieldId}
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-background border text-[11px]"
-                  title={`${seed.tableName} · ${seed.fieldType}`}
-                >
-                  <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
-                  <span className="font-medium">{seed.fieldName}</span>
-                  <span className="text-muted-foreground">({seed.fieldType})</span>
-                  <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                    {seed.impact === 'link_relation' ? 'link' : 'value'}
-                  </Badge>
-                </div>
-              );
-            })
-          ) : (
-            <span className="text-muted-foreground">No seed fields</span>
-          )}
-        </div>
-      </div>
-      <div>
-        <div className="text-[11px] font-medium text-muted-foreground mb-1">Updates</div>
-        <div className="space-y-2">
-          {reason.targetFields.length > 0 ? (
-            reason.targetFields.map((target) => {
-              const Icon = getFieldTypeIcon(target.fieldType);
-              return (
-                <div key={target.fieldId} className="rounded-md border bg-background px-2 py-2">
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-3 w-3 text-muted-foreground" />
-                    <span className="font-medium">{target.fieldName}</span>
-                    <span className="text-muted-foreground">({target.fieldType})</span>
-                  </div>
-                  <div className="mt-1 space-y-1 text-[11px]">
-                    {target.dependencies.length > 0 ? (
-                      target.dependencies.map((dep, index) => (
-                        <div
-                          key={`${dep.fromFieldId}-${index}`}
-                          className="flex flex-wrap items-center gap-1.5 text-muted-foreground"
-                        >
-                          <span className="font-medium text-foreground">
-                            {dep.fromTableName}.{dep.fromFieldName}
-                          </span>
-                          <span>({dep.fromFieldType})</span>
-                          <Badge variant="outline" className="text-[10px] h-4 px-1">
-                            {dep.kind}
-                          </Badge>
-                          {dep.semantic && (
-                            <Badge variant="outline" className="text-[10px] h-4 px-1">
-                              {dep.semantic}
-                            </Badge>
-                          )}
-                          {dep.isSeed && (
-                            <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                              seed
-                            </Badge>
+      </button>
+      {open && (
+        <ScrollArea className="h-80 w-full">
+          <div className="space-y-3 px-3 pb-3 pr-4">
+            {reason.notes.length > 0 && (
+              <div className="text-muted-foreground">{reason.notes.join(' ')}</div>
+            )}
+            <div>
+              <div className="text-[11px] font-medium text-muted-foreground mb-1">Triggered By</div>
+              <div className="flex flex-wrap gap-1.5">
+                {reason.seedFields.length > 0 ? (
+                  reason.seedFields.map((seed) => {
+                    const Icon = getFieldTypeIcon(seed.fieldType);
+                    return (
+                      <div
+                        key={seed.fieldId}
+                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-background border text-[11px]"
+                        title={`${seed.tableName} · ${seed.fieldType}`}
+                      >
+                        <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="font-medium">{seed.fieldName}</span>
+                        <span className="text-muted-foreground">({seed.fieldType})</span>
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                          {seed.impact === 'link_relation' ? 'link' : 'value'}
+                        </Badge>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <span className="text-muted-foreground">No seed fields</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-medium text-muted-foreground mb-1">Updates</div>
+              <div className="space-y-2">
+                {reason.targetFields.length > 0 ? (
+                  reason.targetFields.map((target) => {
+                    const Icon = getFieldTypeIcon(target.fieldType);
+                    return (
+                      <div
+                        key={target.fieldId}
+                        className="rounded-md border bg-background px-2 py-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-medium">{target.fieldName}</span>
+                          <span className="text-muted-foreground">({target.fieldType})</span>
+                        </div>
+                        <div className="mt-1 space-y-1 text-[11px]">
+                          {target.dependencies.length > 0 ? (
+                            target.dependencies.map((dep, index) => (
+                              <div
+                                key={`${dep.fromFieldId}-${index}`}
+                                className="flex flex-wrap items-center gap-1.5 text-muted-foreground"
+                              >
+                                <span className="font-medium text-foreground">
+                                  {dep.fromTableName}.{dep.fromFieldName}
+                                </span>
+                                <span>({dep.fromFieldType})</span>
+                                <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                  {dep.kind}
+                                </Badge>
+                                {dep.semantic && (
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                    {dep.semantic}
+                                  </Badge>
+                                )}
+                                {dep.isSeed && (
+                                  <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                    seed
+                                  </Badge>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground">No direct dependencies</span>
                           )}
                         </div>
-                      ))
-                    ) : (
-                      <span className="text-muted-foreground">No direct dependencies</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <span className="text-muted-foreground">No computed targets</span>
-          )}
-        </div>
-      </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <span className="text-muted-foreground">No computed targets</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 }
@@ -270,13 +293,20 @@ function StatCard({
   );
 }
 
-function generateAIAnalysisText(result: IExplainResultDto): string {
+function generateOptimizationPromptText(result: IExplainResultDto, dbUrl: string | null): string {
   const lines: string[] = [];
 
   lines.push('# SQL Command EXPLAIN Analysis');
+  lines.push(`DB URL: ${dbUrl ?? '(not set)'}`);
   lines.push('');
   lines.push(
-    'Please analyze this database command execution plan and provide optimization suggestions.'
+    'You are a database performance engineer. Analyze this execution plan and identify performance issues, bottlenecks, and concrete optimization steps.'
+  );
+  lines.push(
+    'Focus on expensive steps, sequential scans, row-estimate mismatch, missing indexes, lock contention, and computed field fan-out.'
+  );
+  lines.push(
+    'Return a prioritized list of issues, quick wins, deeper schema/index changes, and any trade-offs or risks.'
   );
   lines.push('');
 
@@ -331,6 +361,9 @@ function generateAIAnalysisText(result: IExplainResultDto): string {
       const sqlInfo = result.sqlExplains[i];
       lines.push('');
       lines.push(`### Step ${i + 1}: ${sqlInfo.stepDescription}`);
+      if (sqlInfo.explainError) {
+        lines.push(`Explain Error: ${sqlInfo.explainError}`);
+      }
       lines.push('```sql');
       lines.push(sqlInfo.sql);
       lines.push('```');
@@ -360,6 +393,15 @@ function generateAIAnalysisText(result: IExplainResultDto): string {
     lines.push('');
   }
 
+  if (result.computedLocks) {
+    lines.push('## Computed Locks');
+    lines.push(`- Mode: ${result.computedLocks.mode}`);
+    lines.push(`- Reason: ${result.computedLocks.reason}`);
+    lines.push(`- Record Locks: ${result.computedLocks.recordLockCount}`);
+    lines.push(`- Table Locks: ${result.computedLocks.tableLockCount}`);
+    lines.push('');
+  }
+
   // Timing
   lines.push('## Timing');
   lines.push(`- Total: ${result.timing.totalMs}ms`);
@@ -377,14 +419,26 @@ function generateAIAnalysisText(result: IExplainResultDto): string {
 }
 
 export function ExplainResultPanel({ result, className }: ExplainResultPanelProps) {
+  const env = usePlaygroundEnvironment();
   const [impactOpen, setImpactOpen] = useState(true);
   const [locksOpen, setLocksOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<'raw' | 'optimized' | null>(null);
 
   const totalSteps = result.computedImpact?.updateSteps.length ?? 0;
   const totalRecords =
     result.computedImpact?.affectedRecordEstimates.reduce((sum, e) => sum + e.estimatedCount, 0) ??
     0;
+
+  const resolveDbUrl = useCallback(() => {
+    if (env.kind === 'sandbox') return env.pgliteConnectionString;
+    return readPlaygroundDbUrl() ?? readPlaygroundDbUrlFromEnv();
+  }, [env]);
+
+  const displayDbUrl = useMemo(() => {
+    const dbUrl = resolveDbUrl();
+    if (!dbUrl) return null;
+    return maskPlaygroundDbUrl(dbUrl);
+  }, [resolveDbUrl]);
 
   // Calculate total execution time from SQL explains
   const totalExecutionTime = useMemo(() => {
@@ -411,23 +465,27 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
     return hasData ? total : null;
   }, [result.sqlExplains]);
 
-  const analysisText = useMemo(() => generateAIAnalysisText(result), [result]);
+  const explainErrorCount = useMemo(
+    () => result.sqlExplains.filter((sql) => sql.explainError).length,
+    [result.sqlExplains]
+  );
 
-  const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(analysisText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [analysisText]);
+  const copyWithFeedback = useCallback(async (text: string, key: 'raw' | 'optimized') => {
+    await navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  }, []);
 
-  const handleOpenInClaude = useCallback(() => {
-    const url = `https://claude.ai/new?q=${encodeURIComponent(analysisText)}`;
-    window.open(url, '_blank');
-  }, [analysisText]);
+  const handleCopyRaw = useCallback(async () => {
+    const dbUrl = resolveDbUrl();
+    const rawPayload = encode(result);
+    await copyWithFeedback(`DB URL: ${dbUrl ?? '(not set)'}\n${rawPayload}`, 'raw');
+  }, [copyWithFeedback, resolveDbUrl, result]);
 
-  const handleOpenInChatGPT = useCallback(() => {
-    const url = `https://chat.openai.com/?q=${encodeURIComponent(analysisText)}`;
-    window.open(url, '_blank');
-  }, [analysisText]);
+  const handleCopyOptimized = useCallback(async () => {
+    const dbUrl = resolveDbUrl();
+    await copyWithFeedback(generateOptimizationPromptText(result, dbUrl), 'optimized');
+  }, [copyWithFeedback, resolveDbUrl, result]);
 
   return (
     <div className={cn('flex gap-6 h-[calc(85vh-120px)]', className)}>
@@ -489,6 +547,14 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
               value={totalSteps}
               subValue={totalRecords > 0 ? `~${totalRecords} records` : undefined}
             />
+            {explainErrorCount > 0 && (
+              <StatCard
+                icon={AlertTriangle}
+                label="Explain Errors"
+                value={explainErrorCount}
+                subValue="Failed explain steps"
+              />
+            )}
           </div>
 
           {/* Execution Time - only show when ANALYZE data is available */}
@@ -683,12 +749,17 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
       <ScrollArea className="flex-1 min-w-0">
         <div className="space-y-4 pr-4">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-muted-foreground" />
-              <h3 className="font-semibold">SQL Statements</h3>
-              <Badge variant="secondary" className="text-xs">
-                {result.sqlExplains.length}
-              </Badge>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">SQL Statements</h3>
+                <Badge variant="secondary" className="text-xs">
+                  {result.sqlExplains.length}
+                </Badge>
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                DB URL: <span className="font-mono break-all">{displayDbUrl ?? '(not set)'}</span>
+              </div>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -699,18 +770,13 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleCopy} className="gap-2 cursor-pointer">
+                <DropdownMenuItem onClick={handleCopyRaw} className="gap-2 cursor-pointer">
                   <Copy className="h-4 w-4" />
-                  {copied ? 'Copied!' : 'Copy for AI'}
+                  {copiedKey === 'raw' ? 'Copied raw!' : 'Copy raw (Toon)'}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleOpenInClaude} className="gap-2 cursor-pointer">
-                  <ExternalLink className="h-4 w-4" />
-                  Open in Claude
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleOpenInChatGPT} className="gap-2 cursor-pointer">
-                  <ExternalLink className="h-4 w-4" />
-                  Open in ChatGPT
+                <DropdownMenuItem onClick={handleCopyOptimized} className="gap-2 cursor-pointer">
+                  <Copy className="h-4 w-4" />
+                  {copiedKey === 'optimized' ? 'Copied optimized!' : 'Copy optimized prompt'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -725,11 +791,14 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
               {result.sqlExplains.map((sqlInfo, i) => (
                 <div key={i} className="rounded-lg border bg-card overflow-hidden">
                   <div className="px-4 py-2 bg-muted/50 border-b">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-start gap-2 flex-wrap">
                       <Badge variant="outline" className="text-xs shrink-0">
                         Step {i + 1}
                       </Badge>
-                      <span className="text-sm font-medium break-all">
+                      <span
+                        className="text-sm font-medium break-words whitespace-normal min-w-0"
+                        title={sqlInfo.stepDescription}
+                      >
                         {sqlInfo.stepDescription}
                       </span>
                     </div>
@@ -765,20 +834,38 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
                         <div className="text-xs font-medium text-muted-foreground mb-2">SQL</div>
                         <SqlBlock sql={sqlInfo.sql} parameters={sqlInfo.parameters} />
                       </div>
-                      {sqlInfo.explainAnalyze && (
+                      {(sqlInfo.explainError ||
+                        sqlInfo.explainAnalyze ||
+                        (sqlInfo.explainOnly && !sqlInfo.explainAnalyze)) && (
                         <div>
-                          <div className="text-xs font-medium text-muted-foreground mb-2">
-                            EXPLAIN ANALYZE
-                          </div>
-                          <ExplainOutputBlock output={sqlInfo.explainAnalyze} isAnalyze={true} />
-                        </div>
-                      )}
-                      {sqlInfo.explainOnly && !sqlInfo.explainAnalyze && (
-                        <div>
-                          <div className="text-xs font-medium text-muted-foreground mb-2">
-                            EXPLAIN
-                          </div>
-                          <ExplainOutputBlock output={sqlInfo.explainOnly} isAnalyze={false} />
+                          {sqlInfo.explainError ? (
+                            <div className="rounded-md border border-rose-100 bg-rose-50/60 px-3 py-2 text-xs text-rose-700">
+                              <div className="flex items-start gap-2">
+                                <AlertTriangle className="h-3.5 w-3.5 mt-0.5" />
+                                <div>
+                                  <div className="font-medium">Explain Error</div>
+                                  <div className="break-all">{sqlInfo.explainError}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : sqlInfo.explainAnalyze ? (
+                            <>
+                              <div className="text-xs font-medium text-muted-foreground mb-2">
+                                EXPLAIN ANALYZE
+                              </div>
+                              <ExplainOutputBlock
+                                output={sqlInfo.explainAnalyze}
+                                isAnalyze={true}
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-xs font-medium text-muted-foreground mb-2">
+                                EXPLAIN
+                              </div>
+                              <ExplainOutputBlock output={sqlInfo.explainOnly!} isAnalyze={false} />
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

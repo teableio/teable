@@ -4,6 +4,7 @@ import { Lifecycle } from '@teable/v2-di';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { v2CoreTokens } from '../ports/tokens';
@@ -31,6 +32,7 @@ import { v2CoreTokens } from '../ports/tokens';
  * | fieldCreationSideEffectService   | FieldCreationSideEffectService | Cross-table field creation side effects      |
  * | fieldDeletionSideEffectService   | FieldDeletionSideEffectService | Cross-table field deletion side effects      |
  * | foreignTableLoaderService        | ForeignTableLoaderService      | Load and validate foreign table references   |
+ * | linkTitleResolverService         | LinkTitleResolverService       | Resolve link titles to record IDs            |
  *
  * ## Usage
  *
@@ -112,6 +114,13 @@ export const registerV2CoreServices = (
   // ForeignTableLoaderService - load and validate foreign table references
   if (!container.isRegistered(v2CoreTokens.foreignTableLoaderService)) {
     container.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
+      lifecycle,
+    });
+  }
+
+  // LinkTitleResolverService - resolve link titles to record IDs (typecast support)
+  if (!container.isRegistered(v2CoreTokens.linkTitleResolverService)) {
+    container.register(v2CoreTokens.linkTitleResolverService, LinkTitleResolverService, {
       lifecycle,
     });
   }

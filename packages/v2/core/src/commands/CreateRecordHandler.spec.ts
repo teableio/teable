@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -172,6 +173,12 @@ class FakeEventBus implements IEventBus {
   }
 }
 
+const createFakeLinkTitleResolverService = () =>
+  ({
+    needsResolution: () => false,
+    resolveAndReplace: async (_context: IExecutionContext, spec: ICellValueSpec) => ok(spec),
+  }) as unknown as LinkTitleResolverService;
+
 class FakeUnitOfWork implements IUnitOfWork {
   transactions: IExecutionContext[] = [];
   rollbacks: IExecutionContext[] = [];
@@ -275,6 +282,7 @@ describe('CreateRecordHandler', () => {
     const handler = new CreateRecordHandler(
       tableQueryService,
       recordRepository,
+      createFakeLinkTitleResolverService(),
       eventBus,
       unitOfWork
     );
@@ -310,6 +318,7 @@ describe('CreateRecordHandler', () => {
     const handler = new CreateRecordHandler(
       tableQueryService,
       recordRepository,
+      createFakeLinkTitleResolverService(),
       eventBus,
       unitOfWork
     );
@@ -335,6 +344,7 @@ describe('CreateRecordHandler', () => {
     const handler = new CreateRecordHandler(
       tableQueryService,
       recordRepository,
+      createFakeLinkTitleResolverService(),
       eventBus,
       unitOfWork
     );
@@ -360,6 +370,7 @@ describe('CreateRecordHandler', () => {
     const handler = new CreateRecordHandler(
       tableQueryService,
       recordRepository,
+      createFakeLinkTitleResolverService(),
       eventBus,
       unitOfWork
     );
@@ -391,6 +402,7 @@ describe('CreateRecordHandler', () => {
     const handler = new CreateRecordHandler(
       tableQueryService,
       recordRepository,
+      createFakeLinkTitleResolverService(),
       eventBus,
       unitOfWork
     );
@@ -418,6 +430,7 @@ describe('CreateRecordHandler', () => {
     const handler = new CreateRecordHandler(
       tableQueryService,
       recordRepository,
+      createFakeLinkTitleResolverService(),
       eventBus,
       unitOfWork
     );
@@ -447,6 +460,7 @@ describe('CreateRecordHandler', () => {
     const handler = new CreateRecordHandler(
       tableQueryService,
       recordRepository,
+      createFakeLinkTitleResolverService(),
       eventBus,
       unitOfWork
     );
@@ -479,6 +493,7 @@ describe('CreateRecordHandler', () => {
       const handler = new CreateRecordHandler(
         tableQueryService,
         recordRepository,
+        createFakeLinkTitleResolverService(),
         eventBus,
         unitOfWork
       );
@@ -534,6 +549,7 @@ describe('CreateRecordHandler', () => {
       const handler = new CreateRecordHandler(
         tableQueryService,
         recordRepository,
+        createFakeLinkTitleResolverService(),
         eventBus,
         unitOfWork
       );
@@ -578,6 +594,7 @@ describe('CreateRecordHandler', () => {
       const handler = new CreateRecordHandler(
         tableQueryService,
         recordRepository,
+        createFakeLinkTitleResolverService(),
         eventBus,
         unitOfWork
       );

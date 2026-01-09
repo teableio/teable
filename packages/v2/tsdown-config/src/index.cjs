@@ -21,3 +21,4 @@ const v2TsdownBaseConfig = {
 };
 
 module.exports = { v2TsdownBaseConfig };
+module.exports.default = v2TsdownBaseConfig;
