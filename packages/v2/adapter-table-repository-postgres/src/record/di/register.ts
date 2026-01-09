@@ -5,6 +5,7 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
 import type {
+  ComputedUpdateLockConfig,
   ComputedUpdateOutboxConfig,
   ComputedUpdatePollingConfig,
   HybridWithOutboxStrategyConfig,
@@ -12,6 +13,7 @@ import type {
 import {
   AsyncWithRetryStrategy,
   ComputedFieldUpdater,
+  defaultComputedUpdateLockConfig,
   ComputedUpdateOutbox,
   ComputedUpdatePlanner,
   ComputedUpdatePollingService,
@@ -38,6 +40,7 @@ export interface IV2RecordRepositoryPostgresConfig {
     mode?: 'sync' | 'hybrid' | 'async';
     hybridConfig?: Partial<HybridWithOutboxStrategyConfig>;
     outboxConfig?: Partial<ComputedUpdateOutboxConfig>;
+    lockConfig?: Partial<ComputedUpdateLockConfig>;
     /**
      * Polling config for background worker.
      * When enabled, a background polling loop is started automatically.
@@ -82,9 +85,14 @@ export const registerV2RecordRepositoryPostgresAdapter = (
     ...defaultComputedUpdateOutboxConfig,
     ...config.computedUpdate?.outboxConfig,
   };
+  const lockConfig: ComputedUpdateLockConfig = {
+    ...defaultComputedUpdateLockConfig,
+    ...config.computedUpdate?.lockConfig,
+  };
 
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig, hybridConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig, outboxConfig);
+  c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig, lockConfig);
 
   // Derive polling enabled from dispatch mode if not explicitly set
   const dispatchMode = hybridConfig.dispatchMode ?? 'push';

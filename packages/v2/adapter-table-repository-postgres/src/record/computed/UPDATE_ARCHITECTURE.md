@@ -13,6 +13,7 @@ This document describes the architecture for computed field updates (formula, lo
 3. **Natural propagation**: Updates propagate through the dependency graph naturally; each updated field becomes a seed for the next wave
 4. **Same-table batching**: All same-record dependencies within a table are computed together before propagating to other tables
 5. **Self-referencing link support**: Links that reference the same table are handled correctly as cross-record dependencies
+6. **Advisory locks for concurrency**: Each stage acquires transaction-scoped advisory locks on seed records (baseId+tableId+recordId), with table-level escalation when seed count exceeds `maxRecordLocks`. Locks are acquired in sorted order to minimize deadlocks.
 
 ---
 
@@ -63,6 +64,12 @@ type LinkChange = {
 6. Propagate dirty records to foreign tables via link relationships
 7. Repeat from step 3 for each affected table
 ```
+
+### Concurrency Locks
+
+- Locks are acquired per stage using `pg_advisory_xact_lock`.
+- Default scope is record-level (`baseId + tableId + recordId`), with table-level escalation when seed count exceeds `maxRecordLocks`.
+- Configuration is provided via `computedUpdate.lockConfig` in the adapter registration.
 
 ---
 

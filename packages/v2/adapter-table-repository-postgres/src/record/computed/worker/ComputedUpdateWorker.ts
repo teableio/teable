@@ -137,6 +137,11 @@ export class ComputedUpdateWorker {
                 taskId: task.id,
               });
 
+              const lockResult = await this.updater.acquireLocks(planResult.value, txContext, {
+                logContext: runLogContext,
+              });
+              if (lockResult.isErr()) return err(lockResult.error);
+
               const stageResult = await this.updater.execute(planResult.value, txContext, run);
               if (stageResult.isErr()) return err(stageResult.error);
 

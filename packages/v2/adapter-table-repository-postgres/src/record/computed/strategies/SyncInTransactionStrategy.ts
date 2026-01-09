@@ -11,7 +11,7 @@ import type {
   ComputedUpdatePlanner,
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
-import { createComputedUpdateRun } from '../ComputedUpdateRun';
+import { createComputedUpdateRun, toRunLogContext } from '../ComputedUpdateRun';
 import type { IUpdateStrategy } from './IUpdateStrategy';
 
 /**
@@ -62,6 +62,11 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
         completedStepsBefore: completedSteps,
         phase: 'full',
       });
+      const lockResult = await updater.acquireLocks(currentPlan, context, {
+        logContext: toRunLogContext(run),
+      });
+      if (lockResult.isErr()) return err(lockResult.error);
+
       const stageResult = await updater.execute(currentPlan, context, run);
       if (stageResult.isErr()) return err(stageResult.error);
 

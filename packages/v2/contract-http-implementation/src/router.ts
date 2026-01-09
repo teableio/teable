@@ -1,4 +1,6 @@
 import { ORPCError, implement } from '@orpc/server';
+import type { IExplainService } from '@teable/v2-command-explain';
+import { v2CommandExplainTokens } from '@teable/v2-command-explain';
 import type { IHandlerResolver } from '@teable/v2-contract-http';
 import { v2Contract } from '@teable/v2-contract-http';
 import {
@@ -8,8 +10,6 @@ import {
   type IQueryBus,
   v2CoreTokens,
 } from '@teable/v2-core';
-import type { IExplainService } from '@teable/v2-command-explain';
-import { v2CommandExplainTokens } from '@teable/v2-command-explain';
 
 import { executeCreateFieldEndpoint } from './handlers/tables/createField';
 import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';

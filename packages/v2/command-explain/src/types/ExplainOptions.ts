@@ -19,6 +19,12 @@ export type ExplainOptions = {
    * @default true
    */
   readonly includeGraph?: boolean;
+
+  /**
+   * If true, include computed update lock information.
+   * @default true
+   */
+  readonly includeLocks?: boolean;
 };
 
 /**
@@ -28,4 +34,5 @@ export const DEFAULT_EXPLAIN_OPTIONS: Required<ExplainOptions> = {
   analyze: false,
   includeSql: true,
   includeGraph: true,
+  includeLocks: true,
 };

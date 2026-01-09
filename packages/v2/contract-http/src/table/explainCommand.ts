@@ -16,6 +16,7 @@ export const explainCreateRecordInputSchema = z.object({
   analyze: z.boolean().optional().default(false),
   includeSql: z.boolean().optional().default(true),
   includeGraph: z.boolean().optional().default(false),
+  includeLocks: z.boolean().optional().default(true),
 });
 
 export const explainUpdateRecordInputSchema = z.object({
@@ -25,6 +26,7 @@ export const explainUpdateRecordInputSchema = z.object({
   analyze: z.boolean().optional().default(false),
   includeSql: z.boolean().optional().default(true),
   includeGraph: z.boolean().optional().default(false),
+  includeLocks: z.boolean().optional().default(true),
 });
 
 export const explainDeleteRecordsInputSchema = z.object({
@@ -33,6 +35,7 @@ export const explainDeleteRecordsInputSchema = z.object({
   analyze: z.boolean().optional().default(false),
   includeSql: z.boolean().optional().default(true),
   includeGraph: z.boolean().optional().default(false),
+  includeLocks: z.boolean().optional().default(true),
 });
 
 export type IExplainCreateRecordInput = z.infer<typeof explainCreateRecordInputSchema>;
@@ -166,6 +169,42 @@ const computedImpactInfoSchema = z.object({
   affectedRecordEstimates: z.array(affectedRecordEstimateSchema),
 });
 
+const computedUpdateLockRecordSchema = z.object({
+  tableId: z.string(),
+  tableName: z.string(),
+  recordId: z.string(),
+  key: z.string(),
+});
+
+const computedUpdateLockTableSchema = z.object({
+  tableId: z.string(),
+  tableName: z.string(),
+  key: z.string(),
+});
+
+const computedUpdateLockStatementSchema = z.object({
+  scope: z.enum(['record', 'table']),
+  tableId: z.string(),
+  tableName: z.string(),
+  recordId: z.string().optional(),
+  key: z.string(),
+  sql: z.string(),
+  parameters: z.array(z.unknown()),
+});
+
+const computedUpdateLockInfoSchema = z.object({
+  mode: z.enum(['disabled', 'none', 'record', 'table', 'mixed']),
+  reason: z.string(),
+  maxRecordLocks: z.number(),
+  seedRecordCount: z.number(),
+  recordLockCount: z.number(),
+  tableLockCount: z.number(),
+  tableLockTableIds: z.array(z.string()),
+  recordLocks: z.array(computedUpdateLockRecordSchema),
+  tableLocks: z.array(computedUpdateLockTableSchema),
+  statements: z.array(computedUpdateLockStatementSchema),
+});
+
 const complexityFactorSchema = z.object({
   name: z.string(),
   value: z.number(),
@@ -201,6 +240,7 @@ const explainTimingSchema = z.object({
 export const explainResultSchema = z.object({
   command: commandExplainInfoSchema,
   computedImpact: computedImpactInfoSchema.nullable(),
+  computedLocks: computedUpdateLockInfoSchema.nullable().optional(),
   sqlExplains: z.array(sqlExplainInfoSchema),
   complexity: complexityAssessmentSchema,
   timing: explainTimingSchema,

@@ -41,6 +41,22 @@ const createUnitOfWork = (): IUnitOfWork => ({
   withTransaction: vi.fn().mockImplementation(async (_ctx, fn) => fn(_ctx)),
 });
 
+const createLockResult = () =>
+  ok({
+    mode: 'record',
+    totalLocks: 1,
+    recordLocks: 1,
+    tableLocks: 0,
+    tableLockTableIds: [],
+    seedRecordCount: 1,
+  });
+
+const createUpdaterStub = (overrides: Record<string, unknown> = {}) =>
+  ({
+    acquireLocks: vi.fn().mockResolvedValue(createLockResult()),
+    ...overrides,
+  }) as unknown as ComputedFieldUpdater;
+
 // Create a mock task
 const createMockTask = (
   overrides: Partial<ComputedUpdateOutboxItem> = {}
@@ -84,7 +100,7 @@ describe('ComputedUpdateWorker', () => {
         markFailed: vi.fn(),
       };
 
-      const updater = {} as ComputedFieldUpdater;
+      const updater = createUpdaterStub();
       const planner = {} as ComputedUpdatePlanner;
       const logger = createLogger();
       const hasher = createHasher();
@@ -109,12 +125,12 @@ describe('ComputedUpdateWorker', () => {
         markFailed,
       };
 
-      const updater = {
+      const updater = createUpdaterStub({
         execute: vi
           .fn()
           .mockResolvedValue(err(domainError.infrastructure({ message: 'Test error' }))),
         collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
-      } as unknown as ComputedFieldUpdater;
+      });
 
       const planner = {
         planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
@@ -146,10 +162,10 @@ describe('ComputedUpdateWorker', () => {
         markFailed: vi.fn(),
       };
 
-      const updater = {
+      const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok(undefined)),
         collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
-      } as unknown as ComputedFieldUpdater;
+      });
 
       const planner = {
         planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
@@ -185,10 +201,10 @@ describe('ComputedUpdateWorker', () => {
         markFailed: vi.fn(),
       };
 
-      const updater = {
+      const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok(undefined)),
         collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
-      } as unknown as ComputedFieldUpdater;
+      });
 
       const planner = {
         planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
@@ -222,7 +238,7 @@ describe('ComputedUpdateWorker', () => {
         markFailed: vi.fn(),
       };
 
-      const updater = {
+      const updater = createUpdaterStub({
         execute: vi.fn().mockResolvedValue(ok(undefined)),
         collectDirtySeedGroups: vi.fn().mockResolvedValue(
           ok([
@@ -232,7 +248,7 @@ describe('ComputedUpdateWorker', () => {
             },
           ])
         ),
-      } as unknown as ComputedFieldUpdater;
+      });
 
       const planner = {
         planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
@@ -274,12 +290,12 @@ describe('ComputedUpdateWorker', () => {
         markFailed: vi.fn().mockResolvedValue(ok(undefined)),
       };
 
-      const updater = {
+      const updater = createUpdaterStub({
         execute: vi
           .fn()
           .mockResolvedValue(err(domainError.infrastructure({ message: 'Test error' }))),
         collectDirtySeedGroups: vi.fn(),
-      } as unknown as ComputedFieldUpdater;
+      });
 
       const planner = {} as ComputedUpdatePlanner;
 
@@ -318,12 +334,12 @@ describe('ComputedUpdateWorker', () => {
         markFailed,
       };
 
-      const updater = {
+      const updater = createUpdaterStub({
         execute: vi
           .fn()
           .mockResolvedValue(err(domainError.infrastructure({ message: 'Test error' }))),
         collectDirtySeedGroups: vi.fn(),
-      } as unknown as ComputedFieldUpdater;
+      });
 
       const planner = {} as ComputedUpdatePlanner;
 

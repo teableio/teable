@@ -185,6 +185,11 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         completedStepsBefore: completedSteps,
         phase,
       });
+      const lockResult = await updater.acquireLocks(currentPlan, context, {
+        logContext: toRunLogContext(run),
+      });
+      if (lockResult.isErr()) return err(lockResult.error);
+
       const runLogger = this.logger.child(toRunLogContext(run));
 
       runLogger.info('computed:run:start', {

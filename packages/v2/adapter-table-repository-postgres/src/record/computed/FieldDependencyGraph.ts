@@ -1,5 +1,5 @@
 import { domainError, FieldId, TableId } from '@teable/v2-core';
-import type { BaseId, type IExecutionContext, type DomainError } from '@teable/v2-core';
+import type { BaseId, IExecutionContext, DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely, Transaction } from 'kysely';

@@ -1,7 +1,9 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
 import {
   DateTimeFormatting,
   FieldType,
+  type ConditionalLookupField,
   type LookupField,
   NumberFormatting,
   NumberFormattingType,
@@ -367,8 +369,8 @@ export class FormulaSqlPgExpressionBuilder {
   protected normalizeArrayExpr(expr: SqlExpr): string {
     // Optimize for lookup fields: they are always stored as JSON
     const innerFieldType = this.getLookupInnerFieldType(expr);
-    if (innerFieldType && expr.storageKind === 'array') {
-      return `COALESCE(NULLIF((${expr.valueSql})::jsonb, 'null'::jsonb), '[]'::jsonb)`;
+    if ((innerFieldType || this.isLookupArrayField(expr)) && expr.storageKind === 'array') {
+      return this.normalizeLookupArrayExpr(expr);
     }
 
     if (
@@ -397,7 +399,7 @@ export class FormulaSqlPgExpressionBuilder {
 
       // For lookup fields that are proxied to innerField, use the proxied valueType
       // to determine extraction logic. This avoids type checking in multiple places.
-      if (expr.field && expr.field.type().equals(FieldType.lookup())) {
+      if (this.isLookupArrayField(expr)) {
         return this.extractProxiedLookupScalarText(normalized, expr.valueType);
       }
 
@@ -1094,6 +1096,39 @@ export class FormulaSqlPgExpressionBuilder {
     return expr.field?.type().toString();
   }
 
+  private isLookupArrayField(expr: SqlExpr): boolean {
+    if (!expr.field) return false;
+    return (
+      expr.field.type().equals(FieldType.lookup()) ||
+      expr.field.type().equals(FieldType.conditionalLookup())
+    );
+  }
+
+  private normalizeLookupArrayExpr(expr: SqlExpr): string {
+    const base = `(${expr.valueSql})`;
+    const jsonbBase = `${base}::jsonb`;
+    const jsonbStringValue = `(${jsonbBase} #>> '{}')`;
+    const jsonbStringTrimmed = `BTRIM(${jsonbStringValue})`;
+    const jsonbStringLooksJson = `(LEFT(${jsonbStringTrimmed}, 1) IN ('[', '{'))`;
+    const jsonbStringValid = `pg_input_is_valid(${jsonbStringValue}, 'jsonb')`;
+    const parsedJsonb = `(CASE
+      WHEN pg_typeof(${base}) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(${jsonbBase}) = 'string' AND ${jsonbStringLooksJson} AND ${jsonbStringValid}
+            THEN (${jsonbStringValue})::jsonb
+          ELSE ${jsonbBase}
+        END
+      WHEN pg_typeof(${base}) = 'json'::regtype THEN ${base}::jsonb
+      ELSE to_jsonb(${base})
+    END)`;
+    return `(CASE
+      WHEN ${base} IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof(${parsedJsonb}) = 'array' THEN ${parsedJsonb}
+      WHEN jsonb_typeof(${parsedJsonb}) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array(${parsedJsonb})
+    END)`;
+  }
+
   /**
    * Get the inner field type of a lookup field, if applicable.
    * Returns null if the field is not a lookup field or if the inner field is not resolved.
@@ -1103,15 +1138,23 @@ export class FormulaSqlPgExpressionBuilder {
     const field = expr.field;
 
     // Check if field is a LookupField
-    if (!field.type().equals(FieldType.lookup())) return null;
+    if (field.type().equals(FieldType.lookup())) {
+      const lookupField = field as LookupField;
+      const innerFieldResult = lookupField.innerField();
+      if (innerFieldResult.isErr()) return null;
+      const innerField = innerFieldResult.value;
+      return innerField.type().toString();
+    }
 
-    // Get innerField
-    const lookupField = field as LookupField;
-    const innerFieldResult = lookupField.innerField();
-    if (innerFieldResult.isErr()) return null;
+    if (field.type().equals(FieldType.conditionalLookup())) {
+      const conditionalField = field as ConditionalLookupField;
+      const innerFieldResult = conditionalField.innerField();
+      if (innerFieldResult.isErr()) return null;
+      const innerField = innerFieldResult.value;
+      return innerField.type().toString();
+    }
 
-    const innerField = innerFieldResult.value;
-    return innerField.type().toString();
+    return null;
   }
 
   protected isStructuredJsonField(expr: SqlExpr): boolean {
@@ -1418,6 +1461,28 @@ export class FormulaSqlPgExpressionBuilder {
     }
 
     if (left.isArray !== right.isArray) {
+      const arrayExpr = left.isArray ? left : right;
+      const scalarExpr = left.isArray ? right : left;
+      const arrayScalar = this.unwrapArrayToScalar(arrayExpr);
+
+      if (left.valueType === 'number' || right.valueType === 'number') {
+        const numericLeft = this.coerceToNumber(left.isArray ? arrayScalar : left, 'if');
+        const numericRight = this.coerceToNumber(left.isArray ? right : arrayScalar, 'if');
+        return { left: numericLeft, right: numericRight, type: 'number', isArray: false };
+      }
+
+      if (left.valueType === 'datetime' || right.valueType === 'datetime') {
+        const datetimeLeft = this.coerceToDatetime(left.isArray ? arrayScalar : left);
+        const datetimeRight = this.coerceToDatetime(left.isArray ? right : arrayScalar);
+        return { left: datetimeLeft, right: datetimeRight, type: 'datetime', isArray: false };
+      }
+
+      if (left.valueType === 'boolean' || right.valueType === 'boolean') {
+        const boolLeft = this.coerceToBoolean(left.isArray ? arrayScalar : left);
+        const boolRight = this.coerceToBoolean(left.isArray ? right : arrayScalar);
+        return { left: boolLeft, right: boolRight, type: 'boolean', isArray: false };
+      }
+
       const textLeft = this.coerceToString(left);
       const textRight = this.coerceToString(right);
       return { left: textLeft, right: textRight, type: 'string', isArray: false };

@@ -23,6 +23,13 @@ import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder, COMPUTED_TABLE_ALIAS } from '../query-builder/computed';
 // NOTE: SameTableBatchQueryBuilder will be used for CTE optimization in future versions
 // import { SameTableBatchQueryBuilder, type SameTableFieldLevel } from '../query-builder/computed/SameTableBatchQueryBuilder';
+import {
+  type ComputedUpdateLockConfig,
+  type ComputedUpdateLockSummary,
+  buildAdvisoryLockQuery,
+  buildComputedUpdateLockPlan,
+  defaultComputedUpdateLockConfig,
+} from './ComputedUpdateLock';
 import type {
   ComputedDependencyEdge,
   ComputedSeedGroup,
@@ -71,6 +78,10 @@ export type PreparedDirtyState = {
   totalDirtyRecords: number;
 };
 
+type ComputedUpdateLockOptions = {
+  logContext?: Record<string, unknown>;
+};
+
 /**
  * Execute computed field update plans using UPDATE...FROM.
  *
@@ -88,7 +99,9 @@ export class ComputedFieldUpdater {
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,
     @inject(v2RecordRepositoryPostgresTokens.db)
-    private readonly db: Kysely<V1TeableDatabase>
+    private readonly db: Kysely<V1TeableDatabase>,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig)
+    private readonly lockConfig: ComputedUpdateLockConfig = defaultComputedUpdateLockConfig
   ) {}
 
   async execute(
@@ -231,6 +244,59 @@ export class ComputedFieldUpdater {
       return await runWork();
     } finally {
       mainSpan?.end();
+    }
+  }
+
+  async acquireLocks(
+    plan: ComputedUpdatePlan,
+    context: IExecutionContext,
+    options?: ComputedUpdateLockOptions
+  ): Promise<Result<ComputedUpdateLockSummary, DomainError>> {
+    const lockPlan = buildComputedUpdateLockPlan(plan, this.lockConfig);
+    const summary = lockPlan.summary;
+    if (summary.mode === 'disabled' || summary.mode === 'none') {
+      return ok(summary);
+    }
+
+    const logContext = options?.logContext
+      ? { ...summary, lockReason: lockPlan.reason, ...options.logContext }
+      : { ...summary, lockReason: lockPlan.reason };
+
+    const lockSpan = context.tracer?.startSpan('teable.ComputedUpdateLock.acquire', {
+      'computed.baseId': plan.baseId.toString(),
+      'computed.seedTableId': plan.seedTableId.toString(),
+      'computed.lockMode': summary.mode,
+      'computed.lockCount': summary.totalLocks,
+      'computed.lockTableCount': summary.tableLocks,
+      'computed.lockRecordCount': summary.recordLocks,
+      'computed.lockSeedRecordCount': summary.seedRecordCount,
+    });
+
+    const runWork = async (): Promise<Result<ComputedUpdateLockSummary, DomainError>> => {
+      const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+      try {
+        for (const statement of lockPlan.statements) {
+          await db.executeQuery(buildAdvisoryLockQuery(db, statement.key));
+        }
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `Failed to acquire computed update locks: ${describeError(error)}`,
+          })
+        );
+      }
+
+      this.logger.debug('computed:locks:acquired', logContext);
+      return ok(summary);
+    };
+
+    try {
+      if (lockSpan && context.tracer) {
+        return await context.tracer.withSpan(lockSpan, runWork);
+      }
+      return await runWork();
+    } finally {
+      lockSpan?.end();
     }
   }
 

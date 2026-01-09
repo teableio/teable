@@ -1,4 +1,5 @@
 export * from './ComputedFieldUpdater';
+export * from './ComputedUpdateLock';
 export * from './ComputedUpdatePlanner';
 export * from './ComputedUpdateRun';
 export * from './FieldDependencyGraph';

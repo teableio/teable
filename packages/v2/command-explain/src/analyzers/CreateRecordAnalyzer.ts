@@ -25,6 +25,8 @@ import {
   UpdateFromSelectBuilder,
   type DynamicDB,
   RecordInsertBuilder,
+  defaultComputedUpdateLockConfig,
+  type ComputedUpdateLockConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 
 import type { ICommandAnalyzer } from './ICommandAnalyzer';
@@ -46,6 +48,7 @@ import { v2CommandExplainTokens } from '../di/tokens';
 import { SqlExplainRunner } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
+import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
 
 /**
  * Analyzer for CreateRecordCommand.
@@ -64,6 +67,8 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
     private readonly dependencyGraph: FieldDependencyGraph,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
     private readonly planner: ComputedUpdatePlanner,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig)
+    private readonly lockConfig: ComputedUpdateLockConfig = defaultComputedUpdateLockConfig,
     @inject(v2CommandExplainTokens.sqlExplainRunner)
     private readonly sqlExplainRunner: SqlExplainRunner,
     @inject(v2CommandExplainTokens.complexityCalculator)
@@ -150,6 +155,14 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
         tableById,
         mergedOptions
       );
+      const computedLocks = mergedOptions.includeLocks
+        ? buildComputedUpdateLockInfo({
+            plan,
+            tableById,
+            hasSteps: plan.steps.length > 0,
+            config: analyzer.lockConfig,
+          })
+        : null;
 
       // 8. Generate real SQL and run EXPLAIN
       const sqlExplainStartTime = Date.now();
@@ -401,6 +414,7 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
       return ok({
         command: commandInfo,
         computedImpact,
+        computedLocks,
         sqlExplains,
         complexity,
         timing: {

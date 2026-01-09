@@ -1,15 +1,14 @@
+import type { IExplainService } from '@teable/v2-command-explain';
 import type { IExplainEndpointResult, IExplainResultDto } from '@teable/v2-contract-http';
 import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import {
   CreateRecordCommand,
   UpdateRecordCommand,
   DeleteRecordsCommand,
-  FieldId,
   RecordId,
   TableId,
 } from '@teable/v2-core';
 import type { IExecutionContext } from '@teable/v2-core';
-import type { IExplainService } from '@teable/v2-command-explain';
 
 export interface IExplainCreateRecordInput {
   tableId: string;
@@ -17,6 +16,7 @@ export interface IExplainCreateRecordInput {
   analyze?: boolean;
   includeSql?: boolean;
   includeGraph?: boolean;
+  includeLocks?: boolean;
 }
 
 export interface IExplainUpdateRecordInput {
@@ -26,6 +26,7 @@ export interface IExplainUpdateRecordInput {
   analyze?: boolean;
   includeSql?: boolean;
   includeGraph?: boolean;
+  includeLocks?: boolean;
 }
 
 export interface IExplainDeleteRecordsInput {
@@ -34,6 +35,7 @@ export interface IExplainDeleteRecordsInput {
   analyze?: boolean;
   includeSql?: boolean;
   includeGraph?: boolean;
+  includeLocks?: boolean;
 }
 
 export const executeExplainCreateRecordEndpoint = async (
@@ -57,11 +59,6 @@ export const executeExplainCreateRecordEndpoint = async (
     };
   }
 
-  const fieldValues = new Map<string, unknown>();
-  for (const [key, value] of Object.entries(input.fields)) {
-    fieldValues.set(key, value);
-  }
-
   const commandResult = CreateRecordCommand.create({
     tableId: input.tableId,
     fields: input.fields,
@@ -79,6 +76,7 @@ export const executeExplainCreateRecordEndpoint = async (
     analyze: input.analyze ?? false,
     includeSql: input.includeSql ?? true,
     includeGraph: input.includeGraph ?? false,
+    includeLocks: input.includeLocks ?? true,
   });
 
   if (result.isErr()) {
@@ -121,6 +119,7 @@ export const executeExplainUpdateRecordEndpoint = async (
     analyze: input.analyze ?? false,
     includeSql: input.includeSql ?? true,
     includeGraph: input.includeGraph ?? false,
+    includeLocks: input.includeLocks ?? true,
   });
 
   if (result.isErr()) {
@@ -146,7 +145,6 @@ export const executeExplainDeleteRecordsEndpoint = async (
   explainService: IExplainService
 ): Promise<IExplainEndpointResult> => {
   // Parse record IDs
-  const recordIds: RecordId[] = [];
   for (const idStr of input.recordIds) {
     const recordIdResult = RecordId.create(idStr);
     if (recordIdResult.isErr()) {
@@ -162,7 +160,6 @@ export const executeExplainDeleteRecordsEndpoint = async (
         },
       };
     }
-    recordIds.push(recordIdResult.value);
   }
 
   const commandResult = DeleteRecordsCommand.create({
@@ -182,6 +179,7 @@ export const executeExplainDeleteRecordsEndpoint = async (
     analyze: input.analyze ?? false,
     includeSql: input.includeSql ?? true,
     includeGraph: input.includeGraph ?? false,
+    includeLocks: input.includeLocks ?? true,
   });
 
   if (result.isErr()) {

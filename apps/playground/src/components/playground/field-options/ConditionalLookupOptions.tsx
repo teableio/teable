@@ -24,6 +24,8 @@ export function ConditionalLookupOptions({
   tables,
   isTablesLoading,
 }: ConditionalLookupOptionsProps) {
+  // Cast form to any to work around strict typing for nested paths
+  const formAny = form as any;
   // Get all tables except current for foreign table selection
   const foreignTables = useMemo(
     () => tables.filter((table) => table.id !== tableId),
@@ -58,9 +60,12 @@ export function ConditionalLookupOptions({
                       nextTable?.fields.find((f) => f.isPrimary) ?? nextTable?.fields[0];
 
                     field.handleChange(value as any);
-                    form.setFieldValue('options.lookupFieldId', (nextLookupField?.id ?? '') as any);
+                    formAny.setFieldValue(
+                      'options.lookupFieldId',
+                      (nextLookupField?.id ?? '') as any
+                    );
                     // Reset condition when table changes
-                    form.setFieldValue('options.condition', { filter: null } as any);
+                    formAny.setFieldValue('options.condition', { filter: null } as any);
                   }}
                   disabled={foreignTables.length === 0 || isTablesLoading}
                 >

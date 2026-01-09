@@ -90,6 +90,42 @@ export type ComputedImpactInfo = {
   readonly affectedRecordEstimates: ReadonlyArray<AffectedRecordEstimate>;
 };
 
+export type ComputedUpdateLockRecordInfo = {
+  readonly tableId: string;
+  readonly tableName: string;
+  readonly recordId: string;
+  readonly key: string;
+};
+
+export type ComputedUpdateLockTableInfo = {
+  readonly tableId: string;
+  readonly tableName: string;
+  readonly key: string;
+};
+
+export type ComputedUpdateLockStatementInfo = {
+  readonly scope: 'record' | 'table';
+  readonly tableId: string;
+  readonly tableName: string;
+  readonly recordId?: string;
+  readonly key: string;
+  readonly sql: string;
+  readonly parameters: ReadonlyArray<unknown>;
+};
+
+export type ComputedUpdateLockInfo = {
+  readonly mode: 'disabled' | 'none' | 'record' | 'table' | 'mixed';
+  readonly reason: string;
+  readonly maxRecordLocks: number;
+  readonly seedRecordCount: number;
+  readonly recordLockCount: number;
+  readonly tableLockCount: number;
+  readonly tableLockTableIds: ReadonlyArray<string>;
+  readonly recordLocks: ReadonlyArray<ComputedUpdateLockRecordInfo>;
+  readonly tableLocks: ReadonlyArray<ComputedUpdateLockTableInfo>;
+  readonly statements: ReadonlyArray<ComputedUpdateLockStatementInfo>;
+};
+
 /**
  * EXPLAIN output (without ANALYZE).
  */
@@ -187,6 +223,7 @@ export type ExplainTiming = {
 export type ExplainResult = {
   readonly command: CommandExplainInfo;
   readonly computedImpact: ComputedImpactInfo | null;
+  readonly computedLocks?: ComputedUpdateLockInfo | null;
   readonly sqlExplains: ReadonlyArray<SqlExplainInfo>;
   readonly complexity: import('./ComplexityAssessment').ComplexityAssessment;
   readonly timing: ExplainTiming;

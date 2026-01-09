@@ -23,6 +23,8 @@ import {
   type FieldDependencyGraphData,
   ComputedTableRecordQueryBuilder,
   UpdateFromSelectBuilder,
+  defaultComputedUpdateLockConfig,
+  type ComputedUpdateLockConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 
 import type { ICommandAnalyzer } from './ICommandAnalyzer';
@@ -44,6 +46,7 @@ import { v2CommandExplainTokens } from '../di/tokens';
 import { SqlExplainRunner } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
+import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
 
 /**
  * Analyzer for DeleteRecordsCommand.
@@ -62,6 +65,8 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
     private readonly dependencyGraph: FieldDependencyGraph,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
     private readonly planner: ComputedUpdatePlanner,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig)
+    private readonly lockConfig: ComputedUpdateLockConfig = defaultComputedUpdateLockConfig,
     @inject(v2CommandExplainTokens.sqlExplainRunner)
     private readonly sqlExplainRunner: SqlExplainRunner,
     @inject(v2CommandExplainTokens.complexityCalculator)
@@ -149,6 +154,16 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
           mergedOptions
         );
       }
+
+      const computedLocks =
+        mergedOptions.includeLocks && plan && tableById
+          ? buildComputedUpdateLockInfo({
+              plan,
+              tableById,
+              hasSteps: plan.steps.length > 0,
+              config: analyzer.lockConfig,
+            })
+          : null;
 
       // 5. Generate real SQL and run EXPLAIN
       const sqlExplainStartTime = Date.now();
@@ -342,6 +357,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
       return ok({
         command: commandInfo,
         computedImpact,
+        computedLocks,
         sqlExplains,
         complexity,
         timing: {

@@ -67,17 +67,28 @@ const createPreparedState = (dirtyStats: PreparedDirtyState['dirtyStats']): Prep
 });
 
 const createUpdaterStub = () => {
+  const acquireLocks = vi.fn().mockResolvedValue(
+    ok({
+      mode: 'record',
+      totalLocks: 1,
+      recordLocks: 1,
+      tableLocks: 0,
+      tableLockTableIds: [],
+      seedRecordCount: 1,
+    })
+  );
   const prepareDirtyState = vi.fn();
   const executePreparedSteps = vi.fn();
   const collectDirtySeedGroups = vi.fn();
 
   const updater = {
+    acquireLocks,
     prepareDirtyState,
     executePreparedSteps,
     collectDirtySeedGroups,
   } as unknown as ComputedFieldUpdater;
 
-  return { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups };
+  return { updater, acquireLocks, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups };
 };
 
 const createOutboxStub = () => {

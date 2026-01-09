@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Zap,
   Layers,
+  Lock,
   Table2,
   Copy,
   ExternalLink,
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -376,6 +378,7 @@ function generateAIAnalysisText(result: IExplainResultDto): string {
 
 export function ExplainResultPanel({ result, className }: ExplainResultPanelProps) {
   const [impactOpen, setImpactOpen] = useState(true);
+  const [locksOpen, setLocksOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const totalSteps = result.computedImpact?.updateSteps.length ?? 0;
@@ -599,6 +602,80 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
               )}
             </div>
           )}
+
+          {/* Computed Locks */}
+          {result.computedLocks && (
+            <div className="rounded-lg border bg-card overflow-hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 rounded-none border-b h-9 text-muted-foreground"
+                onClick={() => setLocksOpen(!locksOpen)}
+              >
+                {locksOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                <Lock className="h-4 w-4" />
+                <span className="font-medium text-[11px]">Computed Locks</span>
+                <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase">
+                  {result.computedLocks.mode}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                  {result.computedLocks.recordLockCount} records
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                  {result.computedLocks.tableLockCount} tables
+                </Badge>
+              </Button>
+              {locksOpen && (
+                <div className="p-3 space-y-3 text-xs">
+                  <div className="text-muted-foreground">{result.computedLocks.reason}</div>
+                  {result.computedLocks.tableLocks.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-medium text-muted-foreground">
+                        Table Locks
+                      </div>
+                      {result.computedLocks.tableLocks.map((lock) => (
+                        <div key={lock.key} className="flex flex-col gap-0.5">
+                          <span className="font-medium">{lock.tableName}</span>
+                          <span className="text-muted-foreground break-all">{lock.key}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {result.computedLocks.recordLocks.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-medium text-muted-foreground">
+                        Record Locks
+                      </div>
+                      {result.computedLocks.recordLocks.map((lock) => (
+                        <div key={lock.key} className="flex flex-col gap-0.5">
+                          <span className="font-medium">{lock.tableName}</span>
+                          <span className="text-muted-foreground break-all">{lock.recordId}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {result.computedLocks.statements.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-medium text-muted-foreground">Lock SQL</div>
+                      {result.computedLocks.statements.map((statement, index) => (
+                        <div key={`${statement.key}-${index}`} className="space-y-1">
+                          <div className="text-muted-foreground break-all">
+                            {statement.tableName}
+                            {statement.recordId ? ` · ${statement.recordId}` : ''}
+                          </div>
+                          <SqlBlock sql={statement.sql} parameters={statement.parameters} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </ScrollArea>
 
@@ -656,6 +733,31 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
                         {sqlInfo.stepDescription}
                       </span>
                     </div>
+                    {result.computedLocks && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-help">
+                            <Lock className="h-3 w-3" />
+                            <span>
+                              Stage locks: {result.computedLocks.mode} ·{' '}
+                              {result.computedLocks.recordLockCount} records ·{' '}
+                              {result.computedLocks.tableLockCount} tables
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={6} className="max-w-[280px]">
+                          <div className="space-y-1">
+                            <div className="font-medium">Computed update locks</div>
+                            <div className="text-[11px] text-background/80">
+                              {result.computedLocks.reason}
+                            </div>
+                            <div className="text-[11px] text-background/80">
+                              Applied once per update; the same lock set covers all steps.
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                   <div className="p-4">
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
