@@ -44,7 +44,7 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
-import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
+import type { ColumnDef, Row, RowSelectionState } from '@tanstack/react-table';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { JsonView } from 'react-json-view-lite';
@@ -69,6 +69,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -794,7 +795,7 @@ export function TableMetaPage({
         onRename={onRename}
       />
       <ScrollArea className="flex-1 min-h-0" scrollHideDelay={0}>
-        <section className="space-y-4 px-4 py-4">
+        <section className="space-y-6 px-6 py-6">
           {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
 
           {isInitialLoading ? (
@@ -810,36 +811,36 @@ export function TableMetaPage({
             <Tabs
               value={activeTab}
               onValueChange={handleTabChange}
-              className="space-y-4 animate-fade-in"
+              className="space-y-5 animate-fade-in"
             >
-              <TabsList className="h-9 w-fit p-1 bg-muted/50 rounded-lg border border-border/40">
+              <TabsList className="h-9 w-fit rounded-full border border-border/60 bg-background/70 p-1 shadow-sm">
                 <TabsTrigger
                   value="table"
-                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
+                  className="h-7 rounded-full px-4 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   Table
                 </TabsTrigger>
                 <TabsTrigger
                   value="records"
-                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
+                  className="h-7 rounded-full px-4 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   Records
                 </TabsTrigger>
                 <TabsTrigger
                   value="json"
-                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
+                  className="h-7 rounded-full px-4 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   JSON
                 </TabsTrigger>
                 <TabsTrigger
                   value="realtime"
-                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
+                  className="h-7 rounded-full px-4 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   Realtime
                 </TabsTrigger>
                 <TabsTrigger
                   value="schema"
-                  className="h-7 text-xs px-4 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
+                  className="h-7 rounded-full px-4 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
                 >
                   Schema Check
                 </TabsTrigger>
@@ -977,96 +978,101 @@ function PlaygroundHeader({
   }, [renameOpen, table]);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border/60 bg-gradient-to-r from-background via-muted/30 to-background px-4 glass-subtle">
-      <div className="flex items-center gap-2">
-        <SidebarTrigger className="-ml-1" />
-        <div className="h-5 w-px bg-gradient-to-b from-transparent via-border to-transparent mx-2" />
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
-            <TableIcon className="h-4 w-4 text-primary" />
+    <header className="relative flex flex-wrap items-center justify-between gap-4 border-b border-border/60 bg-background/80 px-5 py-4 backdrop-blur">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-muted/35 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-dot-pattern opacity-[0.2]" />
+      <div className="relative flex w-full flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <SidebarTrigger className="-ml-1" />
+          <div className="h-6 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
+              <TableIcon className="h-4 w-4 text-primary" />
+            </div>
+            <span className="text-base font-semibold tracking-tight">{tableName}</span>
+            {appTableUrl ? (
+              <Button variant="ghost" size="icon-sm" className="h-6 w-6" asChild>
+                <a href={appTableUrl} target="_blank" rel="noreferrer" title="Open in App">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </Button>
+            ) : null}
           </div>
-          <span className="text-sm font-semibold">{tableName}</span>
-          {appTableUrl ? (
-            <Button variant="ghost" size="icon-sm" className="h-6 w-6" asChild>
-              <a href={appTableUrl} target="_blank" rel="noreferrer" title="Open in App">
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            </Button>
-          ) : null}
+          <div className="ml-2 flex flex-wrap items-center gap-1.5">
+            {fieldCount !== null ? (
+              <Badge
+                variant="secondary"
+                className="h-5 px-2 text-[10px] font-medium uppercase tracking-wider"
+              >
+                {fieldCount} fields
+              </Badge>
+            ) : null}
+          </div>
         </div>
-        <div className="ml-2 flex items-center gap-1.5">
-          {fieldCount !== null ? (
-            <Badge
-              variant="secondary"
-              className="h-5 px-2 text-[10px] font-medium uppercase tracking-wider bg-gradient-to-r from-secondary to-secondary/80"
-            >
-              {fieldCount} fields
-            </Badge>
-          ) : null}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 text-xs font-normal"
-          disabled={!table || isLoading}
-          onClick={onRefresh}
-        >
-          <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
-          Refresh
-        </Button>
-        {table && (
-          <FieldCreateDialog
-            baseId={baseId}
-            tableId={table.id().toString()}
-            onSuccess={onFieldCreated}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 text-xs font-normal"
+            disabled={!table || isLoading}
+            onClick={onRefresh}
+          >
+            <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
+            Refresh
+          </Button>
+          {table && (
+            <FieldCreateDialog
+              baseId={baseId}
+              tableId={table.id().toString()}
+              onSuccess={onFieldCreated}
+            />
+          )}
+          <CreateTableDropdown
+            templates={templates}
+            isCreating={isCreating}
+            onSelect={onCreateTemplate}
+            onImportCsv={onImportCsv}
+            label="Create table"
+            className="h-9"
           />
-        )}
-        <CreateTableDropdown
-          templates={templates}
-          isCreating={isCreating}
-          onSelect={onCreateTemplate}
-          onImportCsv={onImportCsv}
-          label="Create table"
-        />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="h-8 w-8"
-              aria-label="Table actions"
-              disabled={!table}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem
-              disabled={!table || isRenaming}
-              className="text-xs py-1.5"
-              onSelect={(event) => {
-                event.preventDefault();
-                setRenameOpen(true);
-              }}
-            >
-              <Pencil className="mr-2 h-3.5 w-3.5" />
-              Rename table
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-xs py-1.5 text-destructive focus:text-destructive"
-              disabled={!canDelete}
-              onSelect={(event) => {
-                event.preventDefault();
-                setDeleteOpen(true);
-              }}
-            >
-              <Trash2 className="mr-2 h-3.5 w-3.5" />
-              Delete table
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-9 w-9"
+                aria-label="Table actions"
+                disabled={!table}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem
+                disabled={!table || isRenaming}
+                className="text-xs py-1.5"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setRenameOpen(true);
+                }}
+              >
+                <Pencil className="mr-2 h-3.5 w-3.5" />
+                Rename table
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs py-1.5 text-destructive focus:text-destructive"
+                disabled={!canDelete}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                Delete table
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent className="max-w-sm">
@@ -1183,17 +1189,18 @@ function PlaygroundEmptyState({
   onImportCsv,
 }: PlaygroundEmptyStateProps) {
   return (
-    <Card className="overflow-hidden border-2 border-dashed border-border/60 bg-gradient-to-br from-background via-muted/20 to-background">
-      <CardHeader className="pb-2 pt-8 text-center">
+    <Card className="relative overflow-hidden border border-dashed border-border/70 bg-background/80">
+      <div className="pointer-events-none absolute inset-0 bg-dot-pattern opacity-[0.25]" />
+      <CardHeader className="relative pb-2 pt-8 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-2 ring-primary/20 animate-float">
           <TableIcon className="h-8 w-8 text-primary" />
         </div>
-        <CardTitle className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+        <CardTitle className="text-xl font-bold tracking-tight text-foreground">
           Build a table in seconds
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6 pb-8 text-center">
-        <p className="mx-auto max-w-md text-sm text-muted-foreground leading-relaxed">
+      <CardContent className="relative space-y-6 pb-8 text-center">
+        <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
           This playground uses Teable v2 core with a fixed actor. Pick a template to create a table,
           view its schema, or switch the base ID from the sidebar.
         </p>
@@ -1206,7 +1213,7 @@ function PlaygroundEmptyState({
             label="Create table"
           />
         </div>
-        <div className="flex items-center justify-center gap-8 pt-4 text-xs text-muted-foreground/60">
+        <div className="flex flex-wrap items-center justify-center gap-6 pt-4 text-[11px] text-muted-foreground/70">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-emerald-500/60" />
             <span>Templates available</span>
@@ -1572,17 +1579,8 @@ function TableRecordsCard({
     setDeleteDialogOpen(true);
   }, []);
 
-  const handleDeleteConfirm = useCallback(() => {
-    if (!pendingDeleteIds.length) return;
-    onDeleteRecords(pendingDeleteIds);
-    setDeleteDialogOpen(false);
-    setPendingDeleteIds([]);
-    setPendingDeleteLabel(null);
-    setRowSelection({});
-  }, [onDeleteRecords, pendingDeleteIds]);
-
-  const columns = useMemo<ColumnDef<ITableRecordDto>[]>(() => {
-    const handleCopyRecordId = (recordId: string) => {
+  const handleCopyRecordId = useCallback(
+    (recordId: string) => {
       copyToClipboard(recordId)
         .then((success) => {
           if (success) {
@@ -1594,7 +1592,38 @@ function TableRecordsCard({
         .catch(() => {
           toast.error('Failed to copy Record ID');
         });
-    };
+    },
+    [copyToClipboard]
+  );
+
+  const handleCopyRecordJson = useCallback(
+    (record: ITableRecordDto) => {
+      const payload = JSON.stringify(record, null, 2);
+      copyToClipboard(payload)
+        .then((success) => {
+          if (success) {
+            toast.success('Row JSON copied to clipboard');
+          } else {
+            toast.error('Failed to copy row JSON');
+          }
+        })
+        .catch(() => {
+          toast.error('Failed to copy row JSON');
+        });
+    },
+    [copyToClipboard]
+  );
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!pendingDeleteIds.length) return;
+    onDeleteRecords(pendingDeleteIds);
+    setDeleteDialogOpen(false);
+    setPendingDeleteIds([]);
+    setPendingDeleteLabel(null);
+    setRowSelection({});
+  }, [onDeleteRecords, pendingDeleteIds]);
+
+  const columns = useMemo<ColumnDef<ITableRecordDto>[]>(() => {
     // Sort fields: primary field first, then others
     const sortedFields = [...fields].sort((a, b) => {
       const aIsPrimary = a.id().toString() === primaryFieldId;
@@ -1683,6 +1712,10 @@ function TableRecordsCard({
               <Copy className="mr-2 h-4 w-4" />
               Copy Record ID
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleCopyRecordJson(row.original)}>
+              <FileJson className="mr-2 h-4 w-4" />
+              Copy Row JSON
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               disabled={isDeletingRecord}
@@ -1702,8 +1735,9 @@ function TableRecordsCard({
   }, [
     fields,
     primaryFieldId,
-    copyToClipboard,
     handleUpdateOpen,
+    handleCopyRecordId,
+    handleCopyRecordJson,
     onDeleteRecords,
     openDeleteDialog,
     resolveRecordLabel,
@@ -1728,6 +1762,42 @@ function TableRecordsCard({
       total: recordsPagination.total,
     };
   }, [recordsPagination, onPaginationChange]);
+
+  const rowContextMenuContent = useCallback(
+    (row: Row<ITableRecordDto>) => (
+      <>
+        <ContextMenuItem onClick={() => handleUpdateOpen(row.original)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Update record
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => handleCopyRecordId(row.original.id)}>
+          <Copy className="mr-2 h-4 w-4" />
+          Copy Record ID
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => handleCopyRecordJson(row.original)}>
+          <FileJson className="mr-2 h-4 w-4" />
+          Copy Row JSON
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          className="text-destructive focus:text-destructive"
+          disabled={isDeletingRecord}
+          onClick={() => openDeleteDialog([row.original.id], resolveRecordLabel(row.original))}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete record
+        </ContextMenuItem>
+      </>
+    ),
+    [
+      handleUpdateOpen,
+      handleCopyRecordId,
+      handleCopyRecordJson,
+      isDeletingRecord,
+      openDeleteDialog,
+      resolveRecordLabel,
+    ]
+  );
 
   return (
     <section className="space-y-4 min-w-0 overflow-hidden animate-fade-in">
@@ -1804,6 +1874,7 @@ function TableRecordsCard({
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
           getRowId={(row) => row.id}
+          rowContextMenuContent={rowContextMenuContent}
         />
       )}
       {updateTarget ? (

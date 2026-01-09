@@ -95,6 +95,8 @@ export function PlaygroundShell({
           'rounded-2xl ring-2 ring-emerald-400/70 ring-offset-4 ring-offset-emerald-50/50'
       )}
     >
+      <div className="pointer-events-none absolute inset-0 bg-dot-pattern opacity-[0.25]" />
+      <div className="pointer-events-none absolute inset-x-0 -top-24 h-56 bg-gradient-radial opacity-80" />
       {isSandbox ? (
         <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2">
           <div className="rounded-b-xl border border-t-0 border-emerald-500/50 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 px-5 py-1.5 text-[10px] font-bold tracking-[0.3em] text-white shadow-lg shadow-emerald-500/20">
@@ -102,7 +104,12 @@ export function PlaygroundShell({
           </div>
         </div>
       ) : null}
-      <div className={cn('min-h-svh bg-background', isSandbox && 'rounded-2xl overflow-hidden')}>
+      <div
+        className={cn(
+          'relative z-10 min-h-svh bg-background/70 backdrop-blur-sm',
+          isSandbox && 'rounded-2xl overflow-hidden'
+        )}
+      >
         <SidebarProvider>
           <PlaygroundSidebar
             baseId={baseId}
@@ -115,7 +122,9 @@ export function PlaygroundShell({
             onDeleteTable={onDeleteTable}
             isDeletingTable={isDeletingTable}
           />
-          <SidebarInset className="h-svh overflow-hidden">{children}</SidebarInset>
+          <SidebarInset className="h-svh overflow-hidden bg-background/80 backdrop-blur-sm">
+            {children}
+          </SidebarInset>
         </SidebarProvider>
       </div>
     </div>
@@ -222,20 +231,25 @@ function PlaygroundSidebar({
 
   return (
     <>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="gap-0">
+      <Sidebar
+        collapsible="icon"
+        className="border-r border-sidebar-border/70 bg-sidebar/80 backdrop-blur-xl shadow-sm"
+      >
+        <SidebarHeader className="gap-0 border-b border-sidebar-border/70 bg-sidebar/90 backdrop-blur">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
                 <div className="flex items-center gap-3">
-                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md glow-primary-sm">
+                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md">
                     <GalleryVerticalEnd className="size-5" />
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-bold text-sm bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                    <span className="text-sm font-semibold tracking-tight text-foreground">
                       Teable v2
                     </span>
-                    <span className="text-[10px] font-medium text-primary/80">Playground</span>
+                    <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+                      Playground
+                    </span>
                   </div>
                 </div>
               </SidebarMenuButton>
@@ -243,7 +257,9 @@ function PlaygroundSidebar({
           </SidebarMenu>
 
           <SidebarGroup className="shrink-0 py-2">
-            <SidebarGroupLabel className="h-6">Base</SidebarGroupLabel>
+            <SidebarGroupLabel className="h-6 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              Base
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <form
                 className="flex items-center gap-1.5 px-2 group-data-[collapsible=icon]:hidden"
@@ -256,7 +272,7 @@ function PlaygroundSidebar({
                   onChange={(event) => setNextBaseId(event.target.value)}
                   aria-label="Base ID"
                   spellCheck={false}
-                  className="h-8 text-xs"
+                  className="h-8 text-xs bg-background/70 border-border/60 focus:border-primary/40"
                 />
                 <Button
                   type="submit"
@@ -273,7 +289,9 @@ function PlaygroundSidebar({
           </SidebarGroup>
 
           <SidebarGroup className="shrink-0 pb-4">
-            <SidebarGroupLabel className="h-6">Tables</SidebarGroupLabel>
+            <SidebarGroupLabel className="h-6 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              Tables
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <div className="px-2 group-data-[collapsible=icon]:hidden">
                 <div className="relative">
@@ -285,7 +303,7 @@ function PlaygroundSidebar({
                     onChange={(event) => onSearchChange(event.target.value)}
                     maxLength={255}
                     aria-label="Search tables"
-                    className="pl-8"
+                    className="pl-8 bg-background/70 border-border/60 focus:border-primary/40"
                   />
                 </div>
               </div>
@@ -324,7 +342,7 @@ function PlaygroundSidebar({
                               size="sm"
                               className={cn(
                                 'transition-all duration-200',
-                                isActive && 'bg-primary/10 border-l-2 border-primary shadow-sm'
+                                isActive && 'bg-sidebar-accent/70 border border-sidebar-border/80'
                               )}
                             >
                               <Link
@@ -352,7 +370,7 @@ function PlaygroundSidebar({
                             >
                               <Trash2 className="h-4 w-4" />
                             </SidebarMenuAction>
-                            <SidebarMenuBadge className="right-7">
+                            <SidebarMenuBadge className="right-7 text-[10px] font-medium">
                               {table.fields.length}
                             </SidebarMenuBadge>
                           </SidebarMenuItem>
@@ -360,7 +378,7 @@ function PlaygroundSidebar({
                       })}
                     </SidebarMenu>
                   ) : (
-                    <div className="mx-2 rounded-xl border-2 border-dashed border-sidebar-border/60 bg-gradient-to-br from-muted/30 to-muted/10 p-6 text-center">
+                    <div className="mx-2 rounded-xl border border-dashed border-sidebar-border/70 bg-gradient-to-br from-muted/40 to-muted/10 p-6 text-center">
                       <div className="mb-2 text-3xl opacity-40">
                         <TableIcon className="mx-auto h-8 w-8" />
                       </div>

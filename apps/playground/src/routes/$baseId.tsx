@@ -21,14 +21,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table as UITable,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { RemoteOrpcProvider } from '@/lib/orpc/RemoteOrpcProvider';
 import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
 import { resolveBaseName, usePlaygroundEnvironment } from '@/lib/playground/environment';
@@ -331,22 +323,25 @@ function PlaygroundBasePage({
         templates={templates}
         onCreateTemplate={onCreateTemplate}
       />
-      <section className="flex-1 space-y-6 px-6 py-8">
-        {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
+      <section className="relative flex-1 px-6 py-8">
+        <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.18]" />
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-6">
+          {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
 
-        {isInitialLoading ? (
-          <PlaygroundBaseLoadingState />
-        ) : tables.length ? (
-          <PlaygroundTablesCard baseId={baseId} tables={tables} searchValue={searchValue} />
-        ) : (
-          <PlaygroundBaseEmptyState
-            hasSearch={hasSearch}
-            searchValue={trimmedSearch}
-            isCreating={isCreating}
-            templates={templates}
-            onCreateTemplate={onCreateTemplate}
-          />
-        )}
+          {isInitialLoading ? (
+            <PlaygroundBaseLoadingState />
+          ) : tables.length ? (
+            <PlaygroundTablesCard baseId={baseId} tables={tables} searchValue={searchValue} />
+          ) : (
+            <PlaygroundBaseEmptyState
+              hasSearch={hasSearch}
+              searchValue={trimmedSearch}
+              isCreating={isCreating}
+              templates={templates}
+              onCreateTemplate={onCreateTemplate}
+            />
+          )}
+        </div>
       </section>
     </>
   );
@@ -375,32 +370,46 @@ function PlaygroundBaseHeader({
   onCreateTemplate,
 }: PlaygroundBaseHeaderProps) {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <SidebarTrigger className="shrink-0" />
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Base
-          </div>
-          <div className="text-xl font-semibold text-foreground">{baseName}</div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Database className="h-4 w-4 text-muted-foreground" />
-            <span>Postgres playground</span>
-            <Badge variant="outline">{tableCount} tables</Badge>
+    <header className="relative overflow-hidden border-b border-border/70 bg-background/80 px-6 py-6">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-muted/35 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-dot-pattern opacity-[0.3]" />
+      <div className="relative flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <SidebarTrigger className="shrink-0" />
+          <div className="h-9 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              Base
+            </div>
+            <div className="text-2xl font-semibold tracking-tight text-foreground">{baseName}</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Database className="h-4 w-4 text-muted-foreground" />
+              <span>Postgres playground</span>
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                {tableCount} tables
+              </Badge>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" disabled={isLoading} onClick={onRefresh}>
-          <RefreshCcw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
-        <CreateTableDropdown
-          templates={templates}
-          isCreating={isCreating}
-          onSelect={onCreateTemplate}
-          label="Create table"
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 border-border/70 bg-background/80"
+            disabled={isLoading}
+            onClick={onRefresh}
+          >
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <CreateTableDropdown
+            templates={templates}
+            isCreating={isCreating}
+            onSelect={onCreateTemplate}
+            label="Create table"
+            className="h-9"
+          />
+        </div>
       </div>
     </header>
   );
@@ -423,7 +432,7 @@ function PlaygroundErrorState({ message }: PlaygroundErrorStateProps) {
 
 function PlaygroundBaseLoadingState() {
   return (
-    <Card>
+    <Card className="border-border/60 bg-background/80 shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-3 text-base">
           <Skeleton className="h-5 w-5 rounded-full" />
@@ -454,59 +463,59 @@ function PlaygroundTablesCard({ baseId, tables, searchValue }: PlaygroundTablesC
   const search = searchValue ? { q: searchValue } : {};
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-lg">
-          <TableIcon className="h-5 w-5 text-muted-foreground" />
-          Tables
-          <Badge variant="secondary">{tables.length}</Badge>
-        </CardTitle>
+    <Card className="overflow-hidden border-border/60 bg-background/80 shadow-sm">
+      <CardHeader className="border-b border-border/60 bg-muted/30">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TableIcon className="h-4 w-4 text-muted-foreground" />
+            Tables
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
+              {tables.length} total
+            </Badge>
+          </CardTitle>
+          <span className="text-xs text-muted-foreground">Select a table to open</span>
+        </div>
       </CardHeader>
-      <CardContent>
-        <UITable>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Table ID</TableHead>
-              <TableHead>Fields</TableHead>
-              <TableHead className="text-right">Open</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tables.map((table) => (
-              <TableRow key={table.id}>
-                <TableCell className="font-medium">
+      <CardContent className="p-0">
+        <div className="divide-y divide-border/60">
+          {tables.map((table) => (
+            <div
+              key={table.id}
+              className="group flex flex-col gap-3 px-5 py-4 transition hover:bg-muted/30 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/40 text-muted-foreground ring-1 ring-border/50">
+                  <TableIcon className="h-4 w-4" />
+                </div>
+                <div>
                   <Link
                     to={env.routes.table}
                     params={{ baseId, tableId: table.id }}
                     search={search}
-                    className="inline-flex items-center gap-2"
+                    className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary"
                   >
-                    <TableIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>{table.name}</span>
+                    {table.name}
                   </Link>
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {table.id}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{table.fields.length}</Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link
-                      to={env.routes.table}
-                      params={{ baseId, tableId: table.id }}
-                      search={search}
-                    >
-                      Open
-                    </Link>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </UITable>
+                  <div className="mt-1 text-xs font-mono text-muted-foreground">{table.id}</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
+                  {table.fields.length} fields
+                </Badge>
+                <Button variant="outline" size="sm" className="h-8" asChild>
+                  <Link
+                    to={env.routes.table}
+                    params={{ baseId, tableId: table.id }}
+                    search={search}
+                  >
+                    Open
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
@@ -536,11 +545,12 @@ function PlaygroundBaseEmptyState({
     : 'Pick a template to explore the v2 playground with different field mixes.';
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="relative overflow-hidden border border-dashed border-border/70 bg-background/80">
+      <div className="pointer-events-none absolute inset-0 bg-dot-pattern opacity-[0.25]" />
+      <CardHeader className="relative">
         <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 text-sm text-muted-foreground">
+      <CardContent className="relative space-y-4 text-sm text-muted-foreground">
         <p>{description}</p>
         <CreateTableDropdown
           templates={templates}

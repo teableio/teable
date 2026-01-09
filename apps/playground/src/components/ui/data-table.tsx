@@ -5,6 +5,7 @@ import {
   type ColumnPinningState,
   type OnChangeFn,
   type PaginationState,
+  type Row,
   type RowSelectionState,
   flexRender,
   getCoreRowModel,
@@ -15,6 +16,7 @@ import { useMemo } from 'react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu';
 import {
   Select,
   SelectContent,
@@ -58,6 +60,8 @@ interface DataTableProps<TData, TValue> {
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
   /** Get row id for stable selection */
   getRowId?: (originalRow: TData, index: number) => string;
+  /** Context menu content for a row */
+  rowContextMenuContent?: (row: Row<TData>) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -74,6 +78,7 @@ export function DataTable<TData, TValue>({
   rowSelection,
   onRowSelectionChange,
   getRowId,
+  rowContextMenuContent,
 }: DataTableProps<TData, TValue>) {
   const columnPinning = useMemo<ColumnPinningState>(
     () => ({
@@ -184,37 +189,59 @@ export function DataTable<TData, TValue>({
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && 'selected'}
-                    className="hover:bg-muted/30"
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const isPinned = cell.column.getIsPinned();
-                      const pinnedStyle = getPinnedStyle(cell.column.id, isPinned);
-                      const colSize = cell.column.getSize();
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          className={cn(
-                            isPinned && 'sticky z-10 bg-background',
-                            isPinned === 'left' &&
-                              'border-r border-border/50 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.15)]',
-                            isPinned === 'right' && 'right-0'
-                          )}
-                          style={{
-                            ...pinnedStyle,
-                            width: colSize,
-                            minWidth: colSize,
-                          }}
+                table.getRowModel().rows.map((row) => {
+                  const rowCells = row.getVisibleCells().map((cell) => {
+                    const isPinned = cell.column.getIsPinned();
+                    const pinnedStyle = getPinnedStyle(cell.column.id, isPinned);
+                    const colSize = cell.column.getSize();
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          isPinned && 'sticky z-10 bg-background',
+                          isPinned === 'left' &&
+                            'border-r border-border/50 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.15)]',
+                          isPinned === 'right' && 'right-0'
+                        )}
+                        style={{
+                          ...pinnedStyle,
+                          width: colSize,
+                          minWidth: colSize,
+                        }}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    );
+                  });
+
+                  if (!rowContextMenuContent) {
+                    return (
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && 'selected'}
+                        className="hover:bg-muted/30"
+                      >
+                        {rowCells}
+                      </TableRow>
+                    );
+                  }
+
+                  return (
+                    <ContextMenu key={row.id}>
+                      <ContextMenuTrigger asChild>
+                        <TableRow
+                          data-state={row.getIsSelected() && 'selected'}
+                          className="hover:bg-muted/30"
                         >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))
+                          {rowCells}
+                        </TableRow>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent className="w-56">
+                        {rowContextMenuContent(row)}
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  );
+                })
               ) : (
                 <TableRow>
                   <TableCell
