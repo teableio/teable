@@ -1,32 +1,26 @@
-import { Button } from '@teable/ui-lib/shadcn';
-import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { systemConfig } from '@/features/i18n/system.config';
+import type { IButtonConfig } from './IllustrationPage';
+import { IllustrationPage } from './IllustrationPage';
 
-type Props = {
+type ForbiddenPageProps = {
   title?: string;
-  children?: never;
+  description?: string;
+  button?: IButtonConfig;
 };
 
-export const ForbiddenPage: FC<Props> = (props) => {
+export const ForbiddenPage: FC<ForbiddenPageProps> = ({ title, description, button }) => {
   const { t } = useTranslation(systemConfig.i18nNamespaces);
-  const title = props.title ?? t('system:forbidden.title');
 
   return (
-    <>
-      <Head>
-        <title>{title}</title>
-      </Head>
-      <div className="flex h-screen flex-col items-center justify-center gap-y-6 text-center">
-        <h1 data-testid="not-found-title" className="text-5xl md:text-4xl lg:text-5xl">
-          {title}
-        </h1>
-        <p className="text-2xl md:text-2xl lg:text-3xl">{t('system:forbidden.description')}</p>
-        <Button className="text-center text-xl no-underline hover:underline">
-          <a href={'/'}>{t('system:links.backToHome')}</a>
-        </Button>
-      </div>
-    </>
+    <IllustrationPage
+      imageLightSrc="/images/layout/permission-light.png"
+      imageDarkSrc="/images/layout/permission-dark.png"
+      imageAlt="Permission Denied"
+      title={title ?? t('system:forbidden.title')}
+      description={description ?? t('system:forbidden.description')}
+      button={button ?? { label: t('system:links.backToHome'), href: '/' }}
+    />
   );
 };
