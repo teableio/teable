@@ -34,6 +34,8 @@ import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';
 
+import { SpyLogger, type ComputedPlanLogEntry } from './SpyLogger';
+
 /**
  * Node.js crypto-based hasher implementation for tests.
  */
@@ -55,6 +57,30 @@ export interface IV2NodeTestContainer {
    */
   processOutbox(): Promise<number>;
   dispose(): Promise<void>;
+
+  /**
+   * SpyLogger instance that captures all log entries.
+   * Use this to inspect logged data in tests.
+   */
+  spyLogger: SpyLogger;
+
+  /**
+   * Get all computed:plan log entries captured by the SpyLogger.
+   * These are logged by ComputedFieldUpdater during execution.
+   */
+  getComputedPlans(): ComputedPlanLogEntry[];
+
+  /**
+   * Get the most recent computed:plan log entry.
+   * Useful for verifying the last computed update operation.
+   */
+  getLastComputedPlan(): ComputedPlanLogEntry | undefined;
+
+  /**
+   * Clear all captured log entries.
+   * Call this before an operation to capture only that operation's logs.
+   */
+  clearLogs(): void;
 }
 
 export interface IV2NodeTestContainerOptions {
@@ -108,13 +134,16 @@ export const createV2NodeTestContainer = async (
     ensureSchema,
   });
 
+  // Register SpyLogger BEFORE other services so they get the spy instance
+  const spyLogger = new SpyLogger(new ConsoleLogger());
+  c.registerInstance(v2CoreTokens.logger, spyLogger);
+
   // Register table repository postgres adapter (schema + record repositories)
   registerV2TableRepositoryPostgresAdapter(c, { db });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());
   c.register(v2CoreTokens.tracer, NoopTracer, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -229,5 +258,23 @@ export const createV2NodeTestContainer = async (
         }
       }
     },
+    // SpyLogger integration for computed update testing
+    spyLogger,
+    getComputedPlans: () => spyLogger.getComputedPlans(),
+    getLastComputedPlan: () => spyLogger.getLastComputedPlan(),
+    clearLogs: () => spyLogger.clear(),
   };
 };
+
+// Re-export SpyLogger types
+export { SpyLogger, type CapturedLogEntry, type ComputedPlanLogEntry } from './SpyLogger';
+
+// Re-export snapshot utilities
+export {
+  printComputedSteps,
+  formatComputedPlanSnapshot,
+  buildNameMaps,
+  buildMultiTableNameMaps,
+  type ComputedStepsSnapshot,
+  type ComputedPlanSnapshotOptions,
+} from './ComputedPlanSnapshot';

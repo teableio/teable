@@ -202,6 +202,31 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         pendingSteps: Math.max(totalSteps - completedSteps, 0),
       });
 
+      // Log detailed plan for debugging and testing (e.g., SpyLogger captures this)
+      runLogger.debug('computed:plan', {
+        baseId: currentPlan.baseId.toString(),
+        seedTableId: currentPlan.seedTableId.toString(),
+        seedRecordIds: currentPlan.seedRecordIds.map((r) => r.toString()),
+        steps: currentPlan.steps.map((s) => ({
+          tableId: s.tableId.toString(),
+          level: s.level,
+          fieldIds: s.fieldIds.map((f) => f.toString()),
+        })),
+        edges: currentPlan.edges.map((e) => ({
+          from: `${e.fromTableId.toString()}.${e.fromFieldId.toString()}`,
+          to: `${e.toTableId.toString()}.${e.toFieldId.toString()}`,
+          linkFieldId: e.linkFieldId?.toString(),
+          order: e.order,
+        })),
+        sameTableBatches: currentPlan.sameTableBatches.map((b) => ({
+          tableId: b.tableId.toString(),
+          stepCount: b.steps.length,
+          minLevel: b.minLevel,
+          maxLevel: b.maxLevel,
+          fieldCount: b.steps.reduce((acc, s) => acc + s.fieldIds.length, 0),
+        })),
+      });
+
       const runSpan = context.tracer?.startSpan('teable.ComputedUpdateRun', {
         ...toRunSpanAttributes(run),
         'computed.baseId': currentPlan.baseId.toString(),

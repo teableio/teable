@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowRight,
   ChevronDown,
+  Database,
   FlaskConical,
   GalleryVerticalEnd,
   Globe,
@@ -12,6 +13,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { useEffect, useState, useRef, type FormEvent, type ReactNode } from 'react';
+import { useLocalStorage } from 'usehooks-ts';
 import {
   Sidebar,
   SidebarContent,
@@ -54,9 +56,23 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
   usePlaygroundEnvironment,
   resolvePlaygroundEnvironment,
 } from '@/lib/playground/environment';
+import {
+  PLAYGROUND_DB_URL_STORAGE_KEY,
+  formatPlaygroundDbUrlLabel,
+  isValidPlaygroundDbUrl,
+} from '@/lib/playground/databaseUrl';
 import { cn } from '@/lib/utils';
 
 type PlaygroundShellProps = {
@@ -163,6 +179,18 @@ function PlaygroundSidebar({
   const [nextBaseId, setNextBaseId] = useState(baseId);
   const [deleteTarget, setDeleteTarget] = useState<ITableDto | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [dbDialogOpen, setDbDialogOpen] = useState(false);
+  const [dbDraft, setDbDraft] = useState('');
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [dbTestStatus, setDbTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(
+    'idle'
+  );
+  const [dbTestMessage, setDbTestMessage] = useState<string | null>(null);
+  const [dbUrl, setDbUrl, removeDbUrl] = useLocalStorage<string | null>(
+    PLAYGROUND_DB_URL_STORAGE_KEY,
+    null,
+    { initializeWithValue: false }
+  );
 
   useEffect(() => {
     setNextBaseId(baseId);
@@ -177,6 +205,21 @@ function PlaygroundSidebar({
       });
     }
   }, [activeTableId, tables]);
+
+  useEffect(() => {
+    if (!dbDialogOpen) return;
+    setDbDraft(dbUrl ?? '');
+    setDbError(null);
+    setDbTestStatus('idle');
+    setDbTestMessage(null);
+  }, [dbDialogOpen, dbUrl]);
+
+  useEffect(() => {
+    if (!dbDialogOpen) return;
+    setDbError(null);
+    setDbTestStatus('idle');
+    setDbTestMessage(null);
+  }, [dbDraft, dbDialogOpen]);
 
   const trimmedBaseId = nextBaseId.trim();
   const canSwitchBase = trimmedBaseId.length > 0 && trimmedBaseId !== baseId;
@@ -196,6 +239,79 @@ function PlaygroundSidebar({
     onDeleteTable(deleteTarget);
     setDeleteTarget(null);
   };
+
+  const reloadPlayground = () => {
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
+
+  const handleDbSave = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = dbDraft.trim();
+    if (!trimmed) {
+      removeDbUrl();
+      setDbDialogOpen(false);
+      reloadPlayground();
+      return;
+    }
+    if (!isValidPlaygroundDbUrl(trimmed)) {
+      setDbError('Use a postgres:// or postgresql:// URL.');
+      return;
+    }
+    setDbUrl(trimmed);
+    setDbDialogOpen(false);
+    reloadPlayground();
+  };
+
+  const handleDbTest = async () => {
+    const trimmed = dbDraft.trim();
+    if (!trimmed) {
+      setDbTestStatus('error');
+      setDbTestMessage('Enter a database URL first.');
+      return;
+    }
+    if (!isValidPlaygroundDbUrl(trimmed)) {
+      setDbTestStatus('error');
+      setDbTestMessage('Use a postgres:// or postgresql:// URL.');
+      return;
+    }
+    setDbTestStatus('loading');
+    setDbTestMessage('Testing connection...');
+    try {
+      const response = await fetch('/api/db/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ connectionString: trimmed }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!response.ok || payload?.ok === false) {
+        const message = payload?.error ?? 'Connection failed.';
+        setDbTestStatus('error');
+        setDbTestMessage(message);
+        return;
+      }
+      setDbTestStatus('success');
+      setDbTestMessage('Connection OK.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Connection failed.';
+      setDbTestStatus('error');
+      setDbTestMessage(message);
+    }
+  };
+
+  const handleDbClear = () => {
+    removeDbUrl();
+    setDbDialogOpen(false);
+    reloadPlayground();
+  };
+
+  const dbLabel = dbUrl ? formatPlaygroundDbUrlLabel(dbUrl) : 'Default (.env)';
 
   const readStoredValue = (key: string): string | null => {
     if (typeof window === 'undefined') return null;
@@ -456,6 +572,30 @@ function PlaygroundSidebar({
                       Sandbox
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs">Database</DropdownMenuLabel>
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      className="gap-2 py-2 text-sm"
+                      onSelect={() => setDbDialogOpen(true)}
+                    >
+                      <Database className="mr-2 size-4 text-slate-600" />
+                      {dbUrl ? 'Edit database URL' : 'Set database URL'}
+                    </DropdownMenuItem>
+                    {dbUrl ? (
+                      <DropdownMenuItem
+                        className="gap-2 py-2 text-sm text-destructive focus:text-destructive"
+                        onSelect={handleDbClear}
+                      >
+                        <Trash2 className="mr-2 size-4" />
+                        Clear override
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem
+                      className="text-xs text-muted-foreground/80"
+                      disabled
+                    >{`Active: ${dbLabel}`}</DropdownMenuItem>
+                  </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
             </SidebarMenuItem>
@@ -463,6 +603,54 @@ function PlaygroundSidebar({
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
+      <Dialog open={dbDialogOpen} onOpenChange={setDbDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Database URL</DialogTitle>
+            <DialogDescription>
+              Override the remote playground database connection. Stored locally in your browser and
+              applied after reload.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-3" onSubmit={handleDbSave}>
+            <Input
+              type="text"
+              placeholder="postgres://user:pass@localhost:5432/teable"
+              value={dbDraft}
+              onChange={(event) => setDbDraft(event.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            {dbError ? <p className="text-xs text-destructive">{dbError}</p> : null}
+            {dbTestMessage ? (
+              <p
+                className={cn(
+                  'text-xs',
+                  dbTestStatus === 'success' && 'text-emerald-600',
+                  dbTestStatus === 'error' && 'text-destructive',
+                  dbTestStatus === 'loading' && 'text-muted-foreground'
+                )}
+              >
+                {dbTestMessage}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setDbDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDbTest}
+                disabled={dbTestStatus === 'loading'}
+              >
+                {dbTestStatus === 'loading' ? 'Testing...' : 'Test connection'}
+              </Button>
+              <Button type="submit">Save &amp; reload</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <AlertDialog
         open={!!deleteTarget}
         onOpenChange={(open) => {

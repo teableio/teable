@@ -17,6 +17,7 @@ import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -149,7 +150,7 @@ export function DataTable<TData, TValue>({
   return (
     <div className={cn('w-full space-y-4', className)}>
       <div className="rounded-lg border overflow-hidden">
-        <div className="overflow-auto max-h-[calc(100vh-300px)]">
+        <ScrollArea className="max-h-[calc(100vh-300px)] w-full" orientation="both">
           <table
             className="w-full caption-bottom text-sm border-collapse"
             style={{ minWidth: 'max-content' }}
@@ -254,7 +255,7 @@ export function DataTable<TData, TValue>({
               )}
             </TableBody>
           </table>
-        </div>
+        </ScrollArea>
       </div>
 
       {/* Pagination controls */}

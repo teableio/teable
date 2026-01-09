@@ -11,6 +11,7 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
 import { PLAYGROUND_ACTOR_ID } from '@/lib/playground/constants';
+import { PLAYGROUND_DB_URL_QUERY_PARAM } from '@/lib/playground/databaseUrl';
 import { createPlaygroundContainer } from '@/server/playgroundContainer';
 import { v2Tracer } from '@/server/otel';
 
@@ -33,7 +34,10 @@ async function handleSSE({
     async start(controller) {
       try {
         // Get container
-        const container = await createPlaygroundContainer();
+        const url = new URL(request.url);
+        const connectionString =
+          url.searchParams.get(PLAYGROUND_DB_URL_QUERY_PARAM)?.trim() || undefined;
+        const container = await createPlaygroundContainer({ connectionString });
 
         // Validate tableId
         const tableIdResult = TableId.create(tableIdStr);

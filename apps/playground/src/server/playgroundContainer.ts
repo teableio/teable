@@ -6,6 +6,7 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { playgroundLogger } from './playgroundLogger';
 import { registerPlaygroundShareDbRealtime } from './shareDbServer';
+import { getPlaygroundDbConnectionString } from './playgroundDbContext';
 
 import {
   PLAYGROUND_ACTOR_ID,
@@ -14,15 +15,18 @@ import {
   PLAYGROUND_SPACE_ID,
 } from '@/lib/playground/constants';
 
-let containerPromise: Promise<DependencyContainer> | undefined;
-let seedPromise: Promise<void> | undefined;
+const containerPromises = new Map<string, Promise<DependencyContainer>>();
+const seedPromises = new Map<string, Promise<void>>();
 
-const resolveConnectionString = (): string | undefined =>
-  process.env.DATABASE_URL ?? process.env.PRISMA_DATABASE_URL;
+const resolveConnectionString = (override?: string): string | undefined =>
+  override ??
+  getPlaygroundDbConnectionString() ??
+  process.env.DATABASE_URL ??
+  process.env.PRISMA_DATABASE_URL;
 
-const ensurePlaygroundSeed = async (container: DependencyContainer): Promise<void> => {
-  if (!seedPromise) {
-    seedPromise = (async () => {
+const ensurePlaygroundSeed = async (container: DependencyContainer, key: string): Promise<void> => {
+  if (!seedPromises.has(key)) {
+    const seedPromise = (async () => {
       const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
 
       const existingSpace = await db
@@ -61,19 +65,26 @@ const ensurePlaygroundSeed = async (container: DependencyContainer): Promise<voi
           .execute();
       }
     })();
+    seedPromises.set(key, seedPromise);
   }
 
-  await seedPromise;
+  await seedPromises.get(key)!;
 };
 
-export const createPlaygroundContainer = async (): Promise<DependencyContainer> => {
-  if (!containerPromise) {
-    containerPromise = (async () => {
+export const createPlaygroundContainer = async (
+  options: {
+    connectionString?: string;
+  } = {}
+): Promise<DependencyContainer> => {
+  const connectionString = resolveConnectionString(options.connectionString);
+  if (!connectionString) {
+    throw new Error('Missing DATABASE_URL for playground container (.env or .env.development)');
+  }
+  const key = connectionString;
+
+  if (!containerPromises.has(key)) {
+    const promise = (async () => {
       await ensureServerOtel();
-      const connectionString = resolveConnectionString();
-      if (!connectionString) {
-        throw new Error('Missing DATABASE_URL for playground container (.env or .env.development)');
-      }
       const container = await createV2NodePgContainer({
         ensureSchema: true,
         connectionString,
@@ -81,12 +92,13 @@ export const createPlaygroundContainer = async (): Promise<DependencyContainer> 
         tracer: v2Tracer,
       });
       await registerPlaygroundShareDbRealtime(container);
-      await ensurePlaygroundSeed(container);
+      await ensurePlaygroundSeed(container, key);
       return container;
     })();
+    containerPromises.set(key, promise);
   }
 
-  return containerPromise;
+  return containerPromises.get(key)!;
 };
 
 export const warmPlaygroundContainer = (): void => {

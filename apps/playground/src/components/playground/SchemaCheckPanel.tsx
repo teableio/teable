@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { PLAYGROUND_DB_URL_QUERY_PARAM, readPlaygroundDbUrl } from '@/lib/playground/databaseUrl';
 import {
   CheckCircle2,
   XCircle,
@@ -12,6 +14,7 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 import { cn } from '@/lib/utils';
 
 export type SchemaCheckStatus = 'success' | 'error' | 'warn' | 'pending' | 'running';
@@ -36,9 +39,16 @@ export interface SchemaCheckResult {
   depth?: number;
 }
 
+type FieldMeta = {
+  id: string;
+  name: string;
+  type: string;
+};
+
 type SchemaCheckPanelProps = {
   tableId: string;
   tableName: string;
+  fields?: ReadonlyArray<FieldMeta>;
 };
 
 const StatusIcon = ({ status }: { status: SchemaCheckStatus }) => {
@@ -145,11 +155,17 @@ const RuleResultItem = ({ result }: { result: SchemaCheckResult }) => {
   );
 };
 
-export function SchemaCheckPanel({ tableId, tableName }: SchemaCheckPanelProps) {
+export function SchemaCheckPanel({ tableId, tableName, fields }: SchemaCheckPanelProps) {
   const [results, setResults] = useState<SchemaCheckResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const fieldMetaById = useMemo(() => {
+    return (fields ?? []).reduce<Record<string, FieldMeta>>((acc, field) => {
+      acc[field.id] = field;
+      return acc;
+    }, {});
+  }, [fields]);
 
   const stopCheck = useCallback(() => {
     if (eventSourceRef.current) {
@@ -165,7 +181,14 @@ export function SchemaCheckPanel({ tableId, tableName }: SchemaCheckPanelProps) 
     setIsRunning(true);
     setHasRun(true);
 
-    const eventSource = new EventSource(`/api/schema/${tableId}/check/stream`);
+    const dbUrl = readPlaygroundDbUrl();
+    const baseUrl = `/api/schema/${tableId}/check/stream`;
+    const eventSourceUrl = dbUrl
+      ? `${baseUrl}?${new URLSearchParams({
+          [PLAYGROUND_DB_URL_QUERY_PARAM]: dbUrl,
+        }).toString()}`
+      : baseUrl;
+    const eventSource = new EventSource(eventSourceUrl);
     eventSourceRef.current = eventSource;
 
     eventSource.onmessage = (event) => {
@@ -347,7 +370,12 @@ export function SchemaCheckPanel({ tableId, tableName }: SchemaCheckPanelProps) 
       ) : (
         <div className="space-y-4">
           {Object.entries(groupedResults).map(([fieldId, fieldResults]) => {
-            const fieldName = fieldResults[0]?.fieldName || fieldId;
+            const isSystemField = fieldId === 'system';
+            const fieldMeta = fieldMetaById[fieldId];
+            const fieldName =
+              fieldMeta?.name || fieldResults[0]?.fieldName || (isSystemField ? 'System' : fieldId);
+            const fieldType = fieldMeta?.type;
+            const FieldIcon = fieldType ? getFieldTypeIcon(fieldType) : null;
             const hasError = fieldResults.some((r) => r.status === 'error');
             const hasWarn = fieldResults.some((r) => r.status === 'warn');
             const allSuccess = fieldResults.every(
@@ -378,7 +406,16 @@ export function SchemaCheckPanel({ tableId, tableName }: SchemaCheckPanelProps) 
                   ) : (
                     <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
                   )}
+                  {FieldIcon ? <FieldIcon className="h-4 w-4 text-muted-foreground" /> : null}
                   <span>{fieldName || 'System'}</span>
+                  {fieldType ? (
+                    <Badge
+                      variant="outline"
+                      className="h-5 px-1.5 text-[10px] font-normal uppercase"
+                    >
+                      {fieldType}
+                    </Badge>
+                  ) : null}
                   <span className="text-xs text-muted-foreground font-mono">
                     {fieldId !== 'system' && fieldId ? `(${fieldId})` : ''}
                   </span>

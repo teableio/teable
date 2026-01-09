@@ -23,9 +23,30 @@
  * Each test validates:
  * - Explicit `expect(...)` assertions on key cell values (source of truth for test logic / AI)
  * - Before/after table state via inline snapshots (using printTable)
- * - Update plan metrics (step count, table count)
+ * - Computed steps verification (using printComputedSteps) - ensures no extra steps
  * - Final DB state correctness
  * - API response correctness
+ *
+ * =============================================================================
+ * TODO: Computed Steps Assertions
+ * =============================================================================
+ *
+ * The following tests have computed steps assertions added:
+ * - [x] updates formula when source number field changes
+ * - [x] updates lookup when source field in foreign table changes
+ * - [x] updates rollup when linked record value changes
+ * - [x] updates cross-table lookup chain in correct level order
+ * - [x] oneOne twoWay - updates lookup when linked value changes
+ * - [x] oneMany twoWay - rollup updates when adding/removing children
+ * - [x] manyMany twoWay - rollup updates with add/remove
+ *
+ * The following tests still need computed steps assertions:
+ * - [ ] Other formula field tests
+ * - [ ] Other lookup/rollup tests
+ * - [ ] Primary field as formula tests
+ * - [ ] Self-referencing link tests
+ * - [ ] Edge case tests
+ * - [ ] Conditional field tests
  *
  * =============================================================================
  * IMPORTANT: processOutbox() Usage Rules
@@ -87,7 +108,13 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
   createV2NodeTestContainer,
-  type IV2NodeTestContainer,
+  printComputedSteps,
+  buildNameMaps,
+  buildMultiTableNameMaps,
+} from '@teable/v2-container-node-test';
+import type {
+  ComputedPlanSnapshotOptions,
+  IV2NodeTestContainer,
 } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
@@ -395,6 +422,11 @@ describe('v2 computed field updates (e2e)', () => {
     if (dispose) await dispose();
   });
 
+  beforeEach(() => {
+    // Clear logs before each test to ensure we only capture the current test's computed plans
+    testContainer.clearLogs();
+  });
+
   // ===========================================================================
   // SECTION 1: SIMPLE SCENARIOS
   // ===========================================================================
@@ -429,6 +461,16 @@ describe('v2 computed field updates (e2e)', () => {
         const fieldIds = [nameFieldId, valueFieldId, doubledFieldId];
         const fieldNames = ['Name', 'Value', 'Doubled'];
 
+        // Build name maps for readable computed steps snapshot
+        const nameMaps: ComputedPlanSnapshotOptions = buildNameMaps(
+          { id: table.id, name: table.name },
+          [
+            { id: nameFieldId, name: 'Name' },
+            { id: valueFieldId, name: 'Value' },
+            { id: doubledFieldId, name: 'Doubled' },
+          ]
+        );
+
         await createRecord(table.id, { [nameFieldId]: 'Test', [valueFieldId]: 5 });
 
         const beforeRecords = await listRecords(table.id);
@@ -443,8 +485,21 @@ describe('v2 computed field updates (e2e)', () => {
             ---------------------------"
           `);
 
+        // Clear logs before the update operation we want to test
+        testContainer.clearLogs();
+
         const record = beforeRecords[0];
         await updateRecord(table.id, record.id, { [valueFieldId]: 15 });
+
+        // Verify computed update steps - ensure no extra steps
+        const plan = testContainer.getLastComputedPlan();
+        expect(plan).toBeDefined();
+        expect(plan!.steps.length).toBe(1); // Only one step: update Doubled
+        expect(plan!.steps[0].fieldIds).toContain(doubledFieldId);
+        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+          "[Computed Steps: 1]
+            L0: FormulaNumberTest -> [Doubled]"
+        `);
 
         const afterRecords = await listRecords(table.id);
         expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '30');
@@ -510,6 +565,21 @@ describe('v2 computed field updates (e2e)', () => {
 
         const record = beforeRecords[0];
         await updateRecord(table.id, record.id, { [valueFieldId]: 10 });
+
+        // Verify computed update steps - formula chain should update F1 then F2
+        const plan = testContainer.getLastComputedPlan();
+        expect(plan).toBeDefined();
+        expect(plan!.steps.length).toBe(2); // Two steps: F1 at level 0, F2 at level 1
+        const nameMaps = buildNameMaps({ id: table.id, name: 'FormulaChainTest' }, [
+          { id: valueFieldId, name: 'Value' },
+          { id: formula1FieldId, name: 'F1' },
+          { id: formula2FieldId, name: 'F2' },
+        ]);
+        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+          "[Computed Steps: 2]
+            L0: FormulaChainTest -> [F1]
+            L1: FormulaChainTest -> [F2]"
+        `);
 
         const afterRecords = await listRecords(table.id);
         expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '30');
@@ -777,6 +847,24 @@ describe('v2 computed field updates (e2e)', () => {
             R0 | ItemB | ItemA | [200]
             ------------------------------"
           `);
+
+        // Verify computed update steps - cross-table lookup should update in TableB
+        const plan = testContainer.getLastComputedPlan();
+        expect(plan).toBeDefined();
+        expect(plan!.steps.length).toBe(1); // Only one step: update LookupVal in TableB
+        const nameMaps = buildMultiTableNameMaps([
+          { id: tableA.id, name: 'LookupSourceA', fields: [{ id: aValueFieldId, name: 'Value' }] },
+          {
+            id: tableB.id,
+            name: 'LookupTargetB',
+            fields: [{ id: lookupFieldId, name: 'LookupVal' }],
+          },
+        ]);
+        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+          "[Computed Steps: 1]
+            L0: LookupTargetB -> [LookupVal]
+          [Edges: 2]"
+        `);
       });
 
       /**
@@ -1182,6 +1270,20 @@ describe('v2 computed field updates (e2e)', () => {
             R0 | ItemB | A1, A2 | 70
             -------------------------"
           `);
+
+        // Verify computed update steps - cross-table rollup should update in TableB
+        const plan = testContainer.getLastComputedPlan();
+        expect(plan).toBeDefined();
+        expect(plan!.steps.length).toBe(1); // Only one step: update Sum in TableB
+        const nameMaps = buildMultiTableNameMaps([
+          { id: tableA.id, name: 'RollupSourceA', fields: [{ id: aValueFieldId, name: 'Value' }] },
+          { id: tableB.id, name: 'RollupTargetB', fields: [{ id: rollupFieldId, name: 'Sum' }] },
+        ]);
+        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+          "[Computed Steps: 1]
+            L0: RollupTargetB -> [Sum]
+          [Edges: 2]"
+        `);
       });
 
       /**
@@ -1353,6 +1455,23 @@ describe('v2 computed field updates (e2e)', () => {
 
       const record = beforeRecords[0];
       await updateRecord(table.id, record.id, { [numFieldId]: 10 });
+
+      // Verify computed update steps - three-level formula chain
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      expect(plan!.steps.length).toBe(3); // Three steps: F1 -> F2 -> F3
+      const nameMaps = buildNameMaps({ id: table.id, name: 'ThreeLevelFormula' }, [
+        { id: numFieldId, name: 'Num' },
+        { id: f1FieldId, name: 'F1' },
+        { id: f2FieldId, name: 'F2' },
+        { id: f3FieldId, name: 'F3' },
+      ]);
+      expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 3]
+          L0: ThreeLevelFormula -> [F1]
+          L1: ThreeLevelFormula -> [F2]
+          L2: ThreeLevelFormula -> [F3]"
+      `);
 
       const afterRecords = await listRecords(table.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '90');
@@ -1526,6 +1645,23 @@ describe('v2 computed field updates (e2e)', () => {
           R0 | C1   | B1    | [999]
           ---------------------------"
         `);
+
+      // Verify computed update steps - should cascade A -> B -> C
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      // Cross-table chain: LookupA in B, then LookupB in C
+      expect(plan!.steps.length).toBe(1);
+      const nameMaps = buildMultiTableNameMaps([
+        { id: tableA.id, name: 'ChainA', fields: [{ id: aValueFieldId, name: 'Value' }] },
+        { id: tableB.id, name: 'ChainB', fields: [{ id: bLookupFieldId, name: 'LookupA' }] },
+        { id: tableC.id, name: 'ChainC', fields: [{ id: cLookupFieldId, name: 'LookupB' }] },
+      ]);
+      // Note: The exact steps depend on outbox processing; may show partial chain
+      expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 1]
+          L0: ChainC -> [LookupB]
+        [Edges: 2]"
+      `);
     });
 
     /**
@@ -1636,10 +1772,44 @@ describe('v2 computed field updates (e2e)', () => {
         `);
 
       // Update A.Num: A.Doubled -> B.LookupDoubled -> B.PlusTen
+      testContainer.clearLogs(); // Clear logs before the update chain
       await updateRecord(tableA.id, recordA.id, { [aNumFieldId]: 50 });
       await testContainer.processOutbox();
       await testContainer.processOutbox();
       await testContainer.processOutbox();
+
+      // Verify computed update steps - cross-table formula-lookup chain
+      // The chain: A.Num -> A.Doubled (sync) -> B.LookupDoubled (async) -> B.PlusTen (async)
+      const plans = testContainer.getComputedPlans();
+      // 4 plans: 1 from updateRecord sync, 3 from processOutbox async processing
+      expect(plans.length).toBe(4);
+      const nameMaps = buildMultiTableNameMaps([
+        {
+          id: tableA.id,
+          name: 'MixedA',
+          fields: [
+            { id: aNumFieldId, name: 'Num' },
+            { id: aFormulaFieldId, name: 'Doubled' },
+          ],
+        },
+        {
+          id: tableB.id,
+          name: 'MixedB',
+          fields: [
+            { id: bLookupFieldId, name: 'LookupDoubled' },
+            { id: bFormulaFieldId, name: 'PlusTen' },
+          ],
+        },
+      ]);
+      // Chain: A.Doubled (L0) -> B.LookupDoubled (L1) -> B.PlusTen (L2)
+      expect(plans[0].steps.length).toBe(3);
+      expect(printComputedSteps(plans[0], nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 3]
+          L0: MixedA -> [Doubled]
+          L1: MixedB -> [LookupDoubled]
+          L2: MixedB -> [PlusTen]
+        [Edges: 2]"
+      `);
 
       const afterRecordsA = await listRecords(tableA.id);
       expectCellDisplay(afterRecordsA, 0, aFieldIds[aFieldIds.length - 1], '100');
@@ -1815,10 +1985,49 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------"
         `);
 
+      testContainer.clearLogs(); // Clear logs before the update chain
       await updateRecord(tableA.id, recordA1.id, { [aAmountFieldId]: 20 });
       for (let i = 0; i < 5; i += 1) {
         await testContainer.processOutbox();
       }
+
+      // Verify computed update steps - formula-rollup-lookup chain across 3 tables
+      // Chain: A.Amount -> A.Double -> A.Total (sync) -> B.TotalSum (async) -> C.SumFromB (async)
+      const plans = testContainer.getComputedPlans();
+      // 5 plans: 1 from updateRecord sync, 5 from processOutbox async processing
+      expect(plans.length).toBe(5);
+      const nameMaps = buildMultiTableNameMaps([
+        {
+          id: tableA.id,
+          name: 'FormulaRollupA',
+          fields: [
+            { id: aAmountFieldId, name: 'Amount' },
+            { id: aDoubleFieldId, name: 'Double' },
+            { id: aTotalFieldId, name: 'Total' },
+          ],
+        },
+        {
+          id: tableB.id,
+          name: 'FormulaRollupB',
+          fields: [{ id: bRollupFieldId, name: 'TotalSum' }],
+        },
+        {
+          id: tableC.id,
+          name: 'FormulaRollupC',
+          fields: [{ id: cLookupFieldId, name: 'SumFromB' }],
+        },
+      ]);
+      // First plan: sync formula chain in A + cross-table updates
+      // Chain: A.Amount -> A.Double -> A.Total -> B.TotalSum -> C.SumFromB
+      expect(plans[0].steps.length).toBe(4);
+      expect(printComputedSteps(plans[0], nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 4]
+          L0: FormulaRollupA -> [Double]
+          L1: FormulaRollupA -> [Total]
+          L2: FormulaRollupB -> [TotalSum]
+          L3: FormulaRollupC -> [SumFromB]
+        [Edges: 4]"
+      `);
 
       const afterRecordsB = await listRecords(tableB.id);
       expectCellDisplay(afterRecordsB, 0, bFieldIds[bFieldIds.length - 1], '60');
@@ -2455,6 +2664,20 @@ describe('v2 computed field updates (e2e)', () => {
             R0 | B1   | A1    | [999]
             -----------------------------"
           `);
+
+        // Verify computed update steps - oneOne lookup should update in TableB
+        const plan = testContainer.getLastComputedPlan();
+        expect(plan).toBeDefined();
+        expect(plan!.steps.length).toBe(1);
+        const nameMaps = buildMultiTableNameMaps([
+          { id: tableA.id, name: 'OneOneA', fields: [{ id: aValueFieldId, name: 'Value' }] },
+          { id: tableB.id, name: 'OneOneB', fields: [{ id: bLookupFieldId, name: 'LookupVal' }] },
+        ]);
+        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+          "[Computed Steps: 1]
+            L0: OneOneB -> [LookupVal]
+          [Edges: 2]"
+        `);
       });
 
       it('oneOne oneWay - no symmetric link in foreign table', async () => {
@@ -2763,6 +2986,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         // Add B3 to children
         const record = beforeRecords[0];
+        testContainer.clearLogs(); // Clear logs before the update we want to test
         await updateRecord(tableA.id, record.id, {
           [aLinkFieldId]: [{ id: recordB1.id }, { id: recordB2.id }, { id: recordB3.id }],
         });
@@ -2779,6 +3003,36 @@ describe('v2 computed field updates (e2e)', () => {
             R0 | Parent | B1, B2, B3 | 60
             ------------------------------"
           `);
+
+        // Verify computed update steps
+        // When updating link in TableA, triggers rollup update (sync) + symmetric link (async)
+        const plan = testContainer.getLastComputedPlan();
+        expect(plan).toBeDefined();
+        expect(plan!.steps.length).toBe(1);
+
+        // Get the symmetric link field ID from tableB (auto-created when two-way link was created)
+        const updatedTableB = await getTableById(tableB.id);
+        const symmetricLinkFieldId = updatedTableB.fields.find(
+          (f) => f.type === 'link' && f.options?.foreignTableId === tableA.id
+        )?.id;
+        expect(symmetricLinkFieldId).toBeDefined();
+
+        const nameMaps = buildMultiTableNameMaps([
+          { id: tableA.id, name: 'OneManyA', fields: [{ id: aRollupFieldId, name: 'Sum' }] },
+          {
+            id: tableB.id,
+            name: 'OneManyB',
+            fields: [
+              { id: bValueFieldId, name: 'Value' },
+              { id: symmetricLinkFieldId!, name: 'SymmetricLink' },
+            ],
+          },
+        ]);
+        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+          "[Computed Steps: 1]
+            L0: OneManyB -> [SymmetricLink]
+          [Edges: 1]"
+        `);
       });
 
       it('oneMany oneWay - no symmetric link in foreign table', async () => {
@@ -3315,6 +3569,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         // Remove B1, keep only B2
         const record = beforeRecords[0];
+        testContainer.clearLogs(); // Clear logs before the update we want to test
         await updateRecord(tableA.id, record.id, {
           [aLinkFieldId]: [{ id: recordB2.id }],
         });
@@ -3331,6 +3586,36 @@ describe('v2 computed field updates (e2e)', () => {
             R0 | A1   | B2    | 20
             -----------------------"
           `);
+
+        // Verify computed update steps
+        // When updating link in TableA, triggers rollup update (sync) + symmetric link (async)
+        const plan = testContainer.getLastComputedPlan();
+        expect(plan).toBeDefined();
+        expect(plan!.steps.length).toBe(1);
+
+        // Get the symmetric link field ID from tableB (auto-created when two-way link was created)
+        const updatedTableB = await getTableById(tableB.id);
+        const symmetricLinkFieldId = updatedTableB.fields.find(
+          (f) => f.type === 'link' && f.options?.foreignTableId === tableA.id
+        )?.id;
+        expect(symmetricLinkFieldId).toBeDefined();
+
+        const nameMaps = buildMultiTableNameMaps([
+          { id: tableA.id, name: 'ManyManyA', fields: [{ id: aRollupFieldId, name: 'Sum' }] },
+          {
+            id: tableB.id,
+            name: 'ManyManyB',
+            fields: [
+              { id: bValueFieldId, name: 'Value' },
+              { id: symmetricLinkFieldId!, name: 'SymmetricLink' },
+            ],
+          },
+        ]);
+        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+          "[Computed Steps: 1]
+            L0: ManyManyB -> [SymmetricLink]
+          [Edges: 1]"
+        `);
       });
 
       /**
@@ -3915,8 +4200,24 @@ describe('v2 computed field updates (e2e)', () => {
       const beforeChild = beforeRecords.find((r) => r.id === child.id);
       expect(String(beforeChild?.fields[parentLookupFieldId] ?? '')).toContain('Parent');
 
+      testContainer.clearLogs(); // Clear logs before the update
       await updateRecord(table.id, parent.id, { [nameFieldId]: 'Parent2' });
       await testContainer.processOutbox();
+
+      // Verify computed update steps - self-referencing link lookup updates
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      expect(plan!.steps.length).toBe(1); // One step: update ParentName lookup
+      const nameMaps = buildNameMaps({ id: table.id, name: 'SelfManyOne' }, [
+        { id: nameFieldId, name: 'Name' },
+        { id: parentLinkFieldId, name: 'Parent' },
+        { id: parentLookupFieldId, name: 'ParentName' },
+      ]);
+      expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 1]
+          L0: SelfManyOne -> [Parent, ParentName]
+        [Edges: 2]"
+      `);
 
       const afterRecords = await listRecords(table.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '-');
@@ -4017,8 +4318,25 @@ describe('v2 computed field updates (e2e)', () => {
       let stored = records.find((r) => r.id === record1.id);
       expect(stored?.fields[rollupFieldId]).toBe(50);
 
+      testContainer.clearLogs(); // Clear logs before the update
       await updateRecord(table.id, record1.id, { [linkFieldId]: [{ id: record3.id }] });
       await testContainer.processOutbox();
+
+      // Verify computed update steps - self-referencing manyMany rollup updates
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      expect(plan!.steps.length).toBe(2); // Two steps: link title update + Sum rollup
+      const nameMaps = buildNameMaps({ id: table.id, name: 'SelfManyMany' }, [
+        { id: nameFieldId, name: 'Name' },
+        { id: valueFieldId, name: 'Value' },
+        { id: linkFieldId, name: 'Links' },
+        { id: rollupFieldId, name: 'Sum' },
+      ]);
+      expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 2]
+          L0: SelfManyMany -> [Links]
+          L1: SelfManyMany -> [Sum]"
+      `);
 
       records = await listRecords(table.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '30');
@@ -4123,8 +4441,28 @@ describe('v2 computed field updates (e2e)', () => {
       const beforeChild = beforeRecords.find((r) => r.id === child.id);
       expect(beforeChild?.fields[parentLookupFieldId]).toBe('[20]');
 
+      testContainer.clearLogs(); // Clear logs before the update
       await updateRecord(table.id, parent.id, { [valueFieldId]: 15 });
       await testContainer.processOutbox();
+
+      // Verify computed update steps - self-referencing formula chain
+      // Chain: Value -> Double (formula) -> ParentDouble (lookup of formula)
+      const plans = testContainer.getComputedPlans();
+      expect(plans.length).toBe(1);
+      const nameMaps = buildNameMaps({ id: table.id, name: 'SelfFormulaChain' }, [
+        { id: valueFieldId, name: 'Value' },
+        { id: formulaFieldId, name: 'Double' },
+        { id: parentLinkFieldId, name: 'Parent' },
+        { id: parentLookupFieldId, name: 'ParentDouble' },
+      ]);
+      // First plan: sync formula update (Double) + link title update
+      expect(plans[0].steps.length).toBe(2);
+      expect(printComputedSteps(plans[0], nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 2]
+          L0: SelfFormulaChain -> [Double]
+          L1: SelfFormulaChain -> [ParentDouble]
+        [Edges: 1]"
+      `);
 
       const afterRecords = await listRecords(table.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '-');
@@ -5923,8 +6261,31 @@ describe('v2 computed field updates (e2e)', () => {
         `);
 
       // Update foreign record value - should update rollup
+      testContainer.clearLogs(); // Clear logs before the update
       await updateRecord(foreignTable.id, record1.id, { [foreignValueFieldId]: 15 });
       await testContainer.processOutbox();
+
+      // Verify computed update steps - conditionalRollup updates in host table
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      expect(plan!.steps.length).toBe(1); // One step: update Active Sum in host table
+      const nameMaps = buildMultiTableNameMaps([
+        {
+          id: foreignTable.id,
+          name: 'ConditionalRollup Foreign',
+          fields: [{ id: foreignValueFieldId, name: 'Value' }],
+        },
+        {
+          id: hostTable.id,
+          name: 'ConditionalRollup Host',
+          fields: [{ id: conditionalRollupFieldId, name: 'Active Sum' }],
+        },
+      ]);
+      expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 1]
+          L0: ConditionalRollup Host -> [Active Sum]
+        [Edges: 1]"
+      `);
 
       const afterRecords = await listRecords(hostTable.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '35');
@@ -7122,8 +7483,31 @@ describe('v2 computed field updates (e2e)', () => {
       // Update foreign record value - should update lookup
       const foreignRecords = await listRecords(foreignTable.id);
       const item1 = foreignRecords.find((r) => r.fields[foreignNameFieldId] === 'Item1');
+      testContainer.clearLogs(); // Clear logs before the update
       await updateRecord(foreignTable.id, item1!.id, { [foreignValueFieldId]: 15 });
       await testContainer.processOutbox();
+
+      // Verify computed update steps - conditionalLookup updates in host table
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      expect(plan!.steps.length).toBe(1); // One step: update Active Values in host table
+      const nameMaps = buildMultiTableNameMaps([
+        {
+          id: foreignTable.id,
+          name: 'ConditionalLookup Foreign',
+          fields: [{ id: foreignValueFieldId, name: 'Value' }],
+        },
+        {
+          id: hostTable.id,
+          name: 'ConditionalLookup Host',
+          fields: [{ id: conditionalLookupFieldId, name: 'Active Values' }],
+        },
+      ]);
+      expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 1]
+          L0: ConditionalLookup Host -> [Active Values]
+        [Edges: 1]"
+      `);
 
       const afterRecords = await listRecords(hostTable.id);
       expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], '[20, 15]');

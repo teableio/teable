@@ -9,6 +9,8 @@ import { playgroundPinoLogger } from '@/server/playgroundLogger';
 import { v2OrpcRouter } from '@/server/v2OrpcRouter';
 import { extractRequestContext } from '@/server/traceContext';
 import { applyTraceHeaders } from '@/server/traceResponseHeaders';
+import { withPlaygroundDbContext } from '@/server/playgroundDbContext';
+import { PLAYGROUND_DB_URL_HEADER } from '@/lib/playground/databaseUrl';
 
 const generateRequestId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -57,10 +59,13 @@ async function handle({ request }: { request: Request }) {
     parentContext,
     async (span) => {
       try {
-        const { response } = await handler.handle(request, {
-          prefix: '/api/rpc',
-          context: {},
-        });
+        const connectionString = request.headers.get(PLAYGROUND_DB_URL_HEADER)?.trim() || undefined;
+        const { response } = await withPlaygroundDbContext(connectionString, () =>
+          handler.handle(request, {
+            prefix: '/api/rpc',
+            context: {},
+          })
+        );
 
         const finalResponse = response ?? new Response('Not Found', { status: 404 });
         span.setAttribute('http.status_code', finalResponse.status);

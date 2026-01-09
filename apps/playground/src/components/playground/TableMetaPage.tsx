@@ -891,6 +891,11 @@ export function TableMetaPage({
                 <SchemaCheckPanel
                   tableId={table.id().toString()}
                   tableName={table.name().toString()}
+                  fields={table.getFields().map((field) => ({
+                    id: field.id().toString(),
+                    name: field.name().toString(),
+                    type: field.type().toString(),
+                  }))}
                 />
               </TabsContent>
             </Tabs>
