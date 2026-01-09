@@ -47,13 +47,13 @@ export const SideBarFooter: React.FC = () => {
   }
 
   return (
-    <div className="m-2 flex flex-col items-center gap-2">
+    <div className="flex w-full flex-col items-center gap-2 p-2">
       <div className="flex w-full justify-between gap-2">
         <UserNav>
           <Button
             variant="ghost"
             size={'sm'}
-            className="w-full justify-start py-1.5 pl-2 text-sm font-normal"
+            className="min-w-0 justify-start overflow-hidden py-1.5 pl-2 text-sm font-normal"
           >
             <UserAvatar className="border" user={user} />
             <p className="truncate" title={user.name}>

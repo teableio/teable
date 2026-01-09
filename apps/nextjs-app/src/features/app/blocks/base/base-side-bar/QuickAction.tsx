@@ -62,9 +62,9 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
         variant="outline"
         onClick={() => setOpen(true)}
       >
-        {children}
+        <span className="truncate">{children}</span>
         {isHydrated && (
-          <kbd className="flex h-5 items-center gap-1 rounded border bg-muted px-2 font-mono text-xs">
+          <kbd className="flex h-5 shrink-0 items-center gap-1 rounded border bg-muted px-2 font-mono text-xs">
             <span className={cn({ 'text-sm': modKeyStr === '⌘' })}>{modKeyStr}</span>
             <span>K</span>
           </kbd>
