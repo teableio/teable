@@ -1,4 +1,4 @@
-import { err, ok, safeTry } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 import type { BaseId } from '../base/BaseId';
@@ -23,17 +23,21 @@ import { FieldType } from './fields/FieldType';
 import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
 import { FieldIsComputedSpec } from './fields/specs/FieldIsComputedSpec';
 import { FieldCellValueSchemaVisitor } from './fields/visitors/FieldCellValueSchemaVisitor';
-import { FieldDefaultValueVisitor } from './fields/visitors/FieldDefaultValueVisitor';
 import {
   LinkForeignTableReferenceVisitor,
   type LinkForeignTableReference,
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
-import { RecordCreateResult } from './records/RecordCreateResult';
-import { RecordId } from './records/RecordId';
-import { RecordMutationSpecBuilder } from './records/RecordMutationSpecBuilder';
-import { RecordUpdateResult } from './records/RecordUpdateResult';
-import { TableRecord } from './records/TableRecord';
-import { TableRecordFields } from './records/TableRecordFields';
+import {
+  createRecord as createRecordMethod,
+  createRecords as createRecordsMethod,
+  createRecordsStream as createRecordsStreamMethod,
+  createRecordsStreamAsync as createRecordsStreamAsyncMethod,
+  updateRecord as updateRecordMethod,
+} from './methods/records';
+import type { RecordCreateResult } from './records/RecordCreateResult';
+import type { RecordId } from './records/RecordId';
+import type { RecordUpdateResult } from './records/RecordUpdateResult';
+import type { TableRecord } from './records/TableRecord';
 import { resolveFormulaFields } from './resolveFormulaFields';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
@@ -331,7 +335,7 @@ export class Table extends AggregateRoot<TableId> {
     fieldValues: ReadonlyMap<string, unknown>,
     options?: { typecast?: boolean }
   ): Result<RecordCreateResult, DomainError> {
-    return this.buildRecordWithSpec(fieldValues, undefined, options);
+    return createRecordMethod.call(this, fieldValues, options);
   }
 
   /**
@@ -356,37 +360,7 @@ export class Table extends AggregateRoot<TableId> {
     fieldValues: ReadonlyMap<string, unknown>,
     options?: { typecast?: boolean }
   ): Result<RecordUpdateResult, DomainError> {
-    const table = this;
-    const { typecast = false } = options ?? {};
-    return safeTry<RecordUpdateResult, DomainError>(function* () {
-      const builder = RecordMutationSpecBuilder.create().withTypecast(typecast);
-      const fields = table.getEditableFields();
-
-      for (const field of fields) {
-        const fieldIdStr = field.id().toString();
-        if (!fieldValues.has(fieldIdStr)) continue;
-        const providedValue = fieldValues.get(fieldIdStr);
-        if (providedValue === undefined) continue;
-        builder.set(field, providedValue);
-      }
-
-      if (builder.hasErrors()) {
-        return err(builder.getErrors()[0]!);
-      }
-
-      const mutateSpec = yield* builder.build();
-
-      const emptyFields = yield* TableRecordFields.create([]);
-      const emptyRecord = yield* TableRecord.create({
-        id: recordId,
-        tableId: table.id(),
-        fieldValues: emptyFields.entries(),
-      });
-
-      const record = yield* mutateSpec.mutate(emptyRecord);
-
-      return ok(RecordUpdateResult.create(record, mutateSpec));
-    });
+    return updateRecordMethod.call(this, recordId, fieldValues, options);
   }
 
   /**
@@ -413,25 +387,7 @@ export class Table extends AggregateRoot<TableId> {
       ReadonlyMap<string, unknown> | { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> }
     >
   ): Result<ReadonlyArray<TableRecord>, DomainError> {
-    const table = this;
-    return safeTry<ReadonlyArray<TableRecord>, DomainError>(function* () {
-      const records: TableRecord[] = [];
-      const isSeedRecord = (
-        input:
-          | ReadonlyMap<string, unknown>
-          | { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> }
-      ): input is { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> } =>
-        typeof input === 'object' && input !== null && 'fieldValues' in input;
-
-      for (const input of recordsFieldValues) {
-        const { fieldValues, recordId } = isSeedRecord(input)
-          ? { fieldValues: input.fieldValues, recordId: input.id }
-          : { fieldValues: input, recordId: undefined };
-        const record = yield* table.buildRecord(fieldValues, recordId);
-        records.push(record);
-      }
-      return ok(records);
-    });
+    return createRecordsMethod.call(this, recordsFieldValues);
   }
 
   /**
@@ -471,27 +427,7 @@ export class Table extends AggregateRoot<TableId> {
     recordsFieldValues: Iterable<ReadonlyMap<string, unknown>>,
     options?: { batchSize?: number }
   ): Generator<Result<ReadonlyArray<TableRecord>, DomainError>> {
-    const batchSize = options?.batchSize ?? 500;
-    let batch: TableRecord[] = [];
-
-    for (const fieldValues of recordsFieldValues) {
-      const recordResult = this.buildRecord(fieldValues);
-      if (recordResult.isErr()) {
-        yield err(recordResult.error);
-        return;
-      }
-      batch.push(recordResult.value);
-
-      if (batch.length >= batchSize) {
-        yield ok(batch);
-        batch = []; // Reset for next batch, allows GC to collect previous batch
-      }
-    }
-
-    // Yield remaining records if any
-    if (batch.length > 0) {
-      yield ok(batch);
-    }
+    yield* createRecordsStreamMethod.call(this, recordsFieldValues, options);
   }
 
   /**
@@ -506,101 +442,7 @@ export class Table extends AggregateRoot<TableId> {
     recordsFieldValues: AsyncIterable<ReadonlyMap<string, unknown>>,
     options?: { batchSize?: number }
   ): AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>> {
-    const batchSize = options?.batchSize ?? 500;
-    let batch: TableRecord[] = [];
-
-    for await (const fieldValues of recordsFieldValues) {
-      const recordResult = this.buildRecord(fieldValues);
-      if (recordResult.isErr()) {
-        yield err(recordResult.error);
-        return;
-      }
-      batch.push(recordResult.value);
-
-      if (batch.length >= batchSize) {
-        yield ok(batch);
-        batch = []; // Reset for next batch, allows GC to collect previous batch
-      }
-    }
-
-    // Yield remaining records if any
-    if (batch.length > 0) {
-      yield ok(batch);
-    }
-  }
-
-  /**
-   * Internal method to build a single record with the given field values.
-   * Returns both the record and the mutation spec for link title resolution.
-   */
-  private buildRecordWithSpec(
-    fieldValues: ReadonlyMap<string, unknown>,
-    recordId?: RecordId,
-    options?: { typecast?: boolean }
-  ): Result<RecordCreateResult, DomainError> {
-    const table = this;
-    const { typecast = false } = options ?? {};
-    return safeTry<RecordCreateResult, DomainError>(function* () {
-      // 1. Generate a new record ID
-      const resolvedRecordId = recordId ?? (yield* RecordId.generate());
-
-      // 2. Build mutation specs from field values with default value support
-      const builder = RecordMutationSpecBuilder.create().withTypecast(typecast);
-      const fields = table.getEditableFields();
-      const defaultValueVisitor = FieldDefaultValueVisitor.create();
-
-      for (const field of fields) {
-        const fieldIdStr = field.id().toString();
-        const providedValue = fieldValues.get(fieldIdStr);
-
-        // If value was explicitly provided (even if null), use it
-        if (fieldValues.has(fieldIdStr) && providedValue !== undefined && providedValue !== null) {
-          builder.set(field, providedValue);
-        } else {
-          // Otherwise, try to get the default value
-          const defaultValueResult = field.accept(defaultValueVisitor);
-          if (defaultValueResult.isOk()) {
-            const defaultValue = defaultValueResult.value;
-            if (defaultValue !== undefined) {
-              builder.set(field, defaultValue);
-            }
-          }
-        }
-      }
-
-      // 3. Check for validation errors before proceeding
-      if (builder.hasErrors()) {
-        return err(builder.getErrors()[0]!);
-      }
-
-      // 4. Create an empty record
-      const emptyFields = yield* TableRecordFields.create([]);
-      const emptyRecord = yield* TableRecord.create({
-        id: resolvedRecordId,
-        tableId: table.id(),
-        fieldValues: emptyFields.entries(),
-      });
-
-      // 5. Apply mutation spec if there are any values to set
-      if (builder.hasSpecs()) {
-        const mutateSpec = yield* builder.build();
-        const record = yield* mutateSpec.mutate(emptyRecord);
-        return ok(RecordCreateResult.create(record, mutateSpec));
-      }
-      return ok(RecordCreateResult.create(emptyRecord, null));
-    });
-  }
-
-  /**
-   * Internal method to build a single record with the given field values.
-   * Used by createRecords and createRecordsStream.
-   */
-  private buildRecord(
-    fieldValues: ReadonlyMap<string, unknown>,
-    recordId?: RecordId,
-    options?: { typecast?: boolean }
-  ): Result<TableRecord, DomainError> {
-    return this.buildRecordWithSpec(fieldValues, recordId, options).map((result) => result.record);
+    yield* createRecordsStreamAsyncMethod.call(this, recordsFieldValues, options);
   }
 
   viewIds(): ReadonlyArray<ViewId> {

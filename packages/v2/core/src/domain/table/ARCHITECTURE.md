@@ -12,6 +12,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `events/` - Table domain events.
 - `fields/` - Field entities and field types.
+- `methods/` - Extracted Table aggregate method implementations.
 - `records/` - Table record entity and field-value models.
 - `specs/` - Table specifications and builders.
 - `views/` - View entities and view types.
@@ -33,6 +34,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `resolveFormulaFields.spec.ts` - Role: domain tests; Purpose: validate formula resolution during build.
 - `TableSortKey.spec.ts` - Role: sort key tests; Purpose: validate TableSortKey rules.
 - `TableSortKey.ts` - Role: value object; Purpose: table sort key modeling.
+- `methods/ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe extracted Table methods.
 - `records/ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe record domain types.
 - `records/RecordId.ts` - Role: value object; Purpose: record id validation and generation.
 - `records/TableRecord.ts` - Role: entity; Purpose: represent table records.
