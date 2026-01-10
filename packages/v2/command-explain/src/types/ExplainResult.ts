@@ -133,6 +133,11 @@ export type ExplainOutput = {
   readonly raw: string;
   readonly estimatedCost?: number;
   readonly estimatedRows?: number;
+  /**
+   * When a batch EXPLAIN ANALYZE fails for this statement, we may fall back to EXPLAIN ONLY
+   * and attach the original ANALYZE error here.
+   */
+  readonly analyzeError?: string;
 };
 
 /**

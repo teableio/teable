@@ -225,86 +225,160 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
         } else {
           const { mainUpdate, additionalStatements } = updateSqlResult;
 
-          // Run EXPLAIN on main UPDATE
-          let mainExplainAnalyze: ExplainAnalyzeOutput | null = null;
-          let mainExplainOnly: ExplainOutput | null = null;
-          let mainExplainError: string | null = null;
+          if (mergedOptions.analyze && additionalStatements.length > 0) {
+            // When analyzing, link-field statements often depend on each other (DELETE then INSERTs).
+            // Run them all within a single transaction (rollback once) so EXPLAIN ANALYZE reflects
+            // the real execution order and doesn't hit unique constraint errors from existing rows.
+            const batchStatements = [
+              {
+                description: mainUpdate.description,
+                sql: mainUpdate.compiled.sql,
+                parameters: mainUpdate.compiled.parameters as unknown[],
+              },
+              ...additionalStatements.map((stmt) => ({
+                description: stmt.description,
+                sql: stmt.compiled.sql,
+                parameters: stmt.compiled.parameters as unknown[],
+              })),
+            ];
 
-          if (mergedOptions.analyze) {
-            const analyzeResult = await analyzer.sqlExplainRunner.explain(
+            const batchResult = await analyzer.sqlExplainRunner.explainBatchInTransaction(
               analyzer.db,
-              mainUpdate.compiled.sql,
-              mainUpdate.compiled.parameters as unknown[],
-              true
+              batchStatements
             );
-            if (analyzeResult.isOk()) {
-              mainExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+
+            if (batchResult.isOk()) {
+              const results = batchResult.value;
+              for (let i = 0; i < batchStatements.length; i++) {
+                const meta = batchStatements[i];
+                const result = results[i];
+
+                if ('error' in result) {
+                  sqlExplains.push({
+                    stepDescription: meta.description,
+                    sql: meta.sql,
+                    parameters: meta.parameters,
+                    explainAnalyze: null,
+                    explainOnly: null,
+                    explainError: result.error,
+                  });
+                  continue;
+                }
+
+                // Explain outputs are structurally similar; discriminate by known fields.
+                const explainAnalyze =
+                  'executionTimeMs' in result || 'planningTimeMs' in result
+                    ? (result as ExplainAnalyzeOutput)
+                    : null;
+                const explainOnly = explainAnalyze ? null : (result as ExplainOutput);
+                const analyzeError =
+                  'analyzeError' in result && typeof result.analyzeError === 'string'
+                    ? result.analyzeError
+                    : null;
+
+                sqlExplains.push({
+                  stepDescription: meta.description,
+                  sql: meta.sql,
+                  parameters: meta.parameters,
+                  explainAnalyze,
+                  explainOnly,
+                  explainError: analyzeError,
+                });
+              }
             } else {
-              mainExplainError = analyzeResult.error.message;
+              for (const meta of batchStatements) {
+                sqlExplains.push({
+                  stepDescription: meta.description,
+                  sql: meta.sql,
+                  parameters: meta.parameters,
+                  explainAnalyze: null,
+                  explainOnly: null,
+                  explainError: batchResult.error.message,
+                });
+              }
             }
           } else {
-            const explainResult = await analyzer.sqlExplainRunner.explain(
-              analyzer.db,
-              mainUpdate.compiled.sql,
-              mainUpdate.compiled.parameters as unknown[],
-              false
-            );
-            if (explainResult.isOk()) {
-              mainExplainOnly = explainResult.value as ExplainOutput;
-            } else {
-              mainExplainError = explainResult.error.message;
-            }
-          }
-
-          sqlExplains.push({
-            stepDescription: mainUpdate.description,
-            sql: mainUpdate.compiled.sql,
-            parameters: mainUpdate.compiled.parameters as unknown[],
-            explainAnalyze: mainExplainAnalyze,
-            explainOnly: mainExplainOnly,
-            explainError: mainExplainError,
-          });
-
-          // Add additional SQLs (link field operations)
-          for (const stmt of additionalStatements) {
-            let additionalExplainAnalyze: ExplainAnalyzeOutput | null = null;
-            let additionalExplainOnly: ExplainOutput | null = null;
-            let additionalExplainError: string | null = null;
+            // Run EXPLAIN on main UPDATE
+            let mainExplainAnalyze: ExplainAnalyzeOutput | null = null;
+            let mainExplainOnly: ExplainOutput | null = null;
+            let mainExplainError: string | null = null;
 
             if (mergedOptions.analyze) {
               const analyzeResult = await analyzer.sqlExplainRunner.explain(
                 analyzer.db,
-                stmt.compiled.sql,
-                stmt.compiled.parameters as unknown[],
+                mainUpdate.compiled.sql,
+                mainUpdate.compiled.parameters as unknown[],
                 true
               );
               if (analyzeResult.isOk()) {
-                additionalExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+                mainExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
               } else {
-                additionalExplainError = analyzeResult.error.message;
+                mainExplainError = analyzeResult.error.message;
               }
             } else {
               const explainResult = await analyzer.sqlExplainRunner.explain(
                 analyzer.db,
-                stmt.compiled.sql,
-                stmt.compiled.parameters as unknown[],
+                mainUpdate.compiled.sql,
+                mainUpdate.compiled.parameters as unknown[],
                 false
               );
               if (explainResult.isOk()) {
-                additionalExplainOnly = explainResult.value as ExplainOutput;
+                mainExplainOnly = explainResult.value as ExplainOutput;
               } else {
-                additionalExplainError = explainResult.error.message;
+                mainExplainError = explainResult.error.message;
               }
             }
 
             sqlExplains.push({
-              stepDescription: stmt.description,
-              sql: stmt.compiled.sql,
-              parameters: stmt.compiled.parameters as unknown[],
-              explainAnalyze: additionalExplainAnalyze,
-              explainOnly: additionalExplainOnly,
-              explainError: additionalExplainError,
+              stepDescription: mainUpdate.description,
+              sql: mainUpdate.compiled.sql,
+              parameters: mainUpdate.compiled.parameters as unknown[],
+              explainAnalyze: mainExplainAnalyze,
+              explainOnly: mainExplainOnly,
+              explainError: mainExplainError,
             });
+
+            // Add additional SQLs (link field operations)
+            for (const stmt of additionalStatements) {
+              let additionalExplainAnalyze: ExplainAnalyzeOutput | null = null;
+              let additionalExplainOnly: ExplainOutput | null = null;
+              let additionalExplainError: string | null = null;
+
+              if (mergedOptions.analyze) {
+                const analyzeResult = await analyzer.sqlExplainRunner.explain(
+                  analyzer.db,
+                  stmt.compiled.sql,
+                  stmt.compiled.parameters as unknown[],
+                  true
+                );
+                if (analyzeResult.isOk()) {
+                  additionalExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+                } else {
+                  additionalExplainError = analyzeResult.error.message;
+                }
+              } else {
+                const explainResult = await analyzer.sqlExplainRunner.explain(
+                  analyzer.db,
+                  stmt.compiled.sql,
+                  stmt.compiled.parameters as unknown[],
+                  false
+                );
+                if (explainResult.isOk()) {
+                  additionalExplainOnly = explainResult.value as ExplainOutput;
+                } else {
+                  additionalExplainError = explainResult.error.message;
+                }
+              }
+
+              sqlExplains.push({
+                stepDescription: stmt.description,
+                sql: stmt.compiled.sql,
+                parameters: stmt.compiled.parameters as unknown[],
+                explainAnalyze: additionalExplainAnalyze,
+                explainOnly: additionalExplainOnly,
+                explainError: additionalExplainError,
+              });
+            }
           }
         }
 

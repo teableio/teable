@@ -366,13 +366,18 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
                       computedReason: meta.computedReason,
                     });
                   } else {
+                    const explainAnalyze =
+                      'executionTimeMs' in result || 'planningTimeMs' in result
+                        ? (result as ExplainAnalyzeOutput)
+                        : null;
+                    const explainOnly = explainAnalyze ? null : (result as ExplainOutput);
                     sqlExplains.push({
                       stepDescription: meta.description,
                       sql: meta.sql,
                       parameters: meta.parameters as unknown[],
-                      explainAnalyze: result,
-                      explainOnly: null,
-                      explainError: null,
+                      explainAnalyze,
+                      explainOnly,
+                      explainError: explainOnly?.analyzeError ?? null,
                       computedReason: meta.computedReason,
                     });
                   }

@@ -127,12 +127,25 @@ export class SqlExplainRunner {
       await db.transaction().execute(async (trx) => {
         // Run setup statements first (e.g., create tmp_computed_dirty table)
         if (setupStatements && setupStatements.length > 0) {
-          for (const setup of setupStatements) {
+          for (let i = 0; i < setupStatements.length; i++) {
+            const setup = setupStatements[i];
+            const setupSavepoint = `setup_${i}`;
             try {
+              await sql`SAVEPOINT ${sql.raw(setupSavepoint)}`.execute(trx);
               await sql.raw(setup.sql).execute(trx);
+              await sql`RELEASE SAVEPOINT ${sql.raw(setupSavepoint)}`.execute(trx);
             } catch (setupError) {
               // If setup fails, we still continue but log it
               console.warn(`Setup statement failed: ${setup.description}`, setupError);
+              try {
+                await sql`ROLLBACK TO SAVEPOINT ${sql.raw(setupSavepoint)}`.execute(trx);
+                await sql`RELEASE SAVEPOINT ${sql.raw(setupSavepoint)}`.execute(trx);
+              } catch (rollbackError) {
+                console.warn(
+                  `Failed to rollback setup statement after error: ${setup.description}`,
+                  rollbackError
+                );
+              }
             }
           }
         }
@@ -141,8 +154,12 @@ export class SqlExplainRunner {
 
         for (let i = 0; i < statements.length; i++) {
           const stmt = statements[i];
+          const savepointName = `stmt_${i}`;
 
           try {
+            // Use a savepoint so we can continue after statement failures.
+            await sql`SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+
             const explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) ${stmt.sql}`;
             const query = sql`${sql.raw(explainSql)}`;
             const compiled = query.compile(trx);
@@ -153,11 +170,10 @@ export class SqlExplainRunner {
 
             const result = await trx.executeQuery<{ 'QUERY PLAN': string }>(finalQuery);
             results.push(this.parseExplainAnalyze(result.rows));
+            await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
           } catch (stmtError) {
             // On EXPLAIN ANALYZE failure, try EXPLAIN ONLY as fallback
-            const savepointName = `recover_${i}`;
             try {
-              await sql`SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
               await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
 
               // Try EXPLAIN ONLY
@@ -177,13 +193,25 @@ export class SqlExplainRunner {
               // Return EXPLAIN ONLY result with a note about the ANALYZE failure
               results.push({
                 ...explainOnly,
-                analyzeError: `EXPLAIN ANALYZE failed (FK constraint), showing EXPLAIN ONLY: ${stmtError instanceof Error ? stmtError.message : String(stmtError)}`,
+                analyzeError: `EXPLAIN ANALYZE failed, showing EXPLAIN ONLY: ${stmtError instanceof Error ? stmtError.message : String(stmtError)}`,
               } as ExplainOutput & { analyzeError: string });
+
+              await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
             } catch (fallbackError) {
               // Both EXPLAIN ANALYZE and EXPLAIN ONLY failed
               results.push({
                 error: `EXPLAIN failed: ${stmtError instanceof Error ? stmtError.message : String(stmtError)}`,
               });
+              try {
+                await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+                await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              } catch (rollbackError) {
+                console.warn(`Failed to rollback after EXPLAIN failure: ${stmt.description}`, {
+                  rollbackError,
+                  fallbackError,
+                  stmtError,
+                });
+              }
             }
           }
         }
@@ -350,12 +378,12 @@ export class SqlExplainRunner {
 
     // Parse cost and rows from EXPLAIN output
     // Format: (cost=0.00..35.50 rows=2550 width=4)
-    const costMatch = raw.match(/cost=([\d.]+)\.\.([\d.]+)/);
+    const costMatch = raw.match(/cost=\d+(?:\.\d+)?\.\.(\d+(?:\.\d+)?)/);
     const rowsMatch = raw.match(/rows=(\d+)/);
 
     return {
       raw,
-      estimatedCost: costMatch ? parseFloat(costMatch[2]) : undefined,
+      estimatedCost: costMatch ? parseFloat(costMatch[1]) : undefined,
       estimatedRows: rowsMatch ? parseInt(rowsMatch[1], 10) : undefined,
     };
   }

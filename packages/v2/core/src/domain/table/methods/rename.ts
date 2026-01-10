@@ -21,7 +21,7 @@ export function rename(this: Table, nextName: TableName): Result<Table, DomainEr
     props.dbTableName = dbTableNameResult.value;
   }
 
-  const tableClass = this.constructor as {
+  const tableClass = this.constructor as unknown as {
     rehydrate: (props: ITableBuildProps) => Result<Table, DomainError>;
   };
   const cloned = tableClass.rehydrate(props);

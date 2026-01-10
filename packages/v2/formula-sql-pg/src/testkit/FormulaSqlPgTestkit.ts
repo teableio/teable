@@ -43,8 +43,8 @@ export type FormulaTestTable = {
   table: Table;
   translator: FormulaSqlPgTranslator;
   db: Kysely<DynamicDb>;
-  formulaFields: Map<string, Field>;
   formulaDefinitions: Map<string, FormulaFieldDefinition>;
+  formulaFields: Map<string, Field>;
   fieldsByType: Record<FieldTypeLiteral, Field>;
   tableAlias: string;
   fieldSnapshotCache: Map<string, Promise<FieldSnapshotValue>>;
@@ -217,40 +217,6 @@ const executeCommand = async <TResult>(
   return unwrapOrThrow(result as Result<TResult, DomainError>, 'CommandBus.execute');
 };
 
-const replaceFieldNameRefs = (
-  expression: string,
-  nameToId: ReadonlyMap<string, string>
-): string => {
-  let nextExpression = expression;
-  nameToId.forEach((fieldId, fieldName) => {
-    nextExpression = nextExpression.split(`{${fieldName}}`).join(`{${fieldId}}`);
-  });
-  return nextExpression;
-};
-
-const buildNameToIdMap = (table: Table): Map<string, string> => {
-  const map = new Map<string, string>();
-  table.getFields().forEach((field) => {
-    const fieldId = field.id().toString();
-    const fieldName = field.name().toString();
-    map.set(fieldName, fieldId);
-
-    const fieldType = field.type().toString();
-    if (fieldType !== 'formula') {
-      const typeName = FIELD_TYPE_NAMES[fieldType];
-      if (!map.has(typeName)) {
-        map.set(typeName, fieldId);
-      }
-      return;
-    }
-
-    if (fieldName === FORMULA_TYPE_FIELD_NAME) {
-      map.set(FORMULA_TYPE_FIELD_NAME, fieldId);
-    }
-  });
-  return map;
-};
-
 const extractFieldRefs = (expression: string): ReadonlyArray<string> =>
   Array.from(expression.matchAll(/\{([^}]+)\}/g))
     .map((match) => match[1])
@@ -333,56 +299,6 @@ const formatFieldFormatting = (field: Field): unknown => {
   return undefined;
 };
 
-const resolveFormulaFields = async (params: {
-  container: IV2NodeTestContainer;
-  table: Table;
-  formulaFields: ReadonlyArray<FormulaFieldDefinition>;
-}): Promise<Table> => {
-  const { container } = params;
-  let table = params.table;
-  const pending = [...params.formulaFields];
-
-  while (pending.length > 0) {
-    const nameToId = buildNameToIdMap(table);
-    const knownIds = new Set(Array.from(nameToId.values()));
-    const readyIndex = pending.findIndex((definition) => {
-      const refs = extractFieldRefs(definition.expression);
-      return refs.every((ref) => nameToId.has(ref) || knownIds.has(ref));
-    });
-
-    if (readyIndex === -1) {
-      const remaining = pending
-        .map((definition) => {
-          const refs = extractFieldRefs(definition.expression).filter(
-            (ref) => !nameToId.has(ref) && !knownIds.has(ref)
-          );
-          return `${definition.name} -> ${refs.join(', ') || 'unknown'}`;
-        })
-        .join('; ');
-      throw new Error(`Formula field references not resolved: ${remaining}`);
-    }
-
-    const [definition] = pending.splice(readyIndex, 1);
-    const expression = replaceFieldNameRefs(definition.expression, nameToId);
-    const command = unwrapOrThrow(
-      CreateFieldCommand.create({
-        baseId: container.baseId.toString(),
-        tableId: table.id().toString(),
-        field: {
-          type: 'formula',
-          name: definition.name,
-          options: { expression },
-        },
-      }),
-      `CreateFieldCommand(${definition.name})`
-    );
-    const result = await executeCommand<{ table: Table }>(container, command);
-    table = result.table;
-  }
-
-  return table;
-};
-
 const createForeignTable = async (
   container: IV2NodeTestContainer
 ): Promise<{ table: Table; primary: Field; number: Field; date: Field }> => {
@@ -438,9 +354,9 @@ const createHostTable = async (params: {
   const { container, foreignTable, foreignPrimary, foreignNumber, foreignDate } = params;
   const baseId = container.baseId.toString();
 
-  const formulaFields = [...params.formulaFields];
-  if (!formulaFields.some((field) => field.name === FORMULA_TYPE_FIELD_NAME)) {
-    formulaFields.push({ name: FORMULA_TYPE_FIELD_NAME, expression: '10' });
+  const formulaFieldDefinitions = [...params.formulaFields];
+  if (!formulaFieldDefinitions.some((field) => field.name === FORMULA_TYPE_FIELD_NAME)) {
+    formulaFieldDefinitions.push({ name: FORMULA_TYPE_FIELD_NAME, expression: '10' });
   }
 
   const linkFieldId = generateFieldId('link');
@@ -694,11 +610,23 @@ const createHostTable = async (params: {
   );
   table = (await executeCommand<{ table: Table }>(container, conditionalRollupCommand)).table;
 
-  table = await resolveFormulaFields({
-    container,
-    table,
-    formulaFields,
-  });
+  // Create formula fields (including the matrix input formula field) before inserting records.
+  // This avoids triggering computed updates/backfills on large existing datasets.
+  for (const definition of formulaFieldDefinitions) {
+    const command = unwrapOrThrow(
+      CreateFieldCommand.create({
+        baseId,
+        tableId: table.id().toString(),
+        field: {
+          type: 'formula',
+          name: definition.name,
+          options: { expression: definition.expression },
+        },
+      }),
+      `CreateFieldCommand(Formula:${definition.name})`
+    );
+    table = (await executeCommand<{ table: Table }>(container, command)).table;
+  }
 
   const fieldsByType = fieldTypeValues.reduce<Record<FieldTypeLiteral, Field>>(
     (acc, type) => {
@@ -709,7 +637,7 @@ const createHostTable = async (params: {
   );
 
   const formulaFieldMap = new Map<string, Field>();
-  formulaFields.forEach((definition) => {
+  formulaFieldDefinitions.forEach((definition) => {
     formulaFieldMap.set(definition.name, findFieldByName(table, definition.name));
   });
 
@@ -802,8 +730,12 @@ export const createFormulaTestTable = async (
   container: IV2NodeTestContainer,
   formulaFields: ReadonlyArray<FormulaFieldDefinition>
 ): Promise<FormulaTestTable> => {
+  const formulaFieldDefinitions = [...formulaFields];
+  if (!formulaFieldDefinitions.some((field) => field.name === FORMULA_TYPE_FIELD_NAME)) {
+    formulaFieldDefinitions.push({ name: FORMULA_TYPE_FIELD_NAME, expression: '10' });
+  }
   const formulaDefinitions = new Map(
-    formulaFields.map((definition) => [definition.name, definition])
+    formulaFieldDefinitions.map((definition) => [definition.name, definition])
   );
   const foreign = await createForeignTable(container);
   const host = await createHostTable({
@@ -812,7 +744,7 @@ export const createFormulaTestTable = async (
     foreignPrimary: foreign.primary,
     foreignNumber: foreign.number,
     foreignDate: foreign.date,
-    formulaFields,
+    formulaFields: formulaFieldDefinitions,
   });
   const foreignRecordId = await createForeignRecord(container, foreign.table);
   await createHostRecord(container, host.table, host.fieldsByType, foreignRecordId);
@@ -834,8 +766,8 @@ export const createFormulaTestTable = async (
     table: host.table,
     translator,
     db: container.db as unknown as Kysely<DynamicDb>,
-    formulaFields: host.formulaFields,
     formulaDefinitions,
+    formulaFields: host.formulaFields,
     fieldsByType: host.fieldsByType,
     tableAlias: TABLE_ALIAS,
     fieldSnapshotCache: new Map<string, Promise<FieldSnapshotValue>>(),
@@ -844,11 +776,11 @@ export const createFormulaTestTable = async (
 
 export const executeFormulaAsText = async (
   testTable: FormulaTestTable,
-  formulaFieldName: string
+  formulaName: string
 ): Promise<string | null> => {
-  const formulaField = testTable.formulaFields.get(formulaFieldName);
-  if (!formulaField) throw new Error(`Missing formula field: ${formulaFieldName}`);
-  const sqlExprResult = testTable.translator.resolveFieldById(formulaField.id().toString());
+  const formulaDefinition = testTable.formulaDefinitions.get(formulaName);
+  if (!formulaDefinition) throw new Error(`Missing formula definition: ${formulaName}`);
+  const sqlExprResult = testTable.translator.translateExpression(formulaDefinition.expression);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
   const rendered = testTable.translator.renderSql(sqlExpr);
   const tableName = resolveDbTableName(testTable.table);
@@ -951,14 +883,12 @@ const getFieldSnapshotValue = (
 
 export const buildFormulaSnapshotContext = async (
   testTable: FormulaTestTable,
-  formulaFieldName: string
+  formulaName: string
 ): Promise<FormulaSnapshotContext> => {
-  const formulaField = testTable.formulaFields.get(formulaFieldName);
-  if (!formulaField) throw new Error(`Missing formula field: ${formulaFieldName}`);
-  const formulaDefinition = testTable.formulaDefinitions.get(formulaFieldName);
-  if (!formulaDefinition) throw new Error(`Missing formula definition: ${formulaFieldName}`);
+  const formulaDefinition = testTable.formulaDefinitions.get(formulaName);
+  if (!formulaDefinition) throw new Error(`Missing formula definition: ${formulaName}`);
 
-  const sqlExprResult = testTable.translator.resolveFieldById(formulaField.id().toString());
+  const sqlExprResult = testTable.translator.translateExpression(formulaDefinition.expression);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
   const renderedSql = testTable.translator.renderSql(sqlExpr);
   const result = await fetchSqlValue(testTable, renderedSql);
@@ -987,7 +917,7 @@ export const buildFormulaSnapshotContext = async (
   }
 
   return {
-    formulaName: formulaFieldName,
+    formulaName,
     formula: formulaDefinition.expression,
     sql: renderedSql,
     inputs: Object.fromEntries(inputValues),

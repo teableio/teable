@@ -88,12 +88,12 @@ exports[`text functions > 'Concatenate' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": "-x",
+  "result": "10-x",
   "sql": "CONCAT((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -101,11 +101,47 @@ exports[`text functions > 'Concatenate' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ), '-x')",
 }
 `;
@@ -119,15 +155,15 @@ exports[`text functions > 'Concatenate' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": "-x",
+  "result": "10.00-x",
   "sql": "CONCAT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '-x')",
 }
 `;
@@ -211,7 +247,7 @@ exports[`text functions > 'Concatenate' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "10-x",
@@ -316,7 +352,48 @@ exports[`text functions > 'Concatenate' with 'lookup' 1`] = `
   "result": "10-x",
   "sql": "CONCAT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ), '-x')",
 }
 `;
@@ -554,12 +631,12 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "encode((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -567,11 +644,47 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   )::bytea, 'escape')",
 }
 `;
@@ -585,15 +698,15 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "10.00",
   "sql": "encode(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::bytea, 'escape')",
 }
 `;
@@ -677,7 +790,7 @@ exports[`text functions > 'EncodeUrlComponent' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "10",
@@ -782,7 +895,48 @@ exports[`text functions > 'EncodeUrlComponent' with 'lookup' 1`] = `
   "result": "10",
   "sql": "encode((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     )::bytea, 'escape')",
 }
 `;
@@ -1020,12 +1174,12 @@ exports[`text functions > 'Find' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "POSITION('1' IN SUBSTRING((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -1033,11 +1187,47 @@ exports[`text functions > 'Find' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
@@ -1051,15 +1241,15 @@ exports[`text functions > 'Find' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "POSITION('1' IN SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
@@ -1143,7 +1333,7 @@ exports[`text functions > 'Find' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "1",
@@ -1248,7 +1438,48 @@ exports[`text functions > 'Find' with 'lookup' 1`] = `
   "result": "1",
   "sql": "POSITION('1' IN SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
@@ -1504,12 +1735,12 @@ exports[`text functions > 'Left' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "LEFT((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -1517,11 +1748,47 @@ exports[`text functions > 'Left' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ), (1)::double precision::integer)",
 }
 `;
@@ -1535,15 +1802,15 @@ exports[`text functions > 'Left' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "LEFT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (1)::double precision::integer)",
 }
 `;
@@ -1627,7 +1894,7 @@ exports[`text functions > 'Left' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "1",
@@ -1732,7 +1999,48 @@ exports[`text functions > 'Left' with 'lookup' 1`] = `
   "result": "1",
   "sql": "LEFT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ), (1)::double precision::integer)",
 }
 `;
@@ -1970,12 +2278,12 @@ exports[`text functions > 'Len' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "2",
   "sql": "LENGTH((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -1983,11 +2291,47 @@ exports[`text functions > 'Len' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ))",
 }
 `;
@@ -2001,15 +2345,15 @@ exports[`text functions > 'Len' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "5",
   "sql": "LENGTH(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -2093,7 +2437,7 @@ exports[`text functions > 'Len' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "2",
@@ -2198,7 +2542,48 @@ exports[`text functions > 'Len' with 'lookup' 1`] = `
   "result": "2",
   "sql": "LENGTH((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ))",
 }
 `;
@@ -2436,12 +2821,12 @@ exports[`text functions > 'Lower' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "LOWER((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -2449,11 +2834,47 @@ exports[`text functions > 'Lower' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ))",
 }
 `;
@@ -2467,15 +2888,15 @@ exports[`text functions > 'Lower' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "10.00",
   "sql": "LOWER(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -2559,7 +2980,7 @@ exports[`text functions > 'Lower' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "10",
@@ -2664,7 +3085,48 @@ exports[`text functions > 'Lower' with 'lookup' 1`] = `
   "result": "10",
   "sql": "LOWER((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ))",
 }
 `;
@@ -2902,12 +3364,12 @@ exports[`text functions > 'Mid' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "SUBSTRING((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -2915,11 +3377,47 @@ exports[`text functions > 'Mid' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ) FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
@@ -2933,15 +3431,15 @@ exports[`text functions > 'Mid' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
@@ -3025,7 +3523,7 @@ exports[`text functions > 'Mid' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "10",
@@ -3130,7 +3628,48 @@ exports[`text functions > 'Mid' with 'lookup' 1`] = `
   "result": "10",
   "sql": "SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ) FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
@@ -3368,12 +3907,12 @@ exports[`text functions > 'RegExpReplace' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "x0",
   "sql": "REGEXP_REPLACE((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -3381,11 +3920,47 @@ exports[`text functions > 'RegExpReplace' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ), '1', 'x', 'g')",
 }
 `;
@@ -3399,15 +3974,15 @@ exports[`text functions > 'RegExpReplace' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "x0.00",
   "sql": "REGEXP_REPLACE(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '1', 'x', 'g')",
 }
 `;
@@ -3491,7 +4066,7 @@ exports[`text functions > 'RegExpReplace' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "x0",
@@ -3596,7 +4171,48 @@ exports[`text functions > 'RegExpReplace' with 'lookup' 1`] = `
   "result": "x0",
   "sql": "REGEXP_REPLACE((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ), '1', 'x', 'g')",
 }
 `;
@@ -3834,12 +4450,12 @@ exports[`text functions > 'Replace' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "x0",
   "sql": "OVERLAY((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -3847,11 +4463,47 @@ exports[`text functions > 'Replace' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ) PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
@@ -3865,15 +4517,15 @@ exports[`text functions > 'Replace' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "x0.00",
   "sql": "OVERLAY(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
@@ -3957,7 +4609,7 @@ exports[`text functions > 'Replace' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "x0",
@@ -4062,7 +4714,48 @@ exports[`text functions > 'Replace' with 'lookup' 1`] = `
   "result": "x0",
   "sql": "OVERLAY((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ) PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
@@ -4300,12 +4993,12 @@ exports[`text functions > 'Rept' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "1010",
   "sql": "REPEAT((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -4313,11 +5006,47 @@ exports[`text functions > 'Rept' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ), (2)::double precision::integer)",
 }
 `;
@@ -4331,15 +5060,15 @@ exports[`text functions > 'Rept' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "10.0010.00",
   "sql": "REPEAT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (2)::double precision::integer)",
 }
 `;
@@ -4423,7 +5152,7 @@ exports[`text functions > 'Rept' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "1010",
@@ -4528,7 +5257,48 @@ exports[`text functions > 'Rept' with 'lookup' 1`] = `
   "result": "1010",
   "sql": "REPEAT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ), (2)::double precision::integer)",
 }
 `;
@@ -4766,12 +5536,12 @@ exports[`text functions > 'Right' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "0",
   "sql": "RIGHT((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -4779,11 +5549,47 @@ exports[`text functions > 'Right' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ), (1)::double precision::integer)",
 }
 `;
@@ -4797,15 +5603,15 @@ exports[`text functions > 'Right' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "0",
   "sql": "RIGHT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (1)::double precision::integer)",
 }
 `;
@@ -4889,7 +5695,7 @@ exports[`text functions > 'Right' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "0",
@@ -4994,7 +5800,48 @@ exports[`text functions > 'Right' with 'lookup' 1`] = `
   "result": "0",
   "sql": "RIGHT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ), (1)::double precision::integer)",
 }
 `;
@@ -5232,12 +6079,12 @@ exports[`text functions > 'Search' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -5245,11 +6092,47 @@ exports[`text functions > 'Search' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
@@ -5263,15 +6146,15 @@ exports[`text functions > 'Search' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "1",
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
@@ -5355,7 +6238,7 @@ exports[`text functions > 'Search' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "1",
@@ -5460,7 +6343,48 @@ exports[`text functions > 'Search' with 'lookup' 1`] = `
   "result": "1",
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
@@ -5716,12 +6640,12 @@ exports[`text functions > 'Substitute' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "x0",
   "sql": "REPLACE((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -5729,11 +6653,47 @@ exports[`text functions > 'Substitute' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ), '1', 'x')",
 }
 `;
@@ -5747,15 +6707,15 @@ exports[`text functions > 'Substitute' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "x0.00",
   "sql": "REPLACE(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '1', 'x')",
 }
 `;
@@ -5839,7 +6799,7 @@ exports[`text functions > 'Substitute' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "x0",
@@ -5944,7 +6904,48 @@ exports[`text functions > 'Substitute' with 'lookup' 1`] = `
   "result": "x0",
   "sql": "REPLACE((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ), '1', 'x')",
 }
 `;
@@ -6182,12 +7183,12 @@ exports[`text functions > 'T' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "(
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -6195,11 +7196,47 @@ exports[`text functions > 'T' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   )",
 }
 `;
@@ -6213,12 +7250,12 @@ exports[`text functions > 'T' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": null,
@@ -6305,7 +7342,7 @@ exports[`text functions > 'T' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": null,
@@ -6410,7 +7447,48 @@ exports[`text functions > 'T' with 'lookup' 1`] = `
   "result": "10",
   "sql": "(
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     )",
 }
 `;
@@ -6648,12 +7726,12 @@ exports[`text functions > 'Trim' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "TRIM((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -6661,11 +7739,47 @@ exports[`text functions > 'Trim' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ))",
 }
 `;
@@ -6679,15 +7793,15 @@ exports[`text functions > 'Trim' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "10.00",
   "sql": "TRIM(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -6771,7 +7885,7 @@ exports[`text functions > 'Trim' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "10",
@@ -6876,7 +7990,48 @@ exports[`text functions > 'Trim' with 'lookup' 1`] = `
   "result": "10",
   "sql": "TRIM((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ))",
 }
 `;
@@ -7114,12 +8269,12 @@ exports[`text functions > 'Upper' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "",
+      "formattedValue": "10",
       "formatting": undefined,
-      "rawValue": null,
+      "rawValue": "[10]",
     },
   },
-  "result": null,
+  "result": "10",
   "sql": "UPPER((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -7127,11 +8282,47 @@ exports[`text functions > 'Upper' with 'conditionalLookup' 1`] = `
     ELSE elem #>> '{}'
   END), ', ' ORDER BY ord)
     FROM jsonb_array_elements((CASE
-        WHEN "t"."ConditionalLookupType" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'array' THEN to_jsonb("t"."ConditionalLookupType")
-        WHEN jsonb_typeof(to_jsonb("t"."ConditionalLookupType")) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(to_jsonb("t"."ConditionalLookupType"))
-      END)) WITH ORDINALITY AS t(elem, ord)
+      WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."ConditionalLookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."ConditionalLookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."ConditionalLookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."ConditionalLookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."ConditionalLookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
+      ELSE to_jsonb(("t"."ConditionalLookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
   ))",
 }
 `;
@@ -7145,15 +8336,15 @@ exports[`text functions > 'Upper' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "",
+      "formattedValue": "10.00",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
-  "result": null,
+  "result": "10.00",
   "sql": "UPPER(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -7237,7 +8428,7 @@ exports[`text functions > 'Upper' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": null,
+      "rawValue": "10",
     },
   },
   "result": "10",
@@ -7342,7 +8533,48 @@ exports[`text functions > 'Upper' with 'lookup' 1`] = `
   "result": "10",
   "sql": "UPPER((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."LookupType")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements((CASE
+      WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'array' THEN (CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)
+      WHEN jsonb_typeof((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END)) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array((CASE
+      WHEN pg_typeof(("t"."LookupType")) = 'jsonb'::regtype THEN
+        CASE
+          WHEN jsonb_typeof(("t"."LookupType")::jsonb) = 'string' AND (LEFT(BTRIM((("t"."LookupType")::jsonb #>> '{}')), 1) IN ('[', '{')) AND pg_input_is_valid((("t"."LookupType")::jsonb #>> '{}'), 'jsonb')
+            THEN ((("t"."LookupType")::jsonb #>> '{}'))::jsonb
+          ELSE ("t"."LookupType")::jsonb
+        END
+      WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
+      ELSE to_jsonb(("t"."LookupType"))
+    END))
+    END)) WITH ORDINALITY AS t(elem, ord)
     ))",
 }
 `;
