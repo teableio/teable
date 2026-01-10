@@ -26,7 +26,7 @@
         "../adapter-record-repository-postgres/src"
       ],
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
-      "@teable/v2-adapter-table-repository-postgres": ["../adapter-schema-repository-postgres/src"],
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"]
     },
@@ -39,7 +39,7 @@
     "../adapter-db-postgres-pglite/src",
     "../adapter-record-repository-postgres/src",
     "../adapter-repository-postgres/src",
-    "../adapter-schema-repository-postgres/src",
+    "../adapter-table-repository-postgres/src",
     "../core/src",
     "../di/src"
   ]

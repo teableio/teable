@@ -21,7 +21,7 @@
     "outDir": "dist",
     "paths": {
       "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
-      "@teable/v2-adapter-table-repository-postgres": ["../adapter-schema-repository-postgres/src"],
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-adapter-record-repository-postgres": [
         "../adapter-record-repository-postgres/src"
@@ -37,7 +37,7 @@
   "include": [
     "src",
     "../adapter-logger-console/src",
-    "../adapter-schema-repository-postgres/src",
+    "../adapter-table-repository-postgres/src",
     "../adapter-repository-postgres/src",
     "../core/src",
     "../adapter-db-postgres-pg/src",

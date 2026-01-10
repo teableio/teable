@@ -25,7 +25,7 @@
       "@teable/v2-adapter-record-repository-postgres": [
         "../adapter-record-repository-postgres/src"
       ],
-      "@teable/v2-adapter-table-repository-postgres": ["../adapter-schema-repository-postgres/src"],
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
@@ -46,7 +46,7 @@
     "../core/src/**/*.spec.ts",
     "../adapter-record-repository-postgres/src/**/*.spec.ts",
     "../adapter-repository-postgres/src/**/*.spec.ts",
-    "../adapter-schema-repository-postgres/src/**/*.spec.ts"
+    "../adapter-table-repository-postgres/src/**/*.spec.ts"
   ],
   "include": [
     "vitest.setup.ts",
@@ -54,7 +54,7 @@
     "../container-node-test/src",
     "../adapter-logger-console/src",
     "../adapter-record-repository-postgres/src",
-    "../adapter-schema-repository-postgres/src",
+    "../adapter-table-repository-postgres/src",
     "../adapter-repository-postgres/src",
     "../core/src",
     "../adapter-db-postgres-pg/src",
