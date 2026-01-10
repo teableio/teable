@@ -10,11 +10,15 @@ import { PGlite } from '@electric-sql/pglite';
 import type { DomainError, Field, LinkField } from '@teable/v2-core';
 import {
   createSingleLineTextField,
+  createConditionalLookupFieldPending,
+  createLookupFieldPending,
+  ConditionalLookupOptions,
   DbFieldName,
   FieldId,
   FieldName,
   FieldNotNull,
   FieldUnique,
+  LookupOptions,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Dialect, QueryResult } from 'kysely';
@@ -137,7 +141,12 @@ class KyselyPGliteDialect implements Dialect {
 /**
  * Create a valid field ID (format: fld + 16 chars)
  */
-const createValidFieldId = (seed: string): string => `fld${seed.padEnd(16, '0').slice(0, 16)}`;
+// eslint-disable-next-line regexp/use-ignore-case
+const sanitizeIdSeed = (seed: string): string => seed.replace(/[^0-9a-zA-Z]/g, '0');
+const createValidFieldId = (seed: string): string =>
+  `fld${sanitizeIdSeed(seed).padEnd(16, '0').slice(0, 16)}`;
+const createValidTableId = (seed: string): string =>
+  `tbl${sanitizeIdSeed(seed).padEnd(16, '0').slice(0, 16)}`;
 
 /**
  * Helper to create a real field with dbFieldName set
@@ -168,6 +177,85 @@ const createRealField = (
   });
 
   if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
+const createLookupField = (
+  id: string,
+  name: string,
+  dbFieldName: string
+): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(createValidFieldId(id));
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const lookupOptionsResult = LookupOptions.create({
+    linkFieldId: createValidFieldId(`link_${id}`),
+    lookupFieldId: createValidFieldId(`lookup_${id}`),
+    foreignTableId: createValidTableId(`table_${id}`),
+  });
+  if (lookupOptionsResult.isErr()) return err(lookupOptionsResult.error);
+
+  const fieldResult = createLookupFieldPending({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    lookupOptions: lookupOptionsResult.value,
+  });
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
+
+  const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
+  if (setResult.isErr()) return err(setResult.error);
+
+  return fieldResult;
+};
+
+const createConditionalLookupField = (
+  id: string,
+  name: string,
+  dbFieldName: string
+): Result<Field, DomainError> => {
+  const fieldIdResult = FieldId.create(createValidFieldId(id));
+  if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+  const fieldNameResult = FieldName.create(name);
+  if (fieldNameResult.isErr()) return err(fieldNameResult.error);
+
+  const lookupOptionsResult = ConditionalLookupOptions.create({
+    foreignTableId: createValidTableId(`table_${id}`),
+    lookupFieldId: createValidFieldId(`lookup_${id}`),
+    condition: {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: createValidFieldId(`cond_${id}`),
+            operator: 'is',
+            value: 'ok',
+          },
+        ],
+      },
+    },
+  });
+  if (lookupOptionsResult.isErr()) return err(lookupOptionsResult.error);
+
+  const fieldResult = createConditionalLookupFieldPending({
+    id: fieldIdResult.value,
+    name: fieldNameResult.value,
+    conditionalLookupOptions: lookupOptionsResult.value,
+  });
+  if (fieldResult.isErr()) return err(fieldResult.error);
+
+  const dbFieldResult = DbFieldName.rehydrate(dbFieldName);
+  if (dbFieldResult.isErr()) return err(dbFieldResult.error);
 
   const setResult = fieldResult.value.setDbFieldName(dbFieldResult.value);
   if (setResult.isErr()) return err(setResult.error);
@@ -352,6 +440,37 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         await db.executeQuery(stmt.compile(db));
       }
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+    });
+
+    it.each([
+      {
+        label: 'lookup',
+        factory: () => createLookupField('lookup001', 'ParentName', 'parent_name'),
+      },
+      {
+        label: 'conditionalLookup',
+        factory: () =>
+          createConditionalLookupField('clookup001', 'FilteredParentName', 'parent_name'),
+      },
+    ])('creates $label column as jsonb', async ({ factory }) => {
+      await createTestTable(TABLE_NAME);
+
+      const fieldResult = factory();
+      if (fieldResult.isErr()) {
+        throw new Error(`Failed to create field: ${fieldResult.error.message}`);
+      }
+      const field = fieldResult._unsafeUnwrap();
+
+      const rule = new ColumnExistsRule(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      const columnResult = await introspector.getColumn(TEST_SCHEMA, TABLE_NAME, 'parent_name');
+      expect(columnResult.isOk()).toBe(true);
+      expect(columnResult._unsafeUnwrap()?.dataType).toBe('jsonb');
     });
   });
 

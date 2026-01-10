@@ -1,3 +1,4 @@
+import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
 import { FieldId, RecordId, SelectOptionId, TableId, type FieldColorValue } from '@teable/v2-core';
 
 import type {
@@ -165,3 +166,10 @@ export const singleTable = (
     }),
     defaultRecordCount
   );
+
+export const createTextColumns = (count: number): ICreateTableRequestDto['fields'] =>
+  Array.from({ length: count }, (_, i) => ({
+    type: 'singleLineText' as const,
+    id: createFieldId(),
+    name: `Column ${i + 1}`,
+  }));

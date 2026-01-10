@@ -4,6 +4,7 @@ import type {
   Field,
   ICellValueSpecVisitor,
   LinkField,
+  MultipleSelectField,
   SetAttachmentValueSpec,
   SetCheckboxValueSpec,
   SetDateValueSpec,
@@ -15,6 +16,7 @@ import type {
   SetRatingValueSpec,
   SetSingleLineTextValueSpec,
   SetSingleSelectValueSpec,
+  SingleSelectField,
   SetUserValueSpec,
   Table,
 } from '@teable/v2-core';
@@ -182,6 +184,91 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     return ok(undefined);
   }
 
+  private mapSingleSelectValue(field: SingleSelectField, rawValue: unknown): unknown {
+    if (rawValue === null || rawValue === undefined) {
+      return null;
+    }
+    if (typeof rawValue !== 'string') {
+      return rawValue;
+    }
+
+    const options = field.selectOptions();
+    const byId = options.find((opt) => opt.id().toString() === rawValue);
+    if (byId) {
+      return byId.name().toString();
+    }
+
+    const byName = options.find((opt) => opt.name().toString() === rawValue);
+    if (byName) {
+      return byName.name().toString();
+    }
+
+    return rawValue;
+  }
+
+  private mapMultipleSelectValue(field: MultipleSelectField, rawValue: unknown): unknown {
+    if (rawValue === null || rawValue === undefined) {
+      return null;
+    }
+    if (!Array.isArray(rawValue)) {
+      return rawValue;
+    }
+
+    const options = field.selectOptions();
+    const nameById = new Map(options.map((opt) => [opt.id().toString(), opt.name().toString()]));
+    const validNames = new Set(options.map((opt) => opt.name().toString()));
+
+    return rawValue.map((item) => {
+      if (typeof item !== 'string') {
+        return item;
+      }
+      const name = nameById.get(item);
+      if (name) {
+        return name;
+      }
+      if (validNames.has(item)) {
+        return item;
+      }
+      return item;
+    });
+  }
+
+  private addSelectValue(
+    fieldId: FieldId,
+    rawValue: unknown,
+    kind: 'single' | 'multiple'
+  ): Result<void, DomainError> {
+    const result = this.getFieldAndDbName(fieldId.toString());
+    if (result.isErr()) return err(result.error);
+
+    const { field, dbFieldName } = result.value;
+
+    // Skip computed fields
+    if (field.computed().toBoolean()) {
+      return ok(undefined);
+    }
+
+    if (kind === 'single' && field.type().equals(FieldType.singleSelect())) {
+      const mappedValue = this.mapSingleSelectValue(field as SingleSelectField, rawValue);
+      this.changedFieldIds.push(fieldId);
+      this.setClauses[dbFieldName] = mappedValue ?? null;
+      return ok(undefined);
+    }
+
+    if (kind === 'multiple' && field.type().equals(FieldType.multipleSelect())) {
+      const mappedValue = this.mapMultipleSelectValue(field as MultipleSelectField, rawValue);
+      this.changedFieldIds.push(fieldId);
+      const value =
+        mappedValue === null || mappedValue === undefined ? null : JSON.stringify(mappedValue);
+      this.setClauses[dbFieldName] = value;
+      return ok(undefined);
+    }
+
+    return kind === 'single'
+      ? this.addSimpleValue(fieldId, rawValue)
+      : this.addJsonValue(fieldId, rawValue);
+  }
+
   // --- Text types ---
 
   visitSetSingleLineTextValue(spec: SetSingleLineTextValueSpec): Result<void, DomainError> {
@@ -205,11 +292,11 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   // --- Select types ---
 
   visitSetSingleSelectValue(spec: SetSingleSelectValueSpec): Result<void, DomainError> {
-    return this.addSimpleValue(spec.fieldId, spec.value.toValue());
+    return this.addSelectValue(spec.fieldId, spec.value.toValue(), 'single');
   }
 
   visitSetMultipleSelectValue(spec: SetMultipleSelectValueSpec): Result<void, DomainError> {
-    return this.addJsonValue(spec.fieldId, spec.value.toValue());
+    return this.addSelectValue(spec.fieldId, spec.value.toValue(), 'multiple');
   }
 
   // --- Other types ---

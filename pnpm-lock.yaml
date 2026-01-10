@@ -3089,12 +3089,18 @@ importers:
         specifier: 3.24.2
         version: 3.24.2
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.3.14
+        version: 0.3.14
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../eslint-config-bases
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
+      '@testcontainers/postgresql':
+        specifier: 11.10.0
+        version: 11.10.0
       '@types/node':
         specifier: 22.18.0
         version: 22.18.0
@@ -3609,6 +3615,9 @@ importers:
       '@teable/v2-postgres-schema':
         specifier: workspace:*
         version: link:../postgres-schema
+      '@teable/v2-table-templates':
+        specifier: workspace:*
+        version: link:../table-templates
       '@testcontainers/postgresql':
         specifier: 11.10.0
         version: 11.10.0

@@ -42,8 +42,10 @@
     "zod": "3.24.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
+    "@testcontainers/postgresql": "11.10.0",
     "@types/node": "22.18.0",
     "@vitest/coverage-v8": "4.0.16",
     "eslint": "8.57.0",

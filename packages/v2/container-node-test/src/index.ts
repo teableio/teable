@@ -7,12 +7,12 @@ import {
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
+import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import {
   registerV2TableRepositoryPostgresAdapter,
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
 } from '@teable/v2-adapter-table-repository-postgres';
-import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import type { IHasher, ITableRepository } from '@teable/v2-core';
 import {
   BaseId,

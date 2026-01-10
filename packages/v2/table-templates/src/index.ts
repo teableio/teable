@@ -17,6 +17,7 @@ export {
   createSelectOptionId,
   createTableId,
   createTemplate,
+  createTextColumns,
   MAX_TEMPLATE_RECORDS,
   MIN_TEMPLATE_RECORDS,
   normalizeTemplateRecords,

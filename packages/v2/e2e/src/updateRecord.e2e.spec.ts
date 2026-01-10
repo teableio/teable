@@ -37,6 +37,9 @@ describe('v2 http updateRecord (e2e)', () => {
   let typecastSingleSelectOpenOptionId: string;
   let typecastMultiSelectTagAId: string;
   let typecastMultiSelectTagCId: string;
+  let typecastSingleSelectOpenOptionName: string;
+  let typecastMultiSelectTagAName: string;
+  let typecastMultiSelectTagCName: string;
 
   const typecastCaseKeys = [
     'number',
@@ -290,9 +293,10 @@ describe('v2 http updateRecord (e2e)', () => {
     const singleSelectChoices =
       (singleSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
       [];
-    typecastSingleSelectOpenOptionId =
-      singleSelectChoices.find((choice) => choice.name === 'Open')?.id ?? '';
-    if (!typecastSingleSelectOpenOptionId) {
+    const singleSelectOpenChoice = singleSelectChoices.find((choice) => choice.name === 'Open');
+    typecastSingleSelectOpenOptionId = singleSelectOpenChoice?.id ?? '';
+    typecastSingleSelectOpenOptionName = singleSelectOpenChoice?.name ?? '';
+    if (!typecastSingleSelectOpenOptionId || !typecastSingleSelectOpenOptionName) {
       throw new Error('Missing single select option "Open"');
     }
 
@@ -300,11 +304,18 @@ describe('v2 http updateRecord (e2e)', () => {
     const multiSelectChoices =
       (multiSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
       [];
-    typecastMultiSelectTagAId =
-      multiSelectChoices.find((choice) => choice.name === 'Tag A')?.id ?? '';
-    typecastMultiSelectTagCId =
-      multiSelectChoices.find((choice) => choice.name === 'Tag C')?.id ?? '';
-    if (!typecastMultiSelectTagAId || !typecastMultiSelectTagCId) {
+    const multiSelectTagAChoice = multiSelectChoices.find((choice) => choice.name === 'Tag A');
+    const multiSelectTagCChoice = multiSelectChoices.find((choice) => choice.name === 'Tag C');
+    typecastMultiSelectTagAId = multiSelectTagAChoice?.id ?? '';
+    typecastMultiSelectTagCId = multiSelectTagCChoice?.id ?? '';
+    typecastMultiSelectTagAName = multiSelectTagAChoice?.name ?? '';
+    typecastMultiSelectTagCName = multiSelectTagCChoice?.name ?? '';
+    if (
+      !typecastMultiSelectTagAId ||
+      !typecastMultiSelectTagCId ||
+      !typecastMultiSelectTagAName ||
+      !typecastMultiSelectTagCName
+    ) {
       throw new Error('Missing multi select options');
     }
   });
@@ -392,7 +403,28 @@ describe('v2 http updateRecord (e2e)', () => {
     const updated = records.find((r) => r.id === record.id);
     expect(updated).toBeDefined();
     if (!updated) return;
-    testCase.assert(updated.fields[fieldId]);
+    const storedValue = updated.fields[fieldId];
+    if (testCase.name === 'singleSelect') {
+      expect(storedValue).toBe(typecastSingleSelectOpenOptionName);
+      return;
+    }
+    if (testCase.name === 'multipleSelect') {
+      const normalized = Array.isArray(storedValue)
+        ? storedValue
+        : typeof storedValue === 'string'
+          ? (() => {
+              try {
+                const parsed = JSON.parse(storedValue) as unknown;
+                return Array.isArray(parsed) ? parsed : storedValue;
+              } catch {
+                return storedValue;
+              }
+            })()
+          : storedValue;
+      expect(normalized).toEqual([typecastMultiSelectTagAName, typecastMultiSelectTagCName]);
+      return;
+    }
+    testCase.assert(storedValue);
   });
 
   it('updates link fields by title when typecast is enabled', async () => {

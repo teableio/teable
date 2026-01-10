@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
+import {
+  createV2NodeTestContainer,
+  type IV2NodeTestContainer,
+} from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -11,6 +14,7 @@ import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import type { ICreateTableCommandInput } from '@teable/v2-core';
 import express from 'express';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 describe('v2 http createRecord (e2e)', () => {
@@ -22,6 +26,7 @@ describe('v2 http createRecord (e2e)', () => {
   let textFieldId: string;
   let numberFieldId: string;
   let checkboxFieldId: string;
+  let testContainer: IV2NodeTestContainer;
   let typecastTableId: string;
   let typecastPrimaryFieldId: string;
   let typecastNumberFieldId: string;
@@ -33,6 +38,13 @@ describe('v2 http createRecord (e2e)', () => {
   let typecastSingleSelectOpenOptionId: string;
   let typecastMultiSelectTagAId: string;
   let typecastMultiSelectTagCId: string;
+  let typecastSingleSelectOpenOptionName: string;
+  let typecastMultiSelectTagAName: string;
+  let typecastMultiSelectTagCName: string;
+  let typecastSingleSelectDbFieldName: string;
+  let typecastMultiSelectDbFieldName: string;
+
+  let fieldIdCounter = 0;
 
   const typecastCaseKeys = [
     'number',
@@ -109,6 +121,23 @@ describe('v2 http createRecord (e2e)', () => {
   void _exhaustiveCheck;
   const typecastCases = Object.values(typecastCaseMap);
 
+  const createFieldId = () => {
+    const suffix = fieldIdCounter.toString(36).padStart(16, '0');
+    fieldIdCounter += 1;
+    return `fld${suffix}`;
+  };
+
+  const normalizeJsonArray = (value: unknown): unknown[] => {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== 'string') return [];
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   const createTable = async (payload: ICreateTableCommandInput) => {
     const response = await fetch(`${baseUrl}/tables/create`, {
       method: 'POST',
@@ -127,8 +156,26 @@ describe('v2 http createRecord (e2e)', () => {
     return parsed.data.data.table;
   };
 
+  const createRecord = async (tableIdParam: string, fields: Record<string, unknown>) => {
+    const response = await fetch(`${baseUrl}/tables/createRecord`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tableId: tableIdParam, fields }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create record: ${errorText}`);
+    }
+    const rawBody = await response.json();
+    const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error('Failed to parse create record response');
+    }
+    return parsed.data.data.record;
+  };
+
   beforeAll(async () => {
-    const testContainer = await createV2NodeTestContainer();
+    testContainer = await createV2NodeTestContainer();
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
 
@@ -195,16 +242,23 @@ describe('v2 http createRecord (e2e)', () => {
     typecastRatingFieldId = typecastTable.fields.find((f) => f.name === 'Score')?.id ?? '';
 
     const singleSelectField = typecastTable.fields.find((f) => f.name === 'Status');
+    typecastSingleSelectDbFieldName = singleSelectField?.dbFieldName ?? '';
     const singleSelectChoices =
       (singleSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
       [];
     typecastSingleSelectOpenOptionId =
       singleSelectChoices.find((choice) => choice.name === 'Open')?.id ?? '';
-    if (!typecastSingleSelectOpenOptionId) {
+    typecastSingleSelectOpenOptionName =
+      singleSelectChoices.find((choice) => choice.name === 'Open')?.name ?? '';
+    if (!typecastSingleSelectOpenOptionId || !typecastSingleSelectOpenOptionName) {
       throw new Error('Missing single select option "Open"');
+    }
+    if (!typecastSingleSelectDbFieldName) {
+      throw new Error('Missing dbFieldName for typecast single select field');
     }
 
     const multiSelectField = typecastTable.fields.find((f) => f.name === 'Tags');
+    typecastMultiSelectDbFieldName = multiSelectField?.dbFieldName ?? '';
     const multiSelectChoices =
       (multiSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
       [];
@@ -212,8 +266,20 @@ describe('v2 http createRecord (e2e)', () => {
       multiSelectChoices.find((choice) => choice.name === 'Tag A')?.id ?? '';
     typecastMultiSelectTagCId =
       multiSelectChoices.find((choice) => choice.name === 'Tag C')?.id ?? '';
-    if (!typecastMultiSelectTagAId || !typecastMultiSelectTagCId) {
+    typecastMultiSelectTagAName =
+      multiSelectChoices.find((choice) => choice.name === 'Tag A')?.name ?? '';
+    typecastMultiSelectTagCName =
+      multiSelectChoices.find((choice) => choice.name === 'Tag C')?.name ?? '';
+    if (
+      !typecastMultiSelectTagAId ||
+      !typecastMultiSelectTagCId ||
+      !typecastMultiSelectTagAName ||
+      !typecastMultiSelectTagCName
+    ) {
       throw new Error('Missing multi select options');
+    }
+    if (!typecastMultiSelectDbFieldName) {
+      throw new Error('Missing dbFieldName for typecast multi select field');
     }
   });
 
@@ -393,6 +459,127 @@ describe('v2 http createRecord (e2e)', () => {
 
     const value = body.data.record.fields[fieldId];
     testCase.assert(value);
+  });
+
+  it('stores select option names in database for new records', async () => {
+    const record = await createRecord(typecastTableId, {
+      [typecastPrimaryFieldId]: 'Stored Select Names',
+      [typecastSingleSelectFieldId]: typecastSingleSelectOpenOptionId,
+      [typecastMultiSelectFieldId]: [typecastMultiSelectTagAId, typecastMultiSelectTagCId],
+    });
+
+    const result = await sql<{ single_value: string | null; multi_value: unknown }>`
+      SELECT
+        ${sql.ref(typecastSingleSelectDbFieldName)} as single_value,
+        ${sql.ref(typecastMultiSelectDbFieldName)} as multi_value
+      FROM ${sql.table(`${baseId}.${typecastTableId}`)}
+      WHERE "__id" = ${record.id}
+    `.execute(testContainer.db);
+
+    expect(result.rows.length).toBe(1);
+    const row = result.rows[0];
+    expect(row.single_value).toBe(typecastSingleSelectOpenOptionName);
+    expect(normalizeJsonArray(row.multi_value)).toEqual([
+      typecastMultiSelectTagAName,
+      typecastMultiSelectTagCName,
+    ]);
+  });
+
+  it('stores lookup select values as option names', async () => {
+    const sourceTable = await createTable({
+      baseId,
+      name: 'Lookup Source Selects',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'singleSelect', name: 'Status', options: ['Open', 'Done'] },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const sourceNameFieldId = sourceTable.fields.find((f) => f.name === 'Name')?.id ?? '';
+    const sourceStatusField = sourceTable.fields.find((f) => f.name === 'Status');
+    const sourceStatusFieldId = sourceStatusField?.id ?? '';
+    const sourceStatusDbFieldName = sourceStatusField?.dbFieldName ?? '';
+    const sourceStatusChoices =
+      (sourceStatusField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
+      [];
+    const sourceStatusOpen = sourceStatusChoices.find((choice) => choice.name === 'Open');
+    const sourceStatusId = sourceStatusOpen?.id ?? '';
+    const sourceStatusName = sourceStatusOpen?.name ?? '';
+
+    if (!sourceNameFieldId || !sourceStatusFieldId) {
+      throw new Error('Missing source table fields');
+    }
+    if (!sourceStatusId || !sourceStatusName || !sourceStatusDbFieldName) {
+      throw new Error('Missing source status option metadata');
+    }
+
+    const sourceRecord = await createRecord(sourceTable.id, {
+      [sourceNameFieldId]: 'Source 1',
+      [sourceStatusFieldId]: sourceStatusId,
+    });
+
+    const linkFieldId = createFieldId();
+    const hostTable = await createTable({
+      baseId,
+      name: 'Lookup Host Selects',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Source',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceNameFieldId,
+            isOneWay: true,
+          },
+        },
+        {
+          type: 'lookup',
+          name: 'Status Lookup',
+          options: {
+            linkFieldId,
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceStatusFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const hostTitleFieldId = hostTable.fields.find((f) => f.name === 'Title')?.id ?? '';
+    const hostLookupField = hostTable.fields.find((f) => f.name === 'Status Lookup');
+    const hostLookupDbFieldName = hostLookupField?.dbFieldName ?? '';
+    if (!hostTitleFieldId || !hostLookupDbFieldName) {
+      throw new Error('Missing host table fields');
+    }
+
+    const hostRecord = await createRecord(hostTable.id, {
+      [hostTitleFieldId]: 'Host 1',
+      [linkFieldId]: [{ id: sourceRecord.id, title: 'Source 1' }],
+    });
+
+    await testContainer.processOutbox();
+
+    const sourceRow = await sql<{ status_value: string | null }>`
+      SELECT ${sql.ref(sourceStatusDbFieldName)} as status_value
+      FROM ${sql.table(`${baseId}.${sourceTable.id}`)}
+      WHERE "__id" = ${sourceRecord.id}
+    `.execute(testContainer.db);
+
+    expect(sourceRow.rows.length).toBe(1);
+    expect(sourceRow.rows[0].status_value).toBe(sourceStatusName);
+
+    const hostRow = await sql<{ lookup_value: unknown }>`
+      SELECT ${sql.ref(hostLookupDbFieldName)} as lookup_value
+      FROM ${sql.table(`${baseId}.${hostTable.id}`)}
+      WHERE "__id" = ${hostRecord.id}
+    `.execute(testContainer.db);
+
+    expect(hostRow.rows.length).toBe(1);
+    expect(normalizeJsonArray(hostRow.rows[0].lookup_value)).toEqual([sourceStatusName]);
   });
 });
 

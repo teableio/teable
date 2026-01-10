@@ -3327,14 +3327,9 @@ describe('v2 computed field updates (e2e)', () => {
         expect(childAfter).toBeDefined();
 
         // ParentName lookup should now show 'ParentX'
-        const lookupValueAfter = childAfter!.fields[childLookupFieldId];
         // Lookup values are stored as arrays
-        expect(lookupValueAfter).toBeDefined();
-        if (Array.isArray(lookupValueAfter)) {
-          expect(lookupValueAfter).toContain('ParentX');
-        } else {
-          expect(lookupValueAfter).toBe('ParentX');
-        }
+        const lookupValueAfter = childAfter!.fields[childLookupFieldId];
+        expect(lookupValueAfter).toEqual(['ParentX']);
 
         // Print table snapshot
         const childFieldIds = [childNameFieldId, childLinkFieldId, childLookupFieldId];
@@ -3342,13 +3337,13 @@ describe('v2 computed field updates (e2e)', () => {
         expect(
           printTableSnapshot(tableChild.name, childFieldNames, childRecordsAfter, childFieldIds)
         ).toMatchInlineSnapshot(`
-            "[SymLookupChild]
-            --------------------------------
-            #  | Name   | Parent  | ParentName
-            --------------------------------
-            R0 | ChildA | ParentX | [ParentX]
-            --------------------------------"
-          `);
+          "[SymLookupChild]
+          ----------------------------------
+          #  | Name   | Parent  | ParentName
+          ----------------------------------
+          R0 | ChildA | ParentX | [ParentX]
+          ----------------------------------"
+        `);
       });
     });
 
@@ -3705,7 +3700,7 @@ describe('v2 computed field updates (e2e)', () => {
         const beforeRecord = beforeRecords.find((r) => r.id === recordA.id);
         const beforeLink = beforeRecord?.fields[aLinkFieldId] as { id?: string } | null;
         expect(beforeLink?.id).toBe(recordB1.id);
-        expect(beforeRecord?.fields[aLookupFieldId]).toBe('[10]');
+        expect(beforeRecord?.fields[aLookupFieldId]).toEqual([10]);
 
         await updateRecord(tableA.id, recordA.id, { [aLinkFieldId]: { id: recordB2.id } });
         await testContainer.processOutbox();
@@ -3724,7 +3719,7 @@ describe('v2 computed field updates (e2e)', () => {
         const afterRecord = afterRecords.find((r) => r.id === recordA.id);
         const afterLink = afterRecord?.fields[aLinkFieldId] as { id?: string } | null;
         expect(afterLink?.id).toBe(recordB2.id);
-        expect(afterRecord?.fields[aLookupFieldId]).toBe('[20]');
+        expect(afterRecord?.fields[aLookupFieldId]).toEqual([20]);
       });
     });
 
@@ -4678,7 +4673,7 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------------------------------"
         `);
       const beforeChild = beforeRecords.find((r) => r.id === child.id);
-      expect(beforeChild?.fields[parentLookupFieldId]).toBe('[20]');
+      expect(beforeChild?.fields[parentLookupFieldId]).toEqual([20]);
 
       testContainer.clearLogs(); // Clear logs before the update
       await updateRecord(table.id, parent.id, { [valueFieldId]: 15 });
@@ -4716,7 +4711,7 @@ describe('v2 computed field updates (e2e)', () => {
           ----------------------------------------------------"
         `);
       const afterChild = afterRecords.find((r) => r.id === child.id);
-      expect(afterChild?.fields[parentLookupFieldId]).toBe('[30]');
+      expect(afterChild?.fields[parentLookupFieldId]).toEqual([30]);
     });
 
     /**
@@ -5442,7 +5437,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         const beforeA = beforeRecordsA.find((r) => r.id === recordA.id);
         // Lookup value is stored as JSON array string like "[100]"
-        expect(beforeA?.fields[lookupScoreFieldId]).toBe('[100]');
+        expect(beforeA?.fields[lookupScoreFieldId]).toEqual([100]);
 
         // Delete the linked record B
         await deleteRecord(tableB.id, recordB.id);

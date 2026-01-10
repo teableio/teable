@@ -81,19 +81,18 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
     return new FieldInsertValueVisitor(rawValue, ctx);
   }
 
-  private simpleValue(): Result<FieldInsertResult, DomainError> {
+  private simpleValueFrom(value: unknown): Result<FieldInsertResult, DomainError> {
     return ok({
-      columnValues: { [this.ctx.dbFieldName]: this.rawValue ?? null },
+      columnValues: { [this.ctx.dbFieldName]: value ?? null },
       queryExecutors: [],
     });
   }
 
-  private jsonValue(): Result<FieldInsertResult, DomainError> {
+  private jsonValueFrom(value: unknown): Result<FieldInsertResult, DomainError> {
     // JSONB columns - must JSON.stringify for pg driver
-    const value =
-      this.rawValue === null || this.rawValue === undefined ? null : JSON.stringify(this.rawValue);
+    const serialized = value === null || value === undefined ? null : JSON.stringify(value);
     return ok({
-      columnValues: { [this.ctx.dbFieldName]: value },
+      columnValues: { [this.ctx.dbFieldName]: serialized },
       queryExecutors: [],
     });
   }
@@ -106,20 +105,69 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
     });
   }
 
+  private mapSingleSelectValue(field: SingleSelectField, rawValue: unknown): unknown {
+    if (rawValue === null || rawValue === undefined) {
+      return null;
+    }
+    if (typeof rawValue !== 'string') {
+      return rawValue;
+    }
+
+    const options = field.selectOptions();
+    const byId = options.find((opt) => opt.id().toString() === rawValue);
+    if (byId) {
+      return byId.name().toString();
+    }
+
+    const byName = options.find((opt) => opt.name().toString() === rawValue);
+    if (byName) {
+      return byName.name().toString();
+    }
+
+    return rawValue;
+  }
+
+  private mapMultipleSelectValue(field: MultipleSelectField, rawValue: unknown): unknown {
+    if (rawValue === null || rawValue === undefined) {
+      return null;
+    }
+    if (!Array.isArray(rawValue)) {
+      return rawValue;
+    }
+
+    const options = field.selectOptions();
+    const nameById = new Map(options.map((opt) => [opt.id().toString(), opt.name().toString()]));
+    const validNames = new Set(options.map((opt) => opt.name().toString()));
+
+    return rawValue.map((item) => {
+      if (typeof item !== 'string') {
+        return item;
+      }
+      const name = nameById.get(item);
+      if (name) {
+        return name;
+      }
+      if (validNames.has(item)) {
+        return item;
+      }
+      return item;
+    });
+  }
+
   visitSingleLineTextField(_field: SingleLineTextField): Result<FieldInsertResult, DomainError> {
-    return this.simpleValue();
+    return this.simpleValueFrom(this.rawValue);
   }
 
   visitLongTextField(_field: LongTextField): Result<FieldInsertResult, DomainError> {
-    return this.simpleValue();
+    return this.simpleValueFrom(this.rawValue);
   }
 
   visitNumberField(_field: NumberField): Result<FieldInsertResult, DomainError> {
-    return this.simpleValue();
+    return this.simpleValueFrom(this.rawValue);
   }
 
   visitRatingField(_field: RatingField): Result<FieldInsertResult, DomainError> {
-    return this.simpleValue();
+    return this.simpleValueFrom(this.rawValue);
   }
 
   visitFormulaField(_field: FormulaField): Result<FieldInsertResult, DomainError> {
@@ -134,28 +182,30 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
     return this.computedField();
   }
 
-  visitSingleSelectField(_field: SingleSelectField): Result<FieldInsertResult, DomainError> {
-    return this.simpleValue();
+  visitSingleSelectField(field: SingleSelectField): Result<FieldInsertResult, DomainError> {
+    const mappedValue = this.mapSingleSelectValue(field, this.rawValue);
+    return this.simpleValueFrom(mappedValue);
   }
 
-  visitMultipleSelectField(_field: MultipleSelectField): Result<FieldInsertResult, DomainError> {
-    return this.jsonValue();
+  visitMultipleSelectField(field: MultipleSelectField): Result<FieldInsertResult, DomainError> {
+    const mappedValue = this.mapMultipleSelectValue(field, this.rawValue);
+    return this.jsonValueFrom(mappedValue);
   }
 
   visitCheckboxField(_field: CheckboxField): Result<FieldInsertResult, DomainError> {
-    return this.simpleValue();
+    return this.simpleValueFrom(this.rawValue);
   }
 
   visitDateField(_field: DateField): Result<FieldInsertResult, DomainError> {
-    return this.simpleValue();
+    return this.simpleValueFrom(this.rawValue);
   }
 
   visitAttachmentField(_field: AttachmentField): Result<FieldInsertResult, DomainError> {
-    return this.jsonValue();
+    return this.jsonValueFrom(this.rawValue);
   }
 
   visitUserField(_field: UserField): Result<FieldInsertResult, DomainError> {
-    return this.jsonValue();
+    return this.jsonValueFrom(this.rawValue);
   }
 
   visitLinkField(field: LinkField): Result<FieldInsertResult, DomainError> {

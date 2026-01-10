@@ -47,6 +47,55 @@ export class FieldDatabaseValueVisitor implements IFieldVisitor<unknown> {
     return new FieldDatabaseValueVisitor(rawValue);
   }
 
+  private mapSingleSelectValue(field: SingleSelectField, rawValue: unknown): unknown {
+    if (rawValue === null || rawValue === undefined) {
+      return null;
+    }
+    if (typeof rawValue !== 'string') {
+      return rawValue;
+    }
+
+    const options = field.selectOptions();
+    const byId = options.find((opt) => opt.id().toString() === rawValue);
+    if (byId) {
+      return byId.name().toString();
+    }
+
+    const byName = options.find((opt) => opt.name().toString() === rawValue);
+    if (byName) {
+      return byName.name().toString();
+    }
+
+    return rawValue;
+  }
+
+  private mapMultipleSelectValue(field: MultipleSelectField, rawValue: unknown): unknown {
+    if (rawValue === null || rawValue === undefined) {
+      return null;
+    }
+    if (!Array.isArray(rawValue)) {
+      return rawValue;
+    }
+
+    const options = field.selectOptions();
+    const nameById = new Map(options.map((opt) => [opt.id().toString(), opt.name().toString()]));
+    const validNames = new Set(options.map((opt) => opt.name().toString()));
+
+    return rawValue.map((item) => {
+      if (typeof item !== 'string') {
+        return item;
+      }
+      const name = nameById.get(item);
+      if (name) {
+        return name;
+      }
+      if (validNames.has(item)) {
+        return item;
+      }
+      return item;
+    });
+  }
+
   visitSingleLineTextField(_field: SingleLineTextField): Result<unknown, DomainError> {
     return ok(this.rawValue);
   }
@@ -78,13 +127,13 @@ export class FieldDatabaseValueVisitor implements IFieldVisitor<unknown> {
     return ok(null);
   }
 
-  visitSingleSelectField(_field: SingleSelectField): Result<unknown, DomainError> {
-    return ok(this.rawValue);
+  visitSingleSelectField(field: SingleSelectField): Result<unknown, DomainError> {
+    return ok(this.mapSingleSelectValue(field, this.rawValue));
   }
 
-  visitMultipleSelectField(_field: MultipleSelectField): Result<unknown, DomainError> {
+  visitMultipleSelectField(field: MultipleSelectField): Result<unknown, DomainError> {
     // Multiple select is stored as JSONB - driver handles serialization
-    return ok(this.rawValue ?? null);
+    return ok(this.mapMultipleSelectValue(field, this.rawValue) ?? null);
   }
 
   visitCheckboxField(_field: CheckboxField): Result<unknown, DomainError> {

@@ -32,6 +32,7 @@
     "@teable/v2-adapter-csv-parser-papaparse": "workspace:*",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-adapter-logger-console": "workspace:*",
+    "@teable/v2-table-templates": "workspace:*",
     "@teable/v2-adapter-table-repository-postgres": "workspace:*",
     "@teable/v2-adapter-repository-postgres": "workspace:*",
     "@teable/v2-core": "workspace:*",

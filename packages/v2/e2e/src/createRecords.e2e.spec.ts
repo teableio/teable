@@ -784,8 +784,11 @@ describe('v2 http createRecords (e2e)', () => {
       const now = new Date().toISOString();
 
       // Get choice IDs by name
-      const optionAId = singleSelectChoices.find((c) => c.name === 'Option A')?.id ?? '';
-      const optionBId = singleSelectChoices.find((c) => c.name === 'Option B')?.id ?? '';
+      const optionA = singleSelectChoices.find((c) => c.name === 'Option A');
+      const optionB = singleSelectChoices.find((c) => c.name === 'Option B');
+      const optionAId = optionA?.id ?? '';
+      const optionBId = optionB?.id ?? '';
+      const optionAName = optionA?.name ?? '';
       const tag1Id = multiSelectChoices.find((c) => c.name === 'Tag 1')?.id ?? '';
       const tag2Id = multiSelectChoices.find((c) => c.name === 'Tag 2')?.id ?? '';
       const tag3Id = multiSelectChoices.find((c) => c.name === 'Tag 3')?.id ?? '';
@@ -825,7 +828,7 @@ describe('v2 http createRecords (e2e)', () => {
       expect(record1).toBeDefined();
       expect(record1?.fields[numberFieldId]).toBe(100);
       expect(record1?.fields[checkboxFieldId]).toBe(true);
-      expect(record1?.fields[singleSelectFieldId]).toBe(optionAId);
+      expect(record1?.fields[singleSelectFieldId]).toBe(optionAName);
     });
   });
 });

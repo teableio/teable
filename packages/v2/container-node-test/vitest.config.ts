@@ -9,11 +9,18 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    testTimeout: 180000,
+    hookTimeout: 180000,
     passWithNoTests: true,
     typecheck: {
       enabled: false,
     },
     pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     fileParallelism: false,
     coverage: {
       provider: 'v8',

@@ -1,15 +1,31 @@
 import {
+  AbstractFieldVisitor,
+  type AttachmentField,
+  type AutoNumberField,
+  type ButtonField,
+  type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
+  type CreatedByField,
+  type CreatedTimeField,
+  type DateField,
   domainError,
   type DomainError,
   type Field,
-  isBooleanField,
-  isConditionalRollupField,
-  isDateField,
-  isFormulaField,
-  isJsonValueField,
-  isNumericField,
-  isRollupField,
+  type FormulaField,
+  type LastModifiedByField,
+  type LastModifiedTimeField,
+  type LinkField,
+  type LongTextField,
+  type LookupField,
   match,
+  type MultipleSelectField,
+  type NumberField,
+  type RatingField,
+  type RollupField,
+  type SingleLineTextField,
+  type SingleSelectField,
+  type UserField,
 } from '@teable/v2-core';
 import type { CreateTableBuilder } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
@@ -29,47 +45,128 @@ export const resolveColumnName = (field: Field): Result<string, DomainError> => 
   );
 };
 
+const columnTypeVisitor = new (class extends AbstractFieldVisitor<TableColumnDataType> {
+  visitSingleLineTextField(_field: SingleLineTextField): Result<TableColumnDataType, DomainError> {
+    return ok('text');
+  }
+
+  visitLongTextField(_field: LongTextField): Result<TableColumnDataType, DomainError> {
+    return ok('text');
+  }
+
+  visitNumberField(_field: NumberField): Result<TableColumnDataType, DomainError> {
+    return ok('double precision');
+  }
+
+  visitRatingField(_field: RatingField): Result<TableColumnDataType, DomainError> {
+    return ok('double precision');
+  }
+
+  visitFormulaField(field: FormulaField): Result<TableColumnDataType, DomainError> {
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field
+          .isMultipleCellValue()
+          .map((isMultiple) =>
+            resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
+          )
+      );
+  }
+
+  visitRollupField(field: RollupField): Result<TableColumnDataType, DomainError> {
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field
+          .isMultipleCellValue()
+          .map((isMultiple) =>
+            resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
+          )
+      );
+  }
+
+  visitSingleSelectField(_field: SingleSelectField): Result<TableColumnDataType, DomainError> {
+    return ok('text');
+  }
+
+  visitMultipleSelectField(_field: MultipleSelectField): Result<TableColumnDataType, DomainError> {
+    return ok('jsonb');
+  }
+
+  visitCheckboxField(_field: CheckboxField): Result<TableColumnDataType, DomainError> {
+    return ok('boolean');
+  }
+
+  visitAttachmentField(_field: AttachmentField): Result<TableColumnDataType, DomainError> {
+    return ok('jsonb');
+  }
+
+  visitDateField(_field: DateField): Result<TableColumnDataType, DomainError> {
+    return ok('timestamptz');
+  }
+
+  visitCreatedTimeField(_field: CreatedTimeField): Result<TableColumnDataType, DomainError> {
+    return ok('text');
+  }
+
+  visitLastModifiedTimeField(
+    _field: LastModifiedTimeField
+  ): Result<TableColumnDataType, DomainError> {
+    return ok('text');
+  }
+
+  visitUserField(_field: UserField): Result<TableColumnDataType, DomainError> {
+    return ok('jsonb');
+  }
+
+  visitCreatedByField(_field: CreatedByField): Result<TableColumnDataType, DomainError> {
+    return ok('text');
+  }
+
+  visitLastModifiedByField(_field: LastModifiedByField): Result<TableColumnDataType, DomainError> {
+    return ok('text');
+  }
+
+  visitAutoNumberField(_field: AutoNumberField): Result<TableColumnDataType, DomainError> {
+    return ok('double precision');
+  }
+
+  visitButtonField(_field: ButtonField): Result<TableColumnDataType, DomainError> {
+    return ok('jsonb');
+  }
+
+  visitLinkField(_field: LinkField): Result<TableColumnDataType, DomainError> {
+    return ok('text');
+  }
+
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<TableColumnDataType, DomainError> {
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field
+          .isMultipleCellValue()
+          .map((isMultiple) =>
+            resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
+          )
+      );
+  }
+
+  visitLookupField(_field: LookupField): Result<TableColumnDataType, DomainError> {
+    return ok('jsonb');
+  }
+
+  visitConditionalLookupField(
+    _field: ConditionalLookupField
+  ): Result<TableColumnDataType, DomainError> {
+    return ok('jsonb');
+  }
+})();
+
 export const resolveColumnType = (field: Field): Result<TableColumnDataType, DomainError> => {
-  return match(field)
-    .returnType<Result<TableColumnDataType, DomainError>>()
-    .when(isFormulaField, (f) =>
-      f
-        .cellValueType()
-        .andThen((cellValueType) =>
-          f
-            .isMultipleCellValue()
-            .map((isMultiple) =>
-              resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
-            )
-        )
-    )
-    .when(isRollupField, (f) =>
-      f
-        .cellValueType()
-        .andThen((cellValueType) =>
-          f
-            .isMultipleCellValue()
-            .map((isMultiple) =>
-              resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
-            )
-        )
-    )
-    .when(isConditionalRollupField, (f) =>
-      f
-        .cellValueType()
-        .andThen((cellValueType) =>
-          f
-            .isMultipleCellValue()
-            .map((isMultiple) =>
-              resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
-            )
-        )
-    )
-    .when(isJsonValueField, () => ok('jsonb'))
-    .when(isNumericField, () => ok('double precision'))
-    .when(isDateField, () => ok('timestamptz'))
-    .when(isBooleanField, () => ok('boolean'))
-    .otherwise(() => ok('text'));
+  return field.accept(columnTypeVisitor);
 };
 
 const resolveFormulaColumnType = (
