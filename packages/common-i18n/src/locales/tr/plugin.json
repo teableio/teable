@@ -47,10 +47,26 @@
     "url": {
       "label": "URL",
       "description": "Eklentinin URL'si"
+    },
+    "autoCreateMember": {
+      "label": "Otomatik üye oluştur",
+      "description": "Eklenti için otomatik üye oluştur"
+    },
+    "config": {
+      "label": "Yapılandırma",
+      "description": "Eklenti yapılandırması"
     }
   },
   "markdown": {
     "write": "Yaz",
     "preview": "Önizleme"
+  },
+  "status": {
+    "reviewing": "İnceleniyor",
+    "published": "Yayınlandı",
+    "developing": "Geliştiriliyor"
+  },
+  "button": {
+    "submitApproved": "Onaylananları gönder"
   }
 }

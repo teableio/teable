@@ -1082,6 +1082,8 @@
       "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}"
     },
     "permission": {
+      "excludedFieldsMustBeComputed": "Exclude fields must be computed",
+      "templateHeaderInvalid": "Şablon başlığı geçersiz",
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
       "deleteRecords": "Kayıtları({{recordIds}}) silme izniniz yok",
       "readRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) okuma izniniz yok",
@@ -1121,6 +1123,7 @@
       "exceedMaxPasteCells": "Maksimum yapıştırma hücresi sınırı aşıldı"
     },
     "field": {
+      "formulaReferenceNotFieldId": "Formül referansları {{fieldIds}} bulunamadı. Formüller alan adlarını değil, alan kimliklerini (fldXXXXXXXXXXXXXXXX formatında) kullanmalıdır.",
       "unsupportedFieldType": "Desteklenmeyen alan türü {{type}}",
       "unsupportedPrimaryFieldType": "Birincil alan olarak desteklenmeyen alan türü {{type}}",
       "primaryFieldNotSupported": "Alan türü birincil alan olarak desteklenmiyor",
@@ -1174,6 +1177,9 @@
       }
     },
     "view": {
+      "cannotDeleteLastView": "Tablodaki son görünümü silemezsiniz. Bir tablonun en az bir görünümü olmalıdır.",
+      "filterInvalidOperator": "Filtre, bu alan türü için geçersiz bir operatöre sahip",
+      "filterInvalidOperatorMode": "Filtre, geçersiz operatör ve mod kombinasyonuna sahip",
       "notFound": "Görünüm bulunamadı",
       "defaultViewNotFound": "Varsayılan görünüm bulunamadı",
       "propertyParseError": "Görünüm özelliği ayrıştırılamadı",
@@ -1329,6 +1335,7 @@
       "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor"
     },
     "domainVerification": {
+      "alreadyVerified": "Alan adı zaten doğrulandı",
       "notFound": "Domain doğrulama kodu bulunamadı",
       "invalidCode": "Geçersiz doğrulama kodu",
       "resendCooldown": "Yeni bir kod istemeden önce lütfen 1 dakika bekleyin"
