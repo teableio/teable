@@ -20,6 +20,7 @@
     "rootDir": "../",
     "outDir": "dist",
     "paths": {
+      "@teable/v2-adapter-csv-parser-papaparse": ["../adapter-csv-parser-papaparse/src"],
       "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
       "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
@@ -36,6 +37,7 @@
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": [
     "src",
+    "../adapter-csv-parser-papaparse/src",
     "../adapter-logger-console/src",
     "../adapter-table-repository-postgres/src",
     "../adapter-repository-postgres/src",

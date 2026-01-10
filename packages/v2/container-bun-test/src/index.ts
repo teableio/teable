@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
   PostgresUnitOfWork,
@@ -7,9 +8,11 @@ import {
 } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
+import { registerV2TableRepositoryPostgresAdapter } from '@teable/v2-adapter-table-repository-postgres';
 import type { IHasher, ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
+  DefaultTableMapper,
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
@@ -81,6 +84,9 @@ export const createV2BunTestContainer = async (
     ensureSchema: true,
   });
 
+  // Register table repository postgres adapter (schema + record repositories)
+  registerV2TableRepositoryPostgresAdapter(c, { db });
+
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -95,6 +101,16 @@ export const createV2BunTestContainer = async (
   }
   if (!c.isRegistered(v2CoreTokens.hasher)) {
     c.register(v2CoreTokens.hasher, BunCryptoHasher, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+  if (!c.isRegistered(v2CoreTokens.tableMapper)) {
+    c.register(v2CoreTokens.tableMapper, DefaultTableMapper, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+  if (!c.isRegistered(v2CoreTokens.csvParser)) {
+    c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
       lifecycle: Lifecycle.Singleton,
     });
   }
