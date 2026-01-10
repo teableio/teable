@@ -1,10 +1,8 @@
 import { Command, Options } from '@effect/cli';
 import { Effect, Option } from 'effect';
-import { SecurityError, ValidationError } from '../../errors/CliError';
-import { DatabaseConfig } from '../../services/Database';
+import { ValidationError } from '../../errors/CliError';
 import { MockRecords } from '../../services/MockRecords';
 import { Output } from '../../services/Output';
-import { isLocalhostConnection } from '../../utils/localhost-check';
 import { connectionOption, tableIdOption } from '../shared';
 
 const countOption = Options.integer('count').pipe(
@@ -26,17 +24,6 @@ const dryRunOption = Options.boolean('dry-run').pipe(
   Options.withDescription("Only show what would be generated, don't insert")
 );
 
-const validateConnection = (connectionString: string) =>
-  isLocalhostConnection(connectionString)
-    ? Effect.void
-    : Effect.fail(
-        new SecurityError({
-          message: 'Remote database connections are not allowed for mock data generation.',
-          code: 'REMOTE_CONNECTION_BLOCKED',
-          hint: 'This CLI only works with localhost PostgreSQL connections.',
-        })
-      );
-
 const handler = (args: {
   readonly connection: Option.Option<string>;
   readonly tableId: string;
@@ -46,12 +33,8 @@ const handler = (args: {
   readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
-    const config = yield* DatabaseConfig;
     const mockRecords = yield* MockRecords;
     const output = yield* Output;
-
-    // Security check
-    yield* validateConnection(config.connectionString);
 
     // Validate count
     if (args.count <= 0) {

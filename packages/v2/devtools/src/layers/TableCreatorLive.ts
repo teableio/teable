@@ -1,4 +1,5 @@
-import { v2CoreTokens, type ICommandBus, CreateTableCommand } from '@teable/v2-core';
+import { ActorId, CreateTableCommand, v2CoreTokens } from '@teable/v2-core';
+import type { CreateTableResult as CoreCreateTableResult, ICommandBus } from '@teable/v2-core';
 import { Effect, Layer } from 'effect';
 import { CliError } from '../errors/CliError';
 import { Database } from '../services/Database';
@@ -36,8 +37,15 @@ export const TableCreatorLive = Layer.effect(
             }
 
             // Execute via CommandBus
-            const context = { actorId: { toString: () => 'cli-table-creator' } as any };
-            const result = await commandBus.execute(context, commandResult.value);
+            const actorIdResult = ActorId.create('cli-table-creator');
+            if (actorIdResult.isErr()) {
+              throw actorIdResult.error;
+            }
+            const context = { actorId: actorIdResult.value };
+            const result = await commandBus.execute<CreateTableCommand, CoreCreateTableResult>(
+              context,
+              commandResult.value
+            );
 
             if (result.isErr()) {
               throw result.error;
@@ -46,8 +54,8 @@ export const TableCreatorLive = Layer.effect(
             const { table } = result.value;
 
             return {
-              tableId: table.id().value,
-              tableName: table.name().value,
+              tableId: table.id().toString(),
+              tableName: table.name().toString(),
               fieldCount: table.getFields().length,
               viewCount: table.views().length,
             };

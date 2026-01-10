@@ -7,6 +7,7 @@ import {
   type ITableRecordRepository,
   type IUnitOfWork,
   type Table,
+  type TableRecord,
 } from '@teable/v2-core';
 import { MockRecordGenerator } from '@teable/v2-mock-records';
 import { Effect, Layer } from 'effect';
@@ -120,7 +121,7 @@ export const MockRecordsLive = Layer.effect(
             try: async () => {
               // Pre-generate all batches before starting transaction
               // (async generators can't be restarted, so we materialize them first)
-              const allBatches: Array<ReadonlyArray<import('@teable/v2-core').TableRecord>> = [];
+              const allBatches: Array<ReadonlyArray<TableRecord>> = [];
               for await (const batch of generator.generateForTable(table as Table)) {
                 for (const record of batch) {
                   if (sampleRecords.length < 5) {
@@ -144,8 +145,7 @@ export const MockRecordsLive = Layer.effect(
             catch: (e) => CliError.fromUnknown(e),
           });
 
-          // insertResult is Result<Result<InsertManyStreamResult, DomainError>, CliError>
-          // First check the outer Result (from Effect.tryPromise)
+          // insertResult is Result<InsertManyStreamResult, DomainError>
           if (insertResult.isErr()) {
             return yield* Effect.fail(
               new CliError({
@@ -155,49 +155,12 @@ export const MockRecordsLive = Layer.effect(
             );
           }
 
-          // Then check the inner Result (from unitOfWork.withTransaction)
-          const txResult = insertResult.value;
-
-          // txResult should be Result<InsertManyStreamResult, DomainError>
-          // Check if it's a Result object with isErr method
-          if (
-            typeof txResult === 'object' &&
-            txResult !== null &&
-            'isErr' in txResult &&
-            typeof (txResult as { isErr: unknown }).isErr === 'function'
-          ) {
-            const resultObj = txResult as {
-              isErr: () => boolean;
-              error: { message: string };
-              value: { totalInserted: number };
-            };
-            if (resultObj.isErr()) {
-              return yield* Effect.fail(
-                new CliError({
-                  message: `Failed to insert records: ${resultObj.error.message}`,
-                  code: 'INSERT_FAILED',
-                })
-              );
-            }
-            const { totalInserted } = resultObj.value;
-            return {
-              tableId: input.tableId,
-              tableName: table.name().toString(),
-              totalGenerated: totalInserted,
-              totalInserted,
-              dryRun: false,
-              seed: input.seed ?? null,
-              sampleRecords,
-            } satisfies MockGenerateResult;
-          }
-
-          // If txResult is directly InsertManyStreamResult (shouldn't happen but handle it)
-          const directResult = txResult as { totalInserted: number };
+          const { totalInserted } = insertResult.value;
           return {
             tableId: input.tableId,
             tableName: table.name().toString(),
-            totalGenerated: directResult.totalInserted,
-            totalInserted: directResult.totalInserted,
+            totalGenerated: totalInserted,
+            totalInserted,
             dryRun: false,
             seed: input.seed ?? null,
             sampleRecords,

@@ -4,7 +4,13 @@ import {
   PostgresSchemaIntrospector,
   type SchemaCheckResult,
 } from '@teable/v2-adapter-table-repository-postgres';
-import { v2CoreTokens, TableId, TableByIdSpec, type ITableRepository } from '@teable/v2-core';
+import {
+  ActorId,
+  v2CoreTokens,
+  TableId,
+  TableByIdSpec,
+  type ITableRepository,
+} from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Effect, Layer } from 'effect';
 import type { Kysely } from 'kysely';
@@ -30,15 +36,15 @@ export const SchemaCheckerLive = Layer.effect(
           try: async () => {
             const tableRepo = container.resolve(v2CoreTokens.tableRepository) as ITableRepository;
             const db = container.resolve(v2PostgresDbTokens.db) as Kysely<V1TeableDatabase>;
+            const actorIdResult = ActorId.create('cli-schema-checker');
+            if (actorIdResult.isErr()) throw actorIdResult.error;
+            const context = { actorId: actorIdResult.value };
 
             // Load table
             const tableIdResult = TableId.create(tableId);
             if (tableIdResult.isErr()) throw tableIdResult.error;
             const tableSpec = TableByIdSpec.create(tableIdResult.value);
-            const tableResult = await tableRepo.findOne(
-              { actorId: { toString: () => 'cli-schema-checker' } as any },
-              tableSpec
-            );
+            const tableResult = await tableRepo.findOne(context, tableSpec);
             if (tableResult.isErr()) throw tableResult.error;
             const table = tableResult.value;
             if (!table) throw new Error(`Table "${tableId}" not found`);
@@ -97,15 +103,15 @@ export const SchemaCheckerLive = Layer.effect(
           try: async () => {
             const tableRepo = container.resolve(v2CoreTokens.tableRepository) as ITableRepository;
             const db = container.resolve(v2PostgresDbTokens.db) as Kysely<V1TeableDatabase>;
+            const actorIdResult = ActorId.create('cli-schema-checker');
+            if (actorIdResult.isErr()) throw actorIdResult.error;
+            const context = { actorId: actorIdResult.value };
 
             // Load table
             const tableIdResult = TableId.create(tableId);
             if (tableIdResult.isErr()) throw tableIdResult.error;
             const tableSpec = TableByIdSpec.create(tableIdResult.value);
-            const tableResult = await tableRepo.findOne(
-              { actorId: { toString: () => 'cli-schema-checker' } as any },
-              tableSpec
-            );
+            const tableResult = await tableRepo.findOne(context, tableSpec);
             if (tableResult.isErr()) throw tableResult.error;
             const table = tableResult.value;
             if (!table) throw new Error(`Table "${tableId}" not found`);

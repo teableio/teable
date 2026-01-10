@@ -3,7 +3,7 @@ import { Effect, Option } from 'effect';
 import { ValidationError } from '../../errors/CliError';
 import { CommandExplain } from '../../services/CommandExplain';
 import { Output } from '../../services/Output';
-import { connectionOption, tableIdOption, analyzeOption, optionToUndefined } from '../shared';
+import { analyzeOption, connectionOption, tableIdOption } from '../shared';
 
 const fieldsOption = Options.text('fields').pipe(
   Options.withDescription('JSON object of field values (default: {})'),

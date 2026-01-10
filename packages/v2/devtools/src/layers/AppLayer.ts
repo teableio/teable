@@ -1,5 +1,11 @@
 import { Layer } from 'effect';
+import type { CommandExplain } from '../services/CommandExplain';
 import type { DatabaseConfig } from '../services/Database';
+import type { DebugData } from '../services/DebugData';
+import type { MockRecords } from '../services/MockRecords';
+import type { Output } from '../services/Output';
+import type { SchemaChecker } from '../services/SchemaChecker';
+import type { TableCreator } from '../services/TableCreator';
 import { CommandExplainLive } from './CommandExplainLive';
 import { DatabaseLive, DatabaseConfigFromOption } from './DatabaseLive';
 import { DebugDataLive } from './DebugDataLive';
@@ -58,12 +64,12 @@ export const FullLayer = (connectionString?: string) => {
  * Type-safe layer for CLI - provides all possible services
  */
 export type AppLayerType = Layer.Layer<
-  import('../services/Output').Output['Type'] &
-    import('../services/DebugData').DebugData['Type'] &
-    import('../services/CommandExplain').CommandExplain['Type'] &
-    import('../services/MockRecords').MockRecords['Type'] &
-    import('../services/SchemaChecker').SchemaChecker['Type'] &
-    import('../services/TableCreator').TableCreator['Type'] &
+  Output['Type'] &
+    DebugData['Type'] &
+    CommandExplain['Type'] &
+    MockRecords['Type'] &
+    SchemaChecker['Type'] &
+    TableCreator['Type'] &
     DatabaseConfig['Type'],
   Error,
   never

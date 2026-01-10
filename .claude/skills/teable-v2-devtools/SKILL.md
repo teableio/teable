@@ -8,6 +8,7 @@ description: Teable v2 developer tools CLI for debugging, inspecting, and genera
 ## When to Use This Skill
 
 Use this skill when you need to:
+
 - View table/field configuration details
 - Diagnose formula/lookup/rollup issues
 - Understand field dependency relationships
@@ -109,20 +110,20 @@ pnpm --filter @teable/v2-devtools cli tables create --base-id bse... --name "Tas
 
 ### underlying Commands
 
-| Command | Description |
-|---------|-------------|
-| `underlying table --table-id <id>` | Get raw table metadata |
-| `underlying tables --base-id <id>` | List all tables in a base |
-| `underlying field --field-id <id>` | Get field metadata (includes parsed options/meta JSON) |
-| `underlying fields --table-id <id>` | List all fields in a table |
-| `underlying records --table-id <id>` | List records directly from PostgreSQL (raw data with system columns) |
-| `underlying record --table-id <id> --record-id <id>` | Get single record directly from PostgreSQL |
+| Command                                              | Description                                                          |
+| ---------------------------------------------------- | -------------------------------------------------------------------- |
+| `underlying table --table-id <id>`                   | Get raw table metadata                                               |
+| `underlying tables --base-id <id>`                   | List all tables in a base                                            |
+| `underlying field --field-id <id>`                   | Get field metadata (includes parsed options/meta JSON)               |
+| `underlying fields --table-id <id>`                  | List all fields in a table                                           |
+| `underlying records --table-id <id>`                 | List records directly from PostgreSQL (raw data with system columns) |
+| `underlying record --table-id <id> --record-id <id>` | Get single record directly from PostgreSQL                           |
 
 ### records Commands (Application Layer)
 
-| Command | Description |
-|---------|-------------|
-| `records list --table-id <id>` | List records via query repository |
+| Command                                        | Description                            |
+| ---------------------------------------------- | -------------------------------------- |
+| `records list --table-id <id>`                 | List records via query repository      |
 | `records get --table-id <id> --record-id <id>` | Get single record via query repository |
 
 **Records Options:**
@@ -135,36 +136,39 @@ pnpm --filter @teable/v2-devtools cli tables create --base-id bse... --name "Tas
 | `--mode stored\|computed` | Query mode (default: stored) |
 
 **Mode Explanation:**
+
 - `stored`: Read pre-computed values from the database (fast, uses cached values)
 - `computed`: Calculate field values on-the-fly (slower, always fresh)
 
 ### relations Command
 
-| Option | Description |
-|--------|-------------|
-| `--field-id <id>` | Required: Starting field ID |
+| Option                       | Description                                                         |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `--field-id <id>`            | Required: Starting field ID                                         |
 | `--direction up\|down\|both` | `up` = who depends on me, `down` = what I depend on (default: both) |
-| `--level <n>` | Max traversal depth (default: unlimited) |
-| `--same-table` | Only traverse same-table relations |
+| `--level <n>`                | Max traversal depth (default: unlimited)                            |
+| `--same-table`               | Only traverse same-table relations                                  |
 
 ### schema Commands
 
 Use these commands when analyzing slow queries or suspecting missing indexes.
 
-| Command | Description |
-|---------|-------------|
-| `schema table --table-id <id>` | Check all fields in a table for schema issues |
-| `schema field --table-id <id> --field-id <id>` | Check a specific field for schema issues |
+| Command                                        | Description                                   |
+| ---------------------------------------------- | --------------------------------------------- |
+| `schema table --table-id <id>`                 | Check all fields in a table for schema issues |
+| `schema field --table-id <id> --field-id <id>` | Check a specific field for schema issues      |
 
 **Schema Check Output:**
 
 The output includes a summary with:
+
 - `total`: Total number of schema rules checked
 - `success`: Rules that passed validation
 - `errors`: Critical issues (missing indexes, columns, constraints)
 - `warnings`: Non-critical issues
 
 Each result item includes:
+
 - `fieldId`, `fieldName`: The field being checked
 - `ruleId`: Type of rule (e.g., `index`, `unique_index`, `fk_column`, `fk`)
 - `ruleDescription`: Human-readable description
@@ -187,11 +191,11 @@ Each result item includes:
 
 ### explain Commands
 
-| Command | Description |
-|---------|-------------|
-| `explain create --table-id <id>` | Explain CreateRecord command |
-| `explain update --table-id <id> --record-id <id> --fields <json>` | Explain UpdateRecord command |
-| `explain delete --table-id <id> --record-ids <ids>` | Explain DeleteRecords command |
+| Command                                                           | Description                   |
+| ----------------------------------------------------------------- | ----------------------------- |
+| `explain create --table-id <id>`                                  | Explain CreateRecord command  |
+| `explain update --table-id <id> --record-id <id> --fields <json>` | Explain UpdateRecord command  |
+| `explain delete --table-id <id> --record-ids <ids>`               | Explain DeleteRecords command |
 
 **Explain Options:**
 | Option | Description |
@@ -204,36 +208,36 @@ Each result item includes:
 
 ### mock Commands
 
-| Option | Description |
-|--------|-------------|
-| `--table-id <id>` | Required: Table ID to generate records for |
-| `--count <n>` | Required: Number of records to generate |
-| `--seed <n>` | Optional: Seed for reproducible random data |
-| `--batch-size <n>` | Optional: Batch size for insertion (default: 100) |
-| `--dry-run` | Optional: Only show what would be generated, don't insert |
+| Option             | Description                                               |
+| ------------------ | --------------------------------------------------------- |
+| `--table-id <id>`  | Required: Table ID to generate records for                |
+| `--count <n>`      | Required: Number of records to generate                   |
+| `--seed <n>`       | Optional: Seed for reproducible random data               |
+| `--batch-size <n>` | Optional: Batch size for insertion (default: 100)         |
+| `--dry-run`        | Optional: Only show what would be generated, don't insert |
 
 **Supported Field Types for Mock Data:**
 
-| Field Type | Generated Data |
-|------------|----------------|
+| Field Type     | Generated Data                             |
+| -------------- | ------------------------------------------ |
 | SingleLineText | Names/emails/URLs/phones (based on showAs) |
-| LongText | Lorem ipsum paragraphs |
-| Number | Random floats 0-1000 |
-| Rating | Random integers 1 to max rating |
-| SingleSelect | Random selection from options |
-| MultipleSelect | 1-3 random options |
-| Checkbox | Random boolean |
-| Date | Recent date within 365 days |
-| User | Mock user object `{id, title, email}` |
-| Attachment | Mock attachment objects |
-| Link | Random IDs from linked table |
+| LongText       | Lorem ipsum paragraphs                     |
+| Number         | Random floats 0-1000                       |
+| Rating         | Random integers 1 to max rating            |
+| SingleSelect   | Random selection from options              |
+| MultipleSelect | 1-3 random options                         |
+| Checkbox       | Random boolean                             |
+| Date           | Recent date within 365 days                |
+| User           | Mock user object `{id, title, email}`      |
+| Attachment     | Mock attachment objects                    |
+| Link           | Random IDs from linked table               |
 
 ### tables Commands
 
-| Command | Description |
-|---------|-------------|
-| `tables create --base-id <id> --name <name>` | Create a new table (without records) |
-| `tables describe-schema` | **Output field schema documentation for AI reference** |
+| Command                                      | Description                                            |
+| -------------------------------------------- | ------------------------------------------------------ |
+| `tables create --base-id <id> --name <name>` | Create a new table (without records)                   |
+| `tables describe-schema`                     | **Output field schema documentation for AI reference** |
 
 > **重要**: 在创建表之前，**必须先运行 `tables describe-schema`** 获取完整的字段 schema 文档，确保入参格式正确，避免验证错误。
 
@@ -245,22 +249,34 @@ Each result item includes:
 | `--fields <json>` | Optional: JSON array of field definitions |
 
 **关键验证规则 (必须遵守):**
+
 1. **SingleSelect/MultipleSelect choices 必须有 color 属性** - 例如: `{"name": "Todo", "color": "blueLight1"}`
 2. **Link 字段必须有 foreignTableId 和 lookupFieldId** - 先查询目标表获取这些 ID
 3. **每个表只能有一个 isPrimary: true 的字段**
 
 **Field Definition Format:**
+
 ```json
 [
-  {"type": "singleLineText", "name": "Title", "isPrimary": true},
-  {"type": "number", "name": "Amount"},
-  {"type": "date", "name": "Due Date"},
-  {"type": "singleSelect", "name": "Status", "options": {"choices": [{"name": "Todo", "color": "grayLight1"}, {"name": "Done", "color": "greenLight1"}]}},
-  {"type": "checkbox", "name": "Completed"}
+  { "type": "singleLineText", "name": "Title", "isPrimary": true },
+  { "type": "number", "name": "Amount" },
+  { "type": "date", "name": "Due Date" },
+  {
+    "type": "singleSelect",
+    "name": "Status",
+    "options": {
+      "choices": [
+        { "name": "Todo", "color": "grayLight1" },
+        { "name": "Done", "color": "greenLight1" }
+      ]
+    }
+  },
+  { "type": "checkbox", "name": "Completed" }
 ]
 ```
 
 **Link Field Example:**
+
 ```json
 {
   "type": "link",
@@ -272,10 +288,12 @@ Each result item includes:
   }
 }
 ```
+
 - `relationship`: `oneOne` (1:1), `oneMany` (1:N), `manyOne` (N:1), `manyMany` (N:N)
 - `lookupFieldId`: 目标表的主键字段 ID (通常是第一个字段)
 
 **Supported Field Types:**
+
 - `singleLineText`, `longText`, `number`, `date`, `checkbox`
 - `singleSelect`, `multipleSelect` (requires `options.choices` with color)
 - `rating`, `attachment`, `user`
@@ -298,35 +316,42 @@ Each result item includes:
 ## Common Diagnostic Scenarios
 
 ### Scenario 1: Formula Field Calculation Error
+
 1. View field config: `underlying field --field-id fld...`
 2. Check dependencies: `relations --field-id fld... --direction down`
 3. Verify dependent fields are correct
 
 ### Scenario 2: Lookup/Rollup Data Inconsistency
+
 1. View lookup field config: `underlying field --field-id fld...`
 2. Check `lookupOptions`: linkFieldId, foreignTableId, lookupFieldId
 3. Verify the linked link field is correct
 
 ### Scenario 3: Field Update Not Propagating
+
 1. Find downstream dependents: `relations --field-id fld... --direction up --level 3`
 2. Check if any dependent field has errors: look for `hasError: true`
 3. View specific field config: `underlying field --field-id <dependent-field-id>`
 
 ### Scenario 4: Analyze Computed Update Performance
+
 1. Explain the command: `explain create --table-id tbl...`
 2. Check `computedImpact.updateSteps` for the update plan
 3. Look at `complexity.score` and `recommendations`
 4. Use `--analyze` flag for actual execution timing
 
 ### Scenario 5: Data Inconsistency Between Application and Database
+
 When data shown in the UI doesn't match what you expect, compare application layer and database layer:
 
 1. **Query via application layer (stored mode)**:
+
    ```bash
    pnpm --filter @teable/v2-devtools cli records list --table-id tbl... --limit 10 --mode stored
    ```
 
 2. **Query via application layer (computed mode)**:
+
    ```bash
    pnpm --filter @teable/v2-devtools cli records list --table-id tbl... --limit 10 --mode computed
    ```
@@ -337,6 +362,7 @@ When data shown in the UI doesn't match what you expect, compare application lay
    ```
 
 **Compare the results:**
+
 - If `stored` ≠ `computed`: The stored cache is stale, computed values haven't been persisted
 - If `stored` ≠ `underlying`: Application layer transformation issue
 - If `computed` ≠ `underlying`: Field calculation logic issue
@@ -346,16 +372,19 @@ When data shown in the UI doesn't match what you expect, compare application lay
 When queries are slow, especially for Link fields or tables with many records:
 
 1. **Check schema for the entire table**:
+
    ```bash
    pnpm --filter @teable/v2-devtools cli schema table --table-id tbl...
    ```
 
 2. **Look for errors in the output**, especially:
+
    - `index:*` rules with `status: error` - missing index on foreign key column
    - `unique_index:*` rules - missing unique index for one-to-one relations
    - `junction_index:*` rules - missing indexes on junction tables (many-to-many)
 
 3. **Check a specific Link field**:
+
    ```bash
    pnpm --filter @teable/v2-devtools cli schema field --table-id tbl... --field-id fldLinkField
    ```
@@ -373,6 +402,7 @@ When queries are slow, especially for Link fields or tables with many records:
 ## Connection
 
 Connection is resolved in the following order:
+
 1. `-c, --connection <dsn>` command line option
 2. `PRISMA_DATABASE_URL` environment variable
 3. `DATABASE_URL` environment variable
@@ -385,6 +415,7 @@ DevTools supports **pglite** for file-persisted temporary databases. This is use
 ### When to Use PGlite
 
 Use pglite (`pglite://` connection string) when:
+
 - **Creating temporary tables for testing** - no existing database needed
 - **Testing table schema designs** before deploying to production
 - **Isolated experiments** that shouldn't affect real data
@@ -393,6 +424,7 @@ Use pglite (`pglite://` connection string) when:
 ### When NOT to Use PGlite
 
 Do NOT use pglite when:
+
 - **User provided a real database URL** (postgresql://)
 - **Verifying existing IDs** (tableId, fieldId, recordId, baseId)
 - **Querying production/development data**
@@ -405,6 +437,7 @@ pglite://<data-directory-path>
 ```
 
 Examples:
+
 - `pglite://.pglite-data/session-001` (relative path)
 - `pglite:///absolute/path/to/data` (absolute path)
 
@@ -413,6 +446,7 @@ Examples:
 **Step 1: Create a pglite session**
 
 First, create a table with a unique pglite connection string. The CLI will automatically:
+
 - Create the data directory
 - Initialize the database schema
 - Create a space and base
@@ -455,6 +489,7 @@ pnpm --filter @teable/v2-devtools cli tables create \
 ### Data Storage
 
 PGlite data is stored in:
+
 ```
 packages/v2/devtools/.pglite-data/
 ├── session-1234567890/
@@ -465,14 +500,10 @@ packages/v2/devtools/.pglite-data/
 
 This directory is git-ignored and can be safely deleted to clean up test data.
 
-## Security Notes
-
-- **Mock commands only work with localhost PostgreSQL** (127.0.0.1 or localhost) for safety
-- Remote database connections are blocked for mock data generation
-
 ## Empty Data Handling
 
 When queries return no data, the CLI provides clear feedback:
+
 - `code: EMPTY_RESULT` indicates no data was found
 - The error message includes hints about what to check
 

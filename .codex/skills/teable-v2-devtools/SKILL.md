@@ -500,11 +500,6 @@ packages/v2/devtools/.pglite-data/
 
 This directory is git-ignored and can be safely deleted to clean up test data.
 
-## Security Notes
-
-- **Mock commands only work with localhost PostgreSQL** (127.0.0.1 or localhost) for safety
-- Remote database connections are blocked for mock data generation
-
 ## Empty Data Handling
 
 When queries return no data, the CLI provides clear feedback:
