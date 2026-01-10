@@ -1,8 +1,9 @@
 import { Command, Options } from '@effect/cli';
-import { Effect, Option } from 'effect';
+import type { Option } from 'effect';
+import { Effect } from 'effect';
+import { ValidationError } from '../../errors/CliError';
 import { CommandExplain } from '../../services/CommandExplain';
 import { Output } from '../../services/Output';
-import { ValidationError } from '../../errors/CliError';
 import { connectionOption, tableIdOption, analyzeOption } from '../shared';
 
 const recordIdOption = Options.text('record-id').pipe(Options.withDescription('Record ID'));

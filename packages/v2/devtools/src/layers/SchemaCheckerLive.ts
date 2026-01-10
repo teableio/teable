@@ -1,20 +1,20 @@
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  createSchemaChecker,
+  PostgresSchemaIntrospector,
+  type SchemaCheckResult,
+} from '@teable/v2-adapter-table-repository-postgres';
+import { v2CoreTokens, TableId, TableByIdSpec, type ITableRepository } from '@teable/v2-core';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Effect, Layer } from 'effect';
 import type { Kysely } from 'kysely';
+import { CliError } from '../errors/CliError';
 import { Database } from '../services/Database';
 import {
   SchemaChecker,
   type SchemaCheckOptions,
   type SchemaCheckSummary,
 } from '../services/SchemaChecker';
-import { CliError } from '../errors/CliError';
-import { v2CoreTokens, TableId, TableByIdSpec, type ITableRepository } from '@teable/v2-core';
-import {
-  createSchemaChecker,
-  PostgresSchemaIntrospector,
-  type SchemaCheckResult,
-} from '@teable/v2-adapter-table-repository-postgres';
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
-import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 
 export const SchemaCheckerLive = Layer.effect(
   SchemaChecker,

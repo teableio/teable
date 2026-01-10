@@ -1,6 +1,6 @@
+import { encode } from '@toon-format/toon';
 import { Effect, Layer, Console } from 'effect';
 import { Output, type CliOutput, type CliErrorInfo } from '../services/Output';
-import { encode } from '@toon-format/toon';
 
 const serializeError = (error: unknown): CliErrorInfo => {
   if (error && typeof error === 'object') {

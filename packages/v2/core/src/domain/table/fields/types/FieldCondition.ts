@@ -424,7 +424,9 @@ export class FieldCondition extends ValueObject {
             }
 
             let conditionValue: RecordConditionValue | undefined;
-            if (filterItemEntry.value !== undefined) {
+            // `value: null` is commonly used by v1-style filters for operators that don't require a value
+            // (e.g. `isEmpty`, `isNotEmpty`). Treat null the same as "not provided".
+            if (filterItemEntry.value !== undefined && filterItemEntry.value !== null) {
               if (filterItemEntry.isSymbol) {
                 const refFieldId = yield* FieldId.create(String(filterItemEntry.value));
                 const refField = fields.find((f) => f.id().equals(refFieldId));

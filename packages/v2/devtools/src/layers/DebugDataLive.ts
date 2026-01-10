@@ -1,24 +1,3 @@
-import { Effect, Layer } from 'effect';
-import { Database } from '../services/Database';
-import {
-  DebugData,
-  type RecordQueryOptions,
-  type RecordQueryResult,
-  type RecordReadModel,
-  type RawRecordQueryOptions,
-  type RawRecordQueryResult,
-  type RawRecord,
-} from '../services/DebugData';
-import { CliError } from '../errors/CliError';
-import {
-  registerV2DebugData,
-  v2DebugDataTokens,
-  type DebugDataService,
-  type DebugTableMeta,
-  type DebugTableSummary,
-  type DebugFieldMeta,
-  type DebugFieldRelationReport,
-} from '@teable/v2-debug-data';
 import {
   v2CoreTokens,
   TableId,
@@ -31,6 +10,27 @@ import {
   type ITableRepository,
   type ITableRecordQueryRepository,
 } from '@teable/v2-core';
+import {
+  registerV2DebugData,
+  v2DebugDataTokens,
+  type DebugDataService,
+  type DebugTableMeta,
+  type DebugTableSummary,
+  type DebugFieldMeta,
+  type DebugFieldRelationReport,
+} from '@teable/v2-debug-data';
+import { Effect, Layer } from 'effect';
+import { CliError } from '../errors/CliError';
+import { Database } from '../services/Database';
+import {
+  DebugData,
+  type RecordQueryOptions,
+  type RecordQueryResult,
+  type RecordReadModel,
+  type RawRecordQueryOptions,
+  type RawRecordQueryResult,
+  type RawRecord,
+} from '../services/DebugData';
 
 export const DebugDataLive = Layer.effect(
   DebugData,

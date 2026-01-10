@@ -1,5 +1,6 @@
-import { Context, Effect } from 'effect';
 import type { SchemaCheckResult } from '@teable/v2-adapter-table-repository-postgres';
+import type { Effect } from 'effect';
+import { Context } from 'effect';
 import type { CliError } from '../errors';
 
 /** Options for schema check */

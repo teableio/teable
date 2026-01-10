@@ -1,5 +1,6 @@
 import { Command } from '@effect/cli';
-import { Effect, Option } from 'effect';
+import type { Option } from 'effect';
+import { Effect } from 'effect';
 import { DebugData } from '../../services/DebugData';
 import { Output } from '../../services/Output';
 import { connectionOption, tableIdOption, limitOption, offsetOption, modeOption } from '../shared';

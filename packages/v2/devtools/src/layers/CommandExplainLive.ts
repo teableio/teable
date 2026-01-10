@@ -1,13 +1,3 @@
-import { Effect, Layer } from 'effect';
-import { Database } from '../services/Database';
-import {
-  CommandExplain,
-  type ExplainCreateInput,
-  type ExplainUpdateInput,
-  type ExplainDeleteInput,
-} from '../services/CommandExplain';
-import { CliError } from '../errors/CliError';
-import { registerV2DebugData } from '@teable/v2-debug-data';
 import {
   registerCommandExplainModule,
   v2CommandExplainTokens,
@@ -20,6 +10,16 @@ import {
   DeleteRecordsCommand,
   ActorId,
 } from '@teable/v2-core';
+import { registerV2DebugData } from '@teable/v2-debug-data';
+import { Effect, Layer } from 'effect';
+import { CliError } from '../errors/CliError';
+import {
+  CommandExplain,
+  type ExplainCreateInput,
+  type ExplainUpdateInput,
+  type ExplainDeleteInput,
+} from '../services/CommandExplain';
+import { Database } from '../services/Database';
 
 const createContext = () => {
   const actorIdResult = ActorId.create('cli-debug');

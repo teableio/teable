@@ -1,11 +1,3 @@
-import { Effect, Layer } from 'effect';
-import { Database } from '../services/Database';
-import {
-  MockRecords,
-  type MockGenerateInput,
-  type MockGenerateResult,
-} from '../services/MockRecords';
-import { CliError } from '../errors/CliError';
 import {
   v2CoreTokens,
   TableId,
@@ -17,6 +9,14 @@ import {
   type Table,
 } from '@teable/v2-core';
 import { MockRecordGenerator } from '@teable/v2-mock-records';
+import { Effect, Layer } from 'effect';
+import { CliError } from '../errors/CliError';
+import { Database } from '../services/Database';
+import {
+  MockRecords,
+  type MockGenerateInput,
+  type MockGenerateResult,
+} from '../services/MockRecords';
 
 export const MockRecordsLive = Layer.effect(
   MockRecords,

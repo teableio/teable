@@ -1,4 +1,5 @@
-import { Context, Effect } from 'effect';
+import type { Effect } from 'effect';
+import { Context } from 'effect';
 
 export type CliOutput<T> =
   | { ok: true; command: string; input: Record<string, unknown>; data: T }

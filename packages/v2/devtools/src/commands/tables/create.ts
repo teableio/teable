@@ -1,7 +1,7 @@
 import { Command, Options } from '@effect/cli';
 import { Effect, Option } from 'effect';
-import { TableCreator } from '../../services/TableCreator';
 import { Output } from '../../services/Output';
+import { TableCreator } from '../../services/TableCreator';
 import { connectionOption, baseIdOption } from '../shared';
 
 const nameOption = Options.text('name').pipe(Options.withDescription('Table name'));

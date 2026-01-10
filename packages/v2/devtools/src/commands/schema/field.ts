@@ -1,7 +1,8 @@
 import { Command } from '@effect/cli';
-import { Effect, Option } from 'effect';
-import { SchemaChecker } from '../../services/SchemaChecker';
+import type { Option } from 'effect';
+import { Effect } from 'effect';
 import { Output } from '../../services/Output';
+import { SchemaChecker } from '../../services/SchemaChecker';
 import { connectionOption, tableIdOption, fieldIdOption } from '../shared';
 
 const handler = (args: {

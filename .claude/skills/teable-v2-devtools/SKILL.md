@@ -378,6 +378,93 @@ Connection is resolved in the following order:
 3. `DATABASE_URL` environment variable
 4. Default: `postgresql://teable:teable@127.0.0.1:5432/teable?schema=public`
 
+## PGlite Mode (Temporary Database)
+
+DevTools supports **pglite** for file-persisted temporary databases. This is useful for testing table creation and other operations without a real PostgreSQL server.
+
+### When to Use PGlite
+
+Use pglite (`pglite://` connection string) when:
+- **Creating temporary tables for testing** - no existing database needed
+- **Testing table schema designs** before deploying to production
+- **Isolated experiments** that shouldn't affect real data
+- **No PostgreSQL server available** (local development without Docker)
+
+### When NOT to Use PGlite
+
+Do NOT use pglite when:
+- **User provided a real database URL** (postgresql://)
+- **Verifying existing IDs** (tableId, fieldId, recordId, baseId)
+- **Querying production/development data**
+- **Debugging issues with real tables**
+
+### PGlite Connection String Format
+
+```
+pglite://<data-directory-path>
+```
+
+Examples:
+- `pglite://.pglite-data/session-001` (relative path)
+- `pglite:///absolute/path/to/data` (absolute path)
+
+### Using PGlite
+
+**Step 1: Create a pglite session**
+
+First, create a table with a unique pglite connection string. The CLI will automatically:
+- Create the data directory
+- Initialize the database schema
+- Create a space and base
+- Return the generated baseId
+
+```bash
+# Create a new pglite session with a table
+pnpm --filter @teable/v2-devtools cli tables create \
+  --connection "pglite://.pglite-data/session-$(date +%s)" \
+  --base-id "bseXXXXXXXXXXXXX" \
+  --name "Test Table"
+```
+
+> **Note**: For the first command, you need to provide any baseId (it will be created). Check the output for the actual baseId to use in subsequent commands.
+
+**Step 2: Reuse the same session**
+
+In the same conversation/session, **remember and reuse** the same connection string and baseId:
+
+```bash
+# Query tables in the same pglite database
+pnpm --filter @teable/v2-devtools cli underlying tables \
+  --connection "pglite://.pglite-data/session-1234567890" \
+  --base-id "bseXXXXXXXXXXXXX"
+
+# Create more tables in the same base
+pnpm --filter @teable/v2-devtools cli tables create \
+  --connection "pglite://.pglite-data/session-1234567890" \
+  --base-id "bseXXXXXXXXXXXXX" \
+  --name "Another Table"
+```
+
+### Important Notes for AI
+
+1. **Remember the session**: Store the pglite connection string and baseId for the entire conversation
+2. **Data persists in files**: Data is saved to `.pglite-data/` directory (git-ignored)
+3. **Isolated sessions**: Each unique path creates a separate database
+4. **First-time init**: The first command to a new pglite path will initialize schema + space + base
+
+### Data Storage
+
+PGlite data is stored in:
+```
+packages/v2/devtools/.pglite-data/
+├── session-1234567890/
+│   ├── ... (pglite database files)
+├── session-0987654321/
+│   └── ...
+```
+
+This directory is git-ignored and can be safely deleted to clean up test data.
+
 ## Security Notes
 
 - **Mock commands only work with localhost PostgreSQL** (127.0.0.1 or localhost) for safety

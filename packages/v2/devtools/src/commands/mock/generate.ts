@@ -1,11 +1,11 @@
 import { Command, Options } from '@effect/cli';
 import { Effect, Option } from 'effect';
+import { SecurityError, ValidationError } from '../../errors/CliError';
+import { DatabaseConfig } from '../../services/Database';
 import { MockRecords } from '../../services/MockRecords';
 import { Output } from '../../services/Output';
-import { DatabaseConfig } from '../../services/Database';
-import { SecurityError, ValidationError } from '../../errors/CliError';
-import { connectionOption, tableIdOption } from '../shared';
 import { isLocalhostConnection } from '../../utils/localhost-check';
+import { connectionOption, tableIdOption } from '../shared';
 
 const countOption = Options.integer('count').pipe(
   Options.withDescription('Number of records to generate')

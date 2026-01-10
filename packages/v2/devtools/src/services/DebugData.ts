@@ -1,4 +1,3 @@
-import { Context, Effect } from 'effect';
 import type {
   DebugTableMeta,
   DebugTableSummary,
@@ -6,6 +5,8 @@ import type {
   DebugFieldRelationOptions,
   DebugFieldRelationReport,
 } from '@teable/v2-debug-data';
+import type { Effect } from 'effect';
+import { Context } from 'effect';
 import type { CliError } from '../errors';
 
 /** Options for querying records via application layer */

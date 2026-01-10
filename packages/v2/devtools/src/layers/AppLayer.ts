@@ -1,12 +1,12 @@
 import { Layer } from 'effect';
+import type { DatabaseConfig } from '../services/Database';
+import { CommandExplainLive } from './CommandExplainLive';
 import { DatabaseLive, DatabaseConfigFromOption } from './DatabaseLive';
 import { DebugDataLive } from './DebugDataLive';
-import { CommandExplainLive } from './CommandExplainLive';
 import { MockRecordsLive } from './MockRecordsLive';
 import { OutputLive } from './OutputLive';
 import { SchemaCheckerLive } from './SchemaCheckerLive';
 import { TableCreatorLive } from './TableCreatorLive';
-import { DatabaseConfig } from '../services/Database';
 
 /**
  * Create the Database layer with optional connection string override

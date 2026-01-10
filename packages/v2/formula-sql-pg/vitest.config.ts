@@ -30,10 +30,6 @@ export default defineConfig({
         rootDir,
         '../adapter-repository-postgres/src/index.ts'
       ),
-      '@teable/v2-adapter-table-repository-postgres': resolve(
-        rootDir,
-        '../adapter-table-repository-postgres/src/index.ts'
-      ),
       '@teable/v2-adapter-csv-parser-papaparse': resolve(
         rootDir,
         '../adapter-csv-parser-papaparse/src/index.ts'

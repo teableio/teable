@@ -1,5 +1,6 @@
-import { Context, Effect } from 'effect';
 import type { ExplainResult } from '@teable/v2-command-explain';
+import type { Effect } from 'effect';
+import { Context } from 'effect';
 import type { CliError } from '../errors';
 
 export interface ExplainCreateInput {

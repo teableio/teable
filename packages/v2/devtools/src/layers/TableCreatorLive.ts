@@ -1,12 +1,12 @@
+import { v2CoreTokens, type ICommandBus, CreateTableCommand } from '@teable/v2-core';
 import { Effect, Layer } from 'effect';
+import { CliError } from '../errors/CliError';
 import { Database } from '../services/Database';
 import {
   TableCreator,
   type CreateTableInput,
   type CreateTableResult,
 } from '../services/TableCreator';
-import { CliError } from '../errors/CliError';
-import { v2CoreTokens, type ICommandBus, CreateTableCommand } from '@teable/v2-core';
 
 export const TableCreatorLive = Layer.effect(
   TableCreator,

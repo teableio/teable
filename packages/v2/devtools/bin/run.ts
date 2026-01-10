@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
-import { Effect } from 'effect';
 import { Command } from '@effect/cli';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { root } from '../src/commands';
 import { FullLayer } from '../src/layers/AppLayer';
 

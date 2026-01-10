@@ -1,8 +1,8 @@
 import { Command, Options } from '@effect/cli';
 import { Effect, Option } from 'effect';
+import { ValidationError } from '../../errors/CliError';
 import { CommandExplain } from '../../services/CommandExplain';
 import { Output } from '../../services/Output';
-import { ValidationError } from '../../errors/CliError';
 import { connectionOption, tableIdOption, analyzeOption, optionToUndefined } from '../shared';
 
 const fieldsOption = Options.text('fields').pipe(

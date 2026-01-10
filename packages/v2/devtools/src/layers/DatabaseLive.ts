@@ -1,13 +1,17 @@
 import { Effect, Layer } from 'effect';
 import { Database, DatabaseConfig } from '../services/Database';
-import { DEFAULT_CONNECTION_STRING, getConnectionString } from '../utils/connection';
+import { getConnectionString, isPgliteConnection } from '../utils/connection';
+import { DatabasePgliteLive } from './DatabasePgliteLive';
 
 export const DatabaseConfigFromOption = (connectionString: string | undefined) =>
   Layer.succeed(DatabaseConfig, {
     connectionString: getConnectionString(connectionString),
   });
 
-export const DatabaseLive = Layer.effect(
+/**
+ * PostgreSQL database layer (real PostgreSQL connection)
+ */
+export const DatabasePgLive = Layer.effect(
   Database,
   Effect.gen(function* () {
     const config = yield* DatabaseConfig;
@@ -25,9 +29,38 @@ export const DatabaseLive = Layer.effect(
     return {
       container,
       connectionString: config.connectionString,
+      isPglite: false,
+      baseId: undefined,
     };
+  })
+);
+
+/**
+ * Unified database layer that selects pg or pglite based on connection string protocol.
+ * - pglite:// protocol -> uses pglite file-based database
+ * - postgresql:// or other -> uses real PostgreSQL connection
+ */
+export const DatabaseLive = Layer.effect(
+  Database,
+  Effect.gen(function* () {
+    const config = yield* DatabaseConfig;
+
+    if (isPgliteConnection(config.connectionString)) {
+      // Use pglite layer
+      const pgliteLayer = DatabasePgliteLive.pipe(
+        Layer.provide(Layer.succeed(DatabaseConfig, config))
+      );
+      return yield* Effect.provide(Database, pgliteLayer);
+    } else {
+      // Use pg layer
+      const pgLayer = DatabasePgLive.pipe(Layer.provide(Layer.succeed(DatabaseConfig, config)));
+      return yield* Effect.provide(Database, pgLayer);
+    }
   })
 );
 
 export const DatabaseLayer = (connectionString?: string) =>
   DatabaseLive.pipe(Layer.provide(DatabaseConfigFromOption(connectionString)));
+
+// Re-export for explicit usage
+export { DatabasePgliteLive } from './DatabasePgliteLive';
