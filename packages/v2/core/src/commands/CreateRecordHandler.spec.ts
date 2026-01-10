@@ -2,7 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
+import type { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
