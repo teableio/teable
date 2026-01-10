@@ -232,6 +232,12 @@ export class ComputedUpdatePlanner {
           // However, skip link fields where FK is NOT in current table.
           // For such links (oneMany One-side, manyOne One-side, oneOne non-FK-side),
           // a new record cannot have any FK pointing to it, so there's nothing to compute.
+          //
+          // Also skip link fields where FK IS in current table BUT the field was not
+          // explicitly changed (i.e., not in changedFieldIds). This avoids unnecessary
+          // null → null updates when inserting records without link values.
+          const changedFieldIdSet = new Set(context.changedFieldIds.map((id) => id.toString()));
+
           for (const meta of fieldsById.values()) {
             if (!meta.tableId.equals(context.seedTableId)) continue;
             if (!isComputedFieldType(meta.type)) continue;
@@ -240,7 +246,7 @@ export class ComputedUpdatePlanner {
             if (meta.type === 'link' && meta.options) {
               // Use relationship to determine FK location:
               // - oneMany: FK is in foreign table (current table is One-side) → skip
-              // - manyOne: FK is in current table → need to compute
+              // - manyOne: FK is in current table → need to compute (if changed)
               // - oneOne/manyMany: use fkHostTableName to check (conservative: compute if unsure)
               const relationship = meta.options.relationship;
               if (relationship === 'oneMany') {
@@ -256,7 +262,16 @@ export class ComputedUpdatePlanner {
                   continue;
                 }
               }
-              // manyOne and manyMany: FK is in current table or junction table → compute
+
+              // For manyOne and manyMany: FK is in current table or junction table
+              // Only compute if the link field was actually changed (has a value)
+              // Skip if not in changedFieldIds - this avoids null → null updates
+              if (relationship === 'manyOne' || relationship === 'manyMany') {
+                if (!changedFieldIdSet.has(meta.id.toString())) {
+                  // Link field not changed during insert - skip computing it
+                  continue;
+                }
+              }
             }
 
             affectedFieldIds.add(meta.id.toString());
@@ -294,6 +309,14 @@ export class ComputedUpdatePlanner {
         }
 
         const steps = yield* buildSteps(ordered, levels, fieldsById);
+
+        // For delete operations, filter out steps that update the seed table itself.
+        // The seed records are being deleted, so there's no point updating their computed fields.
+        const filteredSteps =
+          context.changeType === 'delete'
+            ? steps.filter((step) => !step.tableId.equals(context.seedTableId))
+            : steps;
+
         const propagationEdges = yield* buildPropagationEdges(
           relevantEdges,
           fieldsById,
@@ -303,17 +326,18 @@ export class ComputedUpdatePlanner {
         );
 
         // Build same-table batches for CTE optimization
-        const sameTableBatches = buildSameTableBatches(steps, relevantEdges);
+        const sameTableBatches = buildSameTableBatches(filteredSteps, relevantEdges);
 
         const seedRecordCount = countSeedRecords(context.seedRecordIds, context.extraSeedRecords);
-        const estimatedComplexity = steps.length + propagationEdges.length + seedRecordCount;
+        const estimatedComplexity =
+          filteredSteps.length + propagationEdges.length + seedRecordCount;
 
         return ok({
           baseId: context.baseId,
           seedTableId: context.seedTableId,
           seedRecordIds: context.seedRecordIds,
           extraSeedRecords: context.extraSeedRecords,
-          steps,
+          steps: filteredSteps,
           edges: propagationEdges,
           estimatedComplexity,
           changeType: context.changeType,

@@ -9887,4 +9887,229 @@ describe('v2 computed field updates (e2e)', () => {
       expect((linkValue as { id: string }).id).toBe(companies[1].id);
     });
   });
+
+  // =============================================================================
+  // ComputedUpdatePlanner Optimizations
+  // =============================================================================
+  //
+  // These tests verify optimizations in the ComputedUpdatePlanner:
+  // 1. Insert optimization: Skip computed update for manyOne/manyMany link fields
+  //    when the link field is not in changedFieldIds (avoids null→null updates)
+  // 2. Delete optimization: Skip computed update for seed table when deleting
+  //    records (no point updating fields on records being deleted)
+  // =============================================================================
+
+  describe('ComputedUpdatePlanner optimizations', () => {
+    /**
+     * Insert optimization test:
+     * When inserting a record WITHOUT setting a link field value,
+     * no computed update step should be generated for that link field.
+     * This avoids unnecessary null → null updates.
+     */
+    it('skips computed update for link field when inserting without link value', async () => {
+      // Create Parent table
+      const parentNameFieldId = createFieldId();
+
+      const parentTable = await createTable({
+        baseId,
+        name: 'InsertOptParent',
+        fields: [{ type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create Child table with manyOne link to Parent (bidirectional)
+      const childNameFieldId = createFieldId();
+      const childLinkFieldId = createFieldId();
+
+      const childTable = await createTable({
+        baseId,
+        name: 'InsertOptChild',
+        fields: [
+          { type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: childLinkFieldId,
+            name: 'Parent',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: parentTable.id,
+              lookupFieldId: parentNameFieldId,
+              // Bidirectional (default) - creates symmetric link in Parent
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await testContainer.processOutbox();
+      testContainer.clearLogs();
+
+      // Insert a child record WITHOUT setting link value
+      const childRecord = await createRecord(childTable.id, {
+        [childNameFieldId]: 'Child Without Link',
+        // Note: NOT setting [childLinkFieldId]
+      });
+
+      // Verify record was created successfully
+      expect(childRecord).toBeDefined();
+      expect(childRecord.id).toBeDefined();
+
+      // Get the computed plan from the insert
+      const plan = testContainer.getLastComputedPlan();
+
+      // The optimization should result in NO computed steps for the child table
+      // because the link field was not changed (not in changedFieldIds)
+      if (plan) {
+        const childTableSteps = plan.steps.filter((s) => s.tableId === childTable.id);
+        // Should be 0 steps for the child table's link field
+        expect(childTableSteps.length).toBe(0);
+      }
+      // If plan is undefined, that's also fine - means no computed update was needed
+    });
+
+    /**
+     * Insert optimization test (with link value):
+     * When inserting a record WITH a link field value,
+     * computed update steps SHOULD be generated.
+     */
+    it('includes computed update for link field when inserting with link value', async () => {
+      // Create Parent table
+      const parentNameFieldId = createFieldId();
+
+      const parentTable = await createTable({
+        baseId,
+        name: 'InsertOptParentWithLink',
+        fields: [{ type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create a parent record first
+      const parentRecord = await createRecord(parentTable.id, {
+        [parentNameFieldId]: 'Parent Record',
+      });
+
+      // Create Child table with manyOne link to Parent (bidirectional)
+      const childNameFieldId = createFieldId();
+      const childLinkFieldId = createFieldId();
+
+      const childTable = await createTable({
+        baseId,
+        name: 'InsertOptChildWithLink',
+        fields: [
+          { type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: childLinkFieldId,
+            name: 'Parent',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: parentTable.id,
+              lookupFieldId: parentNameFieldId,
+              // Bidirectional (default)
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await testContainer.processOutbox();
+      testContainer.clearLogs();
+
+      // Insert a child record WITH link value
+      const childRecord = await createRecord(childTable.id, {
+        [childNameFieldId]: 'Child With Link',
+        [childLinkFieldId]: { id: parentRecord.id },
+      });
+
+      // Verify record was created successfully with link
+      expect(childRecord).toBeDefined();
+      const linkValue = childRecord.fields[childLinkFieldId];
+      expect(linkValue).toBeDefined();
+
+      // Process any async computed updates
+      await testContainer.processOutbox();
+
+      // Get the computed plan - should have steps for the link field
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+
+      // There should be at least 1 step (for the link title computation)
+      expect(plan!.steps.length).toBeGreaterThanOrEqual(1);
+    });
+
+    /**
+     * Delete optimization test:
+     * When deleting a record, computed update steps should NOT include
+     * the seed table (the table being deleted from) because there's no
+     * point updating fields on records that are being deleted.
+     */
+    it('skips seed table computed updates on delete', async () => {
+      // Create Parent table
+      const parentNameFieldId = createFieldId();
+
+      const parentTable = await createTable({
+        baseId,
+        name: 'DeleteOptParent',
+        fields: [{ type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create a parent record
+      const parentRecord = await createRecord(parentTable.id, {
+        [parentNameFieldId]: 'Parent',
+      });
+
+      // Create Child table with manyOne link to Parent (bidirectional)
+      const childNameFieldId = createFieldId();
+      const childLinkFieldId = createFieldId();
+
+      const childTable = await createTable({
+        baseId,
+        name: 'DeleteOptChild',
+        fields: [
+          { type: 'singleLineText', id: childNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: childLinkFieldId,
+            name: 'Parent',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: parentTable.id,
+              lookupFieldId: parentNameFieldId,
+              // Bidirectional - creates symmetric link in Parent
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create a child record linked to parent
+      const childRecord = await createRecord(childTable.id, {
+        [childNameFieldId]: 'Child',
+        [childLinkFieldId]: { id: parentRecord.id },
+      });
+
+      await testContainer.processOutbox();
+      testContainer.clearLogs();
+
+      // Delete the child record
+      await deleteRecord(childTable.id, childRecord.id);
+
+      // Process any async computed updates
+      await testContainer.processOutbox();
+
+      // Get the computed plan from the delete
+      const plan = testContainer.getLastComputedPlan();
+
+      if (plan) {
+        // The optimization should ensure NO steps for childTable (seed table being deleted)
+        const childTableSteps = plan.steps.filter((s) => s.tableId === childTable.id);
+        expect(childTableSteps.length).toBe(0);
+
+        // But there SHOULD be steps for parentTable (symmetric link update)
+        const parentTableSteps = plan.steps.filter((s) => s.tableId === parentTable.id);
+        expect(parentTableSteps.length).toBeGreaterThanOrEqual(1);
+      }
+    });
+  });
 });
