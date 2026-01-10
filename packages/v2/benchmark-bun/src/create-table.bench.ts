@@ -30,10 +30,8 @@ export const runCreateTableBench = async (): Promise<void> => {
     type FieldFactory = () => ICreateTableRequestDto['fields'];
     const simpleFieldsFactory: FieldFactory = () => createSimpleFields();
     const baseFieldsFactory: FieldFactory = () => createAllBaseFields();
-    const fields200 = createTextColumns(200);
-    const fields1000 = createTextColumns(1000);
-    const fields200Factory: FieldFactory = () => fields200;
-    const fields1000Factory: FieldFactory = () => fields1000;
+    const fields200Factory: FieldFactory = () => createTextColumns(200);
+    const fields1000Factory: FieldFactory = () => createTextColumns(1000);
 
     const runCreateTable = async (
       target: IBunBenchTarget,

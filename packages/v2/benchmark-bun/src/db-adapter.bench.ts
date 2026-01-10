@@ -90,8 +90,7 @@ export const runDbAdapterBench = async (): Promise<void> => {
 
   type FieldFactory = () => ICreateTableRequestDto['fields'];
   const simpleFieldsFactory: FieldFactory = () => createSimpleFields();
-  const fields200 = createTextColumns(200);
-  const fields200Factory: FieldFactory = () => fields200;
+  const fields200Factory: FieldFactory = () => createTextColumns(200);
 
   const getTarget = (name: string): IBenchTarget => {
     const target = targets.find((item) => item.name === name);

@@ -167,8 +167,7 @@ const getTarget = (name: string): IBenchTarget => {
 };
 
 const simpleFieldsFactory = () => createSimpleFields();
-const fields200 = createTextColumns(200);
-const fields200Factory = () => fields200;
+const fields200Factory = () => createTextColumns(200);
 
 describe('DB adapter benchmarks (Hono): create table (3 columns)', () => {
   for (const adapter of adapters) {

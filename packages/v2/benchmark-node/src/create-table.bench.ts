@@ -165,10 +165,8 @@ const runCreateTable = async (
 
 const simpleFieldsFactory = () => createSimpleFields();
 const baseFieldsFactory = () => createAllBaseFields();
-const fields200 = createTextColumns(200);
-const fields1000 = createTextColumns(1000);
-const fields200Factory = () => fields200;
-const fields1000Factory = () => fields1000;
+const fields200Factory = () => createTextColumns(200);
+const fields1000Factory = () => createTextColumns(1000);
 
 const frameworks = ['express', 'fastify', 'hono'] as const;
 

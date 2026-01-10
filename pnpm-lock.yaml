@@ -3466,6 +3466,9 @@ importers:
 
   packages/v2/container-bun-test:
     dependencies:
+      '@teable/v2-adapter-csv-parser-papaparse':
+        specifier: workspace:*
+        version: link:../adapter-csv-parser-papaparse
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pg
