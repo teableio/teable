@@ -3,6 +3,8 @@ import { explainCreate, explainUpdate, explainDelete } from './explain';
 import { mockGenerate } from './mock';
 import { recordsList, recordsGet } from './records';
 import { relations } from './relations';
+import { schemaTable, schemaField } from './schema';
+import { tablesCreate, tablesDescribeSchema } from './tables';
 import {
   underlyingTables,
   underlyingTable,
@@ -30,6 +32,18 @@ export const records = Command.make('records').pipe(
   Command.withSubcommands([recordsList, recordsGet])
 );
 
+// schema subcommand group
+export const schema = Command.make('schema').pipe(
+  Command.withDescription('Check database schema (indexes, constraints, columns)'),
+  Command.withSubcommands([schemaTable, schemaField])
+);
+
+// tables subcommand group
+export const tables = Command.make('tables').pipe(
+  Command.withDescription('Table management operations'),
+  Command.withSubcommands([tablesCreate, tablesDescribeSchema])
+);
+
 // underlying subcommand group
 export const underlying = Command.make('underlying').pipe(
   Command.withDescription('Query underlying database metadata and data'),
@@ -46,7 +60,7 @@ export const underlying = Command.make('underlying').pipe(
 // Root command
 export const root = Command.make('teable-devtools').pipe(
   Command.withDescription('Teable v2 developer tools CLI'),
-  Command.withSubcommands([explain, mock, records, relations, underlying])
+  Command.withSubcommands([explain, mock, records, relations, schema, tables, underlying])
 );
 
 export { relations };

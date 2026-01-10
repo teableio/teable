@@ -14,6 +14,8 @@ Use this skill when you need to:
 - Analyze computed field update plans (explain commands)
 - Generate mock/test data for tables
 - **Query records data** (via application layer or direct database access)
+- **Check database schema** (indexes, constraints, columns) for missing or broken indexes
+- **Create tables** (via CLI, without records)
 
 > **重要提示**: 当需要查看数据库数据时，**优先使用 devtools CLI 而不是 psql 命令行**。devtools 提供格式化的 TOON 输出，更适合 AI 分析，并且可以比较应用层和数据库层的数据差异。
 
@@ -49,6 +51,18 @@ pnpm --filter @teable/v2-devtools cli explain update --table-id tbl... --record-
 pnpm --filter @teable/v2-devtools cli explain delete --table-id tbl... --record-ids rec1,rec2
 ```
 
+### Schema Check Commands
+
+Use these commands to verify database schema integrity, especially when you suspect missing indexes might be causing slow queries.
+
+```bash
+# Check all fields in a table for missing indexes, constraints, columns
+pnpm --filter @teable/v2-devtools cli schema table --table-id tbl...
+
+# Check a specific field for missing schema elements
+pnpm --filter @teable/v2-devtools cli schema field --table-id tbl... --field-id fld...
+```
+
 ### Records Query Commands
 
 ```bash
@@ -79,6 +93,16 @@ pnpm --filter @teable/v2-devtools cli mock generate --table-id tbl... --count 50
 
 # Dry run (preview without inserting)
 pnpm --filter @teable/v2-devtools cli mock generate --table-id tbl... --count 10 --dry-run
+```
+
+### Table Management Commands
+
+```bash
+# Create a simple table with default fields (just a primary Name field)
+pnpm --filter @teable/v2-devtools cli tables create --base-id bse... --name "My Table"
+
+# Create a table with custom fields
+pnpm --filter @teable/v2-devtools cli tables create --base-id bse... --name "Tasks" --fields '[{"type":"singleLineText","name":"Title","isPrimary":true},{"type":"singleSelect","name":"Status","options":{"choices":[{"name":"Todo"},{"name":"Done"}]}},{"type":"date","name":"Due Date"}]'
 ```
 
 ## Command Reference
@@ -123,6 +147,44 @@ pnpm --filter @teable/v2-devtools cli mock generate --table-id tbl... --count 10
 | `--level <n>` | Max traversal depth (default: unlimited) |
 | `--same-table` | Only traverse same-table relations |
 
+### schema Commands
+
+Use these commands when analyzing slow queries or suspecting missing indexes.
+
+| Command | Description |
+|---------|-------------|
+| `schema table --table-id <id>` | Check all fields in a table for schema issues |
+| `schema field --table-id <id> --field-id <id>` | Check a specific field for schema issues |
+
+**Schema Check Output:**
+
+The output includes a summary with:
+- `total`: Total number of schema rules checked
+- `success`: Rules that passed validation
+- `errors`: Critical issues (missing indexes, columns, constraints)
+- `warnings`: Non-critical issues
+
+Each result item includes:
+- `fieldId`, `fieldName`: The field being checked
+- `ruleId`: Type of rule (e.g., `index`, `unique_index`, `fk_column`, `fk`)
+- `ruleDescription`: Human-readable description
+- `status`: `success`, `error`, or `warn`
+- `message`: Details about the issue
+- `details.missing`: List of missing schema objects (index names, column names, etc.)
+
+**Rule Types Checked:**
+| Rule Type | Description |
+|-----------|-------------|
+| `column` | Physical column exists |
+| `fk_column` | Foreign key column exists |
+| `index` | Non-unique index exists (for FK lookups) |
+| `unique_index` | Unique index exists (for one-to-one relations) |
+| `fk` | Foreign key constraint exists |
+| `junction_table` | Junction table exists (many-to-many) |
+| `junction_index` | Junction table indexes exist |
+| `junction_fk` | Junction table foreign keys exist |
+| `generated_column` | Generated column (auto-number, created_time, etc.) |
+
 ### explain Commands
 
 | Command | Description |
@@ -165,6 +227,73 @@ pnpm --filter @teable/v2-devtools cli mock generate --table-id tbl... --count 10
 | User | Mock user object `{id, title, email}` |
 | Attachment | Mock attachment objects |
 | Link | Random IDs from linked table |
+
+### tables Commands
+
+| Command | Description |
+|---------|-------------|
+| `tables create --base-id <id> --name <name>` | Create a new table (without records) |
+| `tables describe-schema` | **Output field schema documentation for AI reference** |
+
+> **重要**: 在创建表之前，**必须先运行 `tables describe-schema`** 获取完整的字段 schema 文档，确保入参格式正确，避免验证错误。
+
+**tables create Options:**
+| Option | Description |
+|--------|-------------|
+| `--base-id <id>` | Required: Base ID where table will be created |
+| `--name <name>` | Required: Table name |
+| `--fields <json>` | Optional: JSON array of field definitions |
+
+**关键验证规则 (必须遵守):**
+1. **SingleSelect/MultipleSelect choices 必须有 color 属性** - 例如: `{"name": "Todo", "color": "blueLight1"}`
+2. **Link 字段必须有 foreignTableId 和 lookupFieldId** - 先查询目标表获取这些 ID
+3. **每个表只能有一个 isPrimary: true 的字段**
+
+**Field Definition Format:**
+```json
+[
+  {"type": "singleLineText", "name": "Title", "isPrimary": true},
+  {"type": "number", "name": "Amount"},
+  {"type": "date", "name": "Due Date"},
+  {"type": "singleSelect", "name": "Status", "options": {"choices": [{"name": "Todo", "color": "grayLight1"}, {"name": "Done", "color": "greenLight1"}]}},
+  {"type": "checkbox", "name": "Completed"}
+]
+```
+
+**Link Field Example:**
+```json
+{
+  "type": "link",
+  "name": "Company",
+  "options": {
+    "relationship": "manyOne",
+    "foreignTableId": "tblXXXXXXXX",
+    "lookupFieldId": "fldYYYYYYYY"
+  }
+}
+```
+- `relationship`: `oneOne` (1:1), `oneMany` (1:N), `manyOne` (N:1), `manyMany` (N:N)
+- `lookupFieldId`: 目标表的主键字段 ID (通常是第一个字段)
+
+**Supported Field Types:**
+- `singleLineText`, `longText`, `number`, `date`, `checkbox`
+- `singleSelect`, `multipleSelect` (requires `options.choices` with color)
+- `rating`, `attachment`, `user`
+- `link` (requires `options.foreignTableId`, `options.lookupFieldId`, `options.relationship`)
+- `formula`, `rollup`, `lookup` (computed fields)
+- `autoNumber`, `createdTime`, `lastModifiedTime`, `createdBy`, `lastModifiedBy`
+
+**Valid Colors for Select Choices:**
+`blueLight2`, `blueLight1`, `blueBright`, `blue`, `blueDark1`,
+`cyanLight2`, `cyanLight1`, `cyanBright`, `cyan`, `cyanDark1`,
+`grayLight2`, `grayLight1`, `grayBright`, `gray`, `grayDark1`,
+`greenLight2`, `greenLight1`, `greenBright`, `green`, `greenDark1`,
+`orangeLight2`, `orangeLight1`, `orangeBright`, `orange`, `orangeDark1`,
+`pinkLight2`, `pinkLight1`, `pinkBright`, `pink`, `pinkDark1`,
+`purpleLight2`, `purpleLight1`, `purpleBright`, `purple`, `purpleDark1`,
+`redLight2`, `redLight1`, `redBright`, `red`, `redDark1`,
+`tealLight2`, `tealLight1`, `tealBright`, `teal`, `tealDark1`,
+`yellowLight2`, `yellowLight1`, `yellowBright`, `yellow`, `yellowDark1`
 
 ## Common Diagnostic Scenarios
 
@@ -211,6 +340,30 @@ When data shown in the UI doesn't match what you expect, compare application lay
 - If `stored` ≠ `computed`: The stored cache is stale, computed values haven't been persisted
 - If `stored` ≠ `underlying`: Application layer transformation issue
 - If `computed` ≠ `underlying`: Field calculation logic issue
+
+### Scenario 6: Slow Query Performance (Missing Indexes)
+
+When queries are slow, especially for Link fields or tables with many records:
+
+1. **Check schema for the entire table**:
+   ```bash
+   pnpm --filter @teable/v2-devtools cli schema table --table-id tbl...
+   ```
+
+2. **Look for errors in the output**, especially:
+   - `index:*` rules with `status: error` - missing index on foreign key column
+   - `unique_index:*` rules - missing unique index for one-to-one relations
+   - `junction_index:*` rules - missing indexes on junction tables (many-to-many)
+
+3. **Check a specific Link field**:
+   ```bash
+   pnpm --filter @teable/v2-devtools cli schema field --table-id tbl... --field-id fldLinkField
+   ```
+
+4. **Common missing index patterns**:
+   - Link field (one-to-many): Should have `index` on `fld_{fieldId}__id` column
+   - Link field (one-to-one): Should have `unique_index` on `fld_{fieldId}__id` column
+   - Link field (many-to-many): Junction table should have indexes on both FK columns
 
 ## Global Options
 

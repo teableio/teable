@@ -3,3 +3,5 @@ export * from './DebugData';
 export * from './CommandExplain';
 export * from './MockRecords';
 export * from './Output';
+export * from './SchemaChecker';
+export * from './TableCreator';

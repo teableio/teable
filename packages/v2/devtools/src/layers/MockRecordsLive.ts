@@ -13,6 +13,7 @@ import {
   ActorId,
   type ITableRepository,
   type ITableRecordRepository,
+  type IUnitOfWork,
   type Table,
 } from '@teable/v2-core';
 import { MockRecordGenerator } from '@teable/v2-mock-records';
@@ -112,31 +113,39 @@ export const MockRecordsLive = Layer.effect(
             } satisfies MockGenerateResult;
           }
 
-          // Actual insert using insertManyStream
-          async function* generateWithSamples() {
-            for await (const batch of generator.generateForTable(table as Table)) {
-              for (const record of batch) {
-                if (sampleRecords.length < 5) {
-                  const fields: Record<string, unknown> = {};
-                  for (const entry of record.fields().entries()) {
-                    fields[entry.fieldId.toString()] = entry.value.toValue();
-                  }
-                  sampleRecords.push({
-                    id: record.id().toString(),
-                    fields,
-                  });
-                }
-              }
-              yield batch;
-            }
-          }
+          // Actual insert using insertManyStream wrapped in transaction
+          const unitOfWork = container.resolve(v2CoreTokens.unitOfWork) as IUnitOfWork;
 
           const insertResult = yield* Effect.tryPromise({
-            try: () =>
-              tableRecordRepository.insertManyStream(context, table, generateWithSamples()),
+            try: async () => {
+              // Pre-generate all batches before starting transaction
+              // (async generators can't be restarted, so we materialize them first)
+              const allBatches: Array<ReadonlyArray<import('@teable/v2-core').TableRecord>> = [];
+              for await (const batch of generator.generateForTable(table as Table)) {
+                for (const record of batch) {
+                  if (sampleRecords.length < 5) {
+                    const fields: Record<string, unknown> = {};
+                    for (const entry of record.fields().entries()) {
+                      fields[entry.fieldId.toString()] = entry.value.toValue();
+                    }
+                    sampleRecords.push({
+                      id: record.id().toString(),
+                      fields,
+                    });
+                  }
+                }
+                allBatches.push(batch);
+              }
+
+              return unitOfWork.withTransaction(context, async (txContext) => {
+                return tableRecordRepository.insertManyStream(txContext, table, allBatches);
+              });
+            },
             catch: (e) => CliError.fromUnknown(e),
           });
 
+          // insertResult is Result<Result<InsertManyStreamResult, DomainError>, CliError>
+          // First check the outer Result (from Effect.tryPromise)
           if (insertResult.isErr()) {
             return yield* Effect.fail(
               new CliError({
@@ -146,13 +155,49 @@ export const MockRecordsLive = Layer.effect(
             );
           }
 
-          const { totalInserted } = insertResult.value;
+          // Then check the inner Result (from unitOfWork.withTransaction)
+          const txResult = insertResult.value;
 
+          // txResult should be Result<InsertManyStreamResult, DomainError>
+          // Check if it's a Result object with isErr method
+          if (
+            typeof txResult === 'object' &&
+            txResult !== null &&
+            'isErr' in txResult &&
+            typeof (txResult as { isErr: unknown }).isErr === 'function'
+          ) {
+            const resultObj = txResult as {
+              isErr: () => boolean;
+              error: { message: string };
+              value: { totalInserted: number };
+            };
+            if (resultObj.isErr()) {
+              return yield* Effect.fail(
+                new CliError({
+                  message: `Failed to insert records: ${resultObj.error.message}`,
+                  code: 'INSERT_FAILED',
+                })
+              );
+            }
+            const { totalInserted } = resultObj.value;
+            return {
+              tableId: input.tableId,
+              tableName: table.name().toString(),
+              totalGenerated: totalInserted,
+              totalInserted,
+              dryRun: false,
+              seed: input.seed ?? null,
+              sampleRecords,
+            } satisfies MockGenerateResult;
+          }
+
+          // If txResult is directly InsertManyStreamResult (shouldn't happen but handle it)
+          const directResult = txResult as { totalInserted: number };
           return {
             tableId: input.tableId,
             tableName: table.name().toString(),
-            totalGenerated: totalInserted,
-            totalInserted,
+            totalGenerated: directResult.totalInserted,
+            totalInserted: directResult.totalInserted,
             dryRun: false,
             seed: input.seed ?? null,
             sampleRecords,

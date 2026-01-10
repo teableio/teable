@@ -36,14 +36,18 @@
     "@effect/cli": "0.54.4",
     "@effect/platform": "0.75.4",
     "@effect/platform-node": "0.71.0",
+    "@teable/v2-adapter-db-postgres-pg": "workspace:*",
+    "@teable/v2-adapter-table-repository-postgres": "workspace:*",
     "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-debug-data": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-mock-records": "workspace:*",
+    "@teable/v2-postgres-schema": "workspace:*",
     "@toon-format/toon": "2.1.0",
     "effect": "3.12.12",
+    "kysely": "0.28.9",
     "neverthrow": "8.2.0"
   },
   "devDependencies": {

@@ -4123,6 +4123,12 @@ importers:
       '@effect/platform-node':
         specifier: 0.71.0
         version: 0.71.0(@effect/platform@0.75.4(effect@3.12.12))(effect@3.12.12)
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
+      '@teable/v2-adapter-table-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-table-repository-postgres
       '@teable/v2-command-explain':
         specifier: workspace:*
         version: link:../command-explain
@@ -4141,12 +4147,18 @@ importers:
       '@teable/v2-mock-records':
         specifier: workspace:*
         version: link:../mock-records
+      '@teable/v2-postgres-schema':
+        specifier: workspace:*
+        version: link:../postgres-schema
       '@toon-format/toon':
         specifier: 2.1.0
         version: 2.1.0
       effect:
         specifier: 3.12.12
         version: 3.12.12
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0

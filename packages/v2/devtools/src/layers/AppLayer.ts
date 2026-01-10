@@ -4,6 +4,8 @@ import { DebugDataLive } from './DebugDataLive';
 import { CommandExplainLive } from './CommandExplainLive';
 import { MockRecordsLive } from './MockRecordsLive';
 import { OutputLive } from './OutputLive';
+import { SchemaCheckerLive } from './SchemaCheckerLive';
+import { TableCreatorLive } from './TableCreatorLive';
 import { DatabaseConfig } from '../services/Database';
 
 /**
@@ -13,14 +15,15 @@ const createDatabaseLayer = (connectionString?: string) =>
   DatabaseLive.pipe(Layer.provide(DatabaseConfigFromOption(connectionString)));
 
 /**
- * Layer for read-only operations (DebugData + CommandExplain)
+ * Layer for read-only operations (DebugData + CommandExplain + SchemaChecker)
  */
 export const ReadOnlyLayer = (connectionString?: string) => {
   const dbLayer = createDatabaseLayer(connectionString);
   return Layer.mergeAll(
     OutputLive,
     DebugDataLive.pipe(Layer.provide(dbLayer)),
-    CommandExplainLive.pipe(Layer.provide(dbLayer))
+    CommandExplainLive.pipe(Layer.provide(dbLayer)),
+    SchemaCheckerLive.pipe(Layer.provide(dbLayer))
   );
 };
 
@@ -45,7 +48,9 @@ export const FullLayer = (connectionString?: string) => {
     configLayer,
     DebugDataLive.pipe(Layer.provide(dbLayer)),
     CommandExplainLive.pipe(Layer.provide(dbLayer)),
-    MockRecordsLive.pipe(Layer.provide(dbLayer))
+    MockRecordsLive.pipe(Layer.provide(dbLayer)),
+    SchemaCheckerLive.pipe(Layer.provide(dbLayer)),
+    TableCreatorLive.pipe(Layer.provide(dbLayer))
   );
 };
 
@@ -57,6 +62,8 @@ export type AppLayerType = Layer.Layer<
     import('../services/DebugData').DebugData['Type'] &
     import('../services/CommandExplain').CommandExplain['Type'] &
     import('../services/MockRecords').MockRecords['Type'] &
+    import('../services/SchemaChecker').SchemaChecker['Type'] &
+    import('../services/TableCreator').TableCreator['Type'] &
     DatabaseConfig['Type'],
   Error,
   never
