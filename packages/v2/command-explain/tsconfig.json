@@ -22,6 +22,7 @@
     "paths": {
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"],
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
       "@teable/v2-adapter-record-repository-postgres": [
         "../adapter-record-repository-postgres/src"
       ],
@@ -43,6 +44,7 @@
     "src",
     "../core/src",
     "../di/src",
+    "../adapter-table-repository-postgres/src",
     "../adapter-record-repository-postgres/src",
     "../postgres-schema/src",
     "../formula-sql-pg/src",
