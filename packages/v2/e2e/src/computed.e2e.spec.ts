@@ -6523,7 +6523,7 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: ConditionalRollup Host -> [Active Sum]
-        [Edges: 1]"
+        [Edges: 2]"
       `);
 
       const afterRecords = await listRecords(hostTable.id);
@@ -7745,7 +7745,7 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
           L0: ConditionalLookup Host -> [Active Values]
-        [Edges: 1]"
+        [Edges: 2]"
       `);
 
       const afterRecords = await listRecords(hostTable.id);

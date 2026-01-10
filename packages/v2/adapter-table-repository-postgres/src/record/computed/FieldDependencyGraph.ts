@@ -65,7 +65,8 @@ export type LinkOptionsMeta = {
 export type ConditionalFieldOptionsMeta = {
   foreignTableId: string;
   lookupFieldId: string;
-  // condition is stored but not needed for dependency graph
+  /** Field IDs referenced in the condition filter - changes to these fields should trigger recalculation */
+  conditionFieldIds: string[];
 };
 
 export type FieldMeta = {
@@ -206,6 +207,28 @@ export class FieldDependencyGraph {
                   ? 'conditional_rollup_source'
                   : 'conditional_lookup_source',
             });
+
+            // Add dependencies on fields referenced in the condition filter.
+            // When these fields change, the conditional rollup/lookup needs to be recalculated
+            // because the filter result may change.
+            for (const conditionFieldId of conditionalOptions.conditionFieldIds) {
+              const condFieldId = yield* FieldId.create(conditionFieldId);
+              // Skip if it's the same as lookupFieldId (already added above)
+              if (condFieldId.equals(lookupFieldId)) continue;
+
+              derivedEdges.push({
+                fromFieldId: condFieldId,
+                toFieldId: field.id,
+                fromTableId: foreignTableId,
+                toTableId: field.tableId,
+                kind: 'cross_record',
+                // No linkFieldId - conditional fields use conditions instead of link traversal
+                semantic:
+                  type === 'conditionalRollup'
+                    ? 'conditional_rollup_source'
+                    : 'conditional_lookup_source',
+              });
+            }
           }
         }
 
@@ -497,9 +520,13 @@ const parseConditionalFieldOptions = (
     return ok(null);
   }
 
+  // Extract field IDs from the condition filter
+  const conditionFieldIds = extractConditionFieldIds(value.filter);
+
   return ok({
     foreignTableId: foreignTableId.value,
     lookupFieldId: lookupFieldId.value,
+    conditionFieldIds,
   });
 };
 
@@ -509,6 +536,49 @@ const parseJson = (raw: string, label: string): Result<unknown, DomainError> => 
   } catch {
     return err(domainError.validation({ message: `Invalid JSON for ${label}` }));
   }
+};
+
+/**
+ * Extract field IDs from a condition filter object.
+ * Handles nested filter structures with conjunction (and/or) and filterSet.
+ *
+ * Filter structure:
+ * {
+ *   conjunction: 'and' | 'or',
+ *   filterSet: Array<{ fieldId: string, operator: string, value: unknown } | NestedFilter>
+ * }
+ */
+const extractConditionFieldIds = (filter: unknown): string[] => {
+  const fieldIds: string[] = [];
+
+  const extractFromFilterSet = (filterSet: unknown): void => {
+    if (!Array.isArray(filterSet)) return;
+
+    for (const item of filterSet) {
+      if (typeof item !== 'object' || item === null) continue;
+
+      const record = item as Record<string, unknown>;
+
+      // If it has a fieldId, it's a filter condition
+      if (typeof record.fieldId === 'string' && record.fieldId.length > 0) {
+        fieldIds.push(record.fieldId);
+      }
+
+      // If it has a filterSet, it's a nested filter group (recursive)
+      if (Array.isArray(record.filterSet)) {
+        extractFromFilterSet(record.filterSet);
+      }
+    }
+  };
+
+  if (typeof filter !== 'object' || filter === null) return fieldIds;
+
+  const filterRecord = filter as Record<string, unknown>;
+  if (Array.isArray(filterRecord.filterSet)) {
+    extractFromFilterSet(filterRecord.filterSet);
+  }
+
+  return fieldIds;
 };
 
 const readString = (value: Record<string, unknown>, key: string): Result<string, DomainError> => {
