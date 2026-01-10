@@ -14,7 +14,6 @@ import { FieldCreated } from './events/FieldCreated';
 import { FieldDeleted } from './events/FieldDeleted';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
-import { TableRenamed } from './events/TableRenamed';
 import { ViewColumnMetaUpdated } from './events/ViewColumnMetaUpdated';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
@@ -34,6 +33,7 @@ import {
   createRecordsStreamAsync as createRecordsStreamAsyncMethod,
   updateRecord as updateRecordMethod,
 } from './methods/records';
+import { rename as renameMethod } from './methods/rename';
 import type { RecordCreateResult } from './records/RecordCreateResult';
 import type { RecordId } from './records/RecordId';
 import type { RecordUpdateResult } from './records/RecordUpdateResult';
@@ -468,22 +468,7 @@ export class Table extends AggregateRoot<TableId> {
   }
 
   rename(nextName: TableName): Result<Table, DomainError> {
-    const cloned = this.cloneWithName(nextName);
-    if (cloned.isErr()) return err(cloned.error);
-    const nextTable = cloned.value;
-
-    if (!this.nameValue.equals(nextName)) {
-      nextTable.addDomainEvent(
-        TableRenamed.create({
-          tableId: nextTable.id(),
-          baseId: nextTable.baseId(),
-          previousName: this.nameValue,
-          nextName,
-        })
-      );
-    }
-
-    return ok(nextTable);
+    return renameMethod.call(this, nextName);
   }
 
   addField(
@@ -599,23 +584,6 @@ export class Table extends AggregateRoot<TableId> {
   ): Result<void, DomainError> {
     if (!foreignTables || foreignTables.length === 0) return ok(undefined);
     return validateForeignTablesForFields(fields, { hostTable: this, foreignTables });
-  }
-
-  private cloneWithName(nextName: TableName): Result<Table, DomainError> {
-    const props: ITableBuildProps = {
-      id: this.id(),
-      baseId: this.baseIdValue,
-      name: nextName,
-      fields: this.getFields(),
-      views: this.views(),
-      primaryFieldId: this.primaryFieldIdValue,
-    };
-
-    if (this.dbTableNameValue.isRehydrated()) {
-      props.dbTableName = this.dbTableNameValue;
-    }
-
-    return Table.rehydrate(props);
   }
 
   private cloneViewsWithField(

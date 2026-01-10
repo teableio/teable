@@ -14,4 +14,5 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe method extraction approach.
+- `rename.ts` - Role: method function; Purpose: rename table and emit TableRenamed event.
 - `records/ARCHITECTURE.md` - Role: subfolder architecture note; Purpose: describe record method functions.
