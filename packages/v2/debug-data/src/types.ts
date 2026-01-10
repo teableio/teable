@@ -138,3 +138,17 @@ export type DebugFieldRelationReport = {
     maxDepthDown: number;
   };
 };
+
+// Raw record types for underlying database access
+export type DebugRawRecord = Record<string, unknown>;
+
+export type DebugRawRecordQueryOptions = {
+  limit?: number;
+  offset?: number;
+};
+
+export type DebugRawRecordQueryResult = {
+  dbTableName: string;
+  records: ReadonlyArray<DebugRawRecord>;
+  total: number;
+};

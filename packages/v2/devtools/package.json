@@ -23,12 +23,6 @@
     "src",
     "bin"
   ],
-  "oclif": {
-    "bin": "teable-devtools",
-    "dirname": "teable-devtools",
-    "commands": "./src/commands",
-    "topicSeparator": " "
-  },
   "scripts": {
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
@@ -39,7 +33,9 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@oclif/core": "^4.2.10",
+    "@effect/cli": "0.54.4",
+    "@effect/platform": "0.75.4",
+    "@effect/platform-node": "0.71.0",
     "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-core": "workspace:*",
@@ -47,6 +43,7 @@
     "@teable/v2-di": "workspace:*",
     "@teable/v2-mock-records": "workspace:*",
     "@toon-format/toon": "2.1.0",
+    "effect": "3.12.12",
     "neverthrow": "8.2.0"
   },
   "devDependencies": {

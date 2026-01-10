@@ -1,84 +1,78 @@
-import { Flags } from '@oclif/core';
-import { BaseCommand } from '../base/base-command';
+import { Command, Options } from '@effect/cli';
+import { Effect, Option } from 'effect';
+import { DebugData } from '../services/DebugData';
+import { Output } from '../services/Output';
+import { connectionOption, fieldIdOption } from './shared';
 
-export default class Relations extends BaseCommand<typeof Relations> {
-  static description = 'Query field dependency graph';
+const directionOption = Options.choice('direction', ['up', 'down', 'both']).pipe(
+  Options.withDefault('both' as const),
+  Options.withDescription('Traversal direction: up = who depends on me, down = what I depend on')
+);
 
-  static examples = [
-    '<%= config.bin %> relations --field-id fld_xxx',
-    '<%= config.bin %> relations --field-id fld_xxx --direction up --level 2',
-    '<%= config.bin %> relations --field-id fld_xxx --direction down --same-table',
-  ];
+const levelOption = Options.integer('level').pipe(
+  Options.withDescription('Max traversal depth (default: unlimited)'),
+  Options.optional
+);
 
-  static flags = {
-    ...BaseCommand.baseFlags,
-    'field-id': Flags.string({
-      required: true,
-      description: 'Starting field ID',
-    }),
-    direction: Flags.string({
-      options: ['up', 'down', 'both'],
-      default: 'both',
-      description: 'Traversal direction: up = who depends on me, down = what I depend on',
-    }),
-    level: Flags.integer({
-      description: 'Max traversal depth (default: unlimited)',
-    }),
-    'same-table': Flags.boolean({
-      default: false,
-      description: 'Only traverse same-table relations',
-    }),
-  };
+const sameTableOption = Options.boolean('same-table').pipe(
+  Options.withDefault(false),
+  Options.withDescription('Only traverse same-table relations')
+);
 
-  async run(): Promise<void> {
-    const { flags } = await this.parse(Relations);
-    this.flags = flags;
+const handler = (args: {
+  readonly connection: Option.Option<string>;
+  readonly fieldId: string;
+  readonly direction: 'up' | 'down' | 'both';
+  readonly level: Option.Option<number>;
+  readonly sameTable: boolean;
+}) =>
+  Effect.gen(function* () {
+    const debugData = yield* DebugData;
+    const output = yield* Output;
 
-    const fieldId = flags['field-id'];
-    const direction = flags.direction as 'up' | 'down' | 'both';
-    const level = flags.level;
-    const sameTable = flags['same-table'];
-
+    const maxDepth = Option.getOrNull(args.level);
     const input = {
-      fieldId,
-      direction,
-      maxDepth: level ?? null,
-      sameTableOnly: sameTable,
+      fieldId: args.fieldId,
+      direction: args.direction,
+      maxDepth,
+      sameTableOnly: args.sameTable,
     };
 
-    try {
-      await this.initContainer();
+    const result = yield* debugData
+      .getFieldRelationReport(args.fieldId, {
+        direction: args.direction,
+        maxDepth,
+        sameTableOnly: args.sameTable,
+      })
+      .pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            const errorMsg = error.message;
+            if (errorMsg.includes('not found') || errorMsg.includes('Not found')) {
+              yield* output.empty(
+                'relations',
+                input,
+                `Field "${args.fieldId}" not found. Check if the field ID is correct.`
+              );
+            } else {
+              yield* output.error('relations', input, error);
+            }
+            return yield* Effect.fail(error);
+          })
+        )
+      );
 
-      const { registerV2DebugData, v2DebugDataTokens } = await import('@teable/v2-debug-data');
-      registerV2DebugData(this.container);
+    yield* output.success('relations', input, result);
+  });
 
-      const debugService = this.container.resolve(v2DebugDataTokens.debugDataService);
-      const result = await debugService.getFieldRelationReport(fieldId, {
-        direction,
-        maxDepth: level ?? null,
-        sameTableOnly: sameTable,
-      });
-
-      if (result.isErr()) {
-        const errorMsg = result.error.message;
-        if (errorMsg.includes('not found') || errorMsg.includes('Not found')) {
-          this.printOutput(
-            this.createEmptyDataOutput(
-              'relations',
-              input,
-              `Field "${fieldId}" not found. Check if the field ID is correct and exists in the database.`
-            )
-          );
-        } else {
-          this.printOutput(this.createErrorOutput('relations', input, result.error));
-        }
-        this.exit(1);
-      }
-
-      this.printOutput(this.createSuccessOutput('relations', input, result.value));
-    } catch (error) {
-      this.printOutput(this.createErrorOutput('relations', input, error));
-      this.exit(1);
-    }
-  }
-}
+export const relations = Command.make(
+  'relations',
+  {
+    connection: connectionOption,
+    fieldId: fieldIdOption,
+    direction: directionOption,
+    level: levelOption,
+    sameTable: sameTableOption,
+  },
+  handler
+).pipe(Command.withDescription('Query field dependency graph'));

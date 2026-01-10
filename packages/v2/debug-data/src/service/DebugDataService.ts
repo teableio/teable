@@ -1,9 +1,10 @@
-import { BaseId, FieldId, TableId, domainError, type DomainError } from '@teable/v2-core';
+import { BaseId, FieldId, TableId, RecordId, domainError, type DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, type Result } from 'neverthrow';
 
 import { v2DebugDataTokens } from '../di/tokens';
 import type { IDebugMetaStore } from '../ports/DebugMetaStore';
+import type { IDebugRecordStore } from '../ports/DebugRecordStore';
 import type {
   DebugFieldRelationGraphData,
   IDebugFieldRelationGraph,
@@ -15,12 +16,14 @@ import {
   type DebugFieldRelationOptions,
   type DebugFieldRelationReport,
   type DebugFieldSummary,
+  type DebugRawRecordQueryOptions,
 } from '../types';
 
 @injectable()
 export class DebugDataService {
   constructor(
     @inject(v2DebugDataTokens.metaStore) private readonly metaStore: IDebugMetaStore,
+    @inject(v2DebugDataTokens.recordStore) private readonly recordStore: IDebugRecordStore,
     @inject(v2DebugDataTokens.relationGraph)
     private readonly relationGraph: IDebugFieldRelationGraph
   ) {}
@@ -47,6 +50,20 @@ export class DebugDataService {
     const parsed = TableId.create(tableId);
     if (parsed.isErr()) return err(parsed.error);
     return this.metaStore.getFieldsByTableId(parsed.value);
+  }
+
+  async getRawRecords(tableId: string, options?: DebugRawRecordQueryOptions) {
+    const parsed = TableId.create(tableId);
+    if (parsed.isErr()) return err(parsed.error);
+    return this.recordStore.getRawRecords(parsed.value, options);
+  }
+
+  async getRawRecord(tableId: string, recordId: string) {
+    const parsedTableId = TableId.create(tableId);
+    if (parsedTableId.isErr()) return err(parsedTableId.error);
+    const parsedRecordId = RecordId.create(recordId);
+    if (parsedRecordId.isErr()) return err(parsedRecordId.error);
+    return this.recordStore.getRawRecord(parsedTableId.value, parsedRecordId.value);
   }
 
   async getFieldRelationReport(

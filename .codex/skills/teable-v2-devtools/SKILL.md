@@ -1,6 +1,6 @@
 ---
 name: teable-v2-devtools
-description: Teable v2 developer tools CLI for debugging, inspecting, and generating test data. Combines debug-data and mock-records capabilities into a unified CLI using oclif framework.
+description: Teable v2 developer tools CLI for debugging, inspecting, and generating test data. Combines debug-data and mock-records capabilities into a unified CLI using Effect CLI framework.
 ---
 
 # Teable V2 DevTools CLI
@@ -13,6 +13,9 @@ Use this skill when you need to:
 - Understand field dependency relationships
 - Analyze computed field update plans (explain commands)
 - Generate mock/test data for tables
+- **Query records data** (via application layer or direct database access)
+
+> **重要提示**: 当需要查看数据库数据时，**优先使用 devtools CLI 而不是 psql 命令行**。devtools 提供格式化的 TOON 输出，更适合 AI 分析，并且可以比较应用层和数据库层的数据差异。
 
 ## Quick Commands
 
@@ -46,6 +49,25 @@ pnpm --filter @teable/v2-devtools cli explain update --table-id tbl... --record-
 pnpm --filter @teable/v2-devtools cli explain delete --table-id tbl... --record-ids rec1,rec2
 ```
 
+### Records Query Commands
+
+```bash
+# List records via application layer (stored mode - pre-computed values)
+pnpm --filter @teable/v2-devtools cli records list --table-id tbl... --limit 100 --offset 0
+
+# List records via application layer (computed mode - calculated on-the-fly)
+pnpm --filter @teable/v2-devtools cli records list --table-id tbl... --mode computed
+
+# Get single record via application layer
+pnpm --filter @teable/v2-devtools cli records get --table-id tbl... --record-id rec...
+
+# List records directly from underlying PostgreSQL table (raw data)
+pnpm --filter @teable/v2-devtools cli underlying records --table-id tbl... --limit 100
+
+# Get single record directly from underlying PostgreSQL table
+pnpm --filter @teable/v2-devtools cli underlying record --table-id tbl... --record-id rec...
+```
+
 ### Mock Data Commands
 
 ```bash
@@ -69,6 +91,28 @@ pnpm --filter @teable/v2-devtools cli mock generate --table-id tbl... --count 10
 | `underlying tables --base-id <id>` | List all tables in a base |
 | `underlying field --field-id <id>` | Get field metadata (includes parsed options/meta JSON) |
 | `underlying fields --table-id <id>` | List all fields in a table |
+| `underlying records --table-id <id>` | List records directly from PostgreSQL (raw data with system columns) |
+| `underlying record --table-id <id> --record-id <id>` | Get single record directly from PostgreSQL |
+
+### records Commands (Application Layer)
+
+| Command | Description |
+|---------|-------------|
+| `records list --table-id <id>` | List records via query repository |
+| `records get --table-id <id> --record-id <id>` | Get single record via query repository |
+
+**Records Options:**
+| Option | Description |
+|--------|-------------|
+| `--table-id <id>` | Required: Table ID |
+| `--record-id <id>` | Required for get: Record ID |
+| `--limit <n>` | Max records to return (default: 100) |
+| `--offset <n>` | Records to skip (default: 0) |
+| `--mode stored\|computed` | Query mode (default: stored) |
+
+**Mode Explanation:**
+- `stored`: Read pre-computed values from the database (fast, uses cached values)
+- `computed`: Calculate field values on-the-fly (slower, always fresh)
 
 ### relations Command
 
@@ -144,6 +188,29 @@ pnpm --filter @teable/v2-devtools cli mock generate --table-id tbl... --count 10
 2. Check `computedImpact.updateSteps` for the update plan
 3. Look at `complexity.score` and `recommendations`
 4. Use `--analyze` flag for actual execution timing
+
+### Scenario 5: Data Inconsistency Between Application and Database
+When data shown in the UI doesn't match what you expect, compare application layer and database layer:
+
+1. **Query via application layer (stored mode)**:
+   ```bash
+   pnpm --filter @teable/v2-devtools cli records list --table-id tbl... --limit 10 --mode stored
+   ```
+
+2. **Query via application layer (computed mode)**:
+   ```bash
+   pnpm --filter @teable/v2-devtools cli records list --table-id tbl... --limit 10 --mode computed
+   ```
+
+3. **Query directly from database**:
+   ```bash
+   pnpm --filter @teable/v2-devtools cli underlying records --table-id tbl... --limit 10
+   ```
+
+**Compare the results:**
+- If `stored` ≠ `computed`: The stored cache is stale, computed values haven't been persisted
+- If `stored` ≠ `underlying`: Application layer transformation issue
+- If `computed` ≠ `underlying`: Field calculation logic issue
 
 ## Global Options
 

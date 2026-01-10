@@ -1,55 +1,42 @@
-import { Flags } from '@oclif/core';
-import { BaseCommand } from '../../base/base-command';
+import { Command } from '@effect/cli';
+import { Effect, Option } from 'effect';
+import { DebugData } from '../../services/DebugData';
+import { Output } from '../../services/Output';
+import { connectionOption, tableIdOption } from '../shared';
 
-export default class UnderlyingTable extends BaseCommand<typeof UnderlyingTable> {
-  static description = 'Get table metadata from underlying database';
+const handler = (args: { readonly connection: Option.Option<string>; readonly tableId: string }) =>
+  Effect.gen(function* () {
+    const debugData = yield* DebugData;
+    const output = yield* Output;
 
-  static examples = ['<%= config.bin %> underlying table --table-id tbl_xxx'];
+    const input = { tableId: args.tableId };
 
-  static flags = {
-    ...BaseCommand.baseFlags,
-    'table-id': Flags.string({
-      required: true,
-      description: 'Table ID to query',
-    }),
-  };
+    const result = yield* debugData.getTableMeta(args.tableId).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          yield* output.error('underlying.table', input, error);
+          return yield* Effect.fail(error);
+        })
+      )
+    );
 
-  async run(): Promise<void> {
-    const { flags } = await this.parse(UnderlyingTable);
-    this.flags = flags;
-
-    const tableId = flags['table-id'];
-    const input = { tableId };
-
-    try {
-      await this.initContainer();
-
-      const { registerV2DebugData, v2DebugDataTokens } = await import('@teable/v2-debug-data');
-      registerV2DebugData(this.container);
-
-      const debugService = this.container.resolve(v2DebugDataTokens.debugDataService);
-      const result = await debugService.getTableMeta(tableId);
-
-      if (result.isErr()) {
-        this.printOutput(this.createErrorOutput('underlying.table', input, result.error));
-        this.exit(1);
-      }
-
-      if (this.isEmptyData(result.value)) {
-        this.printOutput(
-          this.createEmptyDataOutput(
-            'underlying.table',
-            input,
-            `Table "${tableId}" not found. Check if the table ID is correct and exists in the database.`
-          )
-        );
-        this.exit(1);
-      }
-
-      this.printOutput(this.createSuccessOutput('underlying.table', input, result.value));
-    } catch (error) {
-      this.printOutput(this.createErrorOutput('underlying.table', input, error));
-      this.exit(1);
+    if (!result) {
+      yield* output.empty(
+        'underlying.table',
+        input,
+        `Table "${args.tableId}" not found. Check if the table ID is correct.`
+      );
+      return;
     }
-  }
-}
+
+    yield* output.success('underlying.table', input, result);
+  });
+
+export const underlyingTable = Command.make(
+  'table',
+  {
+    connection: connectionOption,
+    tableId: tableIdOption,
+  },
+  handler
+).pipe(Command.withDescription('Get table metadata from underlying database'));

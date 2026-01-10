@@ -1,55 +1,42 @@
-import { Flags } from '@oclif/core';
-import { BaseCommand } from '../../base/base-command';
+import { Command } from '@effect/cli';
+import { Effect, Option } from 'effect';
+import { DebugData } from '../../services/DebugData';
+import { Output } from '../../services/Output';
+import { connectionOption, tableIdOption } from '../shared';
 
-export default class UnderlyingFields extends BaseCommand<typeof UnderlyingFields> {
-  static description = 'List all fields in a table from underlying database';
+const handler = (args: { readonly connection: Option.Option<string>; readonly tableId: string }) =>
+  Effect.gen(function* () {
+    const debugData = yield* DebugData;
+    const output = yield* Output;
 
-  static examples = ['<%= config.bin %> underlying fields --table-id tbl_xxx'];
+    const input = { tableId: args.tableId };
 
-  static flags = {
-    ...BaseCommand.baseFlags,
-    'table-id': Flags.string({
-      required: true,
-      description: 'Table ID to query',
-    }),
-  };
+    const result = yield* debugData.getFieldsByTableId(args.tableId).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          yield* output.error('underlying.fields', input, error);
+          return yield* Effect.fail(error);
+        })
+      )
+    );
 
-  async run(): Promise<void> {
-    const { flags } = await this.parse(UnderlyingFields);
-    this.flags = flags;
-
-    const tableId = flags['table-id'];
-    const input = { tableId };
-
-    try {
-      await this.initContainer();
-
-      const { registerV2DebugData, v2DebugDataTokens } = await import('@teable/v2-debug-data');
-      registerV2DebugData(this.container);
-
-      const debugService = this.container.resolve(v2DebugDataTokens.debugDataService);
-      const result = await debugService.getFieldsByTableId(tableId);
-
-      if (result.isErr()) {
-        this.printOutput(this.createErrorOutput('underlying.fields', input, result.error));
-        this.exit(1);
-      }
-
-      if (this.isEmptyData(result.value)) {
-        this.printOutput(
-          this.createEmptyDataOutput(
-            'underlying.fields',
-            input,
-            `No fields found for table "${tableId}". Check if the table ID is correct or if the table has any fields.`
-          )
-        );
-        this.exit(1);
-      }
-
-      this.printOutput(this.createSuccessOutput('underlying.fields', input, result.value));
-    } catch (error) {
-      this.printOutput(this.createErrorOutput('underlying.fields', input, error));
-      this.exit(1);
+    if (!result || result.length === 0) {
+      yield* output.empty(
+        'underlying.fields',
+        input,
+        `No fields found for table "${args.tableId}". Check if the table ID is correct.`
+      );
+      return;
     }
-  }
-}
+
+    yield* output.success('underlying.fields', input, result);
+  });
+
+export const underlyingFields = Command.make(
+  'fields',
+  {
+    connection: connectionOption,
+    tableId: tableIdOption,
+  },
+  handler
+).pipe(Command.withDescription('List all fields in a table from underlying database'));
