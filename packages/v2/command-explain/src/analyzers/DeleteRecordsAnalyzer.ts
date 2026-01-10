@@ -43,10 +43,11 @@ import type {
 } from '../types';
 import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
-import { SqlExplainRunner } from '../utils/SqlExplainRunner';
+import { SqlExplainRunner, type SetupStatement } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
+import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
 
 /**
  * Analyzer for DeleteRecordsCommand.
@@ -172,7 +173,12 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
       if (mergedOptions.includeSql) {
         // Generate DELETE statement with real record IDs
         const recordIdList = command.recordIds.map((id) => `'${id.toString()}'`).join(', ');
-        const deleteSql = `DELETE FROM "${tableName}" WHERE "__id" IN (${recordIdList})`;
+        // Properly quote schema.table as "schema"."table"
+        const quotedTableName = tableName
+          .split('.')
+          .map((p) => `"${p}"`)
+          .join('.');
+        const deleteSql = `DELETE FROM ${quotedTableName} WHERE "__id" IN (${recordIdList})`;
 
         // Run EXPLAIN on delete
         let deleteExplainAnalyze: ExplainAnalyzeOutput | null = null;
@@ -216,6 +222,12 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
 
         // Generate SQL for computed field updates on linked tables
         if (plan && plan.sameTableBatches.length > 0 && tableById && graphData) {
+          // Build setup statements to create tmp_computed_dirty table
+          const setupStatements: SetupStatement[] = buildDirtyTableSetupStatements(
+            plan.seedTableId,
+            plan.seedRecordIds
+          );
+
           for (let i = 0; i < plan.sameTableBatches.length; i++) {
             const batch = plan.sameTableBatches[i];
             const batchTable = tableById.get(batch.tableId.toString());
@@ -288,6 +300,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
               table: batchTable,
               fieldIds: batchFieldIds,
               selectQuery: selectQueryResult.value,
+              dirtyFilter: { tableId: batch.tableId },
             });
 
             if (compiledResult.isErr()) {
@@ -328,7 +341,8 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
               const analyzeResult = await analyzer.sqlExplainRunner.explainCompiled(
                 analyzer.db,
                 compiled,
-                true
+                true,
+                setupStatements
               );
               if (analyzeResult.isOk()) {
                 explainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
@@ -339,7 +353,8 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
               const explainResult = await analyzer.sqlExplainRunner.explainCompiled(
                 analyzer.db,
                 compiled,
-                false
+                false,
+                setupStatements
               );
               if (explainResult.isOk()) {
                 explainOnly = explainResult.value as ExplainOutput;

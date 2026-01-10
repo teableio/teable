@@ -12,6 +12,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DynamicDB, QB } from '../query-builder';
+import { COMPUTED_TABLE_ALIAS } from '../query-builder/computed';
 
 export type UpdateRecordFilter = (params: {
   db: Kysely<DynamicDB>;
@@ -21,6 +22,21 @@ export type UpdateRecordFilter = (params: {
   selectAlias: string;
 }) => UpdateQueryBuilder<DynamicDB, string, string, UpdateResult>;
 
+/**
+ * Configuration for dirty record filtering.
+ * When provided, the UPDATE will only affect records in the dirty table.
+ */
+export type DirtyFilterConfig = {
+  /** The table ID to filter by in the dirty table */
+  tableId: TableId;
+  /** The name of the dirty table (default: 'tmp_computed_dirty') */
+  dirtyTableName?: string;
+  /** Column name for table ID in dirty table (default: 'table_id') */
+  tableIdColumn?: string;
+  /** Column name for record ID in dirty table (default: 'record_id') */
+  recordIdColumn?: string;
+};
+
 export type UpdateFromSelectParams = {
   table: Table;
   fieldIds: ReadonlyArray<FieldId>;
@@ -28,6 +44,12 @@ export type UpdateFromSelectParams = {
   tableAlias?: string;
   selectAlias?: string;
   recordFilter?: UpdateRecordFilter;
+  /**
+   * When provided, applies a dirty filter to only update records
+   * that exist in the dirty table. This ensures computed updates
+   * only affect records that have been marked as dirty.
+   */
+  dirtyFilter?: DirtyFilterConfig;
 };
 
 /**
@@ -64,9 +86,31 @@ export class UpdateFromSelectBuilder {
         const setValuesResult = buildSetValues(params.table, fieldIds, selectAlias);
         if (setValuesResult.isErr()) return err(setValuesResult.error);
 
+        // Apply dirty filter to the SELECT query if provided
+        let finalSelectQuery = params.selectQuery;
+        if (params.dirtyFilter) {
+          const {
+            tableId,
+            dirtyTableName = 'tmp_computed_dirty',
+            tableIdColumn = 'table_id',
+            recordIdColumn = 'record_id',
+          } = params.dirtyFilter;
+
+          const dirtyIds = this.db
+            .selectFrom(`${dirtyTableName} as d`)
+            .select(sql.ref(`d.${recordIdColumn}`).as(recordIdColumn))
+            .where(sql.ref(`d.${tableIdColumn}`), '=', tableId.toString());
+
+          finalSelectQuery = params.selectQuery.where(
+            `${COMPUTED_TABLE_ALIAS}.__id`,
+            'in',
+            dirtyIds
+          );
+        }
+
         let query = this.db
           .updateTable(`${tableName} as ${tableAlias}`)
-          .from(params.selectQuery.as(selectAlias))
+          .from(finalSelectQuery.as(selectAlias))
           .set((eb) => setValuesResult.value(eb))
           .whereRef(`${tableAlias}.__id`, '=', `${selectAlias}.__id`);
 

@@ -46,10 +46,11 @@ import type {
 } from '../types';
 import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
-import { SqlExplainRunner } from '../utils/SqlExplainRunner';
+import { SqlExplainRunner, type SetupStatement } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
+import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
 
 /**
  * Analyzer for UpdateRecordCommand.
@@ -309,6 +310,12 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
 
         // Then generate SQL for computed field updates
         if (plan.sameTableBatches.length > 0) {
+          // Build setup statements to create tmp_computed_dirty table
+          const setupStatements: SetupStatement[] = buildDirtyTableSetupStatements(
+            plan.seedTableId,
+            plan.seedRecordIds
+          );
+
           for (let i = 0; i < plan.sameTableBatches.length; i++) {
             const batch = plan.sameTableBatches[i];
             const batchTable = tableById.get(batch.tableId.toString());
@@ -382,6 +389,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               table: batchTable,
               fieldIds: batchFieldIds,
               selectQuery: selectQueryResult.value,
+              dirtyFilter: { tableId: batch.tableId },
             });
 
             if (compiledResult.isErr()) {
@@ -422,7 +430,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               const analyzeResult = await analyzer.sqlExplainRunner.explainCompiled(
                 analyzer.db,
                 compiled,
-                true
+                true,
+                setupStatements
               );
               if (analyzeResult.isOk()) {
                 explainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
@@ -433,7 +442,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               const explainResult = await analyzer.sqlExplainRunner.explainCompiled(
                 analyzer.db,
                 compiled,
-                false
+                false,
+                setupStatements
               );
               if (explainResult.isOk()) {
                 explainOnly = explainResult.value as ExplainOutput;

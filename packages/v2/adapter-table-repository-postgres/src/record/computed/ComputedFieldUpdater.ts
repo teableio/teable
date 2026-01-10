@@ -20,7 +20,7 @@ import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
-import { ComputedTableRecordQueryBuilder, COMPUTED_TABLE_ALIAS } from '../query-builder/computed';
+import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
 // NOTE: SameTableBatchQueryBuilder will be used for CTE optimization in future versions
 // import { SameTableBatchQueryBuilder, type SameTableFieldLevel } from '../query-builder/computed/SameTableBatchQueryBuilder';
 import {
@@ -577,12 +577,12 @@ export class ComputedFieldUpdater {
             tableRepository: this.tableRepository,
           });
           const selectQuery = yield* builder.build();
-          const filteredSelect = applyDirtyFilter(db, selectQuery, step.tableId);
 
           const compiled = yield* updateBuilder.build({
             table,
             fieldIds: step.fieldIds,
-            selectQuery: filteredSelect,
+            selectQuery,
+            dirtyFilter: { tableId: step.tableId },
           });
 
           // Record SQL on span
@@ -860,15 +860,6 @@ export class ComputedFieldUpdater {
     }
   }
 }
-
-const applyDirtyFilter = (db: Kysely<DynamicDB>, query: QB, tableId: TableId) => {
-  const dirtyIds = db
-    .selectFrom(`${DIRTY_TABLE} as d`)
-    .select(sql.ref(`d.${DIRTY_RECORD_ID_COL}`).as(DIRTY_RECORD_ID_COL))
-    .where(sql.ref(`d.${DIRTY_TABLE_ID_COL}`), '=', tableId.toString());
-
-  return query.where(`${COMPUTED_TABLE_ALIAS}.__id`, 'in', dirtyIds);
-};
 
 const resetDirtyTable = async (db: Kysely<DynamicDB>): Promise<Result<void, DomainError>> => {
   try {

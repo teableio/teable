@@ -35,6 +35,15 @@ export type BatchExplainStatement = {
 };
 
 /**
+ * Setup statement to run before EXPLAIN statements.
+ * Used to create temporary tables needed by the SQL being explained.
+ */
+export type SetupStatement = {
+  sql: string;
+  description: string;
+};
+
+/**
  * Utility for running SQL EXPLAIN statements.
  */
 @injectable()
@@ -46,19 +55,26 @@ export class SqlExplainRunner {
    * @param sqlStatement - The SQL statement to explain
    * @param parameters - Parameters for the SQL statement
    * @param analyze - If true, run EXPLAIN ANALYZE (executes in transaction then rollback)
+   * @param setupStatements - Optional setup statements to run before EXPLAIN (e.g., create temp tables)
    * @returns The explain output
    */
   async explain(
     db: Kysely<V1TeableDatabase>,
     sqlStatement: string,
     parameters: ReadonlyArray<unknown>,
-    analyze: boolean
+    analyze: boolean,
+    setupStatements?: ReadonlyArray<SetupStatement>
   ): Promise<Result<ExplainAnalyzeOutput | ExplainOutput, DomainError>> {
     try {
       if (analyze) {
-        return await this.runExplainAnalyzeInTransaction(db, sqlStatement, parameters);
+        return await this.runExplainAnalyzeInTransaction(
+          db,
+          sqlStatement,
+          parameters,
+          setupStatements
+        );
       }
-      return await this.runExplainOnly(db, sqlStatement, parameters);
+      return await this.runExplainOnly(db, sqlStatement, parameters, setupStatements);
     } catch (error) {
       return err(
         domainError.infrastructure({
@@ -74,9 +90,16 @@ export class SqlExplainRunner {
   async explainCompiled(
     db: Kysely<V1TeableDatabase>,
     compiled: CompiledQuery,
-    analyze: boolean
+    analyze: boolean,
+    setupStatements?: ReadonlyArray<SetupStatement>
   ): Promise<Result<ExplainAnalyzeOutput | ExplainOutput, DomainError>> {
-    return this.explain(db, compiled.sql, compiled.parameters as unknown[], analyze);
+    return this.explain(
+      db,
+      compiled.sql,
+      compiled.parameters as unknown[],
+      analyze,
+      setupStatements
+    );
   }
 
   /**
@@ -88,11 +111,13 @@ export class SqlExplainRunner {
    *
    * @param db - Kysely database instance
    * @param statements - Array of SQL statements to explain
+   * @param setupStatements - Optional setup statements to run before EXPLAIN (e.g., create temp tables)
    * @returns Array of explain outputs, one per statement
    */
   async explainBatchInTransaction(
     db: Kysely<V1TeableDatabase>,
-    statements: ReadonlyArray<BatchExplainStatement>
+    statements: ReadonlyArray<BatchExplainStatement>,
+    setupStatements?: ReadonlyArray<SetupStatement>
   ): Promise<Result<Array<ExplainAnalyzeOutput | ExplainOutput | { error: string }>, DomainError>> {
     if (statements.length === 0) {
       return ok([]);
@@ -100,6 +125,18 @@ export class SqlExplainRunner {
 
     try {
       await db.transaction().execute(async (trx) => {
+        // Run setup statements first (e.g., create tmp_computed_dirty table)
+        if (setupStatements && setupStatements.length > 0) {
+          for (const setup of setupStatements) {
+            try {
+              await sql.raw(setup.sql).execute(trx);
+            } catch (setupError) {
+              // If setup fails, we still continue but log it
+              console.warn(`Setup statement failed: ${setup.description}`, setupError);
+            }
+          }
+        }
+
         const results: Array<ExplainAnalyzeOutput | ExplainOutput | { error: string }> = [];
 
         for (let i = 0; i < statements.length; i++) {
@@ -176,10 +213,23 @@ export class SqlExplainRunner {
   private async runExplainAnalyzeInTransaction(
     db: Kysely<V1TeableDatabase>,
     sqlStatement: string,
-    parameters: ReadonlyArray<unknown>
+    parameters: ReadonlyArray<unknown>,
+    setupStatements?: ReadonlyArray<SetupStatement>
   ): Promise<Result<ExplainAnalyzeOutput, DomainError>> {
     try {
       await db.transaction().execute(async (trx) => {
+        // Run setup statements first (e.g., create tmp_computed_dirty table)
+        if (setupStatements && setupStatements.length > 0) {
+          for (const setup of setupStatements) {
+            try {
+              await sql.raw(setup.sql).execute(trx);
+            } catch (setupError) {
+              // If setup fails, we still continue but log it
+              console.warn(`Setup statement failed: ${setup.description}`, setupError);
+            }
+          }
+        }
+
         const explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) ${sqlStatement}`;
 
         // Build the query with parameters using template literal
@@ -218,8 +268,43 @@ export class SqlExplainRunner {
   private async runExplainOnly(
     db: Kysely<V1TeableDatabase>,
     sqlStatement: string,
-    parameters: ReadonlyArray<unknown>
+    parameters: ReadonlyArray<unknown>,
+    setupStatements?: ReadonlyArray<SetupStatement>
   ): Promise<Result<ExplainOutput, DomainError>> {
+    // If we have setup statements, we need to run in a transaction
+    if (setupStatements && setupStatements.length > 0) {
+      try {
+        return await db.transaction().execute(async (trx) => {
+          // Run setup statements
+          for (const setup of setupStatements) {
+            try {
+              await sql.raw(setup.sql).execute(trx);
+            } catch (setupError) {
+              console.warn(`Setup statement failed: ${setup.description}`, setupError);
+            }
+          }
+
+          const explainSql = `EXPLAIN (FORMAT TEXT) ${sqlStatement}`;
+          const query = sql`${sql.raw(explainSql)}`;
+          const compiled = query.compile(trx);
+          const finalQuery = {
+            ...compiled,
+            parameters: [...parameters],
+          };
+
+          const result = await trx.executeQuery<{ 'QUERY PLAN': string }>(finalQuery);
+          return ok(this.parseExplainOnly(result.rows));
+        });
+      } catch (error) {
+        return err(
+          domainError.infrastructure({
+            message: `EXPLAIN failed: ${error instanceof Error ? error.message : String(error)}`,
+          })
+        );
+      }
+    }
+
+    // No setup statements, run directly
     try {
       const explainSql = `EXPLAIN (FORMAT TEXT) ${sqlStatement}`;
 

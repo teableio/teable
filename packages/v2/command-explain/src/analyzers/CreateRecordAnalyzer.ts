@@ -46,10 +46,15 @@ import type {
 } from '../types';
 import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
-import { SqlExplainRunner, type BatchExplainStatement } from '../utils/SqlExplainRunner';
+import {
+  SqlExplainRunner,
+  type BatchExplainStatement,
+  type SetupStatement,
+} from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
+import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
 
 /**
  * Analyzer for CreateRecordCommand.
@@ -275,6 +280,7 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
               table: batchTable,
               fieldIds: batchFieldIds,
               selectQuery: selectQueryResult.value,
+              dirtyFilter: { tableId: batch.tableId },
             });
 
             if (compiledResult.isErr()) {
@@ -332,9 +338,16 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
 
             // Run all valid statements in a single transaction
             if (validStatements.length > 0) {
+              // Build setup statements to create tmp_computed_dirty table for computed updates
+              const setupStatements: SetupStatement[] =
+                plan.sameTableBatches.length > 0
+                  ? buildDirtyTableSetupStatements(plan.seedTableId, plan.seedRecordIds)
+                  : [];
+
               const batchResult = await analyzer.sqlExplainRunner.explainBatchInTransaction(
                 analyzer.db,
-                validStatements
+                validStatements,
+                setupStatements
               );
 
               if (batchResult.isOk()) {
@@ -381,6 +394,12 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
             }
           } else {
             // Run EXPLAIN only (no transaction needed, each statement independent)
+            // Build setup statements for computed update statements
+            const setupStatements: SetupStatement[] =
+              plan.sameTableBatches.length > 0
+                ? buildDirtyTableSetupStatements(plan.seedTableId, plan.seedRecordIds)
+                : [];
+
             for (const meta of statementMetas) {
               if (meta.sql.startsWith('--')) {
                 // Failed statement
@@ -396,11 +415,15 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
                 continue;
               }
 
+              // Only pass setup statements for computed update statements (those with computedReason)
+              const stmtSetupStatements = meta.computedReason ? setupStatements : undefined;
+
               const explainResult = await analyzer.sqlExplainRunner.explain(
                 analyzer.db,
                 meta.sql,
                 meta.parameters,
-                false
+                false,
+                stmtSetupStatements
               );
 
               if (explainResult.isOk()) {

@@ -9619,4 +9619,272 @@ describe('v2 computed field updates (e2e)', () => {
       'Divide/modulo by zero in formula persistence: Implement after update-columns to ensure computed updates remain stable'
     );
   });
+
+  // =============================================================================
+  // SECTION 8: DIRTY FILTER OPTIMIZATION TESTS
+  // =============================================================================
+  // These tests verify that computed updates only affect dirty (changed) records,
+  // not the entire table. This is critical for performance.
+
+  describe('dirty filter optimization', () => {
+    /**
+     * Scenario: When updating a single record with a formula field,
+     * only that record should be affected by the computed update.
+     */
+    it('should only update affected records when single record changes', async () => {
+      const nameFieldId = createFieldId();
+      const valueFieldId = createFieldId();
+      const formulaFieldId = createFieldId();
+
+      const table = await createTable({
+        baseId,
+        name: 'DirtyFilterTest',
+        fields: [
+          { type: 'singleLineText', id: nameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: valueFieldId, name: 'Value' },
+          {
+            type: 'formula',
+            id: formulaFieldId,
+            name: 'Doubled',
+            options: { expression: `{${valueFieldId}} * 2` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create multiple records
+      const record0 = await createRecord(table.id, { [nameFieldId]: 'R0', [valueFieldId]: 10 });
+      const record1 = await createRecord(table.id, { [nameFieldId]: 'R1', [valueFieldId]: 20 });
+      const record2 = await createRecord(table.id, { [nameFieldId]: 'R2', [valueFieldId]: 30 });
+
+      // Verify initial state
+      const beforeRecords = await listRecords(table.id);
+      expectCellDisplay(beforeRecords, 0, formulaFieldId, '20');
+      expectCellDisplay(beforeRecords, 1, formulaFieldId, '40');
+      expectCellDisplay(beforeRecords, 2, formulaFieldId, '60');
+
+      // Clear logs before update
+      testContainer.clearLogs();
+
+      // Update only record1
+      await updateRecord(table.id, record1.id, { [valueFieldId]: 100 });
+
+      // Verify computed plan only includes the one updated record
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      expect(plan!.seedRecordIds.length).toBe(1);
+      expect(plan!.seedRecordIds[0]).toBe(record1.id);
+
+      // Verify only the updated record changed
+      const afterRecords = await listRecords(table.id);
+      expectCellDisplay(afterRecords, 0, formulaFieldId, '20'); // unchanged
+      expectCellDisplay(afterRecords, 1, formulaFieldId, '200'); // 100 * 2
+      expectCellDisplay(afterRecords, 2, formulaFieldId, '60'); // unchanged
+    });
+
+    /**
+     * Scenario: When updating a field in TableA that is looked up by TableB,
+     * only the records in TableB that link to the changed record should be updated.
+     */
+    it('should efficiently propagate dirty records across tables', async () => {
+      // Create TableA with multiple records
+      const aNameFieldId = createFieldId();
+      const aValueFieldId = createFieldId();
+
+      const tableA = await createTable({
+        baseId,
+        name: 'PropagationTableA',
+        fields: [
+          { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: aValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create 5 records in TableA
+      const aRecords = await Promise.all([
+        createRecord(tableA.id, { [aNameFieldId]: 'A0', [aValueFieldId]: 100 }),
+        createRecord(tableA.id, { [aNameFieldId]: 'A1', [aValueFieldId]: 200 }),
+        createRecord(tableA.id, { [aNameFieldId]: 'A2', [aValueFieldId]: 300 }),
+        createRecord(tableA.id, { [aNameFieldId]: 'A3', [aValueFieldId]: 400 }),
+        createRecord(tableA.id, { [aNameFieldId]: 'A4', [aValueFieldId]: 500 }),
+      ]);
+
+      // Create TableB with link and lookup to TableA
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+      const bLookupFieldId = createFieldId();
+
+      const tableB = await createTable({
+        baseId,
+        name: 'PropagationTableB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkA',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id,
+              lookupFieldId: aNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: bLookupFieldId,
+            name: 'LookupVal',
+            options: {
+              linkFieldId: bLinkFieldId,
+              foreignTableId: tableA.id,
+              lookupFieldId: aValueFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create 10 records in TableB, linking to different A records
+      // B0, B5 -> A0; B1, B6 -> A1; B2, B7 -> A2; B3, B8 -> A3; B4, B9 -> A4
+      const bRecords = await Promise.all([
+        createRecord(tableB.id, { [bNameFieldId]: 'B0', [bLinkFieldId]: { id: aRecords[0].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B1', [bLinkFieldId]: { id: aRecords[1].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B2', [bLinkFieldId]: { id: aRecords[2].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B3', [bLinkFieldId]: { id: aRecords[3].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B4', [bLinkFieldId]: { id: aRecords[4].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B5', [bLinkFieldId]: { id: aRecords[0].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B6', [bLinkFieldId]: { id: aRecords[1].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B7', [bLinkFieldId]: { id: aRecords[2].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B8', [bLinkFieldId]: { id: aRecords[3].id } }),
+        createRecord(tableB.id, { [bNameFieldId]: 'B9', [bLinkFieldId]: { id: aRecords[4].id } }),
+      ]);
+
+      // Process outbox for initial lookup values
+      await testContainer.processOutbox();
+
+      // Verify initial lookup values (find by ID since order may vary)
+      const beforeBRecords = await listRecords(tableB.id);
+      const findRecordById = (
+        records: Array<{ id: string; fields: Record<string, unknown> }>,
+        id: string
+      ) => records.find((r) => r.id === id);
+
+      const b0Before = findRecordById(beforeBRecords, bRecords[0].id);
+      const b5Before = findRecordById(beforeBRecords, bRecords[5].id);
+      const b1Before = findRecordById(beforeBRecords, bRecords[1].id);
+      expect(formatCellValueForExpect(b0Before?.fields[bLookupFieldId])).toBe('[100]'); // B0 -> A0
+      expect(formatCellValueForExpect(b5Before?.fields[bLookupFieldId])).toBe('[100]'); // B5 -> A0
+      expect(formatCellValueForExpect(b1Before?.fields[bLookupFieldId])).toBe('[200]'); // B1 -> A1
+
+      // Clear logs before update
+      testContainer.clearLogs();
+
+      // Update only A0's value
+      await updateRecord(tableA.id, aRecords[0].id, { [aValueFieldId]: 999 });
+      await testContainer.processOutbox();
+
+      // Verify computed plan - seed should be A0
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      expect(plan!.seedRecordIds.length).toBe(1);
+      expect(plan!.seedRecordIds[0]).toBe(aRecords[0].id);
+
+      // Verify only B records linked to A0 (B0, B5) have updated lookup values
+      const afterBRecords = await listRecords(tableB.id);
+      const b0After = findRecordById(afterBRecords, bRecords[0].id);
+      const b5After = findRecordById(afterBRecords, bRecords[5].id);
+      const b1After = findRecordById(afterBRecords, bRecords[1].id);
+      const b2After = findRecordById(afterBRecords, bRecords[2].id);
+      const b3After = findRecordById(afterBRecords, bRecords[3].id);
+      const b4After = findRecordById(afterBRecords, bRecords[4].id);
+
+      expect(formatCellValueForExpect(b0After?.fields[bLookupFieldId])).toBe('[999]'); // B0 -> A0 (updated)
+      expect(formatCellValueForExpect(b5After?.fields[bLookupFieldId])).toBe('[999]'); // B5 -> A0 (updated)
+      expect(formatCellValueForExpect(b1After?.fields[bLookupFieldId])).toBe('[200]'); // B1 -> A1 (unchanged)
+      expect(formatCellValueForExpect(b2After?.fields[bLookupFieldId])).toBe('[300]'); // B2 -> A2 (unchanged)
+      expect(formatCellValueForExpect(b3After?.fields[bLookupFieldId])).toBe('[400]'); // B3 -> A3 (unchanged)
+      expect(formatCellValueForExpect(b4After?.fields[bLookupFieldId])).toBe('[500]'); // B4 -> A4 (unchanged)
+    });
+
+    /**
+     * Scenario: When updating a link field, the reverse link (symmetric link)
+     * should only update the affected foreign records, not the entire table.
+     */
+    it('should only update affected foreign records on reverse link', async () => {
+      // Create Companies table
+      const companyNameFieldId = createFieldId();
+
+      const companiesTable = await createTable({
+        baseId,
+        name: 'ReverseLinkCompanies',
+        fields: [{ type: 'singleLineText', id: companyNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create 3 companies
+      const companies = await Promise.all([
+        createRecord(companiesTable.id, { [companyNameFieldId]: 'CompanyA' }),
+        createRecord(companiesTable.id, { [companyNameFieldId]: 'CompanyB' }),
+        createRecord(companiesTable.id, { [companyNameFieldId]: 'CompanyC' }),
+      ]);
+
+      // Create Activities table with link to Companies
+      const activityNameFieldId = createFieldId();
+      const activityLinkFieldId = createFieldId();
+
+      const activitiesTable = await createTable({
+        baseId,
+        name: 'ReverseLinkActivities',
+        fields: [
+          { type: 'singleLineText', id: activityNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: activityLinkFieldId,
+            name: 'Company',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: companiesTable.id,
+              lookupFieldId: companyNameFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create activities linked to CompanyA
+      const activities = await Promise.all([
+        createRecord(activitiesTable.id, {
+          [activityNameFieldId]: 'Activity1',
+          [activityLinkFieldId]: { id: companies[0].id },
+        }),
+        createRecord(activitiesTable.id, {
+          [activityNameFieldId]: 'Activity2',
+          [activityLinkFieldId]: { id: companies[0].id },
+        }),
+        createRecord(activitiesTable.id, {
+          [activityNameFieldId]: 'Activity3',
+          [activityLinkFieldId]: { id: companies[1].id },
+        }),
+      ]);
+
+      await testContainer.processOutbox();
+
+      // Clear logs before update
+      testContainer.clearLogs();
+
+      // Update Activity1 to link to CompanyB instead of CompanyA
+      await updateRecord(activitiesTable.id, activities[0].id, {
+        [activityLinkFieldId]: { id: companies[1].id },
+      });
+      await testContainer.processOutbox();
+
+      // Verify the update completed successfully
+      const afterActivities = await listRecords(activitiesTable.id);
+      const activity1 = afterActivities.find((r) => r.id === activities[0].id);
+      expect(activity1).toBeDefined();
+      const linkValue = activity1?.fields[activityLinkFieldId];
+      expect(linkValue).toBeDefined();
+      expect((linkValue as { id: string }).id).toBe(companies[1].id);
+    });
+  });
 });

@@ -22,7 +22,6 @@
   "scripts": {
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
-    "cli": "tsx scripts/cli.ts",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-debug-data.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
