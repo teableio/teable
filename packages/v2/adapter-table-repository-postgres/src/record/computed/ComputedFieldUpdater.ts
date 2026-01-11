@@ -928,6 +928,82 @@ const seedExtraDirtyRecords = async (
   return ok(undefined);
 };
 
+/**
+ * Information about an edge for tracing purposes.
+ */
+interface EdgeTraceInfo {
+  index: number;
+  edge: ComputedDependencyEdge;
+  sourceTableName: string;
+  targetTableName: string;
+  fromFieldName: string;
+  toFieldName: string;
+  linkFieldName: string;
+}
+
+/**
+ * Build trace info for an edge.
+ */
+const buildEdgeTraceInfo = (
+  edge: ComputedDependencyEdge,
+  index: number,
+  tableById: Map<string, Table>
+): EdgeTraceInfo => {
+  const sourceTable = tableById.get(edge.fromTableId.toString());
+  const targetTable = tableById.get(edge.toTableId.toString());
+
+  const sourceTableName = sourceTable
+    ? sourceTable
+        .dbTableName()
+        .andThen((n) => n.value())
+        .unwrapOr(edge.fromTableId.toString())
+    : edge.fromTableId.toString();
+
+  const targetTableName = targetTable
+    ? targetTable
+        .dbTableName()
+        .andThen((n) => n.value())
+        .unwrapOr(edge.toTableId.toString())
+    : edge.toTableId.toString();
+
+  let fromFieldName = edge.fromFieldId.toString();
+  let toFieldName = edge.toFieldId.toString();
+  let linkFieldName = edge.linkFieldId?.toString() ?? '';
+
+  if (sourceTable) {
+    const fieldResult = sourceTable.getField((f) => f.id().equals(edge.fromFieldId));
+    if (fieldResult.isOk()) {
+      fromFieldName = fieldResult.value.name().toString();
+    }
+  }
+
+  if (targetTable) {
+    const fieldResult = targetTable.getField((f) => f.id().equals(edge.toFieldId));
+    if (fieldResult.isOk()) {
+      toFieldName = fieldResult.value.name().toString();
+    }
+
+    if (edge.linkFieldId) {
+      const linkFieldResult = targetTable.getField((f) => f.id().equals(edge.linkFieldId!));
+      if (linkFieldResult.isOk()) {
+        linkFieldName = linkFieldResult.value.name().toString();
+      }
+    }
+  }
+
+  return {
+    index,
+    edge,
+    sourceTableName,
+    targetTableName,
+    fromFieldName,
+    toFieldName,
+    linkFieldName,
+  };
+};
+
+type DirtySelectQuery = QB;
+
 const propagateDirtyRecords = async (
   db: Kysely<DynamicDB>,
   edges: ReadonlyArray<ComputedDependencyEdge>,
@@ -946,90 +1022,83 @@ const propagateDirtyRecords = async (
     const maxPasses = Math.max(edges.length, 1);
     let previousCount = await countDirtyRecords();
 
+    // Build trace info for all edges once
+    const edgeTraceInfos = edges.map((edge, i) => buildEdgeTraceInfo(edge, i, tableById));
+
     for (let pass = 0; pass < maxPasses; pass += 1) {
-      for (let i = 0; i < edges.length; i++) {
-        const edge = edges[i];
+      // Collect all SELECT queries for this pass
+      const selectQueries: Array<{
+        query: DirtySelectQuery;
+        traceInfo: EdgeTraceInfo;
+        sql: string;
+      }> = [];
 
-        // Resolve table and field names for better tracing readability
-        const sourceTable = tableById.get(edge.fromTableId.toString());
-        const targetTable = tableById.get(edge.toTableId.toString());
-
-        const sourceTableName = sourceTable
-          ? sourceTable
-              .dbTableName()
-              .andThen((n) => n.value())
-              .unwrapOr(edge.fromTableId.toString())
-          : edge.fromTableId.toString();
-
-        const targetTableName = targetTable
-          ? targetTable
-              .dbTableName()
-              .andThen((n) => n.value())
-              .unwrapOr(edge.toTableId.toString())
-          : edge.toTableId.toString();
-
-        // Resolve field names
-        let fromFieldName = edge.fromFieldId.toString();
-        let toFieldName = edge.toFieldId.toString();
-        let linkFieldName = edge.linkFieldId?.toString() ?? '';
-
-        if (sourceTable) {
-          const fieldResult = sourceTable.getField((f) => f.id().equals(edge.fromFieldId));
-          if (fieldResult.isOk()) {
-            fromFieldName = fieldResult.value.name().toString();
-          }
+      for (const traceInfo of edgeTraceInfos) {
+        const selectResult = buildPropagationSelect(db, traceInfo.edge, tableById);
+        if (selectResult.isErr()) {
+          return err(selectResult.error);
         }
 
-        if (targetTable) {
-          const fieldResult = targetTable.getField((f) => f.id().equals(edge.toFieldId));
-          if (fieldResult.isOk()) {
-            toFieldName = fieldResult.value.name().toString();
-          }
-
-          if (edge.linkFieldId) {
-            const linkFieldResult = targetTable.getField((f) => f.id().equals(edge.linkFieldId!));
-            if (linkFieldResult.isOk()) {
-              linkFieldName = linkFieldResult.value.name().toString();
-            }
-          }
-        }
-
-        const edgeSpan = context?.tracer?.startSpan('teable.ComputedFieldUpdater.propagateEdge', {
-          // Edge index and order
-          'edge.index': i,
-          'edge.order': edge.order,
-          // Source info (IDs and names)
-          'edge.fromTableId': edge.fromTableId.toString(),
-          'edge.fromTableName': sourceTableName,
-          'edge.fromFieldId': edge.fromFieldId.toString(),
-          'edge.fromFieldName': fromFieldName,
-          // Target info (IDs and names)
-          'edge.toTableId': edge.toTableId.toString(),
-          'edge.toTableName': targetTableName,
-          'edge.toFieldId': edge.toFieldId.toString(),
-          'edge.toFieldName': toFieldName,
-          // Link field info
-          'edge.linkFieldId': edge.linkFieldId?.toString() ?? '',
-          'edge.linkFieldName': linkFieldName,
-          // Direction description for quick understanding
-          'edge.description': `${sourceTableName}.${fromFieldName} → ${targetTableName}.${toFieldName}`,
-          // Pass information for debugging propagation order
-          'edge.pass': pass,
+        const compiled = selectResult.value.compile();
+        selectQueries.push({
+          query: selectResult.value,
+          traceInfo,
+          sql: compiled.sql,
         });
+      }
 
-        try {
-          const insertResult = buildPropagationInsert(db, edge, tableById);
-          if (insertResult.isErr()) {
-            edgeSpan?.recordError(insertResult.error.message);
-            return err(insertResult.error);
+      if (selectQueries.length === 0) {
+        break;
+      }
+
+      // Create a single span for the batched propagation
+      const batchSpan = context?.tracer?.startSpan(
+        'teable.ComputedFieldUpdater.propagateDirtyBatch',
+        {
+          'batch.pass': pass,
+          'batch.edgeCount': selectQueries.length,
+          'batch.edges': selectQueries
+            .map(
+              (q) =>
+                `${q.traceInfo.sourceTableName}.${q.traceInfo.fromFieldName} → ${q.traceInfo.targetTableName}.${q.traceInfo.toFieldName}`
+            )
+            .join('; '),
+        }
+      );
+
+      try {
+        // Build UNION ALL query from all SELECT queries
+        if (selectQueries.length === 1) {
+          // Single edge - no need for UNION ALL
+          const compiled = db
+            .insertInto(DIRTY_TABLE)
+            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
+            .expression(selectQueries[0].query)
+            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+            .compile();
+
+          batchSpan?.setAttribute('batch.sql', compiled.sql);
+          await db.executeQuery(compiled);
+        } else {
+          // Multiple edges - use UNION ALL
+          // Start with first query, then chain unionAll for the rest
+          let unionQuery = selectQueries[0].query;
+          for (let i = 1; i < selectQueries.length; i++) {
+            unionQuery = unionQuery.unionAll(selectQueries[i].query) as DirtySelectQuery;
           }
 
-          const compiled = insertResult.value.compile();
-          edgeSpan?.setAttribute('edge.sql', compiled.sql);
+          const compiled = db
+            .insertInto(DIRTY_TABLE)
+            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
+            .expression(unionQuery)
+            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+            .compile();
+
+          batchSpan?.setAttribute('batch.sql', compiled.sql);
           await db.executeQuery(compiled);
-        } finally {
-          edgeSpan?.end();
         }
+      } finally {
+        batchSpan?.end();
       }
 
       const nextCount = await countDirtyRecords();
@@ -1046,6 +1115,301 @@ const propagateDirtyRecords = async (
       })
     );
   }
+};
+
+type DirtySelectParams = {
+  db: Kysely<DynamicDB>;
+  relationship: LinkRelationship;
+  linkField: LinkField;
+  sourceTableName: string;
+  targetTableName: string;
+  sourceTableId: string;
+  targetTableId: string;
+};
+
+const buildDirtySelectQuery = (
+  params: DirtySelectParams
+): Result<DirtySelectQuery, DomainError> => {
+  return safeTry(function* () {
+    const {
+      db,
+      relationship,
+      linkField,
+      sourceTableName,
+      targetTableName,
+      sourceTableId,
+      targetTableId,
+    } = params;
+
+    if (
+      relationship.equals(LinkRelationship.manyOne()) ||
+      relationship.equals(LinkRelationship.oneOne())
+    ) {
+      const foreignKey = yield* linkField.foreignKeyNameString();
+      const select = db
+        .selectFrom(`${targetTableName} as t`)
+        .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `t.${foreignKey}`)
+        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+        .select([
+          sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+          sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+        ])
+        .distinct();
+
+      return ok(select as unknown as DirtySelectQuery);
+    }
+
+    if (relationship.equals(LinkRelationship.oneMany())) {
+      if (linkField.isOneWay()) {
+        const fkHostTableName = yield* linkField.fkHostTableNameString();
+        const selfKey = yield* linkField.selfKeyNameString();
+        const foreignKey = yield* linkField.foreignKeyNameString();
+        const select = db
+          .selectFrom(`${fkHostTableName} as j`)
+          .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+          .select([
+            sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+            sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(select as unknown as DirtySelectQuery);
+      }
+
+      const selfKey = yield* linkField.selfKeyNameString();
+      const select = db
+        .selectFrom(`${sourceTableName} as f`)
+        .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, 'f.__id')
+        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+        .where(sql.ref(`f.${selfKey}`), 'is not', null)
+        .select([
+          sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+          sql.ref(`f.${selfKey}`).as(DIRTY_RECORD_ID_COL),
+        ])
+        .distinct();
+
+      return ok(select as unknown as DirtySelectQuery);
+    }
+
+    const fkHostTableName = yield* linkField.fkHostTableNameString();
+    const selfKey = yield* linkField.selfKeyNameString();
+    const foreignKey = yield* linkField.foreignKeyNameString();
+    const select = db
+      .selectFrom(`${fkHostTableName} as j`)
+      .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
+      .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
+      .select([
+        sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
+        sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
+      ])
+      .distinct();
+
+    return ok(select as unknown as DirtySelectQuery);
+  });
+};
+
+/**
+ * Build a SELECT query for dirty record propagation (without INSERT wrapper).
+ * This allows combining multiple SELECT queries with UNION ALL.
+ */
+const buildPropagationSelect = (
+  db: Kysely<DynamicDB>,
+  edge: ComputedDependencyEdge,
+  tableById: Map<string, Table>
+): Result<DirtySelectQuery, DomainError> => {
+  return safeTry(function* () {
+    const targetTable = tableById.get(edge.toTableId.toString());
+    if (!targetTable) {
+      return err(
+        domainError.notFound({
+          message: `Missing target table ${edge.toTableId.toString()}`,
+        })
+      );
+    }
+
+    if (edge.propagationMode === 'allTargetRecords') {
+      const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+      const dirtyGate = db
+        .selectFrom(`${DIRTY_TABLE} as d`)
+        .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+        .limit(1)
+        .as('dg');
+
+      const select = db
+        .selectFrom(`${targetDbName} as t`)
+        .innerJoin(dirtyGate, (join) => join.onTrue())
+        .select([
+          sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+          sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+        ])
+        .distinct();
+
+      return ok(select as unknown as DirtySelectQuery);
+    }
+
+    // conditionalFiltered: Only mark target records as dirty if dirty source records match the filter
+    if (edge.propagationMode === 'conditionalFiltered' && edge.filterCondition) {
+      const sourceTable = tableById.get(edge.fromTableId.toString());
+      if (!sourceTable) {
+        return err(
+          domainError.notFound({
+            message: `Missing source table ${edge.fromTableId.toString()} for conditionalFiltered`,
+          })
+        );
+      }
+
+      // Create FieldCondition from filterDto
+      const fieldConditionResult = FieldCondition.create({
+        filter: edge.filterCondition.filterDto,
+      });
+      if (fieldConditionResult.isErr()) {
+        // Fallback to allTargetRecords if filter is invalid
+        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+        const dirtyGate = db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .limit(1)
+          .as('dg');
+
+        const select = db
+          .selectFrom(`${targetDbName} as t`)
+          .innerJoin(dirtyGate, (join) => join.onTrue())
+          .select([
+            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(select as unknown as DirtySelectQuery);
+      }
+
+      const fieldCondition = fieldConditionResult.value;
+      if (!fieldCondition.hasFilter()) {
+        // No filter - fallback to allTargetRecords
+        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+        const dirtyGate = db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .limit(1)
+          .as('dg');
+
+        const select = db
+          .selectFrom(`${targetDbName} as t`)
+          .innerJoin(dirtyGate, (join) => join.onTrue())
+          .select([
+            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(select as unknown as DirtySelectQuery);
+      }
+
+      // Convert to RecordConditionSpec
+      const specResult = yield* fieldCondition.toRecordConditionSpec(sourceTable);
+      if (!specResult) {
+        // No spec generated - fallback to allTargetRecords
+        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+        const dirtyGate = db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .limit(1)
+          .as('dg');
+
+        const select = db
+          .selectFrom(`${targetDbName} as t`)
+          .innerJoin(dirtyGate, (join) => join.onTrue())
+          .select([
+            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(select as unknown as DirtySelectQuery);
+      }
+
+      // Generate WHERE clause using visitor
+      const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 's' });
+      const acceptResult = specResult.accept(visitor);
+      if (acceptResult.isErr()) {
+        return err(acceptResult.error);
+      }
+      const whereResult = visitor.where();
+      if (whereResult.isErr()) {
+        return err(whereResult.error);
+      }
+      const filterWhere = whereResult.value as unknown as Expression<SqlBool>;
+
+      const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
+      const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+
+      // Build SQL:
+      // SELECT ALL target records WHERE EXISTS (
+      //   dirty source record that matches the filter
+      // )
+      const dirtySourceExists = db
+        .selectFrom(`${DIRTY_TABLE} as d`)
+        .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
+        .select(sql.lit(1).as('one'))
+        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+        .where(filterWhere)
+        .limit(1);
+
+      const select = db
+        .selectFrom(`${targetDbName} as t`)
+        .select([
+          sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+          sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+        ])
+        .where(({ exists }) => exists(dirtySourceExists))
+        .distinct();
+
+      return ok(select as unknown as DirtySelectQuery);
+    }
+
+    if (!edge.linkFieldId) return err(domainError.validation({ message: 'Missing linkFieldId' }));
+    const sourceTable = tableById.get(edge.fromTableId.toString());
+    if (!sourceTable) {
+      return err(
+        domainError.notFound({
+          message: `Missing source table ${edge.fromTableId.toString()}`,
+        })
+      );
+    }
+
+    const linkField = yield* targetTable.getField((field): field is LinkField =>
+      field.id().equals(edge.linkFieldId!)
+    );
+
+    if (!linkField.foreignTableId().equals(edge.fromTableId)) {
+      return err(
+        domainError.validation({
+          message: `Link field ${edge.linkFieldId.toString()} does not reference table ${edge.fromTableId.toString()}`,
+        })
+      );
+    }
+
+    const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
+    const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+
+    const relationship = linkField.relationship();
+    const selectQuery = yield* buildDirtySelectQuery({
+      db,
+      relationship,
+      linkField,
+      sourceTableName: sourceDbName,
+      targetTableName: targetDbName,
+      sourceTableId: edge.fromTableId.toString(),
+      targetTableId: edge.toTableId.toString(),
+    });
+
+    return ok(selectQuery);
+  });
 };
 
 const buildPropagationInsert = (

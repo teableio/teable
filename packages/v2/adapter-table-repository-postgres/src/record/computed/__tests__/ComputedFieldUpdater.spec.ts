@@ -626,20 +626,10 @@ describe('ComputedFieldUpdater', () => {
         {
           "parameters": [
             "tblkkkkkkkkkkkkkkkk",
-          ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
-        },
-        {
-          "parameters": [
             "tblkkkkkkkkkkkkkkkk",
-          ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
-        },
-        {
-          "parameters": [
             "tblllllllllllllllll",
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblmmmmmmmmmmmmmmmm' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldtttttttttttttttt" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $1 union all select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $2 union all select distinct 'tblmmmmmmmmmmmmmmmm' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldtttttttttttttttt" where "d"."table_id" = $3 on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [],
@@ -659,7 +649,7 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblllllllllllllllll",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "col_lookup_b" = to_jsonb("c"."col_lookup_b"), "col_rollup_b" = "c"."col_rollup_b" from (select "t"."__id" as "__id", "lat_fldpppppppppppppppp"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) as "col_lookup_b", SUM("f"."col_source_score") as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp" on true where "t"."__id" in (select "d"."record_id" as "record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c" where "u"."__id" = "c"."__id"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "col_lookup_b" = to_jsonb("c"."col_lookup_b"), "col_rollup_b" = "c"."col_rollup_b" from (select "t"."__id" as "__id", "lat_fldpppppppppppppppp"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp" on true where "t"."__id" in (select "d"."record_id" as "record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c" where "u"."__id" = "c"."__id"",
         },
         {
           "parameters": [

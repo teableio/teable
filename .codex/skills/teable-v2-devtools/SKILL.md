@@ -1,6 +1,6 @@
----
 name: teable-v2-devtools
 description: Teable v2 developer tools CLI for debugging, inspecting, and generating test data. Combines debug-data and mock-records capabilities into a unified CLI using Effect CLI framework.
+
 ---
 
 # Teable V2 DevTools CLI
@@ -18,42 +18,42 @@ Use this skill when you need to:
 - **Check database schema** (indexes, constraints, columns) for missing or broken indexes
 - **Create tables** (via CLI, without records)
 
-> **重要提示**: 当需要查看数据库数据时，**优先使用 devtools CLI 而不是 psql 命令行**。devtools 提供格式化的 TOON 输出，更适合 AI 分析，并且可以比较应用层和数据库层的数据差异。
+> **Important**: When you need to inspect database data, **prefer DevTools CLI over psql**. DevTools outputs structured TOON format, which is easier for AI analysis and supports comparing application-layer and database-layer results.
 
-## 开发注意事项 (CRITICAL)
+## Development Notes (CRITICAL)
 
-### 修改依赖包后必须重新构建
+### Rebuild After Modifying Dependencies
 
-devtools CLI 依赖多个 v2 包，这些包**使用编译后的 dist 文件**，而不是源文件。这是因为它们使用了 parameter decorators（`@inject()`），tsx/esbuild 不支持直接运行。
+DevTools CLI depends on multiple v2 packages, and it uses **compiled dist outputs** rather than TypeScript sources. This is because it relies on parameter decorators (`@inject()`), which tsx/esbuild cannot run directly.
 
-**当修改以下包的代码后，必须重新构建才能生效：**
+**If you modify any of the following packages, you must rebuild them before running the CLI:**
 
 ```bash
-# 修改 adapter-table-repository-postgres 后
+# If you modify adapter-table-repository-postgres
 pnpm --filter @teable/v2-adapter-table-repository-postgres build
 
-# 修改 command-explain 后
+# If you modify command-explain
 pnpm --filter @teable/v2-command-explain build
 
-# 修改 debug-data 后
+# If you modify debug-data
 pnpm --filter @teable/v2-debug-data build
 
-# 修改 core 后
+# If you modify core
 pnpm --filter @teable/v2-core build
 ```
 
-**推荐：使用 watch 模式自动重新构建**
+**Recommended: use watch mode for auto-rebuilds**
 
 ```bash
-# 在一个终端窗口中启动 watch 模式
+# Start watch mode in a separate terminal
 pnpm --filter @teable/v2-adapter-table-repository-postgres dev
 ```
 
-**常见问题：**
+**Common pitfalls:**
 
-- 修改了代码但 CLI 输出没有变化 → 忘记重新构建
-- console.log/console.error 没有输出 → 忘记重新构建
-- 新增的类型/函数找不到 → 忘记重新构建
+- CLI output doesn’t change after code edits → forgot to rebuild
+- console.log/console.error never prints → forgot to rebuild
+- newly added types/functions missing → forgot to rebuild
 
 ## Quick Commands
 
@@ -274,7 +274,7 @@ Each result item includes:
 | `tables create --base-id <id> --name <name>` | Create a new table (without records)                   |
 | `tables describe-schema`                     | **Output field schema documentation for AI reference** |
 
-> **重要**: 在创建表之前，**必须先运行 `tables describe-schema`** 获取完整的字段 schema 文档，确保入参格式正确，避免验证错误。
+> **Important**: Before creating tables, **you must run `tables describe-schema`** to get the full field schema documentation and avoid validation errors.
 
 **tables create Options:**
 | Option | Description |
@@ -283,11 +283,11 @@ Each result item includes:
 | `--name <name>` | Required: Table name |
 | `--fields <json>` | Optional: JSON array of field definitions |
 
-**关键验证规则 (必须遵守):**
+**Critical validation rules (must follow):**
 
-1. **SingleSelect/MultipleSelect choices 必须有 color 属性** - 例如: `{"name": "Todo", "color": "blueLight1"}`
-2. **Link 字段必须有 foreignTableId 和 lookupFieldId** - 先查询目标表获取这些 ID
-3. **每个表只能有一个 isPrimary: true 的字段**
+1. **SingleSelect/MultipleSelect choices must include a `color` property** - e.g. `{"name": "Todo", "color": "blueLight1"}`
+2. **Link fields must include `foreignTableId` and `lookupFieldId`** - query the target table to get these IDs first
+3. **Each table can only have one field with `isPrimary: true`**
 
 **Field Definition Format:**
 
@@ -325,7 +325,7 @@ Each result item includes:
 ```
 
 - `relationship`: `oneOne` (1:1), `oneMany` (1:N), `manyOne` (N:1), `manyMany` (N:N)
-- `lookupFieldId`: 目标表的主键字段 ID (通常是第一个字段)
+- `lookupFieldId`: Primary field ID of the foreign table (usually the first field)
 
 **Supported Field Types:**
 
