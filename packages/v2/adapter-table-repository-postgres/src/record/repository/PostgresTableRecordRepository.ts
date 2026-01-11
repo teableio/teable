@@ -23,6 +23,7 @@ import type { DynamicDB } from '../query-builder';
 import {
   RecordInsertBuilder,
   type CompiledSqlStatement,
+  type LinkedRecordLockInfo,
 } from '../query-builder/insert/RecordInsertBuilder';
 import { RecordUpdateBuilder } from '../query-builder/update/RecordUpdateBuilder';
 import {
@@ -96,21 +97,26 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // Use RecordInsertBuilder to build insert data
         const insertBuilder = new RecordInsertBuilder(db);
         const fieldValues = recordFieldsToMap(table, record);
-        const { values, additionalStatements } = yield* insertBuilder.buildInsertData({
-          table,
-          fieldValues,
-          context: {
-            recordId: record.id().toString(),
-            actorId: context.actorId.toString(),
-            now,
-          },
-        });
+        const { values, additionalStatements, linkedRecordLocks } =
+          yield* insertBuilder.buildInsertData({
+            table,
+            fieldValues,
+            context: {
+              recordId: record.id().toString(),
+              actorId: context.actorId.toString(),
+              now,
+            },
+          });
 
         this.logger.debug(`insert:table=${tableName}`, { values });
 
         try {
           // Execute the main insert
           await db.insertInto(tableName).values(values).execute();
+
+          // Acquire advisory locks for linked records to prevent deadlocks
+          const baseId = table.baseId().toString();
+          await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
 
           // Execute additional statements (junction inserts, FK updates, etc.)
           await RecordInsertBuilder.executeStatements(db, additionalStatements);
@@ -161,6 +167,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const insertBuilder = new RecordInsertBuilder(db);
         const allValues: Record<string, unknown>[] = [];
         const allAdditionalStatements: CompiledSqlStatement[] = [];
+        const allLinkedRecordLocks: LinkedRecordLockInfo[] = [];
 
         for (const record of records) {
           const fieldValues = recordFieldsToMap(table, record);
@@ -180,6 +187,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
           allValues.push(insertDataResult.value.values);
           allAdditionalStatements.push(...insertDataResult.value.additionalStatements);
+          allLinkedRecordLocks.push(...insertDataResult.value.linkedRecordLocks);
         }
 
         this.logger.debug(`insertMany:table=${tableName}`, { count: records.length });
@@ -191,6 +199,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             const batch = allValues.slice(i, i + batchSize);
             await db.insertInto(tableName).values(batch).execute();
           }
+
+          // Acquire advisory locks for linked records to prevent deadlocks
+          const baseId = table.baseId().toString();
+          await acquireLinkedRecordLocks(db, baseId, allLinkedRecordLocks);
 
           // Execute additional statements (junction inserts, FK updates, etc.)
           await RecordInsertBuilder.executeStatements(db, allAdditionalStatements);
@@ -285,18 +297,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         // Use RecordUpdateBuilder to build all SQL statements from mutateSpec
         const updateBuilder = new RecordUpdateBuilder(db);
-        const { mainUpdate, additionalStatements, impact } = yield* await updateBuilder.build({
-          table,
-          tableName,
-          mutateSpec,
-          recordId: recordIdStr,
-          context: { actorId, now },
-        });
+        const { mainUpdate, additionalStatements, impact, linkedRecordLocks } =
+          yield* await updateBuilder.build({
+            table,
+            tableName,
+            mutateSpec,
+            recordId: recordIdStr,
+            context: { actorId, now },
+          });
         const { impactHint, extraSeedRecords } = impact;
 
         try {
           // Execute main UPDATE statement
           await db.executeQuery(mainUpdate.compiled);
+
+          // Acquire advisory locks for linked records to prevent deadlocks
+          const baseId = table.baseId().toString();
+          await acquireLinkedRecordLocks(db, baseId, linkedRecordLocks);
 
           // Execute additional statements (junction table updates, FK updates)
           for (const stmt of additionalStatements) {
@@ -717,4 +734,48 @@ const resolvePostgresDb = <DB>(
   context: core.IExecutionContext
 ): Kysely<DB> | Transaction<DB> => {
   return getPostgresTransaction<DB>(context) ?? db;
+};
+
+/**
+ * Build an advisory lock key for a linked record to prevent deadlocks.
+ * The key format ensures consistent ordering across concurrent transactions.
+ */
+const buildLinkedRecordLockKey = (
+  baseId: string,
+  foreignTableId: string,
+  foreignRecordId: string
+): string => `v2:link:${baseId}:${foreignTableId}:${foreignRecordId}`;
+
+/**
+ * Acquire advisory locks for linked records to prevent deadlocks.
+ * Locks are acquired in sorted key order to ensure consistent lock ordering.
+ * Uses a single batch query to minimize database round-trips.
+ */
+const acquireLinkedRecordLocks = async (
+  db: Kysely<DynamicDB>,
+  baseId: string,
+  linkedRecordLocks: ReadonlyArray<LinkedRecordLockInfo>
+): Promise<void> => {
+  if (linkedRecordLocks.length === 0) return;
+
+  // Deduplicate and build lock keys
+  const lockKeysSet = new Set<string>();
+  for (const lock of linkedRecordLocks) {
+    const key = buildLinkedRecordLockKey(baseId, lock.foreignTableId, lock.foreignRecordId);
+    lockKeysSet.add(key);
+  }
+
+  // Sort keys to ensure consistent lock ordering across transactions
+  const lockKeys = [...lockKeysSet].sort();
+
+  if (lockKeys.length === 0) return;
+
+  // Acquire all locks in a single batch query
+  // Format array as PostgreSQL array literal: ARRAY['key1', 'key2', ...]
+  const arrayLiteral = `ARRAY[${lockKeys.map((k) => `'${k.replace(/'/g, "''")}'`).join(',')}]`;
+  await db.executeQuery(
+    sql`SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
+        FROM unnest(${sql.raw(arrayLiteral)}::text[]) AS k
+        ORDER BY k`.compile(db)
+  );
 };

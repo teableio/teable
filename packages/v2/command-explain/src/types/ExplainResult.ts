@@ -127,6 +127,28 @@ export type ComputedUpdateLockInfo = {
 };
 
 /**
+ * Information about a link record lock to prevent deadlocks.
+ */
+export type LinkRecordLockInfo = {
+  readonly foreignTableId: string;
+  readonly foreignTableName?: string;
+  readonly foreignRecordId: string;
+  readonly key: string;
+};
+
+/**
+ * Information about link record locks.
+ */
+export type LinkRecordLocksInfo = {
+  readonly mode: 'none' | 'active';
+  readonly reason: string;
+  readonly lockCount: number;
+  readonly locks: ReadonlyArray<LinkRecordLockInfo>;
+  readonly sql?: string;
+  readonly parameters?: ReadonlyArray<unknown>;
+};
+
+/**
  * EXPLAIN output (without ANALYZE).
  */
 export type ExplainOutput = {
@@ -230,6 +252,7 @@ export type ExplainResult = {
   readonly command: CommandExplainInfo;
   readonly computedImpact: ComputedImpactInfo | null;
   readonly computedLocks?: ComputedUpdateLockInfo | null;
+  readonly linkLocks?: LinkRecordLocksInfo | null;
   readonly sqlExplains: ReadonlyArray<SqlExplainInfo>;
   readonly complexity: import('./ComplexityAssessment').ComplexityAssessment;
   readonly timing: ExplainTiming;

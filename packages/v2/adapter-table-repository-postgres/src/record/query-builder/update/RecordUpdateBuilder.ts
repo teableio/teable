@@ -34,7 +34,7 @@ import {
   type CollectedLinkChanges,
 } from '../../visitors';
 import { CellValueMutateVisitor } from '../../visitors/CellValueMutateVisitor';
-import type { CompiledSqlStatement } from '../insert';
+import type { CompiledSqlStatement, LinkedRecordLockInfo } from '../insert';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
 
 /**
@@ -49,6 +49,8 @@ export interface RecordUpdateSqlResult {
   changedFieldIds: FieldId[];
   /** Computed update impact (used for propagation planning) */
   impact: RecordUpdateImpact;
+  /** Foreign record IDs that need advisory locks to prevent deadlocks */
+  linkedRecordLocks: LinkedRecordLockInfo[];
 }
 
 /**
@@ -69,6 +71,7 @@ export type RecordUpdateImpact = {
   extraSeedRecords: ReadonlyArray<RecordUpdateSeedGroup>;
   linkChanges: CollectedLinkChanges;
   valueFieldIds: ReadonlyArray<FieldId>;
+  linkedRecordLocks: LinkedRecordLockInfo[];
 };
 
 /**
@@ -147,6 +150,7 @@ export class RecordUpdateBuilder {
         })),
         changedFieldIds,
         impact: impactResult.value,
+        linkedRecordLocks: impactResult.value.linkedRecordLocks,
       });
     });
   }
@@ -189,11 +193,15 @@ export class RecordUpdateBuilder {
       return err(extraSeedRecordsResult.error);
     }
 
+    // Collect linked record locks from link changes
+    const linkedRecordLocks = buildLinkedRecordLocksFromLinkChanges(linkChanges);
+
     return ok({
       impactHint: buildImpactHint(valueFieldIds, linkChanges.relationChangeFieldIds),
       extraSeedRecords: extraSeedRecordsResult.value,
       linkChanges,
       valueFieldIds,
+      linkedRecordLocks,
     });
   }
 }
@@ -450,4 +458,42 @@ const loadExistingLinkRecordIds = async (
       })
     );
   }
+};
+
+/**
+ * Build linked record locks from collected link changes.
+ * These locks prevent deadlocks when multiple transactions update the same foreign records.
+ */
+const buildLinkedRecordLocksFromLinkChanges = (
+  collected: CollectedLinkChanges
+): LinkedRecordLockInfo[] => {
+  const locks: LinkedRecordLockInfo[] = [];
+
+  for (const linkChange of collected.linkChanges) {
+    // Skip if only reordering (no actual relation change needs locks)
+    if (linkChange.changeType === 'reorder') {
+      continue;
+    }
+
+    const foreignTableId = linkChange.symmetricTableId?.toString();
+    if (!foreignTableId) continue;
+
+    // Lock all added foreign records
+    for (const recordId of linkChange.addedForeignRecordIds) {
+      locks.push({
+        foreignTableId,
+        foreignRecordId: recordId.toString(),
+      });
+    }
+
+    // Lock all removed foreign records
+    for (const recordId of linkChange.removedForeignRecordIds) {
+      locks.push({
+        foreignTableId,
+        foreignRecordId: recordId.toString(),
+      });
+    }
+  }
+
+  return locks;
 };

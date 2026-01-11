@@ -4545,8 +4545,8 @@ describe('v2 computed field updates (e2e)', () => {
         #  | Name | Links  | Sum
         ------------------------
         R0 | R1   | R2, R3 | 50
-        R1 | R2   | -      | -
-        R2 | R3   | -      | -
+        R1 | R2   | -      | 0
+        R2 | R3   | -      | 0
         ------------------------"
       `);
       let stored = records.find((r) => r.id === record1.id);
@@ -4575,15 +4575,16 @@ describe('v2 computed field updates (e2e)', () => {
       records = await listRecords(table.id);
       expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '30');
       expect(printTableSnapshot(table.name, fieldNames, records, fieldIds)).toMatchInlineSnapshot(`
-        "[SelfManyMany]
-        -----------------------
-        #  | Name | Links | Sum
-        -----------------------
-        R0 | R1   | R3    | 30
-        R1 | R2   | -     | -
-        R2 | R3   | -     | -
-        -----------------------"
-      `);
+         "[SelfManyMany]
+         -----------------------
+         #  | Name | Links | Sum
+         -----------------------
+         R0 | R1   | R3    | 30
+         R1 | R2   | -     | 0
+         R2 | R3   | -     | 0
+         -----------------------"
+       `);
+
       stored = records.find((r) => r.id === record1.id);
       expect(stored?.fields[rollupFieldId]).toBe(30);
     });
@@ -6040,14 +6041,14 @@ describe('v2 computed field updates (e2e)', () => {
       await createRecord(tableA.id, { [aNameFieldId]: 'A1' });
 
       const beforeRecords = await listRecords(tableA.id);
-      expectCellDisplay(beforeRecords, 0, aFieldIds[aFieldIds.length - 1], '-');
+      expectCellDisplay(beforeRecords, 0, aFieldIds[aFieldIds.length - 1], '0');
       expect(printTableSnapshot(tableA.name, aFieldNames, beforeRecords, aFieldIds))
         .toMatchInlineSnapshot(`
           "[EmptyToPopA]
           -----------------------
           #  | Name | Links | Sum
           -----------------------
-          R0 | A1   | -     | -
+          R0 | A1   | -     | 0
           -----------------------"
         `);
 
@@ -6158,14 +6159,14 @@ describe('v2 computed field updates (e2e)', () => {
       await testContainer.processOutbox();
 
       const afterRecords = await listRecords(tableA.id);
-      expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '-');
+      expectCellDisplay(afterRecords, 0, aFieldIds[aFieldIds.length - 1], '0');
       expect(printTableSnapshot(tableA.name, aFieldNames, afterRecords, aFieldIds))
         .toMatchInlineSnapshot(`
           "[PopToEmptyA]
           -----------------------
           #  | Name | Links | Sum
           -----------------------
-          R0 | A1   | -     | -
+          R0 | A1   | -     | 0
           -----------------------"
         `);
     });

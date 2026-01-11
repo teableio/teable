@@ -646,9 +646,13 @@ export class FormulaSqlPgExpressionBuilder {
   protected unwrapArrayToScalar(expr: SqlExpr): SqlExpr {
     if (!expr.isArray) return expr;
     const scalarText = this.extractArrayScalarText(expr);
+    const valueType =
+      expr.valueType === 'number' || expr.valueType === 'boolean' || expr.valueType === 'datetime'
+        ? expr.valueType
+        : 'string';
     return makeExpr(
       scalarText,
-      'string',
+      valueType,
       false,
       expr.errorConditionSql,
       expr.errorMessageSql,

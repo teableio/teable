@@ -54,6 +54,7 @@ import {
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
+import { buildLinkRecordLocksInfo } from '../utils/LinkRecordLockInfoBuilder';
 import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
 
 /**
@@ -170,6 +171,9 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
           })
         : null;
 
+      // Initialize linkLocks (will be populated when building INSERT)
+      let linkLocks: import('../types').LinkRecordLocksInfo | null = null;
+
       // 8. Generate real SQL and run EXPLAIN
       const sqlExplainStartTime = Date.now();
       const sqlExplains: SqlExplainInfo[] = [];
@@ -189,7 +193,16 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
         });
 
         if (insertResult.isOk()) {
-          const { mainInsert, additionalStatements } = insertResult.value;
+          const { mainInsert, additionalStatements, linkedRecordLocks } = insertResult.value;
+
+          // Build link locks info if enabled
+          if (mergedOptions.includeLocks) {
+            linkLocks = buildLinkRecordLocksInfo({
+              baseId: table.baseId().toString(),
+              linkedRecordLocks,
+              tableById,
+            });
+          }
 
           // Collect all statement metadata
           type StatementMeta = BatchExplainStatement & {
@@ -479,6 +492,7 @@ export class CreateRecordAnalyzer implements ICommandAnalyzer<CreateRecordComman
         command: commandInfo,
         computedImpact,
         computedLocks,
+        linkLocks,
         sqlExplains,
         complexity,
         timing: {

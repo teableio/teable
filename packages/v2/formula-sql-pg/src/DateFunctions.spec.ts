@@ -106,47 +106,63 @@ const dateFunctionCases: ReadonlyArray<DateFunctionCase> = [
 
 const buildFormulaName = (funcId: string, fieldName: string): string => `${funcId}_${fieldName}`;
 
-describe.sequential('date functions', () => {
-  const fieldCases = createFieldTypeCases();
-  const matrix = dateFunctionCases.flatMap((fn) =>
-    fieldCases.map((fieldCase) => ({
-      funcId: fn.id,
-      fieldCase,
-      formulaName: buildFormulaName(fn.id, fieldCase.fieldName),
-      normalizeResult: fn.normalizeResult,
-    }))
-  );
-  let container: IV2NodeTestContainer;
-  let testTable: FormulaTestTable;
+const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
+  const chunks: Array<ReadonlyArray<T>> = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
 
-  beforeAll(async () => {
-    container = await createFormulaTestContainer();
-    const formulaFields: FormulaFieldDefinition[] = dateFunctionCases.flatMap((fn) =>
+const fieldCases = createFieldTypeCases();
+const dateFunctionChunks = chunkArray(dateFunctionCases, 7);
+
+const runDateFunctionSuite = (label: string, cases: ReadonlyArray<DateFunctionCase>) => {
+  describe.sequential(label, () => {
+    const matrix = cases.flatMap((fn) =>
       fieldCases.map((fieldCase) => ({
-        name: buildFormulaName(fn.id, fieldCase.fieldName),
-        expression: fn.buildExpression(fieldCase.fieldName),
+        funcId: fn.id,
+        fieldCase,
+        formulaName: buildFormulaName(fn.id, fieldCase.fieldName),
+        normalizeResult: fn.normalizeResult,
       }))
     );
-    testTable = await createFormulaTestTable(container, formulaFields);
-  });
+    let container: IV2NodeTestContainer;
+    let testTable: FormulaTestTable;
 
-  afterAll(async () => {
-    await container.dispose();
-  });
+    beforeAll(async () => {
+      container = await createFormulaTestContainer();
+      const formulaFields: FormulaFieldDefinition[] = cases.flatMap((fn) =>
+        fieldCases.map((fieldCase) => ({
+          name: buildFormulaName(fn.id, fieldCase.fieldName),
+          expression: fn.buildExpression(fieldCase.fieldName),
+        }))
+      );
+      testTable = await createFormulaTestTable(container, formulaFields);
+    });
 
-  it.each(matrix)(
-    '$funcId with $fieldCase.type',
-    async ({ funcId, fieldCase, formulaName, normalizeResult }) => {
-      const context = await buildFormulaSnapshotContext(testTable, formulaName);
-      const result = normalizeResult ? normalizeResult(context.result) : context.result;
-      expect({
-        funcId,
-        fieldType: fieldCase.type,
-        formula: context.formula,
-        sql: context.sql,
-        inputs: context.inputs,
-        result,
-      }).toMatchSnapshot();
-    }
-  );
+    afterAll(async () => {
+      await container.dispose();
+    });
+
+    it.each(matrix)(
+      '$funcId with $fieldCase.type',
+      async ({ funcId, fieldCase, formulaName, normalizeResult }) => {
+        const context = await buildFormulaSnapshotContext(testTable, formulaName);
+        const result = normalizeResult ? normalizeResult(context.result) : context.result;
+        expect({
+          funcId,
+          fieldType: fieldCase.type,
+          formula: context.formula,
+          sql: context.sql,
+          inputs: context.inputs,
+          result,
+        }).toMatchSnapshot();
+      }
+    );
+  });
+};
+
+dateFunctionChunks.forEach((cases, index) => {
+  runDateFunctionSuite(`date functions batch ${index + 1}`, cases);
 });

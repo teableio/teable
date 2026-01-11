@@ -424,6 +424,7 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
   const env = usePlaygroundEnvironment();
   const [impactOpen, setImpactOpen] = useState(true);
   const [locksOpen, setLocksOpen] = useState(false);
+  const [linkLocksOpen, setLinkLocksOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<'raw' | 'optimized' | null>(null);
 
   const totalSteps = result.computedImpact?.updateSteps.length ?? 0;
@@ -738,6 +739,66 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
                           <SqlBlock sql={statement.sql} parameters={statement.parameters} />
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Link Record Locks */}
+          {result.linkLocks && result.linkLocks.mode === 'active' && (
+            <div className="rounded-lg border bg-card overflow-hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 rounded-none border-b h-9 text-muted-foreground"
+                onClick={() => setLinkLocksOpen(!linkLocksOpen)}
+              >
+                {linkLocksOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                <Lock className="h-4 w-4" />
+                <span className="font-medium text-[11px]">Link Record Locks</span>
+                <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase">
+                  {result.linkLocks.mode}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                  {result.linkLocks.lockCount} records
+                </Badge>
+              </Button>
+              {linkLocksOpen && (
+                <div className="p-3 space-y-3 text-xs">
+                  <div className="text-muted-foreground">{result.linkLocks.reason}</div>
+                  {result.linkLocks.locks.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-medium text-muted-foreground">
+                        Foreign Records
+                      </div>
+                      {result.linkLocks.locks.map((lock) => (
+                        <div key={lock.key} className="flex flex-col gap-0.5">
+                          <span className="font-medium">
+                            {lock.foreignTableName ?? lock.foreignTableId}
+                          </span>
+                          <span className="text-muted-foreground break-all">
+                            {lock.foreignRecordId}
+                          </span>
+                          <span className="text-muted-foreground/60 break-all text-[10px]">
+                            {lock.key}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {result.linkLocks.sql && (
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-medium text-muted-foreground">Lock SQL</div>
+                      <SqlBlock
+                        sql={result.linkLocks.sql}
+                        parameters={result.linkLocks.parameters ?? []}
+                      />
                     </div>
                   )}
                 </div>

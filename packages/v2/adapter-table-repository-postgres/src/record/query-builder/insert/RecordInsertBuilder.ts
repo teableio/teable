@@ -34,6 +34,18 @@ export interface RecordInsertSqlResult {
   mainInsert: CompiledSqlStatement;
   /** Additional SQL statements (junction table inserts, FK updates for link fields) */
   additionalStatements: CompiledSqlStatement[];
+  /** Foreign record IDs that need advisory locks to prevent deadlocks */
+  linkedRecordLocks: LinkedRecordLockInfo[];
+}
+
+/**
+ * Information about a linked foreign record that requires locking.
+ */
+export interface LinkedRecordLockInfo {
+  /** The foreign table ID or name being referenced */
+  foreignTableId: string;
+  /** The foreign record ID being linked to */
+  foreignRecordId: string;
 }
 
 /**
@@ -44,6 +56,8 @@ export interface RecordInsertDataResult {
   values: Record<string, unknown>;
   /** Additional SQL statements to execute after the main insert */
   additionalStatements: CompiledSqlStatement[];
+  /** Foreign record IDs that need advisory locks to prevent deadlocks */
+  linkedRecordLocks: LinkedRecordLockInfo[];
 }
 
 /**
@@ -53,6 +67,14 @@ export interface RecordInsertBuilderContext {
   recordId: string;
   actorId: string;
   now: string;
+}
+
+/**
+ * Result of building link field SQLs (internal use).
+ */
+interface LinkFieldSqlsResult {
+  statements: CompiledSqlStatement[];
+  linkedRecordLocks: LinkedRecordLockInfo[];
 }
 
 /**
@@ -109,6 +131,7 @@ export class RecordInsertBuilder {
       };
 
       const additionalStatements: CompiledSqlStatement[] = [];
+      const linkedRecordLocks: LinkedRecordLockInfo[] = [];
 
       // Map field values to database columns
       const fields = table.getFields();
@@ -150,12 +173,13 @@ export class RecordInsertBuilder {
             rawValue !== undefined
           ) {
             const linkField = field as LinkField;
-            const linkSqls = yield* builder.buildLinkFieldSqls(
+            const linkResult = yield* builder.buildLinkFieldSqls(
               linkField,
               rawValue,
               context.recordId
             );
-            additionalStatements.push(...linkSqls);
+            additionalStatements.push(...linkResult.statements);
+            linkedRecordLocks.push(...linkResult.linkedRecordLocks);
           }
         } else {
           // Fallback: just use raw value
@@ -166,6 +190,7 @@ export class RecordInsertBuilder {
       return ok({
         values,
         additionalStatements,
+        linkedRecordLocks,
       });
     });
   }
@@ -184,7 +209,7 @@ export class RecordInsertBuilder {
     const builder = this;
 
     return safeTry<RecordInsertSqlResult, DomainError>(function* () {
-      const { values, additionalStatements } = yield* builder.buildInsertData({
+      const { values, additionalStatements, linkedRecordLocks } = yield* builder.buildInsertData({
         table,
         fieldValues,
         context,
@@ -200,6 +225,7 @@ export class RecordInsertBuilder {
           compiled,
         },
         additionalStatements,
+        linkedRecordLocks,
       });
     });
   }
@@ -224,11 +250,12 @@ export class RecordInsertBuilder {
     field: LinkField,
     rawValue: unknown,
     recordId: string
-  ): Result<CompiledSqlStatement[], DomainError> {
+  ): Result<LinkFieldSqlsResult, DomainError> {
     const builder = this;
 
-    return safeTry<CompiledSqlStatement[], DomainError>(function* () {
+    return safeTry<LinkFieldSqlsResult, DomainError>(function* () {
       const statements: CompiledSqlStatement[] = [];
+      const linkedRecordLocks: LinkedRecordLockInfo[] = [];
 
       // Parse link items
       const linkItems = Array.isArray(rawValue)
@@ -236,10 +263,11 @@ export class RecordInsertBuilder {
         : [rawValue as { id: string }];
 
       if (linkItems.length === 0) {
-        return ok(statements);
+        return ok({ statements, linkedRecordLocks });
       }
 
       const relationship = field.relationship().toString();
+      const foreignTableId = field.foreignTableId().toString();
 
       if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
         // Junction table: insert rows for each linked record
@@ -256,6 +284,12 @@ export class RecordInsertBuilder {
         for (let i = 0; i < linkItems.length; i++) {
           const linkItem = linkItems[i];
           const order = i + 1;
+
+          // Collect lock info for the foreign record to prevent deadlocks
+          linkedRecordLocks.push({
+            foreignTableId,
+            foreignRecordId: linkItem.id,
+          });
 
           // DELETE existing link
           const deleteQuery = builder.db
@@ -294,6 +328,12 @@ export class RecordInsertBuilder {
         const selfKeyName = yield* field.selfKeyNameString();
 
         for (const linkItem of linkItems) {
+          // Collect lock info for the foreign record to prevent deadlocks
+          linkedRecordLocks.push({
+            foreignTableId,
+            foreignRecordId: linkItem.id,
+          });
+
           const updateQuery = builder.db
             .updateTable(foreignTableName)
             .set({ [selfKeyName]: recordId })
@@ -308,7 +348,7 @@ export class RecordInsertBuilder {
       }
       // manyOne/oneOne: FK is set in the main INSERT values, no additional SQL needed
 
-      return ok(statements);
+      return ok({ statements, linkedRecordLocks });
     });
   }
 }

@@ -206,6 +206,26 @@ const computedUpdateLockInfoSchema = z.object({
   statements: z.array(computedUpdateLockStatementSchema),
 });
 
+// Link record locks info - simplified to avoid type complexity issues
+const linkRecordLocksInfoSchema = z
+  .object({
+    mode: z.enum(['none', 'active']),
+    reason: z.string(),
+    lockCount: z.number(),
+    locks: z.array(
+      z.object({
+        foreignTableId: z.string(),
+        foreignTableName: z.string().optional(),
+        foreignRecordId: z.string(),
+        key: z.string(),
+      })
+    ),
+    sql: z.string().optional(),
+    parameters: z.array(z.unknown()).optional(),
+  })
+  .nullable()
+  .optional();
+
 const complexityFactorSchema = z.object({
   name: z.string(),
   value: z.number(),
@@ -242,6 +262,7 @@ export const explainResultSchema = z.object({
   command: commandExplainInfoSchema,
   computedImpact: computedImpactInfoSchema.nullable(),
   computedLocks: computedUpdateLockInfoSchema.nullable().optional(),
+  linkLocks: linkRecordLocksInfoSchema,
   sqlExplains: z.array(sqlExplainInfoSchema),
   complexity: complexityAssessmentSchema,
   timing: explainTimingSchema,

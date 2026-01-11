@@ -50,6 +50,7 @@ import { SqlExplainRunner, type SetupStatement } from '../utils/SqlExplainRunner
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
+import { buildLinkRecordLocksInfo } from '../utils/LinkRecordLockInfoBuilder';
 import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
 
 /**
@@ -194,6 +195,16 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             config: analyzer.lockConfig,
           })
         : null;
+
+      // Build link locks info
+      const linkLocks =
+        mergedOptions.includeLocks && updateSqlResult
+          ? buildLinkRecordLocksInfo({
+              baseId: table.baseId().toString(),
+              linkedRecordLocks: updateSqlResult.linkedRecordLocks,
+              tableById,
+            })
+          : null;
 
       // 8. Generate real SQL and run EXPLAIN
       const sqlExplainStartTime = Date.now();
@@ -555,6 +566,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
         command: commandInfo,
         computedImpact,
         computedLocks,
+        linkLocks,
         sqlExplains,
         complexity,
         timing: {
