@@ -21,6 +21,7 @@
     "outDir": "dist",
     "paths": {
       "@teable/v2-core": ["../core/src"],
+      "@teable/v2-adapter-db-postgres-pglite": ["../adapter-db-postgres-pglite/src"],
       "@teable/formula": ["../../formula/src"]
     },
     "types": ["vitest/globals", "node"]
@@ -33,5 +34,5 @@
     "../core/src/**/*.spec.ts",
     "../../formula/src/**/*.spec.ts"
   ],
-  "include": ["src", "../core/src", "../../formula/src"]
+  "include": ["src", "../core/src", "../adapter-db-postgres-pglite/src", "../../formula/src"]
 }

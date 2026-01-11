@@ -26,7 +26,7 @@ export function FieldCreateDialog({ baseId, tableId, onSuccess }: FieldCreateDia
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 text-xs font-normal">
+        <Button variant="outline" size="sm" className="h-9 text-xs font-normal">
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Create field
         </Button>

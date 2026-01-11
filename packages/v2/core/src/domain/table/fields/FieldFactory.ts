@@ -162,6 +162,7 @@ export const createRollupFieldPending = (params: {
   timeZone?: TimeZone;
   formatting?: RollupFormatting;
   showAs?: RollupShowAs;
+  resultType?: { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity };
   dependencies?: ReadonlyArray<FieldId>;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
@@ -342,6 +343,7 @@ export const createConditionalRollupFieldPending = (params: {
   timeZone?: TimeZone;
   formatting?: ConditionalRollupFormatting;
   showAs?: ConditionalRollupShowAs;
+  resultType?: { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity };
   dependencies?: ReadonlyArray<FieldId>;
   notNull?: FieldNotNull;
   unique?: FieldUnique;

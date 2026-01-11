@@ -11,6 +11,7 @@ export * from './application/services/FieldCreationSideEffectService';
 export * from './application/services/FieldDeletionSideEffectService';
 export * from './application/services/ForeignTableLoaderService';
 export * from './application/services/LinkTitleResolverService';
+export * from './application/services/TableCreationService';
 export * from './application/services/TableQueryService';
 export * from './application/projections/Projection';
 export * from './application/projections/RealtimeProjection';
@@ -19,6 +20,7 @@ export * from './application/projections/FieldCreatedRealtimeProjection';
 export * from './application/projections/FieldDeletedRealtimeProjection';
 export * from './application/projections/ViewColumnMetaUpdatedRealtimeProjection';
 export * from './commands/TableFieldSpecs';
+export * from './commands/TableInputParser';
 export * from './commands/DeleteTableCommand';
 export * from './commands/DeleteTableHandler';
 export * from './commands/RenameTableCommand';
@@ -35,9 +37,16 @@ export * from './commands/UpdateRecordCommand';
 export * from './commands/UpdateRecordHandler';
 export * from './commands/ImportCsvCommand';
 export * from './commands/ImportCsvHandler';
+export * from './commands/ImportDotTeaStructureCommand';
+export * from './commands/ImportDotTeaStructureHandler';
 export * from './application/services/TableUpdateFlow';
 export * from './commands/CommandHandler';
+export * from './ports/DotTeaParser';
 export * from './ports/TraceSpan';
+
+// Schemas - export from dedicated schemas module
+// Note: tableFieldInputSchema is also re-exported from TableFieldSpecs for backward compatibility
+export * from './schemas';
 
 export * from './queries/GetTableByIdQuery';
 export * from './queries/GetTableByIdHandler';

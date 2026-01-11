@@ -24,6 +24,7 @@ import {
   type NumberField,
   type RatingField,
   type RollupField,
+  type RollupFunction,
   type SingleLineTextField,
   type SingleSelectField,
   type Table,
@@ -41,22 +42,6 @@ import { err, ok } from 'neverthrow';
 
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
 
-/** SQL aggregate functions for rollup */
-export const SqlAggregate = {
-  COUNT: 'COUNT',
-  SUM: 'SUM',
-  AVG: 'AVG',
-  MAX: 'MAX',
-  MIN: 'MIN',
-  BOOL_AND: 'BOOL_AND',
-  BOOL_OR: 'BOOL_OR',
-  BOOL_XOR: 'BOOL_XOR',
-  STRING_AGG: 'STRING_AGG',
-  ARRAY_AGG: 'ARRAY_AGG',
-} as const;
-
-export type SqlAggregate = (typeof SqlAggregate)[keyof typeof SqlAggregate];
-
 /** Column type for lateral join */
 export type LinkOrderBy =
   | { source: 'foreign'; column: string }
@@ -71,12 +56,17 @@ export type LinkOrderBy =
 export type LateralColumnType =
   | { type: 'link'; lookupFieldId: FieldId; isMultiValue: boolean; orderBy?: LinkOrderBy }
   | { type: 'lookup'; foreignFieldId: FieldId }
-  | { type: 'rollup'; foreignFieldId: FieldId; aggregate: SqlAggregate }
+  | {
+      type: 'rollup';
+      foreignFieldId: FieldId;
+      expression: RollupFunction;
+      orderBy?: LinkOrderBy;
+    }
   | { type: 'conditionalLookup'; foreignFieldId: FieldId; condition: FieldCondition }
   | {
       type: 'conditionalRollup';
       foreignFieldId: FieldId;
-      aggregate: SqlAggregate;
+      expression: RollupFunction;
       condition: FieldCondition;
     };
 
@@ -172,7 +162,11 @@ export class ComputedFieldSelectExpressionVisitor
 
       if (field.type().equals(FieldType.rollup())) {
         const rollupField = field as RollupField;
-        const aggregate = rollupExpressionToSqlAggregate(rollupField.expression().toString());
+        const expression = rollupField.expression().toString();
+        const linkFieldResult = rollupField
+          .linkField(this.table)
+          .andThen((linkField) => this.getLinkOrderBy(linkField));
+        if (linkFieldResult.isErr()) return err(linkFieldResult.error);
         const lateralAlias = this.lateral.addColumn(
           rollupField.linkFieldId(),
           rollupField.foreignTableId().toString(),
@@ -180,7 +174,8 @@ export class ComputedFieldSelectExpressionVisitor
           {
             type: 'rollup',
             foreignFieldId: rollupField.lookupFieldId(),
-            aggregate,
+            expression,
+            orderBy: linkFieldResult.value,
           }
         );
         return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
@@ -205,9 +200,7 @@ export class ComputedFieldSelectExpressionVisitor
       if (field.type().equals(FieldType.conditionalRollup())) {
         const conditionalRollupField = field as ConditionalRollupField;
         const config = conditionalRollupField.config();
-        const aggregate = rollupExpressionToSqlAggregate(
-          conditionalRollupField.expression().toString()
-        );
+        const expression = conditionalRollupField.expression().toString();
         const lateralAlias = this.lateral.addConditionalColumn(
           conditionalRollupField.id(),
           config.foreignTableId().toString(),
@@ -215,7 +208,7 @@ export class ComputedFieldSelectExpressionVisitor
           {
             type: 'conditionalRollup',
             foreignFieldId: config.lookupFieldId(),
-            aggregate,
+            expression,
             condition: config.condition(),
           }
         );
@@ -369,8 +362,12 @@ export class ComputedFieldSelectExpressionVisitor
   }
 
   visitRollupField(field: RollupField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.getColAlias(field).map((colAlias) => {
-      const aggregate = rollupExpressionToSqlAggregate(field.expression().toString());
+    return this.getColAlias(field).andThen((colAlias) => {
+      const expression = field.expression().toString();
+      const orderByResult = field
+        .linkField(this.table)
+        .andThen((linkField) => this.getLinkOrderBy(linkField));
+      if (orderByResult.isErr()) return err(orderByResult.error);
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
         field.foreignTableId().toString(),
@@ -378,10 +375,11 @@ export class ComputedFieldSelectExpressionVisitor
         {
           type: 'rollup',
           foreignFieldId: field.lookupFieldId(),
-          aggregate,
+          expression,
+          orderBy: orderByResult.value,
         }
       );
-      return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);
+      return ok(sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias));
     });
   }
 
@@ -397,7 +395,7 @@ export class ComputedFieldSelectExpressionVisitor
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.getColAlias(field).map((colAlias) => {
       const config = field.config();
-      const aggregate = rollupExpressionToSqlAggregate(field.expression().toString());
+      const expression = field.expression().toString();
       const lateralAlias = this.lateral.addConditionalColumn(
         field.id(),
         config.foreignTableId().toString(),
@@ -405,7 +403,7 @@ export class ComputedFieldSelectExpressionVisitor
         {
           type: 'conditionalRollup',
           foreignFieldId: config.lookupFieldId(),
-          aggregate,
+          expression,
           condition: config.condition(),
         }
       );
@@ -468,25 +466,4 @@ export class ComputedFieldSelectExpressionVisitor
 
     return ok({ source: 'foreign', column: orderColumn });
   }
-}
-
-/** Map RollupExpression to SQL aggregate function */
-function rollupExpressionToSqlAggregate(expr: string): SqlAggregate {
-  const mapping: Record<string, SqlAggregate> = {
-    'countall({values})': SqlAggregate.COUNT,
-    'counta({values})': SqlAggregate.COUNT,
-    'count({values})': SqlAggregate.COUNT,
-    'sum({values})': SqlAggregate.SUM,
-    'average({values})': SqlAggregate.AVG,
-    'max({values})': SqlAggregate.MAX,
-    'min({values})': SqlAggregate.MIN,
-    'and({values})': SqlAggregate.BOOL_AND,
-    'or({values})': SqlAggregate.BOOL_OR,
-    'xor({values})': SqlAggregate.BOOL_XOR,
-    'array_join({values})': SqlAggregate.STRING_AGG,
-    'array_unique({values})': SqlAggregate.ARRAY_AGG,
-    'array_compact({values})': SqlAggregate.ARRAY_AGG,
-    'concatenate({values})': SqlAggregate.STRING_AGG,
-  };
-  return mapping[expr] ?? SqlAggregate.ARRAY_AGG;
 }

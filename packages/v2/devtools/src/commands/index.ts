@@ -1,4 +1,5 @@
 import { Command } from '@effect/cli';
+import { dottea } from './dottea';
 import { explainCreate, explainUpdate, explainDelete } from './explain';
 import { mockGenerate } from './mock';
 import { recordsList, recordsGet } from './records';
@@ -60,7 +61,7 @@ export const underlying = Command.make('underlying').pipe(
 // Root command
 export const root = Command.make('teable-devtools').pipe(
   Command.withDescription('Teable v2 developer tools CLI'),
-  Command.withSubcommands([explain, mock, records, relations, schema, tables, underlying])
+  Command.withSubcommands([explain, mock, records, relations, schema, tables, underlying, dottea])
 );
 
-export { relations };
+export { dottea, relations };

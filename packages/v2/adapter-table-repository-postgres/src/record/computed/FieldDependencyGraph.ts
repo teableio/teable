@@ -18,6 +18,43 @@ export type FieldDependencyEdgeKind = 'same_record' | 'cross_record';
 
 /**
  * Semantic hint for debugging and logging (does not affect propagation logic).
+ *
+ * Identifies the origin and nature of field dependency edges:
+ *
+ * - `formula_ref`: Formula field reference
+ *   Indicates a formula field directly references another field's value.
+ *   Example: formula `{fieldA} + {fieldB}` creates edges fieldA → formulaField and fieldB → formulaField.
+ *   Sourced from the `reference` table which stores formula dependencies.
+ *
+ * - `lookup_source`: Lookup field's data source dependency
+ *   Indicates a Lookup field depends on the source field in the linked table (cross-record dependency).
+ *   When the source field value changes, the Lookup field must be recalculated.
+ *   Example: Lookup(Order.ProductName) depends on Products.ProductName field.
+ *
+ * - `lookup_link`: Lookup/Rollup field's dependency on its Link field
+ *   Indicates a Lookup or Rollup field depends on its associated Link field (same-record dependency).
+ *   When the Link field's linked records change, the Lookup/Rollup value must be recalculated.
+ *   Example: Lookup(Order.ProductName) depends on Order.Product (Link field).
+ *
+ * - `link_title`: Link field's display title dependency
+ *   Indicates a Link field's displayed title depends on the lookupField in the linked table (usually the primary field).
+ *   When the linked table's primary field value changes, the Link field's displayed title must be updated.
+ *   Example: Order.Product (Link) displays the product name from Products.ProductName.
+ *
+ * - `rollup_source`: Rollup field's data source dependency
+ *   Indicates a Rollup field depends on the aggregated source field in the linked table (cross-record dependency).
+ *   When the source field value changes, the Rollup aggregation result must be recalculated.
+ *   Example: Rollup(SUM, Orders.Amount) depends on Orders.Amount field.
+ *
+ * - `conditional_rollup_source`: ConditionalRollup field's data source dependency
+ *   Indicates a ConditionalRollup field depends on fields in the target table (cross-record dependency).
+ *   Unlike regular Rollup, it does not use a Link field for association but matches records via condition filters.
+ *   When source or condition field values change, the condition must be re-evaluated and aggregation recalculated.
+ *
+ * - `conditional_lookup_source`: ConditionalLookup field's data source dependency
+ *   Indicates a ConditionalLookup field depends on fields in the target table (cross-record dependency).
+ *   Unlike regular Lookup, it does not use a Link field for association but matches records via condition filters.
+ *   When source or condition field values change, the condition must be re-evaluated to fetch matching record values.
  */
 export type FieldDependencyEdgeSemantic =
   | 'formula_ref'
@@ -67,6 +104,8 @@ export type ConditionalFieldOptionsMeta = {
   lookupFieldId: string;
   /** Field IDs referenced in the condition filter - changes to these fields should trigger recalculation */
   conditionFieldIds: string[];
+  /** Original filter DTO for precise dirty propagation */
+  filterDto?: unknown;
 };
 
 export type FieldMeta = {
@@ -289,6 +328,7 @@ export class FieldDependencyGraph {
           row.type === 'conditionalRollup' ||
           row.type === 'conditionalLookup' ||
           isConditionalLookup;
+
         const conditionalOptions = isConditionalField
           ? parseConditionalFieldOptions(isConditionalLookup ? row.lookup_options : row.options)
           : ok<ConditionalFieldOptionsMeta | null>(null);
@@ -499,7 +539,10 @@ const parseLookupOptions = (raw: string | null): Result<LookupOptionsMeta | null
 
 /**
  * Parse conditional field options (for conditionalRollup/conditionalLookup).
- * v1 format: foreignTableId, lookupFieldId, filter, sort, limit are stored directly in options.
+ *
+ * Supports two formats:
+ * - v1 format: foreignTableId, lookupFieldId, filter directly in options
+ * - v2 format: foreignTableId, lookupFieldId, condition.filter in config/options
  */
 const parseConditionalFieldOptions = (
   raw: string | null
@@ -509,7 +552,7 @@ const parseConditionalFieldOptions = (
   if (parsed.isErr()) return err(parsed.error);
   const value = parsed.value as Record<string, unknown>;
 
-  // v1 format: foreignTableId and lookupFieldId are directly in options
+  // Read foreignTableId and lookupFieldId
   const foreignTableId = readOptionalString(value, 'foreignTableId');
   if (foreignTableId.isErr()) return err(foreignTableId.error);
   const lookupFieldId = readOptionalString(value, 'lookupFieldId');
@@ -520,13 +563,22 @@ const parseConditionalFieldOptions = (
     return ok(null);
   }
 
+  // Extract filter from either v1 format (value.filter) or v2 format (value.condition.filter)
+  let filter: unknown = value.filter;
+  if (!filter && typeof value.condition === 'object' && value.condition !== null) {
+    const condition = value.condition as Record<string, unknown>;
+    filter = condition.filter;
+  }
+
   // Extract field IDs from the condition filter
-  const conditionFieldIds = extractConditionFieldIds(value.filter);
+  const conditionFieldIds = extractConditionFieldIds(filter);
 
   return ok({
     foreignTableId: foreignTableId.value,
     lookupFieldId: lookupFieldId.value,
     conditionFieldIds,
+    // Save original filter for precise dirty propagation
+    filterDto: filter,
   });
 };
 

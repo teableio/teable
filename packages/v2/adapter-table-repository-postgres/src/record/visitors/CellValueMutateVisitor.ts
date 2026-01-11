@@ -372,16 +372,18 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
           .compile();
         visitor.additionalStatements.push(deleteQuery);
 
-        // Insert new links
-        for (let i = 0; i < linkItems.length; i++) {
-          const linkItem = linkItems[i];
-          const insertValues: Record<string, unknown> = {
-            [selfKeyName]: visitor.ctx.recordId,
-            [foreignKeyName]: linkItem.id,
-          };
-          if (orderColumnName) {
-            insertValues[orderColumnName] = i + 1;
-          }
+        if (linkItems.length > 0) {
+          const insertValues = linkItems.map((linkItem, index) => {
+            const values: Record<string, unknown> = {
+              [selfKeyName]: visitor.ctx.recordId,
+              [foreignKeyName]: linkItem.id,
+            };
+            if (orderColumnName) {
+              values[orderColumnName] = index + 1;
+            }
+            return values;
+          });
+
           const insertQuery = visitor.db
             .insertInto(junctionTableName)
             .values(insertValues)
@@ -414,19 +416,39 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
           .compile();
         visitor.additionalStatements.push(clearQuery);
 
-        // Set new links
-        for (let i = 0; i < linkItems.length; i++) {
-          const linkItem = linkItems[i];
-          const updateValues: Record<string, unknown> = { [selfKeyName]: visitor.ctx.recordId };
-          if (orderColumnName) {
-            updateValues[orderColumnName] = i + 1;
-          }
-          const updateQuery = visitor.db
-            .updateTable(foreignTableName)
-            .set(updateValues)
-            .where('__id', '=', linkItem.id)
-            .compile();
-          visitor.additionalStatements.push(updateQuery);
+        if (linkItems.length > 0) {
+          const orderColumnAlias = 'order_index';
+          const valuesSql = sql.join(
+            linkItems.map((linkItem, index) => {
+              if (orderColumnName) {
+                return sql`(${sql.value(linkItem.id)}, ${sql.value(visitor.ctx.recordId)}, ${sql.value(
+                  index + 1
+                )})`;
+              }
+              return sql`(${sql.value(linkItem.id)}, ${sql.value(visitor.ctx.recordId)})`;
+            }),
+            sql`, `
+          );
+
+          const valuesTable = orderColumnName
+            ? sql`(values ${valuesSql}) as v(id, record_id, ${sql.raw(orderColumnAlias)})`
+            : sql`(values ${valuesSql}) as v(id, record_id)`;
+
+          const updateSql = orderColumnName
+            ? sql`update ${sql.table(foreignTableName)} as t set ${sql.ref(
+                selfKeyName
+              )} = ${sql.ref('v.record_id')}, ${sql.ref(
+                orderColumnName
+              )} = ${sql.ref(`v.${orderColumnAlias}`)} from ${valuesTable} where ${sql.ref(
+                't.__id'
+              )} = ${sql.ref('v.id')}`
+            : sql`update ${sql.table(foreignTableName)} as t set ${sql.ref(
+                selfKeyName
+              )} = ${sql.ref('v.record_id')} from ${valuesTable} where ${sql.ref(
+                't.__id'
+              )} = ${sql.ref('v.id')}`;
+
+          visitor.additionalStatements.push(updateSql.compile(visitor.db));
         }
       }
 

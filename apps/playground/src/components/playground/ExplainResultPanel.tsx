@@ -116,8 +116,10 @@ function SqlBlock({ sql, parameters }: { sql: string; parameters: readonly unkno
       </ScrollArea>
       {parameters.length > 0 && (
         <div className="mt-2 pt-2 border-t border-border/50">
-          <span className="text-muted-foreground">Parameters: </span>
-          {JSON.stringify(parameters)}
+          <div className="text-muted-foreground">Parameters:</div>
+          <div className="mt-1 overflow-x-auto">
+            <pre className="whitespace-pre text-xs">{JSON.stringify(parameters)}</pre>
+          </div>
         </div>
       )}
     </div>

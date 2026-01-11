@@ -2,8 +2,8 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { TableCreationService } from '../application/services/TableCreationService';
 import type { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -18,19 +18,12 @@ import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import * as TableMapperPort from '../ports/mappers/TableMapper';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
-import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { buildTable, type CreateTableRecordSeed } from './CreateTableCommand';
 import { CreateTablesCommand } from './CreateTablesCommand';
-
-type TransactionResult = {
-  persistedTables: ReadonlyArray<Table>;
-  tableState: ReadonlyMap<string, Table>;
-  sideEffectEvents: ReadonlyArray<IDomainEvent>;
-};
 
 const sequence = <T>(
   values: ReadonlyArray<Result<T, DomainError>>
@@ -182,6 +175,55 @@ const sortTablesByRecordDependencies = (
   return sorted.map((index) => tablesWithRecords[index]!);
 };
 
+const sortTablesByForeignDependencies = (
+  tables: ReadonlyArray<Table>,
+  referencesByTable: ReadonlyArray<ReadonlyArray<LinkForeignTableReference>>,
+  baseId: BaseId,
+  internalTableIds: ReadonlySet<string>
+): ReadonlyArray<Table> => {
+  const entries = tables.map((table, index) => ({
+    table,
+    id: table.id().toString(),
+    references: referencesByTable[index] ?? [],
+  }));
+  const idToIndex = new Map(entries.map((entry, index) => [entry.id, index] as const));
+  const dependents = entries.map(() => new Set<number>());
+  const inDegree = entries.map(() => 0);
+
+  entries.forEach((entry, index) => {
+    for (const ref of entry.references) {
+      if (!isInternalReference(ref, baseId, internalTableIds)) continue;
+      const depIndex = idToIndex.get(ref.foreignTableId.toString());
+      if (depIndex === undefined || depIndex === index) continue;
+      if (dependents[depIndex]!.has(index)) continue;
+      dependents[depIndex]!.add(index);
+      inDegree[index]! += 1;
+    }
+  });
+
+  const queue = entries
+    .map((_, index) => (inDegree[index] === 0 ? index : -1))
+    .filter((index) => index >= 0);
+  const sorted: number[] = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    sorted.push(current);
+    for (const dependent of dependents[current]!) {
+      inDegree[dependent]!--;
+      if (inDegree[dependent] === 0) {
+        queue.push(dependent);
+      }
+    }
+  }
+
+  if (sorted.length !== entries.length) {
+    return tables;
+  }
+
+  return sorted.map((index) => entries[index]!.table);
+};
+
 export class CreateTablesResult {
   private constructor(
     readonly tables: ReadonlyArray<Table>,
@@ -196,6 +238,12 @@ export class CreateTablesResult {
   }
 }
 
+type TransactionResult = {
+  persistedTables: ReadonlyArray<Table>;
+  tableState: ReadonlyMap<string, Table>;
+  sideEffectEvents: ReadonlyArray<IDomainEvent>;
+};
+
 @CommandHandler(CreateTablesCommand)
 @injectable()
 export class CreateTablesHandler
@@ -204,14 +252,12 @@ export class CreateTablesHandler
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
-    @inject(v2CoreTokens.tableSchemaRepository)
-    private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
-    @inject(v2CoreTokens.fieldCreationSideEffectService)
-    private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
+    @inject(v2CoreTokens.tableCreationService)
+    private readonly tableCreationService: TableCreationService,
     @inject(v2CoreTokens.tableMapper)
     private readonly tableMapper: TableMapperPort.ITableMapper,
     @inject(v2CoreTokens.eventBus)
@@ -229,6 +275,7 @@ export class CreateTablesHandler
     return safeTry<CreateTablesResult, DomainError>(async function* () {
       const tableCommands = command.tables;
 
+      // Collect foreign table references
       const referencesByTable = yield* sequence(
         tableCommands.map((tableCommand) => tableCommand.foreignTableReferences())
       );
@@ -238,72 +285,52 @@ export class CreateTablesHandler
         (ref) => !isInternalReference(ref, command.baseId, internalTableIds)
       );
 
+      // Load external/foreign tables
       const externalTables = yield* await handler.foreignTableLoaderService.load(context, {
         baseId: command.baseId,
         references: externalReferences,
       });
 
+      // Build Table domain objects from commands
       const builtTables = yield* sequence(
         tableCommands.map((tableCommand) => buildTable(tableCommand))
       );
 
+      // Validate foreign tables for all fields
       const foreignTables = [...externalTables, ...builtTables];
-      for (const table of builtTables) {
+      const tablesForValidation = sortTablesByForeignDependencies(
+        builtTables,
+        referencesByTable,
+        command.baseId,
+        internalTableIds
+      );
+      for (const table of tablesForValidation) {
         yield* validateForeignTablesForFields(table.getFields(), {
           hostTable: table,
           foreignTables,
         });
       }
 
+      // Execute table creation and record insertion in a single transaction
       const transactionResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
           return safeTry<TransactionResult, DomainError>(async function* () {
-            const persistedTables = yield* await handler.tableRepository.insertMany(
+            // Use TableCreationService for table creation and side effects
+            const creationResult = yield* await handler.tableCreationService.execute(
               transactionContext,
-              builtTables
-            );
-            yield* await handler.tableSchemaRepository.insertMany(
-              transactionContext,
-              persistedTables
-            );
-            const persistedById = new Map(
-              persistedTables.map((table) => [table.id().toString(), table] as const)
-            );
-
-            let tableState = new Map<string, Table>();
-            for (const table of externalTables) {
-              tableState.set(table.id().toString(), table);
-            }
-            for (const table of persistedTables) {
-              tableState.set(table.id().toString(), table);
-            }
-
-            const sideEffectEvents: IDomainEvent[] = [];
-
-            for (const table of builtTables) {
-              const persistedTable = persistedById.get(table.id().toString());
-              if (!persistedTable) {
-                return err(domainError.notFound({ message: 'Persisted table not found' }));
+              {
+                baseId: command.baseId,
+                tables: builtTables,
+                externalTables,
+                referencesByTable,
               }
-
-              const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
-                transactionContext,
-                {
-                  table: persistedTable,
-                  fields: persistedTable.getFields(),
-                  foreignTables: [...tableState.values()],
-                  tableState,
-                }
-              );
-              sideEffectEvents.push(...sideEffectResult.events);
-              tableState = new Map(sideEffectResult.tableState);
-            }
+            );
 
             // Build list of tables with their records for dependency sorting
             const tablesWithRecords: TableWithRecords[] = [];
             for (let index = 0; index < tableCommands.length; index += 1) {
-              const persistedTable = persistedTables[index];
+              const persistedTable = creationResult.persistedTables[index];
               const recordsFieldValues = tableCommands[index]?.records ?? [];
               if (persistedTable && recordsFieldValues.length > 0) {
                 tablesWithRecords.push({
@@ -314,10 +341,9 @@ export class CreateTablesHandler
               }
             }
 
-            // Sort tables by record-level dependencies
+            // Sort tables by record-level dependencies and insert records
             const sortedTablesWithRecords = sortTablesByRecordDependencies(tablesWithRecords);
 
-            // Insert records in dependency order
             for (const { table: persistedTable, recordsFieldValues } of sortedTablesWithRecords) {
               const recordSpan = transactionContext.tracer?.startSpan(
                 'teable.CreateTablesHandler.createRecords'
@@ -332,14 +358,15 @@ export class CreateTablesHandler
             }
 
             return ok({
-              persistedTables,
-              tableState,
-              sideEffectEvents,
+              persistedTables: creationResult.persistedTables,
+              tableState: creationResult.tableState,
+              sideEffectEvents: creationResult.sideEffectEvents,
             });
           });
         }
       );
 
+      // Build and publish events
       const hostEvents = builtTables.flatMap((table) => table.pullDomainEvents());
       const events = [...hostEvents, ...transactionResult.sideEffectEvents];
       const snapshots = yield* handler.buildSnapshots(transactionResult.tableState);

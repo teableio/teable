@@ -132,22 +132,26 @@ export class ConditionalRollupField extends Field implements ForeignTableRelated
     timeZone?: TimeZone;
     formatting?: ConditionalRollupFormatting;
     showAs?: ConditionalRollupShowAs;
+    resultType?: ConditionalRollupResultType;
     dependencies?: ReadonlyArray<FieldId>;
   }): Result<ConditionalRollupField, DomainError> {
-    return ok(
-      new ConditionalRollupField(
-        params.id,
-        params.name,
-        params.config,
-        params.expression,
-        params.timeZone,
-        params.formatting,
-        params.showAs,
-        undefined,
-        undefined,
-        params.dependencies ?? []
-      )
+    const field = new ConditionalRollupField(
+      params.id,
+      params.name,
+      params.config,
+      params.expression,
+      params.timeZone,
+      params.formatting,
+      params.showAs,
+      undefined,
+      undefined,
+      params.dependencies ?? []
     );
+    if (params.resultType) {
+      const setResult = field.applyResultType(params.resultType);
+      if (setResult.isErr()) return err(setResult.error);
+    }
+    return ok(field);
   }
 
   /**
@@ -355,11 +359,13 @@ export class ConditionalRollupField extends Field implements ForeignTableRelated
     const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
     if (valuesTypeResult.isErr()) return err(valuesTypeResult.error);
 
-    const resolveResult = this.resolveResultType({
-      cellValueType: valuesTypeResult.value.cellValueType,
-      isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
-    });
-    if (resolveResult.isErr()) return err(resolveResult.error);
+    if (!this.cellValueTypeValue || !this.isMultipleCellValueValue) {
+      const resolveResult = this.resolveResultType({
+        cellValueType: valuesTypeResult.value.cellValueType,
+        isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
+      });
+      if (resolveResult.isErr()) return err(resolveResult.error);
+    }
 
     // Dependencies include field IDs referenced in the condition filter
     const conditionFieldIds = this.configValue.condition().filterFieldIds();

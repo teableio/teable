@@ -6,52 +6,65 @@ import {
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
+  type DatabaseConnection,
+  type Dialect,
+  type Driver,
+  type QueryResult,
 } from 'kysely';
 
-class PGliteDriver {
+class PGliteDriver implements Driver {
   #client: PGlite;
 
   constructor(client: PGlite) {
     this.#client = client;
   }
 
-  async acquireConnection() {
+  async acquireConnection(): Promise<DatabaseConnection> {
     return new PGliteConnection(this.#client);
   }
 
-  async beginTransaction(connection: PGliteConnection) {
+  async beginTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('BEGIN'));
   }
 
-  async commitTransaction(connection: PGliteConnection) {
+  async commitTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('COMMIT'));
   }
 
-  async rollbackTransaction(connection: PGliteConnection) {
+  async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw('ROLLBACK'));
   }
 
-  async destroy() {
+  async destroy(): Promise<void> {
     await this.#client.close();
   }
 
-  async init() {}
+  async init(): Promise<void> {}
 
-  async releaseConnection(_connection: PGliteConnection) {}
+  async releaseConnection(_connection: DatabaseConnection): Promise<void> {}
 }
 
-class PGliteConnection {
+class PGliteConnection implements DatabaseConnection {
   #client: PGlite;
 
   constructor(client: PGlite) {
     this.#client = client;
   }
 
-  async executeQuery(compiledQuery: CompiledQuery) {
-    return this.#client.query(compiledQuery.sql, [...compiledQuery.parameters]);
+  async executeQuery<R>(compiledQuery: CompiledQuery<unknown>): Promise<QueryResult<R>> {
+    const result = await this.#client.query(compiledQuery.sql, [...compiledQuery.parameters]);
+    const numAffectedRows =
+      result.affectedRows === undefined ? undefined : BigInt(result.affectedRows);
+    return {
+      rows: result.rows as R[],
+      numAffectedRows,
+    };
   }
 
-  async *streamQuery() {
+  streamQuery<R>(
+    _compiledQuery: CompiledQuery<unknown>,
+    _chunkSize?: number
+  ): AsyncIterableIterator<QueryResult<R>> {
     throw new Error('PGlite does not support streaming.');
   }
 }
@@ -68,7 +81,7 @@ const resolvePgliteOptions = (
 
 export class KyselyPGlite {
   client: PGlite;
-  dialect = {
+  dialect: Dialect = {
     createAdapter: () => new PostgresAdapter(),
     createDriver: () => new PGliteDriver(this.client),
     createIntrospector: (db: unknown) => new PostgresIntrospector(db as never),

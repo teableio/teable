@@ -1,10 +1,10 @@
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   buildFormulaSnapshotContext,
   createFieldTypeCases,
+  createFormulaTestContainer,
   createFormulaTestTable,
   type FieldTypeCase,
   type FormulaFieldDefinition,
@@ -110,7 +110,7 @@ describe.sequential('binary comparison operators', () => {
   let testTable: FormulaTestTable;
 
   beforeAll(async () => {
-    container = await createV2NodeTestContainer();
+    container = await createFormulaTestContainer();
     const formulaFields: FormulaFieldDefinition[] = comparisonOperatorCases.flatMap((op) =>
       fieldPairs.map(({ leftCase, rightCase }) => ({
         name: buildFormulaName(op.id, leftCase.fieldName, rightCase.fieldName),

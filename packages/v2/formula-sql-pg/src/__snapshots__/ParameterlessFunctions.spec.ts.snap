@@ -13,7 +13,7 @@ exports[`parameterless functions > 'ParamlessCreatedTime' returns expected SQL a
 {
   "formula": "CREATED_TIME()",
   "funcId": "ParamlessCreatedTime",
-  "result": "0000-00-00 00:00:00.000000+00",
+  "result": "0000-00-00 00:00:00+00",
   "sql": "NOW()",
 }
 `;
@@ -22,7 +22,7 @@ exports[`parameterless functions > 'ParamlessLastModifiedTime' returns expected 
 {
   "formula": "LAST_MODIFIED_TIME()",
   "funcId": "ParamlessLastModifiedTime",
-  "result": "0000-00-00 00:00:00.000000+00",
+  "result": "0000-00-00 00:00:00+00",
   "sql": "NOW()",
 }
 `;
@@ -31,7 +31,7 @@ exports[`parameterless functions > 'ParamlessNow' returns expected SQL and resul
 {
   "formula": "NOW()",
   "funcId": "ParamlessNow",
-  "result": "0000-00-00 00:00:00.000000+00",
+  "result": "0000-00-00 00:00:00+00",
   "sql": "NOW()",
 }
 `;

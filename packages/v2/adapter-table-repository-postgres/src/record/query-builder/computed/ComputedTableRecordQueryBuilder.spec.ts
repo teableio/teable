@@ -581,7 +581,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", SUM("f"."col_number") as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
+        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
       );
     });
   });

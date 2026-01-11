@@ -20,6 +20,41 @@ Use this skill when you need to:
 
 > **重要提示**: 当需要查看数据库数据时，**优先使用 devtools CLI 而不是 psql 命令行**。devtools 提供格式化的 TOON 输出，更适合 AI 分析，并且可以比较应用层和数据库层的数据差异。
 
+## 开发注意事项 (CRITICAL)
+
+### 修改依赖包后必须重新构建
+
+devtools CLI 依赖多个 v2 包，这些包**使用编译后的 dist 文件**，而不是源文件。这是因为它们使用了 parameter decorators（`@inject()`），tsx/esbuild 不支持直接运行。
+
+**当修改以下包的代码后，必须重新构建才能生效：**
+
+```bash
+# 修改 adapter-table-repository-postgres 后
+pnpm --filter @teable/v2-adapter-table-repository-postgres build
+
+# 修改 command-explain 后
+pnpm --filter @teable/v2-command-explain build
+
+# 修改 debug-data 后
+pnpm --filter @teable/v2-debug-data build
+
+# 修改 core 后
+pnpm --filter @teable/v2-core build
+```
+
+**推荐：使用 watch 模式自动重新构建**
+
+```bash
+# 在一个终端窗口中启动 watch 模式
+pnpm --filter @teable/v2-adapter-table-repository-postgres dev
+```
+
+**常见问题：**
+
+- 修改了代码但 CLI 输出没有变化 → 忘记重新构建
+- console.log/console.error 没有输出 → 忘记重新构建
+- 新增的类型/函数找不到 → 忘记重新构建
+
 ## Quick Commands
 
 All commands output TOON format for AI consumption.
@@ -337,8 +372,9 @@ Each result item includes:
 
 1. Explain the command: `explain create --table-id tbl...`
 2. Check `computedImpact.updateSteps` for the update plan
-3. Look at `complexity.score` and `recommendations`
-4. Use `--analyze` flag for actual execution timing
+3. Cross-check dependencies using `relations` on key fields (formula/link/lookup/rollup) to confirm `reference`-derived edges are present; do not rely solely on explain output.
+4. Look at `complexity.score` and `recommendations`
+5. Use `--analyze` flag for actual execution timing
 
 ### Scenario 5: Data Inconsistency Between Application and Database
 

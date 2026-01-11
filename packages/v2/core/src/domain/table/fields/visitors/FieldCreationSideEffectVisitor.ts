@@ -152,6 +152,14 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
     if (foreignTableResult.isErr()) return err(foreignTableResult.error);
     const foreignTable = foreignTableResult.value;
 
+    const symmetricFieldId = field.symmetricFieldId();
+    if (symmetricFieldId) {
+      const existingResult = ForeignTable.from(foreignTable).fieldById(symmetricFieldId);
+      if (existingResult.isOk()) {
+        return ok([]);
+      }
+    }
+
     return field
       .buildSymmetricField({ foreignTable: ForeignTable.from(foreignTable), hostTable: this.table })
       .map((symmetricField) => [

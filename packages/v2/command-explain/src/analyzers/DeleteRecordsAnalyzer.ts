@@ -110,51 +110,41 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
       };
 
       // 3. For delete, we need to consider link fields that may affect other tables
+      // Also need to handle conditionalLookup/conditionalRollup fields that depend on this table
       const linkFields = table.getFields().filter((f) => f.type().equals(FieldType.link()));
       const linkFieldIds = linkFields.map((f) => f.id());
 
       // 4. Plan computed field updates for delete
+      // Always call planner - even without link fields, conditionalLookup/conditionalRollup
+      // fields in other tables may depend on fields in this table
       const graphStartTime = Date.now();
 
-      let computedImpact: ComputedImpactInfo;
       let plan: ComputedUpdatePlan | null = null;
       let tableById: Map<string, Table> | null = null;
       let graphData: FieldDependencyGraphData | null = null;
 
-      if (linkFieldIds.length > 0) {
-        plan = yield* await analyzer.planner.plan({
-          table,
-          changedFieldIds: linkFieldIds,
-          changedRecordIds: command.recordIds,
-          changeType: 'delete',
-        });
-        planningMs = Date.now() - graphStartTime;
+      // Always call planner for delete operations to detect conditional field dependencies
+      plan = yield* await analyzer.planner.plan({
+        table,
+        changedFieldIds: linkFieldIds,
+        changedRecordIds: command.recordIds,
+        changeType: 'delete',
+      });
+      planningMs = Date.now() - graphStartTime;
 
-        graphData = yield* await analyzer.dependencyGraph.load(table.baseId());
-        dependencyGraphMs = Date.now() - graphStartTime;
+      graphData = yield* await analyzer.dependencyGraph.load(table.baseId());
+      dependencyGraphMs = Date.now() - graphStartTime;
 
-        // Load tables for name resolution
-        tableById = yield* await analyzer.loadTables(plan, context, table);
+      // Load tables for name resolution
+      tableById = yield* await analyzer.loadTables(plan, context, table);
 
-        computedImpact = analyzer.buildComputedImpact(
-          plan,
-          graphData,
-          table,
-          tableById,
-          mergedOptions
-        );
-      } else {
-        graphData = yield* await analyzer.dependencyGraph.load(table.baseId());
-        dependencyGraphMs = Date.now() - graphStartTime;
-        planningMs = dependencyGraphMs;
-
-        computedImpact = analyzer.buildSimpleComputedImpact(
-          graphData,
-          table,
-          command.recordIds.length,
-          mergedOptions
-        );
-      }
+      const computedImpact = analyzer.buildComputedImpact(
+        plan,
+        graphData,
+        table,
+        tableById,
+        mergedOptions
+      );
 
       const computedLocks =
         mergedOptions.includeLocks && plan && tableById

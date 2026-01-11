@@ -216,6 +216,8 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           from: `${e.fromTableId.toString()}.${e.fromFieldId.toString()}`,
           to: `${e.toTableId.toString()}.${e.toFieldId.toString()}`,
           linkFieldId: e.linkFieldId?.toString(),
+          propagationMode: e.propagationMode,
+          hasFilterCondition: !!e.filterCondition,
           order: e.order,
         })),
         sameTableBatches: currentPlan.sameTableBatches.map((b) => ({

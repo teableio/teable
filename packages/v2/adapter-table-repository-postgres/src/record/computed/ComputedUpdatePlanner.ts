@@ -55,7 +55,17 @@ export type SameTableBatch = {
   maxLevel: number;
 };
 
-export type DirtyPropagationMode = 'linkTraversal' | 'allTargetRecords';
+export type DirtyPropagationMode = 'linkTraversal' | 'allTargetRecords' | 'conditionalFiltered';
+
+/**
+ * Filter condition for conditionalFiltered propagation mode.
+ * Used to precisely identify which target records need to be marked as dirty.
+ */
+export type ConditionalFilterCondition = {
+  foreignTableId: TableId;
+  /** Original filter DTO from the conditional field options */
+  filterDto: unknown;
+};
 
 export type ComputedDependencyEdge = {
   fromFieldId: FieldId;
@@ -64,6 +74,8 @@ export type ComputedDependencyEdge = {
   toTableId: TableId;
   linkFieldId?: FieldId;
   propagationMode?: DirtyPropagationMode;
+  /** Filter condition for conditionalFiltered mode */
+  filterCondition?: ConditionalFilterCondition;
   order: number;
 };
 
@@ -149,6 +161,32 @@ export class ComputedUpdatePlanner {
         for (const fieldId of impact.valueSeedFieldIds) {
           valueSeedFieldIds.set(fieldId.toString(), fieldId);
         }
+
+        // For DELETE operations, collect source fields that are depended on by
+        // conditionalLookup/conditionalRollup fields in other tables.
+        // These fields need to be seeds so the conditional fields get recalculated.
+        if (context.changeType === 'delete') {
+          for (const edge of edges) {
+            // Only cross_record edges from the seed table
+            if (edge.kind !== 'cross_record') continue;
+            if (!edge.fromTableId.equals(context.seedTableId)) continue;
+
+            // Only conditional field semantics (no linkFieldId)
+            if (
+              edge.semantic !== 'conditional_rollup_source' &&
+              edge.semantic !== 'conditional_lookup_source'
+            ) {
+              continue;
+            }
+
+            // Add the source field as a value seed
+            const fromFieldIdStr = edge.fromFieldId.toString();
+            if (!valueSeedFieldIds.has(fromFieldIdStr)) {
+              valueSeedFieldIds.set(fromFieldIdStr, edge.fromFieldId);
+            }
+          }
+        }
+
         const linkSeedFieldIds = new Map<string, FieldId>();
         for (const fieldId of impact.linkSeedFieldIds) {
           linkSeedFieldIds.set(fieldId.toString(), fieldId);
@@ -322,7 +360,9 @@ export class ComputedUpdatePlanner {
           fieldsById,
           computedFieldIds,
           levels,
-          symmetricLinkEdges
+          symmetricLinkEdges,
+          context.changedFieldIds,
+          context.changeType
         );
 
         // Build same-table batches for CTE optimization
@@ -601,9 +641,12 @@ const buildPropagationEdges = (
     toFieldId: FieldId;
     fromTableId: TableId;
     toTableId: TableId;
-  }>
+  }>,
+  changedFieldIds: ReadonlyArray<FieldId>,
+  changeType: 'insert' | 'update' | 'delete'
 ): Result<ReadonlyArray<ComputedDependencyEdge>, DomainError> => {
   const result: ComputedDependencyEdge[] = [];
+  const changedFieldIdSet = new Set(changedFieldIds.map((id) => id.toString()));
 
   for (const edge of edges) {
     const toId = edge.toFieldId.toString();
@@ -620,14 +663,41 @@ const buildPropagationEdges = (
       meta.type === 'conditionalLookup' || meta.type === 'conditionalRollup';
 
     if (isConditionalField) {
-      result.push({
-        fromFieldId: edge.fromFieldId,
-        toFieldId: edge.toFieldId,
-        fromTableId: edge.fromTableId,
-        toTableId: edge.toTableId,
-        propagationMode: 'allTargetRecords',
-        order: levels.get(toId) ?? 0,
-      });
+      const conditionalOptions = meta.conditionalOptions;
+      const filterFieldIds = new Set(conditionalOptions?.conditionFieldIds ?? []);
+      const filterDto = conditionalOptions?.filterDto;
+
+      // Check if any filter field was changed
+      const filterFieldsChanged = [...filterFieldIds].some((id) => changedFieldIdSet.has(id));
+
+      // Use allTargetRecords when:
+      // 1. Filter fields were modified (can't determine old vs new match)
+      // 2. No filter DTO available
+      // 3. DELETE operation (records no longer exist for filter check)
+      if (filterFieldsChanged || !filterDto || changeType === 'delete') {
+        result.push({
+          fromFieldId: edge.fromFieldId,
+          toFieldId: edge.toFieldId,
+          fromTableId: edge.fromTableId,
+          toTableId: edge.toTableId,
+          propagationMode: 'allTargetRecords',
+          order: levels.get(toId) ?? 0,
+        });
+      } else {
+        // Filter fields not changed - can use precise filtering
+        result.push({
+          fromFieldId: edge.fromFieldId,
+          toFieldId: edge.toFieldId,
+          fromTableId: edge.fromTableId,
+          toTableId: edge.toTableId,
+          propagationMode: 'conditionalFiltered',
+          filterCondition: {
+            foreignTableId: edge.fromTableId,
+            filterDto,
+          },
+          order: levels.get(toId) ?? 0,
+        });
+      }
       continue;
     }
 

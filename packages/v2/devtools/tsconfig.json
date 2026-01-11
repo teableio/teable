@@ -24,6 +24,7 @@
       "@teable/v2-di": ["../di/src"],
       "@teable/v2-container-node": ["../container-node/src"],
       "@teable/v2-debug-data": ["../debug-data/src"],
+      "@teable/v2-dottea": ["../dottea/src"],
       "@teable/v2-mock-records": ["../mock-records/src"],
       "@teable/v2-command-explain": ["../command-explain/src"]
     },
@@ -44,6 +45,7 @@
     "../di/src",
     "../container-node/src",
     "../debug-data/src",
+    "../dottea/src",
     "../mock-records/src",
     "../command-explain/src"
   ]

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { TableCreationService } from '../application/services/TableCreationService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -242,13 +243,17 @@ describe('CreateTablesHandler', () => {
     );
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const tableCreationService = new TableCreationService(
+      tableRepository,
+      schemaRepository,
+      fieldCreationSideEffectService
+    );
 
     const handler = new CreateTablesHandler(
       tableRepository,
-      schemaRepository,
       recordRepository,
       foreignTableLoaderService,
-      fieldCreationSideEffectService,
+      tableCreationService,
       tableMapper,
       eventBus,
       unitOfWork
@@ -303,13 +308,17 @@ describe('CreateTablesHandler', () => {
     );
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const tableCreationService = new TableCreationService(
+      tableRepository,
+      schemaRepository,
+      fieldCreationSideEffectService
+    );
 
     const handler = new CreateTablesHandler(
       tableRepository,
-      schemaRepository,
       recordRepository,
       foreignTableLoaderService,
-      fieldCreationSideEffectService,
+      tableCreationService,
       tableMapper,
       eventBus,
       unitOfWork

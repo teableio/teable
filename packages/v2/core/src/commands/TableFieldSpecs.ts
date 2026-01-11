@@ -36,14 +36,13 @@ import { ButtonLabel } from '../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../domain/table/fields/types/ButtonResetCount';
 import { ButtonWorkflow } from '../domain/table/fields/types/ButtonWorkflow';
+import { CellValueMultiplicity } from '../domain/table/fields/types/CellValueMultiplicity';
+import { CellValueType } from '../domain/table/fields/types/CellValueType';
 import { CheckboxDefaultValue } from '../domain/table/fields/types/CheckboxDefaultValue';
 import { ConditionalLookupOptions } from '../domain/table/fields/types/ConditionalLookupOptions';
 import { ConditionalRollupConfig } from '../domain/table/fields/types/ConditionalRollupConfig';
 import { DateDefaultValue } from '../domain/table/fields/types/DateDefaultValue';
-import {
-  DateTimeFormatting,
-  TimeFormatting,
-} from '../domain/table/fields/types/DateTimeFormatting';
+import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor, fieldColorValues } from '../domain/table/fields/types/FieldColor';
 import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
 import { FieldUnique } from '../domain/table/fields/types/FieldUnique';
@@ -52,524 +51,57 @@ import type { FormulaFormatting, FormulaShowAs } from '../domain/table/fields/ty
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { NumberDefaultValue } from '../domain/table/fields/types/NumberDefaultValue';
-import {
-  NumberFormatting,
-  NumberFormattingType,
-} from '../domain/table/fields/types/NumberFormatting';
-import {
-  MultiNumberDisplayType,
-  NumberShowAs,
-  SingleNumberDisplayType,
-} from '../domain/table/fields/types/NumberShowAs';
-import { RatingColor, ratingColorValues } from '../domain/table/fields/types/RatingColor';
-import { RatingIcon, ratingIconValues } from '../domain/table/fields/types/RatingIcon';
+import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
+import { NumberShowAs } from '../domain/table/fields/types/NumberShowAs';
+import { RatingColor } from '../domain/table/fields/types/RatingColor';
+import { RatingIcon } from '../domain/table/fields/types/RatingIcon';
 import { RatingMax } from '../domain/table/fields/types/RatingMax';
 import { RollupExpression } from '../domain/table/fields/types/RollupExpression';
 import { RollupFieldConfig } from '../domain/table/fields/types/RollupFieldConfig';
 import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
-import {
-  SingleLineTextShowAs,
-  singleLineTextShowAsValues,
-} from '../domain/table/fields/types/SingleLineTextShowAs';
+import { SingleLineTextShowAs } from '../domain/table/fields/types/SingleLineTextShowAs';
 import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue';
-import { TIME_ZONE_LIST, TimeZone } from '../domain/table/fields/types/TimeZone';
+import { TimeZone } from '../domain/table/fields/types/TimeZone';
 import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
+// Import schemas from the new schema files
+import {
+  buttonOptionsSchema,
+  conditionalLookupOptionsSchema,
+  conditionalRollupConfigSchema,
+  dateFormattingSchema,
+  dateOptionsSchema,
+  formulaFormattingSchema,
+  formulaOptionsSchema,
+  formulaShowAsSchema,
+  linkOptionsSchema,
+  lookupOptionsSchema,
+  numberFormattingSchema,
+  numberShowAsSchema,
+  ratingOptionsSchema,
+  rollupConfigSchema,
+  rollupOptionsSchema,
+  selectOptionsSchema,
+  singleLineTextOptionsSchema,
+  tableFieldInputSchema,
+  trackedFieldIdsSchema,
+} from '../schemas/field';
+import type { ITableFieldInput, ResolvedTableFieldInput } from '../schemas/field';
 import {
   checkFieldNotNullValidationEnabled,
   checkFieldUniqueValidationEnabled,
   isComputedFieldType,
 } from './FieldValidation';
 
-const fieldColorSchema = z.enum(fieldColorValues);
-const ratingIconSchema = z.enum(ratingIconValues);
-const ratingColorSchema = z.enum(ratingColorValues);
-
-const singleLineTextShowAsSchema = z.object({
-  type: z.enum(singleLineTextShowAsValues),
-});
-
-const numberFormattingSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal(NumberFormattingType.Decimal),
-    precision: z.number().min(0).max(5),
-  }),
-  z.object({
-    type: z.literal(NumberFormattingType.Percent),
-    precision: z.number().min(0).max(5),
-  }),
-  z.object({
-    type: z.literal(NumberFormattingType.Currency),
-    precision: z.number().min(0).max(5),
-    symbol: z.string(),
-  }),
-]);
-
-const singleNumberShowAsSchema = z.object({
-  type: z.enum([SingleNumberDisplayType.Bar, SingleNumberDisplayType.Ring]),
-  color: fieldColorSchema,
-  showValue: z.boolean(),
-  maxValue: z.number(),
-});
-
-const multiNumberShowAsSchema = z.object({
-  type: z.enum([MultiNumberDisplayType.Bar, MultiNumberDisplayType.Line]),
-  color: fieldColorSchema,
-});
-
-const numberShowAsSchema = z.union([singleNumberShowAsSchema, multiNumberShowAsSchema]);
-
-const singleLineTextOptionsSchema = z.object({
-  showAs: singleLineTextShowAsSchema.optional(),
-  defaultValue: z.string().optional(),
-});
-
-const longTextOptionsSchema = z.object({
-  defaultValue: z.string().optional(),
-});
-
-const numberOptionsSchema = z.object({
-  formatting: numberFormattingSchema.optional(),
-  showAs: numberShowAsSchema.optional(),
-  defaultValue: z.number().optional(),
-});
-
-const ratingOptionsSchema = z.object({
-  icon: ratingIconSchema.optional(),
-  color: ratingColorSchema.optional(),
-  max: z.number().optional(),
-});
-
-const selectChoiceSchema = z.object({
-  id: z.string().optional(),
-  name: z.string(),
-  color: fieldColorSchema,
-});
-
-const selectOptionsSchema = z.object({
-  choices: z.array(selectChoiceSchema).optional(),
-  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
-  preventAutoNewOptions: z.boolean().optional(),
-});
-
-const checkboxOptionsSchema = z.object({
-  defaultValue: z.boolean().optional(),
-});
-
-const dateFormattingSchema = z.object({
-  date: z.string(),
-  time: z.enum([TimeFormatting.Hour24, TimeFormatting.Hour12, TimeFormatting.None]),
-  timeZone: z.enum(TIME_ZONE_LIST),
-});
-
-const dateOptionsSchema = z.object({
-  formatting: dateFormattingSchema.optional(),
-  defaultValue: z.enum(['now']).optional(),
-});
-
-const trackedFieldIdsSchema = z.array(z.string());
-
-const createdTimeOptionsSchema = z.object({
-  formatting: dateFormattingSchema.optional(),
-});
-
-const lastModifiedTimeOptionsSchema = z.object({
-  formatting: dateFormattingSchema.optional(),
-  trackedFieldIds: trackedFieldIdsSchema.optional(),
-});
-
-const createdByOptionsSchema = z.object({});
-
-const lastModifiedByOptionsSchema = z.object({
-  trackedFieldIds: trackedFieldIdsSchema.optional(),
-});
-
-const autoNumberOptionsSchema = z.object({});
-
-const userOptionsSchema = z.object({
-  isMultiple: z.boolean().optional(),
-  shouldNotify: z.boolean().optional(),
-  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
-});
-
-const buttonWorkflowSchema = z.object({
-  id: z.string().startsWith('wfl').optional(),
-  name: z.string().optional(),
-  isActive: z.boolean().optional(),
-});
-
-const buttonOptionsSchema = z.object({
-  label: z.string().optional(),
-  color: fieldColorSchema.optional(),
-  maxCount: z.number().optional(),
-  resetCount: z.boolean().optional(),
-  workflow: buttonWorkflowSchema.optional().nullable(),
-});
-
-const formulaFormattingSchema = z.union([numberFormattingSchema, dateFormattingSchema]);
-
-const formulaShowAsSchema = z.union([singleLineTextShowAsSchema, numberShowAsSchema]);
-
-const formulaOptionsSchema = z.object({
-  expression: z.string(),
-  timeZone: z.enum(TIME_ZONE_LIST).optional(),
-  formatting: formulaFormattingSchema.optional(),
-  showAs: formulaShowAsSchema.optional(),
-});
-
-const linkRelationshipSchema = z.enum(['oneOne', 'manyMany', 'oneMany', 'manyOne']);
-
-const linkOptionsSchema = z
-  .object({
-    baseId: z.string().optional(),
-    relationship: linkRelationshipSchema,
-    foreignTableId: z.string(),
-    lookupFieldId: z.string(),
-    isOneWay: z.boolean().optional(),
-    symmetricFieldId: z.string().optional(),
-    filterByViewId: z.string().nullable().optional(),
-    visibleFieldIds: z.array(z.string()).nullable().optional(),
-  })
-  .strict();
-
-const rollupOptionsSchema = z
-  .object({
-    expression: z.string(),
-    timeZone: z.enum(TIME_ZONE_LIST).optional(),
-    formatting: formulaFormattingSchema.optional(),
-    showAs: formulaShowAsSchema.optional(),
-  })
-  .strict();
-
-const rollupConfigSchema = z
-  .object({
-    linkFieldId: z.string(),
-    foreignTableId: z.string(),
-    lookupFieldId: z.string(),
-  })
-  .strict();
-
-const lookupOptionsSchema = z
-  .object({
-    linkFieldId: z.string(),
-    foreignTableId: z.string(),
-    lookupFieldId: z.string(),
-  })
-  .strict();
-
-const filterItemSchema = z.object({
-  fieldId: z.string(),
-  operator: z.string(),
-  value: z.unknown(),
-});
-
-const filterSetSchema: z.ZodType<unknown> = z.lazy(() =>
-  z.union([
-    filterItemSchema,
-    z.object({
-      conjunction: z.enum(['and', 'or']),
-      filterSet: z.array(filterSetSchema),
-    }),
-  ])
-);
-
-const fieldConditionSchema = z.object({
-  filter: z
-    .object({
-      conjunction: z.enum(['and', 'or']),
-      filterSet: z.array(filterSetSchema).optional(),
-    })
-    .nullable()
-    .optional(),
-  sort: z
-    .object({
-      fieldId: z.string(),
-      order: z.enum(['asc', 'desc']),
-    })
-    .optional(),
-  limit: z.number().optional(),
-});
-
-const conditionalRollupConfigSchema = z
-  .object({
-    foreignTableId: z.string(),
-    lookupFieldId: z.string(),
-    condition: fieldConditionSchema,
-  })
-  .strict()
-  .refine(
-    (data) => {
-      // Condition must have at least one filter item
-      const filter = data.condition?.filter;
-      return (
-        filter !== null &&
-        filter !== undefined &&
-        filter.filterSet !== undefined &&
-        filter.filterSet.length > 0
-      );
-    },
-    {
-      message: 'ConditionalRollupConfig condition must have at least one filter item',
-      path: ['condition'],
-    }
-  );
-
-const conditionalRollupOptionsSchema = z
-  .object({
-    expression: z.string(),
-    timeZone: z.enum(TIME_ZONE_LIST).optional(),
-    formatting: formulaFormattingSchema.optional(),
-    showAs: formulaShowAsSchema.optional(),
-  })
-  .strict();
-
-const conditionalLookupOptionsSchema = z
-  .object({
-    foreignTableId: z.string(),
-    lookupFieldId: z.string(),
-    condition: fieldConditionSchema,
-  })
-  .strict()
-  .refine(
-    (data) => {
-      // Condition must have at least one filter item
-      const filter = data.condition?.filter;
-      return (
-        filter !== null &&
-        filter !== undefined &&
-        filter.filterSet !== undefined &&
-        filter.filterSet.length > 0
-      );
-    },
-    {
-      message: 'ConditionalLookupOptions condition must have at least one filter item',
-      path: ['condition'],
-    }
-  );
-
-export const tableFieldInputSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('singleLineText'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: singleLineTextOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('longText'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: longTextOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('number'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: numberOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('rating'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    max: z.number().optional(),
-    options: ratingOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('singleSelect'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('multipleSelect'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('checkbox'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: checkboxOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('attachment'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('date'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: dateOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('createdTime'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: createdTimeOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('lastModifiedTime'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: lastModifiedTimeOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('user'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: userOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('createdBy'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: createdByOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('lastModifiedBy'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: lastModifiedByOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('autoNumber'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: autoNumberOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('button'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    options: buttonOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
-  }),
-  z
-    .object({
-      type: z.literal('formula'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: formulaOptionsSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('link'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: linkOptionsSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('rollup'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: rollupOptionsSchema,
-      config: rollupConfigSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('lookup'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: lookupOptionsSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('conditionalRollup'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: conditionalRollupOptionsSchema,
-      config: conditionalRollupConfigSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('conditionalLookup'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: conditionalLookupOptionsSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-]);
-
-export type ITableFieldInput = z.output<typeof tableFieldInputSchema>;
-export type ResolvedTableFieldInput = ITableFieldInput & { name: string };
+// Re-export schema and types for backward compatibility
+export { tableFieldInputSchema };
+export type { ITableFieldInput, ResolvedTableFieldInput };
 
 const getUniqName = (name: string, existNames: ReadonlyArray<string>): string => {
   if (!existNames.includes(name)) return name;
@@ -1085,7 +617,10 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
     private readonly expression: RollupExpression,
     private readonly timeZone: TimeZone | undefined,
     private readonly formatting: FormulaFormatting | undefined,
-    private readonly showAs: FormulaShowAs | undefined
+    private readonly showAs: FormulaShowAs | undefined,
+    private readonly resultType:
+      | { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }
+      | undefined
   ) {}
 
   static create(
@@ -1098,6 +633,7 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
       timeZone?: TimeZone;
       formatting?: FormulaFormatting;
       showAs?: FormulaShowAs;
+      resultType?: { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity };
     }
   ): CreateRollupFieldSpec {
     return new CreateRollupFieldSpec(
@@ -1107,7 +643,8 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
       options.expression,
       options.timeZone,
       options.formatting,
-      options.showAs
+      options.showAs,
+      options.resultType
     ).withPrimary(options.isPrimary);
   }
 
@@ -1122,6 +659,7 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
     if (this.timeZone) fieldBuilder.withTimeZone(this.timeZone);
     if (this.formatting) fieldBuilder.withFormatting(this.formatting);
     if (this.showAs) fieldBuilder.withShowAs(this.showAs);
+    if (this.resultType) fieldBuilder.withResultType(this.resultType);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
   }
@@ -1138,6 +676,7 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
         timeZone: this.timeZone,
         formatting: this.formatting,
         showAs: this.showAs,
+        resultType: this.resultType,
       })
     );
   }
@@ -1354,7 +893,10 @@ class CreateConditionalRollupFieldSpec implements ICreateTableFieldSpec {
     private readonly expression: RollupExpression,
     private readonly timeZone: TimeZone | undefined,
     private readonly formatting: FormulaFormatting | undefined,
-    private readonly showAs: FormulaShowAs | undefined
+    private readonly showAs: FormulaShowAs | undefined,
+    private readonly resultType:
+      | { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }
+      | undefined
   ) {}
 
   static create(
@@ -1367,6 +909,7 @@ class CreateConditionalRollupFieldSpec implements ICreateTableFieldSpec {
       timeZone?: TimeZone;
       formatting?: FormulaFormatting;
       showAs?: FormulaShowAs;
+      resultType?: { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity };
     }
   ): CreateConditionalRollupFieldSpec {
     return new CreateConditionalRollupFieldSpec(
@@ -1376,7 +919,8 @@ class CreateConditionalRollupFieldSpec implements ICreateTableFieldSpec {
       options.expression,
       options.timeZone,
       options.formatting,
-      options.showAs
+      options.showAs,
+      options.resultType
     ).withPrimary(options.isPrimary);
   }
 
@@ -1391,6 +935,7 @@ class CreateConditionalRollupFieldSpec implements ICreateTableFieldSpec {
     if (this.timeZone) fieldBuilder.withTimeZone(this.timeZone);
     if (this.formatting) fieldBuilder.withFormatting(this.formatting);
     if (this.showAs) fieldBuilder.withShowAs(this.showAs);
+    if (this.resultType) fieldBuilder.withResultType(this.resultType);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
   }
@@ -1407,6 +952,7 @@ class CreateConditionalRollupFieldSpec implements ICreateTableFieldSpec {
         timeZone: this.timeZone,
         formatting: this.formatting,
         showAs: this.showAs,
+        resultType: this.resultType,
       })
     );
   }
@@ -2359,6 +1905,31 @@ const parseFormulaShowAs = (raw: unknown): Result<FormulaShowAs | undefined, Dom
   return err(domainError.validation({ message: 'Invalid FormulaShowAs' }));
 };
 
+const parseFieldResultType = (field: {
+  cellValueType?: string;
+  isMultipleCellValue?: boolean;
+}): Result<
+  { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity } | undefined,
+  DomainError
+> => {
+  if (field.cellValueType == null && field.isMultipleCellValue == null) {
+    return ok(undefined);
+  }
+  if (field.cellValueType == null || field.isMultipleCellValue == null) {
+    return err(
+      domainError.validation({
+        message: 'Field result type requires cellValueType and isMultipleCellValue',
+      })
+    );
+  }
+  return CellValueType.create(field.cellValueType).andThen((cellValueType) =>
+    CellValueMultiplicity.create(field.isMultipleCellValue).map((isMultipleCellValue) => ({
+      cellValueType,
+      isMultipleCellValue,
+    }))
+  );
+};
+
 const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, DomainError> => {
   if (raw == null) return ok([]);
   const parsed = trackedFieldIdsSchema.safeParse(raw);
@@ -2454,17 +2025,20 @@ export const parseTableFieldSpec = (
           .with({ type: 'rollup' }, (field) =>
             RollupExpression.create(field.options.expression).andThen((expression) =>
               RollupFieldConfig.create(field.config).andThen((config) =>
-                optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
-                  parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
-                    parseFormulaShowAs(field.options.showAs).map((showAs) =>
-                      CreateRollupFieldSpec.create(id, name, {
-                        isPrimary: options.isPrimary,
-                        config,
-                        expression,
-                        timeZone,
-                        formatting,
-                        showAs,
-                      })
+                parseFieldResultType(field).andThen((resultType) =>
+                  optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
+                    parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                      parseFormulaShowAs(field.options.showAs).map((showAs) =>
+                        CreateRollupFieldSpec.create(id, name, {
+                          isPrimary: options.isPrimary,
+                          config,
+                          expression,
+                          timeZone,
+                          formatting,
+                          showAs,
+                          resultType,
+                        })
+                      )
                     )
                   )
                 )
@@ -2634,17 +2208,20 @@ export const parseTableFieldSpec = (
           .with({ type: 'conditionalRollup' }, (field) =>
             RollupExpression.create(field.options.expression).andThen((expression) =>
               ConditionalRollupConfig.create(field.config).andThen((config) =>
-                optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
-                  parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
-                    parseFormulaShowAs(field.options.showAs).map((showAs) =>
-                      CreateConditionalRollupFieldSpec.create(id, name, {
-                        isPrimary: options.isPrimary,
-                        config,
-                        expression,
-                        timeZone,
-                        formatting,
-                        showAs,
-                      })
+                parseFieldResultType(field).andThen((resultType) =>
+                  optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
+                    parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                      parseFormulaShowAs(field.options.showAs).map((showAs) =>
+                        CreateConditionalRollupFieldSpec.create(id, name, {
+                          isPrimary: options.isPrimary,
+                          config,
+                          expression,
+                          timeZone,
+                          formatting,
+                          showAs,
+                          resultType,
+                        })
+                      )
                     )
                   )
                 )

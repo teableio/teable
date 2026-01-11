@@ -5,6 +5,7 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
+import { TableCreationService } from '../application/services/TableCreationService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { v2CoreTokens } from '../ports/tokens';
@@ -109,6 +110,13 @@ export const registerV2CoreServices = (
         lifecycle,
       }
     );
+  }
+
+  // TableCreationService - batch table creation with side effects
+  if (!container.isRegistered(v2CoreTokens.tableCreationService)) {
+    container.register(v2CoreTokens.tableCreationService, TableCreationService, {
+      lifecycle,
+    });
   }
 
   // ForeignTableLoaderService - load and validate foreign table references

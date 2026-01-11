@@ -30,6 +30,11 @@ export type ComputedDependencyEdgeDto = {
   toTableId: string;
   linkFieldId?: string;
   propagationMode?: ComputedDependencyEdge['propagationMode'];
+  /** Filter condition for conditionalFiltered mode */
+  filterCondition?: {
+    foreignTableId: string;
+    filterDto: unknown;
+  };
   order: number;
 };
 
@@ -195,7 +200,8 @@ export const deserializeComputedUpdatePlan = (
         if (
           propagationMode !== undefined &&
           propagationMode !== 'linkTraversal' &&
-          propagationMode !== 'allTargetRecords'
+          propagationMode !== 'allTargetRecords' &&
+          propagationMode !== 'conditionalFiltered'
         ) {
           return err(
             domainError.validation({ message: 'Invalid propagationMode in outbox payload' })
@@ -206,27 +212,52 @@ export const deserializeComputedUpdatePlan = (
           .andThen((fromTableId) =>
             TableId.create(edge.toTableId).andThen((toTableId) =>
               FieldId.create(edge.fromFieldId).andThen((fromFieldId) =>
-                FieldId.create(edge.toFieldId).andThen((toTableIdField) =>
-                  edge.linkFieldId
-                    ? FieldId.create(edge.linkFieldId).map((linkFieldId) => ({
-                        linkFieldId,
-                        fromFieldId,
-                        toFieldId: toTableIdField,
-                        fromTableId,
-                        toTableId,
-                        propagationMode: propagationMode ?? 'linkTraversal',
-                        order: edge.order,
-                      }))
-                    : ok({
-                        linkFieldId: undefined,
-                        fromFieldId,
-                        toFieldId: toTableIdField,
-                        fromTableId,
-                        toTableId,
-                        propagationMode: propagationMode ?? 'allTargetRecords',
-                        order: edge.order,
+                FieldId.create(edge.toFieldId).andThen((toFieldId) => {
+                  // Parse optional filterCondition
+                  const parseFilterCondition = ():
+                    | Result<
+                        { foreignTableId: TableId; filterDto: unknown } | undefined,
+                        DomainError
+                      >
+                    | undefined => {
+                    if (!edge.filterCondition) return ok(undefined);
+                    return TableId.create(edge.filterCondition.foreignTableId).map(
+                      (foreignTableId) => ({
+                        foreignTableId,
+                        filterDto: edge.filterCondition!.filterDto,
                       })
-                )
+                    );
+                  };
+
+                  const filterConditionResult = parseFilterCondition();
+                  if (filterConditionResult && filterConditionResult.isErr()) {
+                    return err(filterConditionResult.error);
+                  }
+                  const filterCondition = filterConditionResult?.value;
+
+                  if (edge.linkFieldId) {
+                    return FieldId.create(edge.linkFieldId).map((linkFieldId) => ({
+                      linkFieldId,
+                      fromFieldId,
+                      toFieldId,
+                      fromTableId,
+                      toTableId,
+                      propagationMode: propagationMode ?? 'linkTraversal',
+                      filterCondition,
+                      order: edge.order,
+                    }));
+                  }
+                  return ok({
+                    linkFieldId: undefined,
+                    fromFieldId,
+                    toFieldId,
+                    fromTableId,
+                    toTableId,
+                    propagationMode: propagationMode ?? 'allTargetRecords',
+                    filterCondition,
+                    order: edge.order,
+                  });
+                })
               )
             )
           )
@@ -275,6 +306,12 @@ const serializeEdge = (edge: ComputedDependencyEdge): ComputedDependencyEdgeDto 
   toTableId: edge.toTableId.toString(),
   linkFieldId: edge.linkFieldId?.toString(),
   propagationMode: edge.propagationMode,
+  filterCondition: edge.filterCondition
+    ? {
+        foreignTableId: edge.filterCondition.foreignTableId.toString(),
+        filterDto: edge.filterCondition.filterDto,
+      }
+    : undefined,
   order: edge.order,
 });
 

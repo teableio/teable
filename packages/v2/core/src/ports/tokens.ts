@@ -5,6 +5,7 @@ export const v2CoreTokens = {
   tableSchemaRepository: Symbol('v2.core.tableSchemaRepository'),
   tableUpdateFlow: Symbol('v2.core.tableUpdateFlow'),
   tableQueryService: Symbol('v2.core.tableQueryService'),
+  tableCreationService: Symbol('v2.core.tableCreationService'),
   fieldCreationSideEffectService: Symbol('v2.core.fieldCreationSideEffectService'),
   fieldDeletionSideEffectService: Symbol('v2.core.fieldDeletionSideEffectService'),
   foreignTableLoaderService: Symbol('v2.core.foreignTableLoaderService'),
@@ -18,5 +19,6 @@ export const v2CoreTokens = {
   logger: Symbol('v2.core.logger'),
   tracer: Symbol('v2.core.tracer'),
   csvParser: Symbol('v2.core.csvParser'),
+  dotTeaParser: Symbol('v2.core.dotTeaParser'),
   hasher: Symbol('v2.core.hasher'),
 } as const;

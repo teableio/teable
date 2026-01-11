@@ -16,6 +16,8 @@ import { ButtonLabel } from './fields/types/ButtonLabel';
 import type { ButtonMaxCount } from './fields/types/ButtonMaxCount';
 import type { ButtonResetCount } from './fields/types/ButtonResetCount';
 import type { ButtonWorkflow } from './fields/types/ButtonWorkflow';
+import type { CellValueMultiplicity } from './fields/types/CellValueMultiplicity';
+import type { CellValueType } from './fields/types/CellValueType';
 import type { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
 import { CheckboxField } from './fields/types/CheckboxField';
 import { ConditionalLookupField } from './fields/types/ConditionalLookupField';
@@ -823,6 +825,9 @@ export class RollupFieldBuilder {
   private timeZone: TimeZone | undefined;
   private formatting: RollupFormatting | undefined;
   private showAs: RollupShowAs | undefined;
+  private resultType:
+    | { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }
+    | undefined;
   private dependencies: ReadonlyArray<FieldId> = [];
   private isPrimary = false;
 
@@ -868,6 +873,14 @@ export class RollupFieldBuilder {
 
   withShowAs(showAs: RollupShowAs): RollupFieldBuilder {
     this.showAs = showAs;
+    return this;
+  }
+
+  withResultType(resultType: {
+    cellValueType: CellValueType;
+    isMultipleCellValue: CellValueMultiplicity;
+  }): RollupFieldBuilder {
+    this.resultType = resultType;
     return this;
   }
 
@@ -920,6 +933,7 @@ export class RollupFieldBuilder {
             timeZone: this.timeZone,
             formatting: this.formatting,
             showAs: this.showAs,
+            resultType: this.resultType,
             dependencies: this.dependencies,
           })
       ).andThen((field) => {
@@ -1891,6 +1905,9 @@ export class ConditionalRollupFieldBuilder {
   private timeZone: TimeZone | undefined;
   private formatting: ConditionalRollupFormatting | undefined;
   private showAs: ConditionalRollupShowAs | undefined;
+  private resultType:
+    | { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }
+    | undefined;
   private dependencies: ReadonlyArray<FieldId> = [];
   private isPrimary = false;
 
@@ -1936,6 +1953,14 @@ export class ConditionalRollupFieldBuilder {
 
   withShowAs(showAs: ConditionalRollupShowAs): ConditionalRollupFieldBuilder {
     this.showAs = showAs;
+    return this;
+  }
+
+  withResultType(resultType: {
+    cellValueType: CellValueType;
+    isMultipleCellValue: CellValueMultiplicity;
+  }): ConditionalRollupFieldBuilder {
+    this.resultType = resultType;
     return this;
   }
 
@@ -1988,6 +2013,7 @@ export class ConditionalRollupFieldBuilder {
             timeZone: this.timeZone,
             formatting: this.formatting,
             showAs: this.showAs,
+            resultType: this.resultType,
             dependencies: this.dependencies,
           })
       ).andThen((field) => {

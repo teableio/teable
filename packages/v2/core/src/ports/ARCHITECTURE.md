@@ -19,6 +19,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: explain port boundaries and implementations.
 - `CommandBus.ts` - Role: port interface; Purpose: define ICommandBus + middleware contract.
+- `DotTeaParser.ts` - Role: port interface; Purpose: parse .tea structure inputs.
 - `EventBus.ts` - Role: port interface; Purpose: define IEventBus publish contract.
 - `EventHandler.ts` - Role: handler registry; Purpose: map events to handlers.
 - `ExecutionContext.ts` - Role: execution context model; Purpose: carry actor/transaction/tracer.

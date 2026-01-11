@@ -6,7 +6,7 @@ exports[`edge cases > 'DateAddNegative': 'DateAdd with negative count' 1`] = `
   "formula": "DATE_ADD(NOW(), -1, "day")",
   "funcId": "DateAddNegative",
   "inputs": {},
-  "result": "0000-00-00 00:00:00.000000+00",
+  "result": "0000-00-00 00:00:00+00",
   "sql": "(NOW())::timestamptz + (((-((1)::double precision)))::double precision) * INTERVAL '1 day'",
 }
 `;
@@ -17,7 +17,7 @@ exports[`edge cases > 'DateAddZero': 'DateAdd with zero count' 1`] = `
   "formula": "DATE_ADD(NOW(), 0, "day")",
   "funcId": "DateAddZero",
   "inputs": {},
-  "result": "0000-00-00 00:00:00.000000+00",
+  "result": "0000-00-00 00:00:00+00",
   "sql": "(NOW())::timestamptz + ((0)::double precision) * INTERVAL '1 day'",
 }
 `;

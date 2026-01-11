@@ -47,6 +47,7 @@
     "@teable/v2-core": "workspace:*",
     "@teable/v2-debug-data": "workspace:*",
     "@teable/v2-di": "workspace:*",
+    "@teable/v2-dottea": "workspace:*",
     "@teable/v2-mock-records": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
     "@toon-format/toon": "2.1.0",

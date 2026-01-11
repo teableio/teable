@@ -25,6 +25,11 @@ export const fieldIdOption = Options.text('field-id').pipe(Options.withDescripti
  */
 export const baseIdOption = Options.text('base-id').pipe(Options.withDescription('Base ID'));
 
+export const baseIdOptionalOption = Options.text('base-id').pipe(
+  Options.withDescription('Base ID'),
+  Options.optional
+);
+
 /**
  * Record ID option
  */

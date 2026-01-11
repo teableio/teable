@@ -1,6 +1,7 @@
 import {
   domainError,
   type DomainError,
+  FieldCondition,
   type IExecutionContext,
   type ILogger,
   type ITableRepository,
@@ -13,7 +14,7 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { InsertQueryBuilder, Kysely, Transaction } from 'kysely';
+import type { Expression, InsertQueryBuilder, Kysely, SqlBool, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -21,6 +22,7 @@ import type { Result } from 'neverthrow';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
+import { TableRecordConditionWhereVisitor } from '../visitors/TableRecordConditionWhereVisitor';
 // NOTE: SameTableBatchQueryBuilder will be used for CTE optimization in future versions
 // import { SameTableBatchQueryBuilder, type SameTableFieldLevel } from '../query-builder/computed/SameTableBatchQueryBuilder';
 import {
@@ -1077,6 +1079,155 @@ const buildPropagationInsert = (
           sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
           sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
         ])
+        .distinct();
+
+      return ok(
+        db
+          .insertInto(DIRTY_TABLE)
+          .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
+          .expression(select)
+          .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+      );
+    }
+
+    // conditionalFiltered: Only mark target records as dirty if dirty source records match the filter
+    if (edge.propagationMode === 'conditionalFiltered' && edge.filterCondition) {
+      const sourceTable = tableById.get(edge.fromTableId.toString());
+      if (!sourceTable) {
+        return err(
+          domainError.notFound({
+            message: `Missing source table ${edge.fromTableId.toString()} for conditionalFiltered`,
+          })
+        );
+      }
+
+      // Create FieldCondition from filterDto
+      const fieldConditionResult = FieldCondition.create({
+        filter: edge.filterCondition.filterDto,
+      });
+      if (fieldConditionResult.isErr()) {
+        // Fallback to allTargetRecords if filter is invalid
+        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+        const dirtyGate = db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .limit(1)
+          .as('dg');
+
+        const select = db
+          .selectFrom(`${targetDbName} as t`)
+          .innerJoin(dirtyGate, (join) => join.onTrue())
+          .select([
+            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(
+          db
+            .insertInto(DIRTY_TABLE)
+            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
+            .expression(select)
+            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+        );
+      }
+
+      const fieldCondition = fieldConditionResult.value;
+      if (!fieldCondition.hasFilter()) {
+        // No filter - fallback to allTargetRecords
+        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+        const dirtyGate = db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .limit(1)
+          .as('dg');
+
+        const select = db
+          .selectFrom(`${targetDbName} as t`)
+          .innerJoin(dirtyGate, (join) => join.onTrue())
+          .select([
+            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(
+          db
+            .insertInto(DIRTY_TABLE)
+            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
+            .expression(select)
+            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+        );
+      }
+
+      // Convert to RecordConditionSpec
+      const specResult = yield* fieldCondition.toRecordConditionSpec(sourceTable);
+      if (!specResult) {
+        // No spec generated - fallback to allTargetRecords
+        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+        const dirtyGate = db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .limit(1)
+          .as('dg');
+
+        const select = db
+          .selectFrom(`${targetDbName} as t`)
+          .innerJoin(dirtyGate, (join) => join.onTrue())
+          .select([
+            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(
+          db
+            .insertInto(DIRTY_TABLE)
+            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
+            .expression(select)
+            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+        );
+      }
+
+      // Generate WHERE clause using visitor
+      const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 's' });
+      const acceptResult = specResult.accept(visitor);
+      if (acceptResult.isErr()) {
+        return err(acceptResult.error);
+      }
+      const whereResult = visitor.where();
+      if (whereResult.isErr()) {
+        return err(whereResult.error);
+      }
+      const filterWhere = whereResult.value as unknown as Expression<SqlBool>;
+
+      const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
+      const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+
+      // Build SQL:
+      // SELECT ALL target records WHERE EXISTS (
+      //   dirty source record that matches the filter
+      // )
+      // This is because conditionalRollup/conditionalLookup aggregates ALL source records
+      // matching the filter - so if ANY dirty source matches, ALL target records need update.
+      const dirtySourceExists = db
+        .selectFrom(`${DIRTY_TABLE} as d`)
+        .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
+        .select(sql.lit(1).as('one'))
+        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+        .where(filterWhere)
+        .limit(1);
+
+      const select = db
+        .selectFrom(`${targetDbName} as t`)
+        .select([
+          sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+          sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+        ])
+        .where(({ exists }) => exists(dirtySourceExists))
         .distinct();
 
       return ok(

@@ -5,3 +5,4 @@ export * from './MockRecords';
 export * from './Output';
 export * from './SchemaChecker';
 export * from './TableCreator';
+export * from './DotTeaImporter';

@@ -6,4 +6,5 @@ export * from './NodeCryptoHasher';
 export * from './OutputLive';
 export * from './SchemaCheckerLive';
 export * from './TableCreatorLive';
+export * from './DotTeaImporterLive';
 export * from './AppLayer';

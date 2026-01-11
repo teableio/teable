@@ -105,22 +105,26 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     timeZone?: TimeZone;
     formatting?: RollupFormatting;
     showAs?: RollupShowAs;
+    resultType?: RollupResultType;
     dependencies?: ReadonlyArray<FieldId>;
   }): Result<RollupField, DomainError> {
-    return ok(
-      new RollupField(
-        params.id,
-        params.name,
-        params.config,
-        params.expression,
-        params.timeZone,
-        params.formatting,
-        params.showAs,
-        undefined,
-        undefined,
-        params.dependencies ?? []
-      )
+    const field = new RollupField(
+      params.id,
+      params.name,
+      params.config,
+      params.expression,
+      params.timeZone,
+      params.formatting,
+      params.showAs,
+      undefined,
+      undefined,
+      params.dependencies ?? []
     );
+    if (params.resultType) {
+      const setResult = field.applyResultType(params.resultType);
+      if (setResult.isErr()) return err(setResult.error);
+    }
+    return ok(field);
   }
 
   static rehydrate(params: {
@@ -334,11 +338,13 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
     if (valuesTypeResult.isErr()) return err(valuesTypeResult.error);
 
-    const resolveResult = this.resolveResultType({
-      cellValueType: valuesTypeResult.value.cellValueType,
-      isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
-    });
-    if (resolveResult.isErr()) return err(resolveResult.error);
+    if (!this.cellValueTypeValue || !this.isMultipleCellValueValue) {
+      const resolveResult = this.resolveResultType({
+        cellValueType: valuesTypeResult.value.cellValueType,
+        isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
+      });
+      if (resolveResult.isErr()) return err(resolveResult.error);
+    }
 
     return this.setDependencies([linkFieldId]);
   }

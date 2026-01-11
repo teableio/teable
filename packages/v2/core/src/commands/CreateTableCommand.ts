@@ -12,38 +12,19 @@ import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuild
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import { ViewName } from '../domain/table/views/ViewName';
+// Import schema from the new schema files
+import { createTableInputSchema } from '../schemas/table/createTable.schema';
+import type { ITableFieldInput } from '../schemas/field';
 import type { RecordFieldValues } from './CreateRecordCommand';
 import {
   collectForeignTableReferences,
   type ICreateTableFieldSpec,
-  type ITableFieldInput,
   parseTableFieldSpec,
   resolveTableFieldInputs,
-  tableFieldInputSchema,
 } from './TableFieldSpecs';
 
-export const createTableInputSchema = z.object({
-  baseId: z.string(),
-  tableId: z.string().optional(),
-  name: z.string(),
-  fields: z.array(tableFieldInputSchema).default([]),
-  views: z
-    .array(
-      z.object({
-        type: z.enum(['grid', 'calendar', 'kanban', 'form', 'gallery', 'plugin']).optional(),
-        name: z.string().optional(),
-      })
-    )
-    .optional(),
-  records: z
-    .array(
-      z.object({
-        id: z.string().optional(),
-        fields: z.record(z.string(), z.unknown()).default({}),
-      })
-    )
-    .optional(),
-});
+// Re-export schema for backward compatibility
+export { createTableInputSchema };
 
 export type ICreateTableCommandInput = z.input<typeof createTableInputSchema>;
 

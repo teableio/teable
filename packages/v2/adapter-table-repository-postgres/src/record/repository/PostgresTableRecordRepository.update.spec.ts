@@ -293,6 +293,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 
     const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
     expect(result.isOk()).toBe(true);
+    expect(driver.queries).toHaveLength(4);
 
     expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
       [
@@ -300,7 +301,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "select "__fk_fldeeeeeeeeeeeeeeee" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" = $1",
+          "sql": "select \"__fk_fldeeeeeeeeeeeeeeee\" as \"record_id\" from \"bseaaaaaaaaaaaaaaaa\".\"junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff\" where \"__fk_fldffffffffffffffff\" = $1",
         },
         {
           "parameters": [
@@ -308,27 +309,22 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1 where "__id" = $3",
+          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblbbbbbbbbbbbbbbbb\" set \"__last_modified_time\" = $1, \"__last_modified_by\" = $2, \"__version\" = \"__version\" + 1 where \"__id\" = $3",
         },
         {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" = $1",
+          "sql": "delete from \"bseaaaaaaaaaaaaaaaa\".\"junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff\" where \"__fk_fldffffffffffffffff\" = $1",
         },
         {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
             "reciiiiiiiiiiiiiiii",
-          ],
-          "sql": "insert into "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" ("__fk_fldffffffffffffffff", "__fk_fldeeeeeeeeeeeeeeee") values ($1, $2)",
-        },
-        {
-          "parameters": [
             "rechhhhhhhhhhhhhhhh",
             "recjjjjjjjjjjjjjjjj",
           ],
-          "sql": "insert into "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" ("__fk_fldffffffffffffffff", "__fk_fldeeeeeeeeeeeeeeee") values ($1, $2)",
+          "sql": "insert into \"bseaaaaaaaaaaaaaaaa\".\"junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff\" (\"__fk_fldffffffffffffffff\", \"__fk_fldeeeeeeeeeeeeeeee\") values ($1, $2), ($3, $4)",
         },
       ]
     `);
@@ -399,6 +395,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 
     const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
     expect(result.isOk()).toBe(true);
+    expect(driver.queries).toHaveLength(4);
 
     expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
       [
@@ -406,7 +403,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "select "__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" where "__fk_fldffffffffffffffff" = $1",
+          "sql": "select \"__id\" as \"record_id\" from \"bseaaaaaaaaaaaaaaaa\".\"tblcccccccccccccccc\" where \"__fk_fldffffffffffffffff\" = $1",
         },
         {
           "parameters": [
@@ -414,28 +411,23 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1 where "__id" = $3",
+          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblbbbbbbbbbbbbbbbb\" set \"__last_modified_time\" = $1, \"__last_modified_by\" = $2, \"__version\" = \"__version\" + 1 where \"__id\" = $3",
         },
         {
           "parameters": [
             null,
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" set "__fk_fldffffffffffffffff" = $1 where "__fk_fldffffffffffffffff" = $2",
+          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblcccccccccccccccc\" set \"__fk_fldffffffffffffffff\" = $1 where \"__fk_fldffffffffffffffff\" = $2",
         },
         {
           "parameters": [
-            "rechhhhhhhhhhhhhhhh",
             "reciiiiiiiiiiiiiiii",
-          ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" set "__fk_fldffffffffffffffff" = $1 where "__id" = $2",
-        },
-        {
-          "parameters": [
             "rechhhhhhhhhhhhhhhh",
             "recjjjjjjjjjjjjjjjj",
+            "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" set "__fk_fldffffffffffffffff" = $1 where "__id" = $2",
+          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblcccccccccccccccc\" as t set \"__fk_fldffffffffffffffff\" = \"v\".\"record_id\" from (values ($1, $2), ($3, $4)) as v(id, record_id) where \"t\".\"__id\" = \"v\".\"id\"",
         },
       ]
     `);

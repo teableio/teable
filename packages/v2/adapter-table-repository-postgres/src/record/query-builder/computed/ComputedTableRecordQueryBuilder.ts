@@ -1,8 +1,10 @@
 import {
   AndSpec,
+  CellValueType,
   domainError,
   FieldId,
   FieldType,
+  FieldValueTypeVisitor,
   LinkForeignTableReferenceVisitor,
   LinkRelationship,
   type DomainError,
@@ -10,6 +12,7 @@ import {
   type ITableRecordConditionSpecVisitor,
   type ISpecification,
   type LinkField,
+  type RollupFunction,
   type Table,
   type TableRecord,
 } from '@teable/v2-core';
@@ -593,11 +596,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             orderBy: options?.orderBy,
           })
         )
-        .with({ type: 'conditionalRollup' }, ({ foreignFieldId, aggregate }) =>
+        .with({ type: 'conditionalRollup' }, ({ foreignFieldId, expression }) =>
           // For conditional rollup, apply the aggregate function
-          this.getForeignColRef(foreignTable, foreignFieldId, tableAlias).map((colRef) =>
-            sql`${sql.raw(aggregate)}(${colRef})`.as(outputAlias)
-          )
+          this.buildRollupAggregateExpr(foreignTable, foreignFieldId, expression, {
+            tableAlias,
+            orderBy: options?.orderBy,
+          }).map((expr: RawBuilder<unknown>) => expr.as(outputAlias))
         )
         // Other types should not appear in conditional laterals
         .with({ type: 'link' }, () =>
@@ -647,10 +651,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         .with({ type: 'lookup' }, ({ foreignFieldId }) =>
           this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias)
         )
-        .with({ type: 'rollup' }, ({ foreignFieldId, aggregate }) =>
-          this.getForeignColRef(foreignTable, foreignFieldId).map((colRef) =>
-            sql`${sql.raw(aggregate)}(${colRef})`.as(outputAlias)
-          )
+        .with({ type: 'rollup' }, ({ foreignFieldId, expression, orderBy }) =>
+          this.buildRollupAggregateExpr(foreignTable, foreignFieldId, expression, {
+            orderBy,
+          }).map((expr: RawBuilder<unknown>) => expr.as(outputAlias))
         )
         // Conditional types are handled in buildConditionalJoins, not here
         .with({ type: 'conditionalLookup' }, () =>
@@ -756,6 +760,167 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             return sql`jsonb_agg(to_jsonb(${colRef})${orderByRef})`.as(outputAlias);
           })
       );
+  }
+
+  private buildRollupAggregateExpr(
+    foreignTable: Table,
+    foreignFieldId: FieldId,
+    expression: RollupFunction,
+    options?: {
+      tableAlias?: string;
+      orderBy?: LinkOrderBy | { column: string; direction: 'asc' | 'desc' };
+    }
+  ): Result<RawBuilder<unknown>, DomainError> {
+    const tableAlias = options?.tableAlias ?? F;
+    const orderByExpr = options?.orderBy
+      ? 'source' in options.orderBy
+        ? buildLinkOrderByExpr(options.orderBy)
+        : sql`${sql.ref(`${tableAlias}.${options.orderBy.column}`)} ${sql.raw(
+            options.orderBy.direction
+          )}`
+      : null;
+    const orderBySql = orderByExpr ? sql` ORDER BY ${orderByExpr}` : sql``;
+
+    return safeTry<RawBuilder<unknown>, DomainError>(
+      function* (this: ComputedTableRecordQueryBuilder) {
+        const foreignField = yield* foreignTable.getField((f) => f.id().equals(foreignFieldId));
+        const colRef = yield* this.getForeignColRef(foreignTable, foreignFieldId, tableAlias);
+        const valueType = yield* foreignField.accept(new FieldValueTypeVisitor());
+        const isNumericTarget = valueType.cellValueType.equals(CellValueType.number());
+        const isMultipleValue = valueType.isMultipleCellValue.isMultiple();
+        const rowPresenceExpr = sql.ref(`${tableAlias}.__id`);
+
+        switch (expression) {
+          case 'sum({values})': {
+            if (isNumericTarget) {
+              if (isMultipleValue) {
+                const numericExpr = this.buildJsonNumericSumExpression(colRef);
+                return ok(this.castAgg(sql`COALESCE(SUM(${numericExpr}), 0)`));
+              }
+              return ok(this.castAgg(sql`COALESCE(SUM(${colRef}), 0)`));
+            }
+            return ok(this.castAgg(sql`SUM(0)`));
+          }
+          case 'average({values})': {
+            if (isNumericTarget) {
+              if (isMultipleValue) {
+                const sumExpr = this.buildJsonNumericSumExpression(colRef);
+                const countExpr = this.buildJsonNumericCountExpression(colRef);
+                const sumAgg = sql`COALESCE(SUM(${sumExpr}), 0)`;
+                const countAgg = sql`COALESCE(SUM(${countExpr}), 0)`;
+                return ok(
+                  this.castAgg(
+                    sql`CASE WHEN ${countAgg} = 0 THEN 0 ELSE ${sumAgg} / ${countAgg} END`
+                  )
+                );
+              }
+              return ok(this.castAgg(sql`COALESCE(AVG(${colRef}), 0)`));
+            }
+            return ok(this.castAgg(sql`AVG(0)`));
+          }
+          case 'countall({values})': {
+            if (foreignField.type().equals(FieldType.multipleSelect())) {
+              return ok(
+                this.castAgg(
+                  sql`COALESCE(SUM(CASE WHEN ${colRef} IS NOT NULL THEN jsonb_array_length(${colRef}::jsonb) ELSE 0 END), 0)`
+                )
+              );
+            }
+            return ok(this.castAgg(sql`COALESCE(COUNT(${rowPresenceExpr}), 0)`));
+          }
+          case 'counta({values})':
+          case 'count({values})':
+            return ok(this.castAgg(sql`COALESCE(COUNT(${colRef}), 0)`));
+          case 'max({values})': {
+            const aggregate = sql`MAX(${colRef})`;
+            return ok(
+              valueType.cellValueType.equals(CellValueType.dateTime())
+                ? aggregate
+                : this.castAgg(aggregate)
+            );
+          }
+          case 'min({values})': {
+            const aggregate = sql`MIN(${colRef})`;
+            return ok(
+              valueType.cellValueType.equals(CellValueType.dateTime())
+                ? aggregate
+                : this.castAgg(aggregate)
+            );
+          }
+          case 'and({values})':
+            return ok(sql`BOOL_AND(${colRef}::boolean)`);
+          case 'or({values})':
+            return ok(sql`BOOL_OR(${colRef}::boolean)`);
+          case 'xor({values})':
+            return ok(sql`(COUNT(CASE WHEN ${colRef}::boolean THEN 1 END) % 2 = 1)`);
+          case 'array_join({values})':
+          case 'concatenate({values})':
+            return ok(sql`STRING_AGG(${colRef}::text, ', '${orderBySql})`);
+          case 'array_unique({values})':
+            return ok(sql`json_agg(DISTINCT ${colRef})`);
+          case 'array_compact({values})': {
+            const baseAggregate = orderByExpr
+              ? sql`jsonb_agg(${colRef} ORDER BY ${orderByExpr}) FILTER (WHERE (${colRef}) IS NOT NULL AND (${colRef})::text <> '')`
+              : sql`jsonb_agg(${colRef}) FILTER (WHERE (${colRef}) IS NOT NULL AND (${colRef})::text <> '')`;
+            if (isMultipleValue) {
+              return ok(sql`(
+              WITH RECURSIVE flattened(val) AS (
+                SELECT COALESCE(${baseAggregate}, '[]'::jsonb)
+                UNION ALL
+                SELECT elem
+                FROM flattened
+                CROSS JOIN LATERAL jsonb_array_elements(flattened.val) AS elem
+                WHERE jsonb_typeof(flattened.val) = 'array'
+              )
+              SELECT jsonb_agg(val) FILTER (
+                WHERE jsonb_typeof(val) <> 'array'
+                  AND jsonb_typeof(val) <> 'null'
+                  AND val <> '""'::jsonb
+              ) FROM flattened
+            )`);
+            }
+            return ok(baseAggregate);
+          }
+          default:
+            return ok(sql`ARRAY_AGG(${colRef})`);
+        }
+      }.bind(this)
+    );
+  }
+
+  private sanitizeNumericTextExpression(expr: RawBuilder<unknown>): RawBuilder<unknown> {
+    return sql`NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::double precision`;
+  }
+
+  private buildJsonNumericSumExpression(expr: RawBuilder<unknown>): RawBuilder<unknown> {
+    const scalarValue = this.sanitizeNumericTextExpression(expr);
+    const arraySum = sql`(
+      SELECT SUM(${this.sanitizeNumericTextExpression(sql`elem.value`)})
+      FROM jsonb_array_elements_text(${expr}::jsonb) AS elem(value)
+    )`;
+    return sql`(CASE
+      WHEN ${expr} IS NULL THEN 0
+      WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN COALESCE(${arraySum}, 0)
+      ELSE COALESCE(${scalarValue}, 0)
+    END)`;
+  }
+
+  private buildJsonNumericCountExpression(expr: RawBuilder<unknown>): RawBuilder<unknown> {
+    const scalarValue = this.sanitizeNumericTextExpression(expr);
+    const scalarCount = sql`(CASE WHEN ${scalarValue} IS NULL THEN 0 ELSE 1 END)`;
+    const elementCount = sql`(
+      SELECT SUM(CASE WHEN ${this.sanitizeNumericTextExpression(sql`elem.value`)} IS NULL THEN 0 ELSE 1 END)
+      FROM jsonb_array_elements_text(${expr}::jsonb) AS elem(value)
+    )`;
+    return sql`(CASE
+      WHEN ${expr} IS NULL THEN 0
+      WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN COALESCE(${elementCount}, 0)
+      ELSE ${scalarCount}
+    END)`;
+  }
+
+  private castAgg(expr: RawBuilder<unknown>): RawBuilder<unknown> {
+    return sql`CAST(${expr} AS DOUBLE PRECISION)`;
   }
 
   /**

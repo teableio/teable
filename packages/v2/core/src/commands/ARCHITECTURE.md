@@ -33,6 +33,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `DeleteTableHandler.ts` - Role: command handler; Purpose: delete table state/schema and publish events.
 - `ImportCsvCommand.ts` - Role: command DTO + schema; Purpose: validate CSV import inputs.
 - `ImportCsvHandler.ts` - Role: command handler; Purpose: import CSV and create records.
+- `ImportDotTeaStructureCommand.ts` - Role: command DTO + schema; Purpose: validate dottea structure imports.
+- `ImportDotTeaStructureHandler.ts` - Role: command handler; Purpose: import dottea structure tables.
 - `RenameTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for renaming.
 - `RenameTableHandler.ts` - Role: command handler; Purpose: persist table rename and publish events.
 - `TableFieldSpecs.ts` - Role: parsing helpers; Purpose: shared field input schema + spec builders.

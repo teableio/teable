@@ -1,4 +1,8 @@
-import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import { registerV2PostgresPgliteDb } from '@teable/v2-adapter-db-postgres-pglite';
+import {
+  createV2NodeTestContainer,
+  type IV2NodeTestContainer,
+} from '@teable/v2-container-node-test';
 import {
   ActorId,
   DateTimeFormatting,
@@ -37,6 +41,23 @@ export type FieldTypeCase = {
 export type FormulaFieldDefinition = {
   name: string;
   expression: string;
+  expressionWithIds?: string;
+};
+
+type FieldSnapshotValue = {
+  fieldName: string;
+  fieldType: string;
+  formatting?: unknown;
+  rawValue: string | null;
+  formattedValue: string | null;
+};
+
+type FormulaSnapshotContext = {
+  formulaName: string;
+  formula: string;
+  sql: string;
+  inputs: Record<string, FieldSnapshotValue>;
+  result: string | null;
 };
 
 export type FormulaTestTable = {
@@ -53,6 +74,12 @@ export type FormulaTestTable = {
 const TABLE_ALIAS = 't';
 const FORMULA_TYPE_FIELD_NAME = 'FormulaType';
 const DEFAULT_DATE_FORMATTING = { date: 'YYYY/MM/DD', time: 'HH:mm', timeZone: 'Asia/Shanghai' };
+
+export const createFormulaTestContainer = async (): Promise<IV2NodeTestContainer> =>
+  createV2NodeTestContainer({
+    connectionString: 'memory://',
+    registerDb: async (container, config) => registerV2PostgresPgliteDb(container, config),
+  });
 
 const FIELD_TYPE_NAMES: Record<FieldTypeLiteral, string> = {
   singleLineText: 'SingleLineText',
@@ -222,6 +249,21 @@ const extractFieldRefs = (expression: string): ReadonlyArray<string> =>
     .map((match) => match[1])
     .filter((ref): ref is string => Boolean(ref));
 
+const replaceFormulaFieldRefs = (expression: string, fieldNameToId: Map<string, string>): string =>
+  expression.replace(/\{([^}]+)\}/g, (match, ref) => {
+    if (ref.startsWith('fld')) return match;
+    const resolved = fieldNameToId.get(ref);
+    return resolved ? `{${resolved}}` : match;
+  });
+
+const findFieldByRef = (table: Table, ref: string): Field => {
+  const field = table
+    .getFields()
+    .find((candidate) => candidate.id().toString() === ref || candidate.name().toString() === ref);
+  if (!field) throw new Error(`Missing field: ${ref}`);
+  return field;
+};
+
 const normalizeTemporalText = (value: string | null): string | null => {
   if (!value) return value;
   if (!/[-/:+TZ]/.test(value)) return value.replace(/\d/g, '0');
@@ -350,6 +392,7 @@ const createHostTable = async (params: {
   table: Table;
   fieldsByType: Record<FieldTypeLiteral, Field>;
   formulaFields: Map<string, Field>;
+  formulaFieldDefinitions: ReadonlyArray<FormulaFieldDefinition>;
 }> => {
   const { container, foreignTable, foreignPrimary, foreignNumber, foreignDate } = params;
   const baseId = container.baseId.toString();
@@ -384,6 +427,36 @@ const createHostTable = async (params: {
     button: generateFieldId('button'),
     link: linkFieldId,
   };
+
+  const formulaFieldIds = new Map<string, string>(
+    formulaFieldDefinitions.map((definition) => [
+      definition.name,
+      definition.name === FORMULA_TYPE_FIELD_NAME
+        ? fieldIds.formula
+        : generateFieldId(`formula:${definition.name}`),
+    ])
+  );
+
+  const fieldNameToId = new Map<string, string>();
+  fieldTypeValues.forEach((type) => {
+    fieldNameToId.set(FIELD_TYPE_NAMES[type], fieldIds[type]);
+  });
+  formulaFieldIds.forEach((id, name) => fieldNameToId.set(name, id));
+
+  const resolvedFormulaFieldDefinitions = formulaFieldDefinitions.map((definition) => ({
+    ...definition,
+    expressionWithIds: replaceFormulaFieldRefs(definition.expression, fieldNameToId),
+  }));
+
+  const orderedFormulaFieldDefinitions = [
+    ...resolvedFormulaFieldDefinitions.filter(
+      (definition) => definition.name === FORMULA_TYPE_FIELD_NAME
+    ),
+    ...resolvedFormulaFieldDefinitions.filter(
+      (definition) => definition.name !== FORMULA_TYPE_FIELD_NAME
+    ),
+  ];
+
   const fields = [
     {
       type: 'singleLineText',
@@ -508,6 +581,7 @@ const createHostTable = async (params: {
   // This allows testing optimization for different innerField types
   const lookupFields = [
     {
+      id: fieldIds.lookup,
       name: FIELD_TYPE_NAMES.lookup, // Default lookup (innerField: singleLineText)
       lookupFieldId: foreignPrimary.id().toString(),
     },
@@ -528,6 +602,7 @@ const createHostTable = async (params: {
         tableId: table.id().toString(),
         field: {
           type: 'lookup',
+          id: lookupField.id,
           name: lookupField.name,
           options: {
             linkFieldId,
@@ -547,6 +622,7 @@ const createHostTable = async (params: {
       tableId: table.id().toString(),
       field: {
         type: 'rollup',
+        id: fieldIds.rollup,
         name: FIELD_TYPE_NAMES.rollup,
         options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
         config: {
@@ -579,6 +655,7 @@ const createHostTable = async (params: {
       tableId: table.id().toString(),
       field: {
         type: 'conditionalLookup',
+        id: fieldIds.conditionalLookup,
         name: FIELD_TYPE_NAMES.conditionalLookup,
         options: {
           foreignTableId: foreignTable.id().toString(),
@@ -597,6 +674,7 @@ const createHostTable = async (params: {
       tableId: table.id().toString(),
       field: {
         type: 'conditionalRollup',
+        id: fieldIds.conditionalRollup,
         name: FIELD_TYPE_NAMES.conditionalRollup,
         options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
         config: {
@@ -612,15 +690,16 @@ const createHostTable = async (params: {
 
   // Create formula fields (including the matrix input formula field) before inserting records.
   // This avoids triggering computed updates/backfills on large existing datasets.
-  for (const definition of formulaFieldDefinitions) {
+  for (const definition of orderedFormulaFieldDefinitions) {
     const command = unwrapOrThrow(
       CreateFieldCommand.create({
         baseId,
         tableId: table.id().toString(),
         field: {
           type: 'formula',
+          id: formulaFieldIds.get(definition.name),
           name: definition.name,
-          options: { expression: definition.expression },
+          options: { expression: definition.expressionWithIds ?? definition.expression },
         },
       }),
       `CreateFieldCommand(Formula:${definition.name})`
@@ -637,11 +716,16 @@ const createHostTable = async (params: {
   );
 
   const formulaFieldMap = new Map<string, Field>();
-  formulaFieldDefinitions.forEach((definition) => {
+  resolvedFormulaFieldDefinitions.forEach((definition) => {
     formulaFieldMap.set(definition.name, findFieldByName(table, definition.name));
   });
 
-  return { table, fieldsByType, formulaFields: formulaFieldMap };
+  return {
+    table,
+    fieldsByType,
+    formulaFields: formulaFieldMap,
+    formulaFieldDefinitions: resolvedFormulaFieldDefinitions,
+  };
 };
 
 const createForeignRecord = async (
@@ -734,9 +818,6 @@ export const createFormulaTestTable = async (
   if (!formulaFieldDefinitions.some((field) => field.name === FORMULA_TYPE_FIELD_NAME)) {
     formulaFieldDefinitions.push({ name: FORMULA_TYPE_FIELD_NAME, expression: '10' });
   }
-  const formulaDefinitions = new Map(
-    formulaFieldDefinitions.map((definition) => [definition.name, definition])
-  );
   const foreign = await createForeignTable(container);
   const host = await createHostTable({
     container,
@@ -746,6 +827,9 @@ export const createFormulaTestTable = async (
     foreignDate: foreign.date,
     formulaFields: formulaFieldDefinitions,
   });
+  const formulaDefinitions = new Map(
+    host.formulaFieldDefinitions.map((definition) => [definition.name, definition])
+  );
   const foreignRecordId = await createForeignRecord(container, foreign.table);
   await createHostRecord(container, host.table, host.fieldsByType, foreignRecordId);
 
@@ -780,7 +864,8 @@ export const executeFormulaAsText = async (
 ): Promise<string | null> => {
   const formulaDefinition = testTable.formulaDefinitions.get(formulaName);
   if (!formulaDefinition) throw new Error(`Missing formula definition: ${formulaName}`);
-  const sqlExprResult = testTable.translator.translateExpression(formulaDefinition.expression);
+  const expression = formulaDefinition.expressionWithIds ?? formulaDefinition.expression;
+  const sqlExprResult = testTable.translator.translateExpression(expression);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
   const rendered = testTable.translator.renderSql(sqlExpr);
   const tableName = resolveDbTableName(testTable.table);
@@ -792,22 +877,6 @@ export const executeFormulaAsText = async (
   `.execute(testTable.db);
 
   return result.rows[0]?.value ?? null;
-};
-
-type FieldSnapshotValue = {
-  fieldName: string;
-  fieldType: string;
-  formatting?: unknown;
-  rawValue: string | null;
-  formattedValue: string | null;
-};
-
-type FormulaSnapshotContext = {
-  formulaName: string;
-  formula: string;
-  sql: string;
-  inputs: Record<string, FieldSnapshotValue>;
-  result: string | null;
 };
 
 const fetchSqlValue = async (
@@ -888,7 +957,8 @@ export const buildFormulaSnapshotContext = async (
   const formulaDefinition = testTable.formulaDefinitions.get(formulaName);
   if (!formulaDefinition) throw new Error(`Missing formula definition: ${formulaName}`);
 
-  const sqlExprResult = testTable.translator.translateExpression(formulaDefinition.expression);
+  const expression = formulaDefinition.expressionWithIds ?? formulaDefinition.expression;
+  const sqlExprResult = testTable.translator.translateExpression(expression);
   const sqlExpr = sqlExprResult._unsafeUnwrap();
   const renderedSql = testTable.translator.renderSql(sqlExpr);
   const result = await fetchSqlValue(testTable, renderedSql);
@@ -896,7 +966,7 @@ export const buildFormulaSnapshotContext = async (
   const refs = extractFieldRefs(formulaDefinition.expression);
   const inputValues = await Promise.all(
     refs.map(async (ref) => {
-      const field = findFieldByName(testTable.table, ref);
+      const field = findFieldByRef(testTable.table, ref);
       const snapshot = await getFieldSnapshotValue(testTable, field);
       return [ref, snapshot] as const;
     })
