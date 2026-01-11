@@ -1,5 +1,4 @@
 // Schema (DDL) exports - re-export selectively to avoid conflicts
-export { PostgresTableSchemaRepository } from './schema';
 export type { IV2PostgresDdlAdapterConfig } from './schema';
 export { v2PostgresDdlAdapterConfigSchema } from './schema';
 export * from './schema/rules';
