@@ -49,6 +49,22 @@ export const COMPUTED_TABLE_ALIAS = 't';
 const T = COMPUTED_TABLE_ALIAS; // main table alias
 const F = 'f'; // foreign table alias in lateral
 
+/**
+ * Configuration for dirty record filtering.
+ * When provided, the query will INNER JOIN with the dirty table early
+ * (before lateral joins) to filter records efficiently.
+ */
+export interface IDirtyFilterConfig {
+  /** The table ID to filter by in the dirty table */
+  tableId: string;
+  /** The name of the dirty table (default: 'tmp_computed_dirty') */
+  dirtyTableName?: string;
+  /** Column name for table ID in dirty table (default: 'table_id') */
+  tableIdColumn?: string;
+  /** Column name for record ID in dirty table (default: 'record_id') */
+  recordIdColumn?: string;
+}
+
 export interface IComputedQueryBuilderOptions {
   /** Foreign tables for link/lookup/rollup - can be pre-set (for tests) or loaded via prepare() */
   readonly foreignTables?: ReadonlyMap<string, Table>;
@@ -67,6 +83,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private orderByDirection: 'asc' | 'desc' = 'asc';
   private foreignTables: ReadonlyMap<string, Table>;
   private whereSpecs: Array<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>> = [];
+  private dirtyFilterConfig: IDirtyFilterConfig | null = null;
 
   readonly mode: QueryMode = 'computed';
 
@@ -105,6 +122,20 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
   where(spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>): this {
     this.whereSpecs.push(spec);
+    return this;
+  }
+
+  /**
+   * Set dirty filter configuration.
+   * When set, the query will INNER JOIN with the dirty table immediately after
+   * the main table (before any lateral joins), ensuring PostgreSQL can use the
+   * small dirty table to drive indexed lookups on the main table.
+   *
+   * This is critical for UPDATE...FROM performance - without early filtering,
+   * PostgreSQL may scan and compute lateral joins for all rows before filtering.
+   */
+  withDirtyFilter(config: IDirtyFilterConfig): this {
+    this.dirtyFilterConfig = config;
     return this;
   }
 
@@ -204,9 +235,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           return err(whereClauseResult.error);
         }
         const whereClause = whereClauseResult.value;
+
+        // Build dirty filter join function if configured.
+        // This MUST be applied BEFORE lateral joins to allow PostgreSQL to use
+        // the small dirty table to drive indexed lookups, avoiding full table scans.
+        const applyDirtyFilter = this.buildDirtyFilterJoin();
+
         const query = this.db
           .selectFrom(`${tableName} as ${T}`)
           .select(() => selectColumns)
+          .$call(applyDirtyFilter) // Apply dirty filter BEFORE lateral joins
           .$call(applyLateralJoins)
           .$call(applyConditionalJoins)
           .$if(whereClause !== null, (qb) =>
@@ -220,6 +258,34 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         return ok(query);
       }.bind(this)
     );
+  }
+
+  /**
+   * Build the dirty filter join function.
+   * When dirtyFilterConfig is set, returns a function that applies an INNER JOIN
+   * with the dirty table. This must be called BEFORE lateral joins in the query
+   * chain to ensure proper query planning.
+   */
+  private buildDirtyFilterJoin(): (qb: QB) => QB {
+    if (!this.dirtyFilterConfig) {
+      return (qb) => qb;
+    }
+
+    const {
+      tableId,
+      dirtyTableName = 'tmp_computed_dirty',
+      tableIdColumn = 'table_id',
+      recordIdColumn = 'record_id',
+    } = this.dirtyFilterConfig;
+
+    const DIRTY_ALIAS = '__dirty';
+
+    return (qb) =>
+      qb.innerJoin(`${dirtyTableName} as ${DIRTY_ALIAS}`, (join) =>
+        join
+          .onRef(`${T}.__id`, '=', `${DIRTY_ALIAS}.${recordIdColumn}`)
+          .on(`${DIRTY_ALIAS}.${tableIdColumn}`, '=', tableId)
+      ) as QB;
   }
 
   private createLateralContext() {

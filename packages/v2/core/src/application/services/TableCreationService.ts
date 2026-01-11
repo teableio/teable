@@ -6,12 +6,12 @@ import type { BaseId } from '../../domain/base/BaseId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { LinkForeignTableReference } from '../../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
-import { Table } from '../../domain/table/Table';
+import type { Table } from '../../domain/table/Table';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
-import { v2CoreTokens } from '../../ports/tokens';
-import { TraceSpan } from '../../ports/TraceSpan';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../../ports/TableSchemaRepository';
+import { v2CoreTokens } from '../../ports/tokens';
+import { TraceSpan } from '../../ports/TraceSpan';
 import { FieldCreationSideEffectService } from './FieldCreationSideEffectService';
 
 export type TableCreationServiceInput = {
@@ -184,7 +184,17 @@ export class TableCreationService {
       const persistedById = new Map(
         persistedTables.map((table) => [table.id().toString(), table] as const)
       );
-      for (const table of persistedTables) {
+
+      const orderedPersistedTables: Table[] = [];
+      for (const table of tables) {
+        const persistedTable = persistedById.get(table.id().toString());
+        if (!persistedTable) {
+          return err(domainError.notFound({ message: 'Persisted table not found' }));
+        }
+        orderedPersistedTables.push(persistedTable);
+      }
+
+      for (const table of orderedPersistedTables) {
         tableState.set(table.id().toString(), table);
       }
 
@@ -211,7 +221,7 @@ export class TableCreationService {
       }
 
       return ok({
-        persistedTables,
+        persistedTables: orderedPersistedTables,
         tableState,
         sideEffectEvents,
       });

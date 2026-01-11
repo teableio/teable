@@ -13,8 +13,8 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import { ViewName } from '../domain/table/views/ViewName';
 // Import schema from the new schema files
-import { createTableInputSchema } from '../schemas/table/createTable.schema';
 import type { ITableFieldInput } from '../schemas/field';
+import { createTableInputSchema } from '../schemas/table/createTable.schema';
 import type { RecordFieldValues } from './CreateRecordCommand';
 import {
   collectForeignTableReferences,

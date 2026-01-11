@@ -573,7 +573,10 @@ export class ComputedFieldUpdater {
             );
           }
 
-          const builder = new ComputedTableRecordQueryBuilder(db).from(table).select(step.fieldIds);
+          const builder = new ComputedTableRecordQueryBuilder(db)
+            .from(table)
+            .select(step.fieldIds)
+            .withDirtyFilter({ tableId: step.tableId.toString() });
           yield* await builder.prepare({
             context,
             tableRepository: this.tableRepository,
@@ -584,7 +587,8 @@ export class ComputedFieldUpdater {
             table,
             fieldIds: step.fieldIds,
             selectQuery,
-            dirtyFilter: { tableId: step.tableId },
+            // Note: dirtyFilter is applied on the ComputedTableRecordQueryBuilder above
+            // This ensures the dirty JOIN is placed BEFORE lateral joins for optimal query planning
           });
 
           // Record SQL on span

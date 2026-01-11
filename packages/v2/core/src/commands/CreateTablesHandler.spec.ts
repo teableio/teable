@@ -117,17 +117,19 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
 class FakeTableRecordRepository implements ITableRecordRepository {
   insertedCount = 0;
+  insertedTableIds: string[] = [];
+  insertedRecordsByTable = new Map<string, TableRecord[]>();
 
   async insert(_context: IExecutionContext, _table: Table, _record: TableRecord) {
     return ok(undefined);
   }
 
-  async insertMany(
-    _context: IExecutionContext,
-    _table: Table,
-    records: ReadonlyArray<TableRecord>
-  ) {
+  async insertMany(_context: IExecutionContext, table: Table, records: ReadonlyArray<TableRecord>) {
+    const tableId = table.id().toString();
+    this.insertedTableIds.push(tableId);
     this.insertedCount += records.length;
+    const existing = this.insertedRecordsByTable.get(tableId) ?? [];
+    this.insertedRecordsByTable.set(tableId, [...existing, ...records]);
     return ok(undefined);
   }
 
@@ -328,5 +330,100 @@ describe('CreateTablesHandler', () => {
     result._unsafeUnwrap();
 
     expect(recordRepository.insertedCount).toBe(3);
+  });
+
+  it('keeps record insertion mapped to input order', async () => {
+    const baseId = `bse${'e'.repeat(16)}`;
+    const tableAId = `tbl${'a'.repeat(16)}`;
+    const tableBId = `tbl${'b'.repeat(16)}`;
+    const tableAPrimaryId = `fld${'a'.repeat(16)}`;
+    const tableBPrimaryId = `fld${'b'.repeat(16)}`;
+    const tableALinkId = `fld${'c'.repeat(16)}`;
+
+    const commandResult = CreateTablesCommand.create({
+      baseId,
+      tables: [
+        {
+          tableId: tableAId,
+          name: 'Table A',
+          fields: [
+            { type: 'singleLineText', id: tableAPrimaryId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: tableALinkId,
+              name: 'Link to B',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableBId,
+                lookupFieldId: tableBPrimaryId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+          records: [{ fields: { [tableAPrimaryId]: 'Alpha' } }],
+        },
+        {
+          tableId: tableBId,
+          name: 'Table B',
+          fields: [{ type: 'singleLineText', id: tableBPrimaryId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+          records: [{ fields: { [tableBPrimaryId]: 'Beta' } }],
+        },
+      ],
+    });
+
+    const tableRepository = new FakeTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
+    const tableMapper = new DefaultTableMapper();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      tableMapper,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const tableCreationService = new TableCreationService(
+      tableRepository,
+      schemaRepository,
+      fieldCreationSideEffectService
+    );
+
+    const handler = new CreateTablesHandler(
+      tableRepository,
+      recordRepository,
+      foreignTableLoaderService,
+      tableCreationService,
+      tableMapper,
+      eventBus,
+      unitOfWork
+    );
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
+
+    const recordsA = recordRepository.insertedRecordsByTable.get(tableAId) ?? [];
+    const recordsB = recordRepository.insertedRecordsByTable.get(tableBId) ?? [];
+
+    expect(recordsA).toHaveLength(1);
+    expect(recordsB).toHaveLength(1);
+
+    const recordAValue = recordsA[0]
+      ?.fields()
+      .entries()
+      .find((entry) => entry.fieldId.toString() === tableAPrimaryId)
+      ?.value.toValue();
+    const recordBValue = recordsB[0]
+      ?.fields()
+      .entries()
+      .find((entry) => entry.fieldId.toString() === tableBPrimaryId)
+      ?.value.toValue();
+
+    expect(recordAValue).toBe('Alpha');
+    expect(recordBValue).toBe('Beta');
   });
 });

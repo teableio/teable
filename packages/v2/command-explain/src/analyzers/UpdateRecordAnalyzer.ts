@@ -421,7 +421,10 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             // Build SELECT query using ComputedTableRecordQueryBuilder
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const selectBuilder = new ComputedTableRecordQueryBuilder(analyzer.db as any);
-            selectBuilder.from(batchTable).select(batchFieldIds);
+            selectBuilder
+              .from(batchTable)
+              .select(batchFieldIds)
+              .withDirtyFilter({ tableId: batch.tableId.toString() });
 
             // Prepare foreign tables for link/lookup/rollup
             const prepareResult = await selectBuilder.prepare({
@@ -463,7 +466,8 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               table: batchTable,
               fieldIds: batchFieldIds,
               selectQuery: selectQueryResult.value,
-              dirtyFilter: { tableId: batch.tableId },
+              // Note: dirtyFilter is applied on the ComputedTableRecordQueryBuilder above
+              // This ensures the dirty JOIN is placed BEFORE lateral joins for optimal query planning
             });
 
             if (compiledResult.isErr()) {

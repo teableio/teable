@@ -7,7 +7,11 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import type { ITableRecordDto, IExplainResultDto } from '@teable/v2-contract-http';
-import { type Table as TableAggregate } from '@teable/v2-core';
+import {
+  type Table as TableAggregate,
+  type SingleSelectField,
+  type MultipleSelectField,
+} from '@teable/v2-core';
 import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -72,19 +76,55 @@ export function RecordUpdateDialog({
   const recordSchema = useRecordInputSchema(table);
   const validatorAdapter = standardSchemaValidator() as RecordFormValidator;
 
+  const normalizeSelectValue = useCallback(
+    (field: SingleSelectField | MultipleSelectField, value: unknown): string | null => {
+      if (value === null || value === undefined) return null;
+      if (typeof value === 'string') return value.trim() ? value : null;
+      if (typeof value === 'object') {
+        const candidate = value as { id?: unknown; name?: unknown };
+        if (typeof candidate.id === 'string') return candidate.id;
+        if (typeof candidate.name === 'string') {
+          const match = field
+            .selectOptions()
+            .find((option) => option.name().toString() === candidate.name);
+          return match?.id().toString() ?? candidate.name;
+        }
+      }
+      return null;
+    },
+    []
+  );
+
   const defaultValues = useMemo(() => {
     const values: RecordFieldValues = {};
     for (const field of editableFields) {
       const fieldId = field.id().toString();
+      const fieldType = field.type().toString();
       const recordValue = record.fields[fieldId];
       if (recordValue !== undefined) {
+        if (fieldType === 'date' && recordValue instanceof Date) {
+          values[fieldId] = recordValue.toISOString();
+          continue;
+        }
+        if (fieldType === 'singleSelect') {
+          values[fieldId] = normalizeSelectValue(field as SingleSelectField, recordValue);
+          continue;
+        }
+        if (fieldType === 'multipleSelect') {
+          const entries = Array.isArray(recordValue) ? recordValue : [recordValue];
+          const normalized = entries
+            .map((entry) => normalizeSelectValue(field as MultipleSelectField, entry))
+            .filter((entry): entry is string => Boolean(entry));
+          values[fieldId] = normalized.length > 0 ? normalized : null;
+          continue;
+        }
         values[fieldId] = recordValue;
         continue;
       }
-      values[fieldId] = field.type().toString() === 'checkbox' ? false : null;
+      values[fieldId] = fieldType === 'checkbox' ? false : null;
     }
     return values;
-  }, [editableFields, record]);
+  }, [editableFields, normalizeSelectValue, record]);
 
   const updateRecordMutation = useMutation(
     orpc.tables.updateRecord.mutationOptions({

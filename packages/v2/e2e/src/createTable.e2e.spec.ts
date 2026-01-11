@@ -287,6 +287,56 @@ describe('v2 http createTable (e2e)', () => {
     }
   });
 
+  it('keeps seeded records aligned with input table order', async () => {
+    const tableAId = `tbl${'a'.repeat(16)}`;
+    const tableBId = `tbl${'b'.repeat(16)}`;
+    const tableAPrimaryId = createFieldId();
+    const tableBPrimaryId = createFieldId();
+    const tableALinkId = createFieldId();
+
+    const tables = await createTables({
+      baseId,
+      tables: [
+        {
+          tableId: tableAId,
+          name: 'Order A',
+          fields: [
+            { type: 'singleLineText', id: tableAPrimaryId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: tableALinkId,
+              name: 'Link to B',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableBId,
+                lookupFieldId: tableBPrimaryId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+          records: [{ fields: { [tableAPrimaryId]: 'A1' } }],
+        },
+        {
+          tableId: tableBId,
+          name: 'Order B',
+          fields: [{ type: 'singleLineText', id: tableBPrimaryId, name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+          records: [{ fields: { [tableBPrimaryId]: 'B1' } }],
+        },
+      ],
+    });
+
+    expect(tables.map((table) => table.id)).toEqual([tableAId, tableBId]);
+
+    const recordsA = await listTableRecords(tableAId);
+    const recordsB = await listTableRecords(tableBId);
+
+    expect(recordsA).toHaveLength(1);
+    expect(recordsB).toHaveLength(1);
+    expect(recordsA[0]?.fields[tableAPrimaryId]).toBe('A1');
+    expect(recordsB[0]?.fields[tableBPrimaryId]).toBe('B1');
+  });
+
   it('creates tables when rollup and formula fields are declared before dependencies', async () => {
     const foreignTable = await createTable({
       baseId,

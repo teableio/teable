@@ -87,6 +87,11 @@ export class UpdateFromSelectBuilder {
         if (setValuesResult.isErr()) return err(setValuesResult.error);
 
         // Apply dirty filter to the SELECT query if provided
+        // Use INNER JOIN instead of IN subquery for better query planning.
+        // PostgreSQL's planner often chooses to scan the entire main table first
+        // when using IN subquery, even when the dirty table is very small.
+        // INNER JOIN allows the planner to use the small dirty table to drive
+        // indexed lookups on the main table.
         let finalSelectQuery = params.selectQuery;
         if (params.dirtyFilter) {
           const {
@@ -96,16 +101,11 @@ export class UpdateFromSelectBuilder {
             recordIdColumn = 'record_id',
           } = params.dirtyFilter;
 
-          const dirtyIds = this.db
-            .selectFrom(`${dirtyTableName} as d`)
-            .select(sql.ref(`d.${recordIdColumn}`).as(recordIdColumn))
-            .where(sql.ref(`d.${tableIdColumn}`), '=', tableId.toString());
-
-          finalSelectQuery = params.selectQuery.where(
-            `${COMPUTED_TABLE_ALIAS}.__id`,
-            'in',
-            dirtyIds
-          );
+          finalSelectQuery = params.selectQuery.innerJoin(`${dirtyTableName} as __dirty`, (join) =>
+            join
+              .onRef(`${COMPUTED_TABLE_ALIAS}.__id`, '=', `__dirty.${recordIdColumn}`)
+              .on(`__dirty.${tableIdColumn}`, '=', tableId.toString())
+          ) as QB;
         }
 
         let query = this.db
