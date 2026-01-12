@@ -41,6 +41,10 @@
     "pin": "Sabitle",
     "empty": "Sabitlediğiniz veritabanları ve alanlar burada görünecek"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "Veritabanı oluşturma izniniz yok",
+    "creatingBase": "Veritabanı oluşturuluyor..."
+  },
   "tip": {
     "delete": "<0/> silmek istediğinizden emin misiniz?",
     "title": "İpuçları",
