@@ -88,12 +88,12 @@ exports[`text functions > 'Concatenate' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "10-x",
+  "result": "-x",
   "sql": "CONCAT((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -155,15 +155,15 @@ exports[`text functions > 'Concatenate' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00-x",
+  "result": "-x",
   "sql": "CONCAT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '-x')",
 }
 `;
@@ -247,7 +247,7 @@ exports[`text functions > 'Concatenate' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "10-x",
@@ -306,12 +306,12 @@ exports[`text functions > 'Concatenate' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "10-x",
+  "result": "-x",
   "sql": "CONCAT(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), '-x')",
 }
 `;
@@ -344,12 +344,12 @@ exports[`text functions > 'Concatenate' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "10-x",
+  "result": "-x",
   "sql": "CONCAT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -470,15 +470,15 @@ exports[`text functions > 'Concatenate' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00-x",
+  "result": "-x",
   "sql": "CONCAT(to_char(("t"."RollupType")::numeric, 'FM999999990D00'), '-x')",
 }
 `;
@@ -631,12 +631,12 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "encode((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -698,15 +698,15 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00",
+  "result": null,
   "sql": "encode(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::bytea, 'escape')",
 }
 `;
@@ -790,7 +790,7 @@ exports[`text functions > 'EncodeUrlComponent' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "10",
@@ -849,12 +849,12 @@ exports[`text functions > 'EncodeUrlComponent' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "encode(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')::bytea, 'escape')",
 }
 `;
@@ -887,12 +887,12 @@ exports[`text functions > 'EncodeUrlComponent' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "encode((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -1013,15 +1013,15 @@ exports[`text functions > 'EncodeUrlComponent' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00",
+  "result": null,
   "sql": "encode(to_char(("t"."RollupType")::numeric, 'FM999999990D00')::bytea, 'escape')",
 }
 `;
@@ -1174,12 +1174,12 @@ exports[`text functions > 'Find' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION('1' IN SUBSTRING((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -1241,15 +1241,15 @@ exports[`text functions > 'Find' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION('1' IN SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
@@ -1333,7 +1333,7 @@ exports[`text functions > 'Find' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1",
@@ -1392,12 +1392,12 @@ exports[`text functions > 'Find' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION('1' IN SUBSTRING(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
@@ -1430,12 +1430,12 @@ exports[`text functions > 'Find' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION('1' IN SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -1556,15 +1556,15 @@ exports[`text functions > 'Find' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION('1' IN SUBSTRING(to_char(("t"."RollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
@@ -1735,12 +1735,12 @@ exports[`text functions > 'Left' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "LEFT((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -1802,15 +1802,15 @@ exports[`text functions > 'Left' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "LEFT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (1)::double precision::integer)",
 }
 `;
@@ -1894,7 +1894,7 @@ exports[`text functions > 'Left' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1",
@@ -1953,12 +1953,12 @@ exports[`text functions > 'Left' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "LEFT(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), (1)::double precision::integer)",
 }
 `;
@@ -1991,12 +1991,12 @@ exports[`text functions > 'Left' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "LEFT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -2117,15 +2117,15 @@ exports[`text functions > 'Left' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "LEFT(to_char(("t"."RollupType")::numeric, 'FM999999990D00'), (1)::double precision::integer)",
 }
 `;
@@ -2278,12 +2278,12 @@ exports[`text functions > 'Len' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "2",
+  "result": null,
   "sql": "LENGTH((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -2345,15 +2345,15 @@ exports[`text functions > 'Len' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "5",
+  "result": null,
   "sql": "LENGTH(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -2437,7 +2437,7 @@ exports[`text functions > 'Len' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "2",
@@ -2496,12 +2496,12 @@ exports[`text functions > 'Len' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "2",
+  "result": null,
   "sql": "LENGTH(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
 `;
@@ -2534,12 +2534,12 @@ exports[`text functions > 'Len' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "2",
+  "result": null,
   "sql": "LENGTH((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -2660,15 +2660,15 @@ exports[`text functions > 'Len' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "5",
+  "result": null,
   "sql": "LENGTH(to_char(("t"."RollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -2821,12 +2821,12 @@ exports[`text functions > 'Lower' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "LOWER((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -2888,15 +2888,15 @@ exports[`text functions > 'Lower' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00",
+  "result": null,
   "sql": "LOWER(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -2980,7 +2980,7 @@ exports[`text functions > 'Lower' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "10",
@@ -3039,12 +3039,12 @@ exports[`text functions > 'Lower' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "LOWER(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
 `;
@@ -3077,12 +3077,12 @@ exports[`text functions > 'Lower' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "LOWER((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -3203,15 +3203,15 @@ exports[`text functions > 'Lower' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00",
+  "result": null,
   "sql": "LOWER(to_char(("t"."RollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -3364,12 +3364,12 @@ exports[`text functions > 'Mid' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "SUBSTRING((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -3431,15 +3431,15 @@ exports[`text functions > 'Mid' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
@@ -3523,7 +3523,7 @@ exports[`text functions > 'Mid' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "10",
@@ -3582,12 +3582,12 @@ exports[`text functions > 'Mid' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "SUBSTRING(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
@@ -3620,12 +3620,12 @@ exports[`text functions > 'Mid' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -3746,15 +3746,15 @@ exports[`text functions > 'Mid' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "SUBSTRING(to_char(("t"."RollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
@@ -3907,12 +3907,12 @@ exports[`text functions > 'RegExpReplace' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "REGEXP_REPLACE((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -3974,15 +3974,15 @@ exports[`text functions > 'RegExpReplace' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "x0.00",
+  "result": null,
   "sql": "REGEXP_REPLACE(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '1', 'x', 'g')",
 }
 `;
@@ -4066,7 +4066,7 @@ exports[`text functions > 'RegExpReplace' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "x0",
@@ -4125,12 +4125,12 @@ exports[`text functions > 'RegExpReplace' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "REGEXP_REPLACE(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), '1', 'x', 'g')",
 }
 `;
@@ -4163,12 +4163,12 @@ exports[`text functions > 'RegExpReplace' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "REGEXP_REPLACE((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -4289,15 +4289,15 @@ exports[`text functions > 'RegExpReplace' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "x0.00",
+  "result": null,
   "sql": "REGEXP_REPLACE(to_char(("t"."RollupType")::numeric, 'FM999999990D00'), '1', 'x', 'g')",
 }
 `;
@@ -4450,12 +4450,12 @@ exports[`text functions > 'Replace' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "OVERLAY((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -4517,15 +4517,15 @@ exports[`text functions > 'Replace' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "x0.00",
+  "result": null,
   "sql": "OVERLAY(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
@@ -4609,7 +4609,7 @@ exports[`text functions > 'Replace' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "x0",
@@ -4668,12 +4668,12 @@ exports[`text functions > 'Replace' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "OVERLAY(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
@@ -4706,12 +4706,12 @@ exports[`text functions > 'Replace' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "OVERLAY((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -4832,15 +4832,15 @@ exports[`text functions > 'Replace' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "x0.00",
+  "result": null,
   "sql": "OVERLAY(to_char(("t"."RollupType")::numeric, 'FM999999990D00') PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
@@ -4993,12 +4993,12 @@ exports[`text functions > 'Rept' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "1010",
+  "result": null,
   "sql": "REPEAT((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -5060,15 +5060,15 @@ exports[`text functions > 'Rept' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.0010.00",
+  "result": null,
   "sql": "REPEAT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (2)::double precision::integer)",
 }
 `;
@@ -5152,7 +5152,7 @@ exports[`text functions > 'Rept' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1010",
@@ -5211,12 +5211,12 @@ exports[`text functions > 'Rept' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "1010",
+  "result": null,
   "sql": "REPEAT(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), (2)::double precision::integer)",
 }
 `;
@@ -5249,12 +5249,12 @@ exports[`text functions > 'Rept' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "1010",
+  "result": null,
   "sql": "REPEAT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -5375,15 +5375,15 @@ exports[`text functions > 'Rept' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.0010.00",
+  "result": null,
   "sql": "REPEAT(to_char(("t"."RollupType")::numeric, 'FM999999990D00'), (2)::double precision::integer)",
 }
 `;
@@ -5536,12 +5536,12 @@ exports[`text functions > 'Right' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "RIGHT((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -5603,15 +5603,15 @@ exports[`text functions > 'Right' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "RIGHT(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), (1)::double precision::integer)",
 }
 `;
@@ -5695,7 +5695,7 @@ exports[`text functions > 'Right' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "0",
@@ -5754,12 +5754,12 @@ exports[`text functions > 'Right' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "RIGHT(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), (1)::double precision::integer)",
 }
 `;
@@ -5792,12 +5792,12 @@ exports[`text functions > 'Right' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "RIGHT((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -5918,15 +5918,15 @@ exports[`text functions > 'Right' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "RIGHT(to_char(("t"."RollupType")::numeric, 'FM999999990D00'), (1)::double precision::integer)",
 }
 `;
@@ -6079,12 +6079,12 @@ exports[`text functions > 'Search' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -6146,15 +6146,15 @@ exports[`text functions > 'Search' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
@@ -6238,7 +6238,7 @@ exports[`text functions > 'Search' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1",
@@ -6297,12 +6297,12 @@ exports[`text functions > 'Search' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
@@ -6335,12 +6335,12 @@ exports[`text functions > 'Search' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -6461,15 +6461,15 @@ exports[`text functions > 'Search' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(to_char(("t"."RollupType")::numeric, 'FM999999990D00') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
@@ -6640,12 +6640,12 @@ exports[`text functions > 'Substitute' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "REPLACE((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -6707,15 +6707,15 @@ exports[`text functions > 'Substitute' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "x0.00",
+  "result": null,
   "sql": "REPLACE(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'), '1', 'x')",
 }
 `;
@@ -6799,7 +6799,7 @@ exports[`text functions > 'Substitute' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "x0",
@@ -6858,12 +6858,12 @@ exports[`text functions > 'Substitute' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "REPLACE(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), '1', 'x')",
 }
 `;
@@ -6896,12 +6896,12 @@ exports[`text functions > 'Substitute' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "x0",
+  "result": null,
   "sql": "REPLACE((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -7022,15 +7022,15 @@ exports[`text functions > 'Substitute' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "x0.00",
+  "result": null,
   "sql": "REPLACE(to_char(("t"."RollupType")::numeric, 'FM999999990D00'), '1', 'x')",
 }
 `;
@@ -7183,12 +7183,12 @@ exports[`text functions > 'T' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "(
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -7250,12 +7250,12 @@ exports[`text functions > 'T' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": null,
@@ -7342,7 +7342,7 @@ exports[`text functions > 'T' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": null,
@@ -7401,12 +7401,12 @@ exports[`text functions > 'T' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "{"id": "rec_*", "title": "10"}",
+  "result": null,
   "sql": ""t"."LinkType"",
 }
 `;
@@ -7439,12 +7439,12 @@ exports[`text functions > 'T' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "(
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -7565,12 +7565,12 @@ exports[`text functions > 'T' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": null,
@@ -7726,12 +7726,12 @@ exports[`text functions > 'Trim' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "TRIM((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -7793,15 +7793,15 @@ exports[`text functions > 'Trim' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00",
+  "result": null,
   "sql": "TRIM(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -7885,7 +7885,7 @@ exports[`text functions > 'Trim' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "10",
@@ -7944,12 +7944,12 @@ exports[`text functions > 'Trim' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "TRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
 `;
@@ -7982,12 +7982,12 @@ exports[`text functions > 'Trim' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "TRIM((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -8108,15 +8108,15 @@ exports[`text functions > 'Trim' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00",
+  "result": null,
   "sql": "TRIM(to_char(("t"."RollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -8269,12 +8269,12 @@ exports[`text functions > 'Upper' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "UPPER((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -8336,15 +8336,15 @@ exports[`text functions > 'Upper' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00",
+  "result": null,
   "sql": "UPPER(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))",
 }
 `;
@@ -8428,7 +8428,7 @@ exports[`text functions > 'Upper' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "10",
@@ -8487,12 +8487,12 @@ exports[`text functions > 'Upper' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "UPPER(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
 `;
@@ -8525,12 +8525,12 @@ exports[`text functions > 'Upper' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "UPPER((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -8651,15 +8651,15 @@ exports[`text functions > 'Upper' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10.00",
+  "result": null,
   "sql": "UPPER(to_char(("t"."RollupType")::numeric, 'FM999999990D00'))",
 }
 `;

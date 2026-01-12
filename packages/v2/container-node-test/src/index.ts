@@ -139,7 +139,13 @@ export const createV2NodeTestContainer = async (
   c.registerInstance(v2CoreTokens.logger, spyLogger);
 
   // Register table repository postgres adapter (schema + record repositories)
-  registerV2TableRepositoryPostgresAdapter(c, { db });
+  registerV2TableRepositoryPostgresAdapter(c, {
+    db,
+    computedUpdate: {
+      hybridConfig: { dispatchMode: 'external' },
+      pollingConfig: { enabled: false },
+    },
+  });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,

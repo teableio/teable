@@ -17,13 +17,13 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
+import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater } from '../ComputedFieldUpdater';
 import type {
   ComputedSeedGroup,
   ComputedUpdatePlan,
   ComputedUpdatePlanner,
 } from '../ComputedUpdatePlanner';
-import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun } from '../ComputedUpdateRun';
 import type {

@@ -98,15 +98,15 @@ exports[`binary comparison operators > 'Eq' 'attachment' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "attachment",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -315,15 +315,15 @@ exports[`binary comparison operators > 'Eq' 'checkbox' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "checkbox",
   "opId": "Eq",
   "operator": "=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(("t"."Checkbox")::text = COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -368,15 +368,15 @@ exports[`binary comparison operators > 'Eq' 'conditionalLookup' '=' 'conditional
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalLookup",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "conditionalLookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -483,18 +483,18 @@ exports[`binary comparison operators > 'Eq' 'conditionalRollup' '=' 'conditional
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalRollup",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "conditionalRollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -622,15 +622,15 @@ exports[`binary comparison operators > 'Eq' 'date' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "date",
   "opId": "Eq",
   "operator": "=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'Asia/Shanghai', 'YYYY/MM/DD HH24:MI') AS val) AS v) AND (SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -721,7 +721,7 @@ exports[`binary comparison operators > 'Eq' 'formula' '=' 'attachment' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -775,7 +775,7 @@ exports[`binary comparison operators > 'Eq' 'formula' '=' 'checkbox' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -821,7 +821,7 @@ exports[`binary comparison operators > 'Eq' 'formula' '=' 'date' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -856,7 +856,7 @@ exports[`binary comparison operators > 'Eq' 'formula' '=' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -891,20 +891,20 @@ exports[`binary comparison operators > 'Eq' 'formula' '=' 'link' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (10)::text AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -933,7 +933,7 @@ exports[`binary comparison operators > 'Eq' 'formula' '=' 'multipleSelect' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -987,7 +987,7 @@ exports[`binary comparison operators > 'Eq' 'formula' '=' 'singleSelect' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -1029,7 +1029,7 @@ exports[`binary comparison operators > 'Eq' 'formula' '=' 'user' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -1135,15 +1135,15 @@ exports[`binary comparison operators > 'Eq' 'link' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "link",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') = COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -1177,15 +1177,15 @@ exports[`binary comparison operators > 'Eq' 'lookup' '=' 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "leftType": "lookup",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "lookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -1415,9 +1415,9 @@ exports[`binary comparison operators > 'Eq' 'multipleSelect' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -1430,7 +1430,7 @@ exports[`binary comparison operators > 'Eq' 'multipleSelect' '=' 'link' 1`] = `
   "leftType": "multipleSelect",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -1701,7 +1701,7 @@ exports[`binary comparison operators > 'Eq' 'number' '=' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -1741,9 +1741,9 @@ exports[`binary comparison operators > 'Eq' 'number' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -1759,7 +1759,7 @@ exports[`binary comparison operators > 'Eq' 'number' '=' 'link' 1`] = `
   "leftType": "number",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -2126,18 +2126,18 @@ exports[`binary comparison operators > 'Eq' 'rollup' '=' 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "rollup",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "rollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -2269,7 +2269,7 @@ exports[`binary comparison operators > 'Eq' 'singleLineText' '=' 'formula' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -2306,9 +2306,9 @@ exports[`binary comparison operators > 'Eq' 'singleLineText' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -2321,7 +2321,7 @@ exports[`binary comparison operators > 'Eq' 'singleLineText' '=' 'link' 1`] = `
   "leftType": "singleLineText",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleLineText" = COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -2592,9 +2592,9 @@ exports[`binary comparison operators > 'Eq' 'singleSelect' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -2607,7 +2607,7 @@ exports[`binary comparison operators > 'Eq' 'singleSelect' '=' 'link' 1`] = `
   "leftType": "singleSelect",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleSelect" = COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -2705,9 +2705,9 @@ exports[`binary comparison operators > 'Eq' 'user' '=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -2720,7 +2720,7 @@ exports[`binary comparison operators > 'Eq' 'user' '=' 'link' 1`] = `
   "leftType": "user",
   "opId": "Eq",
   "operator": "=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -2857,15 +2857,15 @@ exports[`binary comparison operators > 'Gt' 'attachment' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "attachment",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -3074,15 +3074,15 @@ exports[`binary comparison operators > 'Gt' 'checkbox' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "checkbox",
   "opId": "Gt",
   "operator": ">",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(("t"."Checkbox")::text > COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -3127,15 +3127,15 @@ exports[`binary comparison operators > 'Gt' 'conditionalLookup' '>' 'conditional
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalLookup",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "conditionalLookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -3242,18 +3242,18 @@ exports[`binary comparison operators > 'Gt' 'conditionalRollup' '>' 'conditional
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalRollup",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "conditionalRollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -3381,15 +3381,15 @@ exports[`binary comparison operators > 'Gt' 'date' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "date",
   "opId": "Gt",
   "operator": ">",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'Asia/Shanghai', 'YYYY/MM/DD HH24:MI') AS val) AS v) AND (SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -3480,7 +3480,7 @@ exports[`binary comparison operators > 'Gt' 'formula' '>' 'attachment' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -3534,7 +3534,7 @@ exports[`binary comparison operators > 'Gt' 'formula' '>' 'checkbox' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -3580,7 +3580,7 @@ exports[`binary comparison operators > 'Gt' 'formula' '>' 'date' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -3615,7 +3615,7 @@ exports[`binary comparison operators > 'Gt' 'formula' '>' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -3650,20 +3650,20 @@ exports[`binary comparison operators > 'Gt' 'formula' '>' 'link' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (10)::text AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -3692,7 +3692,7 @@ exports[`binary comparison operators > 'Gt' 'formula' '>' 'multipleSelect' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -3746,7 +3746,7 @@ exports[`binary comparison operators > 'Gt' 'formula' '>' 'singleSelect' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -3788,7 +3788,7 @@ exports[`binary comparison operators > 'Gt' 'formula' '>' 'user' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -3894,15 +3894,15 @@ exports[`binary comparison operators > 'Gt' 'link' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "link",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') > COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -3936,15 +3936,15 @@ exports[`binary comparison operators > 'Gt' 'lookup' '>' 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "leftType": "lookup",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "lookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -4174,9 +4174,9 @@ exports[`binary comparison operators > 'Gt' 'multipleSelect' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -4189,7 +4189,7 @@ exports[`binary comparison operators > 'Gt' 'multipleSelect' '>' 'link' 1`] = `
   "leftType": "multipleSelect",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -4460,7 +4460,7 @@ exports[`binary comparison operators > 'Gt' 'number' '>' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -4500,9 +4500,9 @@ exports[`binary comparison operators > 'Gt' 'number' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -4518,7 +4518,7 @@ exports[`binary comparison operators > 'Gt' 'number' '>' 'link' 1`] = `
   "leftType": "number",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -4885,18 +4885,18 @@ exports[`binary comparison operators > 'Gt' 'rollup' '>' 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "rollup",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "rollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -5028,7 +5028,7 @@ exports[`binary comparison operators > 'Gt' 'singleLineText' '>' 'formula' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -5065,9 +5065,9 @@ exports[`binary comparison operators > 'Gt' 'singleLineText' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -5080,7 +5080,7 @@ exports[`binary comparison operators > 'Gt' 'singleLineText' '>' 'link' 1`] = `
   "leftType": "singleLineText",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleLineText" > COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -5351,9 +5351,9 @@ exports[`binary comparison operators > 'Gt' 'singleSelect' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -5366,7 +5366,7 @@ exports[`binary comparison operators > 'Gt' 'singleSelect' '>' 'link' 1`] = `
   "leftType": "singleSelect",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleSelect" > COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -5464,9 +5464,9 @@ exports[`binary comparison operators > 'Gt' 'user' '>' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -5479,7 +5479,7 @@ exports[`binary comparison operators > 'Gt' 'user' '>' 'link' 1`] = `
   "leftType": "user",
   "opId": "Gt",
   "operator": ">",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -5616,15 +5616,15 @@ exports[`binary comparison operators > 'Gte' 'attachment' '>=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "attachment",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -5833,15 +5833,15 @@ exports[`binary comparison operators > 'Gte' 'checkbox' '>=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "checkbox",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(("t"."Checkbox")::text >= COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -5886,15 +5886,15 @@ exports[`binary comparison operators > 'Gte' 'conditionalLookup' '>=' 'condition
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalLookup",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "conditionalLookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -6001,18 +6001,18 @@ exports[`binary comparison operators > 'Gte' 'conditionalRollup' '>=' 'condition
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalRollup",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "conditionalRollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -6140,15 +6140,15 @@ exports[`binary comparison operators > 'Gte' 'date' '>=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "date",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'Asia/Shanghai', 'YYYY/MM/DD HH24:MI') AS val) AS v) AND (SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -6239,7 +6239,7 @@ exports[`binary comparison operators > 'Gte' 'formula' '>=' 'attachment' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -6293,7 +6293,7 @@ exports[`binary comparison operators > 'Gte' 'formula' '>=' 'checkbox' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -6339,7 +6339,7 @@ exports[`binary comparison operators > 'Gte' 'formula' '>=' 'date' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -6374,7 +6374,7 @@ exports[`binary comparison operators > 'Gte' 'formula' '>=' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -6409,20 +6409,20 @@ exports[`binary comparison operators > 'Gte' 'formula' '>=' 'link' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (10)::text AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -6451,7 +6451,7 @@ exports[`binary comparison operators > 'Gte' 'formula' '>=' 'multipleSelect' 1`]
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -6505,7 +6505,7 @@ exports[`binary comparison operators > 'Gte' 'formula' '>=' 'singleSelect' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -6547,7 +6547,7 @@ exports[`binary comparison operators > 'Gte' 'formula' '>=' 'user' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -6653,15 +6653,15 @@ exports[`binary comparison operators > 'Gte' 'link' '>=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "link",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') >= COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -6695,15 +6695,15 @@ exports[`binary comparison operators > 'Gte' 'lookup' '>=' 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "leftType": "lookup",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "lookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -6933,9 +6933,9 @@ exports[`binary comparison operators > 'Gte' 'multipleSelect' '>=' 'link' 1`] = 
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -6948,7 +6948,7 @@ exports[`binary comparison operators > 'Gte' 'multipleSelect' '>=' 'link' 1`] = 
   "leftType": "multipleSelect",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -7219,7 +7219,7 @@ exports[`binary comparison operators > 'Gte' 'number' '>=' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -7259,9 +7259,9 @@ exports[`binary comparison operators > 'Gte' 'number' '>=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -7277,7 +7277,7 @@ exports[`binary comparison operators > 'Gte' 'number' '>=' 'link' 1`] = `
   "leftType": "number",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -7644,18 +7644,18 @@ exports[`binary comparison operators > 'Gte' 'rollup' '>=' 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "rollup",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "rollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -7787,7 +7787,7 @@ exports[`binary comparison operators > 'Gte' 'singleLineText' '>=' 'formula' 1`]
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -7824,9 +7824,9 @@ exports[`binary comparison operators > 'Gte' 'singleLineText' '>=' 'link' 1`] = 
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -7839,7 +7839,7 @@ exports[`binary comparison operators > 'Gte' 'singleLineText' '>=' 'link' 1`] = 
   "leftType": "singleLineText",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleLineText" >= COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -8110,9 +8110,9 @@ exports[`binary comparison operators > 'Gte' 'singleSelect' '>=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -8125,7 +8125,7 @@ exports[`binary comparison operators > 'Gte' 'singleSelect' '>=' 'link' 1`] = `
   "leftType": "singleSelect",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleSelect" >= COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -8223,9 +8223,9 @@ exports[`binary comparison operators > 'Gte' 'user' '>=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -8238,7 +8238,7 @@ exports[`binary comparison operators > 'Gte' 'user' '>=' 'link' 1`] = `
   "leftType": "user",
   "opId": "Gte",
   "operator": ">=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -8375,15 +8375,15 @@ exports[`binary comparison operators > 'Lt' 'attachment' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "attachment",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -8592,15 +8592,15 @@ exports[`binary comparison operators > 'Lt' 'checkbox' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "checkbox",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(("t"."Checkbox")::text < COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -8645,15 +8645,15 @@ exports[`binary comparison operators > 'Lt' 'conditionalLookup' '<' 'conditional
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalLookup",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "conditionalLookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -8760,18 +8760,18 @@ exports[`binary comparison operators > 'Lt' 'conditionalRollup' '<' 'conditional
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalRollup",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "conditionalRollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -8899,15 +8899,15 @@ exports[`binary comparison operators > 'Lt' 'date' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "date",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'Asia/Shanghai', 'YYYY/MM/DD HH24:MI') AS val) AS v) AND (SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -8998,7 +8998,7 @@ exports[`binary comparison operators > 'Lt' 'formula' '<' 'attachment' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -9052,7 +9052,7 @@ exports[`binary comparison operators > 'Lt' 'formula' '<' 'checkbox' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -9098,7 +9098,7 @@ exports[`binary comparison operators > 'Lt' 'formula' '<' 'date' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -9133,7 +9133,7 @@ exports[`binary comparison operators > 'Lt' 'formula' '<' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -9168,20 +9168,20 @@ exports[`binary comparison operators > 'Lt' 'formula' '<' 'link' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (10)::text AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -9210,7 +9210,7 @@ exports[`binary comparison operators > 'Lt' 'formula' '<' 'multipleSelect' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -9264,7 +9264,7 @@ exports[`binary comparison operators > 'Lt' 'formula' '<' 'singleSelect' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -9306,7 +9306,7 @@ exports[`binary comparison operators > 'Lt' 'formula' '<' 'user' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -9412,15 +9412,15 @@ exports[`binary comparison operators > 'Lt' 'link' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "link",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') < COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -9454,15 +9454,15 @@ exports[`binary comparison operators > 'Lt' 'lookup' '<' 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "leftType": "lookup",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "lookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -9692,9 +9692,9 @@ exports[`binary comparison operators > 'Lt' 'multipleSelect' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -9707,7 +9707,7 @@ exports[`binary comparison operators > 'Lt' 'multipleSelect' '<' 'link' 1`] = `
   "leftType": "multipleSelect",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -9978,7 +9978,7 @@ exports[`binary comparison operators > 'Lt' 'number' '<' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -10018,9 +10018,9 @@ exports[`binary comparison operators > 'Lt' 'number' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -10036,7 +10036,7 @@ exports[`binary comparison operators > 'Lt' 'number' '<' 'link' 1`] = `
   "leftType": "number",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -10403,18 +10403,18 @@ exports[`binary comparison operators > 'Lt' 'rollup' '<' 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "rollup",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "rollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -10546,7 +10546,7 @@ exports[`binary comparison operators > 'Lt' 'singleLineText' '<' 'formula' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -10583,9 +10583,9 @@ exports[`binary comparison operators > 'Lt' 'singleLineText' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -10598,7 +10598,7 @@ exports[`binary comparison operators > 'Lt' 'singleLineText' '<' 'link' 1`] = `
   "leftType": "singleLineText",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleLineText" < COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -10869,9 +10869,9 @@ exports[`binary comparison operators > 'Lt' 'singleSelect' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -10884,7 +10884,7 @@ exports[`binary comparison operators > 'Lt' 'singleSelect' '<' 'link' 1`] = `
   "leftType": "singleSelect",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleSelect" < COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -10982,9 +10982,9 @@ exports[`binary comparison operators > 'Lt' 'user' '<' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -10997,7 +10997,7 @@ exports[`binary comparison operators > 'Lt' 'user' '<' 'link' 1`] = `
   "leftType": "user",
   "opId": "Lt",
   "operator": "<",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -11134,15 +11134,15 @@ exports[`binary comparison operators > 'Lte' 'attachment' '<=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "attachment",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -11351,15 +11351,15 @@ exports[`binary comparison operators > 'Lte' 'checkbox' '<=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "checkbox",
   "opId": "Lte",
   "operator": "<=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(("t"."Checkbox")::text <= COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -11404,15 +11404,15 @@ exports[`binary comparison operators > 'Lte' 'conditionalLookup' '<=' 'condition
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalLookup",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "conditionalLookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -11519,18 +11519,18 @@ exports[`binary comparison operators > 'Lte' 'conditionalRollup' '<=' 'condition
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalRollup",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "conditionalRollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -11658,15 +11658,15 @@ exports[`binary comparison operators > 'Lte' 'date' '<=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "date",
   "opId": "Lte",
   "operator": "<=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'Asia/Shanghai', 'YYYY/MM/DD HH24:MI') AS val) AS v) AND (SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -11757,7 +11757,7 @@ exports[`binary comparison operators > 'Lte' 'formula' '<=' 'attachment' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -11811,7 +11811,7 @@ exports[`binary comparison operators > 'Lte' 'formula' '<=' 'checkbox' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -11857,7 +11857,7 @@ exports[`binary comparison operators > 'Lte' 'formula' '<=' 'date' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -11892,7 +11892,7 @@ exports[`binary comparison operators > 'Lte' 'formula' '<=' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -11927,20 +11927,20 @@ exports[`binary comparison operators > 'Lte' 'formula' '<=' 'link' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (10)::text AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -11969,7 +11969,7 @@ exports[`binary comparison operators > 'Lte' 'formula' '<=' 'multipleSelect' 1`]
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -12023,7 +12023,7 @@ exports[`binary comparison operators > 'Lte' 'formula' '<=' 'singleSelect' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -12065,7 +12065,7 @@ exports[`binary comparison operators > 'Lte' 'formula' '<=' 'user' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -12171,15 +12171,15 @@ exports[`binary comparison operators > 'Lte' 'link' '<=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "link",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') <= COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -12213,15 +12213,15 @@ exports[`binary comparison operators > 'Lte' 'lookup' '<=' 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "leftType": "lookup",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "lookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -12451,9 +12451,9 @@ exports[`binary comparison operators > 'Lte' 'multipleSelect' '<=' 'link' 1`] = 
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -12466,7 +12466,7 @@ exports[`binary comparison operators > 'Lte' 'multipleSelect' '<=' 'link' 1`] = 
   "leftType": "multipleSelect",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -12737,7 +12737,7 @@ exports[`binary comparison operators > 'Lte' 'number' '<=' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -12777,9 +12777,9 @@ exports[`binary comparison operators > 'Lte' 'number' '<=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -12795,7 +12795,7 @@ exports[`binary comparison operators > 'Lte' 'number' '<=' 'link' 1`] = `
   "leftType": "number",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -13162,18 +13162,18 @@ exports[`binary comparison operators > 'Lte' 'rollup' '<=' 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "rollup",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "rollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -13305,7 +13305,7 @@ exports[`binary comparison operators > 'Lte' 'singleLineText' '<=' 'formula' 1`]
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -13342,9 +13342,9 @@ exports[`binary comparison operators > 'Lte' 'singleLineText' '<=' 'link' 1`] = 
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -13357,7 +13357,7 @@ exports[`binary comparison operators > 'Lte' 'singleLineText' '<=' 'link' 1`] = 
   "leftType": "singleLineText",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleLineText" <= COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -13628,9 +13628,9 @@ exports[`binary comparison operators > 'Lte' 'singleSelect' '<=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -13643,7 +13643,7 @@ exports[`binary comparison operators > 'Lte' 'singleSelect' '<=' 'link' 1`] = `
   "leftType": "singleSelect",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleSelect" <= COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -13741,9 +13741,9 @@ exports[`binary comparison operators > 'Lte' 'user' '<=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -13756,7 +13756,7 @@ exports[`binary comparison operators > 'Lte' 'user' '<=' 'link' 1`] = `
   "leftType": "user",
   "opId": "Lte",
   "operator": "<=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -13893,15 +13893,15 @@ exports[`binary comparison operators > 'Neq' 'attachment' '!=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "attachment",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -14110,15 +14110,15 @@ exports[`binary comparison operators > 'Neq' 'checkbox' '!=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "checkbox",
   "opId": "Neq",
   "operator": "!=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(("t"."Checkbox")::text <> COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -14163,15 +14163,15 @@ exports[`binary comparison operators > 'Neq' 'conditionalLookup' '!=' 'condition
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalLookup",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "conditionalLookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -14278,18 +14278,18 @@ exports[`binary comparison operators > 'Neq' 'conditionalRollup' '!=' 'condition
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "conditionalRollup",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "conditionalRollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -14417,15 +14417,15 @@ exports[`binary comparison operators > 'Neq' 'date' '!=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "date",
   "opId": "Neq",
   "operator": "!=",
-  "result": "true",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'Asia/Shanghai', 'YYYY/MM/DD HH24:MI') AS val) AS v) AND (SELECT (pg_input_is_valid((v.val)::text, 'timestamptz') OR pg_input_is_valid((v.val)::text, 'timestamp')) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -14516,7 +14516,7 @@ exports[`binary comparison operators > 'Neq' 'formula' '!=' 'attachment' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -14570,7 +14570,7 @@ exports[`binary comparison operators > 'Neq' 'formula' '!=' 'checkbox' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -14616,7 +14616,7 @@ exports[`binary comparison operators > 'Neq' 'formula' '!=' 'date' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -14651,7 +14651,7 @@ exports[`binary comparison operators > 'Neq' 'formula' '!=' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
@@ -14686,20 +14686,20 @@ exports[`binary comparison operators > 'Neq' 'formula' '!=' 'link' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "formula",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (10)::text AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -14728,7 +14728,7 @@ exports[`binary comparison operators > 'Neq' 'formula' '!=' 'multipleSelect' 1`]
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -14782,7 +14782,7 @@ exports[`binary comparison operators > 'Neq' 'formula' '!=' 'singleSelect' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -14824,7 +14824,7 @@ exports[`binary comparison operators > 'Neq' 'formula' '!=' 'user' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -14930,15 +14930,15 @@ exports[`binary comparison operators > 'Neq' 'link' '!=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "leftType": "link",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') <> COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -14972,15 +14972,15 @@ exports[`binary comparison operators > 'Neq' 'lookup' '!=' 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "leftType": "lookup",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "lookup",
   "sql": "((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -15210,9 +15210,9 @@ exports[`binary comparison operators > 'Neq' 'multipleSelect' '!=' 'link' 1`] = 
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "MultipleSelect": {
       "fieldName": "MultipleSelect",
@@ -15225,7 +15225,7 @@ exports[`binary comparison operators > 'Neq' 'multipleSelect' '!=' 'link' 1`] = 
   "leftType": "multipleSelect",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
@@ -15496,7 +15496,7 @@ exports[`binary comparison operators > 'Neq' 'number' '!=' 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -15536,9 +15536,9 @@ exports[`binary comparison operators > 'Neq' 'number' '!=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "Number": {
       "fieldName": "Number",
@@ -15554,7 +15554,7 @@ exports[`binary comparison operators > 'Neq' 'number' '!=' 'link' 1`] = `
   "leftType": "number",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."Number")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN ((SELECT (CASE
@@ -15921,18 +15921,18 @@ exports[`binary comparison operators > 'Neq' 'rollup' '!=' 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "leftType": "rollup",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "rollup",
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
@@ -16064,7 +16064,7 @@ exports[`binary comparison operators > 'Neq' 'singleLineText' '!=' 'formula' 1`]
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -16101,9 +16101,9 @@ exports[`binary comparison operators > 'Neq' 'singleLineText' '!=' 'link' 1`] = 
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleLineText": {
       "fieldName": "SingleLineText",
@@ -16116,7 +16116,7 @@ exports[`binary comparison operators > 'Neq' 'singleLineText' '!=' 'link' 1`] = 
   "leftType": "singleLineText",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleLineText" <> COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -16387,9 +16387,9 @@ exports[`binary comparison operators > 'Neq' 'singleSelect' '!=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "SingleSelect": {
       "fieldName": "SingleSelect",
@@ -16402,7 +16402,7 @@ exports[`binary comparison operators > 'Neq' 'singleSelect' '!=' 'link' 1`] = `
   "leftType": "singleSelect",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "("t"."SingleSelect" <> COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
 }
@@ -16500,9 +16500,9 @@ exports[`binary comparison operators > 'Neq' 'user' '!=' 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
     "User": {
       "fieldName": "User",
@@ -16515,7 +16515,7 @@ exports[`binary comparison operators > 'Neq' 'user' '!=' 'link' 1`] = `
   "leftType": "user",
   "opId": "Neq",
   "operator": "!=",
-  "result": "false",
+  "result": null,
   "rightType": "link",
   "sql": "((SELECT CASE
       WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL

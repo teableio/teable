@@ -107,12 +107,12 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -272,15 +272,15 @@ exports[`logical functions > 'And' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) AND TRUE)",
 }
 `;
@@ -379,7 +379,7 @@ exports[`logical functions > 'And' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "true",
@@ -448,12 +448,12 @@ exports[`logical functions > 'And' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN NULL
       WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
@@ -496,12 +496,12 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -738,15 +738,15 @@ exports[`logical functions > 'And' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE WHEN "t"."RollupType" IS NULL THEN NULL WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END) AND TRUE)",
 }
 `;
@@ -1001,12 +1001,12 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "yes",
+  "result": "no",
   "sql": "(CASE WHEN (CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -1166,15 +1166,15 @@ exports[`logical functions > 'If' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "yes",
+  "result": "no",
   "sql": "(CASE WHEN (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
 }
 `;
@@ -1273,7 +1273,7 @@ exports[`logical functions > 'If' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "yes",
@@ -1342,12 +1342,12 @@ exports[`logical functions > 'If' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "yes",
+  "result": "no",
   "sql": "(CASE WHEN (CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN NULL
       WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
@@ -1390,12 +1390,12 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "yes",
+  "result": "no",
   "sql": "(CASE WHEN (CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -1632,15 +1632,15 @@ exports[`logical functions > 'If' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "yes",
+  "result": "no",
   "sql": "(CASE WHEN (CASE WHEN "t"."RollupType" IS NULL THEN NULL WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
 }
 `;
@@ -1817,12 +1817,12 @@ exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -1884,15 +1884,15 @@ exports[`logical functions > 'IsError' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') LIKE '#ERROR:%')",
 }
 `;
@@ -1976,7 +1976,7 @@ exports[`logical functions > 'IsError' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "false",
@@ -2035,12 +2035,12 @@ exports[`logical functions > 'IsError' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') LIKE '#ERROR:%')",
 }
 `;
@@ -2073,12 +2073,12 @@ exports[`logical functions > 'IsError' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -2199,15 +2199,15 @@ exports[`logical functions > 'IsError' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "(to_char(("t"."RollupType")::numeric, 'FM999999990D00') LIKE '#ERROR:%')",
 }
 `;
@@ -2379,12 +2379,12 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "(NOT (CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -2544,15 +2544,15 @@ exports[`logical functions > 'Not' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "(NOT (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END))",
 }
 `;
@@ -2651,7 +2651,7 @@ exports[`logical functions > 'Not' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "false",
@@ -2720,12 +2720,12 @@ exports[`logical functions > 'Not' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "(NOT (CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN NULL
       WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
@@ -2768,12 +2768,12 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "(NOT (CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -3010,15 +3010,15 @@ exports[`logical functions > 'Not' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "(NOT (CASE WHEN "t"."RollupType" IS NULL THEN NULL WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END))",
 }
 `;
@@ -3214,12 +3214,12 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -3379,15 +3379,15 @@ exports[`logical functions > 'Or' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) OR FALSE)",
 }
 `;
@@ -3486,7 +3486,7 @@ exports[`logical functions > 'Or' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "true",
@@ -3555,12 +3555,12 @@ exports[`logical functions > 'Or' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN NULL
       WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
@@ -3603,12 +3603,12 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -3845,15 +3845,15 @@ exports[`logical functions > 'Or' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "((CASE WHEN "t"."RollupType" IS NULL THEN NULL WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END) OR FALSE)",
 }
 `;
@@ -4030,12 +4030,12 @@ exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "ten",
+  "result": "other",
   "sql": "(CASE WHEN (
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -4097,12 +4097,12 @@ exports[`logical functions > 'Switch' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "other",
@@ -4189,7 +4189,7 @@ exports[`logical functions > 'Switch' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "ten",
@@ -4248,12 +4248,12 @@ exports[`logical functions > 'Switch' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "ten",
+  "result": "other",
   "sql": "(CASE WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
@@ -4286,12 +4286,12 @@ exports[`logical functions > 'Switch' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "ten",
+  "result": "other",
   "sql": "(CASE WHEN (
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -4412,12 +4412,12 @@ exports[`logical functions > 'Switch' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "other",
@@ -4592,12 +4592,12 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": "true",
   "sql": "(((CASE WHEN (CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -4757,15 +4757,15 @@ exports[`logical functions > 'Xor' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": "true",
   "sql": "(((CASE WHEN (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN NULL WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }
 `;
@@ -4864,7 +4864,7 @@ exports[`logical functions > 'Xor' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "false",
@@ -4933,12 +4933,12 @@ exports[`logical functions > 'Xor' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": "true",
   "sql": "(((CASE WHEN (CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN NULL
       WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
@@ -4981,12 +4981,12 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": "true",
   "sql": "(((CASE WHEN (CASE
       WHEN (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -5223,15 +5223,15 @@ exports[`logical functions > 'Xor' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": "true",
   "sql": "(((CASE WHEN (CASE WHEN "t"."RollupType" IS NULL THEN NULL WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }
 `;

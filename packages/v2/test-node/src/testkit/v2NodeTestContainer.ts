@@ -8,6 +8,7 @@ export interface IV2NodeTestContainer {
   tableRepository: ITableRepository;
   eventBus: MemoryEventBus;
   baseId: BaseId;
+  processOutbox(): Promise<number>;
   dispose(): Promise<void>;
 }
 

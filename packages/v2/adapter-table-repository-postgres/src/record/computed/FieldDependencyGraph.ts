@@ -124,6 +124,10 @@ export type FieldDependencyGraphData = {
   edges: ReadonlyArray<FieldDependencyEdge>;
 };
 
+export type FieldDependencyGraphLoadOptions = {
+  requiredFieldIds?: ReadonlyArray<FieldId>;
+};
+
 /**
  * Load field dependency metadata from Postgres (reference + field config).
  *
@@ -145,12 +149,13 @@ export class FieldDependencyGraph {
 
   async load(
     baseId: BaseId,
-    executionContext?: IExecutionContext
+    executionContext?: IExecutionContext,
+    options: FieldDependencyGraphLoadOptions = {}
   ): Promise<Result<FieldDependencyGraphData, DomainError>> {
     return safeTry<FieldDependencyGraphData, DomainError>(
       async function* (this: FieldDependencyGraph) {
         const db = resolvePostgresDb(this.db, executionContext);
-        const fields = yield* await this.loadFields(db, baseId);
+        const fields = yield* await this.loadFields(db, baseId, options);
         const referenceEdges = yield* await this.loadReferenceEdges(db, baseId);
 
         const fieldsById = new Map(fields.map((field) => [field.id.toString(), field]));
@@ -279,9 +284,26 @@ export class FieldDependencyGraph {
 
   private async loadFields(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
-    baseId: BaseId
+    baseId: BaseId,
+    options: FieldDependencyGraphLoadOptions
   ): Promise<Result<ReadonlyArray<FieldMeta>, DomainError>> {
     try {
+      const requiredFieldIds = [
+        ...new Set(
+          (options.requiredFieldIds ?? [])
+            .map((fieldId) => fieldId.toString())
+            .filter((fieldId) => fieldId.length > 0)
+        ),
+      ];
+
+      const computedFieldTypes = [
+        'link',
+        'rollup',
+        'lookup',
+        'conditionalRollup',
+        'conditionalLookup',
+      ];
+
       const rows = await db
         .selectFrom('field as f')
         .innerJoin('table_meta as t', 't.id', 'f.table_id')
@@ -299,6 +321,15 @@ export class FieldDependencyGraph {
         .where('t.base_id', '=', baseId.toString())
         .where('f.deleted_time', 'is', null)
         .where('t.deleted_time', 'is', null)
+        .where((eb) =>
+          eb.or([
+            eb('f.is_computed', '=', true),
+            eb('f.is_lookup', '=', true),
+            eb('f.is_conditional_lookup', '=', true),
+            eb('f.type', 'in', computedFieldTypes),
+            ...(requiredFieldIds.length > 0 ? [eb('f.id', 'in', requiredFieldIds)] : []),
+          ])
+        )
         .execute();
 
       const fields: FieldMeta[] = [];

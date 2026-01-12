@@ -506,12 +506,6 @@ describe('ComputedFieldUpdater', () => {
         },
         {
           "parameters": [
-            "fldeeeeeeeeeeeeeeee",
-          ],
-          "sql": "select "id", "meta" from "field" where "id" in ($1)",
-        },
-        {
-          "parameters": [
             "tblbbbbbbbbbbbbbbbb",
           ],
           "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
@@ -647,13 +641,6 @@ describe('ComputedFieldUpdater', () => {
         },
         {
           "parameters": [
-            "fldqqqqqqqqqqqqqqqq",
-            "fldrrrrrrrrrrrrrrrr",
-          ],
-          "sql": "select "id", "meta" from "field" where "id" in ($1, $2)",
-        },
-        {
-          "parameters": [
             "tblllllllllllllllll",
           ],
           "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
@@ -663,12 +650,6 @@ describe('ComputedFieldUpdater', () => {
             "tblllllllllllllllll",
           ],
           "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "col_lookup_b" = to_jsonb("c"."col_lookup_b"), "col_rollup_b" = "c"."col_rollup_b" from (select "t"."__id" as "__id", "lat_fldpppppppppppppppp"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp" on true) as "c" where "u"."__id" = "c"."__id"",
-        },
-        {
-          "parameters": [
-            "flduuuuuuuuuuuuuuuu",
-          ],
-          "sql": "select "id", "meta" from "field" where "id" in ($1)",
         },
         {
           "parameters": [

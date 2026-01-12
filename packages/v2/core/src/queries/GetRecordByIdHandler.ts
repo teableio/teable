@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
+import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
@@ -58,7 +58,11 @@ export class GetRecordByIdHandler
 
         // 2. Query record by ID
         const record = yield* (
-          await this.tableRecordQueryRepository.findOne(context, table, query.recordId)
+          await this.tableRecordQueryRepository.findOne(context, table, query.recordId, {
+            // !!!IMPORTANT: Get record by ID is always using stored values
+            // never change this to 'computed'
+            mode: 'stored',
+          })
         ).mapErr((error: DomainError) =>
           isNotFoundError(error)
             ? domainError.notFound({ code: 'record.not_found', message: 'Record not found' })

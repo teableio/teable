@@ -45,7 +45,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import type { ColumnDef, Row, RowSelectionState } from '@tanstack/react-table';
-import { useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { JsonView } from 'react-json-view-lite';
@@ -1635,7 +1635,6 @@ function TableRecordsCard({
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [pendingDeleteLabel, setPendingDeleteLabel] = useState<string | null>(null);
   const env = usePlaygroundEnvironment();
-  const navigate = useNavigate();
 
   const handleUpdateOpen = useCallback((record: ITableRecordDto) => {
     setUpdateTarget(record);
@@ -1660,17 +1659,6 @@ function TableRecordsCard({
       return label.trim() || record.id;
     },
     [primaryFieldId]
-  );
-
-  const handleOpenRecord = useCallback(
-    (recordId: string) => {
-      void navigate({
-        to: env.routes.record,
-        params: { baseId, tableId, recordId },
-        search: (prev) => prev,
-      });
-    },
-    [navigate, env.routes.record, baseId, tableId]
   );
 
   const selectedRecordIds = useMemo(
@@ -1796,17 +1784,18 @@ function TableRecordsCard({
                 ? formattedValue.text
                 : resolveRecordLabel(row.original);
             return (
-              <button
-                type="button"
+              <Link
+                to={env.routes.record}
+                params={{ baseId, tableId, recordId: row.original.id }}
+                search={(prev) => prev}
                 className={cn(
                   'max-w-[240px] text-left text-primary underline underline-offset-2 hover:text-primary/80',
                   formattedValue.cellClassName
                 )}
                 title={label}
-                onClick={() => handleOpenRecord(row.original.id)}
               >
                 {label}
-              </button>
+              </Link>
             );
           }
 
@@ -1867,12 +1856,15 @@ function TableRecordsCard({
     fields,
     primaryFieldId,
     handleUpdateOpen,
-    handleOpenRecord,
     handleCopyRecordId,
     handleCopyRecordJson,
     onDeleteRecords,
     openDeleteDialog,
     resolveRecordLabel,
+    baseId,
+    tableId,
+    env.routes.record,
+    isDeletingRecord,
   ]);
 
   const data = useMemo(() => (records ?? []) as ITableRecordDto[], [records]);

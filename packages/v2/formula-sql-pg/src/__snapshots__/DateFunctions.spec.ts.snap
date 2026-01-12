@@ -85,12 +85,12 @@ exports[`date functions batch 1 > 'Day' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -908,15 +908,15 @@ exports[`date functions batch 1 > 'Day' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "EXTRACT(DAY FROM (to_timestamp(("t"."ConditionalRollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -1000,7 +1000,7 @@ exports[`date functions batch 1 > 'Day' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1",
@@ -1059,9 +1059,9 @@ exports[`date functions batch 1 > 'Day' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -1102,12 +1102,12 @@ exports[`date functions batch 1 > 'Day' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -1985,15 +1985,15 @@ exports[`date functions batch 1 > 'Day' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "EXTRACT(DAY FROM (to_timestamp(("t"."RollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -2145,12 +2145,12 @@ exports[`date functions batch 1 > 'Hour' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -2968,15 +2968,15 @@ exports[`date functions batch 1 > 'Hour' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "EXTRACT(HOUR FROM (to_timestamp(("t"."ConditionalRollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -3060,7 +3060,7 @@ exports[`date functions batch 1 > 'Hour' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "0",
@@ -3119,9 +3119,9 @@ exports[`date functions batch 1 > 'Hour' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -3162,12 +3162,12 @@ exports[`date functions batch 1 > 'Hour' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -4045,15 +4045,15 @@ exports[`date functions batch 1 > 'Hour' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "EXTRACT(HOUR FROM (to_timestamp(("t"."RollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -4205,12 +4205,12 @@ exports[`date functions batch 1 > 'Minute' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -5028,15 +5028,15 @@ exports[`date functions batch 1 > 'Minute' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "EXTRACT(MINUTE FROM (to_timestamp(("t"."ConditionalRollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -5120,7 +5120,7 @@ exports[`date functions batch 1 > 'Minute' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "0",
@@ -5179,9 +5179,9 @@ exports[`date functions batch 1 > 'Minute' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -5222,12 +5222,12 @@ exports[`date functions batch 1 > 'Minute' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -6105,15 +6105,15 @@ exports[`date functions batch 1 > 'Minute' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "0",
+  "result": null,
   "sql": "EXTRACT(MINUTE FROM (to_timestamp(("t"."RollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -6265,12 +6265,12 @@ exports[`date functions batch 1 > 'Month' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -7088,15 +7088,15 @@ exports[`date functions batch 1 > 'Month' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "EXTRACT(MONTH FROM (to_timestamp(("t"."ConditionalRollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -7180,7 +7180,7 @@ exports[`date functions batch 1 > 'Month' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1",
@@ -7239,9 +7239,9 @@ exports[`date functions batch 1 > 'Month' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -7282,12 +7282,12 @@ exports[`date functions batch 1 > 'Month' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -8165,15 +8165,15 @@ exports[`date functions batch 1 > 'Month' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "EXTRACT(MONTH FROM (to_timestamp(("t"."RollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -8325,12 +8325,12 @@ exports[`date functions batch 1 > 'WeekNum' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -9148,15 +9148,15 @@ exports[`date functions batch 1 > 'WeekNum' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "EXTRACT(WEEK FROM (to_timestamp(("t"."ConditionalRollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -9240,7 +9240,7 @@ exports[`date functions batch 1 > 'WeekNum' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1",
@@ -9299,9 +9299,9 @@ exports[`date functions batch 1 > 'WeekNum' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -9342,12 +9342,12 @@ exports[`date functions batch 1 > 'WeekNum' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -10225,15 +10225,15 @@ exports[`date functions batch 1 > 'WeekNum' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1",
+  "result": null,
   "sql": "EXTRACT(WEEK FROM (to_timestamp(("t"."RollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -10385,12 +10385,12 @@ exports[`date functions batch 1 > 'Weekday' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -11208,15 +11208,15 @@ exports[`date functions batch 1 > 'Weekday' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "4",
+  "result": null,
   "sql": "EXTRACT(DOW FROM (to_timestamp(("t"."ConditionalRollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -11300,7 +11300,7 @@ exports[`date functions batch 1 > 'Weekday' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "4",
@@ -11359,9 +11359,9 @@ exports[`date functions batch 1 > 'Weekday' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -11402,12 +11402,12 @@ exports[`date functions batch 1 > 'Weekday' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -12285,15 +12285,15 @@ exports[`date functions batch 1 > 'Weekday' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "4",
+  "result": null,
   "sql": "EXTRACT(DOW FROM (to_timestamp(("t"."RollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -12445,12 +12445,12 @@ exports[`date functions batch 1 > 'Year' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -13268,15 +13268,15 @@ exports[`date functions batch 1 > 'Year' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970",
+  "result": null,
   "sql": "EXTRACT(YEAR FROM (to_timestamp(("t"."ConditionalRollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -13360,7 +13360,7 @@ exports[`date functions batch 1 > 'Year' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1970",
@@ -13419,9 +13419,9 @@ exports[`date functions batch 1 > 'Year' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -13462,12 +13462,12 @@ exports[`date functions batch 1 > 'Year' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -14345,15 +14345,15 @@ exports[`date functions batch 1 > 'Year' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970",
+  "result": null,
   "sql": "EXTRACT(YEAR FROM (to_timestamp(("t"."RollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -14505,12 +14505,12 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'conditionalLookup' 1`] = 
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN (((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -16696,15 +16696,15 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'conditionalRollup' 1`] = 
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "-1.00000000000000000000",
+  "result": null,
   "sql": "(EXTRACT(EPOCH FROM (to_timestamp(("t"."ConditionalRollupType")::double precision) - (to_timestamp(("t"."ConditionalRollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day')::timestamptz))) / 86400",
 }
 `;
@@ -16788,7 +16788,7 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "-1.00000000000000000000",
@@ -16847,9 +16847,9 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -16895,12 +16895,12 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN (((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -19146,15 +19146,15 @@ exports[`date functions batch 2 > 'DatetimeDiff' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "-1.00000000000000000000",
+  "result": null,
   "sql": "(EXTRACT(EPOCH FROM (to_timestamp(("t"."RollupType")::double precision) - (to_timestamp(("t"."RollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day')::timestamptz))) / 86400",
 }
 `;
@@ -19311,9 +19311,9 @@ exports[`date functions batch 2 > 'DatetimeDiffInvalidUnit' with 'conditionalLoo
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -19330,12 +19330,12 @@ exports[`date functions batch 2 > 'DatetimeDiffInvalidUnit' with 'conditionalRol
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -19422,7 +19422,7 @@ exports[`date functions batch 2 > 'DatetimeDiffInvalidUnit' with 'formula' 1`] =
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -19481,9 +19481,9 @@ exports[`date functions batch 2 > 'DatetimeDiffInvalidUnit' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -19519,9 +19519,9 @@ exports[`date functions batch 2 > 'DatetimeDiffInvalidUnit' with 'lookup' 1`] = 
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -19598,12 +19598,12 @@ exports[`date functions batch 2 > 'DatetimeDiffInvalidUnit' with 'rollup' 1`] = 
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -19753,9 +19753,9 @@ exports[`date functions batch 2 > 'DatetimeDiffUnitField' with 'conditionalLooku
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -19772,12 +19772,12 @@ exports[`date functions batch 2 > 'DatetimeDiffUnitField' with 'conditionalRollu
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -19864,7 +19864,7 @@ exports[`date functions batch 2 > 'DatetimeDiffUnitField' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -19923,9 +19923,9 @@ exports[`date functions batch 2 > 'DatetimeDiffUnitField' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -20082,9 +20082,9 @@ exports[`date functions batch 2 > 'DatetimeDiffUnitField' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -20161,12 +20161,12 @@ exports[`date functions batch 2 > 'DatetimeDiffUnitField' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_datetime_diff_unit",
@@ -20437,12 +20437,12 @@ exports[`date functions batch 2 > 'FromNow' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -21260,15 +21260,15 @@ exports[`date functions batch 2 > 'FromNow' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "0000000000.000000",
+  "result": null,
   "sql": "EXTRACT(EPOCH FROM (NOW() - to_timestamp(("t"."ConditionalRollupType")::double precision)))",
 }
 `;
@@ -21352,7 +21352,7 @@ exports[`date functions batch 2 > 'FromNow' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "0000000000.000000",
@@ -21411,9 +21411,9 @@ exports[`date functions batch 2 > 'FromNow' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -21454,12 +21454,12 @@ exports[`date functions batch 2 > 'FromNow' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -22337,15 +22337,15 @@ exports[`date functions batch 2 > 'FromNow' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "0000000000.000000",
+  "result": null,
   "sql": "EXTRACT(EPOCH FROM (NOW() - to_timestamp(("t"."RollupType")::double precision)))",
 }
 `;
@@ -22497,12 +22497,12 @@ exports[`date functions batch 2 > 'Second' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -23320,15 +23320,15 @@ exports[`date functions batch 2 > 'Second' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "EXTRACT(SECOND FROM (to_timestamp(("t"."ConditionalRollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -23412,7 +23412,7 @@ exports[`date functions batch 2 > 'Second' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "10",
@@ -23471,9 +23471,9 @@ exports[`date functions batch 2 > 'Second' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -23514,12 +23514,12 @@ exports[`date functions batch 2 > 'Second' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -24397,15 +24397,15 @@ exports[`date functions batch 2 > 'Second' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "10",
+  "result": null,
   "sql": "EXTRACT(SECOND FROM (to_timestamp(("t"."RollupType")::double precision))::timestamptz)::int",
 }
 `;
@@ -24557,12 +24557,12 @@ exports[`date functions batch 2 > 'ToNow' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -25380,15 +25380,15 @@ exports[`date functions batch 2 > 'ToNow' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "-0000000000.000000",
+  "result": null,
   "sql": "EXTRACT(EPOCH FROM (to_timestamp(("t"."ConditionalRollupType")::double precision) - NOW()))",
 }
 `;
@@ -25472,7 +25472,7 @@ exports[`date functions batch 2 > 'ToNow' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "-0000000000.000000",
@@ -25531,9 +25531,9 @@ exports[`date functions batch 2 > 'ToNow' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -25574,12 +25574,12 @@ exports[`date functions batch 2 > 'ToNow' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -26457,15 +26457,15 @@ exports[`date functions batch 2 > 'ToNow' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "-0000000000.000000",
+  "result": null,
   "sql": "EXTRACT(EPOCH FROM (to_timestamp(("t"."RollupType")::double precision) - NOW()))",
 }
 `;
@@ -26617,12 +26617,12 @@ exports[`date functions batch 2 > 'Workday' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -27581,15 +27581,15 @@ exports[`date functions batch 2 > 'Workday' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970-01-03 00:00:00",
+  "result": null,
   "sql": "(to_timestamp(("t"."ConditionalRollupType")::double precision))::date + INTERVAL '1 day' * (2)::double precision",
 }
 `;
@@ -27673,7 +27673,7 @@ exports[`date functions batch 2 > 'Workday' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1970-01-03 00:00:00",
@@ -27732,9 +27732,9 @@ exports[`date functions batch 2 > 'Workday' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -27775,12 +27775,12 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -28799,15 +28799,15 @@ exports[`date functions batch 2 > 'Workday' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970-01-03 00:00:00",
+  "result": null,
   "sql": "(to_timestamp(("t"."RollupType")::double precision))::date + INTERVAL '1 day' * (2)::double precision",
 }
 `;
@@ -28959,12 +28959,12 @@ exports[`date functions batch 3 > 'DateAdd' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -29923,15 +29923,15 @@ exports[`date functions batch 3 > 'DateAdd' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970-01-02 00:00:10+00",
+  "result": null,
   "sql": "to_timestamp(("t"."ConditionalRollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day'",
 }
 `;
@@ -30015,7 +30015,7 @@ exports[`date functions batch 3 > 'DateAdd' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1970-01-02 00:00:10+00",
@@ -30074,9 +30074,9 @@ exports[`date functions batch 3 > 'DateAdd' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -30117,12 +30117,12 @@ exports[`date functions batch 3 > 'DateAdd' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -31141,15 +31141,15 @@ exports[`date functions batch 3 > 'DateAdd' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970-01-02 00:00:10+00",
+  "result": null,
   "sql": "to_timestamp(("t"."RollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day'",
 }
 `;
@@ -31357,12 +31357,12 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -33799,15 +33799,15 @@ exports[`date functions batch 3 > 'IsAfter' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (to_timestamp(("t"."ConditionalRollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day')::text AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
@@ -33935,7 +33935,7 @@ exports[`date functions batch 3 > 'IsAfter' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "true",
@@ -34027,9 +34027,9 @@ exports[`date functions batch 3 > 'IsAfter' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -34102,12 +34102,12 @@ exports[`date functions batch 3 > 'IsAfter' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -36649,15 +36649,15 @@ exports[`date functions batch 3 > 'IsAfter' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (to_timestamp(("t"."RollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day')::text AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v)) THEN ((SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
@@ -36931,12 +36931,12 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -39373,15 +39373,15 @@ exports[`date functions batch 3 > 'IsBefore' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (to_timestamp(("t"."ConditionalRollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day')::text AS val) AS v)) THEN ((SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
@@ -39509,7 +39509,7 @@ exports[`date functions batch 3 > 'IsBefore' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "true",
@@ -39601,9 +39601,9 @@ exports[`date functions batch 3 > 'IsBefore' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -39676,12 +39676,12 @@ exports[`date functions batch 3 > 'IsBefore' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -42223,15 +42223,15 @@ exports[`date functions batch 3 > 'IsBefore' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "true",
+  "result": null,
   "sql": "(CASE
       WHEN ((SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT to_char(("t"."RollupType")::numeric, 'FM999999990D00') AS val) AS v) AND (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (to_timestamp(("t"."RollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day')::text AS val) AS v)) THEN ((SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
@@ -42449,12 +42449,12 @@ exports[`date functions batch 3 > 'IsSame' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN (((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -44640,15 +44640,15 @@ exports[`date functions batch 3 > 'IsSame' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "DATE_TRUNC('day', to_timestamp(("t"."ConditionalRollupType")::double precision)) = DATE_TRUNC('day', (to_timestamp(("t"."ConditionalRollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day')::timestamptz)",
 }
 `;
@@ -44732,7 +44732,7 @@ exports[`date functions batch 3 > 'IsSame' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "false",
@@ -44791,9 +44791,9 @@ exports[`date functions batch 3 > 'IsSame' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -44839,12 +44839,12 @@ exports[`date functions batch 3 > 'IsSame' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN (((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -47090,15 +47090,15 @@ exports[`date functions batch 3 > 'IsSame' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "false",
+  "result": null,
   "sql": "DATE_TRUNC('day', to_timestamp(("t"."RollupType")::double precision)) = DATE_TRUNC('day', (to_timestamp(("t"."RollupType")::double precision) + ((1)::double precision) * INTERVAL '1 day')::timestamptz)",
 }
 `;
@@ -47255,9 +47255,9 @@ exports[`date functions batch 3 > 'IsSameInvalidUnit' with 'conditionalLookup' 1
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47274,12 +47274,12 @@ exports[`date functions batch 3 > 'IsSameInvalidUnit' with 'conditionalRollup' 1
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47366,7 +47366,7 @@ exports[`date functions batch 3 > 'IsSameInvalidUnit' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47425,9 +47425,9 @@ exports[`date functions batch 3 > 'IsSameInvalidUnit' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -47463,9 +47463,9 @@ exports[`date functions batch 3 > 'IsSameInvalidUnit' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47542,12 +47542,12 @@ exports[`date functions batch 3 > 'IsSameInvalidUnit' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47697,9 +47697,9 @@ exports[`date functions batch 3 > 'IsSameUnitField' with 'conditionalLookup' 1`]
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47716,12 +47716,12 @@ exports[`date functions batch 3 > 'IsSameUnitField' with 'conditionalRollup' 1`]
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47808,7 +47808,7 @@ exports[`date functions batch 3 > 'IsSameUnitField' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47867,9 +47867,9 @@ exports[`date functions batch 3 > 'IsSameUnitField' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -47940,9 +47940,9 @@ exports[`date functions batch 3 > 'IsSameUnitField' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -48019,12 +48019,12 @@ exports[`date functions batch 3 > 'IsSameUnitField' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_is_same_unit",
@@ -48209,12 +48209,12 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN (((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -50400,15 +50400,15 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "2",
+  "result": null,
   "sql": "((to_timestamp(("t"."ConditionalRollupType")::double precision) + ((2)::double precision) * INTERVAL '1 day')::timestamptz)::date - (to_timestamp(("t"."ConditionalRollupType")::double precision))::date",
 }
 `;
@@ -50492,7 +50492,7 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "2",
@@ -50551,9 +50551,9 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -50599,12 +50599,12 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN (((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -52850,15 +52850,15 @@ exports[`date functions batch 3 > 'WorkdayDiff' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "2",
+  "result": null,
   "sql": "((to_timestamp(("t"."RollupType")::double precision) + ((2)::double precision) * INTERVAL '1 day')::timestamptz)::date - (to_timestamp(("t"."RollupType")::double precision))::date",
 }
 `;
@@ -53067,12 +53067,12 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'conditionalLookup' 1
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "2024-01-12 00:00:00+00",
+  "result": null,
   "sql": "CASE WHEN (('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) OR (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -53377,15 +53377,15 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'conditionalRollup' 1
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "2024-01-12 00:00:00+00",
+  "result": null,
   "sql": "CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE ((CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN NULL ELSE (CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN '2024-01-02T00:00:00Z' IS NULL THEN NULL::timestamptz
       WHEN pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') THEN (('2024-01-02T00:00:00Z')::text)::timestamptz
@@ -53483,7 +53483,7 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "2024-01-12 00:00:00+00",
@@ -53556,12 +53556,12 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
-  "result": "2024-01-12 00:00:00+00",
+  "result": null,
   "sql": "CASE WHEN (('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) OR (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE ((CASE WHEN (('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) OR (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS val) AS v)) THEN NULL ELSE (CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN '2024-01-02T00:00:00Z' IS NULL THEN NULL::timestamptz
       WHEN pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') THEN (('2024-01-02T00:00:00Z')::text)::timestamptz
@@ -53612,12 +53612,12 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "2024-01-12 00:00:00+00",
+  "result": null,
   "sql": "CASE WHEN (('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) OR (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^[+-]?((\\d+\\.?\\d*)|(\\d*\\.\\d+))$' AND pg_input_is_valid(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), ''), 'numeric'))) FROM (SELECT (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -54025,15 +54025,15 @@ exports[`date functions batch 4 > 'DateAddCountField' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "2024-01-12 00:00:00+00",
+  "result": null,
   "sql": "CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_date_add' END ELSE ((CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN NULL ELSE (CASE WHEN ('2024-01-02T00:00:00Z' IS NOT NULL AND NOT (pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') OR pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN '2024-01-02T00:00:00Z' IS NULL THEN NULL::timestamptz
       WHEN pg_input_is_valid(('2024-01-02T00:00:00Z')::text, 'timestamptz') THEN (('2024-01-02T00:00:00Z')::text)::timestamptz
@@ -54236,9 +54236,9 @@ exports[`date functions batch 4 > 'DateAddInvalidUnit' with 'conditionalLookup' 
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54255,12 +54255,12 @@ exports[`date functions batch 4 > 'DateAddInvalidUnit' with 'conditionalRollup' 
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54347,7 +54347,7 @@ exports[`date functions batch 4 > 'DateAddInvalidUnit' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54406,9 +54406,9 @@ exports[`date functions batch 4 > 'DateAddInvalidUnit' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -54444,9 +54444,9 @@ exports[`date functions batch 4 > 'DateAddInvalidUnit' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54523,12 +54523,12 @@ exports[`date functions batch 4 > 'DateAddInvalidUnit' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54678,9 +54678,9 @@ exports[`date functions batch 4 > 'DateAddUnitField' with 'conditionalLookup' 1`
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54697,12 +54697,12 @@ exports[`date functions batch 4 > 'DateAddUnitField' with 'conditionalRollup' 1`
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54789,7 +54789,7 @@ exports[`date functions batch 4 > 'DateAddUnitField' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54848,9 +54848,9 @@ exports[`date functions batch 4 > 'DateAddUnitField' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -54936,9 +54936,9 @@ exports[`date functions batch 4 > 'DateAddUnitField' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -55015,12 +55015,12 @@ exports[`date functions batch 4 > 'DateAddUnitField' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:ARG:invalid_date_add_unit",
@@ -55220,12 +55220,12 @@ exports[`date functions batch 4 > 'Datestr' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -56043,15 +56043,15 @@ exports[`date functions batch 4 > 'Datestr' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970-01-01",
+  "result": null,
   "sql": "(to_timestamp(("t"."ConditionalRollupType")::double precision))::date::text",
 }
 `;
@@ -56135,7 +56135,7 @@ exports[`date functions batch 4 > 'Datestr' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1970-01-01",
@@ -56194,9 +56194,9 @@ exports[`date functions batch 4 > 'Datestr' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -56237,12 +56237,12 @@ exports[`date functions batch 4 > 'Datestr' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -57120,15 +57120,15 @@ exports[`date functions batch 4 > 'Datestr' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970-01-01",
+  "result": null,
   "sql": "(to_timestamp(("t"."RollupType")::double precision))::date::text",
 }
 `;
@@ -57280,12 +57280,12 @@ exports[`date functions batch 4 > 'DatetimeFormat' with 'conditionalLookup' 1`] 
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -58244,15 +58244,15 @@ exports[`date functions batch 4 > 'DatetimeFormat' with 'conditionalRollup' 1`] 
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970-01-01 12:01",
+  "result": null,
   "sql": "TO_CHAR(to_timestamp(("t"."ConditionalRollupType")::double precision), 'YYYY-MM-DD HH:mm')",
 }
 `;
@@ -58336,7 +58336,7 @@ exports[`date functions batch 4 > 'DatetimeFormat' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "1970-01-01 12:01",
@@ -58395,9 +58395,9 @@ exports[`date functions batch 4 > 'DatetimeFormat' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -58438,12 +58438,12 @@ exports[`date functions batch 4 > 'DatetimeFormat' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -59462,15 +59462,15 @@ exports[`date functions batch 4 > 'DatetimeFormat' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "1970-01-01 12:01",
+  "result": null,
   "sql": "TO_CHAR(to_timestamp(("t"."RollupType")::double precision), 'YYYY-MM-DD HH:mm')",
 }
 `;
@@ -59632,12 +59632,12 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -60328,15 +60328,15 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalRollup' 1`] =
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN (to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') IS NOT NULL AND NOT (pg_input_is_valid(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::text, 'timestamptz') OR pg_input_is_valid(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::text, 'timestamp'))) THEN CASE WHEN (to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') IS NOT NULL AND NOT (pg_input_is_valid(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::text, 'timestamptz') OR pg_input_is_valid(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') IS NOT NULL AND NOT (pg_input_is_valid(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::text, 'timestamptz') OR pg_input_is_valid(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00') IS NULL THEN NULL
       WHEN pg_input_is_valid(to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00')::text, 'timestamptz') THEN (to_char(("t"."ConditionalRollupType")::numeric, 'FM999999990D00'))::timestamptz
@@ -60435,7 +60435,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -60499,9 +60499,9 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -60542,12 +60542,12 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -61252,15 +61252,15 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN (to_char(("t"."RollupType")::numeric, 'FM999999990D00') IS NOT NULL AND NOT (pg_input_is_valid(to_char(("t"."RollupType")::numeric, 'FM999999990D00')::text, 'timestamptz') OR pg_input_is_valid(to_char(("t"."RollupType")::numeric, 'FM999999990D00')::text, 'timestamp'))) THEN CASE WHEN (to_char(("t"."RollupType")::numeric, 'FM999999990D00') IS NOT NULL AND NOT (pg_input_is_valid(to_char(("t"."RollupType")::numeric, 'FM999999990D00')::text, 'timestamptz') OR pg_input_is_valid(to_char(("t"."RollupType")::numeric, 'FM999999990D00')::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (to_char(("t"."RollupType")::numeric, 'FM999999990D00') IS NOT NULL AND NOT (pg_input_is_valid(to_char(("t"."RollupType")::numeric, 'FM999999990D00')::text, 'timestamptz') OR pg_input_is_valid(to_char(("t"."RollupType")::numeric, 'FM999999990D00')::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN to_char(("t"."RollupType")::numeric, 'FM999999990D00') IS NULL THEN NULL
       WHEN pg_input_is_valid(to_char(("t"."RollupType")::numeric, 'FM999999990D00')::text, 'timestamptz') THEN (to_char(("t"."RollupType")::numeric, 'FM999999990D00'))::timestamptz
@@ -61417,12 +61417,12 @@ exports[`date functions batch 4 > 'Timestr' with 'conditionalLookup' 1`] = `
     "ConditionalLookupType": {
       "fieldName": "ConditionalLookupType",
       "fieldType": "conditionalLookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "[10]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -62240,15 +62240,15 @@ exports[`date functions batch 4 > 'Timestr' with 'conditionalRollup' 1`] = `
     "ConditionalRollupType": {
       "fieldName": "ConditionalRollupType",
       "fieldType": "conditionalRollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "00:00:10",
+  "result": null,
   "sql": "(to_timestamp(("t"."ConditionalRollupType")::double precision))::time::text",
 }
 `;
@@ -62332,7 +62332,7 @@ exports[`date functions batch 4 > 'Timestr' with 'formula' 1`] = `
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
   "result": "00:00:10",
@@ -62391,9 +62391,9 @@ exports[`date functions batch 4 > 'Timestr' with 'link' 1`] = `
     "LinkType": {
       "fieldName": "LinkType",
       "fieldType": "link",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "{"id": "rec_*", "title": "10"}",
+      "rawValue": null,
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
@@ -62434,12 +62434,12 @@ exports[`date functions batch 4 > 'Timestr' with 'lookup' 1`] = `
     "LookupType": {
       "fieldName": "LookupType",
       "fieldType": "lookup",
-      "formattedValue": "10",
+      "formattedValue": "",
       "formatting": undefined,
-      "rawValue": "["10"]",
+      "rawValue": null,
     },
   },
-  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "result": null,
   "sql": "CASE WHEN ((SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
@@ -63317,15 +63317,15 @@ exports[`date functions batch 4 > 'Timestr' with 'rollup' 1`] = `
     "RollupType": {
       "fieldName": "RollupType",
       "fieldType": "rollup",
-      "formattedValue": "10.00",
+      "formattedValue": "",
       "formatting": {
         "precision": 2,
         "type": "decimal",
       },
-      "rawValue": "10",
+      "rawValue": null,
     },
   },
-  "result": "00:00:10",
+  "result": null,
   "sql": "(to_timestamp(("t"."RollupType")::double precision))::time::text",
 }
 `;

@@ -150,7 +150,9 @@ export class ComputedUpdatePlanner {
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
     return safeTry<ComputedUpdatePlan, DomainError>(
       async function* (this: ComputedUpdatePlanner) {
-        const graphData = yield* await this.graph.load(context.baseId, executionContext);
+        const graphData = yield* await this.graph.load(context.baseId, executionContext, {
+          requiredFieldIds: context.changedFieldIds,
+        });
         const { fieldsById, edges } = graphData;
 
         const impactResult = resolveUpdateImpact(fieldsById, context);
@@ -236,13 +238,19 @@ export class ComputedUpdatePlanner {
         }
         if (impact.includesLinkRelation && linkSeedFieldIds.size > 0) {
           const linkEdges = edges.filter(isEdgeRelevantForLink);
-          for (const fieldId of collectDirectAffectedFieldIds(linkEdges, [
-            ...linkSeedFieldIds.values(),
-          ])) {
-            affectedFieldIds.add(fieldId);
-          }
+          const linkRelationSeedIds: FieldId[] = [];
           for (const fieldId of linkSeedFieldIds.values()) {
             affectedFieldIds.add(fieldId.toString());
+            linkRelationSeedIds.push(fieldId);
+          }
+
+          const linkRelationValueSeeds: FieldId[] = [...linkRelationSeedIds];
+          for (const fieldId of collectDirectAffectedFieldIds(linkEdges, linkRelationSeedIds)) {
+            affectedFieldIds.add(fieldId);
+            const meta = fieldsById.get(fieldId);
+            if (meta) {
+              linkRelationValueSeeds.push(meta.id);
+            }
           }
 
           // Add symmetric link fields and traverse from them to find dependent lookups
@@ -250,6 +258,7 @@ export class ComputedUpdatePlanner {
           for (const edge of symmetricLinkEdges) {
             affectedFieldIds.add(edge.toFieldId.toString());
             symmetricFieldIds.push(edge.toFieldId);
+            linkRelationValueSeeds.push(edge.toFieldId);
           }
 
           // Traverse from symmetric link fields to find lookups that depend on them
@@ -258,67 +267,24 @@ export class ComputedUpdatePlanner {
           if (symmetricFieldIds.length > 0) {
             for (const fieldId of collectDirectAffectedFieldIds(linkEdges, symmetricFieldIds)) {
               affectedFieldIds.add(fieldId);
+              const meta = fieldsById.get(fieldId);
+              if (meta) {
+                linkRelationValueSeeds.push(meta.id);
+              }
             }
+          }
+
+          // Link relation changes can cascade into value-dependent fields (formula/lookup/rollup/etc).
+          const valueEdges = edges.filter(isEdgeRelevantForValue);
+          for (const fieldId of collectDirectAffectedFieldIds(valueEdges, linkRelationValueSeeds)) {
+            affectedFieldIds.add(fieldId);
           }
         }
 
-        if (context.changeType === 'insert') {
-          // On insert, always compute computed fields in the seed table so stored columns
-          // (e.g. conditionalLookup/conditionalRollup) get initial values even if their
-          // dependencies live in other tables.
-          //
-          // However, skip link fields where FK is NOT in current table.
-          // For such links (oneMany One-side, manyOne One-side, oneOne non-FK-side),
-          // a new record cannot have any FK pointing to it, so there's nothing to compute.
-          //
-          // Also skip link fields where FK IS in current table BUT the field was not
-          // explicitly changed (i.e., not in changedFieldIds). This avoids unnecessary
-          // null → null updates when inserting records without link values.
-          const changedFieldIdSet = new Set(context.changedFieldIds.map((id) => id.toString()));
-
-          for (const meta of fieldsById.values()) {
-            if (!meta.tableId.equals(context.seedTableId)) continue;
-            if (!isComputedFieldType(meta.type)) continue;
-
-            // Skip link fields where FK is not in current table
-            if (meta.type === 'link' && meta.options) {
-              // Use relationship to determine FK location:
-              // - oneMany: FK is in foreign table (current table is One-side) → skip
-              // - manyOne: FK is in current table → need to compute (if changed)
-              // - oneOne/manyMany: use fkHostTableName to check (conservative: compute if unsure)
-              const relationship = meta.options.relationship;
-              if (relationship === 'oneMany') {
-                // oneMany means current table is One-side, FK is in foreign table
-                // A new record cannot have FKs pointing to it yet
-                continue;
-              }
-              // For oneOne, check fkHostTableName if available
-              if (relationship === 'oneOne' && meta.options.fkHostTableName) {
-                const seedTableIdStr = context.seedTableId.toString();
-                const fkTablePart = meta.options.fkHostTableName.split('.').pop() ?? '';
-                if (fkTablePart !== seedTableIdStr) {
-                  continue;
-                }
-              }
-
-              // For manyOne and manyMany: FK is in current table or junction table
-              // Only compute if the link field was actually changed (has a value)
-              // Skip if not in changedFieldIds - this avoids null → null updates
-              if (relationship === 'manyOne' || relationship === 'manyMany') {
-                if (!changedFieldIdSet.has(meta.id.toString())) {
-                  // Link field not changed during insert - skip computing it
-                  continue;
-                }
-              }
-            }
-
-            affectedFieldIds.add(meta.id.toString());
-          }
-        }
-
+        const includeValueEdges = impact.includesValueChange || impact.includesLinkRelation;
         const relevantEdges = edges.filter(
           (edge) =>
-            (impact.includesValueChange && isEdgeRelevantForValue(edge)) ||
+            (includeValueEdges && isEdgeRelevantForValue(edge)) ||
             (impact.includesLinkRelation && isEdgeRelevantForLink(edge))
         );
         const computedFieldIds = filterComputedFields(fieldsById, affectedFieldIds);

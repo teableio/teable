@@ -334,7 +334,7 @@ describe('ComputedOptimization (e2e)', () => {
     });
 
     it('creates record on Many-side with link value', async () => {
-      const { container, baseId } = getV2NodeTestContainer();
+      const { container, baseId, processOutbox } = getV2NodeTestContainer();
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
       const db = container.resolve<Kysely<DynamicDb>>(v2PostgresDbTokens.db);
 
@@ -357,6 +357,8 @@ describe('ComputedOptimization (e2e)', () => {
         [bNameFieldId.toString()]: 'TargetRecord',
         [bLinkFieldId.toString()]: { id: sourceRecordId.toString() },
       });
+
+      await processOutbox();
 
       const dbTableName = tableB.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
 
@@ -419,7 +421,7 @@ describe('ComputedOptimization (e2e)', () => {
     });
 
     it('deletes source record and updates lookup to null', async () => {
-      const { container, baseId } = getV2NodeTestContainer();
+      const { container, baseId, processOutbox } = getV2NodeTestContainer();
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
       const db = container.resolve<Kysely<DynamicDb>>(v2PostgresDbTokens.db);
 
@@ -442,6 +444,8 @@ describe('ComputedOptimization (e2e)', () => {
         [bNameFieldId.toString()]: 'LinkedTarget',
         [bLinkFieldId.toString()]: { id: sourceRecordId.toString() },
       });
+
+      await processOutbox();
 
       const dbTableNameB = tableB.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
       const lookupDbField = tableB
@@ -475,7 +479,7 @@ describe('ComputedOptimization (e2e)', () => {
 
   describe('formula chain', () => {
     it('creates record with formula chain and computes values', async () => {
-      const { container, baseId } = getV2NodeTestContainer();
+      const { container, baseId, processOutbox } = getV2NodeTestContainer();
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
       const db = container.resolve<Kysely<DynamicDb>>(v2PostgresDbTokens.db);
 
@@ -488,6 +492,8 @@ describe('ComputedOptimization (e2e)', () => {
         [nameFieldId.toString()]: 'FormulaTest',
         [baseFieldId.toString()]: 5,
       });
+
+      await processOutbox();
 
       const dbTableName = table.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
 

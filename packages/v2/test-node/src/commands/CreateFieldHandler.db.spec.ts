@@ -448,26 +448,23 @@ describe('CreateFieldHandler (db)', () => {
     const numberColumn = columnByName.get(numberRow.db_field_name);
     expect(numberColumn?.is_nullable).toBe('NO');
 
-    const uniqueColumnRows = await db
-      .withSchema('information_schema')
-      .selectFrom('table_constraints')
-      .innerJoin('constraint_column_usage', (join) =>
-        join
-          .onRef(
-            'table_constraints.constraint_name',
-            '=',
-            'constraint_column_usage.constraint_name'
-          )
-          .onRef('table_constraints.table_schema', '=', 'constraint_column_usage.table_schema')
-          .onRef('table_constraints.table_name', '=', 'constraint_column_usage.table_name')
+    const indexName = `${tableName}_${numberRow.db_field_name}_unique`;
+    const indexRows = await (db as unknown as Kysely<Record<string, Record<string, unknown>>>)
+      .selectFrom('pg_index as idx')
+      .innerJoin('pg_class as table_class', 'table_class.oid', 'idx.indrelid')
+      .innerJoin(
+        'pg_namespace as table_namespace',
+        'table_namespace.oid',
+        'table_class.relnamespace'
       )
-      .select(['constraint_column_usage.column_name'])
-      .where('table_constraints.table_schema', '=', schemaName)
-      .where('table_constraints.table_name', '=', tableName)
-      .where('table_constraints.constraint_type', '=', 'UNIQUE')
+      .innerJoin('pg_class as index_class', 'index_class.oid', 'idx.indexrelid')
+      .select(['index_class.relname as index_name', 'idx.indisunique as is_unique'])
+      .where('table_namespace.nspname', '=', schemaName)
+      .where('table_class.relname', '=', tableName)
       .execute();
-    const uniqueColumnNames = new Set(uniqueColumnRows.map((row) => row.column_name));
-    expect(uniqueColumnNames.has(numberRow.db_field_name)).toBe(true);
+    const indexByName = new Map(indexRows.map((row) => [String(row.index_name), row] as const));
+    const uniqueIndex = indexByName.get(indexName);
+    expect(uniqueIndex?.is_unique).toBe(true);
 
     const referenceRows = await db
       .selectFrom('reference')

@@ -64,14 +64,26 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   const containerErrorMessage = 'Failed to create container';
   const executionContextErrorMessage = 'Failed to resolve execution context';
 
+  const handleContainerError = (error: unknown): never => {
+    let detail: string;
+    if (error instanceof Error) {
+      detail = error.message || error.stack || String(error);
+    } else {
+      detail = JSON.stringify(error, null, 2);
+    }
+    const message = `${containerErrorMessage}: ${detail}`;
+    console.error(message, error);
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message });
+  };
+
   const os = implement(v2Contract);
 
   const basesCreate = os.bases.create.handler(async ({ input }) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -105,8 +117,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -140,8 +152,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -175,8 +187,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -210,8 +222,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -252,8 +264,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -294,8 +306,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -336,8 +348,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -378,8 +390,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -420,8 +432,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -462,8 +474,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -504,8 +516,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -546,8 +558,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -588,8 +600,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -623,8 +635,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -665,8 +677,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -707,8 +719,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -749,8 +761,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -797,8 +809,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;
@@ -845,8 +857,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     let container: IHandlerResolver;
     try {
       container = await createContainer();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    } catch (error) {
+      handleContainerError(error);
     }
 
     let executionContext: IExecutionContext;

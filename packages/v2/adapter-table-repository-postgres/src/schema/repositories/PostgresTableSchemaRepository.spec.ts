@@ -82,16 +82,19 @@ class PGliteConnection {
       [Symbol.asyncIterator]() {
         return this;
       },
-      next() {
+      async next() {
         return Promise.reject(new Error('Streaming not supported'));
       },
-      return() {
-        return Promise.resolve({ done: true, value: undefined as never });
+      async return() {
+        return { done: true, value: undefined as never };
       },
-      throw(error) {
+      async throw(error) {
         return Promise.reject(error);
       },
-    };
+      async [Symbol.asyncDispose]() {
+        // no-op for test/fake; required for AsyncGenerator type compatibility
+      },
+    } as AsyncGenerator<never>;
   }
 }
 

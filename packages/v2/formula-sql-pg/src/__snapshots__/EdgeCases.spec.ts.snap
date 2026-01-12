@@ -1,5 +1,16 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`edge cases > 'ConcatBlank': 'Concat with blank value' 1`] = `
+{
+  "description": "Concat with blank value",
+  "formula": ""prefix" & BLANK() & "suffix"",
+  "funcId": "ConcatBlank",
+  "inputs": {},
+  "result": "prefixsuffix",
+  "sql": "(COALESCE((COALESCE('prefix', '') || COALESCE(NULL, '')), '') || COALESCE('suffix', ''))",
+}
+`;
+
 exports[`edge cases > 'DateAddNegative': 'DateAdd with negative count' 1`] = `
 {
   "description": "DateAdd with negative count",

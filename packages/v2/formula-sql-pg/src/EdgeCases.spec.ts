@@ -86,6 +86,11 @@ const edgeCaseTests: ReadonlyArray<EdgeCaseTest> = [
     expression: 'REPT({SingleLineText}, -1)',
     description: 'Rept with negative count',
   },
+  {
+    id: 'ConcatBlank',
+    expression: '"prefix" & BLANK() & "suffix"',
+    description: 'Concat with blank value',
+  },
   // Date edge cases (with time normalization)
   {
     id: 'DateAddZero',

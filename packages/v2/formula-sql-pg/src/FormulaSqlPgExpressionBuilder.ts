@@ -308,10 +308,10 @@ export class FormulaSqlPgExpressionBuilder {
       [leftText, rightText],
       buildErrorLiteral('TYPE', 'cannot_cast_to_text')
     );
-    const valueSql = guardValueSql(
-      `(${leftText.valueSql} || ${rightText.valueSql})`,
-      errorCondition
-    );
+    const emptyText = sqlStringLiteral('');
+    const leftValue = `COALESCE(${leftText.valueSql}, ${emptyText})`;
+    const rightValue = `COALESCE(${rightText.valueSql}, ${emptyText})`;
+    const valueSql = guardValueSql(`(${leftValue} || ${rightValue})`, errorCondition);
     return makeExpr(valueSql, 'string', false, errorCondition, errorMessage);
   }
 
@@ -1484,7 +1484,6 @@ export class FormulaSqlPgExpressionBuilder {
 
     if (left.isArray !== right.isArray) {
       const arrayExpr = left.isArray ? left : right;
-      const scalarExpr = left.isArray ? right : left;
       const arrayScalar = this.unwrapArrayToScalar(arrayExpr);
 
       if (left.valueType === 'number' || right.valueType === 'number') {

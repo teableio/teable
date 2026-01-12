@@ -758,7 +758,7 @@ describe('ComputedUpdatePlanner (db)', () => {
       // because FK is in TableB, not TableA. A new record in TableA cannot have
       // any FK pointing to it yet.
       expect(plan.steps.length).toBe(0);
-      expect(plan.estimatedComplexity).toBe(1); // Only seed record count
+      expect(plan.estimatedComplexity).toBe(0); // No computed steps to process
     });
 
     it('includes manyOne link on insert to Many-side table (FK in current table)', async () => {
@@ -774,7 +774,7 @@ describe('ComputedUpdatePlanner (db)', () => {
       // Insert to TableB (Many side, FK IS here)
       const planResult = await planner.plan({
         table: tableB,
-        changedFieldIds: [],
+        changedFieldIds: [bLinkFieldId],
         changedRecordIds: [recordId],
         changeType: 'insert',
       });
@@ -783,7 +783,7 @@ describe('ComputedUpdatePlanner (db)', () => {
       const plan = planResult._unsafeUnwrap();
 
       // Steps should include the link field because FK is in TableB
-      // User may set a link value on insert, so we need to compute the title
+      // When the link field is set on insert, compute its lookup title
       expect(plan.steps.length).toBe(1);
       expect(plan.steps[0].tableId.equals(tableB.id())).toBe(true);
 

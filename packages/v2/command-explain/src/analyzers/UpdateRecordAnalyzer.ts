@@ -173,7 +173,10 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
       planningMs = Date.now() - graphStartTime;
 
       // 5. Load dependency graph
-      const graphData = yield* await analyzer.dependencyGraph.load(table.baseId());
+      const graphSeedFieldIds = updateSqlResult?.changedFieldIds ?? changedFieldIds;
+      const graphData = yield* await analyzer.dependencyGraph.load(table.baseId(), context, {
+        requiredFieldIds: graphSeedFieldIds,
+      });
       dependencyGraphMs = Date.now() - graphStartTime;
 
       // 6. Load tables for name resolution

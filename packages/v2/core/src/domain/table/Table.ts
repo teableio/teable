@@ -617,7 +617,7 @@ export class Table extends AggregateRoot<TableId> {
 
       const currentEntries = Object.values(currentMeta);
       const maxOrder = currentEntries.length
-        ? Math.max(...currentEntries.map((entry) => entry.order))
+        ? Math.max(...currentEntries.map((entry) => entry.order ?? -1))
         : -1;
 
       const nextMeta = {
