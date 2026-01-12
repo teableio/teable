@@ -789,7 +789,7 @@ describe('v2 computed field updates (e2e)', () => {
         const aFieldIds = [aNameFieldId, aValueFieldId];
         const aFieldNames = ['Name', 'Value'];
 
-        await createRecord(tableB.id, {
+        const createdB = await createRecord(tableB.id, {
           [bNameFieldId]: 'ItemB',
           [linkFieldId]: { id: recordA.id },
         });

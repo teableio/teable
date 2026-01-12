@@ -155,6 +155,12 @@ export function RecordCreateDialog({ table, onSuccess, baseId }: RecordCreateDia
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger asChild>
+          <Button size="sm" className="h-8">
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Create Record
+          </Button>
+        </DialogTrigger>
         <DialogContent className="max-w-lg p-0 overflow-hidden flex flex-col max-h-[85vh]">
           <DialogHeader className="p-6 pb-4">
             <DialogTitle>Create Record</DialogTitle>

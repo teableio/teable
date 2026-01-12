@@ -1,3 +1,7 @@
+export * from './commands/CreateBaseCommand';
+export * from './commands/CreateBaseHandler';
+export * from './queries/ListBasesQuery';
+export * from './queries/ListBasesHandler';
 export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
 export * from './commands/CreateTablesCommand';
@@ -75,6 +79,13 @@ export * from './domain/shared/sort/SortDirection';
 
 export * from './domain/base/BaseId';
 
+export * from './domain/base/Base';
+export * from './domain/base/BaseName';
+export * from './domain/base/BaseBuilder';
+export * from './domain/base/events/BaseCreated';
+export * from './domain/base/specs/BaseByIdSpec';
+export * from './domain/base/specs/IBaseSpecVisitor';
+
 export * from './domain/table/Table';
 export * from './domain/table/ForeignTable';
 export * from './domain/table/TableMutator';
@@ -148,6 +159,7 @@ export * from './domain/table/specs/TableUpdateViewColumnMetaSpec';
 export * from './domain/table/specs/ITableSpecVisitor';
 export { Field } from './domain/table/fields/Field';
 export * from './domain/table/fields/DbFieldName';
+export * from './domain/table/fields/DbFieldType';
 export * from './domain/table/fields/FieldId';
 export * from './domain/table/fields/FieldName';
 export * from './domain/table/fields/FieldType';
@@ -283,6 +295,7 @@ export * from './ports/RealtimeDocId';
 export * from './ports/RealtimeEngine';
 export * from './ports/RepositoryQuery';
 export * from './ports/TableRepository';
+export * from './ports/BaseRepository';
 export * from './ports/TableRecordReadModel';
 export * from './ports/TableRecordQueryRepository';
 export * from './ports/TableRecordRepository';

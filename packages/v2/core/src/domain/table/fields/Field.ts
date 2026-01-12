@@ -5,6 +5,7 @@ import { domainError, type DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
 import { FieldConditionSpecBuilder } from '../records/specs/FieldConditionSpecBuilder';
 import { DbFieldName } from './DbFieldName';
+import { DbFieldType } from './DbFieldType';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import type { FieldType } from './FieldType';
@@ -25,6 +26,7 @@ export abstract class Field extends Entity<FieldId> {
   ) {
     super(id);
     this.dbFieldNameValue = dbFieldName ?? DbFieldName.empty();
+    this.dbFieldTypeValue = DbFieldType.empty();
     this.dependenciesValue = [...dependencies];
     this.computedValue = computed ?? FieldComputed.manual();
     this.notNullValue = FieldNotNull.optional();
@@ -32,6 +34,7 @@ export abstract class Field extends Entity<FieldId> {
   }
 
   private dbFieldNameValue: DbFieldName;
+  private dbFieldTypeValue: DbFieldType;
   private dependenciesValue: ReadonlyArray<FieldId>;
   private dependentsValue: ReadonlyArray<FieldId> | undefined;
   private readonly computedValue: FieldComputed;
@@ -100,6 +103,27 @@ export abstract class Field extends Entity<FieldId> {
     }
 
     this.dbFieldNameValue = dbFieldName;
+    return ok(undefined);
+  }
+
+  dbFieldType(): Result<DbFieldType, DomainError> {
+    const valueResult = this.dbFieldTypeValue.value();
+    if (valueResult.isErr()) return err(valueResult.error);
+    return ok(this.dbFieldTypeValue);
+  }
+
+  setDbFieldType(dbFieldType: DbFieldType): Result<void, DomainError> {
+    const nextValue = dbFieldType.value();
+    if (nextValue.isErr()) return err(nextValue.error);
+
+    const currentValue = this.dbFieldTypeValue.value();
+    if (currentValue.isOk()) {
+      if (currentValue.value !== nextValue.value)
+        return err(domainError.invariant({ message: 'DbFieldType already set' }));
+      return ok(undefined);
+    }
+
+    this.dbFieldTypeValue = dbFieldType;
     return ok(undefined);
   }
 

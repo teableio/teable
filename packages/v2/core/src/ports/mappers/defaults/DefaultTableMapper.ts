@@ -6,6 +6,7 @@ import { BaseId } from '../../../domain/base/BaseId';
 import { domainError, type DomainError } from '../../../domain/shared/DomainError';
 import { DbTableName } from '../../../domain/table/DbTableName';
 import { DbFieldName } from '../../../domain/table/fields/DbFieldName';
+import { DbFieldType } from '../../../domain/table/fields/DbFieldType';
 import type { Field } from '../../../domain/table/fields/Field';
 import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
@@ -190,6 +191,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
   private baseField(field: Field): {
     id: string;
     name: string;
+    dbFieldType?: string;
     notNull?: boolean;
     unique?: boolean;
     isComputed?: boolean;
@@ -197,10 +199,12 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const notNull = field.notNull().toBoolean();
     const unique = field.unique().toBoolean();
     const isComputed = field.computed().toBoolean();
+    const dbFieldTypeResult = field.dbFieldType().andThen((type) => type.value());
 
     return {
       id: field.id().toString(),
       name: field.name().toString(),
+      ...(dbFieldTypeResult.isOk() ? { dbFieldType: dbFieldTypeResult.value } : {}),
       ...(notNull ? { notNull } : {}),
       ...(unique ? { unique } : {}),
       ...(isComputed ? { isComputed } : {}),
@@ -750,7 +754,9 @@ export class DefaultTableMapper implements ITableMapper {
                 innerField,
                 lookupOptions,
               }).andThen((field) =>
-                this.applyDbFieldName(field, dto.dbFieldName).map(() => field as Field)
+                this.applyDbFieldName(field, dto.dbFieldName)
+                  .andThen((updated) => this.applyDbFieldType(updated, dto.dbFieldType))
+                  .map((updated) => updated as Field)
               )
             )
           )
@@ -1040,7 +1046,8 @@ export class DefaultTableMapper implements ITableMapper {
         })
       )
       .andThen((field) => this.applyFieldValidation(field, dto.notNull, dto.unique))
-      .andThen((field) => this.applyDbFieldName(field, dto.dbFieldName));
+      .andThen((field) => this.applyDbFieldName(field, dto.dbFieldName))
+      .andThen((field) => this.applyDbFieldType(field, dto.dbFieldType));
   }
 
   private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, DomainError> {
@@ -1071,6 +1078,16 @@ export class DefaultTableMapper implements ITableMapper {
     if (!dbFieldName) return ok(field);
     return DbFieldName.rehydrate(dbFieldName).andThen((value) =>
       field.setDbFieldName(value).map(() => field)
+    );
+  }
+
+  private applyDbFieldType(
+    field: Field,
+    dbFieldType: string | undefined
+  ): Result<Field, DomainError> {
+    if (!dbFieldType) return ok(field);
+    return DbFieldType.rehydrate(dbFieldType).andThen((value) =>
+      field.setDbFieldType(value).map(() => field)
     );
   }
 

@@ -508,13 +508,13 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as \"count\" from \"tmp_computed_dirty\" where \"table_id\" = $1",
         },
         {
           "parameters": [
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "col_link" = "c"."col_link" from (select "t"."__id" as "__id", "lat_fldeeeeeeeeeeeeeeee"."col_link" as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_name"))) as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "f" where "f"."__id" IN (SELECT "j"."__fk_fldeeeeeeeeeeeeeeee" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id")) as "lat_fldeeeeeeeeeeeeeeee" on true) as "c" where "u"."__id" = "c"."__id"",
+          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblbbbbbbbbbbbbbbbb\" as \"u\" set \"col_link\" = \"c\".\"col_link\" from (select \"t\".\"__id\" as \"__id\", \"lat_fldeeeeeeeeeeeeeeee\".\"col_link\" as \"col_link\" from \"bseaaaaaaaaaaaaaaaa\".\"tblbbbbbbbbbbbbbbbb\" as \"t\" inner join \"tmp_computed_dirty\" as \"__dirty\" on \"t\".\"__id\" = \"__dirty\".\"record_id\" and \"__dirty\".\"table_id\" = $1 inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', \"f\".\"__id\", 'title', \"f\".\"col_name\"))) as \"col_link\" from \"bseaaaaaaaaaaaaaaaa\".\"tblcccccccccccccccc\" as \"f\" where \"f\".\"__id\" IN (SELECT \"j\".\"__fk_fldeeeeeeeeeeeeeeee\" FROM \"bseaaaaaaaaaaaaaaaa\".\"junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff\" AS j WHERE \"j\".\"__fk_fldffffffffffffffff\" = \"t\".\"__id\")) as \"lat_fldeeeeeeeeeeeeeeee\" on true) as \"c\" where \"u\".\"__id\" = \"c\".\"__id\"",
         },
       ]
     `);
@@ -643,25 +643,25 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblllllllllllllllll",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as \"count\" from \"tmp_computed_dirty\" where \"table_id\" = $1",
         },
         {
           "parameters": [
             "tblllllllllllllllll",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "col_lookup_b" = to_jsonb("c"."col_lookup_b"), "col_rollup_b" = "c"."col_rollup_b" from (select "t"."__id" as "__id", "lat_fldpppppppppppppppp"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp" on true) as "c" where "u"."__id" = "c"."__id"",
+          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblllllllllllllllll\" as \"u\" set \"col_lookup_b\" = to_jsonb(\"c\".\"col_lookup_b\"), \"col_rollup_b\" = \"c\".\"col_rollup_b\" from (select \"t\".\"__id\" as \"__id\", \"lat_fldpppppppppppppppp\".\"col_lookup_b\" as \"col_lookup_b\", \"lat_fldpppppppppppppppp\".\"col_rollup_b\" as \"col_rollup_b\" from \"bseaaaaaaaaaaaaaaaa\".\"tblllllllllllllllll\" as \"t\" inner join \"tmp_computed_dirty\" as \"__dirty\" on \"t\".\"__id\" = \"__dirty\".\"record_id\" and \"__dirty\".\"table_id\" = $1 inner join lateral (select jsonb_agg(to_jsonb(\"f\".\"col_source_name\")) as \"col_lookup_b\", CAST(COALESCE(SUM(\"f\".\"col_source_score\"), 0) AS DOUBLE PRECISION) as \"col_rollup_b\" from \"bseaaaaaaaaaaaaaaaa\".\"tblkkkkkkkkkkkkkkkk\" as \"f\" where \"f\".\"__id\" = \"t\".\"__fk_fldpppppppppppppppp\") as \"lat_fldpppppppppppppppp\" on true) as \"c\" where \"u\".\"__id\" = \"c\".\"__id\"",
         },
         {
           "parameters": [
             "tblmmmmmmmmmmmmmmmm",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as \"count\" from \"tmp_computed_dirty\" where \"table_id\" = $1",
         },
         {
           "parameters": [
             "tblmmmmmmmmmmmmmmmm",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "col_lookup_c" = to_jsonb("c"."col_lookup_c") from (select "t"."__id" as "__id", "lat_fldtttttttttttttttt"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt" on true) as "c" where "u"."__id" = "c"."__id"",
+          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblmmmmmmmmmmmmmmmm\" as \"u\" set \"col_lookup_c\" = to_jsonb(\"c\".\"col_lookup_c\") from (select \"t\".\"__id\" as \"__id\", \"lat_fldtttttttttttttttt\".\"col_lookup_c\" as \"col_lookup_c\" from \"bseaaaaaaaaaaaaaaaa\".\"tblmmmmmmmmmmmmmmmm\" as \"t\" inner join \"tmp_computed_dirty\" as \"__dirty\" on \"t\".\"__id\" = \"__dirty\".\"record_id\" and \"__dirty\".\"table_id\" = $1 inner join lateral (select jsonb_agg(to_jsonb(\"f\".\"col_rollup_b\")) as \"col_lookup_c\" from \"bseaaaaaaaaaaaaaaaa\".\"tblllllllllllllllll\" as \"f\" where \"f\".\"__id\" = \"t\".\"__fk_fldtttttttttttttttt\") as \"lat_fldtttttttttttttttt\" on true) as \"c\" where \"u\".\"__id\" = \"c\".\"__id\"",
         },
       ]
     `);

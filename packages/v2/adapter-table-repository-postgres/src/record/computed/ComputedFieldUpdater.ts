@@ -1,16 +1,18 @@
 import {
   domainError,
-  type DomainError,
   FieldCondition,
-  type IExecutionContext,
-  type ILogger,
-  type ITableRepository,
-  type LinkField,
   LinkRelationship,
   RecordId,
   Table,
   TableId,
   v2CoreTokens,
+} from '@teable/v2-core';
+import type {
+  DomainError,
+  IExecutionContext,
+  ILogger,
+  ITableRepository,
+  LinkField,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';

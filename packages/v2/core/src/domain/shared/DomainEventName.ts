@@ -42,6 +42,10 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('ViewColumnMetaUpdated');
   }
 
+  static baseCreated(): DomainEventName {
+    return new DomainEventName('BaseCreated');
+  }
+
   equals(other: DomainEventName): boolean {
     return this.value === other.value;
   }

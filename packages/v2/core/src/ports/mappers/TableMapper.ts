@@ -208,6 +208,7 @@ export type ITableFieldBaseDTO = {
   id: string;
   name: string;
   dbFieldName?: string;
+  dbFieldType?: string;
   isComputed?: boolean;
   notNull?: boolean;
   unique?: boolean;

@@ -111,9 +111,9 @@ function SqlBlock({ sql, parameters }: { sql: string; parameters: readonly unkno
 
   return (
     <div className="rounded-md bg-muted/50 p-3 font-mono text-xs">
-      <ScrollArea className="h-64 w-full">
+      <div className="h-64 w-full overflow-auto overscroll-contain">
         <pre className="whitespace-pre-wrap pr-4">{formattedSql}</pre>
-      </ScrollArea>
+      </div>
       {parameters.length > 0 && (
         <div className="mt-2 pt-2 border-t border-border/50">
           <div className="text-muted-foreground">Parameters:</div>
@@ -180,7 +180,7 @@ function ComputedReasonBlock({ reason }: { reason: ComputedUpdateReason }) {
         </Badge>
       </button>
       {open && (
-        <ScrollArea className="h-80 w-full">
+        <div className="h-80 w-full overflow-auto overscroll-contain">
           <div className="space-y-3 px-3 pb-3 pr-4">
             {reason.notes.length > 0 && (
               <div className="text-muted-foreground">{reason.notes.join(' ')}</div>
@@ -266,7 +266,7 @@ function ComputedReasonBlock({ reason }: { reason: ComputedUpdateReason }) {
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       )}
     </div>
   );

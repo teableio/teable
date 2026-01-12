@@ -254,28 +254,36 @@ export function RecordUpdateDialog({
             <div className="flex-1 overflow-y-auto px-6">
               <div className="space-y-4 pb-4">
                 {editableFields.map((field) => (
-                  <form.Field
-                    key={field.id().toString()}
-                    name={field.id().toString()}
-                    children={(formField) => {
+                  <form.Field key={field.id().toString()} name={field.id().toString()}>
+                    {(formField) => {
                       const isRequired = field.notNull().toBoolean();
                       return (
                         <div className="space-y-2">
-                          <Label htmlFor={field.id().toString()}>
-                            {field.name().toString()}
-                            {isRequired && <span className="text-destructive ml-1">*</span>}
-                            <span className="ml-2 text-xs text-muted-foreground font-normal">
+                          <Label
+                            htmlFor={field.id().toString()}
+                            className="flex items-center gap-2"
+                          >
+                            <span>{field.name().toString()}</span>
+                            {isRequired && <span className="text-destructive">*</span>}
+                            <span className="text-xs text-muted-foreground font-normal">
                               ({field.type().toString()})
                             </span>
+                            {formField.state.meta.isDirty && (
+                              <span className="text-xs font-medium text-amber-600">已修改</span>
+                            )}
                           </Label>
-                          <FieldInput
-                            field={field}
-                            value={formField.state.value}
-                            onChange={formField.handleChange}
-                            onBlur={formField.handleBlur}
-                            orpcClient={orpcClient}
-                            baseId={baseId}
-                          />
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <FieldInput
+                                field={field}
+                                value={formField.state.value}
+                                onChange={formField.handleChange}
+                                onBlur={formField.handleBlur}
+                                orpcClient={orpcClient}
+                                baseId={baseId}
+                              />
+                            </div>
+                          </div>
                           {formField.state.meta.errors.length > 0 && (
                             <p className="text-xs text-destructive">
                               {formField.state.meta.errors.join(', ')}
@@ -284,7 +292,7 @@ export function RecordUpdateDialog({
                         </div>
                       );
                     }}
-                  />
+                  </form.Field>
                 ))}
               </div>
             </div>
@@ -322,7 +330,8 @@ export function RecordUpdateDialog({
                 </Button>
                 <form.Subscribe
                   selector={(state) => [state.canSubmit, state.isSubmitting] as const}
-                  children={([canSubmit, isSubmitting]) => (
+                >
+                  {([canSubmit, isSubmitting]) => (
                     <Button
                       type="submit"
                       disabled={!canSubmit || isSubmitting || updateRecordMutation.isPending}
@@ -330,7 +339,7 @@ export function RecordUpdateDialog({
                       {updateRecordMutation.isPending ? 'Updating...' : 'Update'}
                     </Button>
                   )}
-                />
+                </form.Subscribe>
               </div>
             </div>
           </form>

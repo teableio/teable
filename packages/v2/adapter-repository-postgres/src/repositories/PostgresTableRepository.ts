@@ -500,6 +500,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'lookup_linked_field_id',
                 'lookup_options',
                 'db_field_name',
+                'db_field_type',
               ])
               .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
@@ -585,6 +586,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'lookup_linked_field_id',
                 'lookup_options',
                 'db_field_name',
+                'db_field_type',
               ])
               .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
@@ -773,6 +775,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           lookup_linked_field_id: string | null;
           lookup_options: string | null;
           db_field_name: string | null;
+          db_field_type: string | null;
         }>)
       : [];
 
@@ -825,6 +828,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     lookup_linked_field_id: string | null;
     lookup_options: string | null;
     db_field_name: string | null;
+    db_field_type: string | null;
   }): core.ITableFieldPersistenceDTO {
     const parsed = this.parseOptions(row.options);
     const hasOptions = Object.keys(parsed).length > 0;
@@ -866,10 +870,12 @@ export class PostgresTableRepository implements core.ITableRepository {
     };
     const lookupOptions = resolveLookupOptions();
     const dbFieldName = row.db_field_name ?? undefined;
+    const dbFieldType = row.db_field_type ?? undefined;
     const baseCommon = {
       id: row.id,
       name: row.name,
       dbFieldName,
+      dbFieldType,
       ...(row.not_null ? { notNull: true } : {}),
       ...(row.unique ? { unique: true } : {}),
       ...(row.is_computed ? { isComputed: true } : {}),

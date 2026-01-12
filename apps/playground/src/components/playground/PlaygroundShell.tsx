@@ -1,21 +1,25 @@
-import type { ITableDto } from '@teable/v2-contract-http';
+import type { IBaseDto, ITableDto } from '@teable/v2-contract-http';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowRight,
   Check,
   ChevronDown,
+  ChevronsUpDown,
+  Copy,
   Database,
   FlaskConical,
   GalleryVerticalEnd,
   Globe,
   Pin,
+  Plus,
   Search,
   Table as TableIcon,
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
 import { useCallback, useEffect, useState, useRef, type FormEvent, type ReactNode } from 'react';
-import { useLocalStorage } from 'usehooks-ts';
+import { useCopyToClipboard, useLocalStorage } from 'usehooks-ts';
+import { toast } from 'sonner';
 import {
   Sidebar,
   SidebarContent,
@@ -91,6 +95,10 @@ import { cn } from '@/lib/utils';
 
 type PlaygroundShellProps = {
   baseId: string;
+  bases: ReadonlyArray<IBaseDto>;
+  isLoadingBases: boolean;
+  onCreateBase: (name: string) => void;
+  isCreatingBase: boolean;
   activeTableId: string | null;
   tables: ReadonlyArray<ITableDto>;
   isInitialLoading: boolean;
@@ -117,6 +125,10 @@ type NavigationTarget =
 
 export function PlaygroundShell({
   baseId,
+  bases,
+  isLoadingBases,
+  onCreateBase,
+  isCreatingBase,
   activeTableId,
   tables,
   isInitialLoading,
@@ -156,6 +168,10 @@ export function PlaygroundShell({
         <SidebarProvider>
           <PlaygroundSidebar
             baseId={baseId}
+            bases={bases}
+            isLoadingBases={isLoadingBases}
+            onCreateBase={onCreateBase}
+            isCreatingBase={isCreatingBase}
             activeTableId={activeTableId}
             tables={tables}
             isInitialLoading={isInitialLoading}
@@ -176,6 +192,10 @@ export function PlaygroundShell({
 
 type PlaygroundSidebarProps = {
   baseId: string;
+  bases: ReadonlyArray<IBaseDto>;
+  isLoadingBases: boolean;
+  onCreateBase: (name: string) => void;
+  isCreatingBase: boolean;
   activeTableId: string | null;
   tables: ReadonlyArray<ITableDto>;
   isInitialLoading: boolean;
@@ -188,6 +208,10 @@ type PlaygroundSidebarProps = {
 
 function PlaygroundSidebar({
   baseId,
+  bases,
+  isLoadingBases,
+  onCreateBase,
+  isCreatingBase,
   activeTableId,
   tables,
   isInitialLoading,
@@ -204,6 +228,8 @@ function PlaygroundSidebar({
   const remoteEnv = resolvePlaygroundEnvironment('/');
   const activeEnv = isSandbox ? sandboxEnv : remoteEnv;
   const [nextBaseId, setNextBaseId] = useState(baseId);
+  const [baseDropdownOpen, setBaseDropdownOpen] = useState(false);
+  const [newBaseName, setNewBaseName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ITableDto | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [dbManagerOpen, setDbManagerOpen] = useState(false);
@@ -229,6 +255,7 @@ function PlaygroundSidebar({
     [],
     { initializeWithValue: false }
   );
+  const [, copyToClipboard] = useCopyToClipboard();
 
   const resetConnectionDraft = useCallback((connection?: PlaygroundDbConnection) => {
     if (connection) {
@@ -401,6 +428,18 @@ function PlaygroundSidebar({
     }
   };
 
+  const handleConnectionCopy = useCallback(
+    async (connection: PlaygroundDbConnection) => {
+      const didCopy = await copyToClipboard(connection.url);
+      if (didCopy) {
+        toast.success('Database URL copied to clipboard');
+      } else {
+        toast.error('Failed to copy database URL');
+      }
+    },
+    [copyToClipboard]
+  );
+
   const handleConnectionEdit = (connection: PlaygroundDbConnection) => {
     setDbManagerOpen(true);
     resetConnectionDraft(connection);
@@ -537,30 +576,113 @@ function PlaygroundSidebar({
               Base
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <form
-                className="flex items-center gap-1.5 px-2 group-data-[collapsible=icon]:hidden"
-                onSubmit={handleBaseSubmit}
-              >
-                <SidebarInput
-                  type="text"
-                  placeholder="Base ID"
-                  value={nextBaseId}
-                  onChange={(event) => setNextBaseId(event.target.value)}
-                  aria-label="Base ID"
-                  spellCheck={false}
-                  className="h-8 text-xs bg-background/70 border-border/60 focus:border-primary/40"
-                />
-                <Button
-                  type="submit"
-                  variant="outline"
-                  size="icon-sm"
-                  className="h-8 w-8 shrink-0"
-                  disabled={!canSwitchBase}
-                  aria-label="Open base"
-                >
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </form>
+              <div className="px-2 group-data-[collapsible=icon]:hidden space-y-2">
+                <DropdownMenu open={baseDropdownOpen} onOpenChange={setBaseDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between h-8 text-xs bg-background/70 border-border/60"
+                      disabled={isLoadingBases}
+                    >
+                      <span className="truncate">
+                        {bases.find((b) => b.id === baseId)?.name ?? baseId}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-[220px]" align="start">
+                    <DropdownMenuLabel>Switch Base</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <div className="max-h-[200px] overflow-y-auto">
+                      <DropdownMenuGroup>
+                        {isLoadingBases ? (
+                          <DropdownMenuItem disabled>Loading bases...</DropdownMenuItem>
+                        ) : bases.length ? (
+                          bases.map((base) => (
+                            <DropdownMenuItem
+                              key={base.id}
+                              onSelect={() => {
+                                setBaseDropdownOpen(false);
+                                void navigate({
+                                  to: env.routes.base,
+                                  params: { baseId: base.id },
+                                  search: {},
+                                });
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4 shrink-0',
+                                  baseId === base.id ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                              <span className="truncate">{base.name}</span>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No bases found</DropdownMenuItem>
+                        )}
+                      </DropdownMenuGroup>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <div className="p-2">
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const name = newBaseName.trim();
+                            if (name) {
+                              onCreateBase(name);
+                              setNewBaseName('');
+                              setBaseDropdownOpen(false);
+                            }
+                          }}
+                          className="flex items-center gap-1"
+                        >
+                          <Input
+                            type="text"
+                            placeholder="New base name"
+                            value={newBaseName}
+                            onChange={(e) => setNewBaseName(e.target.value)}
+                            className="h-7 text-xs"
+                            disabled={isCreatingBase}
+                          />
+                          <Button
+                            type="submit"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 shrink-0"
+                            disabled={!newBaseName.trim() || isCreatingBase}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </form>
+                      </div>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <form className="flex items-center gap-1.5" onSubmit={handleBaseSubmit}>
+                  <SidebarInput
+                    type="text"
+                    placeholder="Base ID"
+                    value={nextBaseId}
+                    onChange={(event) => setNextBaseId(event.target.value)}
+                    aria-label="Base ID"
+                    spellCheck={false}
+                    className="h-8 text-xs bg-background/70 border-border/60 focus:border-primary/40"
+                  />
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    size="icon-sm"
+                    className="h-8 w-8 shrink-0"
+                    disabled={!canSwitchBase}
+                    aria-label="Open base"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </form>
+              </div>
             </SidebarGroupContent>
           </SidebarGroup>
 
@@ -945,6 +1067,14 @@ function PlaygroundSidebar({
                             disabled={isActive}
                           >
                             Use
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleConnectionCopy(connection)}
+                          >
+                            <Copy className="mr-1 h-3.5 w-3.5" />
+                            Copy URL
                           </Button>
                           <Button
                             size="sm"

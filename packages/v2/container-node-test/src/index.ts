@@ -220,13 +220,16 @@ export const createV2NodeTestContainer = async (
     const worker = c.resolve<ComputedUpdateWorker>(
       v2RecordRepositoryPostgresTokens.computedUpdateWorker
     );
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     let totalProcessed = 0;
-    let processed = 0;
     const maxIterations = 100; // Prevent infinite loops
+    const maxIdleRetries = 5;
+    const idleDelayMs = 10;
     let iterations = 0;
+    let idleRetries = 0;
 
     // Keep processing until no more tasks are pending
-    do {
+    while (iterations < maxIterations) {
       const result = await worker.runOnce({
         workerId: 'test-worker',
         limit: 100,
@@ -234,10 +237,19 @@ export const createV2NodeTestContainer = async (
       if (result.isErr()) {
         throw new Error(`Outbox processing failed: ${result.error.message}`);
       }
-      processed = result.value;
+      const processed = result.value;
       totalProcessed += processed;
       iterations += 1;
-    } while (processed > 0 && iterations < maxIterations);
+
+      if (processed > 0) {
+        idleRetries = 0;
+        continue;
+      }
+
+      if (idleRetries >= maxIdleRetries) break;
+      idleRetries += 1;
+      await sleep(idleDelayMs);
+    }
 
     return totalProcessed;
   };

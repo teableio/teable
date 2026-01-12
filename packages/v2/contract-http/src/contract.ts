@@ -1,6 +1,7 @@
 import { oc } from '@orpc/contract';
 import type { AnyContractRouter } from '@orpc/contract';
 import {
+  createBaseInputSchema,
   createFieldInputSchema,
   createRecordInputSchema,
   createRecordsInputSchema,
@@ -12,12 +13,15 @@ import {
   getRecordByIdInputSchema,
   getTableByIdInputSchema,
   importCsvInputSchema,
+  listBasesInputSchema,
   listTableRecordsInputSchema,
   listTablesInputSchema,
   renameTableInputSchema,
   updateRecordInputSchema,
 } from '@teable/v2-core';
 
+import { createBaseOkResponseSchema } from './base/createBase';
+import { listBasesOkResponseSchema } from './base/listBases';
 import { createFieldOkResponseSchema } from './table/createField';
 import { createRecordOkResponseSchema } from './table/createRecord';
 import { createRecordsOkResponseSchema } from './table/createRecords';
@@ -40,6 +44,8 @@ import { listTablesOkResponseSchema } from './table/listTables';
 import { renameTableOkResponseSchema } from './table/renameTable';
 import { updateRecordOkResponseSchema } from './table/updateRecord';
 
+const BASES_CREATE_PATH = '/bases/create';
+const BASES_LIST_PATH = '/bases/list';
 const TABLES_CREATE_FIELD_PATH = '/tables/createField';
 const TABLES_CREATE_PATH = '/tables/create';
 const TABLES_CREATE_TABLES_PATH = '/tables/createTables';
@@ -60,6 +66,28 @@ const TABLES_RENAME_PATH = '/tables/rename';
 const TABLES_UPDATE_RECORD_PATH = '/tables/updateRecord';
 
 export const v2Contract = {
+  bases: {
+    create: oc
+      .route({
+        method: 'POST',
+        path: BASES_CREATE_PATH,
+        successStatus: 201,
+        summary: 'Create base',
+        tags: ['bases'],
+      })
+      .input(createBaseInputSchema)
+      .output(createBaseOkResponseSchema),
+    list: oc
+      .route({
+        method: 'GET',
+        path: BASES_LIST_PATH,
+        successStatus: 200,
+        summary: 'List bases',
+        tags: ['bases'],
+      })
+      .input(listBasesInputSchema)
+      .output(listBasesOkResponseSchema),
+  },
   tables: {
     create: oc
       .route({

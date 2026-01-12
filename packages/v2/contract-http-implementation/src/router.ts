@@ -11,6 +11,8 @@ import {
   v2CoreTokens,
 } from '@teable/v2-core';
 
+import { executeCreateBaseEndpoint } from './handlers/bases/createBase';
+import { executeListBasesEndpoint } from './handlers/bases/listBases';
 import { executeCreateFieldEndpoint } from './handlers/tables/createField';
 import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';
 import { executeCreateRecordsEndpoint } from './handlers/tables/createRecords';
@@ -63,6 +65,76 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   const executionContextErrorMessage = 'Failed to resolve execution context';
 
   const os = implement(v2Contract);
+
+  const basesCreate = os.bases.create.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeCreateBaseEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 201) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: result.body.error.message,
+        data: result.body.error.details,
+      });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', {
+      message: result.body.error.message,
+      data: result.body.error.details,
+    });
+  });
+
+  const basesList = os.bases.list.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const result = await executeListBasesEndpoint(executionContext, input, queryBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: result.body.error.message,
+        data: result.body.error.details,
+      });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', {
+      message: result.body.error.message,
+      data: result.body.error.details,
+    });
+  });
 
   const tablesCreate = os.tables.create.handler(async ({ input }) => {
     let container: IHandlerResolver;
@@ -818,6 +890,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   return os.router({
+    bases: {
+      create: basesCreate,
+      list: basesList,
+    },
     tables: {
       create: tablesCreate,
       createTables: tablesCreateTables,

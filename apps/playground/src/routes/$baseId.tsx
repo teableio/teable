@@ -4,6 +4,8 @@ import { Link, createFileRoute, Outlet, useMatch, useNavigate } from '@tanstack/
 import { TableByNameLikeSpec, TableName } from '@teable/v2-core';
 import {
   mapTableDtoToDomain,
+  type IBaseDto,
+  type IListBasesOkResponseDto,
   type IListTablesOkResponseDto,
   type ITableDto,
 } from '@teable/v2-contract-http';
@@ -118,6 +120,42 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
   const orpc = createTanstackQueryUtils(useOrpcClient());
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  // Bases query - only fetch first 20 for dropdown
+  const basesQuery = useQuery<IListBasesOkResponseDto, unknown, ReadonlyArray<IBaseDto>>(
+    orpc.bases.list.queryOptions({
+      input: { limit: 20, offset: 0 },
+      select: (response) => response.data.bases,
+    })
+  );
+  const bases = basesQuery.data ?? [];
+
+  // Create base mutation
+  const createBaseMutation = useMutation(
+    orpc.bases.create.mutationOptions({
+      onSuccess: (response) => {
+        const created = response.data.base;
+        toast.success(`Created base "${created.name}"`);
+        void queryClient.invalidateQueries({
+          queryKey: orpc.bases.list.queryKey({ input: {} }),
+          exact: false,
+        });
+        void navigate({
+          to: env.routes.base,
+          params: { baseId: created.id },
+          search: {},
+        });
+      },
+      onError: (error) => {
+        toast.error(getErrorMessage(error, 'Failed to create base'));
+      },
+    })
+  );
+
+  const handleCreateBase = (name: string) => {
+    createBaseMutation.mutate({ name });
+  };
+
   const tablesQuery = useQuery<IListTablesOkResponseDto, unknown, ReadonlyArray<ITableDto>>(
     orpc.tables.list.queryOptions({
       input: {
@@ -277,6 +315,10 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
   return (
     <PlaygroundShell
       baseId={baseId}
+      bases={bases}
+      isLoadingBases={basesQuery.isLoading}
+      onCreateBase={handleCreateBase}
+      isCreatingBase={createBaseMutation.isPending}
       activeTableId={activeTableId}
       tables={tables}
       isInitialLoading={isInitialLoading}

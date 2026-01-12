@@ -1,4 +1,5 @@
 export const v2CoreTokens = {
+  baseRepository: Symbol('v2.core.baseRepository'),
   tableRepository: Symbol('v2.core.tableRepository'),
   tableRecordQueryRepository: Symbol('v2.core.tableRecordQueryRepository'),
   tableRecordRepository: Symbol('v2.core.tableRecordRepository'),

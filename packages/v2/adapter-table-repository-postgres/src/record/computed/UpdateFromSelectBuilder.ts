@@ -1,4 +1,4 @@
-import { domainError, FieldType } from '@teable/v2-core';
+import { domainError, Field, FieldType, FieldValueTypeVisitor } from '@teable/v2-core';
 import type { FieldId, TableId, DomainError, Table } from '@teable/v2-core';
 import type {
   CompiledQuery,
@@ -135,6 +135,92 @@ type FieldMapping = {
   column: string;
   fieldId: FieldId;
   isLookup: boolean;
+  lookupDbFieldType?: string;
+};
+
+const jsonSpecResult = Field.specs().isJson().build();
+
+const fieldIsJson = (field: Field): boolean => {
+  if (jsonSpecResult.isErr()) return false;
+  return jsonSpecResult.value.isSatisfiedBy(field);
+};
+
+const resolveDbFieldType = (
+  field: Field,
+  cellValueType: string,
+  isMultipleCellValue: boolean
+): string => {
+  if (isMultipleCellValue) return 'JSON';
+  if (fieldIsJson(field)) return 'JSON';
+  switch (cellValueType) {
+    case 'number':
+      return 'REAL';
+    case 'dateTime':
+      return 'DATETIME';
+    case 'boolean':
+      return 'BOOLEAN';
+    case 'string':
+      return 'TEXT';
+    default:
+      return 'TEXT';
+  }
+};
+
+const normalizeDbFieldType = (value: string): string => {
+  const normalized = value.trim().toUpperCase();
+  switch (normalized) {
+    case 'JSON':
+      return 'jsonb';
+    case 'REAL':
+      return 'double precision';
+    case 'DATETIME':
+      return 'timestamptz';
+    case 'BOOLEAN':
+      return 'boolean';
+    case 'TEXT':
+      return 'text';
+    default:
+      return normalized.toLowerCase();
+  }
+};
+
+const buildLookupScalarCast = (expression: ReturnType<typeof sql>, columnType: string) => {
+  switch (columnType) {
+    case 'double precision':
+    case 'numeric':
+    case 'decimal':
+    case 'integer':
+    case 'bigint':
+    case 'smallint':
+      return sql`NULLIF(${expression}, '')::${sql.raw(columnType)}`;
+    case 'boolean':
+      return sql`${expression}::boolean`;
+    case 'timestamptz':
+    case 'timestamp with time zone':
+      return sql`${expression}::timestamptz`;
+    case 'timestamp':
+    case 'timestamp without time zone':
+      return sql`${expression}::timestamp`;
+    case 'date':
+      return sql`${expression}::date`;
+    default:
+      return expression;
+  }
+};
+
+const buildLookupAssignment = (
+  eb: ExpressionBuilder<DynamicDB, string>,
+  selectAlias: string,
+  column: string,
+  lookupDbFieldType: string
+) => {
+  const normalizedType = normalizeDbFieldType(lookupDbFieldType);
+  const ref = eb.ref(`${selectAlias}.${column}`);
+  if (normalizedType === 'jsonb') {
+    return sql`to_jsonb(${ref})`;
+  }
+  const scalarText = sql`(${ref} ->> 0)`;
+  return buildLookupScalarCast(scalarText, normalizedType);
 };
 
 const buildSetValues = (
@@ -144,24 +230,44 @@ const buildSetValues = (
 ): Result<SetValueBuilder, DomainError> => {
   return safeTry<SetValueBuilder, DomainError>(function* () {
     const mappings: FieldMapping[] = [];
+    const valueTypeVisitor = new FieldValueTypeVisitor();
 
     for (const fieldId of fieldIds) {
       const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
       const dbFieldName = yield* field.dbFieldName();
       const columnName = yield* dbFieldName.value();
-      const isLookup = field.type().equals(FieldType.lookup());
-      mappings.push({ column: columnName, fieldId, isLookup });
+      const isLookup =
+        field.type().equals(FieldType.lookup()) ||
+        field.type().equals(FieldType.conditionalLookup());
+      const lookupDbFieldType = isLookup
+        ? yield* field
+            .dbFieldType()
+            .andThen((dbFieldType) => dbFieldType.value())
+            .orElse(() =>
+              field
+                .accept(valueTypeVisitor)
+                .map((valueType) =>
+                  resolveDbFieldType(
+                    field,
+                    valueType.cellValueType.toString(),
+                    valueType.isMultipleCellValue.toBoolean()
+                  )
+                )
+            )
+        : undefined;
+      mappings.push({ column: columnName, fieldId, isLookup, lookupDbFieldType });
     }
 
     return ok((eb) => {
       const values: Record<string, unknown> = {};
       for (const mapping of mappings) {
-        if (mapping.isLookup) {
-          // Lookup fields need to_jsonb() conversion because:
-          // - ARRAY_AGG returns PostgreSQL array type (e.g. timestamp with time zone[])
-          // - Lookup fields are stored as JSONB in the database
-          // - Some array types (like timestamp[]) cannot be directly cast to JSONB
-          values[mapping.column] = sql`to_jsonb(${eb.ref(`${selectAlias}.${mapping.column}`)})`;
+        if (mapping.isLookup && mapping.lookupDbFieldType) {
+          values[mapping.column] = buildLookupAssignment(
+            eb,
+            selectAlias,
+            mapping.column,
+            mapping.lookupDbFieldType
+          );
         } else {
           values[mapping.column] = eb.ref(`${selectAlias}.${mapping.column}`);
         }
