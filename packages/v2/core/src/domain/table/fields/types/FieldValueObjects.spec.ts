@@ -341,4 +341,19 @@ describe('TimeZone', () => {
     expect(TimeZone.utc().toString()).toBe('utc');
     TimeZone.create('Bad/Zone')._unsafeUnwrapErr();
   });
+
+  it('accepts Etc/GMT timezone format', () => {
+    // Etc/GMT-8 is UTC+8 (China Standard Time)
+    expect(TimeZone.create('Etc/GMT-8')._unsafeUnwrap().toString()).toBe('Etc/GMT-8');
+    expect(TimeZone.create('Etc/GMT+8')._unsafeUnwrap().toString()).toBe('Etc/GMT+8');
+    expect(TimeZone.create('Etc/UTC')._unsafeUnwrap().toString()).toBe('Etc/UTC');
+  });
+
+  it('provides detailed error message for invalid timezone', () => {
+    const result = TimeZone.create('Invalid/Zone');
+    expect(result.isErr()).toBe(true);
+    const error = result._unsafeUnwrapErr();
+    expect(error.message).toBe('Invalid TimeZone: Invalid/Zone');
+    expect(error.details?.value).toBe('Invalid/Zone');
+  });
 });
