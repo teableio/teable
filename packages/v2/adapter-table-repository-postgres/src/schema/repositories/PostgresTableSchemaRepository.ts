@@ -23,8 +23,8 @@ import type {
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { v2PostgresDdlTokens } from '../di/tokens';
 import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
+import { v2PostgresDdlTokens } from '../di/tokens';
 import {
   createFieldSchemaRules,
   createSchemaRuleContext,
