@@ -17,20 +17,20 @@ exports[`logical functions > 'And' with 'attachment' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND TRUE)",
 }
@@ -115,8 +115,10 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -159,10 +161,12 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -205,10 +209,12 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -251,7 +257,7 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND TRUE)",
 }
@@ -498,8 +504,10 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -542,10 +550,12 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -588,10 +598,12 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -634,7 +646,7 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND TRUE)",
 }
@@ -657,20 +669,20 @@ exports[`logical functions > 'And' with 'multipleSelect' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND TRUE)",
 }
@@ -804,20 +816,20 @@ exports[`logical functions > 'And' with 'user' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND TRUE)",
 }
@@ -899,20 +911,20 @@ exports[`logical functions > 'If' with 'attachment' 1`] = `
   "result": "yes",
   "sql": "(CASE WHEN (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
 }
@@ -997,8 +1009,10 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
   "result": "yes",
   "sql": "(CASE WHEN (CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -1041,10 +1055,12 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -1087,10 +1103,12 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -1133,7 +1151,7 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
 }
@@ -1380,8 +1398,10 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
   "result": "yes",
   "sql": "(CASE WHEN (CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -1424,10 +1444,12 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -1470,10 +1492,12 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -1516,7 +1540,7 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
 }
@@ -1539,20 +1563,20 @@ exports[`logical functions > 'If' with 'multipleSelect' 1`] = `
   "result": "yes",
   "sql": "(CASE WHEN (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
 }
@@ -1686,20 +1710,20 @@ exports[`logical functions > 'If' with 'user' 1`] = `
   "result": "yes",
   "sql": "(CASE WHEN (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
 }
@@ -2265,20 +2289,20 @@ exports[`logical functions > 'Not' with 'attachment' 1`] = `
   "result": "false",
   "sql": "(NOT (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
 }
@@ -2363,8 +2387,10 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
   "result": "false",
   "sql": "(NOT (CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -2407,10 +2433,12 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -2453,10 +2481,12 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -2499,7 +2529,7 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
 }
@@ -2746,8 +2776,10 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
   "result": "false",
   "sql": "(NOT (CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -2790,10 +2822,12 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -2836,10 +2870,12 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -2882,7 +2918,7 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
 }
@@ -2905,20 +2941,20 @@ exports[`logical functions > 'Not' with 'multipleSelect' 1`] = `
   "result": "false",
   "sql": "(NOT (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
 }
@@ -3052,20 +3088,20 @@ exports[`logical functions > 'Not' with 'user' 1`] = `
   "result": "false",
   "sql": "(NOT (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
 }
@@ -3088,20 +3124,20 @@ exports[`logical functions > 'Or' with 'attachment' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR FALSE)",
 }
@@ -3186,8 +3222,10 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -3230,10 +3268,12 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -3276,10 +3316,12 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -3322,7 +3364,7 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR FALSE)",
 }
@@ -3569,8 +3611,10 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -3613,10 +3657,12 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -3659,10 +3705,12 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -3705,7 +3753,7 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR FALSE)",
 }
@@ -3728,20 +3776,20 @@ exports[`logical functions > 'Or' with 'multipleSelect' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR FALSE)",
 }
@@ -3875,20 +3923,20 @@ exports[`logical functions > 'Or' with 'user' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR FALSE)",
 }
@@ -4454,20 +4502,20 @@ exports[`logical functions > 'Xor' with 'attachment' 1`] = `
   "result": "false",
   "sql": "(((CASE WHEN (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }
@@ -4552,8 +4600,10 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
   "result": "false",
   "sql": "(((CASE WHEN (CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -4596,10 +4646,12 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -4642,10 +4694,12 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."ConditionalLookupType") IS NULL THEN '[]'::jsonb
@@ -4688,7 +4742,7 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }
@@ -4935,8 +4989,10 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
   "result": "false",
   "sql": "(((CASE WHEN (CASE
       WHEN (SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -4979,10 +5035,12 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v) IS NULL THEN NULL
+    END) -> 0) AS elem) AS lkp) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -5025,10 +5083,12 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v)) = '' THEN FALSE
+    END) -> 0) AS elem) AS lkp)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
         END
         FROM (SELECT ((CASE
       WHEN ("t"."LookupType") IS NULL THEN '[]'::jsonb
@@ -5071,7 +5131,7 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    END) -> 0) AS elem) AS lkp))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }
@@ -5094,20 +5154,20 @@ exports[`logical functions > 'Xor' with 'multipleSelect' 1`] = `
   "result": "false",
   "sql": "(((CASE WHEN (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE v.elem #>> '{}'
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE fe.elem #>> '{}'
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }
@@ -5241,20 +5301,20 @@ exports[`logical functions > 'Xor' with 'user' 1`] = `
   "result": "false",
   "sql": "(((CASE WHEN (CASE
       WHEN (SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v) IS NULL THEN NULL
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe) IS NULL THEN NULL
       WHEN BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v)) = '' THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe)) = '' THEN FALSE
       WHEN LOWER(BTRIM((SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE COALESCE(v.elem->>'title', v.elem->>'name', v.elem #>> '{}')
+      WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+      ELSE COALESCE(fe.elem->>'title', fe.elem->>'name', fe.elem #>> '{}')
     END
-    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS v))) IN ('false','0','no','off','null') THEN FALSE
+    FROM (SELECT (COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) -> 0) AS elem) AS fe))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN TRUE THEN 1 ELSE 0 END)) % 2 = 1)",
 }
