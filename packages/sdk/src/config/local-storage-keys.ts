@@ -24,4 +24,6 @@ export enum LocalStorageKeys {
   ChatPanel = 'ls_chat_panel',
   Chat = 'ls_chat',
   BaseNodeTreeExpandedItems = 'ls_base_node_tree_expanded_items',
+  WinCreditTriggerVisible = 'ls_win_credit_trigger_visible',
+  Sidebar = 'ls_sidebar',
 }
