@@ -5,6 +5,7 @@ import { mapTableDtoToDomain, type ITableRecordDto } from '@teable/v2-contract-h
 import type { Field, LinkField, Table as TableAggregate } from '@teable/v2-core';
 
 import { formatRecordValue } from '@/components/playground/TableMetaPage';
+import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 import { ArrowLeft, Pencil, TriangleAlert } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
@@ -257,6 +258,7 @@ function RecordDetailCard({
               const fieldId = field.id().toString();
               const value = record.fields[fieldId];
               const fieldType = field.type().toString();
+              const FieldIcon = getFieldTypeIcon(fieldType);
 
               let valueNode: ReactNode = null;
 
@@ -290,7 +292,12 @@ function RecordDetailCard({
 
               return (
                 <TableRow key={fieldId}>
-                  <TableCell className="font-medium">{field.name().toString()}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <FieldIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {field.name().toString()}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="text-sm text-foreground">{valueNode}</div>
                   </TableCell>
