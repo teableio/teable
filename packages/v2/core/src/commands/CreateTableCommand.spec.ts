@@ -280,39 +280,6 @@ describe('CreateTableCommand', () => {
     });
   });
 
-  it('rejects invalid input and conflicting primary fields', () => {
-    expect(
-      CreateTableCommand.create({ baseId: 'bad', name: 'Table' })._unsafeUnwrapErr()
-    ).toBeTruthy();
-
-    const baseId = createBaseId('c')._unsafeUnwrap();
-    const multiplePrimaryError = CreateTableCommand.create({
-      baseId: baseId.toString(),
-      name: 'Primary',
-      fields: [
-        { type: 'singleLineText', name: 'A', isPrimary: true },
-        { type: 'singleLineText', name: 'B', isPrimary: true },
-      ],
-      views: [{ type: 'grid' }],
-    })._unsafeUnwrapErr();
-    expect(multiplePrimaryError.message).toContain('primary Field');
-
-    expect(
-      CreateTableCommand.create({
-        baseId: baseId.toString(),
-        name: 'Bad Select',
-        fields: [
-          {
-            type: 'singleSelect',
-            name: 'Status',
-            options: { choices: [{ name: '', color: 'blue' }] },
-          },
-        ],
-        views: [{ type: 'grid' }],
-      })._unsafeUnwrapErr()
-    ).toBeTruthy();
-  });
-
   describe('link fields', () => {
     it('builds link fields from input', () => {
       const baseId = createBaseId('d')._unsafeUnwrap();

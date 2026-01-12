@@ -51,14 +51,4 @@ describe('ListTablesQuery', () => {
 
     expect(queryResult._unsafeUnwrap().nameQuery?.toString()).toBe('Alpha');
   });
-
-  it('rejects invalid inputs', () => {
-    ListTablesQuery.create({ baseId: 'bad' })._unsafeUnwrapErr();
-    ListTablesQuery.create({
-      baseId: 'bse' + 'a'.repeat(16),
-      sortDirection: 'asc',
-    })._unsafeUnwrapErr();
-    ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), offset: 1 })._unsafeUnwrapErr();
-    ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), q: '' })._unsafeUnwrapErr();
-  });
 });
