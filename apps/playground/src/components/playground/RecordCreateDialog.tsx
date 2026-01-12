@@ -155,27 +155,22 @@ export function RecordCreateDialog({ table, onSuccess, baseId }: RecordCreateDia
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 text-xs font-normal">
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Create Record
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
+        <DialogContent className="max-w-lg p-0 overflow-hidden flex flex-col max-h-[85vh]">
           <DialogHeader className="p-6 pb-4">
             <DialogTitle>Create Record</DialogTitle>
             <DialogDescription>
-              Fill in the values for the new record. Fields marked with * are required.
+              Fill in the fields below to create a new record. Fields marked with * are required.
             </DialogDescription>
           </DialogHeader>
           <form
+            className="flex flex-col flex-1 min-h-0"
             onSubmit={(e) => {
               e.preventDefault();
               e.stopPropagation();
               form.handleSubmit();
             }}
           >
-            <div className="max-h-[50vh] overflow-y-auto px-6">
+            <div className="flex-1 overflow-y-auto px-6">
               <div className="space-y-4 pb-4">
                 {editableFields.map((field) => (
                   <form.Field

@@ -79,15 +79,22 @@ export function RecordUpdateDialog({
   const normalizeSelectValue = useCallback(
     (field: SingleSelectField | MultipleSelectField, value: unknown): string | null => {
       if (value === null || value === undefined) return null;
-      if (typeof value === 'string') return value.trim() ? value : null;
+      const options = field.selectOptions();
+      const findById = (id: string) => options.find((option) => option.id().toString() === id);
+      const findByName = (name: string) =>
+        options.find((option) => option.name().toString() === name);
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        return findById(trimmed)?.id().toString() ?? findByName(trimmed)?.id().toString() ?? null;
+      }
       if (typeof value === 'object') {
         const candidate = value as { id?: unknown; name?: unknown };
-        if (typeof candidate.id === 'string') return candidate.id;
+        if (typeof candidate.id === 'string') {
+          return findById(candidate.id)?.id().toString() ?? candidate.id;
+        }
         if (typeof candidate.name === 'string') {
-          const match = field
-            .selectOptions()
-            .find((option) => option.name().toString() === candidate.name);
-          return match?.id().toString() ?? candidate.name;
+          return findByName(candidate.name)?.id().toString() ?? candidate.name;
         }
       }
       return null;
@@ -229,7 +236,7 @@ export function RecordUpdateDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
+        <DialogContent className="max-w-lg p-0 overflow-hidden flex flex-col max-h-[85vh]">
           <DialogHeader className="p-6 pb-4">
             <DialogTitle>Update Record</DialogTitle>
             <DialogDescription>
@@ -237,13 +244,14 @@ export function RecordUpdateDialog({
             </DialogDescription>
           </DialogHeader>
           <form
+            className="flex flex-col flex-1 min-h-0"
             onSubmit={(e) => {
               e.preventDefault();
               e.stopPropagation();
               form.handleSubmit();
             }}
           >
-            <div className="max-h-[50vh] overflow-y-auto px-6">
+            <div className="flex-1 overflow-y-auto px-6">
               <div className="space-y-4 pb-4">
                 {editableFields.map((field) => (
                   <form.Field
