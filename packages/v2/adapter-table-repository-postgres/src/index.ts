@@ -16,3 +16,6 @@ export * from './di';
 
 // Shared utilities
 export * from './shared';
+
+// Meta validation
+export * from './meta';

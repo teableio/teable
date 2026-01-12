@@ -14,6 +14,13 @@ const DEFAULT_PAGE_SIZE = 20;
 import { TableMetaPage } from '@/components/playground/TableMetaPage';
 import { useBroadcastChannelDoc, useBroadcastChannelQuery } from '@/lib/broadcastChannel';
 import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
+import {
+  PLAYGROUND_DB_CONNECTIONS_STORAGE_KEY,
+  PLAYGROUND_DB_URL_STORAGE_KEY,
+  findPlaygroundDbConnectionByUrl,
+  resolvePlaygroundDbStorageKey,
+  type PlaygroundDbConnection,
+} from '@/lib/playground/databaseUrl';
 import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 import { useShareDbDoc, useShareDbQuery } from '@/lib/shareDb';
 
@@ -42,13 +49,34 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const env = usePlaygroundEnvironment();
   const [eventCount, setEventCount] = useState<number | null>(null);
   const navigate = useNavigate();
-  const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(
-    env.storageKeys.baseId,
-    null,
+  const [dbUrl] = useLocalStorage<string | null>(PLAYGROUND_DB_URL_STORAGE_KEY, null, {
+    initializeWithValue: false,
+  });
+  const [dbConnections] = useLocalStorage<PlaygroundDbConnection[]>(
+    PLAYGROUND_DB_CONNECTIONS_STORAGE_KEY,
+    [],
     { initializeWithValue: false }
   );
+  const activeConnection = findPlaygroundDbConnectionByUrl(dbConnections, dbUrl);
+  const baseStorageKey =
+    env.kind === 'sandbox'
+      ? env.storageKeys.baseId
+      : resolvePlaygroundDbStorageKey(env.storageKeys.baseId, {
+          connectionId: activeConnection?.id ?? null,
+          dbUrl,
+        });
+  const tableStorageKey =
+    env.kind === 'sandbox'
+      ? env.storageKeys.tableId
+      : resolvePlaygroundDbStorageKey(env.storageKeys.tableId, {
+          connectionId: activeConnection?.id ?? null,
+          dbUrl,
+        });
+  const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(baseStorageKey, null, {
+    initializeWithValue: false,
+  });
   const [storedTableId, setStoredTableId, removeStoredTableId] = useLocalStorage<string | null>(
-    env.storageKeys.tableId,
+    tableStorageKey,
     null,
     { initializeWithValue: false }
   );
@@ -59,6 +87,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
 
   // Reset pagination when table changes
   useEffect(() => {
+    if (!tableId) return;
     setPageIndex(0);
   }, [tableId]);
 

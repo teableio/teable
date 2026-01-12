@@ -1,11 +1,15 @@
 import {
   ActorId,
+  domainError,
   type DomainError,
   FieldId,
+  type IComputedFieldBackfillService,
   type IExecutionContext,
   type IHasher,
+  type ITableRepository,
   type IUnitOfWork,
   type ILogger,
+  TableByIdSpec,
   TableId,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -30,7 +34,12 @@ import {
   buildOutboxTaskInput,
   deserializeComputedUpdatePlan,
 } from '../outbox/ComputedUpdateOutboxPayload';
-import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
+import type {
+  AnyOutboxItem,
+  FieldBackfillOutboxItem,
+  IComputedUpdateOutbox,
+} from '../outbox/IComputedUpdateOutbox';
+import { isFieldBackfillOutboxItem } from '../outbox/IComputedUpdateOutbox';
 
 export type ComputedUpdateWorkerParams = {
   workerId: string;
@@ -60,7 +69,11 @@ export class ComputedUpdateWorker {
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,
     @inject(v2CoreTokens.hasher)
-    private readonly hasher: IHasher
+    private readonly hasher: IHasher,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: ITableRepository,
+    @inject(v2CoreTokens.computedFieldBackfillService)
+    private readonly backfillService: IComputedFieldBackfillService
   ) {}
 
   async runOnce(params: ComputedUpdateWorkerParams): Promise<Result<number, DomainError>> {
@@ -78,6 +91,16 @@ export class ComputedUpdateWorker {
 
         let processed = 0;
         for (const task of claimed) {
+          // Handle field backfill tasks separately
+          if (isFieldBackfillOutboxItem(task)) {
+            const backfillResult = await this.processFieldBackfillTask(task, actorIdResult.value);
+            if (backfillResult.isOk()) {
+              processed += 1;
+            }
+            continue;
+          }
+
+          // Standard computed update task processing
           const runLogContext = {
             computedRunId: task.runId,
             computedOriginRunIds: task.originRunIds,
@@ -205,7 +228,7 @@ export class ComputedUpdateWorker {
     );
   }
 
-  private async handleTaskFailure(task: ComputedUpdateOutboxItem, message: string) {
+  private async handleTaskFailure(task: AnyOutboxItem, message: string) {
     const result = await this.outbox.markFailed(task, message);
     if (result.isErr()) {
       this.logger.warn('computed:outbox:markFailed_failed', {
@@ -213,6 +236,142 @@ export class ComputedUpdateWorker {
         error: result.error.message,
       });
     }
+  }
+
+  /**
+   * Process a field backfill task.
+   * Loads the table, resolves field IDs, and executes the backfill.
+   */
+  private async processFieldBackfillTask(
+    task: FieldBackfillOutboxItem,
+    actorId: ActorId
+  ): Promise<Result<void, DomainError>> {
+    const context: IExecutionContext = { actorId };
+    const runLogContext = {
+      computedRunId: task.runId,
+      computedTaskId: task.id,
+      taskType: 'field-backfill',
+    };
+
+    this.logger.debug('computed:worker:field_backfill_start', {
+      taskId: task.id,
+      tableId: task.tableId,
+      fieldIds: task.fieldIds,
+      ...runLogContext,
+    });
+
+    // Parse field IDs
+    const fieldIdsResult = task.fieldIds.reduce<Result<FieldId[], DomainError>>(
+      (acc, fieldId) =>
+        acc.andThen((ids) =>
+          FieldId.create(fieldId).map((id) => {
+            ids.push(id);
+            return ids;
+          })
+        ),
+      ok([])
+    );
+    if (fieldIdsResult.isErr()) {
+      this.logger.warn('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: fieldIdsResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, fieldIdsResult.error.message);
+      return err(fieldIdsResult.error);
+    }
+
+    // Parse table ID
+    const tableIdResult = TableId.create(task.tableId);
+    if (tableIdResult.isErr()) {
+      this.logger.warn('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: tableIdResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, tableIdResult.error.message);
+      return err(tableIdResult.error);
+    }
+
+    // Load table with fields
+    const tableSpec = TableByIdSpec.create(tableIdResult.value);
+    const tableResult = await this.tableRepository.findOne(context, tableSpec);
+    if (tableResult.isErr()) {
+      this.logger.warn('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: tableResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, tableResult.error.message);
+      return err(tableResult.error);
+    }
+
+    const table = tableResult.value;
+    if (!table) {
+      const message = `Table not found: ${task.tableId}`;
+      this.logger.warn('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, message);
+      return err(domainError.notFound({ code: 'table.not_found', message }));
+    }
+
+    // Get fields to backfill
+    const fieldsToBackfill: ReturnType<typeof table.getFields> = [];
+    for (const fieldId of fieldIdsResult.value) {
+      const fieldResult = table.getField((f) => f.id().equals(fieldId));
+      if (fieldResult.isOk()) {
+        (fieldsToBackfill as Array<typeof fieldResult.value>).push(fieldResult.value);
+      }
+    }
+
+    if (fieldsToBackfill.length === 0) {
+      const message = `No fields found for backfill: ${task.fieldIds.join(', ')}`;
+      this.logger.warn('computed:worker:field_backfill_no_fields', {
+        taskId: task.id,
+        ...runLogContext,
+      });
+      // Mark as done since there's nothing to backfill
+      const doneResult = await this.outbox.markDone(task.id);
+      return doneResult;
+    }
+
+    // Execute backfill within a transaction
+    const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
+      // Execute sync backfill for all fields
+      const backfillResult = await this.backfillService.executeSyncMany(txContext, {
+        table,
+        fields: fieldsToBackfill,
+      });
+      if (backfillResult.isErr()) return backfillResult;
+
+      // Mark task as done
+      const doneResult = await this.outbox.markDone(task.id, txContext);
+      if (doneResult.isErr()) return doneResult;
+
+      return ok(undefined);
+    });
+
+    if (executeResult.isErr()) {
+      this.logger.warn('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: executeResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, executeResult.error.message);
+      return err(executeResult.error);
+    }
+
+    this.logger.debug('computed:worker:field_backfill_done', {
+      taskId: task.id,
+      tableId: task.tableId,
+      fieldCount: fieldsToBackfill.length,
+      ...runLogContext,
+    });
+
+    return ok(undefined);
   }
 
   private async planNextStage(

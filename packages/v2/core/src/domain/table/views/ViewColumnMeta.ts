@@ -10,7 +10,7 @@ import { FieldFormVisibilityVisitor } from '../fields/visitors/FieldFormVisibili
 import type { ViewType } from './ViewType';
 
 export type ViewColumnMetaEntry = {
-  order: number;
+  order?: number | null;
   visible?: boolean;
   hidden?: boolean;
   width?: number;
@@ -22,7 +22,7 @@ export type ViewColumnMetaEntry = {
 export type ViewColumnMetaValue = Record<string, ViewColumnMetaEntry>;
 
 const viewColumnMetaEntrySchema: z.ZodType<ViewColumnMetaEntry> = z.looseObject({
-  order: z.number(),
+  order: z.number().nullable().optional(),
   visible: z.boolean().optional(),
   hidden: z.boolean().optional(),
   width: z.number().optional(),
@@ -42,13 +42,25 @@ export class ViewColumnMeta extends ValueObject {
 
   static create(raw: ViewColumnMetaValue): Result<ViewColumnMeta, DomainError> {
     const parsed = viewColumnMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ViewColumnMeta' }));
+    if (!parsed.success)
+      return err(
+        domainError.validation({
+          message: 'Invalid ViewColumnMeta',
+          details: z.formatError(parsed.error),
+        })
+      );
     return ok(new ViewColumnMeta(parsed.data));
   }
 
   static rehydrate(raw: unknown): Result<ViewColumnMeta, DomainError> {
     const parsed = viewColumnMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ViewColumnMeta' }));
+    if (!parsed.success)
+      return err(
+        domainError.validation({
+          message: 'Invalid ViewColumnMeta',
+          details: z.formatError(parsed.error),
+        })
+      );
     return ok(new ViewColumnMeta(parsed.data));
   }
 

@@ -22,4 +22,5 @@ export const v2RecordRepositoryPostgresTokens = {
   computedUpdatePollingService: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedUpdatePollingService'
   ),
+  fieldBackfillConfig: Symbol('v2.adapter.recordRepositoryPostgres.fieldBackfillConfig'),
 } as const;

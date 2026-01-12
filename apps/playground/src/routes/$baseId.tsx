@@ -23,6 +23,13 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RemoteOrpcProvider } from '@/lib/orpc/RemoteOrpcProvider';
 import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
+import {
+  PLAYGROUND_DB_CONNECTIONS_STORAGE_KEY,
+  PLAYGROUND_DB_URL_STORAGE_KEY,
+  findPlaygroundDbConnectionByUrl,
+  resolvePlaygroundDbStorageKey,
+  type PlaygroundDbConnection,
+} from '@/lib/playground/databaseUrl';
 import { resolveBaseName, usePlaygroundEnvironment } from '@/lib/playground/environment';
 
 export const Route = createFileRoute('/$baseId')({ component: PlaygroundBaseRoute });
@@ -66,13 +73,34 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
   const tableMatch = useMatch({ from: env.routes.table, shouldThrow: false });
   const activeTableId = tableMatch?.params.tableId ?? null;
   const baseName = resolveBaseName(env, baseId);
-  const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(
-    env.storageKeys.baseId,
-    null,
+  const [dbUrl] = useLocalStorage<string | null>(PLAYGROUND_DB_URL_STORAGE_KEY, null, {
+    initializeWithValue: false,
+  });
+  const [dbConnections] = useLocalStorage<PlaygroundDbConnection[]>(
+    PLAYGROUND_DB_CONNECTIONS_STORAGE_KEY,
+    [],
     { initializeWithValue: false }
   );
+  const activeConnection = findPlaygroundDbConnectionByUrl(dbConnections, dbUrl);
+  const baseStorageKey =
+    env.kind === 'sandbox'
+      ? env.storageKeys.baseId
+      : resolvePlaygroundDbStorageKey(env.storageKeys.baseId, {
+          connectionId: activeConnection?.id ?? null,
+          dbUrl,
+        });
+  const tableStorageKey =
+    env.kind === 'sandbox'
+      ? env.storageKeys.tableId
+      : resolvePlaygroundDbStorageKey(env.storageKeys.tableId, {
+          connectionId: activeConnection?.id ?? null,
+          dbUrl,
+        });
+  const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(baseStorageKey, null, {
+    initializeWithValue: false,
+  });
   const [storedTableId, setStoredTableId, removeStoredTableId] = useLocalStorage<string | null>(
-    env.storageKeys.tableId,
+    tableStorageKey,
     null,
     { initializeWithValue: false }
   );
@@ -431,6 +459,8 @@ function PlaygroundErrorState({ message }: PlaygroundErrorStateProps) {
 }
 
 function PlaygroundBaseLoadingState() {
+  const skeletonKeys = ['table-row-0', 'table-row-1', 'table-row-2', 'table-row-3'];
+
   return (
     <Card className="border-border/60 bg-background/80 shadow-sm">
       <CardHeader>
@@ -440,8 +470,8 @@ function PlaygroundBaseLoadingState() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={`table-row-skeleton-${index}`} className="flex items-center gap-3">
+        {skeletonKeys.map((key) => (
+          <div key={key} className="flex items-center gap-3">
             <Skeleton className="h-4 w-4 rounded-full" />
             <Skeleton className="h-4 w-40" />
             <Skeleton className="ml-auto h-4 w-20" />

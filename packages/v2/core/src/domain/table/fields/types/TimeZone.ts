@@ -443,7 +443,9 @@ export class TimeZone extends ValueObject {
   }
 
   static create(raw: unknown): Result<TimeZone, DomainError> {
-    const parsed = timeZoneSchema.safeParse(raw);
+    // Handle case-insensitive 'UTC' for backwards compatibility
+    const normalized = typeof raw === 'string' && raw.toUpperCase() === 'UTC' ? 'utc' : raw;
+    const parsed = timeZoneSchema.safeParse(normalized);
     if (!parsed.success) return err(domainError.validation({ message: 'Invalid TimeZone' }));
     return ok(new TimeZone(parsed.data));
   }

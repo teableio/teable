@@ -2,17 +2,19 @@ import type { ITableDto } from '@teable/v2-contract-http';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowRight,
+  Check,
   ChevronDown,
   Database,
   FlaskConical,
   GalleryVerticalEnd,
   Globe,
+  Pin,
   Search,
   Table as TableIcon,
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
-import { useEffect, useState, useRef, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, useRef, type FormEvent, type ReactNode } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import {
   Sidebar,
@@ -54,6 +56,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -64,14 +67,25 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   usePlaygroundEnvironment,
   resolvePlaygroundEnvironment,
 } from '@/lib/playground/environment';
 import {
+  PLAYGROUND_DB_CONNECTIONS_STORAGE_KEY,
   PLAYGROUND_DB_URL_STORAGE_KEY,
+  createPlaygroundDbConnectionId,
+  findPlaygroundDbConnectionByUrl,
   formatPlaygroundDbUrlLabel,
   isValidPlaygroundDbUrl,
+  maskPlaygroundDbUrl,
+  normalizePlaygroundDbUrl,
+  resolvePlaygroundDbStorageKey,
+  sortPlaygroundDbConnections,
+  type PlaygroundDbConnection,
 } from '@/lib/playground/databaseUrl';
 import { cn } from '@/lib/utils';
 
@@ -87,6 +101,19 @@ type PlaygroundShellProps = {
   isDeletingTable: boolean;
   children: ReactNode;
 };
+
+type DbConnectionDraft = {
+  id: string | null;
+  name: string;
+  description: string;
+  url: string;
+  pinned: boolean;
+};
+
+type NavigationTarget =
+  | { to: string; params: { baseId: string } }
+  | { to: string; params: { baseId: string; tableId: string } }
+  | { to: string; params?: undefined };
 
 export function PlaygroundShell({
   baseId,
@@ -179,18 +206,59 @@ function PlaygroundSidebar({
   const [nextBaseId, setNextBaseId] = useState(baseId);
   const [deleteTarget, setDeleteTarget] = useState<ITableDto | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [dbDialogOpen, setDbDialogOpen] = useState(false);
-  const [dbDraft, setDbDraft] = useState('');
-  const [dbError, setDbError] = useState<string | null>(null);
-  const [dbTestStatus, setDbTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(
-    'idle'
-  );
-  const [dbTestMessage, setDbTestMessage] = useState<string | null>(null);
+  const [dbManagerOpen, setDbManagerOpen] = useState(false);
+  const [connectionDraft, setConnectionDraft] = useState<DbConnectionDraft>({
+    id: null,
+    name: '',
+    description: '',
+    url: '',
+    pinned: false,
+  });
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [connectionTestStatus, setConnectionTestStatus] = useState<
+    'idle' | 'loading' | 'success' | 'error'
+  >('idle');
+  const [connectionTestMessage, setConnectionTestMessage] = useState<string | null>(null);
   const [dbUrl, setDbUrl, removeDbUrl] = useLocalStorage<string | null>(
     PLAYGROUND_DB_URL_STORAGE_KEY,
     null,
     { initializeWithValue: false }
   );
+  const [dbConnections, setDbConnections] = useLocalStorage<PlaygroundDbConnection[]>(
+    PLAYGROUND_DB_CONNECTIONS_STORAGE_KEY,
+    [],
+    { initializeWithValue: false }
+  );
+
+  const resetConnectionDraft = useCallback((connection?: PlaygroundDbConnection) => {
+    if (connection) {
+      setConnectionDraft({
+        id: connection.id,
+        name: connection.name,
+        description: connection.description ?? '',
+        url: connection.url,
+        pinned: Boolean(connection.pinned),
+      });
+    } else {
+      setConnectionDraft({
+        id: null,
+        name: '',
+        description: '',
+        url: '',
+        pinned: false,
+      });
+    }
+    setConnectionError(null);
+    setConnectionTestStatus('idle');
+    setConnectionTestMessage(null);
+  }, []);
+
+  const updateConnectionDraft = (updates: Partial<DbConnectionDraft>) => {
+    setConnectionDraft((prev) => ({ ...prev, ...updates }));
+    setConnectionError(null);
+    setConnectionTestStatus('idle');
+    setConnectionTestMessage(null);
+  };
 
   useEffect(() => {
     setNextBaseId(baseId);
@@ -204,25 +272,16 @@ function PlaygroundSidebar({
         block: 'nearest',
       });
     }
-  }, [activeTableId, tables]);
+  }, [activeTableId]);
 
   useEffect(() => {
-    if (!dbDialogOpen) return;
-    setDbDraft(dbUrl ?? '');
-    setDbError(null);
-    setDbTestStatus('idle');
-    setDbTestMessage(null);
-  }, [dbDialogOpen, dbUrl]);
-
-  useEffect(() => {
-    if (!dbDialogOpen) return;
-    setDbError(null);
-    setDbTestStatus('idle');
-    setDbTestMessage(null);
-  }, [dbDraft, dbDialogOpen]);
+    if (!dbManagerOpen) return;
+    resetConnectionDraft();
+  }, [dbManagerOpen, resetConnectionDraft]);
 
   const trimmedBaseId = nextBaseId.trim();
   const canSwitchBase = trimmedBaseId.length > 0 && trimmedBaseId !== baseId;
+  const tableSkeletonKeys = ['table-skeleton-0', 'table-skeleton-1', 'table-skeleton-2'];
 
   const handleBaseSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -246,45 +305,82 @@ function PlaygroundSidebar({
     }
   };
 
-  const handleDbSave = (event: FormEvent<HTMLFormElement>) => {
+  const handleConnectionSave = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmed = dbDraft.trim();
-    if (!trimmed) {
-      removeDbUrl();
-      setDbDialogOpen(false);
-      reloadPlayground();
+    const trimmedName = connectionDraft.name.trim();
+    const trimmedUrl = normalizePlaygroundDbUrl(connectionDraft.url);
+    const trimmedDescription = connectionDraft.description.trim();
+
+    if (!trimmedName) {
+      setConnectionError('Connection name is required.');
       return;
     }
-    if (!isValidPlaygroundDbUrl(trimmed)) {
-      setDbError('Use a postgres:// or postgresql:// URL.');
+    if (!trimmedUrl) {
+      setConnectionError('Enter a database URL first.');
       return;
     }
-    setDbUrl(trimmed);
-    setDbDialogOpen(false);
-    reloadPlayground();
+    if (!isValidPlaygroundDbUrl(trimmedUrl)) {
+      setConnectionError('Use a postgres:// or postgresql:// URL.');
+      return;
+    }
+
+    const now = Date.now();
+    const existing = connectionDraft.id
+      ? dbConnections.find((item) => item.id === connectionDraft.id)
+      : undefined;
+    const nextConnection: PlaygroundDbConnection = {
+      id: connectionDraft.id ?? createPlaygroundDbConnectionId(),
+      name: trimmedName,
+      description: trimmedDescription ? trimmedDescription : undefined,
+      url: trimmedUrl,
+      pinned: connectionDraft.pinned,
+      createdAt: existing?.createdAt ?? now,
+      lastUsedAt: existing?.lastUsedAt,
+    };
+
+    const nextConnections = connectionDraft.id
+      ? dbConnections.map((item) => (item.id === connectionDraft.id ? nextConnection : item))
+      : [...dbConnections, nextConnection];
+
+    setDbConnections(nextConnections);
+
+    if (
+      existing &&
+      dbUrl &&
+      normalizePlaygroundDbUrl(existing.url) === normalizePlaygroundDbUrl(dbUrl)
+    ) {
+      if (normalizePlaygroundDbUrl(existing.url) !== normalizePlaygroundDbUrl(nextConnection.url)) {
+        setDbUrl(nextConnection.url);
+        setDbManagerOpen(false);
+        reloadPlayground();
+        return;
+      }
+    }
+
+    resetConnectionDraft();
   };
 
-  const handleDbTest = async () => {
-    const trimmed = dbDraft.trim();
-    if (!trimmed) {
-      setDbTestStatus('error');
-      setDbTestMessage('Enter a database URL first.');
+  const handleConnectionTest = async () => {
+    const trimmedUrl = normalizePlaygroundDbUrl(connectionDraft.url);
+    if (!trimmedUrl) {
+      setConnectionTestStatus('error');
+      setConnectionTestMessage('Enter a database URL first.');
       return;
     }
-    if (!isValidPlaygroundDbUrl(trimmed)) {
-      setDbTestStatus('error');
-      setDbTestMessage('Use a postgres:// or postgresql:// URL.');
+    if (!isValidPlaygroundDbUrl(trimmedUrl)) {
+      setConnectionTestStatus('error');
+      setConnectionTestMessage('Use a postgres:// or postgresql:// URL.');
       return;
     }
-    setDbTestStatus('loading');
-    setDbTestMessage('Testing connection...');
+    setConnectionTestStatus('loading');
+    setConnectionTestMessage('Testing connection...');
     try {
       const response = await fetch('/api/db/check', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ connectionString: trimmed }),
+        body: JSON.stringify({ connectionString: trimmedUrl }),
       });
       const payload = (await response.json().catch(() => null)) as {
         ok?: boolean;
@@ -292,26 +388,59 @@ function PlaygroundSidebar({
       } | null;
       if (!response.ok || payload?.ok === false) {
         const message = payload?.error ?? 'Connection failed.';
-        setDbTestStatus('error');
-        setDbTestMessage(message);
+        setConnectionTestStatus('error');
+        setConnectionTestMessage(message);
         return;
       }
-      setDbTestStatus('success');
-      setDbTestMessage('Connection OK.');
+      setConnectionTestStatus('success');
+      setConnectionTestMessage('Connection OK.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Connection failed.';
-      setDbTestStatus('error');
-      setDbTestMessage(message);
+      setConnectionTestStatus('error');
+      setConnectionTestMessage(message);
     }
   };
 
-  const handleDbClear = () => {
-    removeDbUrl();
-    setDbDialogOpen(false);
+  const handleConnectionEdit = (connection: PlaygroundDbConnection) => {
+    setDbManagerOpen(true);
+    resetConnectionDraft(connection);
+  };
+
+  const handleConnectionDelete = (connection: PlaygroundDbConnection) => {
+    setDbConnections(dbConnections.filter((item) => item.id !== connection.id));
+    if (dbUrl && normalizePlaygroundDbUrl(connection.url) === normalizePlaygroundDbUrl(dbUrl)) {
+      void handleUseDefault();
+    }
+  };
+
+  const handleConnectionSwitch = async (connection: PlaygroundDbConnection) => {
+    const now = Date.now();
+    setDbConnections(
+      dbConnections.map((item) => (item.id === connection.id ? { ...item, lastUsedAt: now } : item))
+    );
+    setDbUrl(connection.url);
+    setDbManagerOpen(false);
+    const next = resolveTargetPath(activeEnv, {
+      connectionId: connection.id,
+      dbUrl: connection.url,
+    });
+    await navigateToTarget(next);
     reloadPlayground();
   };
 
-  const dbLabel = dbUrl ? formatPlaygroundDbUrlLabel(dbUrl) : 'Default (.env)';
+  const handleUseDefault = async () => {
+    removeDbUrl();
+    setDbManagerOpen(false);
+    const next = resolveTargetPath(activeEnv, { connectionId: null, dbUrl: null });
+    await navigateToTarget(next);
+    reloadPlayground();
+  };
+
+  const sortedConnections = sortPlaygroundDbConnections(dbConnections);
+  const activeConnection = findPlaygroundDbConnectionByUrl(dbConnections, dbUrl);
+  const dbLabel = dbUrl
+    ? activeConnection?.name ?? formatPlaygroundDbUrlLabel(dbUrl)
+    : 'Default (.env)';
 
   const readStoredValue = (key: string): string | null => {
     if (typeof window === 'undefined') return null;
@@ -327,22 +456,53 @@ function PlaygroundSidebar({
     return null;
   };
 
-  const resolveTargetPath = (target: typeof activeEnv) => {
+  const resolveStorageKeys = (
+    target: typeof activeEnv,
+    options: { connectionId?: string | null; dbUrl?: string | null }
+  ) => {
+    if (target.kind === 'sandbox') {
+      return target.storageKeys;
+    }
+    return {
+      baseId: resolvePlaygroundDbStorageKey(target.storageKeys.baseId, options),
+      tableId: resolvePlaygroundDbStorageKey(target.storageKeys.tableId, options),
+    };
+  };
+
+  const resolveTargetPath = (
+    target: typeof activeEnv,
+    options: { connectionId?: string | null; dbUrl?: string | null }
+  ): NavigationTarget => {
     if (typeof window === 'undefined') {
       return { to: target.routes.base, params: { baseId: target.defaults.baseId } };
     }
-    const storedBaseId = readStoredValue(target.storageKeys.baseId);
-    const storedTableId = readStoredValue(target.storageKeys.tableId);
-    const baseId = storedBaseId || target.defaults.baseId;
+    const storageKeys = resolveStorageKeys(target, options);
+    const storedBaseId = readStoredValue(storageKeys.baseId);
+    const storedTableId = readStoredValue(storageKeys.tableId);
+    const baseId = storedBaseId || (target.kind === 'sandbox' ? target.defaults.baseId : null);
+    if (!baseId) {
+      return { to: target.routes.index };
+    }
     if (storedTableId) {
       return { to: target.routes.table, params: { baseId, tableId: storedTableId } };
     }
     return { to: target.routes.base, params: { baseId } };
   };
 
+  const navigateToTarget = async (target: NavigationTarget) => {
+    if (target.params) {
+      await navigate({ to: target.to, params: target.params, search: {} });
+      return;
+    }
+    await navigate({ to: target.to, search: {} });
+  };
+
   const handleEnvSwitch = (target: typeof activeEnv) => {
-    const next = resolveTargetPath(target);
-    void navigate({ ...next, search: {} });
+    const next = resolveTargetPath(target, {
+      connectionId: activeConnection?.id ?? null,
+      dbUrl,
+    });
+    void navigateToTarget(next);
   };
 
   return (
@@ -435,8 +595,8 @@ function PlaygroundSidebar({
                 <div className="mt-2" ref={menuRef}>
                   {isInitialLoading ? (
                     <SidebarMenu>
-                      {Array.from({ length: 3 }).map((_, index) => (
-                        <SidebarMenuItem key={`table-skeleton-${index}`}>
+                      {tableSkeletonKeys.map((key) => (
+                        <SidebarMenuItem key={key}>
                           <SidebarMenuSkeleton showIcon />
                         </SidebarMenuItem>
                       ))}
@@ -577,20 +737,52 @@ function PlaygroundSidebar({
                   <DropdownMenuGroup>
                     <DropdownMenuItem
                       className="gap-2 py-2 text-sm"
-                      onSelect={() => setDbDialogOpen(true)}
+                      onSelect={() => setDbManagerOpen(true)}
                     >
                       <Database className="mr-2 size-4 text-slate-600" />
-                      {dbUrl ? 'Edit database URL' : 'Set database URL'}
+                      Manage connections
                     </DropdownMenuItem>
                     {dbUrl ? (
                       <DropdownMenuItem
                         className="gap-2 py-2 text-sm text-destructive focus:text-destructive"
-                        onSelect={handleDbClear}
+                        onSelect={handleUseDefault}
                       >
                         <Trash2 className="mr-2 size-4" />
-                        Clear override
+                        Use default (.env)
                       </DropdownMenuItem>
                     ) : null}
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs">Saved connections</DropdownMenuLabel>
+                  <DropdownMenuGroup>
+                    {sortedConnections.length ? (
+                      sortedConnections.map((connection) => {
+                        const isActive = activeConnection?.id === connection.id;
+                        return (
+                          <DropdownMenuItem
+                            key={connection.id}
+                            className="gap-2 py-2 text-sm"
+                            onSelect={() => handleConnectionSwitch(connection)}
+                            disabled={isActive}
+                          >
+                            <Check
+                              className={cn(
+                                'size-4 transition-opacity',
+                                isActive ? 'opacity-100' : 'opacity-0'
+                              )}
+                            />
+                            <span className="flex-1 truncate">{connection.name}</span>
+                            {connection.pinned ? (
+                              <Pin className="size-3 text-muted-foreground" />
+                            ) : null}
+                          </DropdownMenuItem>
+                        );
+                      })
+                    ) : (
+                      <DropdownMenuItem className="text-xs text-muted-foreground/80" disabled>
+                        No saved connections yet
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       className="text-xs text-muted-foreground/80"
                       disabled
@@ -603,52 +795,184 @@ function PlaygroundSidebar({
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-      <Dialog open={dbDialogOpen} onOpenChange={setDbDialogOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={dbManagerOpen} onOpenChange={setDbManagerOpen}>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Database URL</DialogTitle>
+            <DialogTitle>Database connections</DialogTitle>
             <DialogDescription>
-              Override the remote playground database connection. Stored locally in your browser and
-              applied after reload.
+              Store multiple database URLs locally, switch quickly, and reload the playground when
+              needed.
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-3" onSubmit={handleDbSave}>
-            <Input
-              type="text"
-              placeholder="postgres://user:pass@localhost:5432/teable"
-              value={dbDraft}
-              onChange={(event) => setDbDraft(event.target.value)}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            {dbError ? <p className="text-xs text-destructive">{dbError}</p> : null}
-            {dbTestMessage ? (
-              <p
-                className={cn(
-                  'text-xs',
-                  dbTestStatus === 'success' && 'text-emerald-600',
-                  dbTestStatus === 'error' && 'text-destructive',
-                  dbTestStatus === 'loading' && 'text-muted-foreground'
-                )}
-              >
-                {dbTestMessage}
-              </p>
-            ) : null}
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setDbDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleDbTest}
-                disabled={dbTestStatus === 'loading'}
-              >
-                {dbTestStatus === 'loading' ? 'Testing...' : 'Test connection'}
-              </Button>
-              <Button type="submit">Save &amp; reload</Button>
-            </DialogFooter>
-          </form>
+          <div className="space-y-4">
+            <form
+              className="space-y-3 rounded-lg border border-border/60 p-4"
+              onSubmit={handleConnectionSave}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {connectionDraft.id ? 'Edit connection' : 'New connection'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {connectionDraft.id
+                      ? 'Update name, description, or URL.'
+                      : 'Add a connection saved in this browser.'}
+                  </p>
+                </div>
+                {connectionDraft.id ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => resetConnectionDraft()}
+                  >
+                    New
+                  </Button>
+                ) : null}
+              </div>
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="playground-db-name">Name</Label>
+                  <Input
+                    id="playground-db-name"
+                    type="text"
+                    placeholder="Staging database"
+                    value={connectionDraft.name}
+                    onChange={(event) => updateConnectionDraft({ name: event.target.value })}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="playground-db-description">Description</Label>
+                  <Textarea
+                    id="playground-db-description"
+                    placeholder="Optional notes about this connection"
+                    value={connectionDraft.description}
+                    onChange={(event) => updateConnectionDraft({ description: event.target.value })}
+                    rows={2}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="playground-db-url">Database URL</Label>
+                  <Input
+                    id="playground-db-url"
+                    type="text"
+                    placeholder="postgres://user:pass@localhost:5432/teable"
+                    value={connectionDraft.url}
+                    onChange={(event) => updateConnectionDraft({ url: event.target.value })}
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="playground-db-pin"
+                    checked={connectionDraft.pinned}
+                    onCheckedChange={(checked) => updateConnectionDraft({ pinned: checked })}
+                  />
+                  <Label htmlFor="playground-db-pin">Pin to top</Label>
+                </div>
+              </div>
+              {connectionError ? (
+                <p className="text-xs text-destructive">{connectionError}</p>
+              ) : null}
+              {connectionTestMessage ? (
+                <p
+                  className={cn(
+                    'text-xs',
+                    connectionTestStatus === 'success' && 'text-emerald-600',
+                    connectionTestStatus === 'error' && 'text-destructive',
+                    connectionTestStatus === 'loading' && 'text-muted-foreground'
+                  )}
+                >
+                  {connectionTestMessage}
+                </p>
+              ) : null}
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setDbManagerOpen(false)}>
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleConnectionTest}
+                  disabled={connectionTestStatus === 'loading'}
+                >
+                  {connectionTestStatus === 'loading' ? 'Testing...' : 'Test connection'}
+                </Button>
+                <Button type="submit">
+                  {connectionDraft.id ? 'Save changes' : 'Add connection'}
+                </Button>
+              </DialogFooter>
+            </form>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Saved connections</p>
+                  <p className="text-xs text-muted-foreground">Switching reloads the playground.</p>
+                </div>
+                <Badge variant="secondary">{sortedConnections.length}</Badge>
+              </div>
+              {sortedConnections.length ? (
+                <div className="space-y-2">
+                  {sortedConnections.map((connection) => {
+                    const isActive = activeConnection?.id === connection.id;
+                    return (
+                      <div
+                        key={connection.id}
+                        className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border/60 p-3"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium">{connection.name}</span>
+                            {connection.pinned ? (
+                              <Pin className="h-3 w-3 text-muted-foreground" />
+                            ) : null}
+                            {isActive ? <Badge variant="outline">Active</Badge> : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {connection.description || formatPlaygroundDbUrlLabel(connection.url)}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground/70">
+                            {maskPlaygroundDbUrl(connection.url)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleConnectionSwitch(connection)}
+                            disabled={isActive}
+                          >
+                            Use
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleConnectionEdit(connection)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => handleConnectionDelete(connection)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border/60 p-4 text-center text-sm text-muted-foreground">
+                  No saved connections yet.
+                </div>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       <AlertDialog

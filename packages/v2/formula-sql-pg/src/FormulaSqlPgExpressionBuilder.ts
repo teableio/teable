@@ -404,16 +404,16 @@ export class FormulaSqlPgExpressionBuilder {
       }
 
       if (this.isJsonArrayObjectField(expr)) {
-        return this.buildFirstElementText(normalized, this.buildJsonObjectText('v.elem'));
+        return this.buildFirstElementText(normalized, this.buildJsonObjectText('fe.elem'));
       }
       if (this.isJsonArrayScalarField(expr)) {
-        return this.buildFirstElementText(normalized, "v.elem #>> '{}'");
+        return this.buildFirstElementText(normalized, "fe.elem #>> '{}'");
       }
       return `(SELECT CASE
-        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-        ELSE ${extractJsonScalarText('v.elem')}
+        WHEN fe.elem IS NULL OR jsonb_typeof(fe.elem) = 'null' THEN NULL
+        ELSE ${extractJsonScalarText('fe.elem')}
       END
-      FROM (SELECT (${normalized} -> 0) AS elem) AS v)`;
+      FROM (SELECT (${normalized} -> 0) AS elem) AS fe)`;
     }
     return extractFirstJsonScalarText(expr.valueSql);
   }
@@ -424,29 +424,38 @@ export class FormulaSqlPgExpressionBuilder {
    * additional type checking.
    */
   private extractProxiedLookupScalarText(normalizedJson: string, valueType: string): string {
+    // Use 'lkp' alias to avoid conflicts with 'v' used in withValueAlias
     switch (valueType) {
       case 'number':
         return `(SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE (v.elem #>> '{}')::numeric
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          ELSE (lkp.elem #>> '{}')::numeric
         END
-        FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+        FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
       case 'boolean':
         return `(SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          WHEN (v.elem #>> '{}')::boolean THEN TRUE
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN (lkp.elem #>> '{}')::boolean THEN TRUE
           ELSE FALSE
         END
-        FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+        FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
       case 'datetime':
-      default:
-        // For datetime, string and other types, extract as text
-        // For datetime, the actual conversion happens in coerceToDatetime
+        // For datetime, extract as text - the actual conversion happens in coerceToDatetime
         return `(SELECT CASE
-          WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-          ELSE v.elem #>> '{}'
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          ELSE lkp.elem #>> '{}'
         END
-        FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+        FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
+      default:
+        // For unknown types, detect JSON type at runtime and extract appropriately
+        // This handles cases where innerField is not yet resolved (pending lookup fields)
+        return `(SELECT CASE
+          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+          WHEN jsonb_typeof(lkp.elem) = 'number' THEN (lkp.elem #>> '{}')::numeric::text
+          WHEN jsonb_typeof(lkp.elem) = 'boolean' THEN (lkp.elem #>> '{}')
+          ELSE lkp.elem #>> '{}'
+        END
+        FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
     }
   }
 
@@ -455,13 +464,14 @@ export class FormulaSqlPgExpressionBuilder {
    * This optimizes SQL generation by using type-specific extraction logic.
    */
   protected extractLookupScalarText(normalizedJson: string, innerFieldType: string): string {
+    // Use 'lkp' alias to avoid conflicts with 'v' used in withValueAlias
     // Button, link, and attachment types cannot be converted to scalar values
     if (
       innerFieldType === 'button' ||
       innerFieldType === 'link' ||
       innerFieldType === 'attachment'
     ) {
-      return `(SELECT NULL FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+      return `(SELECT NULL FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
     }
 
     // Number types: extract as numeric
@@ -471,10 +481,10 @@ export class FormulaSqlPgExpressionBuilder {
       innerFieldType === 'autoNumber'
     ) {
       return `(SELECT CASE
-        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-        ELSE (v.elem #>> '{}')::numeric
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
       END
-      FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+      FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
     }
 
     // Date types: extract as text (for unwrapArrayToScalar which always returns string type)
@@ -485,10 +495,10 @@ export class FormulaSqlPgExpressionBuilder {
       innerFieldType === 'lastModifiedTime'
     ) {
       return `(SELECT CASE
-        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-        ELSE v.elem #>> '{}'
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE lkp.elem #>> '{}'
       END
-      FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+      FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
     }
 
     // Text types: extract as text
@@ -499,20 +509,20 @@ export class FormulaSqlPgExpressionBuilder {
       innerFieldType === 'multipleSelect'
     ) {
       return `(SELECT CASE
-        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-        ELSE v.elem #>> '{}'
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE lkp.elem #>> '{}'
       END
-      FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+      FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
     }
 
     // Boolean type: extract as boolean
     if (innerFieldType === 'checkbox') {
       return `(SELECT CASE
-        WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-        WHEN (v.elem #>> '{}')::boolean THEN TRUE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        WHEN (lkp.elem #>> '{}')::boolean THEN TRUE
         ELSE FALSE
       END
-      FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+      FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
     }
 
     // User type: extract using object text extraction
@@ -521,15 +531,19 @@ export class FormulaSqlPgExpressionBuilder {
       innerFieldType === 'createdBy' ||
       innerFieldType === 'lastModifiedBy'
     ) {
-      return this.buildFirstElementText(normalizedJson, this.buildJsonObjectText('v.elem'));
+      return this.buildFirstElementText(
+        normalizedJson,
+        this.buildJsonObjectText('lkp.elem'),
+        'lkp'
+      );
     }
 
     // Default: use generic extraction logic
     return `(SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
-      ELSE ${extractJsonScalarText('v.elem')}
+      WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+      ELSE ${extractJsonScalarText('lkp.elem')}
     END
-    FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+    FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
   }
 
   protected stringifyArrayExpr(expr: SqlExpr, separator = ', '): string {
@@ -1251,12 +1265,16 @@ export class FormulaSqlPgExpressionBuilder {
     )`;
   }
 
-  protected buildFirstElementText(normalizedJson: string, elementSql: string): string {
+  protected buildFirstElementText(
+    normalizedJson: string,
+    elementSql: string,
+    tableAlias = 'fe'
+  ): string {
     return `(SELECT CASE
-      WHEN v.elem IS NULL OR jsonb_typeof(v.elem) = 'null' THEN NULL
+      WHEN ${tableAlias}.elem IS NULL OR jsonb_typeof(${tableAlias}.elem) = 'null' THEN NULL
       ELSE ${elementSql}
     END
-    FROM (SELECT (${normalizedJson} -> 0) AS elem) AS v)`;
+    FROM (SELECT (${normalizedJson} -> 0) AS elem) AS ${tableAlias})`;
   }
 
   protected normalizeUnitLiteral<T extends string>(

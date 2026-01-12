@@ -8,10 +8,12 @@ import type {
   ComputedUpdateLockConfig,
   ComputedUpdateOutboxConfig,
   ComputedUpdatePollingConfig,
+  FieldBackfillConfig,
   HybridWithOutboxStrategyConfig,
 } from '../record/computed';
 import {
   AsyncWithRetryStrategy,
+  ComputedFieldBackfillService,
   ComputedFieldUpdater,
   defaultComputedUpdateLockConfig,
   ComputedUpdateOutbox,
@@ -21,6 +23,7 @@ import {
   HybridWithOutboxStrategy,
   SyncInTransactionStrategy,
   defaultComputedUpdateOutboxConfig,
+  defaultFieldBackfillConfig,
   defaultHybridWithOutboxStrategyConfig,
   defaultPollingConfig,
   ComputedUpdateWorker,
@@ -52,6 +55,11 @@ export interface IV2TableRepositoryPostgresConfig {
     outboxConfig?: Partial<ComputedUpdateOutboxConfig>;
     lockConfig?: Partial<ComputedUpdateLockConfig>;
     pollingConfig?: Partial<ComputedUpdatePollingConfig>;
+    /**
+     * Field backfill config for computed field initialization.
+     * Controls how newly created computed fields are backfilled.
+     */
+    fieldBackfillConfig?: Partial<FieldBackfillConfig>;
   };
 }
 
@@ -97,6 +105,10 @@ export const registerV2TableRepositoryPostgresAdapter = (
     lifecycle: Lifecycle.Singleton,
   });
 
+  c.register(v2CoreTokens.computedFieldBackfillService, ComputedFieldBackfillService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+
   const hybridConfig: HybridWithOutboxStrategyConfig = {
     ...defaultHybridWithOutboxStrategyConfig,
     ...config.computedUpdate?.hybridConfig,
@@ -113,6 +125,12 @@ export const registerV2TableRepositoryPostgresAdapter = (
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig, hybridConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig, outboxConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig, lockConfig);
+
+  const fieldBackfillConfig: FieldBackfillConfig = {
+    ...defaultFieldBackfillConfig,
+    ...config.computedUpdate?.fieldBackfillConfig,
+  };
+  c.registerInstance(v2RecordRepositoryPostgresTokens.fieldBackfillConfig, fieldBackfillConfig);
 
   const dispatchMode = hybridConfig.dispatchMode ?? 'push';
   const pollingEnabled =

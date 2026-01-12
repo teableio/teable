@@ -8,7 +8,7 @@ import { ValueObject } from '../shared/ValueObject';
 
 const baseIdPrefix = 'bse';
 const baseIdBodyLength = 16;
-const baseIdSchema = z.string().regex(prefixedIdRegex(baseIdPrefix, baseIdBodyLength));
+const baseIdSchema = z.string();
 
 export class BaseId extends ValueObject {
   private constructor(private readonly value: string) {

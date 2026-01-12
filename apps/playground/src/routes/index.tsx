@@ -1,8 +1,16 @@
-import { createFileRoute, Navigate } from '@tanstack/react-router';
+import { Link, createFileRoute, Navigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  PLAYGROUND_DB_CONNECTIONS_STORAGE_KEY,
+  PLAYGROUND_DB_URL_STORAGE_KEY,
+  findPlaygroundDbConnectionByUrl,
+  resolvePlaygroundDbStorageKey,
+  type PlaygroundDbConnection,
+} from '@/lib/playground/databaseUrl';
 import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 
 export const Route = createFileRoute('/')({ component: PlaygroundIndex });
@@ -18,11 +26,34 @@ export function PlaygroundIndex() {
   const env = usePlaygroundEnvironment();
   const [target, setTarget] = useState<RedirectTarget>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
-  const [storedBaseId] = useLocalStorage<string | null>(env.storageKeys.baseId, null, {
+  const [dbUrl] = useLocalStorage<string | null>(PLAYGROUND_DB_URL_STORAGE_KEY, null, {
+    initializeWithValue: false,
+  });
+  const [dbConnections] = useLocalStorage<PlaygroundDbConnection[]>(
+    PLAYGROUND_DB_CONNECTIONS_STORAGE_KEY,
+    [],
+    { initializeWithValue: false }
+  );
+  const activeConnection = findPlaygroundDbConnectionByUrl(dbConnections, dbUrl);
+  const baseStorageKey =
+    env.kind === 'sandbox'
+      ? env.storageKeys.baseId
+      : resolvePlaygroundDbStorageKey(env.storageKeys.baseId, {
+          connectionId: activeConnection?.id ?? null,
+          dbUrl,
+        });
+  const tableStorageKey =
+    env.kind === 'sandbox'
+      ? env.storageKeys.tableId
+      : resolvePlaygroundDbStorageKey(env.storageKeys.tableId, {
+          connectionId: activeConnection?.id ?? null,
+          dbUrl,
+        });
+  const [storedBaseId] = useLocalStorage<string | null>(baseStorageKey, null, {
     initializeWithValue: false,
   });
   const [storedTableId, , removeStoredTableId] = useLocalStorage<string | null>(
-    env.storageKeys.tableId,
+    tableStorageKey,
     null,
     { initializeWithValue: false }
   );
@@ -33,14 +64,14 @@ export function PlaygroundIndex() {
 
   useEffect(() => {
     if (!hasHydrated) return;
-    const baseId = storedBaseId && storedBaseId.trim() ? storedBaseId : env.defaults.baseId;
+    const baseId = storedBaseId && storedBaseId.trim() ? storedBaseId : null;
     const tableId = storedTableId && storedTableId.trim() ? storedTableId : null;
 
-    if (!storedBaseId || !storedBaseId.trim()) {
+    if (!baseId) {
       if (tableId) {
         removeStoredTableId();
       }
-      setTarget({ to: env.routes.base, params: { baseId } });
+      setTarget(null);
       return;
     }
 
@@ -54,7 +85,6 @@ export function PlaygroundIndex() {
 
     setTarget({ to: env.routes.base, params: { baseId } });
   }, [
-    env.defaults.baseId,
     env.routes.base,
     env.routes.table,
     hasHydrated,
@@ -67,14 +97,34 @@ export function PlaygroundIndex() {
     return <Navigate to={target.to} params={target.params} replace />;
   }
 
+  if (!hasHydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 py-10">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-lg">Loading playground...</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Preparing your workspace.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6 py-10">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-lg">Loading playground...</CardTitle>
+          <CardTitle className="text-lg">Welcome to the playground</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Preparing your workspace.
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <p>No recent base found for this connection.</p>
+          <Button asChild className="w-full">
+            <Link to={env.routes.base} params={{ baseId: env.defaults.baseId }}>
+              Open default base
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

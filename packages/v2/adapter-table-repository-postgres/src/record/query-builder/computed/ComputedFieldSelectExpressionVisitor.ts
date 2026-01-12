@@ -35,6 +35,7 @@ import {
   guardValueSql,
   makeExpr,
   type SqlExpr,
+  type SqlValueType,
 } from '@teable/v2-formula-sql-pg';
 import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
@@ -125,6 +126,30 @@ export class ComputedFieldSelectExpressionVisitor
     return `${this.quoteIdentifier(alias)}.${this.quoteIdentifier(column)}`;
   }
 
+  /**
+   * Map a FieldType to a SqlValueType for proper type coercion in formulas.
+   */
+  private mapFieldTypeToValueType(fieldType: FieldType): SqlValueType {
+    if (
+      fieldType.equals(FieldType.number()) ||
+      fieldType.equals(FieldType.autoNumber()) ||
+      fieldType.equals(FieldType.rating())
+    ) {
+      return 'number';
+    }
+    if (fieldType.equals(FieldType.checkbox())) {
+      return 'boolean';
+    }
+    if (
+      fieldType.equals(FieldType.date()) ||
+      fieldType.equals(FieldType.createdTime()) ||
+      fieldType.equals(FieldType.lastModifiedTime())
+    ) {
+      return 'datetime';
+    }
+    return 'string';
+  }
+
   private resolveFieldReferenceSql(field: Field): Result<SqlExpr, DomainError> {
     return this.getColAlias(field).andThen((colAlias) => {
       if (field.type().equals(FieldType.link())) {
@@ -157,7 +182,22 @@ export class ComputedFieldSelectExpressionVisitor
             foreignFieldId: lookupField.lookupFieldId(),
           }
         );
-        return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
+        // lookup returns a JSON array, set isArray: true and derive valueType from inner field
+        const innerFieldResult = lookupField.innerField();
+        const valueType = innerFieldResult.isOk()
+          ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
+          : 'unknown';
+        return ok(
+          makeExpr(
+            this.qualify(lateralAlias, colAlias),
+            valueType,
+            true,
+            undefined,
+            undefined,
+            lookupField,
+            'array'
+          )
+        );
       }
 
       if (field.type().equals(FieldType.rollup())) {
@@ -194,7 +234,22 @@ export class ComputedFieldSelectExpressionVisitor
             condition: options.condition(),
           }
         );
-        return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
+        // conditionalLookup returns a JSON array, set isArray: true and derive valueType from inner field
+        const innerFieldResult = conditionalLookupField.innerField();
+        const valueType = innerFieldResult.isOk()
+          ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
+          : 'unknown';
+        return ok(
+          makeExpr(
+            this.qualify(lateralAlias, colAlias),
+            valueType,
+            true,
+            undefined,
+            undefined,
+            conditionalLookupField,
+            'array'
+          )
+        );
       }
 
       if (field.type().equals(FieldType.conditionalRollup())) {

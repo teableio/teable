@@ -99,7 +99,15 @@ const parseFormulaFormatting = (
   if (numberResult.isOk()) return ok(numberResult.value);
   const dateResult = DateTimeFormatting.create(raw);
   if (dateResult.isOk()) return ok(dateResult.value);
-  return err(domainError.validation({ message: 'Invalid FormulaFormatting' }));
+  // Provide detailed error message including raw value and individual parse errors
+  const rawStr = JSON.stringify(raw);
+  const numberErr = numberResult.isErr() ? numberResult.error.message : 'unknown';
+  const dateErr = dateResult.isErr() ? dateResult.error.message : 'unknown';
+  return err(
+    domainError.validation({
+      message: `Invalid FormulaFormatting: ${rawStr} (NumberFormatting: ${numberErr}, DateTimeFormatting: ${dateErr})`,
+    })
+  );
 };
 
 const parseFormulaShowAs = (

@@ -94,6 +94,7 @@ import { cn } from '@/lib/utils';
 import type { ShareDbDocStatus } from '@/lib/shareDb';
 import { renderFieldOptions } from './fieldOptionsVisitor';
 import { SchemaCheckPanel } from './SchemaCheckPanel';
+import { MetaCheckPanel } from './MetaCheckPanel';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 
 const formatViewLabel = (view: View): string =>
@@ -663,7 +664,7 @@ const getDbTableName = (table: TableAggregate): string | null => {
   return nameResult.isOk() ? nameResult.value : null;
 };
 
-const tableTabValues = ['table', 'records', 'json', 'realtime', 'schema'] as const;
+const tableTabValues = ['table', 'records', 'json', 'realtime', 'schema', 'meta'] as const;
 type TableMetaTab = (typeof tableTabValues)[number];
 
 const isTableMetaTab = (value: string): value is TableMetaTab =>
@@ -794,25 +795,37 @@ export function TableMetaPage({
         onDelete={onDelete}
         onRename={onRename}
       />
-      <ScrollArea className="flex-1 min-h-0" scrollHideDelay={0}>
-        <section className="space-y-6 px-6 py-6">
-          {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {errorMessage ? (
+          <div className="px-6 pt-6">
+            <PlaygroundErrorState message={errorMessage} />
+          </div>
+        ) : null}
 
-          {isInitialLoading ? (
-            <PlaygroundLoadingState />
-          ) : !table ? (
-            <PlaygroundEmptyState
-              isCreating={isCreating}
-              templates={templates}
-              onCreateTemplate={onCreateTemplate}
-              onImportCsv={onImportCsv}
-            />
-          ) : (
-            <Tabs
-              value={activeTab}
-              onValueChange={handleTabChange}
-              className="space-y-5 animate-fade-in"
-            >
+        {isInitialLoading ? (
+          <ScrollArea className="flex-1">
+            <div className="px-6 py-6">
+              <PlaygroundLoadingState />
+            </div>
+          </ScrollArea>
+        ) : !table ? (
+          <ScrollArea className="flex-1">
+            <div className="px-6 py-6">
+              <PlaygroundEmptyState
+                isCreating={isCreating}
+                templates={templates}
+                onCreateTemplate={onCreateTemplate}
+                onImportCsv={onImportCsv}
+              />
+            </div>
+          </ScrollArea>
+        ) : (
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="flex-1 flex flex-col min-h-0 animate-fade-in"
+          >
+            <div className="px-6 pt-6">
               <TabsList className="h-9 w-fit rounded-full border border-border/60 bg-background/70 p-1 shadow-sm">
                 <TabsTrigger
                   value="table"
@@ -844,18 +857,33 @@ export function TableMetaPage({
                 >
                   Schema Check
                 </TabsTrigger>
+                <TabsTrigger
+                  value="meta"
+                  className="h-7 rounded-full px-4 text-xs font-medium text-muted-foreground data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-200"
+                >
+                  Meta Check
+                </TabsTrigger>
               </TabsList>
-              <TabsContent value="table" className="mt-0 outline-none">
-                <PlaygroundMetaLayout
-                  table={table}
-                  baseId={baseId}
-                  tableId={tableId}
-                  isLoading={isLoading}
-                  isDeletingField={isDeletingField}
-                  onDeleteField={onDeleteField}
-                />
-              </TabsContent>
-              <TabsContent value="records" className="mt-0 outline-none">
+            </div>
+            <TabsContent value="table" className="flex-1 min-h-0 mt-0 outline-none overflow-hidden">
+              <ScrollArea className="h-full w-full">
+                <div className="px-6 py-6">
+                  <PlaygroundMetaLayout
+                    table={table}
+                    baseId={baseId}
+                    tableId={tableId}
+                    isLoading={isLoading}
+                    isDeletingField={isDeletingField}
+                    onDeleteField={onDeleteField}
+                  />
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent
+              value="records"
+              className="flex-1 min-h-0 mt-0 outline-none overflow-hidden flex flex-col"
+            >
+              <div className="flex-1 min-h-0 px-6 py-6">
                 <PlaygroundRecordsLayout
                   baseId={baseId}
                   table={table}
@@ -869,39 +897,72 @@ export function TableMetaPage({
                   onPaginationChange={onPaginationChange}
                   onDeleteRecords={onDeleteRecords}
                 />
-              </TabsContent>
-              <TabsContent value="json" className="mt-0">
-                <PlaygroundJsonLayout
-                  table={table}
-                  tableJson={tableJson}
-                  tableJsonError={tableJsonError}
-                />
-              </TabsContent>
-              <TabsContent value="realtime" className="mt-0">
-                <PlaygroundRealtimeLayout
-                  realtimeSnapshot={realtimeSnapshot}
-                  realtimeStatus={realtimeStatus}
-                  realtimeError={realtimeError}
-                  realtimeFieldSnapshots={realtimeFieldSnapshots}
-                  realtimeFieldStatus={realtimeFieldStatus}
-                  realtimeFieldError={realtimeFieldError}
-                />
-              </TabsContent>
-              <TabsContent value="schema" className="mt-0 outline-none">
-                <SchemaCheckPanel
-                  tableId={table.id().toString()}
-                  tableName={table.name().toString()}
-                  fields={table.getFields().map((field) => ({
-                    id: field.id().toString(),
-                    name: field.name().toString(),
-                    type: field.type().toString(),
-                  }))}
-                />
-              </TabsContent>
-            </Tabs>
-          )}
-        </section>
-      </ScrollArea>
+              </div>
+            </TabsContent>
+            <TabsContent value="json" className="flex-1 min-h-0 mt-0 outline-none overflow-hidden">
+              <ScrollArea className="h-full w-full">
+                <div className="px-6 py-6">
+                  <PlaygroundJsonLayout
+                    table={table}
+                    tableJson={tableJson}
+                    tableJsonError={tableJsonError}
+                  />
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent
+              value="realtime"
+              className="flex-1 min-h-0 mt-0 outline-none overflow-hidden"
+            >
+              <ScrollArea className="h-full w-full">
+                <div className="px-6 py-6">
+                  <PlaygroundRealtimeLayout
+                    realtimeSnapshot={realtimeSnapshot}
+                    realtimeStatus={realtimeStatus}
+                    realtimeError={realtimeError}
+                    realtimeFieldSnapshots={realtimeFieldSnapshots}
+                    realtimeFieldStatus={realtimeFieldStatus}
+                    realtimeFieldError={realtimeFieldError}
+                  />
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent
+              value="schema"
+              className="flex-1 min-h-0 mt-0 outline-none overflow-hidden"
+            >
+              <ScrollArea className="h-full w-full">
+                <div className="px-6 py-6">
+                  <SchemaCheckPanel
+                    tableId={table.id().toString()}
+                    tableName={table.name().toString()}
+                    fields={table.getFields().map((field) => ({
+                      id: field.id().toString(),
+                      name: field.name().toString(),
+                      type: field.type().toString(),
+                    }))}
+                  />
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="meta" className="flex-1 min-h-0 mt-0 outline-none overflow-hidden">
+              <ScrollArea className="h-full w-full">
+                <div className="px-6 py-6">
+                  <MetaCheckPanel
+                    tableId={table.id().toString()}
+                    tableName={table.name().toString()}
+                    fields={table.getFields().map((field) => ({
+                      id: field.id().toString(),
+                      name: field.name().toString(),
+                      type: field.type().toString(),
+                    }))}
+                  />
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
     </div>
   );
 }
@@ -1180,11 +1241,7 @@ type PlaygroundEmptyStateProps = {
     template: TableTemplateDefinition,
     options: { includeRecords: boolean }
   ) => void;
-  onImportCsv?: (data: {
-    tableName: string;
-    headers: string[];
-    rows: Record<string, string>[];
-  }) => Promise<void>;
+  onImportCsv?: (data: { tableName: string; csvData?: string; csvUrl?: string }) => Promise<void>;
 };
 
 function PlaygroundEmptyState({
@@ -1291,7 +1348,7 @@ function PlaygroundRecordsLayout({
   onDeleteRecords,
 }: PlaygroundRecordsLayoutProps) {
   return (
-    <div className="space-y-6 min-w-0">
+    <div className="flex flex-col h-full min-h-0 space-y-6">
       <TableRecordsCard
         baseId={baseId}
         table={table}
@@ -1805,8 +1862,8 @@ function TableRecordsCard({
   );
 
   return (
-    <section className="space-y-4 min-w-0 overflow-hidden animate-fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section className="flex flex-col h-full min-h-0 space-y-4 animate-fade-in">
+      <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 ring-1 ring-emerald-500/20">
             <TableIcon className="h-4 w-4 text-emerald-600" />
@@ -1871,6 +1928,7 @@ function TableRecordsCard({
         <DataTable
           columns={columns}
           data={data}
+          className="flex-1 min-h-0"
           emptyMessage="No records yet."
           pinnedColumns={pinnedColumns}
           pagination={paginationForTable}

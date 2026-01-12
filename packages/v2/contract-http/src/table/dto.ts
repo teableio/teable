@@ -47,7 +47,7 @@ import { sequenceResults } from '../shared/neverthrow';
 
 const columnMetaEntrySchema = z
   .object({
-    order: z.number(),
+    order: z.number().nullable().optional(),
     visible: z.boolean().optional(),
     hidden: z.boolean().optional(),
     width: z.number().optional(),

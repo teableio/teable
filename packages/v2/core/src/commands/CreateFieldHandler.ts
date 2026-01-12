@@ -9,6 +9,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Field } from '../domain/table/fields/Field';
 import type { Table } from '../domain/table/Table';
+import { IComputedFieldBackfillService } from '../ports/ComputedFieldBackfillService';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -36,7 +37,9 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
     @inject(v2CoreTokens.fieldCreationSideEffectService)
     private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
     @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: ForeignTableLoaderService
+    private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.computedFieldBackfillService)
+    private readonly computedFieldBackfillService: IComputedFieldBackfillService
   ) {}
 
   @TraceSpan()
@@ -80,6 +83,12 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
                     fields: [createdField],
                     foreignTables,
                   });
+
+                // Backfill computed field values for existing records
+                yield* await handler.computedFieldBackfillService.backfill(transactionContext, {
+                  table: updatedTable,
+                  field: createdField,
+                });
 
                 return ok(sideEffectResult.events);
               }),

@@ -18,6 +18,7 @@ import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import type { IComputedFieldBackfillService } from '../ports/ComputedFieldBackfillService';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
@@ -123,6 +124,21 @@ class FakeUnitOfWork implements IUnitOfWork {
   }
 }
 
+class FakeComputedFieldBackfillService implements IComputedFieldBackfillService {
+  async backfill() {
+    return ok(undefined);
+  }
+  async backfillMany() {
+    return ok(undefined);
+  }
+  async executeSync() {
+    return ok(undefined);
+  }
+  async executeSyncMany() {
+    return ok(undefined);
+  }
+}
+
 const buildTable = (params: {
   baseId: string;
   tableId: string;
@@ -168,10 +184,12 @@ describe('CreateFieldHandler', () => {
     );
     const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
     const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const computedFieldBackfillService = new FakeComputedFieldBackfillService();
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      foreignTableLoaderService
+      foreignTableLoaderService,
+      computedFieldBackfillService
     );
 
     tableRepository.tables.push(

@@ -1,10 +1,19 @@
 import { domainError, FieldType } from '@teable/v2-core';
-import type { FieldId, DomainError, Field, FormulaField, Table } from '@teable/v2-core';
+import type {
+  FieldId,
+  DomainError,
+  Field,
+  FormulaField,
+  Table,
+  ConditionalLookupField,
+  LookupField,
+} from '@teable/v2-core';
 import {
   FormulaSqlPgTranslator,
   guardValueSql,
   makeExpr,
   type SqlExpr,
+  type SqlValueType,
 } from '@teable/v2-formula-sql-pg';
 import { sql, type Kysely, type RawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
@@ -253,8 +262,60 @@ export class SameTableBatchQueryBuilder {
     // Field is from the main table
     return this.getColumnName(field).map((colName) => {
       const ref = `"${T}"."${colName}"`;
+
+      // Handle lookup and conditionalLookup fields that return arrays
+      if (field.type().equals(FieldType.lookup())) {
+        const lookupField = field as LookupField;
+        const innerFieldResult = lookupField.innerField();
+        const valueType = innerFieldResult.isOk()
+          ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
+          : 'unknown';
+        return makeExpr(ref, valueType, true, undefined, undefined, lookupField, 'array');
+      }
+
+      if (field.type().equals(FieldType.conditionalLookup())) {
+        const conditionalLookupField = field as ConditionalLookupField;
+        const innerFieldResult = conditionalLookupField.innerField();
+        const valueType = innerFieldResult.isOk()
+          ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
+          : 'unknown';
+        return makeExpr(
+          ref,
+          valueType,
+          true,
+          undefined,
+          undefined,
+          conditionalLookupField,
+          'array'
+        );
+      }
+
       return makeExpr(ref, 'unknown', false);
     });
+  }
+
+  /**
+   * Map a FieldType to a SqlValueType for proper type coercion in formulas.
+   */
+  private mapFieldTypeToValueType(fieldType: FieldType): SqlValueType {
+    if (
+      fieldType.equals(FieldType.number()) ||
+      fieldType.equals(FieldType.autoNumber()) ||
+      fieldType.equals(FieldType.rating())
+    ) {
+      return 'number';
+    }
+    if (fieldType.equals(FieldType.checkbox())) {
+      return 'boolean';
+    }
+    if (
+      fieldType.equals(FieldType.date()) ||
+      fieldType.equals(FieldType.createdTime()) ||
+      fieldType.equals(FieldType.lastModifiedTime())
+    ) {
+      return 'datetime';
+    }
+    return 'string';
   }
 
   /**

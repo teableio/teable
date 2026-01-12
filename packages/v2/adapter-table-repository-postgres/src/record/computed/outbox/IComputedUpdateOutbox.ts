@@ -5,6 +5,7 @@ import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxTaskInput,
 } from './ComputedUpdateOutboxPayload';
+import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
 
 export type ComputedUpdateOutboxConfig = {
   /** Inline seed storage limit before spilling to computed_update_outbox_seed. */
@@ -30,21 +31,58 @@ export type ClaimBatchParams = {
   now?: Date;
 };
 
+/**
+ * Outbox item for field backfill tasks.
+ */
+export type FieldBackfillOutboxItem = FieldBackfillOutboxTaskInput & {
+  id: string;
+  status: 'pending' | 'processing' | 'done' | 'dead';
+  attempts: number;
+  maxAttempts: number;
+  nextRunAt: Date;
+  lockedAt?: Date | null;
+  lockedBy?: string | null;
+  lastError?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/**
+ * Union type for all outbox items.
+ */
+export type AnyOutboxItem = ComputedUpdateOutboxItem | FieldBackfillOutboxItem;
+
+/**
+ * Type guard to check if an outbox item is a field backfill task.
+ */
+export const isFieldBackfillOutboxItem = (item: AnyOutboxItem): item is FieldBackfillOutboxItem => {
+  return (item as FieldBackfillOutboxItem).taskType === 'field-backfill';
+};
+
 export interface IComputedUpdateOutbox {
   enqueueOrMerge(
     task: ComputedUpdateOutboxTaskInput,
     context?: IExecutionContext
   ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
 
+  /**
+   * Enqueue a field backfill task to the outbox.
+   * Field backfill tasks update all records in a table for specific computed fields.
+   */
+  enqueueFieldBackfill(
+    task: FieldBackfillOutboxTaskInput,
+    context?: IExecutionContext
+  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
+
   claimBatch(
     params: ClaimBatchParams,
     context?: IExecutionContext
-  ): Promise<Result<ReadonlyArray<ComputedUpdateOutboxItem>, DomainError>>;
+  ): Promise<Result<ReadonlyArray<AnyOutboxItem>, DomainError>>;
 
   markDone(taskId: string, context?: IExecutionContext): Promise<Result<void, DomainError>>;
 
   markFailed(
-    task: ComputedUpdateOutboxItem,
+    task: AnyOutboxItem,
     error: string,
     context?: IExecutionContext
   ): Promise<Result<void, DomainError>>;

@@ -148,9 +148,9 @@ export function DataTable<TData, TValue>({
   };
 
   return (
-    <div className={cn('w-full space-y-4', className)}>
-      <div className="rounded-lg border overflow-hidden">
-        <ScrollArea className="max-h-[calc(100vh-300px)] w-full" orientation="both">
+    <div className={cn('w-full flex flex-col min-h-0', className)}>
+      <div className="rounded-lg border overflow-hidden flex-1 min-h-0">
+        <ScrollArea className="h-full w-full" orientation="both">
           <table
             className="w-full caption-bottom text-sm border-collapse"
             style={{ minWidth: 'max-content' }}

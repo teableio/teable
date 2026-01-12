@@ -19,11 +19,14 @@ import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxTaskInput,
 } from './ComputedUpdateOutboxPayload';
+import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
 import { defaultComputedUpdateOutboxConfig } from './IComputedUpdateOutbox';
 import type {
   IComputedUpdateOutbox,
   ClaimBatchParams,
   ComputedUpdateOutboxConfig,
+  AnyOutboxItem,
+  FieldBackfillOutboxItem,
 } from './IComputedUpdateOutbox';
 
 const OUTBOX_TABLE = 'computed_update_outbox';
@@ -35,6 +38,9 @@ const OUTBOX_ID_PREFIX = 'cuo';
 const OUTBOX_ID_BODY_LENGTH = 16;
 const OUTBOX_SEED_ID_PREFIX = 'cus';
 const OUTBOX_SEED_ID_BODY_LENGTH = 16;
+
+/** Change type for field backfill tasks (stored in change_type column) */
+const FIELD_BACKFILL_CHANGE_TYPE = 'field-backfill';
 
 const createOutboxId = (): string => generatePrefixedId(OUTBOX_ID_PREFIX, OUTBOX_ID_BODY_LENGTH);
 const createOutboxSeedId = (): string =>
@@ -163,10 +169,59 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     });
   }
 
+  async enqueueFieldBackfill(
+    task: FieldBackfillOutboxTaskInput,
+    context?: IExecutionContext
+  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>> {
+    const now = new Date();
+    const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+
+    return runInTransaction<{ taskId: string; merged: boolean }>(db, context, async (trx) => {
+      // Check for existing pending backfill task for same table/fields
+      const existing = await trx
+        .selectFrom(OUTBOX_TABLE)
+        .selectAll()
+        .where('base_id', '=', task.baseId)
+        .where('seed_table_id', '=', task.tableId)
+        .where('plan_hash', '=', task.planHash)
+        .where('change_type', '=', FIELD_BACKFILL_CHANGE_TYPE)
+        .where('status', '=', DEFAULT_STATUS)
+        .forUpdate()
+        .executeTakeFirst();
+
+      if (!existing) {
+        const taskId = await this.insertFieldBackfill(trx, task, now);
+        return ok({ taskId, merged: false });
+      }
+
+      // Merge field IDs with existing task
+      const taskId = String(existing.id);
+      const existingFieldIds = parseStringArray(existing.affected_field_ids);
+      const mergedFieldIds = [...new Set([...existingFieldIds, ...task.fieldIds])];
+
+      await trx
+        .updateTable(OUTBOX_TABLE)
+        .set({
+          affected_field_ids: mergedFieldIds,
+          next_run_at: now,
+          updated_at: now,
+        })
+        .where('id', '=', taskId)
+        .execute();
+
+      this.logger.debug('computed:outbox:field_backfill_merged', {
+        taskId,
+        fieldIds: mergedFieldIds,
+      });
+
+      return ok({ taskId, merged: true });
+    });
+  }
+
   async claimBatch(
     params: ClaimBatchParams,
     context?: IExecutionContext
-  ): Promise<Result<ReadonlyArray<ComputedUpdateOutboxItem>, DomainError>> {
+  ): Promise<Result<ReadonlyArray<AnyOutboxItem>, DomainError>> {
     const now = params.now ?? new Date();
     const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
 
@@ -197,7 +252,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         .execute();
 
       const seedMap = await this.loadSeedRecords(trx, rows);
-      const tasks = rows.map((row) => toOutboxItem(row, seedMap.get(String(row.id)) ?? []));
+      const tasks = rows.map((row) => toAnyOutboxItem(row, seedMap.get(String(row.id)) ?? []));
 
       return ok(tasks);
     });
@@ -213,7 +268,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   }
 
   async markFailed(
-    task: ComputedUpdateOutboxItem,
+    task: AnyOutboxItem,
     error: string,
     context?: IExecutionContext
   ): Promise<Result<void, DomainError>> {
@@ -223,16 +278,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     return runInTransaction(db, context, async (trx) => {
       if (nextAttempts >= task.maxAttempts) {
+        const isBackfill = isFieldBackfillItem(task);
+
         await trx
           .insertInto(DEAD_LETTER_TABLE)
           .values({
             id: task.id,
             base_id: task.baseId,
-            seed_table_id: task.seedTableId,
-            seed_record_ids: toJsonValue(buildSeedGroupsFromTask(task)),
-            change_type: task.changeType,
-            steps: toJsonValue(task.steps),
-            edges: toJsonValue(task.edges),
+            seed_table_id: isBackfill ? task.tableId : task.seedTableId,
+            seed_record_ids: toJsonValue(buildSeedGroupsFromAnyTask(task)),
+            change_type: isBackfill ? FIELD_BACKFILL_CHANGE_TYPE : task.changeType,
+            steps: isBackfill ? null : toJsonValue(task.steps),
+            edges: isBackfill ? null : toJsonValue(task.edges),
             status: 'dead',
             attempts: nextAttempts,
             max_attempts: task.maxAttempts,
@@ -240,16 +297,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             locked_at: task.lockedAt ?? null,
             locked_by: task.lockedBy ?? null,
             last_error: error,
-            estimated_complexity: task.estimatedComplexity,
+            estimated_complexity: isBackfill
+              ? task.estimatedRowCount ?? 0
+              : task.estimatedComplexity,
             plan_hash: task.planHash,
-            dirty_stats: toJsonValue(task.dirtyStats),
+            dirty_stats: isBackfill ? null : toJsonValue(task.dirtyStats),
             run_id: task.runId,
-            origin_run_ids: task.originRunIds,
-            run_total_steps: task.runTotalSteps,
-            run_completed_steps_before: task.runCompletedStepsBefore,
-            affected_table_ids: task.affectedTableIds,
-            affected_field_ids: task.affectedFieldIds,
-            sync_max_level: task.syncMaxLevel,
+            origin_run_ids: isBackfill ? [] : task.originRunIds,
+            run_total_steps: isBackfill ? 1 : task.runTotalSteps,
+            run_completed_steps_before: isBackfill ? 0 : task.runCompletedStepsBefore,
+            affected_table_ids: isBackfill ? [task.tableId] : task.affectedTableIds,
+            affected_field_ids: isBackfill ? task.fieldIds : task.affectedFieldIds,
+            sync_max_level: isBackfill ? 0 : task.syncMaxLevel,
             failed_at: now,
             created_at: task.createdAt,
             updated_at: now,
@@ -430,6 +489,56 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         .onConflict((oc) => oc.columns(['task_id', 'table_id', 'record_id']).doNothing())
         .execute();
     }
+  }
+
+  private async insertFieldBackfill(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    task: FieldBackfillOutboxTaskInput,
+    now: Date
+  ): Promise<string> {
+    const record = await trx
+      .insertInto(OUTBOX_TABLE)
+      .values({
+        id: createOutboxId(),
+        base_id: task.baseId,
+        seed_table_id: task.tableId,
+        seed_record_ids: null,
+        change_type: FIELD_BACKFILL_CHANGE_TYPE,
+        steps: null,
+        edges: null,
+        status: DEFAULT_STATUS,
+        attempts: 0,
+        max_attempts: this.config.maxAttempts,
+        next_run_at: now,
+        locked_at: null,
+        locked_by: null,
+        last_error: null,
+        estimated_complexity: task.estimatedRowCount ?? 0,
+        plan_hash: task.planHash,
+        dirty_stats: null,
+        run_id: task.runId,
+        origin_run_ids: [],
+        run_total_steps: 1,
+        run_completed_steps_before: 0,
+        affected_table_ids: [task.tableId],
+        affected_field_ids: task.fieldIds,
+        sync_max_level: 0,
+        created_at: now,
+        updated_at: now,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+
+    const taskId = String(record.id);
+
+    this.logger.debug('computed:outbox:field_backfill_created', {
+      taskId,
+      tableId: task.tableId,
+      fieldIds: task.fieldIds,
+      runId: task.runId,
+    });
+
+    return taskId;
   }
 }
 
@@ -707,4 +816,60 @@ const describeError = (error: unknown): string => {
   } catch {
     return String(error);
   }
+};
+
+/**
+ * Convert a database row to the appropriate outbox item type based on change_type.
+ */
+const toAnyOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): AnyOutboxItem => {
+  const changeType = String(row.change_type);
+
+  if (changeType === FIELD_BACKFILL_CHANGE_TYPE) {
+    return toFieldBackfillOutboxItem(row);
+  }
+
+  return toOutboxItem(row, seedGroupsFromTable);
+};
+
+/**
+ * Convert a database row to a FieldBackfillOutboxItem.
+ */
+const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
+  return {
+    taskType: 'field-backfill',
+    id: String(row.id),
+    baseId: String(row.base_id),
+    tableId: String(row.seed_table_id),
+    fieldIds: parseStringArray(row.affected_field_ids),
+    estimatedRowCount: Number(row.estimated_complexity ?? 0),
+    runId: String(row.run_id ?? ''),
+    planHash: String(row.plan_hash),
+    status: String(row.status) as FieldBackfillOutboxItem['status'],
+    attempts: Number(row.attempts ?? 0),
+    maxAttempts: Number(row.max_attempts ?? 0),
+    nextRunAt: new Date(String(row.next_run_at)),
+    lockedAt: row.locked_at ? new Date(String(row.locked_at)) : null,
+    lockedBy: row.locked_by ? String(row.locked_by) : null,
+    lastError: row.last_error ? String(row.last_error) : null,
+    createdAt: new Date(String(row.created_at)),
+    updatedAt: new Date(String(row.updated_at)),
+  };
+};
+
+/**
+ * Check if an outbox item is a field backfill task.
+ */
+const isFieldBackfillItem = (task: AnyOutboxItem): task is FieldBackfillOutboxItem => {
+  return (task as FieldBackfillOutboxItem).taskType === 'field-backfill';
+};
+
+/**
+ * Build seed groups from any outbox item (only applicable for computed update tasks).
+ */
+const buildSeedGroupsFromAnyTask = (task: AnyOutboxItem): SeedGroup[] => {
+  if (isFieldBackfillItem(task)) {
+    // Field backfill tasks don't have seed records
+    return [];
+  }
+  return buildSeedGroupsFromTask(task);
 };
