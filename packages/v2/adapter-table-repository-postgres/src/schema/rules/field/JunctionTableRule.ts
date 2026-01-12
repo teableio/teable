@@ -28,7 +28,7 @@ export interface JunctionTableConfig {
   /** Column name for the "foreign" side of the relationship */
   foreignKeyName: string;
   /** Column name for ordering */
-  orderColumnName: string;
+  orderColumnName?: string;
   /** The current (source) table identifier */
   sourceTable: TableIdentifier;
   /** The foreign (target) table identifier */
@@ -193,12 +193,10 @@ export class JunctionTableExistsRule implements ISchemaRule {
       }
 
       // 2. Check required columns exist
-      const requiredColumns = [
-        '__id',
-        config.selfKeyName,
-        config.foreignKeyName,
-        config.orderColumnName,
-      ];
+      const requiredColumns = ['__id', config.selfKeyName, config.foreignKeyName];
+      if (config.orderColumnName) {
+        requiredColumns.push(config.orderColumnName);
+      }
 
       for (const col of requiredColumns) {
         const colExistsResult = await ctx.introspector.columnExists(
@@ -226,13 +224,16 @@ export class JunctionTableExistsRule implements ISchemaRule {
       : ctx.db.schema;
 
     // Only create table with columns, unique constraint is handled by JunctionTableUniqueConstraintRule
-    const builder = schemaBuilder
+    let builder = schemaBuilder
       .createTable(config.junctionTable.tableName)
       .ifNotExists()
       .addColumn('__id', 'serial', (col) => col.primaryKey())
       .addColumn(config.selfKeyName, 'text')
-      .addColumn(config.foreignKeyName, 'text')
-      .addColumn(config.orderColumnName, 'double precision');
+      .addColumn(config.foreignKeyName, 'text');
+
+    if (config.orderColumnName) {
+      builder = builder.addColumn(config.orderColumnName, 'double precision');
+    }
 
     return ok([builder]);
   }

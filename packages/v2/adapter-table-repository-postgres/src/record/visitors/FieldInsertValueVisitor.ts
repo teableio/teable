@@ -243,7 +243,7 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
 
           const selfKeyName = yield* field.selfKeyNameString();
           const foreignKeyName = yield* field.foreignKeyNameString();
-          const orderColumnName = yield* field.orderColumnName();
+          const orderColumnName = field.hasOrderColumn() ? yield* field.orderColumnName() : null;
 
           for (let i = 0; i < linkItems.length; i++) {
             const linkItem = linkItems[i];
@@ -255,7 +255,7 @@ export class FieldInsertValueVisitor implements IFieldVisitor<FieldInsertResult>
             const insertValues = {
               [selfKeyName]: recordId,
               [foreignKeyName]: foreignRecordId,
-              [orderColumnName]: order,
+              ...(orderColumnName ? { [orderColumnName]: order } : {}),
             };
 
             // Strategy: DELETE existing link then INSERT new one

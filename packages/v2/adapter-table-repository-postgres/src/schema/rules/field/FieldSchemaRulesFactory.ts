@@ -202,7 +202,8 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
         // ManyMany or OneWay OneMany: create junction table
         const selfKeyName = yield* field.selfKeyNameString();
         const foreignKeyName = yield* field.foreignKeyNameString();
-        const orderColumnName = yield* field.orderColumnName();
+        const hasOrderColumn = field.hasOrderColumn();
+        const orderColumnName = hasOrderColumn ? yield* field.orderColumnName() : undefined;
 
         const junctionConfig: JunctionTableConfig = {
           junctionTable: fkHostTable,
@@ -218,9 +219,11 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
         const junctionRules = JunctionTableExistsRule.createRulesFromField(field, junctionConfig);
         rules.push(...junctionRules);
 
-        // Field metadata (depends on junction table)
-        const junctionTableRuleId = `junction_table:${field.id().toString()}`;
-        rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: junctionTableRuleId }));
+        if (hasOrderColumn) {
+          // Field metadata (depends on junction table)
+          const junctionTableRuleId = `junction_table:${field.id().toString()}`;
+          rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: junctionTableRuleId }));
+        }
       } else {
         // OneOne or regular OneMany: add FK columns to the host table
         const isCurrentTableHost =
@@ -232,7 +235,7 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
             relationship === 'oneMany'
               ? yield* field.selfKeyNameString()
               : yield* field.foreignKeyNameString();
-          const orderColumnName = yield* field.orderColumnName();
+          const hasOrderColumn = field.hasOrderColumn();
 
           // FK column rule
           const fkColumnRule = FkColumnRule.forField(field, keyName, foreignTableId);
@@ -259,17 +262,21 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
             )
           );
 
-          // Order column
-          const orderRule = OrderColumnRule.forField(
-            field,
-            orderColumnName,
-            currentTable,
-            fkColumnRule
-          );
-          rules.push(orderRule);
+          if (hasOrderColumn) {
+            const orderColumnName = yield* field.orderColumnName();
 
-          // Field meta (depends on order column)
-          rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: orderRule.id }));
+            // Order column
+            const orderRule = OrderColumnRule.forField(
+              field,
+              orderColumnName,
+              currentTable,
+              fkColumnRule
+            );
+            rules.push(orderRule);
+
+            // Field meta (depends on order column)
+            rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: orderRule.id }));
+          }
         }
       }
 

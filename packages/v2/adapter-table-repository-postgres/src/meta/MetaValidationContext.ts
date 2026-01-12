@@ -1,6 +1,3 @@
-import type { Result } from 'neverthrow';
-import { ok, err } from 'neverthrow';
-
 import type {
   BaseId,
   DomainError,
@@ -9,6 +6,8 @@ import type {
   ITableRepository,
 } from '@teable/v2-core';
 import { domainError, Table } from '@teable/v2-core';
+import type { Result } from 'neverthrow';
+import { ok, err } from 'neverthrow';
 
 /**
  * Context for meta validation that provides access to all tables and fields

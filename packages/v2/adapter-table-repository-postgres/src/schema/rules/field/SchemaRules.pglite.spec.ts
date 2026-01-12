@@ -1159,6 +1159,41 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       }
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
     });
+
+    it('should allow junction table without order column when config omits it', async () => {
+      await createTestTable(SOURCE_TABLE);
+      await createTestTable(TARGET_TABLE);
+
+      await sql
+        .raw(
+          `CREATE TABLE ${TEST_SCHEMA}.${JUNCTION_TABLE} (
+          __id SERIAL PRIMARY KEY,
+          self_key TEXT,
+          foreign_key TEXT
+        )`
+        )
+        .execute(db);
+
+      const fieldResult = createRealField('jct004', 'Link', 'link_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const linkField = createMockLinkField('jct004', 'Link');
+      const config = {
+        junctionTable: { schema: TEST_SCHEMA, tableName: JUNCTION_TABLE },
+        selfKeyName: 'self_key',
+        foreignKeyName: 'foreign_key',
+        sourceTable: { schema: TEST_SCHEMA, tableName: SOURCE_TABLE },
+        foreignTable: { schema: TEST_SCHEMA, tableName: TARGET_TABLE },
+        withIndexes: true,
+      } as unknown as JunctionTableConfig;
+
+      const rule = new JunctionTableExistsRule(linkField, config);
+      const ctx = createContext(SOURCE_TABLE, field);
+
+      const result = await rule.isValid(ctx);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().valid).toBe(true);
+    });
   });
 
   describe('JunctionTableUniqueConstraintRule', () => {

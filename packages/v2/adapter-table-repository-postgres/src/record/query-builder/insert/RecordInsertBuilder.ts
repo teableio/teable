@@ -279,7 +279,7 @@ export class RecordInsertBuilder {
 
         const selfKeyName = yield* field.selfKeyNameString();
         const foreignKeyName = yield* field.foreignKeyNameString();
-        const orderColumnName = yield* field.orderColumnName();
+        const orderColumnName = field.hasOrderColumn() ? yield* field.orderColumnName() : null;
 
         for (let i = 0; i < linkItems.length; i++) {
           const linkItem = linkItems[i];
@@ -307,7 +307,7 @@ export class RecordInsertBuilder {
           const insertValues: Record<string, unknown> = {
             [selfKeyName]: recordId,
             [foreignKeyName]: linkItem.id,
-            [orderColumnName]: order,
+            ...(orderColumnName ? { [orderColumnName]: order } : {}),
           };
           const insertQuery = builder.db.insertInto(junctionTableName).values(insertValues);
           const insertCompiled = insertQuery.compile();

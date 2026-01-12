@@ -1,6 +1,3 @@
-import type { Result } from 'neverthrow';
-import { ok, err } from 'neverthrow';
-
 import type {
   BaseId,
   DomainError,
@@ -9,6 +6,8 @@ import type {
   Table,
 } from '@teable/v2-core';
 import { domainError } from '@teable/v2-core';
+import type { Result } from 'neverthrow';
+import { ok, err } from 'neverthrow';
 
 import {
   createMetaValidationContext,
