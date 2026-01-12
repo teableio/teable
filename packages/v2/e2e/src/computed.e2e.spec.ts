@@ -10108,4 +10108,121 @@ describe('v2 computed field updates (e2e)', () => {
       }
     });
   });
+
+  /**
+   * hasError field handling tests.
+   *
+   * These tests verify that v2 properly handles computed fields that have
+   * hasError=true set in the database (migrated from v1 or set manually).
+   *
+   * When a computed field has hasError=true:
+   * - Reading records should return NULL for that field
+   * - Updating records should skip that field in computed updates
+   *
+   * NOTE: These tests require manual database setup to set has_error=true
+   * on fields. Implement after the "delete column mark hasError" feature
+   * is completed, which will provide a way to programmatically set hasError.
+   */
+  describe('hasError field handling', () => {
+    /**
+     * Scenario: Formula field with hasError=true returns null when reading records.
+     *
+     * When a formula field references a deleted/invalid field, it should be marked
+     * with hasError=true and return null instead of attempting to compute the value.
+     */
+    test.todo(
+      'formula field with hasError returns null: Implement after delete-column-mark-hasError feature'
+    );
+
+    /**
+     * Scenario: Lookup field with hasError=true returns null when reading records.
+     *
+     * When a lookup field references a deleted link field or lookup field,
+     * it should return null instead of attempting to compute the value.
+     */
+    test.todo(
+      'lookup field with hasError returns null: Implement after delete-column-mark-hasError feature'
+    );
+
+    /**
+     * Scenario: Rollup field with hasError=true returns null when reading records.
+     *
+     * When a rollup field references a deleted link field or lookup field,
+     * it should return null instead of attempting to compute the value.
+     */
+    test.todo(
+      'rollup field with hasError returns null: Implement after delete-column-mark-hasError feature'
+    );
+
+    /**
+     * Scenario: ConditionalLookup field with hasError=true returns null when reading records.
+     *
+     * When a conditionalLookup field references a deleted foreign table field,
+     * it should return null instead of attempting to compute the value.
+     */
+    test.todo(
+      'conditionalLookup field with hasError returns null: Implement after delete-column-mark-hasError feature'
+    );
+
+    /**
+     * Scenario: ConditionalRollup field with hasError=true returns null when reading records.
+     *
+     * When a conditionalRollup field references a deleted foreign table field,
+     * it should return null instead of attempting to compute the value.
+     */
+    test.todo(
+      'conditionalRollup field with hasError returns null: Implement after delete-column-mark-hasError feature'
+    );
+
+    /**
+     * Scenario: Fields with hasError=true are skipped during computed updates.
+     *
+     * When a computed field has hasError=true, it should not participate in
+     * computed update operations. This prevents wasted computation and potential
+     * SQL errors from invalid field references.
+     */
+    test.todo(
+      'computed fields with hasError are skipped during updates: Implement after delete-column-mark-hasError feature'
+    );
+
+    /**
+     * Scenario: Deleting a field marks dependent computed fields as hasError.
+     *
+     * When a field is deleted, all computed fields that reference it should
+     * be marked with hasError=true. This includes:
+     * - Formula fields that reference the deleted field
+     * - Lookup fields where linkFieldId or lookupFieldId matches
+     * - Rollup fields where linkFieldId or lookupFieldId matches
+     * - ConditionalLookup/Rollup fields where lookupFieldId matches
+     * - Formula fields that reference any of the above (cascading error)
+     */
+    test.todo(
+      'deleting a field marks dependent computed fields as hasError: Implement after delete-column-mark-hasError feature'
+    );
+
+    /**
+     * Scenario: hasError propagates through dependency chains.
+     *
+     * When a computed field becomes hasError=true, all fields that depend on
+     * it should also be marked as hasError=true.
+     *
+     * Example: fieldA -> formulaB -> formulaC
+     * If fieldA is deleted, both formulaB and formulaC should be marked hasError.
+     */
+    test.todo(
+      'hasError propagates through dependency chains: Implement after delete-column-mark-hasError feature'
+    );
+
+    /**
+     * Scenario: Converting a field to incompatible type marks dependent fields as hasError.
+     *
+     * When a field is converted to a type that is incompatible with its dependents,
+     * those dependent computed fields should be marked with hasError=true.
+     *
+     * Example: Converting a number field to text when a formula expects numeric input.
+     */
+    test.todo(
+      'converting field to incompatible type marks dependents as hasError: Implement after delete-column-mark-hasError feature'
+    );
+  });
 });
