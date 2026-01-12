@@ -425,6 +425,13 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     if (field.isConditionalLookup) {
       const cteName = this.fieldCteMap.get(field.id);
       if (!cteName) {
+        // Log warning when conditional lookup CTE is missing
+        const fieldCteMapKeys = Array.from(this.fieldCteMap.keys());
+        console.warn(
+          `[ConditionalLookup] CTE not found for field ${field.id} (${field.name}). ` +
+            `Available CTEs: [${fieldCteMapKeys.join(', ')}]. ` +
+            `Returning NULL::${field.dbFieldType}`
+        );
         return this.dialect.typedNullFor(field.dbFieldType);
       }
       return `"${cteName}"."conditional_lookup_${field.id}"`;
@@ -1805,7 +1812,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     field: FieldCore,
     options: IConditionalLookupOptions
   ): void {
-    if (field.hasError) return;
+    if (field.hasError) {
+      this.logger.warn(
+        `[ConditionalLookup] Skipping CTE generation for field ${field.id} (${field.name}): field.hasError=true`
+      );
+      return;
+    }
     if (this.state.getFieldCteMap().has(field.id)) return;
     if (this.conditionalLookupGenerationStack.has(field.id)) return;
 
@@ -1813,16 +1825,28 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     try {
       const { foreignTableId, lookupFieldId, filter, sort, limit } = options;
       if (!foreignTableId || !lookupFieldId) {
+        this.logger.warn(
+          `[ConditionalLookup] Skipping CTE generation for field ${field.id} (${field.name}): ` +
+            `foreignTableId=${foreignTableId}, lookupFieldId=${lookupFieldId}`
+        );
         return;
       }
 
       const foreignTable = this.tables.getTable(foreignTableId);
       if (!foreignTable) {
+        this.logger.warn(
+          `[ConditionalLookup] Skipping CTE generation for field ${field.id} (${field.name}): ` +
+            `foreignTable not found for foreignTableId=${foreignTableId}`
+        );
         return;
       }
 
       const targetField = foreignTable.getField(lookupFieldId);
       if (!targetField) {
+        this.logger.warn(
+          `[ConditionalLookup] Skipping CTE generation for field ${field.id} (${field.name}): ` +
+            `targetField not found for lookupFieldId=${lookupFieldId} in foreignTable=${foreignTableId}`
+        );
         return;
       }
 
@@ -2135,6 +2159,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const options = field.getConditionalLookupOptions?.();
         if (options) {
           this.generateConditionalLookupFieldCte(field, options);
+        } else {
+          this.logger.warn(
+            `[ConditionalLookup] getConditionalLookupOptions returned undefined for field ${field.id} (${field.name}). ` +
+              `isConditionalLookup=${field.isConditionalLookup}, lookupOptions=${JSON.stringify(field.lookupOptions)}`
+          );
         }
       }
     }

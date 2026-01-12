@@ -13,4 +13,5 @@ export enum SettingKey {
   WEB_SEARCH_CONFIG = 'webSearchConfig',
   NOTIFY_MAIL_TRANSPORT_CONFIG = 'notifyMailTransportConfig',
   AUTOMATION_MAIL_TRANSPORT_CONFIG = 'automationMailTransportConfig',
+  ENABLE_CREDIT_REWARD = 'enableCreditReward',
 }
