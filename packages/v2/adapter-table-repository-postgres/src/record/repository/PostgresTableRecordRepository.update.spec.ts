@@ -9,8 +9,6 @@ import {
   Table,
   TableId,
   TableName,
-  TableRecord,
-  TableRecordCellValue,
   ok,
 } from '@teable/v2-core';
 import type { ILogger } from '@teable/v2-core';
@@ -293,7 +291,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 
     const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
     expect(result.isOk()).toBe(true);
-    expect(driver.queries).toHaveLength(4);
+    expect(driver.queries).toHaveLength(5);
 
     expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
       [
@@ -301,7 +299,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "select \"__fk_fldeeeeeeeeeeeeeeee\" as \"record_id\" from \"bseaaaaaaaaaaaaaaaa\".\"junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff\" where \"__fk_fldffffffffffffffff\" = $1",
+          "sql": "select "__fk_fldeeeeeeeeeeeeeeee" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" = $1",
         },
         {
           "parameters": [
@@ -309,13 +307,19 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblbbbbbbbbbbbbbbbb\" set \"__last_modified_time\" = $1, \"__last_modified_by\" = $2, \"__version\" = \"__version\" + 1 where \"__id\" = $3",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1 where "__id" = $3",
+        },
+        {
+          "parameters": [],
+          "sql": "SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
+              FROM unnest(ARRAY['v2:link:bseaaaaaaaaaaaaaaaa:tblcccccccccccccccc:reciiiiiiiiiiiiiiii','v2:link:bseaaaaaaaaaaaaaaaa:tblcccccccccccccccc:recjjjjjjjjjjjjjjjj']::text[]) AS k
+              ORDER BY k",
         },
         {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "delete from \"bseaaaaaaaaaaaaaaaa\".\"junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff\" where \"__fk_fldffffffffffffffff\" = $1",
+          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" = $1",
         },
         {
           "parameters": [
@@ -324,7 +328,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "rechhhhhhhhhhhhhhhh",
             "recjjjjjjjjjjjjjjjj",
           ],
-          "sql": "insert into \"bseaaaaaaaaaaaaaaaa\".\"junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff\" (\"__fk_fldffffffffffffffff\", \"__fk_fldeeeeeeeeeeeeeeee\") values ($1, $2), ($3, $4)",
+          "sql": "insert into "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" ("__fk_fldffffffffffffffff", "__fk_fldeeeeeeeeeeeeeeee") values ($1, $2), ($3, $4)",
         },
       ]
     `);
@@ -395,7 +399,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 
     const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
     expect(result.isOk()).toBe(true);
-    expect(driver.queries).toHaveLength(4);
+    expect(driver.queries).toHaveLength(5);
 
     expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
       [
@@ -403,7 +407,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "select \"__id\" as \"record_id\" from \"bseaaaaaaaaaaaaaaaa\".\"tblcccccccccccccccc\" where \"__fk_fldffffffffffffffff\" = $1",
+          "sql": "select "__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" where "__fk_fldffffffffffffffff" = $1",
         },
         {
           "parameters": [
@@ -411,14 +415,20 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "usr_test",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblbbbbbbbbbbbbbbbb\" set \"__last_modified_time\" = $1, \"__last_modified_by\" = $2, \"__version\" = \"__version\" + 1 where \"__id\" = $3",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1 where "__id" = $3",
+        },
+        {
+          "parameters": [],
+          "sql": "SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
+              FROM unnest(ARRAY['v2:link:bseaaaaaaaaaaaaaaaa:tblcccccccccccccccc:reciiiiiiiiiiiiiiii','v2:link:bseaaaaaaaaaaaaaaaa:tblcccccccccccccccc:recjjjjjjjjjjjjjjjj']::text[]) AS k
+              ORDER BY k",
         },
         {
           "parameters": [
             null,
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblcccccccccccccccc\" set \"__fk_fldffffffffffffffff\" = $1 where \"__fk_fldffffffffffffffff\" = $2",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" set "__fk_fldffffffffffffffff" = $1 where "__fk_fldffffffffffffffff" = $2",
         },
         {
           "parameters": [
@@ -427,7 +437,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "recjjjjjjjjjjjjjjjj",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "update \"bseaaaaaaaaaaaaaaaa\".\"tblcccccccccccccccc\" as t set \"__fk_fldffffffffffffffff\" = \"v\".\"record_id\" from (values ($1, $2), ($3, $4)) as v(id, record_id) where \"t\".\"__id\" = \"v\".\"id\"",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as t set "__fk_fldffffffffffffffff" = "v"."record_id" from (values ($1, $2), ($3, $4)) as v(id, record_id) where "t"."__id" = "v"."id"",
         },
       ]
     `);
