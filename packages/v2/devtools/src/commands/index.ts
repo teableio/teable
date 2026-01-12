@@ -2,7 +2,7 @@ import { Command } from '@effect/cli';
 import { dottea } from './dottea';
 import { explainCreate, explainUpdate, explainDelete } from './explain';
 import { mockGenerate } from './mock';
-import { recordsList, recordsGet } from './records';
+import { recordsList, recordsGet, recordsCreate, recordsUpdate, recordsDelete } from './records';
 import { relations } from './relations';
 import { schemaTable, schemaField } from './schema';
 import { tablesCreate, tablesDescribeSchema } from './tables';
@@ -27,10 +27,10 @@ export const mock = Command.make('mock').pipe(
   Command.withSubcommands([mockGenerate])
 );
 
-// records subcommand group (application layer queries)
+// records subcommand group (application layer queries and mutations)
 export const records = Command.make('records').pipe(
-  Command.withDescription('Query records via application layer'),
-  Command.withSubcommands([recordsList, recordsGet])
+  Command.withDescription('Query and mutate records via application layer'),
+  Command.withSubcommands([recordsList, recordsGet, recordsCreate, recordsUpdate, recordsDelete])
 );
 
 // schema subcommand group

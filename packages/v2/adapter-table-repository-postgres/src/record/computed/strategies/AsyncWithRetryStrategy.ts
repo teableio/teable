@@ -29,4 +29,8 @@ export class AsyncWithRetryStrategy implements IUpdateStrategy {
       })
     );
   }
+
+  scheduleDispatch(_context: IExecutionContext): void {
+    // No-op: This strategy is not implemented yet
+  }
 }

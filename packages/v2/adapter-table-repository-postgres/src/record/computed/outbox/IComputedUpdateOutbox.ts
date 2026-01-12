@@ -5,6 +5,7 @@ import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxTaskInput,
 } from './ComputedUpdateOutboxPayload';
+import type { ComputedUpdateSeedTaskInput } from './ComputedUpdateSeedPayload';
 import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
 
 export type ComputedUpdateOutboxConfig = {
@@ -48,9 +49,25 @@ export type FieldBackfillOutboxItem = FieldBackfillOutboxTaskInput & {
 };
 
 /**
+ * Outbox item for seed tasks (minimal trigger info, plan computed by worker).
+ */
+export type SeedOutboxItem = ComputedUpdateSeedTaskInput & {
+  id: string;
+  status: 'pending' | 'processing' | 'done' | 'dead';
+  attempts: number;
+  maxAttempts: number;
+  nextRunAt: Date;
+  lockedAt?: Date | null;
+  lockedBy?: string | null;
+  lastError?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+/**
  * Union type for all outbox items.
  */
-export type AnyOutboxItem = ComputedUpdateOutboxItem | FieldBackfillOutboxItem;
+export type AnyOutboxItem = ComputedUpdateOutboxItem | FieldBackfillOutboxItem | SeedOutboxItem;
 
 /**
  * Type guard to check if an outbox item is a field backfill task.
@@ -59,9 +76,26 @@ export const isFieldBackfillOutboxItem = (item: AnyOutboxItem): item is FieldBac
   return (item as FieldBackfillOutboxItem).taskType === 'field-backfill';
 };
 
+/**
+ * Type guard to check if an outbox item is a seed task.
+ */
+export const isSeedOutboxItem = (item: AnyOutboxItem): item is SeedOutboxItem => {
+  return (item as SeedOutboxItem).taskType === 'seed';
+};
+
 export interface IComputedUpdateOutbox {
   enqueueOrMerge(
     task: ComputedUpdateOutboxTaskInput,
+    context?: IExecutionContext
+  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
+
+  /**
+   * Enqueue a seed task to the outbox.
+   * Seed tasks contain minimal trigger information - the full plan is computed
+   * asynchronously by the worker. This allows fast response times for record updates.
+   */
+  enqueueSeedTask(
+    task: ComputedUpdateSeedTaskInput,
     context?: IExecutionContext
   ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
 

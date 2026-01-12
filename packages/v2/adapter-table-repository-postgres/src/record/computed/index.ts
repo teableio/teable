@@ -7,6 +7,7 @@ export * from './FieldDependencyGraph';
 export * from './UpdateFromSelectBuilder';
 export * from './outbox/ComputedUpdateOutbox';
 export * from './outbox/ComputedUpdateOutboxPayload';
+export * from './outbox/ComputedUpdateSeedPayload';
 export * from './outbox/FieldBackfillOutboxPayload';
 export * from './outbox/IComputedUpdateOutbox';
 export * from './strategies/index';

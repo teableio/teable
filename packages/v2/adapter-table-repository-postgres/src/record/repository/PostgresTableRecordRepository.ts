@@ -5,6 +5,8 @@ import {
   isDomainError,
   v2CoreTokens,
   type DomainError,
+  type IHasher,
+  generatePrefixedId,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -17,7 +19,9 @@ import type {
   ComputedUpdatePlanner,
   IUpdateStrategy,
   UpdateImpactHint,
+  IComputedUpdateOutbox,
 } from '../computed';
+import { buildSeedTaskInput } from '../computed';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 import {
@@ -78,7 +82,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     @inject(v2RecordRepositoryPostgresTokens.computedFieldUpdater)
     private readonly computedFieldUpdater: ComputedFieldUpdater,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateStrategy)
-    private readonly computedUpdateStrategy: IUpdateStrategy
+    private readonly computedUpdateStrategy: IUpdateStrategy,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
+    private readonly computedUpdateOutbox: IComputedUpdateOutbox,
+    @inject(v2CoreTokens.hasher)
+    private readonly hasher: IHasher
   ) {}
 
   async insert(
@@ -455,22 +463,58 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       .fields()
       .entries()
       .map((entry) => entry.fieldId);
-    const planResult = await this.computedUpdatePlanner.plan(
-      {
-        table,
-        changedFieldIds,
-        changedRecordIds: [record.id()],
+
+    // If no changed fields, nothing to compute
+    if (changedFieldIds.length === 0) {
+      return ok(undefined);
+    }
+
+    // Build seed task input - only store minimal trigger information
+    const seedTask = buildSeedTaskInput({
+      baseId: table.baseId(),
+      seedTableId: table.id(),
+      seedRecordIds: [record.id()],
+      extraSeedRecords: extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordIds: [...group.recordIds],
+      })),
+      changedFieldIds,
+      changeType,
+      impact: impact
+        ? {
+            valueFieldIds: impact.valueFieldIds,
+            linkFieldIds: impact.linkFieldIds,
+          }
+        : undefined,
+      hasher: this.hasher,
+      runId: generatePrefixedId('run', 16),
+    });
+
+    // Enqueue seed task - plan computation and execution happens asynchronously in the worker
+    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    if (enqueueResult.isErr()) {
+      this.logger.warn('computed:seed:enqueue_failed', {
+        error: enqueueResult.error.message,
+        tableId: table.id().toString(),
+        recordId: record.id().toString(),
         changeType,
-        impact,
-      },
-      context
-    );
-    if (planResult.isErr()) return err(planResult.error);
-    const plan = {
-      ...planResult.value,
-      extraSeedRecords,
-    };
-    return this.computedUpdateStrategy.execute(this.computedFieldUpdater, plan, context);
+      });
+      return err(enqueueResult.error);
+    }
+
+    this.logger.debug('computed:seed:enqueued', {
+      taskId: enqueueResult.value.taskId,
+      merged: enqueueResult.value.merged,
+      tableId: table.id().toString(),
+      recordId: record.id().toString(),
+      changeType,
+      changedFieldCount: changedFieldIds.length,
+    });
+
+    // Schedule dispatch to process the enqueued task
+    this.computedUpdateStrategy.scheduleDispatch(context);
+
+    return ok(undefined);
   }
 
   private async runComputedUpdateMany(
@@ -491,21 +535,53 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       }
     }
 
-    const planResult = await this.computedUpdatePlanner.plan(
-      {
-        table,
-        changedFieldIds: [...fieldIds.values()],
-        changedRecordIds: recordIds,
+    const changedFieldIds = [...fieldIds.values()];
+
+    // If no changed fields, nothing to compute
+    if (changedFieldIds.length === 0) {
+      return ok(undefined);
+    }
+
+    // Build seed task input - only store minimal trigger information
+    const seedTask = buildSeedTaskInput({
+      baseId: table.baseId(),
+      seedTableId: table.id(),
+      seedRecordIds: recordIds,
+      extraSeedRecords: extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordIds: [...group.recordIds],
+      })),
+      changedFieldIds,
+      changeType,
+      hasher: this.hasher,
+      runId: generatePrefixedId('run', 16),
+    });
+
+    // Enqueue seed task - plan computation and execution happens asynchronously in the worker
+    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    if (enqueueResult.isErr()) {
+      this.logger.warn('computed:seed:enqueue_many_failed', {
+        error: enqueueResult.error.message,
+        tableId: table.id().toString(),
+        recordCount: recordIds.length,
         changeType,
-      },
-      context
-    );
-    if (planResult.isErr()) return err(planResult.error);
-    const plan = {
-      ...planResult.value,
-      extraSeedRecords,
-    };
-    return this.computedUpdateStrategy.execute(this.computedFieldUpdater, plan, context);
+      });
+      return err(enqueueResult.error);
+    }
+
+    this.logger.debug('computed:seed:enqueued_many', {
+      taskId: enqueueResult.value.taskId,
+      merged: enqueueResult.value.merged,
+      tableId: table.id().toString(),
+      recordCount: recordIds.length,
+      changeType,
+      changedFieldCount: changedFieldIds.length,
+    });
+
+    // Schedule dispatch to process the enqueued task
+    this.computedUpdateStrategy.scheduleDispatch(context);
+
+    return ok(undefined);
   }
 
   private async runComputedUpdateById(
@@ -522,22 +598,55 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       changedFieldIds.push(...impact.valueFieldIds, ...impact.linkFieldIds);
     }
 
-    const planResult = await this.computedUpdatePlanner.plan(
-      {
-        table,
-        changedFieldIds,
-        changedRecordIds: [recordId],
-        changeType,
-        impact,
-      },
-      context
-    );
-    if (planResult.isErr()) return err(planResult.error);
-    const plan = {
-      ...planResult.value,
-      extraSeedRecords,
-    };
-    return this.computedUpdateStrategy.execute(this.computedFieldUpdater, plan, context);
+    // If no changed fields, nothing to compute
+    if (changedFieldIds.length === 0) {
+      return ok(undefined);
+    }
+
+    // Build seed task input - only store minimal trigger information
+    const seedTask = buildSeedTaskInput({
+      baseId: table.baseId(),
+      seedTableId: table.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordIds: [...group.recordIds],
+      })),
+      changedFieldIds,
+      changeType,
+      impact: impact
+        ? {
+            valueFieldIds: impact.valueFieldIds,
+            linkFieldIds: impact.linkFieldIds,
+          }
+        : undefined,
+      hasher: this.hasher,
+      runId: generatePrefixedId('run', 16),
+    });
+
+    // Enqueue seed task - plan computation and execution happens asynchronously in the worker
+    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    if (enqueueResult.isErr()) {
+      this.logger.warn('computed:seed:enqueue_failed', {
+        error: enqueueResult.error.message,
+        tableId: table.id().toString(),
+        recordId: recordId.toString(),
+      });
+      return err(enqueueResult.error);
+    }
+
+    this.logger.debug('computed:seed:enqueued', {
+      taskId: enqueueResult.value.taskId,
+      merged: enqueueResult.value.merged,
+      tableId: table.id().toString(),
+      recordId: recordId.toString(),
+      changedFieldIds: changedFieldIds.map((id) => id.toString()),
+    });
+
+    // Schedule dispatch to process the enqueued task
+    this.computedUpdateStrategy.scheduleDispatch(context);
+
+    return ok(undefined);
   }
 
   private async runComputedDeleteUpdateMany(
@@ -547,22 +656,51 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = []
   ): Promise<Result<void, DomainError>> {
     if (recordIds.length === 0) return ok(undefined);
-    const allFieldIds = table.getFields().map((field) => field.id());
-    const planResult = await this.computedUpdatePlanner.plan(
-      {
-        table,
-        changedFieldIds: allFieldIds,
-        changedRecordIds: [...recordIds],
-        changeType: 'delete',
-      },
-      context
-    );
-    if (planResult.isErr()) return err(planResult.error);
-    const plan = {
-      ...planResult.value,
-      extraSeedRecords,
-    };
-    return this.computedUpdateStrategy.execute(this.computedFieldUpdater, plan, context);
+    const changedFieldIds = table.getFields().map((field) => field.id());
+
+    // If no fields, nothing to compute
+    if (changedFieldIds.length === 0) {
+      return ok(undefined);
+    }
+
+    // Build seed task input - only store minimal trigger information
+    const seedTask = buildSeedTaskInput({
+      baseId: table.baseId(),
+      seedTableId: table.id(),
+      seedRecordIds: [...recordIds],
+      extraSeedRecords: extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordIds: [...group.recordIds],
+      })),
+      changedFieldIds,
+      changeType: 'delete',
+      hasher: this.hasher,
+      runId: generatePrefixedId('run', 16),
+    });
+
+    // Enqueue seed task - plan computation and execution happens asynchronously in the worker
+    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    if (enqueueResult.isErr()) {
+      this.logger.warn('computed:seed:enqueue_delete_many_failed', {
+        error: enqueueResult.error.message,
+        tableId: table.id().toString(),
+        recordCount: recordIds.length,
+      });
+      return err(enqueueResult.error);
+    }
+
+    this.logger.debug('computed:seed:enqueued_delete_many', {
+      taskId: enqueueResult.value.taskId,
+      merged: enqueueResult.value.merged,
+      tableId: table.id().toString(),
+      recordCount: recordIds.length,
+      changedFieldCount: changedFieldIds.length,
+    });
+
+    // Schedule dispatch to process the enqueued task
+    this.computedUpdateStrategy.scheduleDispatch(context);
+
+    return ok(undefined);
   }
 }
 

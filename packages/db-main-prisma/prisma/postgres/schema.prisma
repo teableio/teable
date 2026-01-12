@@ -125,8 +125,8 @@ model ComputedUpdateOutbox {
   seedTableId        String   @map("seed_table_id")
   seedRecordIds      Json?    @map("seed_record_ids")
   changeType         String   @map("change_type")
-  steps              Json
-  edges              Json
+  steps              Json?
+  edges              Json?
   status             String
   attempts           Int      @default(0)
   maxAttempts        Int      @default(8) @map("max_attempts")
@@ -174,8 +174,8 @@ model ComputedUpdateDeadLetter {
   seedTableId        String   @map("seed_table_id")
   seedRecordIds      Json?    @map("seed_record_ids")
   changeType         String   @map("change_type")
-  steps              Json
-  edges              Json
+  steps              Json?
+  edges              Json?
   status             String
   attempts           Int      @default(0)
   maxAttempts        Int      @default(8) @map("max_attempts")

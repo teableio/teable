@@ -19,6 +19,8 @@ import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxTaskInput,
 } from './ComputedUpdateOutboxPayload';
+import type { ComputedUpdateSeedTaskInput } from './ComputedUpdateSeedPayload';
+import { mergeSeedPayloads } from './ComputedUpdateSeedPayload';
 import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
 import { defaultComputedUpdateOutboxConfig } from './IComputedUpdateOutbox';
 import type {
@@ -27,6 +29,7 @@ import type {
   ComputedUpdateOutboxConfig,
   AnyOutboxItem,
   FieldBackfillOutboxItem,
+  SeedOutboxItem,
 } from './IComputedUpdateOutbox';
 
 const OUTBOX_TABLE = 'computed_update_outbox';
@@ -41,6 +44,9 @@ const OUTBOX_SEED_ID_BODY_LENGTH = 16;
 
 /** Change type for field backfill tasks (stored in change_type column) */
 const FIELD_BACKFILL_CHANGE_TYPE = 'field-backfill';
+
+/** Change type for seed tasks (stored in change_type column) */
+const SEED_CHANGE_TYPE = 'seed';
 
 const createOutboxId = (): string => generatePrefixedId(OUTBOX_ID_PREFIX, OUTBOX_ID_BODY_LENGTH);
 const createOutboxSeedId = (): string =>
@@ -218,6 +224,72 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     });
   }
 
+  async enqueueSeedTask(
+    task: ComputedUpdateSeedTaskInput,
+    context?: IExecutionContext
+  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>> {
+    const now = new Date();
+    const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+
+    return runInTransaction<{ taskId: string; merged: boolean }>(db, context, async (trx) => {
+      // Check for existing pending seed task for same base/table/changeType
+      const existing = await trx
+        .selectFrom(OUTBOX_TABLE)
+        .selectAll()
+        .where('base_id', '=', task.baseId)
+        .where('seed_table_id', '=', task.seedTableId)
+        .where('plan_hash', '=', task.planHash)
+        .where('change_type', '=', SEED_CHANGE_TYPE)
+        .where('status', '=', DEFAULT_STATUS)
+        .forUpdate()
+        .executeTakeFirst();
+
+      if (!existing) {
+        const taskId = await this.insertSeedTask(trx, task, now);
+        return ok({ taskId, merged: false });
+      }
+
+      // Merge with existing task
+      const taskId = String(existing.id);
+
+      // Parse existing payload from row
+      const existingPayload = parseSeedPayloadFromRow(existing);
+      const mergedPayload = mergeSeedPayloads(existingPayload, task);
+
+      // Check if we need to use seed table for overflow
+      const mergedSeedGroups = buildSeedGroupsFromSeedPayload(mergedPayload);
+      const mergedSeedCount = countSeedRecords(mergedSeedGroups);
+      const useSeedTable = mergedSeedCount > this.config.seedInlineLimit;
+
+      if (useSeedTable) {
+        await this.upsertSeedRows(trx, taskId, flattenSeedGroups(mergedSeedGroups));
+      } else {
+        await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
+      }
+
+      await trx
+        .updateTable(OUTBOX_TABLE)
+        .set({
+          seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
+          affected_field_ids: mergedPayload.changedFieldIds,
+          // Store impact in dirty_stats column (repurposed for seed tasks)
+          dirty_stats: mergedPayload.impact ? toJsonValue(mergedPayload.impact) : null,
+          next_run_at: now,
+          updated_at: now,
+        })
+        .where('id', '=', taskId)
+        .execute();
+
+      this.logger.debug('computed:outbox:seed_merged', {
+        taskId,
+        seedCount: mergedSeedCount,
+        changedFieldIds: mergedPayload.changedFieldIds,
+      });
+
+      return ok({ taskId, merged: true });
+    });
+  }
+
   async claimBatch(
     params: ClaimBatchParams,
     context?: IExecutionContext
@@ -279,41 +351,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     return runInTransaction(db, context, async (trx) => {
       if (nextAttempts >= task.maxAttempts) {
         const isBackfill = isFieldBackfillItem(task);
+        const isSeed = isSeedItem(task);
 
-        await trx
-          .insertInto(DEAD_LETTER_TABLE)
-          .values({
-            id: task.id,
-            base_id: task.baseId,
-            seed_table_id: isBackfill ? task.tableId : task.seedTableId,
-            seed_record_ids: toJsonValue(buildSeedGroupsFromAnyTask(task)),
-            change_type: isBackfill ? FIELD_BACKFILL_CHANGE_TYPE : task.changeType,
-            steps: isBackfill ? null : toJsonValue(task.steps),
-            edges: isBackfill ? null : toJsonValue(task.edges),
-            status: 'dead',
-            attempts: nextAttempts,
-            max_attempts: task.maxAttempts,
-            next_run_at: task.nextRunAt,
-            locked_at: task.lockedAt ?? null,
-            locked_by: task.lockedBy ?? null,
-            last_error: error,
-            estimated_complexity: isBackfill
-              ? task.estimatedRowCount ?? 0
-              : task.estimatedComplexity,
-            plan_hash: task.planHash,
-            dirty_stats: isBackfill ? null : toJsonValue(task.dirtyStats),
-            run_id: task.runId,
-            origin_run_ids: isBackfill ? [] : task.originRunIds,
-            run_total_steps: isBackfill ? 1 : task.runTotalSteps,
-            run_completed_steps_before: isBackfill ? 0 : task.runCompletedStepsBefore,
-            affected_table_ids: isBackfill ? [task.tableId] : task.affectedTableIds,
-            affected_field_ids: isBackfill ? task.fieldIds : task.affectedFieldIds,
-            sync_max_level: isBackfill ? 0 : task.syncMaxLevel,
-            failed_at: now,
-            created_at: task.createdAt,
-            updated_at: now,
-          })
-          .execute();
+        // Build dead letter values based on task type
+        const deadLetterValues = buildDeadLetterValues(task, {
+          isBackfill,
+          isSeed,
+          nextAttempts,
+          error,
+          now,
+        });
+
+        await trx.insertInto(DEAD_LETTER_TABLE).values(deadLetterValues).execute();
 
         await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
         await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
@@ -535,6 +584,66 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       taskId,
       tableId: task.tableId,
       fieldIds: task.fieldIds,
+      runId: task.runId,
+    });
+
+    return taskId;
+  }
+
+  private async insertSeedTask(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    task: ComputedUpdateSeedTaskInput,
+    now: Date
+  ): Promise<string> {
+    const seedGroups = buildSeedGroupsFromSeedPayload(task);
+    const seedCount = countSeedRecords(seedGroups);
+    const useSeedTable = seedCount > this.config.seedInlineLimit;
+
+    const record = await trx
+      .insertInto(OUTBOX_TABLE)
+      .values({
+        id: createOutboxId(),
+        base_id: task.baseId,
+        seed_table_id: task.seedTableId,
+        seed_record_ids: useSeedTable ? null : toJsonValue(seedGroups),
+        change_type: SEED_CHANGE_TYPE,
+        steps: null, // Seed tasks don't have pre-computed steps
+        edges: null, // Seed tasks don't have pre-computed edges
+        status: DEFAULT_STATUS,
+        attempts: 0,
+        max_attempts: this.config.maxAttempts,
+        next_run_at: now,
+        locked_at: null,
+        locked_by: null,
+        last_error: null,
+        estimated_complexity: seedCount,
+        plan_hash: task.planHash,
+        dirty_stats: task.impact ? toJsonValue(task.impact) : null,
+        run_id: task.runId,
+        origin_run_ids: [],
+        run_total_steps: 0, // Will be computed by worker
+        run_completed_steps_before: 0,
+        affected_table_ids: [task.seedTableId],
+        affected_field_ids: task.changedFieldIds,
+        sync_max_level: 0,
+        created_at: now,
+        updated_at: now,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+
+    const taskId = String(record.id);
+
+    if (useSeedTable) {
+      await this.upsertSeedRows(trx, taskId, flattenSeedGroups(seedGroups));
+    }
+
+    this.logger.debug('computed:outbox:seed_created', {
+      taskId,
+      baseId: task.baseId,
+      seedTableId: task.seedTableId,
+      seedCount,
+      changedFieldIds: task.changedFieldIds,
       runId: task.runId,
     });
 
@@ -828,6 +937,10 @@ const toAnyOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): AnyO
     return toFieldBackfillOutboxItem(row);
   }
 
+  if (changeType === SEED_CHANGE_TYPE) {
+    return toSeedOutboxItem(row, seedGroupsFromTable);
+  }
+
   return toOutboxItem(row, seedGroupsFromTable);
 };
 
@@ -871,5 +984,204 @@ const buildSeedGroupsFromAnyTask = (task: AnyOutboxItem): SeedGroup[] => {
     // Field backfill tasks don't have seed records
     return [];
   }
+  if (isSeedItem(task)) {
+    return buildSeedGroupsFromSeedPayload(task);
+  }
   return buildSeedGroupsFromTask(task);
+};
+
+/**
+ * Convert a database row to a SeedOutboxItem.
+ */
+const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): SeedOutboxItem => {
+  const seedTableId = String(row.seed_table_id);
+  const inlineSeedGroups = parseSeedGroups(row.seed_record_ids, seedTableId);
+  const seedGroups = mergeSeedGroups(inlineSeedGroups, seedGroupsFromTable);
+  const { seedRecordIds, extraSeedRecords } = splitSeedGroups(seedTableId, seedGroups);
+
+  // Parse impact from dirty_stats column (repurposed for seed tasks)
+  const impact = parseSeedImpact(row.dirty_stats);
+
+  return {
+    taskType: 'seed',
+    id: String(row.id),
+    baseId: String(row.base_id),
+    seedTableId,
+    seedRecordIds,
+    extraSeedRecords,
+    changedFieldIds: parseStringArray(row.affected_field_ids),
+    changeType: 'update', // Default to update for seed tasks loaded from DB
+    impact,
+    runId: String(row.run_id ?? ''),
+    planHash: String(row.plan_hash),
+    status: String(row.status) as SeedOutboxItem['status'],
+    attempts: Number(row.attempts ?? 0),
+    maxAttempts: Number(row.max_attempts ?? 0),
+    nextRunAt: new Date(String(row.next_run_at)),
+    lockedAt: row.locked_at ? new Date(String(row.locked_at)) : null,
+    lockedBy: row.locked_by ? String(row.locked_by) : null,
+    lastError: row.last_error ? String(row.last_error) : null,
+    createdAt: new Date(String(row.created_at)),
+    updatedAt: new Date(String(row.updated_at)),
+  };
+};
+
+/**
+ * Parse seed payload from database row for merging.
+ */
+const parseSeedPayloadFromRow = (row: OutboxRow): ComputedUpdateSeedTaskInput => {
+  const seedTableId = String(row.seed_table_id);
+  const inlineSeedGroups = parseSeedGroups(row.seed_record_ids, seedTableId);
+  const { seedRecordIds, extraSeedRecords } = splitSeedGroups(seedTableId, inlineSeedGroups);
+
+  return {
+    taskType: 'seed',
+    baseId: String(row.base_id),
+    seedTableId,
+    seedRecordIds,
+    extraSeedRecords,
+    changedFieldIds: parseStringArray(row.affected_field_ids),
+    changeType: 'update',
+    impact: parseSeedImpact(row.dirty_stats),
+    runId: String(row.run_id ?? ''),
+    planHash: String(row.plan_hash),
+  };
+};
+
+/**
+ * Parse seed impact from dirty_stats column.
+ */
+const parseSeedImpact = (
+  value: unknown
+): { valueFieldIds: string[]; linkFieldIds: string[] } | undefined => {
+  const parsed = parseJsonValue(value);
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const impact = parsed as { valueFieldIds?: unknown; linkFieldIds?: unknown };
+  if (!Array.isArray(impact.valueFieldIds) && !Array.isArray(impact.linkFieldIds)) {
+    return undefined;
+  }
+  return {
+    valueFieldIds: Array.isArray(impact.valueFieldIds)
+      ? impact.valueFieldIds.map((id) => String(id))
+      : [],
+    linkFieldIds: Array.isArray(impact.linkFieldIds)
+      ? impact.linkFieldIds.map((id) => String(id))
+      : [],
+  };
+};
+
+/**
+ * Build seed groups from seed payload.
+ */
+const buildSeedGroupsFromSeedPayload = (
+  task:
+    | ComputedUpdateSeedTaskInput
+    | { seedTableId: string; seedRecordIds: string[]; extraSeedRecords: SeedGroup[] }
+): SeedGroup[] => {
+  const baseGroup: SeedGroup = {
+    tableId: task.seedTableId,
+    recordIds: task.seedRecordIds,
+  };
+
+  return mergeSeedGroups([baseGroup], task.extraSeedRecords ?? []);
+};
+
+/**
+ * Check if an outbox item is a seed task.
+ */
+const isSeedItem = (task: AnyOutboxItem): task is SeedOutboxItem => {
+  return (task as SeedOutboxItem).taskType === 'seed';
+};
+
+/**
+ * Build dead letter table values based on task type.
+ */
+const buildDeadLetterValues = (
+  task: AnyOutboxItem,
+  params: {
+    isBackfill: boolean;
+    isSeed: boolean;
+    nextAttempts: number;
+    error: string;
+    now: Date;
+  }
+): Record<string, unknown> => {
+  const { isBackfill, isSeed, nextAttempts, error, now } = params;
+
+  // Common fields for all task types
+  const common = {
+    id: task.id,
+    base_id: task.baseId,
+    status: 'dead',
+    attempts: nextAttempts,
+    max_attempts: task.maxAttempts,
+    next_run_at: task.nextRunAt,
+    locked_at: task.lockedAt ?? null,
+    locked_by: task.lockedBy ?? null,
+    last_error: error,
+    plan_hash: task.planHash,
+    run_id: task.runId,
+    failed_at: now,
+    created_at: task.createdAt,
+    updated_at: now,
+  };
+
+  if (isBackfill) {
+    const backfillTask = task as FieldBackfillOutboxItem;
+    return {
+      ...common,
+      seed_table_id: backfillTask.tableId,
+      seed_record_ids: null,
+      change_type: FIELD_BACKFILL_CHANGE_TYPE,
+      steps: null,
+      edges: null,
+      estimated_complexity: backfillTask.estimatedRowCount ?? 0,
+      dirty_stats: null,
+      origin_run_ids: [],
+      run_total_steps: 1,
+      run_completed_steps_before: 0,
+      affected_table_ids: [backfillTask.tableId],
+      affected_field_ids: backfillTask.fieldIds,
+      sync_max_level: 0,
+    };
+  }
+
+  if (isSeed) {
+    const seedTask = task as SeedOutboxItem;
+    return {
+      ...common,
+      seed_table_id: seedTask.seedTableId,
+      seed_record_ids: toJsonValue(buildSeedGroupsFromSeedPayload(seedTask)),
+      change_type: SEED_CHANGE_TYPE,
+      steps: null,
+      edges: null,
+      estimated_complexity: seedTask.seedRecordIds.length,
+      dirty_stats: seedTask.impact ? toJsonValue(seedTask.impact) : null,
+      origin_run_ids: [],
+      run_total_steps: 0,
+      run_completed_steps_before: 0,
+      affected_table_ids: [seedTask.seedTableId],
+      affected_field_ids: seedTask.changedFieldIds,
+      sync_max_level: 0,
+    };
+  }
+
+  // ComputedUpdateOutboxItem
+  const computedTask = task as ComputedUpdateOutboxItem;
+  return {
+    ...common,
+    seed_table_id: computedTask.seedTableId,
+    seed_record_ids: toJsonValue(buildSeedGroupsFromTask(computedTask)),
+    change_type: computedTask.changeType,
+    steps: toJsonValue(computedTask.steps),
+    edges: toJsonValue(computedTask.edges),
+    estimated_complexity: computedTask.estimatedComplexity,
+    dirty_stats: toJsonValue(computedTask.dirtyStats),
+    origin_run_ids: computedTask.originRunIds,
+    run_total_steps: computedTask.runTotalSteps,
+    run_completed_steps_before: computedTask.runCompletedStepsBefore,
+    affected_table_ids: computedTask.affectedTableIds,
+    affected_field_ids: computedTask.affectedFieldIds,
+    sync_max_level: computedTask.syncMaxLevel,
+  };
 };

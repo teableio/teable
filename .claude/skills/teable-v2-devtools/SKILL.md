@@ -15,6 +15,7 @@ Use this skill when you need to:
 - Analyze computed field update plans (explain commands)
 - Generate mock/test data for tables
 - **Query records data** (via application layer or direct database access)
+- **Create, update, delete records** (via application layer commands)
 - **Check database schema** (indexes, constraints, columns) for missing or broken indexes
 - **Create tables** (via CLI, without records)
 
@@ -118,6 +119,25 @@ pnpm --filter @teable/v2-devtools cli underlying records --table-id tbl... --lim
 pnpm --filter @teable/v2-devtools cli underlying record --table-id tbl... --record-id rec...
 ```
 
+### Records Mutation Commands
+
+```bash
+# Create a new record
+pnpm --filter @teable/v2-devtools cli records create --table-id tbl... --fields '{"Name":"New Record"}'
+
+# Create a record with typecast (auto-convert values)
+pnpm --filter @teable/v2-devtools cli records create --table-id tbl... --fields '{"Name":"Test"}' --typecast
+
+# Update an existing record
+pnpm --filter @teable/v2-devtools cli records update --table-id tbl... --record-id rec... --fields '{"Name":"Updated Name"}'
+
+# Update with typecast
+pnpm --filter @teable/v2-devtools cli records update --table-id tbl... --record-id rec... --fields '{"Status":"Done"}' --typecast
+
+# Delete records (comma-separated IDs)
+pnpm --filter @teable/v2-devtools cli records delete --table-id tbl... --record-ids rec1,rec2,rec3
+```
+
 ### Mock Data Commands
 
 ```bash
@@ -156,12 +176,15 @@ pnpm --filter @teable/v2-devtools cli tables create --base-id bse... --name "Tas
 
 ### records Commands (Application Layer)
 
-| Command                                        | Description                            |
-| ---------------------------------------------- | -------------------------------------- |
-| `records list --table-id <id>`                 | List records via query repository      |
-| `records get --table-id <id> --record-id <id>` | Get single record via query repository |
+| Command                                                           | Description                               |
+| ----------------------------------------------------------------- | ----------------------------------------- |
+| `records list --table-id <id>`                                    | List records via query repository         |
+| `records get --table-id <id> --record-id <id>`                    | Get single record via query repository    |
+| `records create --table-id <id> --fields <json>`                  | Create a new record via command bus       |
+| `records update --table-id <id> --record-id <id> --fields <json>` | Update an existing record via command bus |
+| `records delete --table-id <id> --record-ids <ids>`               | Delete records via command bus            |
 
-**Records Options:**
+**Records Query Options:**
 | Option | Description |
 |--------|-------------|
 | `--table-id <id>` | Required: Table ID |
@@ -174,6 +197,23 @@ pnpm --filter @teable/v2-devtools cli tables create --base-id bse... --name "Tas
 
 - `stored`: Read pre-computed values from the database (fast, uses cached values)
 - `computed`: Calculate field values on-the-fly (slower, always fresh)
+
+**Records Mutation Options:**
+| Option | Description |
+|--------|-------------|
+| `--table-id <id>` | Required: Table ID |
+| `--record-id <id>` | Required for update: Record ID |
+| `--record-ids <ids>` | Required for delete: Comma-separated record IDs |
+| `--fields <json>` | JSON object of field values (required for update, optional for create) |
+| `--typecast` | Enable typecast mode to auto-convert values (default: false) |
+
+**Typecast Mode:**
+
+When `--typecast` is enabled, the system will attempt to convert input values to the correct field types:
+
+- String "123" → Number 123
+- Link field titles → Link field record IDs
+- Date strings → Date objects
 
 ### relations Command
 
@@ -403,7 +443,30 @@ When data shown in the UI doesn't match what you expect, compare application lay
 - If `stored` ≠ `underlying`: Application layer transformation issue
 - If `computed` ≠ `underlying`: Field calculation logic issue
 
-### Scenario 6: Slow Query Performance (Missing Indexes)
+### Scenario 6: Creating and Managing Test Records
+
+When you need to quickly create, update, or delete test records for debugging:
+
+1. **Create a test record**:
+
+   ```bash
+   pnpm --filter @teable/v2-devtools cli records create --table-id tbl... --fields '{"Name":"Test Record","Status":"Todo"}'
+   ```
+
+2. **Update the record** (use the recordId from step 1):
+
+   ```bash
+   pnpm --filter @teable/v2-devtools cli records update --table-id tbl... --record-id rec... --fields '{"Status":"Done"}'
+   ```
+
+3. **Delete test records when done**:
+   ```bash
+   pnpm --filter @teable/v2-devtools cli records delete --table-id tbl... --record-ids rec1,rec2
+   ```
+
+**Tip:** Use `--typecast` when you want to input human-readable values (like link field titles instead of record IDs).
+
+### Scenario 7: Slow Query Performance (Missing Indexes)
 
 When queries are slow, especially for Link fields or tables with many records:
 

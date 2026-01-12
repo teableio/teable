@@ -115,6 +115,9 @@ export class GeneratedColumnRule implements ISchemaRule {
       const columnName = yield* resolveColumnName(ctx.field);
       const definition = sql`${sql.raw(columnType)} generated always as (${sql.ref(sourceColumn)}) stored`;
       const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
+      // If the column exists but is not generated, Postgres can't "ALTER" it into a generated column.
+      // Drop+recreate is safe because generated columns are always derived from source columns.
+      const dropExisting = dropColumnStatement(table, columnName);
       const statement = addGeneratedColumnStatement(table, columnName, definition);
 
       // Update field meta to indicate this is persisted as a generated column
@@ -123,7 +126,7 @@ export class GeneratedColumnRule implements ISchemaRule {
         .set({ meta: JSON.stringify({ persistedAsGeneratedColumn: true }) })
         .where('id', '=', fieldId);
 
-      return ok([statement, updateMeta]);
+      return ok([dropExisting, statement, updateMeta]);
     });
   }
 

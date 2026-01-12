@@ -22,6 +22,7 @@ const remoteEnvironment = {
     index: '/',
     base: '/$baseId',
     table: '/$baseId/$tableId',
+    record: '/$baseId/$tableId/$recordId',
   },
   storageKeys: {
     baseId: PLAYGROUND_BASE_ID_STORAGE_KEY,
@@ -41,6 +42,7 @@ const sandboxEnvironment = {
     index: '/sandbox',
     base: '/sandbox/$baseId',
     table: '/sandbox/$baseId/$tableId',
+    record: '/sandbox/$baseId/$tableId/$recordId',
   },
   storageKeys: {
     baseId: SANDBOX_BASE_ID_STORAGE_KEY,

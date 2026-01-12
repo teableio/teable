@@ -6,3 +6,4 @@ export * from './Output';
 export * from './SchemaChecker';
 export * from './TableCreator';
 export * from './DotTeaImporter';
+export * from './RecordMutation';

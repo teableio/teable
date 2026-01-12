@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { RehydratedValueObject } from '../../shared/RehydratedValueObject';
 
-const dbFieldNameSchema = z.string().trim().min(1).max(255);
+const dbFieldNameSchema = z.string().trim().min(1);
 
 export class DbFieldName extends RehydratedValueObject {
   private constructor(value?: string) {

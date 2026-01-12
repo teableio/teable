@@ -4,8 +4,8 @@ import type { Result } from 'neverthrow';
 
 import type { Base } from '../domain/base/Base';
 import type { DomainError } from '../domain/shared/DomainError';
-import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as BaseRepositoryPort from '../ports/BaseRepository';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { ListBasesQuery } from './ListBasesQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';

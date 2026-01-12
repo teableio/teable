@@ -3,6 +3,7 @@ import {
   type IExecutionContext,
   type ISpecification,
   type ITableSchemaRepository,
+  type Field,
   type ITableSpecVisitor,
   type Table,
   domainError,
@@ -23,6 +24,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2PostgresDdlTokens } from '../di/tokens';
+import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
 import {
   createFieldSchemaRules,
   createSchemaRuleContext,
@@ -30,13 +32,23 @@ import {
 } from '../rules';
 import type { ICreateTableBuilderRef } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldCreateVisitor } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
+import { TableAddFieldCollectorVisitor } from '../visitors/TableAddFieldCollectorVisitor';
 import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
+
+type ComputedFieldBackfillService = {
+  backfillMany(
+    context: IExecutionContext,
+    input: { table: Table; fields: ReadonlyArray<Field> }
+  ): Promise<Result<void, DomainError>>;
+};
 
 @injectable()
 export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   constructor(
     @inject(v2PostgresDdlTokens.db)
-    private readonly db: Kysely<V1TeableDatabase>
+    private readonly db: Kysely<V1TeableDatabase>,
+    @inject(v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
+    private readonly computedFieldBackfillService: ComputedFieldBackfillService
   ) {}
 
   private async ensureDeferredForeignKeys(
@@ -199,6 +211,16 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
             message: `Failed to update table schema: ${describeError(error)}`,
           })
         );
+      }
+
+      const backfillVisitor = new TableAddFieldCollectorVisitor();
+      yield* mutateSpec.accept(backfillVisitor);
+      const fields = backfillVisitor.fields();
+      if (fields.length > 0) {
+        yield* await repository.computedFieldBackfillService.backfillMany(context, {
+          table,
+          fields,
+        });
       }
 
       return ok(undefined);

@@ -13,6 +13,7 @@ import type {
   ILogger,
   ITableRepository,
   LinkField,
+  FieldId,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -47,6 +48,7 @@ import {
   toRunLogContext,
   toRunSpanAttributes,
 } from './ComputedUpdateRun';
+import { isPersistedAsGeneratedColumn } from './isPersistedAsGeneratedColumn';
 import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
 
 const DIRTY_TABLE = 'tmp_computed_dirty';
@@ -518,23 +520,38 @@ export class ComputedFieldUpdater {
     pendingSteps?: number
   ): Promise<Result<StepTraceInfo, DomainError>> {
     const table = tableById.get(step.tableId.toString());
+    if (!table) {
+      return err(
+        domainError.notFound({
+          message: `Missing table for computed update: ${step.tableId.toString()}`,
+        })
+      );
+    }
     const tableName = table
-      ? table
-          .dbTableName()
-          .andThen((n) => n.value())
-          .unwrapOr(step.tableId.toString())
-      : step.tableId.toString();
+      .dbTableName()
+      .andThen((n) => n.value())
+      .unwrapOr(step.tableId.toString());
+
+    const fieldIds: FieldId[] = [];
+    for (const fieldId of step.fieldIds) {
+      const fieldResult = table.getField((f) => f.id().equals(fieldId));
+      if (fieldResult.isErr()) {
+        // Keep it - we can't determine generated-ness without the field.
+        fieldIds.push(fieldId);
+        continue;
+      }
+
+      const persistedAsGenerated = isPersistedAsGeneratedColumn(fieldResult.value);
+      if (persistedAsGenerated.isErr()) return err(persistedAsGenerated.error);
+      if (!persistedAsGenerated.value) fieldIds.push(fieldId);
+    }
 
     // Collect field names for tracing
     const fieldNames: string[] = [];
-    for (const fieldId of step.fieldIds) {
-      if (table) {
-        const fieldResult = table.getField((f) => f.id().equals(fieldId));
-        if (fieldResult.isOk()) {
-          fieldNames.push(fieldResult.value.name().toString());
-        } else {
-          fieldNames.push(fieldId.toString());
-        }
+    for (const fieldId of fieldIds) {
+      const fieldResult = table.getField((f) => f.id().equals(fieldId));
+      if (fieldResult.isOk()) {
+        fieldNames.push(fieldResult.value.name().toString());
       } else {
         fieldNames.push(fieldId.toString());
       }
@@ -547,12 +564,12 @@ export class ComputedFieldUpdater {
       // Basic step info
       'step.index': stepIndex,
       'step.level': step.level,
-      'step.fieldCount': step.fieldIds.length,
+      'step.fieldCount': fieldIds.length,
       // Table info
       'step.tableId': step.tableId.toString(),
       'step.tableName': tableName,
       // Field info (both IDs and names for readability)
-      'step.fieldIds': step.fieldIds.map((f) => f.toString()).join(','),
+      'step.fieldIds': fieldIds.map((f) => f.toString()).join(','),
       'step.fieldNames': fieldNames.join(','),
       // Dirty record info
       'step.dirtyRecordCount': dirtyCount,
@@ -567,17 +584,23 @@ export class ComputedFieldUpdater {
     try {
       return await safeTry<StepTraceInfo, DomainError>(
         async function* (this: ComputedFieldUpdater) {
-          if (!table) {
-            return err(
-              domainError.notFound({
-                message: `Missing table for computed update: ${step.tableId.toString()}`,
-              })
-            );
+          if (fieldIds.length === 0) {
+            // Nothing to update (all fields are generated columns).
+            return ok({
+              tableId: step.tableId.toString(),
+              tableName,
+              level: step.level,
+              fieldIds: [],
+              fieldNames: [],
+              sql: '',
+              parameterCount: 0,
+              dirtyRecordCount: dirtyCount,
+            });
           }
 
           const builder = new ComputedTableRecordQueryBuilder(db)
             .from(table)
-            .select(step.fieldIds)
+            .select(fieldIds)
             .withDirtyFilter({ tableId: step.tableId.toString() });
           yield* await builder.prepare({
             context,
@@ -587,7 +610,7 @@ export class ComputedFieldUpdater {
 
           const compiled = yield* updateBuilder.build({
             table,
-            fieldIds: step.fieldIds,
+            fieldIds,
             selectQuery,
             // Note: dirtyFilter is applied on the ComputedTableRecordQueryBuilder above
             // This ensures the dirty JOIN is placed BEFORE lateral joins for optimal query planning
@@ -611,7 +634,7 @@ export class ComputedFieldUpdater {
             tableId: step.tableId.toString(),
             tableName,
             level: step.level,
-            fieldIds: step.fieldIds.map((f) => f.toString()),
+            fieldIds: fieldIds.map((f) => f.toString()),
             fieldNames,
             sql: compiled.sql,
             parameterCount: compiled.parameters.length,

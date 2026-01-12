@@ -5,6 +5,7 @@ import type { DebugData } from '../services/DebugData';
 import type { DotTeaImporter } from '../services/DotTeaImporter';
 import type { MockRecords } from '../services/MockRecords';
 import type { Output } from '../services/Output';
+import type { RecordMutation } from '../services/RecordMutation';
 import type { SchemaChecker } from '../services/SchemaChecker';
 import type { TableCreator } from '../services/TableCreator';
 import { CommandExplainLive } from './CommandExplainLive';
@@ -13,6 +14,7 @@ import { DebugDataLive } from './DebugDataLive';
 import { DotTeaImporterLive } from './DotTeaImporterLive';
 import { MockRecordsLive } from './MockRecordsLive';
 import { OutputLive } from './OutputLive';
+import { RecordMutationLive } from './RecordMutationLive';
 import { SchemaCheckerLive } from './SchemaCheckerLive';
 import { TableCreatorLive } from './TableCreatorLive';
 
@@ -59,7 +61,8 @@ export const FullLayer = (connectionString?: string) => {
     MockRecordsLive.pipe(Layer.provide(dbLayer)),
     SchemaCheckerLive.pipe(Layer.provide(dbLayer)),
     TableCreatorLive.pipe(Layer.provide(dbLayer)),
-    DotTeaImporterLive.pipe(Layer.provide(dbLayer))
+    DotTeaImporterLive.pipe(Layer.provide(dbLayer)),
+    RecordMutationLive.pipe(Layer.provide(dbLayer))
   );
 };
 
@@ -74,6 +77,7 @@ export type AppLayerType = Layer.Layer<
     SchemaChecker['Type'] &
     TableCreator['Type'] &
     DotTeaImporter['Type'] &
+    RecordMutation['Type'] &
     DatabaseConfig['Type'],
   Error,
   never

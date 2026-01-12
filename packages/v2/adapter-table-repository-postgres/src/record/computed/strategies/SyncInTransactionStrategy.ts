@@ -109,6 +109,10 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
     return ok(undefined);
   }
 
+  scheduleDispatch(_context: IExecutionContext): void {
+    // No-op: Sync strategy does not use outbox
+  }
+
   private async planNextStage(
     plan: ComputedUpdatePlan,
     context: IExecutionContext,

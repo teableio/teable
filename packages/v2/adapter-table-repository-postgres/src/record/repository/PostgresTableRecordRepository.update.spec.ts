@@ -11,7 +11,7 @@ import {
   TableName,
   ok,
 } from '@teable/v2-core';
-import type { ILogger } from '@teable/v2-core';
+import type { IHasher, ILogger } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
   Kysely,
@@ -25,7 +25,12 @@ import {
 } from 'kysely';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ComputedFieldUpdater, ComputedUpdatePlanner, IUpdateStrategy } from '../computed';
+import type {
+  ComputedFieldUpdater,
+  ComputedUpdatePlanner,
+  IUpdateStrategy,
+  IComputedUpdateOutbox,
+} from '../computed';
 import type { DynamicDB } from '../query-builder';
 import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 
@@ -128,6 +133,24 @@ const createNoopStrategy = (): IUpdateStrategy => {
   return {
     name: 'noop',
     execute: async () => ok(undefined),
+    scheduleDispatch: () => undefined,
+  };
+};
+
+const createNoopOutbox = (): IComputedUpdateOutbox => {
+  return {
+    enqueueOrMerge: async () => ok({ taskId: 'test', merged: false }),
+    enqueueSeedTask: async () => ok({ taskId: 'test', merged: false }),
+    enqueueFieldBackfillTask: async () => ok({ taskId: 'test' }),
+    claimBatch: async () => ok([]),
+    markDone: async () => ok(undefined),
+    markFailed: async () => ok(undefined),
+  };
+};
+
+const createNoopHasher = (): IHasher => {
+  return {
+    sha256: () => 'test-hash',
   };
 };
 
@@ -136,13 +159,17 @@ const createRepository = (db: Kysely<DynamicDB>, table: Table) => {
   const computedUpdatePlanner = createNoopComputedPlanner(table);
   const computedFieldUpdater = {} as ComputedFieldUpdater;
   const computedUpdateStrategy = createNoopStrategy();
+  const computedUpdateOutbox = createNoopOutbox();
+  const hasher = createNoopHasher();
 
   return new PostgresTableRecordRepository(
     db as unknown as Kysely<V1TeableDatabase>,
     logger,
     computedUpdatePlanner,
     computedFieldUpdater,
-    computedUpdateStrategy
+    computedUpdateStrategy,
+    computedUpdateOutbox,
+    hasher
   );
 };
 

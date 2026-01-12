@@ -9,7 +9,6 @@ export const v2CoreTokens = {
   tableCreationService: Symbol('v2.core.tableCreationService'),
   fieldCreationSideEffectService: Symbol('v2.core.fieldCreationSideEffectService'),
   fieldDeletionSideEffectService: Symbol('v2.core.fieldDeletionSideEffectService'),
-  computedFieldBackfillService: Symbol('v2.core.computedFieldBackfillService'),
   foreignTableLoaderService: Symbol('v2.core.foreignTableLoaderService'),
   linkTitleResolverService: Symbol('v2.core.linkTitleResolverService'),
   tableMapper: Symbol('v2.core.tableMapper'),

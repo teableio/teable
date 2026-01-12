@@ -45,6 +45,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import type { ColumnDef, Row, RowSelectionState } from '@tanstack/react-table';
+import { useNavigate } from '@tanstack/react-router';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { JsonView } from 'react-json-view-lite';
@@ -92,6 +93,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { ShareDbDocStatus } from '@/lib/shareDb';
+import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 import { renderFieldOptions } from './fieldOptionsVisitor';
 import { SchemaCheckPanel } from './SchemaCheckPanel';
 import { MetaCheckPanel } from './MetaCheckPanel';
@@ -385,7 +387,7 @@ const resolveLinkLabel = (value: unknown): string | null => {
   return stringifyRecordValue(value);
 };
 
-const formatRecordValue = (field: Field, value: unknown): FormattedRecordValue => {
+export const formatRecordValue = (field: Field, value: unknown): FormattedRecordValue => {
   if (isEmptyRecordValue(value)) return emptyRecordValue;
 
   const fieldType = field.type().toString();
@@ -1311,6 +1313,8 @@ function PlaygroundMetaLayout({
     <div className="space-y-6 min-w-0">
       <TableSchemaCard
         table={table}
+        baseId={baseId}
+        tableId={tableId}
         isDeletingField={isDeletingField}
         onDeleteField={onDeleteField}
       />
@@ -1416,11 +1420,19 @@ function PlaygroundRealtimeLayout({
 
 type TableSchemaCardProps = {
   table: TableAggregate;
+  baseId: string;
+  tableId: string;
   isDeletingField: boolean;
   onDeleteField: (fieldId: string) => void;
 };
 
-function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaCardProps) {
+function TableSchemaCard({
+  table,
+  baseId,
+  tableId,
+  isDeletingField,
+  onDeleteField,
+}: TableSchemaCardProps) {
   const fields = table.getFields();
   const primaryFieldId = table.primaryFieldId();
   const [, copyToClipboard] = useCopyToClipboard();
@@ -1434,6 +1446,20 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
     if (!deleteTarget) return;
     onDeleteField(deleteTarget.id().toString());
     setDeleteOpen(false);
+  };
+  const handleCopyFieldPath = (fieldId: string) => {
+    const path = `${baseId}/${tableId}/${fieldId}`;
+    copyToClipboard(path)
+      .then((success) => {
+        if (success) {
+          toast.success('Field path copied');
+        } else {
+          toast.error('Failed to copy field path');
+        }
+      })
+      .catch(() => {
+        toast.error('Failed to copy field path');
+      });
   };
   const deleteFieldLabel = deleteTarget ? deleteTarget.name().toString() : 'this field';
 
@@ -1483,11 +1509,20 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
               const fieldType = field.type().toString();
               const FieldIcon = getFieldTypeIcon(fieldType);
               return (
-                <TableRow key={field.id().toString()}>
+                <TableRow key={field.id().toString()} className="group">
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <FieldIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      {field.name().toString()}
+                      <span>{field.name().toString()}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="h-6 w-6 opacity-60 transition-opacity group-hover:opacity-100"
+                        aria-label="Copy field path"
+                        onClick={() => handleCopyFieldPath(field.id().toString())}
+                      >
+                        <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                      </Button>
                     </div>
                   </TableCell>
                   <TableCell className="break-all font-mono text-xs text-muted-foreground">
@@ -1599,6 +1634,8 @@ function TableRecordsCard({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [pendingDeleteLabel, setPendingDeleteLabel] = useState<string | null>(null);
+  const env = usePlaygroundEnvironment();
+  const navigate = useNavigate();
 
   const handleUpdateOpen = useCallback((record: ITableRecordDto) => {
     setUpdateTarget(record);
@@ -1623,6 +1660,17 @@ function TableRecordsCard({
       return label.trim() || record.id;
     },
     [primaryFieldId]
+  );
+
+  const handleOpenRecord = useCallback(
+    (recordId: string) => {
+      void navigate({
+        to: env.routes.record,
+        params: { baseId, tableId, recordId },
+        search: (prev) => prev,
+      });
+    },
+    [navigate, env.routes.record, baseId, tableId]
   );
 
   const selectedRecordIds = useMemo(
@@ -1741,6 +1789,27 @@ function TableRecordsCard({
         cell: ({ row }) => {
           const value = row.original.fields[field.id().toString()];
           const formattedValue = formatRecordValue(field, value);
+
+          if (isPrimary) {
+            const label =
+              formattedValue.text && formattedValue.text !== '-'
+                ? formattedValue.text
+                : resolveRecordLabel(row.original);
+            return (
+              <button
+                type="button"
+                className={cn(
+                  'max-w-[240px] text-left text-primary underline underline-offset-2 hover:text-primary/80',
+                  formattedValue.cellClassName
+                )}
+                title={label}
+                onClick={() => handleOpenRecord(row.original.id)}
+              >
+                {label}
+              </button>
+            );
+          }
+
           return (
             <div
               className={cn('max-w-[240px]', formattedValue.cellClassName)}
@@ -1798,6 +1867,7 @@ function TableRecordsCard({
     fields,
     primaryFieldId,
     handleUpdateOpen,
+    handleOpenRecord,
     handleCopyRecordId,
     handleCopyRecordJson,
     onDeleteRecords,

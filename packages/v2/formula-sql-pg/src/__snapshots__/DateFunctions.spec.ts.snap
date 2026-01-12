@@ -59685,7 +59685,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   ) IS NOT NULL AND NOT (pg_input_is_valid((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -59733,7 +59733,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamptz') OR pg_input_is_valid((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -59781,7 +59781,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamp'))) THEN CASE WHEN ((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -59829,7 +59829,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   ) IS NOT NULL AND NOT (pg_input_is_valid((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -59877,7 +59877,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamptz') OR pg_input_is_valid((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -59925,7 +59925,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN ((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -59973,7 +59973,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   ) IS NOT NULL AND NOT (pg_input_is_valid((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -60021,7 +60021,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamptz') OR pg_input_is_valid((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -60069,7 +60069,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN (
     SELECT string_agg((CASE
@@ -60118,7 +60118,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   ) IS NULL THEN NULL
       WHEN pg_input_is_valid((
     SELECT string_agg((CASE
@@ -60167,7 +60167,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamptz') THEN ((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -60215,7 +60215,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   ))::timestamptz
       WHEN pg_input_is_valid((
     SELECT string_agg((CASE
@@ -60264,7 +60264,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamp') THEN ((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -60312,7 +60312,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   ))::timestamp
       ELSE NULL
     END) END))::text END",
@@ -60591,7 +60591,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     ) IS NOT NULL AND NOT (pg_input_is_valid((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -60635,7 +60635,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamptz') OR pg_input_is_valid((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -60679,7 +60679,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamp'))) THEN CASE WHEN ((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -60723,7 +60723,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     ) IS NOT NULL AND NOT (pg_input_is_valid((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -60767,7 +60767,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamptz') OR pg_input_is_valid((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -60811,7 +60811,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN ((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -60855,7 +60855,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     ) IS NOT NULL AND NOT (pg_input_is_valid((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -60899,7 +60899,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamptz') OR pg_input_is_valid((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -60943,7 +60943,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN (
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
@@ -60988,7 +60988,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     ) IS NULL THEN NULL
       WHEN pg_input_is_valid((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
@@ -61033,7 +61033,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamptz') THEN ((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -61077,7 +61077,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     ))::timestamptz
       WHEN pg_input_is_valid((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
@@ -61122,7 +61122,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamp') THEN ((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
@@ -61166,7 +61166,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     ))::timestamp
       ELSE NULL
     END) END))::text END",

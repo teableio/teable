@@ -785,7 +785,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         foreignField
           .dbFieldName()
           .andThen((dbFieldName) => dbFieldName.value())
-          .map((columnName) => {
+          .andThen((columnName) => {
             const colRef = sql.ref(`${tableAlias}.${columnName}`);
             // Include leading space in orderByRef so no trailing space when empty
             const orderByRef = orderBy
@@ -794,11 +794,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                 )}`
               : sql``;
 
-            // Check if the foreign field stores data as JSONB (lookup, link)
-            // These fields already contain JSONB arrays and should not be wrapped with to_jsonb()
+            // Check if the foreign field actually stores data as JSONB by checking dbFieldType
+            // Don't assume lookup/link fields are always JSONB - they might be TEXT if looking up text values
+            const dbFieldTypeResult = foreignField.dbFieldType().andThen((t) => t.value());
             const isJsonbStorage =
-              foreignField.type().equals(FieldType.lookup()) ||
-              foreignField.type().equals(FieldType.link());
+              dbFieldTypeResult.isOk() && dbFieldTypeResult.value.toUpperCase() === 'JSON';
 
             if (isJsonbStorage) {
               // For JSONB columns, use ::jsonb cast and then flatten nested arrays.
@@ -810,7 +810,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               // The recursive CTE extracts all non-array leaf values.
               const aggExpr = sql`jsonb_agg(${colRef}::jsonb${orderByRef})`;
 
-              return sql`(
+              return ok(
+                sql`(
                 WITH RECURSIVE __flat(e) AS (
                   SELECT ${aggExpr}
                   UNION ALL
@@ -819,11 +820,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                   WHERE jsonb_typeof(__flat.e) = 'array'
                 )
                 SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM __flat
-              )`.as(outputAlias);
+              )`.as(outputAlias)
+              );
             }
 
             // For regular columns, use to_jsonb() to convert to JSONB
-            return sql`jsonb_agg(to_jsonb(${colRef})${orderByRef})`.as(outputAlias);
+            return ok(sql`jsonb_agg(to_jsonb(${colRef})${orderByRef})`.as(outputAlias));
           })
       );
   }

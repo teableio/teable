@@ -11,10 +11,11 @@ import type { Result } from 'neverthrow';
 
 /**
  * Task type discriminator for outbox items.
- * - 'computed-update': Standard computed field update (dirty record propagation)
+ * - 'computed-update': Standard computed field update (dirty record propagation) - contains full plan
  * - 'field-backfill': Backfill computed field values for all records in a table
+ * - 'seed': Minimal seed task that triggers async plan computation and execution
  */
-export type OutboxTaskType = 'computed-update' | 'field-backfill';
+export type OutboxTaskType = 'computed-update' | 'field-backfill' | 'seed';
 
 /**
  * Payload for field backfill tasks.

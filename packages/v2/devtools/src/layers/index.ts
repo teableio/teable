@@ -7,4 +7,5 @@ export * from './OutputLive';
 export * from './SchemaCheckerLive';
 export * from './TableCreatorLive';
 export * from './DotTeaImporterLive';
+export * from './RecordMutationLive';
 export * from './AppLayer';

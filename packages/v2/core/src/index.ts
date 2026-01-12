@@ -304,7 +304,6 @@ export * from './ports/TableSchemaRepository';
 export * from './ports/UnitOfWork';
 export * from './ports/CsvParser';
 export * from './ports/Hasher';
-export * from './ports/ComputedFieldBackfillService';
 export * from './ports/defaults';
 export * from './ports/memory';
 export * from './ports/mappers/TableMapper';

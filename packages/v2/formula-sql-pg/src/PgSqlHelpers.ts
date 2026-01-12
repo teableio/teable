@@ -62,7 +62,7 @@ export const stringifyNormalizedJsonArray = (normalizedJson: string, separator =
   const sepLiteral = sqlStringLiteral(separator);
   return `(
     SELECT string_agg(${extractJsonScalarText('elem')}, ${sepLiteral} ORDER BY ord)
-    FROM jsonb_array_elements(${normalizedJson}) WITH ORDINALITY AS t(elem, ord)
+    FROM jsonb_array_elements(${normalizedJson}) WITH ORDINALITY AS _jae(elem, ord)
   )`;
 };
 

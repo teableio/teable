@@ -7,7 +7,7 @@ import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import * as BaseRepositoryPort from '../ports/BaseRepository';
 import * as EventBusPort from '../ports/EventBus';
-import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { CreateBaseCommand } from './CreateBaseCommand';

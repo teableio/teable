@@ -311,7 +311,7 @@ describe('ComputedUpdateWorker', () => {
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
-      expect(logger.warn).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
         'computed:outbox:task_failed',
         expect.objectContaining({
           taskId: task.id,

@@ -1,9 +1,7 @@
 import {
   Field,
   generatePrefixedId,
-  type ComputedFieldBackfillInput,
   type DomainError,
-  type IComputedFieldBackfillService,
   type IExecutionContext,
   type IHasher,
   type ILogger,
@@ -18,12 +16,15 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
+
+type ComputedFieldBackfillInput = {
+  table: Table;
+  field: Field;
+};
 import type { DynamicDB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
-import {
-  buildFieldBackfillTaskInput,
-  type FieldBackfillOutboxTaskInput,
-} from './outbox/FieldBackfillOutboxPayload';
+import { isPersistedAsGeneratedColumn } from './isPersistedAsGeneratedColumn';
+import { buildFieldBackfillTaskInput } from './outbox/FieldBackfillOutboxPayload';
 import type { IComputedUpdateOutbox } from './outbox/IComputedUpdateOutbox';
 import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
 
@@ -82,7 +83,7 @@ export const defaultFieldBackfillConfig: FieldBackfillConfig = {
  * ```
  */
 @injectable()
-export class ComputedFieldBackfillService implements IComputedFieldBackfillService {
+export class ComputedFieldBackfillService {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -244,6 +245,13 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       return ok(undefined);
     }
 
+    const persistedAsGenerated = isPersistedAsGeneratedColumn(input.field);
+    if (persistedAsGenerated.isErr()) return err(persistedAsGenerated.error);
+    if (persistedAsGenerated.value) {
+      // Generated columns compute automatically; do not backfill via UPDATE...FROM.
+      return ok(undefined);
+    }
+
     const db = this.resolveDb(context);
     const fieldId = input.field.id();
 
@@ -311,8 +319,16 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       return ok(undefined);
     }
 
+    const filtered: Field[] = [];
+    for (const field of computedFields) {
+      const persistedAsGenerated = isPersistedAsGeneratedColumn(field);
+      if (persistedAsGenerated.isErr()) return err(persistedAsGenerated.error);
+      if (!persistedAsGenerated.value) filtered.push(field);
+    }
+    if (filtered.length === 0) return ok(undefined);
+
     const db = this.resolveDb(context);
-    const fieldIds = computedFields.map((f) => f.id());
+    const fieldIds = filtered.map((f) => f.id());
 
     this.logger.debug('computed:backfillMany:start', {
       tableId: input.table.id().toString(),

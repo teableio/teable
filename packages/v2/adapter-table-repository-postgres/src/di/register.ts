@@ -105,9 +105,13 @@ export const registerV2TableRepositoryPostgresAdapter = (
     lifecycle: Lifecycle.Singleton,
   });
 
-  c.register(v2CoreTokens.computedFieldBackfillService, ComputedFieldBackfillService, {
-    lifecycle: Lifecycle.Singleton,
-  });
+  c.register(
+    v2RecordRepositoryPostgresTokens.computedFieldBackfillService,
+    ComputedFieldBackfillService,
+    {
+      lifecycle: Lifecycle.Singleton,
+    }
+  );
 
   const hybridConfig: HybridWithOutboxStrategyConfig = {
     ...defaultHybridWithOutboxStrategyConfig,

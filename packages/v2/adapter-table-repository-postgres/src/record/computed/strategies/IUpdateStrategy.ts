@@ -19,4 +19,10 @@ export interface IUpdateStrategy {
     plan: ComputedUpdatePlan,
     context: IExecutionContext
   ): Promise<Result<void, DomainError>>;
+
+  /**
+   * Schedule dispatch to process outbox tasks.
+   * Called after enqueueing seed tasks to trigger async processing.
+   */
+  scheduleDispatch(context: IExecutionContext): void;
 }

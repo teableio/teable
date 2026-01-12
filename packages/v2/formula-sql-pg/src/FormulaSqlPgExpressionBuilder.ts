@@ -1261,7 +1261,7 @@ export class FormulaSqlPgExpressionBuilder {
     const sepLiteral = sqlStringLiteral(separator);
     return `(
       SELECT string_agg(${elementSql}, ${sepLiteral} ORDER BY ord)
-      FROM jsonb_array_elements(${normalizedJson}) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(${normalizedJson}) WITH ORDINALITY AS _jae(elem, ord)
     )`;
   }
 
@@ -1433,7 +1433,7 @@ export class FormulaSqlPgExpressionBuilder {
       : elementValueSql;
 
     const valueSql = `(SELECT jsonb_agg(${elementSql} ORDER BY ord)
-      FROM jsonb_array_elements(${normalizedArray}) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(${normalizedArray}) WITH ORDINALITY AS _jae(elem, ord)
     )`;
     const errorCondition = combineErrorConditions([scalarNumber, arrayExpr]);
     const errorMessage = buildErrorMessageSql(
@@ -1464,7 +1464,7 @@ export class FormulaSqlPgExpressionBuilder {
       : elementValueSql;
 
     const valueSql = `(SELECT jsonb_agg(${elementSql} ORDER BY ord)
-      FROM jsonb_array_elements(${normalizedArray}) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(${normalizedArray}) WITH ORDINALITY AS _jae(elem, ord)
     )`;
     const errorCondition = combineErrorConditions([expr, elementNumber]);
     const errorMessage = buildErrorMessageSql(

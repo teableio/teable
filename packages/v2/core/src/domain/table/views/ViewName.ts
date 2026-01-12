@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
 
-const viewNameSchema = z.string().trim().min(1).max(255);
+const viewNameSchema = z.string().trim().min(1);
 
 export class ViewName extends ValueObject {
   private constructor(private readonly value: string) {

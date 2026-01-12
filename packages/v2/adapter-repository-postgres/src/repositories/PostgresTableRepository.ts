@@ -778,6 +778,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           lookup_options: string | null;
           db_field_name: string | null;
           db_field_type: string | null;
+          has_error: boolean | null;
         }>)
       : [];
 

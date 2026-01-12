@@ -1746,7 +1746,7 @@ exports[`logical functions > 'IsError' with 'attachment' 1`] = `
   "result": "false",
   "sql": "((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
     ) LIKE '#ERROR:%')",
 }
 `;
@@ -1870,7 +1870,7 @@ exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   ) LIKE '#ERROR:%')",
 }
 `;
@@ -2122,7 +2122,7 @@ exports[`logical functions > 'IsError' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     ) LIKE '#ERROR:%')",
 }
 `;
@@ -2144,7 +2144,7 @@ exports[`logical functions > 'IsError' with 'multipleSelect' 1`] = `
   "result": "false",
   "sql": "((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
     ) LIKE '#ERROR:%')",
 }
 `;
@@ -2267,7 +2267,7 @@ exports[`logical functions > 'IsError' with 'user' 1`] = `
   "result": "false",
   "sql": "((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
     ) LIKE '#ERROR:%')",
 }
 `;
@@ -3959,7 +3959,7 @@ exports[`logical functions > 'Switch' with 'attachment' 1`] = `
   "result": "other",
   "sql": "(CASE WHEN (
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
     ) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
@@ -4083,7 +4083,7 @@ exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
       WHEN pg_typeof(("t"."ConditionalLookupType")) = 'json'::regtype THEN ("t"."ConditionalLookupType")::jsonb
       ELSE to_jsonb(("t"."ConditionalLookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
   ) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
@@ -4335,7 +4335,7 @@ exports[`logical functions > 'Switch' with 'lookup' 1`] = `
       WHEN pg_typeof(("t"."LookupType")) = 'json'::regtype THEN ("t"."LookupType")::jsonb
       ELSE to_jsonb(("t"."LookupType"))
     END))
-    END)) WITH ORDINALITY AS t(elem, ord)
+    END)) WITH ORDINALITY AS _jae(elem, ord)
     ) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
@@ -4357,7 +4357,7 @@ exports[`logical functions > 'Switch' with 'multipleSelect' 1`] = `
   "result": "other",
   "sql": "(CASE WHEN (
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
     ) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
@@ -4480,7 +4480,7 @@ exports[`logical functions > 'Switch' with 'user' 1`] = `
   "result": "other",
   "sql": "(CASE WHEN (
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
-      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
     ) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;

@@ -379,9 +379,41 @@ export class ComputedFieldSelectExpressionVisitor
         return ok(sql.raw('NULL').as(colAlias));
       }
       const expr = translated.value;
-      const typedSql = guardValueSql(expr.valueSql, expr.errorConditionSql);
+
+      // When formula result is an array (e.g., from lookup * scalar operations),
+      // unwrap it to a scalar value since formula fields store scalar types.
+      let finalValueSql: string;
+      if (expr.isArray) {
+        finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
+      } else {
+        finalValueSql = expr.valueSql;
+      }
+
+      const typedSql = guardValueSql(finalValueSql, expr.errorConditionSql);
       return ok(sql.raw(typedSql).as(colAlias));
     });
+  }
+
+  /**
+   * Unwrap a jsonb array formula result to a scalar value.
+   * Extracts the first element and casts to the appropriate type.
+   */
+  private unwrapFormulaArrayToScalar(valueSql: string, valueType: SqlValueType): string {
+    // Extract first element from jsonb array
+    const firstElemText = `((${valueSql}) ->> 0)`;
+
+    switch (valueType) {
+      case 'number':
+        // Cast to numeric, handle empty string as NULL
+        return `NULLIF(${firstElemText}, '')::double precision`;
+      case 'boolean':
+        return `(${firstElemText})::boolean`;
+      case 'datetime':
+        return `(${firstElemText})::timestamptz`;
+      case 'string':
+      default:
+        return firstElemText;
+    }
   }
 
   // Link-based fields - need lateral join

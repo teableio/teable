@@ -342,7 +342,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     return ok(undefined);
   }
 
-  private scheduleDispatch(context: IExecutionContext): void {
+  scheduleDispatch(context: IExecutionContext): void {
     // 'external' mode: no inline dispatch, rely on external worker polling
     if (this.config.dispatchMode === 'external') {
       this.logger.debug('computed:outbox:dispatch_skipped', {
