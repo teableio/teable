@@ -42,6 +42,7 @@ apps/playground/src/routeTree.gen.ts
 # Misc
 .DS_Store
 *.pem
+.worktrees/
 
 # Debug
 npm-debug.log*

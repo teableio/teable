@@ -191,6 +191,7 @@ export * from './domain/table/fields/types/DateDefaultValue';
 export * from './domain/table/fields/types/TimeZone';
 export * from './domain/table/fields/types/FieldColor';
 export * from './domain/table/fields/types/FieldComputed';
+export * from './domain/table/fields/types/FieldHasError';
 export * from './domain/table/fields/types/FieldNotNull';
 export * from './domain/table/fields/types/FieldUnique';
 export type { FormulaField } from './domain/table/fields/types/FormulaField';

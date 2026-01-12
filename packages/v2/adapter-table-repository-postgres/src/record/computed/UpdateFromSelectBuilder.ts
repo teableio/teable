@@ -234,6 +234,10 @@ const buildSetValues = (
 
     for (const fieldId of fieldIds) {
       const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
+      // Skip fields with errors - they should not be updated
+      if (field.hasError().isError()) {
+        continue;
+      }
       const dbFieldName = yield* field.dbFieldName();
       const columnName = yield* dbFieldName.value();
       const isLookup =

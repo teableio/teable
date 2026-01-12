@@ -497,6 +497,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'is_computed',
                 'is_lookup',
                 'is_conditional_lookup',
+                'has_error',
                 'lookup_linked_field_id',
                 'lookup_options',
                 'db_field_name',
@@ -583,6 +584,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'is_computed',
                 'is_lookup',
                 'is_conditional_lookup',
+                'has_error',
                 'lookup_linked_field_id',
                 'lookup_options',
                 'db_field_name',
@@ -825,6 +827,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     is_computed: boolean | null;
     is_lookup: boolean | null;
     is_conditional_lookup: boolean | null;
+    has_error: boolean | null;
     lookup_linked_field_id: string | null;
     lookup_options: string | null;
     db_field_name: string | null;
@@ -879,6 +882,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       ...(row.not_null ? { notNull: true } : {}),
       ...(row.unique ? { unique: true } : {}),
       ...(row.is_computed ? { isComputed: true } : {}),
+      ...(row.has_error ? { hasError: true } : {}),
     };
     const base = {
       ...baseCommon,

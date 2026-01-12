@@ -31,6 +31,7 @@ import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefault
 import { DateField } from '../../../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
+import { FieldHasError } from '../../../domain/table/fields/types/FieldHasError';
 import { FieldNotNull } from '../../../domain/table/fields/types/FieldNotNull';
 import { FieldUnique } from '../../../domain/table/fields/types/FieldUnique';
 import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
@@ -756,6 +757,7 @@ export class DefaultTableMapper implements ITableMapper {
               }).andThen((field) =>
                 this.applyDbFieldName(field, dto.dbFieldName)
                   .andThen((updated) => this.applyDbFieldType(updated, dto.dbFieldType))
+                  .andThen((updated) => this.applyHasError(updated, dto.hasError))
                   .map((updated) => updated as Field)
               )
             )
@@ -1047,7 +1049,8 @@ export class DefaultTableMapper implements ITableMapper {
       )
       .andThen((field) => this.applyFieldValidation(field, dto.notNull, dto.unique))
       .andThen((field) => this.applyDbFieldName(field, dto.dbFieldName))
-      .andThen((field) => this.applyDbFieldType(field, dto.dbFieldType));
+      .andThen((field) => this.applyDbFieldType(field, dto.dbFieldType))
+      .andThen((field) => this.applyHasError(field, dto.hasError));
   }
 
   private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, DomainError> {
@@ -1089,6 +1092,11 @@ export class DefaultTableMapper implements ITableMapper {
     return DbFieldType.rehydrate(dbFieldType).andThen((value) =>
       field.setDbFieldType(value).map(() => field)
     );
+  }
+
+  private applyHasError(field: Field, hasError: boolean | undefined): Result<Field, DomainError> {
+    field.setHasError(FieldHasError.from(hasError));
+    return ok(field);
   }
 
   private applyFieldValidation(

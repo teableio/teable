@@ -370,6 +370,10 @@ export class ComputedFieldSelectExpressionVisitor
   // Formula - TODO: convert to SQL
   visitFormulaField(field: FormulaField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.getColAlias(field).andThen((colAlias) => {
+      // Skip computation if field has error - return NULL
+      if (field.hasError().isError()) {
+        return ok(sql.raw('NULL').as(colAlias));
+      }
       const translated = this.formulaTranslator.translateExpression(field.expression().toString());
       if (translated.isErr()) {
         return ok(sql.raw('NULL').as(colAlias));
@@ -402,7 +406,11 @@ export class ComputedFieldSelectExpressionVisitor
   }
 
   visitLookupField(field: LookupField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.getColAlias(field).map((colAlias) => {
+    return this.getColAlias(field).andThen((colAlias) => {
+      // Skip computation if field has error - return NULL
+      if (field.hasError().isError()) {
+        return ok(sql.raw('NULL::jsonb').as(colAlias));
+      }
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
         field.foreignTableId().toString(),
@@ -412,12 +420,16 @@ export class ComputedFieldSelectExpressionVisitor
           foreignFieldId: field.lookupFieldId(),
         }
       );
-      return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);
+      return ok(sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias));
     });
   }
 
   visitRollupField(field: RollupField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.getColAlias(field).andThen((colAlias) => {
+      // Skip computation if field has error - return NULL
+      if (field.hasError().isError()) {
+        return ok(sql.raw('NULL').as(colAlias));
+      }
       const expression = field.expression().toString();
       const orderByResult = field
         .linkField(this.table)
@@ -448,7 +460,11 @@ export class ComputedFieldSelectExpressionVisitor
   visitConditionalRollupField(
     field: ConditionalRollupField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.getColAlias(field).map((colAlias) => {
+    return this.getColAlias(field).andThen((colAlias) => {
+      // Skip computation if field has error - return NULL
+      if (field.hasError().isError()) {
+        return ok(sql.raw('NULL').as(colAlias));
+      }
       const config = field.config();
       const expression = field.expression().toString();
       const lateralAlias = this.lateral.addConditionalColumn(
@@ -462,7 +478,7 @@ export class ComputedFieldSelectExpressionVisitor
           condition: config.condition(),
         }
       );
-      return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);
+      return ok(sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias));
     });
   }
 
@@ -476,7 +492,11 @@ export class ComputedFieldSelectExpressionVisitor
   visitConditionalLookupField(
     field: ConditionalLookupField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.getColAlias(field).map((colAlias) => {
+    return this.getColAlias(field).andThen((colAlias) => {
+      // Skip computation if field has error - return NULL
+      if (field.hasError().isError()) {
+        return ok(sql.raw('NULL::jsonb').as(colAlias));
+      }
       const options = field.conditionalLookupOptions();
       const lateralAlias = this.lateral.addConditionalColumn(
         field.id(),
@@ -488,7 +508,7 @@ export class ComputedFieldSelectExpressionVisitor
           condition: options.condition(),
         }
       );
-      return sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias);
+      return ok(sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias));
     });
   }
 

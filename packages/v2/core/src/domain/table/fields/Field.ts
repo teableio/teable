@@ -11,6 +11,7 @@ import type { FieldName } from './FieldName';
 import type { FieldType } from './FieldType';
 import { FieldSpecBuilder } from './specs/FieldSpecBuilder';
 import { FieldComputed } from './types/FieldComputed';
+import { FieldHasError } from './types/FieldHasError';
 import { FieldNotNull } from './types/FieldNotNull';
 import { FieldUnique } from './types/FieldUnique';
 import type { IFieldVisitor } from './visitors/IFieldVisitor';
@@ -29,6 +30,7 @@ export abstract class Field extends Entity<FieldId> {
     this.dbFieldTypeValue = DbFieldType.empty();
     this.dependenciesValue = [...dependencies];
     this.computedValue = computed ?? FieldComputed.manual();
+    this.hasErrorValue = FieldHasError.ok();
     this.notNullValue = FieldNotNull.optional();
     this.uniqueValue = FieldUnique.disabled();
   }
@@ -38,6 +40,7 @@ export abstract class Field extends Entity<FieldId> {
   private dependenciesValue: ReadonlyArray<FieldId>;
   private dependentsValue: ReadonlyArray<FieldId> | undefined;
   private readonly computedValue: FieldComputed;
+  private hasErrorValue: FieldHasError;
   private notNullValue: FieldNotNull;
   private uniqueValue: FieldUnique;
 
@@ -55,6 +58,14 @@ export abstract class Field extends Entity<FieldId> {
 
   computed(): FieldComputed {
     return this.computedValue;
+  }
+
+  hasError(): FieldHasError {
+    return this.hasErrorValue;
+  }
+
+  setHasError(hasError: FieldHasError): void {
+    this.hasErrorValue = hasError;
   }
 
   notNull(): FieldNotNull {
