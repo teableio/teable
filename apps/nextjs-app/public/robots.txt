@@ -1,0 +1,4 @@
+# Disallow all crawlers from app.teable.ai
+# This is a private application that requires login
+User-agent: *
+Disallow: /

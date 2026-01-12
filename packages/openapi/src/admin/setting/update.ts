@@ -151,6 +151,7 @@ export const updateSettingRoSchema = z.object({
   enableWaitlist: z.boolean().optional(),
   appConfig: appConfigSchema.optional(),
   webSearchConfig: webSearchConfigSchema.optional(),
+  enableCreditReward: z.boolean().optional(),
   brandName: z.string().optional(),
 });
 
