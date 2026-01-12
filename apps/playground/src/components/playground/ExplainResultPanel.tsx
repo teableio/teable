@@ -92,6 +92,8 @@ function ComplexityScoreCard({ level, score }: { level: string; score: number })
 }
 
 function SqlBlock({ sql, parameters }: { sql: string; parameters: readonly unknown[] }) {
+  const [copied, setCopied] = useState(false);
+
   const formattedSql = useMemo(() => {
     try {
       // Skip formatting for comments
@@ -109,8 +111,29 @@ function SqlBlock({ sql, parameters }: { sql: string; parameters: readonly unkno
     }
   }, [sql]);
 
+  const handleCopy = useCallback(async () => {
+    const textToCopy =
+      parameters.length > 0
+        ? `${formattedSql}\n\n-- Parameters: ${JSON.stringify(parameters)}`
+        : formattedSql;
+    await navigator.clipboard.writeText(textToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [formattedSql, parameters]);
+
   return (
-    <div className="rounded-md bg-muted/50 p-3 font-mono text-xs">
+    <div className="rounded-md bg-muted/50 p-3 font-mono text-xs relative group">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={handleCopy}
+      >
+        <Copy className="h-3 w-3" />
+      </Button>
+      {copied && (
+        <span className="absolute top-2 right-10 text-[10px] text-muted-foreground">Copied!</span>
+      )}
       <div className="h-64 w-full overflow-auto overscroll-contain">
         <pre className="whitespace-pre-wrap pr-4">{formattedSql}</pre>
       </div>
@@ -291,6 +314,116 @@ function StatCard({
       </div>
       <div className="text-lg font-semibold">{value}</div>
       {subValue && <div className="text-xs text-muted-foreground">{subValue}</div>}
+    </div>
+  );
+}
+
+function SqlStepCard({
+  sqlInfo,
+  index,
+  computedLocks,
+}: {
+  sqlInfo: IExplainResultDto['sqlExplains'][number];
+  index: number;
+  computedLocks: IExplainResultDto['computedLocks'];
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyStep = useCallback(async () => {
+    const toonData = encode(sqlInfo);
+    await navigator.clipboard.writeText(toonData);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [sqlInfo]);
+
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="px-4 py-2 bg-muted/50 border-b">
+        <div className="flex items-start gap-2 flex-wrap">
+          <Badge variant="outline" className="text-xs shrink-0">
+            Step {index + 1}
+          </Badge>
+          <span
+            className="text-sm font-medium break-words whitespace-normal min-w-0 flex-1"
+            title={sqlInfo.stepDescription}
+          >
+            {sqlInfo.stepDescription}
+          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0"
+                onClick={handleCopyStep}
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">{copied ? 'Copied!' : 'Copy step (Toon)'}</TooltipContent>
+          </Tooltip>
+        </div>
+        {computedLocks && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-help">
+                <Lock className="h-3 w-3" />
+                <span>
+                  Stage locks: {computedLocks.mode} · {computedLocks.recordLockCount} records ·{' '}
+                  {computedLocks.tableLockCount} tables
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6} className="max-w-[280px]">
+              <div className="space-y-1">
+                <div className="font-medium">Computed update locks</div>
+                <div className="text-[11px] text-background/80">{computedLocks.reason}</div>
+                <div className="text-[11px] text-background/80">
+                  Applied once per update; the same lock set covers all steps.
+                </div>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+      <div className="p-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div>
+            <div className="text-xs font-medium text-muted-foreground mb-2">SQL</div>
+            <SqlBlock sql={sqlInfo.sql} parameters={sqlInfo.parameters} />
+          </div>
+          {(sqlInfo.explainError ||
+            sqlInfo.explainAnalyze ||
+            (sqlInfo.explainOnly && !sqlInfo.explainAnalyze)) && (
+            <div>
+              {sqlInfo.explainError ? (
+                <div className="rounded-md border border-rose-100 bg-rose-50/60 px-3 py-2 text-xs text-rose-700">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5" />
+                    <div>
+                      <div className="font-medium">Explain Error</div>
+                      <div className="break-all">{sqlInfo.explainError}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : sqlInfo.explainAnalyze ? (
+                <>
+                  <div className="text-xs font-medium text-muted-foreground mb-2">
+                    EXPLAIN ANALYZE
+                  </div>
+                  <ExplainOutputBlock output={sqlInfo.explainAnalyze} isAnalyze={true} />
+                </>
+              ) : (
+                <>
+                  <div className="text-xs font-medium text-muted-foreground mb-2">EXPLAIN</div>
+                  <ExplainOutputBlock output={sqlInfo.explainOnly!} isAnalyze={false} />
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        {sqlInfo.computedReason && <ComputedReasonBlock reason={sqlInfo.computedReason} />}
+      </div>
     </div>
   );
 }
@@ -852,91 +985,12 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
           ) : (
             <div className="space-y-4">
               {result.sqlExplains.map((sqlInfo, i) => (
-                <div key={i} className="rounded-lg border bg-card overflow-hidden">
-                  <div className="px-4 py-2 bg-muted/50 border-b">
-                    <div className="flex items-start gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        Step {i + 1}
-                      </Badge>
-                      <span
-                        className="text-sm font-medium break-words whitespace-normal min-w-0"
-                        title={sqlInfo.stepDescription}
-                      >
-                        {sqlInfo.stepDescription}
-                      </span>
-                    </div>
-                    {result.computedLocks && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-help">
-                            <Lock className="h-3 w-3" />
-                            <span>
-                              Stage locks: {result.computedLocks.mode} ·{' '}
-                              {result.computedLocks.recordLockCount} records ·{' '}
-                              {result.computedLocks.tableLockCount} tables
-                            </span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" sideOffset={6} className="max-w-[280px]">
-                          <div className="space-y-1">
-                            <div className="font-medium">Computed update locks</div>
-                            <div className="text-[11px] text-background/80">
-                              {result.computedLocks.reason}
-                            </div>
-                            <div className="text-[11px] text-background/80">
-                              Applied once per update; the same lock set covers all steps.
-                            </div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-xs font-medium text-muted-foreground mb-2">SQL</div>
-                        <SqlBlock sql={sqlInfo.sql} parameters={sqlInfo.parameters} />
-                      </div>
-                      {(sqlInfo.explainError ||
-                        sqlInfo.explainAnalyze ||
-                        (sqlInfo.explainOnly && !sqlInfo.explainAnalyze)) && (
-                        <div>
-                          {sqlInfo.explainError ? (
-                            <div className="rounded-md border border-rose-100 bg-rose-50/60 px-3 py-2 text-xs text-rose-700">
-                              <div className="flex items-start gap-2">
-                                <AlertTriangle className="h-3.5 w-3.5 mt-0.5" />
-                                <div>
-                                  <div className="font-medium">Explain Error</div>
-                                  <div className="break-all">{sqlInfo.explainError}</div>
-                                </div>
-                              </div>
-                            </div>
-                          ) : sqlInfo.explainAnalyze ? (
-                            <>
-                              <div className="text-xs font-medium text-muted-foreground mb-2">
-                                EXPLAIN ANALYZE
-                              </div>
-                              <ExplainOutputBlock
-                                output={sqlInfo.explainAnalyze}
-                                isAnalyze={true}
-                              />
-                            </>
-                          ) : (
-                            <>
-                              <div className="text-xs font-medium text-muted-foreground mb-2">
-                                EXPLAIN
-                              </div>
-                              <ExplainOutputBlock output={sqlInfo.explainOnly!} isAnalyze={false} />
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {sqlInfo.computedReason && (
-                      <ComputedReasonBlock reason={sqlInfo.computedReason} />
-                    )}
-                  </div>
-                </div>
+                <SqlStepCard
+                  key={i}
+                  sqlInfo={sqlInfo}
+                  index={i}
+                  computedLocks={result.computedLocks}
+                />
               ))}
             </div>
           )}
