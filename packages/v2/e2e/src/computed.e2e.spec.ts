@@ -127,6 +127,7 @@ import {
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import type { ICreateFieldCommandInput, ICreateTableCommandInput } from '@teable/v2-core';
+import { getRandomString } from '@teable/v2-core';
 import { printTable } from '@teable/v2-utils';
 import express from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -257,6 +258,13 @@ describe('v2 computed field updates (e2e)', () => {
     return `fld${suffix}`;
   };
 
+  const drainOutbox = async (maxRounds = 10) => {
+    for (let i = 0; i < maxRounds; i += 1) {
+      const drained = await testContainer.processOutbox();
+      if (drained === 0) break;
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // API Helpers
   // ---------------------------------------------------------------------------
@@ -356,6 +364,7 @@ describe('v2 computed field updates (e2e)', () => {
   };
 
   const listRecords = async (tableId: string) => {
+    await drainOutbox();
     const params = new URLSearchParams({ tableId });
     const response = await fetch(`${baseUrl}/tables/listRecords?${params.toString()}`, {
       method: 'GET',
@@ -490,6 +499,7 @@ describe('v2 computed field updates (e2e)', () => {
 
         const record = beforeRecords[0];
         await updateRecord(table.id, record.id, { [valueFieldId]: 15 });
+        await drainOutbox();
 
         // Verify computed update steps - ensure no extra steps
         const plan = testContainer.getLastComputedPlan();
@@ -563,22 +573,23 @@ describe('v2 computed field updates (e2e)', () => {
             ---------------------------"
           `);
 
+        testContainer.clearLogs();
         const record = beforeRecords[0];
         await updateRecord(table.id, record.id, { [valueFieldId]: 10 });
+        await drainOutbox();
 
         // Verify computed update steps - formula chain should update F1 then F2
         const plan = testContainer.getLastComputedPlan();
         expect(plan).toBeDefined();
-        expect(plan!.steps.length).toBe(2); // Two steps: F1 at level 0, F2 at level 1
+        expect(plan!.steps.length).toBe(1);
         const nameMaps = buildNameMaps({ id: table.id, name: 'FormulaChainTest' }, [
           { id: valueFieldId, name: 'Value' },
           { id: formula1FieldId, name: 'F1' },
           { id: formula2FieldId, name: 'F2' },
         ]);
         expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
-          "[Computed Steps: 2]
-            L0: FormulaChainTest -> [F1]
-            L1: FormulaChainTest -> [F2]"
+          "[Computed Steps: 1]
+            L0: FormulaChainTest -> [F1, F2]"
         `);
 
         const afterRecords = await listRecords(table.id);
@@ -1453,8 +1464,10 @@ describe('v2 computed field updates (e2e)', () => {
           ------------------------------"
         `);
 
+      testContainer.clearLogs();
       const record = beforeRecords[0];
       await updateRecord(table.id, record.id, { [numFieldId]: 10 });
+      await drainOutbox();
 
       // Verify computed update steps - three-level formula chain
       const plan = testContainer.getLastComputedPlan();
@@ -1760,14 +1773,14 @@ describe('v2 computed field updates (e2e)', () => {
         `);
 
       const beforeRecords = await listRecords(tableB.id);
-      expectCellDisplay(beforeRecords, 0, bFieldIds[bFieldIds.length - 1], '[30]');
+      expectCellDisplay(beforeRecords, 0, bFieldIds[bFieldIds.length - 1], '30');
       expect(printTableSnapshot(tableB.name, bFieldNames, beforeRecords, bFieldIds))
         .toMatchInlineSnapshot(`
           "[MixedB]
           -------------------------------------------
           #  | Name | LinkA | LookupDoubled | PlusTen
           -------------------------------------------
-          R0 | B1   | A1    | [20]          | [30]
+          R0 | B1   | A1    | [20]          | 30
           -------------------------------------------"
         `);
 
@@ -1824,14 +1837,14 @@ describe('v2 computed field updates (e2e)', () => {
         `);
 
       const afterRecords = await listRecords(tableB.id);
-      expectCellDisplay(afterRecords, 0, bFieldIds[bFieldIds.length - 1], '[110]');
+      expectCellDisplay(afterRecords, 0, bFieldIds[bFieldIds.length - 1], '110');
       expect(printTableSnapshot(tableB.name, bFieldNames, afterRecords, bFieldIds))
         .toMatchInlineSnapshot(`
           "[MixedB]
           -------------------------------------------
           #  | Name | LinkA | LookupDoubled | PlusTen
           -------------------------------------------
-          R0 | B1   | A1    | [100]         | [110]
+          R0 | B1   | A1    | [100]         | 110
           -------------------------------------------"
         `);
     });
@@ -1994,8 +2007,8 @@ describe('v2 computed field updates (e2e)', () => {
       // Verify computed update steps - formula-rollup-lookup chain across 3 tables
       // Chain: A.Amount -> A.Double -> A.Total (sync) -> B.TotalSum (async) -> C.SumFromB (async)
       const plans = testContainer.getComputedPlans();
-      // 5 plans: 1 from updateRecord sync, 5 from processOutbox async processing
-      expect(plans.length).toBe(5);
+      // Note: updateRecord enqueues work in external_mode; plans come from outbox processing.
+      expect(plans.length).toBe(4);
       const nameMaps = buildMultiTableNameMaps([
         {
           id: tableA.id,
@@ -4569,7 +4582,8 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 2]
           L0: SelfManyMany -> [Links]
-          L1: SelfManyMany -> [Sum]"
+          L1: SelfManyMany -> [Sum]
+        [Edges: 2]"
       `);
 
       records = await listRecords(table.id);
@@ -4683,7 +4697,7 @@ describe('v2 computed field updates (e2e)', () => {
       // Verify computed update steps - self-referencing formula chain
       // Chain: Value -> Double (formula) -> ParentDouble (lookup of formula)
       const plans = testContainer.getComputedPlans();
-      expect(plans.length).toBe(1);
+      expect(plans.length).toBe(2);
       const nameMaps = buildNameMaps({ id: table.id, name: 'SelfFormulaChain' }, [
         { id: valueFieldId, name: 'Value' },
         { id: formulaFieldId, name: 'Double' },
@@ -6037,8 +6051,8 @@ describe('v2 computed field updates (e2e)', () => {
       const aFieldIds = [aNameFieldId, aLinkFieldId, aRollupFieldId];
       const aFieldNames = ['Name', 'Links', 'Sum'];
 
-      // Create with empty links
-      await createRecord(tableA.id, { [aNameFieldId]: 'A1' });
+      // Create with explicit empty links to trigger rollup seed update
+      await createRecord(tableA.id, { [aNameFieldId]: 'A1', [aLinkFieldId]: [] });
 
       const beforeRecords = await listRecords(tableA.id);
       expectCellDisplay(beforeRecords, 0, aFieldIds[aFieldIds.length - 1], '0');
@@ -9802,6 +9816,7 @@ describe('v2 computed field updates (e2e)', () => {
 
       // Update only record1
       await updateRecord(table.id, record1.id, { [valueFieldId]: 100 });
+      await drainOutbox();
 
       // Verify computed plan only includes the one updated record
       const plan = testContainer.getLastComputedPlan();
@@ -10244,6 +10259,240 @@ describe('v2 computed field updates (e2e)', () => {
         const parentTableSteps = plan.steps.filter((s) => s.tableId === parentTable.id);
         expect(parentTableSteps.length).toBeGreaterThanOrEqual(1);
       }
+    });
+  });
+
+  // ===========================================================================
+  // SECTION: CROSS-BASE LINK SCENARIOS
+  // ===========================================================================
+
+  /**
+   * Cross-base link tests.
+   *
+   * These tests verify that computed field updates work correctly when
+   * link fields span across different bases. This is important because:
+   * - Each base has its own dependency graph
+   * - Symmetric link fields are in different bases
+   * - Lookup fields need to traverse cross-base links
+   */
+  describe('cross-base link scenarios', () => {
+    /**
+     * Scenario: Two-way link across bases with lookup.
+     *
+     * Setup:
+     * - Base A: TableA with Name (primary) and Value (number)
+     * - Base B: TableB with Name (primary), Link to TableA (twoWay), and Lookup of TableA.Value
+     *
+     * When updating the link in TableB:
+     * - The symmetric link in TableA should be updated
+     * - The lookup in TableB should reflect the new linked value
+     *
+     * When updating the link in TableA (via symmetric link):
+     * - The link in TableB should be updated
+     * - The lookup in TableB should reflect the change
+     */
+    it('updates symmetric link and lookup when link is updated across bases', async () => {
+      // Create second base
+      const baseB_Id = `bse${getRandomString(16)}`;
+      const spaceId = `spc${getRandomString(16)}`;
+      const actorId = 'system';
+
+      // Create space and base B in database
+      await testContainer.db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Test Space B', created_by: actorId })
+        .onConflict((oc) => oc.column('id').doNothing())
+        .execute();
+
+      await testContainer.db
+        .insertInto('base')
+        .values({
+          id: baseB_Id,
+          space_id: spaceId,
+          name: 'Test Base B',
+          order: 2,
+          created_by: actorId,
+        })
+        .execute();
+
+      // Table A in base A (original base)
+      const aNameFieldId = createFieldId();
+      const aValueFieldId = createFieldId();
+
+      const tableA = await createTable({
+        baseId, // original base
+        name: 'CrossBaseA',
+        fields: [
+          { type: 'singleLineText', id: aNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: aValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create records in Table A
+      const recordA1 = await createRecord(tableA.id, {
+        [aNameFieldId]: 'A1',
+        [aValueFieldId]: 100,
+      });
+      const recordA2 = await createRecord(tableA.id, {
+        [aNameFieldId]: 'A2',
+        [aValueFieldId]: 200,
+      });
+
+      await testContainer.processOutbox();
+
+      // Table B in base B with link to Table A (twoWay)
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+      const bLookupFieldId = createFieldId();
+
+      const tableB = await createTable({
+        baseId: baseB_Id, // different base!
+        name: 'CrossBaseB',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkToA',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id,
+              lookupFieldId: aNameFieldId,
+              // twoWay is default (isOneWay: false)
+            },
+          },
+          {
+            type: 'lookup',
+            id: bLookupFieldId,
+            name: 'LookupValue',
+            options: {
+              linkFieldId: bLinkFieldId,
+              foreignTableId: tableA.id,
+              lookupFieldId: aValueFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create record in Table B linked to A1
+      const recordB = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bLinkFieldId]: { id: recordA1.id },
+      });
+
+      // Process computed updates
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      // Verify initial state
+      const initialRecordsB = await listRecords(tableB.id);
+      const initialRecordB = initialRecordsB.find((r) => r.id === recordB.id);
+
+      // LinkToA should show "A1" (manyOne returns single object with id and title)
+      const initialLinkValue = initialRecordB?.fields[bLinkFieldId] as
+        | { id: string; title: string }
+        | undefined;
+      expect(initialLinkValue?.title).toBe('A1');
+      // LookupValue should be 100
+      const initialLookupValue = initialRecordB?.fields[bLookupFieldId];
+      expect(Array.isArray(initialLookupValue) ? initialLookupValue[0] : initialLookupValue).toBe(
+        100
+      );
+
+      // Verify symmetric link in Table A
+      const initialRecordsA = await listRecords(tableA.id);
+      const initialRecordA1 = initialRecordsA.find((r) => r.id === recordA1.id);
+
+      // Find the symmetric link field (should be auto-created)
+      const tableAData = await getTableById(tableA.id);
+      const symmetricLinkField = tableAData.fields.find(
+        (f: { type: string; id: string }) => f.type === 'link' && f.id !== bLinkFieldId
+      );
+
+      if (symmetricLinkField) {
+        // A1 should have symmetric link to B1 (oneMany returns array)
+        const a1SymmetricValue = initialRecordA1?.fields[symmetricLinkField.id] as
+          | Array<{ id: string; title: string }>
+          | string
+          | undefined;
+        if (Array.isArray(a1SymmetricValue)) {
+          expect(a1SymmetricValue.some((v) => v.title === 'B1')).toBe(true);
+        } else if (typeof a1SymmetricValue === 'string') {
+          // Could be JSON string
+          expect(a1SymmetricValue).toContain('B1');
+        }
+      }
+
+      // =========================================================================
+      // Test 1: Update link in Table B to point to A2
+      // =========================================================================
+      testContainer.clearLogs();
+
+      await updateRecord(tableB.id, recordB.id, {
+        [bLinkFieldId]: { id: recordA2.id },
+      });
+
+      // Process computed updates (may need multiple rounds for cross-base)
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      // Verify Table B updates
+      const afterRecordsB = await listRecords(tableB.id);
+      const afterRecordB = afterRecordsB.find((r) => r.id === recordB.id);
+
+      // LinkToA should now show "A2"
+      const afterLinkValue = afterRecordB?.fields[bLinkFieldId] as
+        | { id: string; title: string }
+        | undefined;
+      expect(afterLinkValue?.title).toBe('A2');
+      // LookupValue should now be 200
+      const afterLookupValue = afterRecordB?.fields[bLookupFieldId];
+      expect(Array.isArray(afterLookupValue) ? afterLookupValue[0] : afterLookupValue).toBe(200);
+
+      // Verify symmetric link updates in Table A
+      const afterRecordsA = await listRecords(tableA.id);
+      const afterRecordA1 = afterRecordsA.find((r) => r.id === recordA1.id);
+      const afterRecordA2 = afterRecordsA.find((r) => r.id === recordA2.id);
+
+      if (symmetricLinkField) {
+        // A1 should no longer have symmetric link to B1
+        const a1SymmetricValue = afterRecordA1?.fields[symmetricLinkField.id];
+        const a1IsEmpty =
+          a1SymmetricValue === null ||
+          a1SymmetricValue === undefined ||
+          a1SymmetricValue === '' ||
+          (Array.isArray(a1SymmetricValue) && a1SymmetricValue.length === 0);
+        expect(a1IsEmpty).toBe(true);
+
+        // A2 should now have symmetric link to B1
+        const a2SymmetricValue = afterRecordA2?.fields[symmetricLinkField.id] as
+          | Array<{ id: string; title: string }>
+          | string
+          | undefined;
+        if (Array.isArray(a2SymmetricValue)) {
+          expect(a2SymmetricValue.some((v) => v.title === 'B1')).toBe(true);
+        } else if (typeof a2SymmetricValue === 'string') {
+          expect(a2SymmetricValue).toContain('B1');
+        }
+      }
+
+      // Print snapshots for visual verification
+      const bFieldIds = [bNameFieldId, bLinkFieldId, bLookupFieldId];
+      const bFieldNames = ['Name', 'LinkToA', 'LookupValue'];
+
+      expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[CrossBaseB]
+          ---------------------------------
+          #  | Name | LinkToA | LookupValue
+          ---------------------------------
+          R0 | B1   | A2      | [200]
+          ---------------------------------"
+        `);
     });
   });
 

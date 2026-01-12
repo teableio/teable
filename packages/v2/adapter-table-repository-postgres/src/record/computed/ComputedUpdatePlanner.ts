@@ -217,7 +217,33 @@ export class ComputedUpdatePlanner {
             if (foreignTableResult.isErr()) return err(foreignTableResult.error);
 
             const symmetricKey = symmetricFieldResult.value.toString();
-            if (!fieldsById.has(symmetricKey)) continue;
+
+            // For cross-base links, the symmetric field is in a different base
+            // and won't be loaded in fieldsById (which only loads current base fields).
+            // Create a FieldMeta for it so it can be included in update steps.
+            if (!fieldsById.has(symmetricKey)) {
+              // Build symmetric field's options by mirroring the original link field
+              const symmetricOptions = {
+                foreignTableId: meta.tableId.toString(),
+                lookupFieldId: meta.options?.lookupFieldId ?? '',
+                symmetricFieldId: meta.id.toString(),
+                // Keep the same junction table info (symmetric link uses the same junction)
+                fkHostTableName: meta.options?.fkHostTableName,
+                // Reverse the relationship
+                relationship: reverseRelationship(meta.options?.relationship),
+              };
+
+              fieldsById.set(symmetricKey, {
+                id: symmetricFieldResult.value,
+                tableId: foreignTableResult.value,
+                type: 'link',
+                isComputed: true,
+                options: symmetricOptions,
+                lookupOptions: null,
+                conditionalOptions: null,
+              });
+            }
+
             symmetricLinkEdges.push({
               fromFieldId: meta.id,
               toFieldId: symmetricFieldResult.value,
@@ -800,4 +826,26 @@ const buildSameTableBatches = (
   batches.sort((a, b) => a.minLevel - b.minLevel);
 
   return batches;
+};
+
+/**
+ * Reverse a link relationship type for symmetric field.
+ * manyOne <-> oneMany, oneOne <-> oneOne, manyMany <-> manyMany
+ */
+const reverseRelationship = (
+  relationship: string | undefined
+): 'oneMany' | 'manyOne' | 'oneOne' | 'manyMany' | undefined => {
+  if (!relationship) return undefined;
+  switch (relationship) {
+    case 'manyOne':
+      return 'oneMany';
+    case 'oneMany':
+      return 'manyOne';
+    case 'oneOne':
+      return 'oneOne';
+    case 'manyMany':
+      return 'manyMany';
+    default:
+      return undefined;
+  }
 };

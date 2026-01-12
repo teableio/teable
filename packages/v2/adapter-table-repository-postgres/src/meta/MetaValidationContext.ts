@@ -5,9 +5,9 @@ import type {
   IExecutionContext,
   ITableRepository,
 } from '@teable/v2-core';
-import { domainError, Table } from '@teable/v2-core';
+import { Table, TableId, domainError } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
-import { ok, err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 
 /**
  * Context for meta validation that provides access to all tables and fields
@@ -126,6 +126,127 @@ export const createMetaValidationContext = async (
     // Ensure the target table is in the map
     if (!tablesById.has(table.id().toString())) {
       tablesById.set(table.id().toString(), table);
+    }
+
+    // Load referenced foreign tables (including cross-base links)
+    const referencedTablesByBase = new Map<
+      string,
+      {
+        baseId: BaseId;
+        tableIds: Set<string>;
+      }
+    >();
+    const referencedTablesUnknownBase = new Set<string>();
+
+    const registerReferencedTable = (params: {
+      foreignTableId: string;
+      foreignBaseId?: BaseId;
+    }) => {
+      const { foreignTableId, foreignBaseId } = params;
+      if (tablesById.has(foreignTableId)) return;
+
+      if (foreignBaseId) {
+        const key = foreignBaseId.toString();
+        const existing = referencedTablesByBase.get(key);
+        if (existing) {
+          existing.tableIds.add(foreignTableId);
+          return;
+        }
+        referencedTablesByBase.set(key, {
+          baseId: foreignBaseId,
+          tableIds: new Set([foreignTableId]),
+        });
+        return;
+      }
+
+      referencedTablesUnknownBase.add(foreignTableId);
+    };
+
+    const getForeignTableId = (field: Field): string | undefined => {
+      const candidate = field as unknown as { foreignTableId?: () => { toString(): string } };
+      if (typeof candidate.foreignTableId !== 'function') return undefined;
+      return candidate.foreignTableId().toString();
+    };
+
+    const getLinkFieldId = (field: Field): string | undefined => {
+      const candidate = field as unknown as { linkFieldId?: () => { toString(): string } };
+      if (typeof candidate.linkFieldId !== 'function') return undefined;
+      return candidate.linkFieldId().toString();
+    };
+
+    const getCrossBaseId = (field: Field): BaseId | undefined => {
+      const candidate = field as unknown as { baseId?: () => BaseId | undefined };
+      if (typeof candidate.baseId !== 'function') return undefined;
+      return candidate.baseId();
+    };
+
+    for (const t of tablesById.values()) {
+      for (const field of t.getFields()) {
+        const foreignTableId = getForeignTableId(field);
+        if (!foreignTableId) continue;
+
+        if (field.type().toString() === 'link') {
+          registerReferencedTable({ foreignTableId, foreignBaseId: getCrossBaseId(field) });
+          continue;
+        }
+
+        const linkFieldId = getLinkFieldId(field);
+        if (!linkFieldId) {
+          registerReferencedTable({ foreignTableId });
+          continue;
+        }
+
+        const [linkField] = t.getFields((candidate) => candidate.id().toString() === linkFieldId);
+        registerReferencedTable({
+          foreignTableId,
+          foreignBaseId: linkField ? getCrossBaseId(linkField) : undefined,
+        });
+      }
+    }
+
+    for (const { baseId: foreignBaseId, tableIds } of referencedTablesByBase.values()) {
+      const parsedTableIds: TableId[] = [];
+      for (const tableIdStr of tableIds) {
+        const parsed = TableId.create(tableIdStr);
+        if (parsed.isOk()) parsedTableIds.push(parsed.value);
+      }
+      if (parsedTableIds.length === 0) continue;
+
+      const foreignSpecResult = Table.specs(foreignBaseId).byIds(parsedTableIds).build();
+      if (foreignSpecResult.isErr()) continue;
+
+      const foreignTablesResult = await tableRepository.find(
+        executionContext,
+        foreignSpecResult.value
+      );
+      if (foreignTablesResult.isErr()) continue;
+
+      for (const foreignTable of foreignTablesResult.value) {
+        tablesById.set(foreignTable.id().toString(), foreignTable);
+      }
+    }
+
+    if (referencedTablesUnknownBase.size > 0) {
+      const parsedTableIds: TableId[] = [];
+      for (const tableIdStr of referencedTablesUnknownBase) {
+        const parsed = TableId.create(tableIdStr);
+        if (parsed.isOk()) parsedTableIds.push(parsed.value);
+      }
+
+      if (parsedTableIds.length > 0) {
+        const foreignSpecResult = Table.specs(baseId).withoutBaseId().byIds(parsedTableIds).build();
+        if (foreignSpecResult.isOk()) {
+          const foreignTablesResult = await tableRepository.find(
+            executionContext,
+            foreignSpecResult.value
+          );
+          if (foreignTablesResult.isOk()) {
+            for (const foreignTable of foreignTablesResult.value) {
+              tablesById.set(foreignTable.id().toString(), foreignTable);
+            }
+          }
+        }
+      }
     }
 
     // Build fieldsById map (composite key: tableId:fieldId)

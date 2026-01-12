@@ -448,6 +448,11 @@ const collectStepTableIds = (plan: ComputedUpdatePlan): TableId[] => {
   for (const step of plan.steps) {
     ids.set(step.tableId.toString(), step.tableId);
   }
+  // Also collect tableIds from propagation edges (for cross-base symmetric links)
+  for (const edge of plan.edges) {
+    ids.set(edge.fromTableId.toString(), edge.fromTableId);
+    ids.set(edge.toTableId.toString(), edge.toTableId);
+  }
   return [...ids.values()];
 };
 

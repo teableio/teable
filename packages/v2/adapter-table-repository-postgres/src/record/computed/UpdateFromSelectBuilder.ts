@@ -135,7 +135,7 @@ type FieldMapping = {
   column: string;
   fieldId: FieldId;
   isLookup: boolean;
-  lookupDbFieldType?: string;
+  dbFieldType: string;
 };
 
 const jsonSpecResult = Field.specs().isJson().build();
@@ -243,38 +243,46 @@ const buildSetValues = (
       const isLookup =
         field.type().equals(FieldType.lookup()) ||
         field.type().equals(FieldType.conditionalLookup());
-      const lookupDbFieldType = isLookup
-        ? yield* field
-            .dbFieldType()
-            .andThen((dbFieldType) => dbFieldType.value())
-            .orElse(() =>
-              field
-                .accept(valueTypeVisitor)
-                .map((valueType) =>
-                  resolveDbFieldType(
-                    field,
-                    valueType.cellValueType.toString(),
-                    valueType.isMultipleCellValue.toBoolean()
-                  )
-                )
+
+      const dbFieldType = yield* field
+        .dbFieldType()
+        .andThen((dbFieldType) => dbFieldType.value())
+        .orElse(() =>
+          field
+            .accept(valueTypeVisitor)
+            .map((valueType) =>
+              resolveDbFieldType(
+                field,
+                valueType.cellValueType.toString(),
+                valueType.isMultipleCellValue.toBoolean()
+              )
             )
-        : undefined;
-      mappings.push({ column: columnName, fieldId, isLookup, lookupDbFieldType });
+        );
+
+      mappings.push({ column: columnName, fieldId, isLookup, dbFieldType });
     }
 
     return ok((eb) => {
       const values: Record<string, unknown> = {};
       for (const mapping of mappings) {
-        if (mapping.isLookup && mapping.lookupDbFieldType) {
+        if (mapping.isLookup) {
           values[mapping.column] = buildLookupAssignment(
             eb,
             selectAlias,
             mapping.column,
-            mapping.lookupDbFieldType
+            mapping.dbFieldType
           );
-        } else {
-          values[mapping.column] = eb.ref(`${selectAlias}.${mapping.column}`);
+          continue;
         }
+
+        const normalizedType = normalizeDbFieldType(mapping.dbFieldType);
+        const ref = eb.ref(`${selectAlias}.${mapping.column}`);
+        if (normalizedType === 'jsonb') {
+          values[mapping.column] = sql`to_jsonb(${ref})`;
+          continue;
+        }
+
+        values[mapping.column] = ref;
       }
       return values;
     });
