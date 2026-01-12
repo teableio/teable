@@ -111,7 +111,7 @@ export const NotificationsManage: React.FC = () => {
             refresh();
           }}
         >
-          <RefreshCcw />
+          <RefreshCcw className="size-4 shrink-0" />
           <p>{t('notification.new', { count: num })}</p>
         </Button>
       </div>

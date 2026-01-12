@@ -1,4 +1,4 @@
-import { Pencil, Trash2, Import } from '@teable/icons';
+import { Trash2, Import, Settings, Pencil } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
 import {
   DropdownMenu,
@@ -8,15 +8,17 @@ import {
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceConfirm';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { SpaceInnerSettingModal, SettingTab } from '../../space-setting/SpaceInnerSettingModal';
 
 interface ISpaceActionTrigger {
   space: IGetSpaceVo;
   showRename?: boolean;
   showDelete?: boolean;
   showImportBase?: boolean;
+  showSettings?: boolean;
   onRename?: () => void;
   onDelete?: () => void;
   onPermanentDelete?: () => void;
@@ -37,6 +39,7 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
     onDelete,
     onPermanentDelete,
     onRename,
+    showSettings,
     open,
     setOpen,
     onImportBase,
@@ -44,9 +47,16 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
 
-  if (!showDelete && !showRename) {
+  const [settingModalOpen, setSettingModalOpen] = useState(false);
+  const handleOpenSettings = useCallback(() => {
+    setOpen?.(false);
+    setSettingModalOpen(true);
+  }, [setOpen, setSettingModalOpen]);
+
+  if (!showDelete && !showRename && !showSettings) {
     return null;
   }
+
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -62,6 +72,12 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
             <DropdownMenuItem onClick={() => onImportBase?.()}>
               <Import className="mr-2" />
               {t('space:spaceSetting.importBase')}
+            </DropdownMenuItem>
+          )}
+          {showSettings && (
+            <DropdownMenuItem onClick={handleOpenSettings}>
+              <Settings className="mr-2" />
+              {t('space:spaceSetting.title')}
             </DropdownMenuItem>
           )}
           {showDelete && (
@@ -83,6 +99,13 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
         onConfirm={onDelete}
         onPermanentConfirm={onPermanentDelete}
       />
+      <SpaceInnerSettingModal
+        open={settingModalOpen}
+        setOpen={setSettingModalOpen}
+        defaultTab={SettingTab.General}
+      >
+        <span className="hidden" />
+      </SpaceInnerSettingModal>
     </>
   );
 };
