@@ -25,6 +25,12 @@ import type { DragTarget, ItemInstance } from '@teable/ui-lib/base/headless-tree
 import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
 import { Button, cn, Input, Skeleton } from '@teable/ui-lib/shadcn';
 import { ScrollArea, ScrollBar } from '@teable/ui-lib/shadcn/ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn/ui/tooltip';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/shadcn/ui/tree';
 import { ChevronDownIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -843,25 +849,37 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   return (
     <>
       {canCreateResource && (
-        <div className="flex w-full flex-col px-4 pt-4">
-          <BaseNodeAddResourceButton
-            curdHooks={curdHooks}
-            parentId={ROOT_ID}
-            canCreateFolder={canCreateFolder}
-            canCreateTable={canCreateTable}
-            canCreateDashboard={canCreateDashboard}
-            canCreateWorkflow={canCreateWorkflow}
-            canCreateApp={canCreateApp}
-          >
-            <Button
-              variant={'outline'}
-              size={'xs'}
-              className="w-full"
-              disabled={!canCreateResource}
-            >
-              <AddBoldIcon />
-            </Button>
-          </BaseNodeAddResourceButton>
+        <div className="flex w-full flex-col px-4 pb-2 pt-4">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="w-full">
+                  <BaseNodeAddResourceButton
+                    curdHooks={curdHooks}
+                    parentId={ROOT_ID}
+                    canCreateFolder={canCreateFolder}
+                    canCreateTable={canCreateTable}
+                    canCreateDashboard={canCreateDashboard}
+                    canCreateWorkflow={canCreateWorkflow}
+                    canCreateApp={canCreateApp}
+                  >
+                    <Button
+                      variant={'outline'}
+                      size={'xs'}
+                      className="w-full"
+                      disabled={!canCreateResource}
+                    >
+                      <AddBoldIcon className="size-4" />
+                      <span className="truncate text-left">{t('common:base.createResource')}</span>
+                    </Button>
+                  </BaseNodeAddResourceButton>
+                </span>
+              </TooltipTrigger>
+              {!canCreateResource && (
+                <TooltipContent>{t('common:base.noPermissionToCreateResource')}</TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </div>
       )}
       {Object.keys(treeItems).length === 0

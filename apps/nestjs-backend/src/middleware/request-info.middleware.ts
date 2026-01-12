@@ -1,5 +1,6 @@
 import type { NestMiddleware } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
+import { X_CANARY_HEADER } from '@teable/openapi';
 import type { Request, Response, NextFunction } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../types/cls';
@@ -36,6 +37,12 @@ export class RequestInfoMiddleware implements NestMiddleware {
 
     if (isAiInternal) {
       this.cls.set('user.id', 'aiRobot');
+    }
+
+    // Canary header for canary release override
+    const canaryHeader = req.headers[X_CANARY_HEADER];
+    if (typeof canaryHeader === 'string') {
+      this.cls.set('canaryHeader', canaryHeader);
     }
 
     next();
