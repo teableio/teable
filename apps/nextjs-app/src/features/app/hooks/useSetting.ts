@@ -18,6 +18,7 @@ export const useSetting = () => {
     webSearchEnabled = false,
     appGenerationEnabled = false,
     createdTime,
+    enableCreditReward = false,
   } = setting ?? {};
 
   return {
@@ -28,6 +29,7 @@ export const useSetting = () => {
     webSearchEnabled,
     appGenerationEnabled,
     createdTime,
+    enableCreditReward,
   };
 };
 

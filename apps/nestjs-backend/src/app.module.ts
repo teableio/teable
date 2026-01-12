@@ -36,6 +36,7 @@ import { PluginModule } from './features/plugin/plugin.module';
 import { PluginContextMenuModule } from './features/plugin-context-menu/plugin-context-menu.module';
 import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
 import { SelectionModule } from './features/selection/selection.module';
+import { CanaryModule } from './features/canary';
 import { AdminOpenApiModule } from './features/setting/open-api/admin-open-api.module';
 import { SettingOpenApiModule } from './features/setting/open-api/setting-open-api.module';
 import { ShareModule } from './features/share/share.module';
@@ -81,6 +82,7 @@ export const appModules = {
     ExportOpenApiModule,
     PinModule,
     AdminOpenApiModule,
+    CanaryModule,
     SettingOpenApiModule,
     OAuthModule,
     TrashModule,

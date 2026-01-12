@@ -12,9 +12,8 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { MailTransporterType, MailType } from '@teable/openapi';
 import {
-  MailTransporterType,
-  MailType,
   type IGetNotifyListQuery,
   type INotificationUnreadCountVo,
   type INotificationVo,
@@ -48,12 +47,11 @@ export class NotificationService {
     private readonly i18n: I18nService<I18nTranslations>
   ) {}
 
-  private async getUserLang(userId: string) {
-    const user = await this.userService.getUserById(userId);
-    return user?.lang ?? I18nContext.current()?.lang;
+  getUserLang(lang?: string | null) {
+    return lang ?? I18nContext.current()?.lang;
   }
 
-  private getMessage(text: string | ILocalization<I18nPath>, lang?: string) {
+  getMessage(text: string | ILocalization<I18nPath>, lang?: string) {
     return typeof text === 'string'
       ? text
       : (this.i18n.t(text.i18nKey, {
@@ -65,7 +63,7 @@ export class NotificationService {
   /**
    * notification message i18n use common prefix, so we need to remove it to save db
    */
-  private getMessageI18n(localization: string | ILocalization<I18nPath>) {
+  getMessageI18n(localization: string | ILocalization<I18nPath>) {
     return typeof localization === 'string'
       ? undefined
       : JSON.stringify({
@@ -251,7 +249,7 @@ export class NotificationService {
     this.sendNotifyBySocket(toUser.id, socketNotification);
 
     if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
-      const lang = await this.getUserLang(toUserId);
+      const lang = this.getUserLang(toUser.lang);
       const emailOptions = await this.mailSenderService.htmlEmailOptions({
         ...emailConfig,
         title: this.getMessage(emailConfig.title, lang),
@@ -340,7 +338,7 @@ export class NotificationService {
     this.sendNotifyBySocket(toUser.id, socketNotification);
 
     if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
-      const lang = await this.getUserLang(toUserId);
+      const lang = this.getUserLang(toUser.lang);
       const emailOptions = await this.mailSenderService.commonEmailOptions({
         ...emailConfig,
         title: this.getMessage(emailConfig.title, lang),
