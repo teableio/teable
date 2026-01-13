@@ -1,6 +1,7 @@
 import {
   domainError,
   FieldId,
+  type ITableRepository,
   type ILogger,
   type IHasher,
   type IUnitOfWork,
@@ -10,6 +11,7 @@ import {
 import { ok, err } from 'neverthrow';
 import { describe, it, expect, vi } from 'vitest';
 
+import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater } from '../ComputedFieldUpdater';
 import type { ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
 import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPayload';
@@ -40,6 +42,13 @@ const createHasher = (): IHasher => ({
 const createUnitOfWork = (): IUnitOfWork => ({
   withTransaction: vi.fn().mockImplementation(async (_ctx, fn) => fn(_ctx)),
 });
+
+const createTableRepository = (): ITableRepository => ({}) as unknown as ITableRepository;
+
+const createBackfillService = (): ComputedFieldBackfillService =>
+  ({
+    executeSyncMany: vi.fn(),
+  }) as unknown as ComputedFieldBackfillService;
 
 const createLockResult = () =>
   ok({
@@ -95,6 +104,8 @@ describe('ComputedUpdateWorker', () => {
     it('returns 0 when no tasks are claimed', async () => {
       const outbox: IComputedUpdateOutbox = {
         enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([])),
         markDone: vi.fn(),
         markFailed: vi.fn(),
@@ -106,7 +117,16 @@ describe('ComputedUpdateWorker', () => {
       const hasher = createHasher();
       const unitOfWork = createUnitOfWork();
 
-      const worker = new ComputedUpdateWorker(outbox, updater, planner, unitOfWork, logger, hasher);
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        updater,
+        planner,
+        unitOfWork,
+        logger,
+        hasher,
+        createTableRepository(),
+        createBackfillService()
+      );
 
       const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
@@ -120,6 +140,8 @@ describe('ComputedUpdateWorker', () => {
 
       const outbox: IComputedUpdateOutbox = {
         enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
         markDone: vi.fn(),
         markFailed,
@@ -144,7 +166,16 @@ describe('ComputedUpdateWorker', () => {
         }),
       };
 
-      const worker = new ComputedUpdateWorker(outbox, updater, planner, unitOfWork, logger, hasher);
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        updater,
+        planner,
+        unitOfWork,
+        logger,
+        hasher,
+        createTableRepository(),
+        createBackfillService()
+      );
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
@@ -157,6 +188,8 @@ describe('ComputedUpdateWorker', () => {
 
       const outbox: IComputedUpdateOutbox = {
         enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
         markDone,
         markFailed: vi.fn(),
@@ -179,7 +212,16 @@ describe('ComputedUpdateWorker', () => {
         }),
       };
 
-      const worker = new ComputedUpdateWorker(outbox, updater, planner, unitOfWork, logger, hasher);
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        updater,
+        planner,
+        unitOfWork,
+        logger,
+        hasher,
+        createTableRepository(),
+        createBackfillService()
+      );
 
       const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
@@ -196,6 +238,8 @@ describe('ComputedUpdateWorker', () => {
 
       const outbox: IComputedUpdateOutbox = {
         enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task1, task2, task3])),
         markDone,
         markFailed: vi.fn(),
@@ -218,7 +262,16 @@ describe('ComputedUpdateWorker', () => {
         }),
       };
 
-      const worker = new ComputedUpdateWorker(outbox, updater, planner, unitOfWork, logger, hasher);
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        updater,
+        planner,
+        unitOfWork,
+        logger,
+        hasher,
+        createTableRepository(),
+        createBackfillService()
+      );
 
       const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
@@ -228,11 +281,27 @@ describe('ComputedUpdateWorker', () => {
     });
 
     it('downgrades insert changeType to update when planning next async stage', async () => {
-      const task = createMockTask({ changeType: 'insert' });
+      // Next-stage planning is only needed when the current stage has cross-record propagation
+      // edges. If edges are empty (pure same-record work like same-table formula chains),
+      // the worker should mark the task done without re-planning.
+      const task = createMockTask({
+        changeType: 'insert',
+        edges: [
+          {
+            fromFieldId: FIELD_ID,
+            toFieldId: `fld${'e'.repeat(16)}`,
+            fromTableId: TABLE_ID,
+            toTableId: TABLE_ID,
+            order: 0,
+          },
+        ],
+      });
       const markDone = vi.fn().mockResolvedValue(ok(undefined));
 
       const outbox: IComputedUpdateOutbox = {
         enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
         markDone,
         markFailed: vi.fn(),
@@ -262,7 +331,16 @@ describe('ComputedUpdateWorker', () => {
         }),
       };
 
-      const worker = new ComputedUpdateWorker(outbox, updater, planner, unitOfWork, logger, hasher);
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        updater,
+        planner,
+        unitOfWork,
+        logger,
+        hasher,
+        createTableRepository(),
+        createBackfillService()
+      );
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
@@ -285,6 +363,8 @@ describe('ComputedUpdateWorker', () => {
 
       const outbox: IComputedUpdateOutbox = {
         enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
         markDone: vi.fn(),
         markFailed: vi.fn().mockResolvedValue(ok(undefined)),
@@ -307,7 +387,16 @@ describe('ComputedUpdateWorker', () => {
         }),
       };
 
-      const worker = new ComputedUpdateWorker(outbox, updater, planner, unitOfWork, logger, hasher);
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        updater,
+        planner,
+        unitOfWork,
+        logger,
+        hasher,
+        createTableRepository(),
+        createBackfillService()
+      );
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
@@ -329,6 +418,8 @@ describe('ComputedUpdateWorker', () => {
 
       const outbox: IComputedUpdateOutbox = {
         enqueueOrMerge: vi.fn(),
+        enqueueSeedTask: vi.fn(),
+        enqueueFieldBackfill: vi.fn(),
         claimBatch: vi.fn().mockResolvedValue(ok([task])),
         markDone: vi.fn(),
         markFailed,
@@ -351,7 +442,16 @@ describe('ComputedUpdateWorker', () => {
         }),
       };
 
-      const worker = new ComputedUpdateWorker(outbox, updater, planner, unitOfWork, logger, hasher);
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        updater,
+        planner,
+        unitOfWork,
+        logger,
+        hasher,
+        createTableRepository(),
+        createBackfillService()
+      );
 
       // Should not throw
       const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
