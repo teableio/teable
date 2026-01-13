@@ -174,6 +174,7 @@ export class PermissionService {
         },
       });
     }
+    this.cls.set('spaceId', spaceId);
     return { baseId, spaceId };
   }
 
@@ -198,6 +199,7 @@ export class PermissionService {
         },
       });
     }
+    this.cls.set('spaceId', spaceId);
     return { spaceId };
   }
   private async isBaseIdAllowedForResource(
@@ -259,6 +261,11 @@ export class PermissionService {
       );
     }
 
+    // set the spaceId to the cls when the user operate in a space
+    if (resourceId.startsWith(IdPrefix.Space)) {
+      this.cls.set('spaceId', resourceId);
+    }
+
     if (
       resourceId.startsWith(IdPrefix.Base) &&
       !(await this.isBaseIdAllowedForResource(
@@ -318,6 +325,7 @@ export class PermissionService {
         }
       );
     }
+    this.cls.set('spaceId', spaceId);
     return getPermissions(role);
   }
 

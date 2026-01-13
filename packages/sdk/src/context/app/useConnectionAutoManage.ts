@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
-import type ReconnectingWebSocket from 'reconnecting-websocket';
 import { useDocumentVisible } from '../../hooks/use-document-visible';
+import { ReadyState } from '../../utils/reconnectingSockJS';
+import type { ReconnectingSockJS } from '../../utils/reconnectingSockJS';
 
-export const isConnected = (socket: ReconnectingWebSocket) => {
-  return [socket.OPEN, socket.CONNECTING].includes(socket.readyState);
+export const isConnected = (socket: ReconnectingSockJS) => {
+  return [ReadyState.OPEN, ReadyState.CONNECTING].includes(socket.readyState);
 };
 
 export const useConnectionAutoManage = (
-  connection: ReconnectingWebSocket | null,
+  connection: ReconnectingSockJS | null,
   reconnect: () => void,
   {
     inactiveTimeout,
@@ -23,7 +24,7 @@ export const useConnectionAutoManage = (
   const visible = useDocumentVisible();
   const inactiveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const connectionRef = useRef<ReconnectingWebSocket | null>(connection);
+  const connectionRef = useRef<ReconnectingSockJS | null>(connection);
 
   useEffect(() => {
     connectionRef.current = connection;
@@ -45,21 +46,31 @@ export const useConnectionAutoManage = (
 
     if (visible && !isConnected(connection)) {
       reconnectTimerRef.current = setTimeout(() => {
-        !isConnected(connection) && reconnect();
+        // Use `ref` to obtain the latest connection and avoid closure expiration issues.
+        const currentConnection = connectionRef.current;
+        if (currentConnection && !isConnected(currentConnection)) {
+          reconnect();
+        }
       }, reconnectDelay);
     }
     if (!visible && isConnected(connection)) {
       inactiveTimerRef.current = setTimeout(() => {
-        isConnected(connection) && connection.close();
+        // Use `ref` to obtain the latest connection and avoid closure expiration issues.
+        const currentConnection = connectionRef.current;
+        if (currentConnection && isConnected(currentConnection)) {
+          currentConnection.close();
+        }
       }, inactiveTimeout);
     }
 
     return () => {
       if (inactiveTimerRef.current) {
         clearTimeout(inactiveTimerRef.current);
+        inactiveTimerRef.current = null;
       }
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
       }
     };
   }, [visible, inactiveTimeout, reconnectDelay, reconnect]);

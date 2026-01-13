@@ -249,6 +249,41 @@ export class FieldConvertingService {
     return ops.filter(Boolean) as IOtOperation[];
   }
 
+  /**
+   * Update conditional lookup field - validate dependencies and clear/set hasError
+   */
+  private updateConditionalLookupField(field: IFieldInstance, fieldMap: IFieldMap): IOtOperation[] {
+    const ops: IOtOperation[] = [];
+
+    // Get referenced field IDs from the conditional lookup configuration
+    const referencedFieldIds = this.fieldSupplementService
+      .getFieldReferenceIds(field)
+      .filter((id) => !!id && id !== field.id);
+
+    // Check if any referenced field is missing or has error
+    const missingFields = referencedFieldIds.filter((id) => !fieldMap[id]);
+    const erroredFields = referencedFieldIds.filter((id) => fieldMap[id]?.hasError);
+
+    const hasMissingDependency = missingFields.length > 0;
+    const hasErroredDependency = erroredFields.length > 0;
+
+    if (hasMissingDependency || hasErroredDependency) {
+      const op = this.buildOpAndMutateField(field, 'hasError', true);
+      if (op) {
+        ops.push(op);
+      }
+      return ops;
+    }
+
+    // Clear error if all dependencies are valid
+    const clearErrorOp = this.buildOpAndMutateField(field, 'hasError', null);
+    if (clearErrorOp) {
+      ops.push(clearErrorOp);
+    }
+
+    return ops;
+  }
+
   private updateConditionalRollupField(
     field: ConditionalRollupFieldDto,
     fieldMap: IFieldMap
@@ -326,6 +361,7 @@ export class FieldConvertingService {
 
   private async generateReferenceFieldOps(fields: IFieldInstance[]) {
     const fieldIds = fields.map((field) => field.id);
+
     const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext(fieldIds);
     const { fieldId2TableId, directedGraph } = topoOrdersContext;
     const fieldMap = { ...topoOrdersContext.fieldMap, ...keyBy(fields, 'id') };
@@ -362,7 +398,12 @@ export class FieldConvertingService {
       const tableId = fieldId2TableId[curField.id];
 
       if (curField.isLookup) {
-        pushOpsMap(tableId, curField.id, this.updateLookupField(curField, fieldMap));
+        // For conditional lookup fields, use the dedicated update method
+        if (curField.isConditionalLookup) {
+          pushOpsMap(tableId, curField.id, this.updateConditionalLookupField(curField, fieldMap));
+        } else {
+          pushOpsMap(tableId, curField.id, this.updateLookupField(curField, fieldMap));
+        }
       } else if (curField.type === FieldType.Formula) {
         pushOpsMap(tableId, curField.id, this.updateFormulaField(curField, fieldMap));
       } else if (curField.type === FieldType.Rollup) {
@@ -1554,6 +1595,7 @@ export class FieldConvertingService {
     );
 
     const newField = createFieldInstanceByVo(newFieldVo);
+
     const modifiedOps = await this.generateModifiedOps(tableId, newField, oldField);
 
     // 2. collect changes effect by the supplement(link) field

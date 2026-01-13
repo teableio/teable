@@ -37,6 +37,7 @@ export interface IServerEnv {
   changeEmailSendMailCodeRate?: number;
   resetPasswordSendMailCodeRate?: number;
   signupVerificationSendMailCodeRate?: number;
+  enableCanaryFeature?: boolean;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});

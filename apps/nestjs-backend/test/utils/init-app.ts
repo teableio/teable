@@ -2,7 +2,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type {
@@ -101,7 +100,6 @@ export async function initApp() {
   const configService = app.get(ConfigService);
 
   app.useGlobalFilters(new GlobalExceptionFilter(configService));
-  app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );

@@ -1,16 +1,21 @@
 {
   "notFound": {
-    "title": "404 - Sayfa Bulunamadı"
+    "title": "Sayfa bulunamadı",
+    "description": "Takip ettiğiniz bağlantı bozuk olabilir veya sayfa taşınmış olabilir."
   },
   "links": {
     "backToHome": "Ana sayfaya dön"
   },
   "forbidden": {
-    "title": "403 - Erişim Yasak",
-    "description": "Bu sayfaya erişim izniniz yok."
+    "title": "Erişim kısıtlı",
+    "description": "Bu kaynağa erişmek için izne ihtiyacınız var.\nLütfen yöneticinizle iletişime geçin."
   },
   "paymentRequired": {
-    "title": "402 - Abonelik Yükseltmesi Gerekli",
-    "description": "Mevcut aboneliğiniz bu özelliğe erişimi desteklemiyor. <br></br>Devam etmek için lütfen aboneliğinizi yükseltin."
+    "title": "Premium özelliğin kilidini aç",
+    "description": "Bu özellik gelişmiş planlarda kullanılabilir.\nYeteneklerinizi genişletmek için yükseltin."
+  },
+  "error": {
+    "title": "Bir şeyler yanlış gitti",
+    "description": "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
   }
 }

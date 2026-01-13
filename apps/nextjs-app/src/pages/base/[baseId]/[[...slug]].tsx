@@ -72,6 +72,8 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
         }),
       ]);
 
+      ssrApi.configureBaseHeaders(base);
+
       const i18nNamespaces = baseAllConfig.i18nNamespaces;
       const ctx: ISSRContext = {
         context,

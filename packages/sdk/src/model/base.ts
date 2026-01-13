@@ -12,6 +12,7 @@ export class Base implements IGetBaseVo {
   restrictedAuthority?: boolean;
   enabledAuthority?: boolean;
   createdBy: string;
+  isCanary?: boolean;
 
   constructor(base: IGetBaseVo) {
     const {
@@ -24,6 +25,7 @@ export class Base implements IGetBaseVo {
       restrictedAuthority,
       enabledAuthority,
       createdBy,
+      isCanary,
     } = base;
     this.id = id;
     this.name = name;
@@ -34,6 +36,7 @@ export class Base implements IGetBaseVo {
     this.restrictedAuthority = restrictedAuthority;
     this.enabledAuthority = enabledAuthority;
     this.createdBy = createdBy;
+    this.isCanary = isCanary;
   }
 
   async createTable(tableRo?: ICreateTableRo) {
