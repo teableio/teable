@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableCreationService } from '../application/services/TableCreationService';
 import type { BaseId } from '../domain/base/BaseId';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { AbstractTableUpdatedEvent } from '../domain/table/events/AbstractTableUpdatedEvent';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';

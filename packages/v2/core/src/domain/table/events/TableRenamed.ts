@@ -1,4 +1,3 @@
-import type { ITablePersistenceDTO } from '../../../ports/mappers/TableMapper';
 import type { BaseId } from '../../base/BaseId';
 import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
@@ -14,10 +13,9 @@ export class TableRenamed extends AbstractTableUpdatedEvent {
     tableId: TableId,
     baseId: BaseId,
     readonly previousName: TableName,
-    readonly nextName: TableName,
-    tableSnapshot?: ITablePersistenceDTO
+    readonly nextName: TableName
   ) {
-    super(tableId, baseId, tableSnapshot);
+    super(tableId, baseId);
   }
 
   static create(params: {
@@ -25,18 +23,7 @@ export class TableRenamed extends AbstractTableUpdatedEvent {
     baseId: BaseId;
     previousName: TableName;
     nextName: TableName;
-    tableSnapshot?: ITablePersistenceDTO;
   }): TableRenamed {
-    return new TableRenamed(
-      params.tableId,
-      params.baseId,
-      params.previousName,
-      params.nextName,
-      params.tableSnapshot
-    );
-  }
-
-  withSnapshot(snapshot: ITablePersistenceDTO): TableRenamed {
-    return new TableRenamed(this.tableId, this.baseId, this.previousName, this.nextName, snapshot);
+    return new TableRenamed(params.tableId, params.baseId, params.previousName, params.nextName);
   }
 }

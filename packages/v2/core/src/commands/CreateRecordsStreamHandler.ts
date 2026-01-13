@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
+import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { TableQueryService } from '../application/services/TableQueryService';

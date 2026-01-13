@@ -8,6 +8,15 @@ export abstract class AggregateRoot<Id> extends Entity<Id> {
     this.domainEvents.push(event);
   }
 
+  /**
+   * Records multiple domain events. Used by external event generators (like spec visitors).
+   */
+  recordDomainEvents(events: ReadonlyArray<IDomainEvent>): void {
+    for (const event of events) {
+      this.domainEvents.push(event);
+    }
+  }
+
   pullDomainEvents(): IDomainEvent[] {
     const events = [...this.domainEvents];
     this.domainEvents.length = 0;

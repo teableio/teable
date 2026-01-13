@@ -6,7 +6,8 @@ import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { TableId } from '../domain/table/TableId';
-import { CreateTableCommand, createTableInputSchema } from './CreateTableCommand';
+import { createTableInputSchema } from '../schemas/table/createTable.schema';
+import { CreateTableCommand } from './CreateTableCommand';
 
 export const createTablesInputSchema = z.object({
   baseId: z.string(),

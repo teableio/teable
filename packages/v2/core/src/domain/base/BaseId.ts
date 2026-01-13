@@ -3,7 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { domainError, type DomainError } from '../shared/DomainError';
-import { generatePrefixedId, prefixedIdRegex } from '../shared/IdGenerator';
+import { generatePrefixedId } from '../shared/IdGenerator';
 import { ValueObject } from '../shared/ValueObject';
 
 const baseIdPrefix = 'bse';

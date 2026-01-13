@@ -6,15 +6,12 @@ import type { TableUpdateCommand } from '../../commands/TableUpdateCommand';
 import { domainError, isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
-import { AbstractTableUpdatedEvent } from '../../domain/table/events/AbstractTableUpdatedEvent';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as EventBusPort from '../../ports/EventBus';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
-import * as TableMapperPort from '../../ports/mappers/TableMapper';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -57,8 +54,6 @@ export class TableUpdateFlow {
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableSchemaRepository)
     private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
-    @inject(v2CoreTokens.tableMapper)
-    private readonly tableMapper: TableMapperPort.ITableMapper,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
@@ -121,60 +116,10 @@ export class TableUpdateFlow {
       });
 
       if (publishEvents) {
-        const snapshotResult = handler.tableMapper.toDTO(updatedTable);
-        if (snapshotResult.isErr()) return err(snapshotResult.error);
-        const enrichedEvents = yield* await handler.enrichEventsWithSnapshots(
-          context,
-          events,
-          updatedTable,
-          snapshotResult.value,
-          new Set(hostEvents)
-        );
-        yield* await handler.eventBus.publishMany(context, enrichedEvents);
+        // Publish events directly; projections fetch data themselves
+        yield* await handler.eventBus.publishMany(context, events);
       }
       return ok({ table: updatedTable, events });
-    });
-  }
-
-  /**
-   * Enriches table-updated events with per-table snapshots (host + side effects).
-   */
-  private async enrichEventsWithSnapshots(
-    context: IExecutionContext,
-    events: ReadonlyArray<IDomainEvent>,
-    hostTable: Table,
-    hostSnapshot: ITablePersistenceDTO,
-    hostEventSet: ReadonlySet<IDomainEvent>
-  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
-    const handler = this;
-    return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-      const snapshots = new Map<string, ITablePersistenceDTO>();
-
-      const enriched: IDomainEvent[] = [];
-      for (const event of events) {
-        if (!(event instanceof AbstractTableUpdatedEvent) || event.hasSnapshot()) {
-          enriched.push(event);
-          continue;
-        }
-
-        const tableId = event.tableId.toString();
-        let snapshot = snapshots.get(tableId);
-        if (!snapshot) {
-          if (hostEventSet.has(event)) {
-            snapshot = hostSnapshot;
-          } else {
-            const spec = yield* TableAggregate.specs(event.baseId).byId(event.tableId).build();
-            const tableResult = yield* await handler.tableRepository.findOne(context, spec);
-            const tableSnapshot = yield* handler.tableMapper.toDTO(tableResult);
-            snapshots.set(tableId, tableSnapshot);
-            snapshot = tableSnapshot;
-          }
-        }
-
-        enriched.push(event.withSnapshot(snapshot));
-      }
-
-      return ok(enriched);
     });
   }
 

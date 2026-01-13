@@ -9,12 +9,14 @@ import type { TableByIdsSpec } from './TableByIdsSpec';
 import type { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import type { TableByNameSpec } from './TableByNameSpec';
 import type { TableRemoveFieldSpec } from './TableRemoveFieldSpec';
+import type { TableRenameSpec } from './TableRenameSpec';
 import type { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
 
 export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   visitTableAddField(spec: TableAddFieldSpec): Result<TResult, DomainError>;
   visitTableRemoveField(spec: TableRemoveFieldSpec): Result<TResult, DomainError>;
   visitTableUpdateViewColumnMeta(spec: TableUpdateViewColumnMetaSpec): Result<TResult, DomainError>;
+  visitTableRename(spec: TableRenameSpec): Result<TResult, DomainError>;
   visitTableByBaseId(spec: TableByBaseIdSpec): Result<TResult, DomainError>;
   visitTableById(spec: TableByIdSpec): Result<TResult, DomainError>;
   visitTableByIds(spec: TableByIdsSpec): Result<TResult, DomainError>;

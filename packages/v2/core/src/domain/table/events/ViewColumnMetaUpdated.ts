@@ -1,4 +1,3 @@
-import type { ITablePersistenceDTO } from '../../../ports/mappers/TableMapper';
 import type { BaseId } from '../../base/BaseId';
 import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
@@ -15,10 +14,9 @@ export class ViewColumnMetaUpdated extends AbstractTableUpdatedEvent {
     tableId: TableId,
     baseId: BaseId,
     readonly viewId: ViewId,
-    readonly fieldId: FieldId,
-    tableSnapshot?: ITablePersistenceDTO
+    readonly fieldId: FieldId
   ) {
-    super(tableId, baseId, tableSnapshot);
+    super(tableId, baseId);
   }
 
   static create(params: {
@@ -26,24 +24,7 @@ export class ViewColumnMetaUpdated extends AbstractTableUpdatedEvent {
     baseId: BaseId;
     viewId: ViewId;
     fieldId: FieldId;
-    tableSnapshot?: ITablePersistenceDTO;
   }): ViewColumnMetaUpdated {
-    return new ViewColumnMetaUpdated(
-      params.tableId,
-      params.baseId,
-      params.viewId,
-      params.fieldId,
-      params.tableSnapshot
-    );
-  }
-
-  withSnapshot(snapshot: ITablePersistenceDTO): ViewColumnMetaUpdated {
-    return new ViewColumnMetaUpdated(
-      this.tableId,
-      this.baseId,
-      this.viewId,
-      this.fieldId,
-      snapshot
-    );
+    return new ViewColumnMetaUpdated(params.tableId, params.baseId, params.viewId, params.fieldId);
   }
 }

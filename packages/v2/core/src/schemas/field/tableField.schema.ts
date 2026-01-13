@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
+import { fieldColorSchema } from '../../domain/table/fields/types/FieldColor';
 import { TIME_ZONE_LIST } from '../../domain/table/fields/types/TimeZone';
 import {
   cellValueTypeSchema,
   dateFormattingSchema,
-  fieldColorSchema,
   fieldConditionSchema,
   formulaFormattingSchema,
   formulaShowAsSchema,

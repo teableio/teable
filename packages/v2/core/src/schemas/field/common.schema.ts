@@ -1,9 +1,7 @@
 import { z } from 'zod';
 
 import { TimeFormatting } from '../../domain/table/fields/types/DateTimeFormatting';
-// Re-export fieldColorSchema from its original definition
-import { fieldColorSchema as _fieldColorSchema } from '../../domain/table/fields/types/FieldColor';
-export { fieldColorSchema } from '../../domain/table/fields/types/FieldColor';
+import { fieldColorSchema } from '../../domain/table/fields/types/FieldColor';
 import { NumberFormattingType } from '../../domain/table/fields/types/NumberFormatting';
 import {
   MultiNumberDisplayType,
@@ -13,9 +11,6 @@ import { ratingColorValues } from '../../domain/table/fields/types/RatingColor';
 import { ratingIconValues } from '../../domain/table/fields/types/RatingIcon';
 import { singleLineTextShowAsValues } from '../../domain/table/fields/types/SingleLineTextShowAs';
 import { TIME_ZONE_LIST } from '../../domain/table/fields/types/TimeZone';
-
-// Use imported schema for internal reference
-const fieldColorSchema = _fieldColorSchema;
 
 // Basic enum schemas (re-export or define locally)
 export const ratingIconSchema = z.enum(ratingIconValues);

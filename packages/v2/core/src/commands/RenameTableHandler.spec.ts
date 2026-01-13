@@ -17,7 +17,6 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -165,10 +164,9 @@ describe('RenameTableHandler', () => {
     const repo = new FakeTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
-    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
-    const flow = new TableUpdateFlow(repo, schemaRepo, tableMapper, eventBus, unitOfWork);
+    const flow = new TableUpdateFlow(repo, schemaRepo, eventBus, unitOfWork);
 
     const commandResult = RenameTableCommand.create({
       baseId: table.baseId().toString(),
@@ -192,7 +190,6 @@ describe('RenameTableHandler', () => {
       new TableUpdateFlow(
         repo,
         new FakeTableSchemaRepository(),
-        new DefaultTableMapper(),
         new FakeEventBus(),
         new FakeUnitOfWork()
       )

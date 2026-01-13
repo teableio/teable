@@ -1,4 +1,3 @@
-import type { ITablePersistenceDTO } from '../../../ports/mappers/TableMapper';
 import type { BaseId } from '../../base/BaseId';
 import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
@@ -13,22 +12,12 @@ export class FieldCreated extends AbstractTableUpdatedEvent {
   private constructor(
     tableId: TableId,
     baseId: BaseId,
-    readonly fieldId: FieldId,
-    tableSnapshot?: ITablePersistenceDTO
+    readonly fieldId: FieldId
   ) {
-    super(tableId, baseId, tableSnapshot);
+    super(tableId, baseId);
   }
 
-  static create(params: {
-    tableId: TableId;
-    baseId: BaseId;
-    fieldId: FieldId;
-    tableSnapshot?: ITablePersistenceDTO;
-  }): FieldCreated {
-    return new FieldCreated(params.tableId, params.baseId, params.fieldId, params.tableSnapshot);
-  }
-
-  withSnapshot(snapshot: ITablePersistenceDTO): FieldCreated {
-    return new FieldCreated(this.tableId, this.baseId, this.fieldId, snapshot);
+  static create(params: { tableId: TableId; baseId: BaseId; fieldId: FieldId }): FieldCreated {
+    return new FieldCreated(params.tableId, params.baseId, params.fieldId);
   }
 }

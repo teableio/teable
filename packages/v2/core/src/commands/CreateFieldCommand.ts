@@ -6,12 +6,9 @@ import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { TableId } from '../domain/table/TableId';
-import type { ITableFieldInput } from './TableFieldSpecs';
-import {
-  parseTableFieldSpec,
-  resolveTableFieldInputName,
-  tableFieldInputSchema,
-} from './TableFieldSpecs';
+import { tableFieldInputSchema } from '../schemas/field';
+import type { ITableFieldInput } from '../schemas/field';
+import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
 import { TableUpdateCommand } from './TableUpdateCommand';
 
 export const createFieldInputSchema = z.object({

@@ -1,7 +1,6 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
-import { z } from 'zod';
 
 import type { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -70,38 +69,13 @@ import { UserNotification } from '../domain/table/fields/types/UserNotification'
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
-// Import schemas from the new schema files
-import {
-  buttonOptionsSchema,
-  conditionalLookupOptionsSchema,
-  conditionalRollupConfigSchema,
-  dateFormattingSchema,
-  dateOptionsSchema,
-  formulaFormattingSchema,
-  formulaOptionsSchema,
-  formulaShowAsSchema,
-  linkOptionsSchema,
-  lookupOptionsSchema,
-  numberFormattingSchema,
-  numberShowAsSchema,
-  ratingOptionsSchema,
-  rollupConfigSchema,
-  rollupOptionsSchema,
-  selectOptionsSchema,
-  singleLineTextOptionsSchema,
-  tableFieldInputSchema,
-  trackedFieldIdsSchema,
-} from '../schemas/field';
+import { trackedFieldIdsSchema } from '../schemas/field';
 import type { ITableFieldInput, ResolvedTableFieldInput } from '../schemas/field';
 import {
   checkFieldNotNullValidationEnabled,
   checkFieldUniqueValidationEnabled,
   isComputedFieldType,
 } from './FieldValidation';
-
-// Re-export schema and types for backward compatibility
-export { tableFieldInputSchema };
-export type { ITableFieldInput, ResolvedTableFieldInput };
 
 const getUniqName = (name: string, existNames: ReadonlyArray<string>): string => {
   if (!existNames.includes(name)) return name;

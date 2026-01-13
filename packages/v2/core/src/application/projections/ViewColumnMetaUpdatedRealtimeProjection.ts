@@ -1,14 +1,16 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
+import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
-import { domainError } from '../../domain/shared/DomainError';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
+import { Table } from '../../domain/table/Table';
 import type { IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
+import * as TableMapperPort from '../../ports/mappers/TableMapper';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
+import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { ProjectionHandler } from './Projection';
 
@@ -21,23 +23,25 @@ export class ViewColumnMetaUpdatedRealtimeProjection
 {
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
-    private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine
+    private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
+    @inject(v2CoreTokens.tableMapper)
+    private readonly tableMapper: TableMapperPort.ITableMapper
   ) {}
 
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     event: ViewColumnMetaUpdated
   ): Promise<Result<void, DomainError>> {
-    const { realtimeEngine } = this;
-    const snapshot = event.tableSnapshot;
-
-    if (!snapshot) {
-      return err(
-        domainError.unexpected({ message: 'ViewColumnMetaUpdated event missing tableSnapshot' })
-      );
-    }
+    const { realtimeEngine, tableRepository, tableMapper } = this;
 
     return safeTry(async function* () {
+      // Fetch table data from repository
+      const spec = yield* Table.specs(event.baseId).byId(event.tableId).build().safeUnwrap();
+      const table = yield* (await tableRepository.findOne(context, spec)).safeUnwrap();
+      const snapshot = yield* tableMapper.toDTO(table).safeUnwrap();
+
       const viewIndex = snapshot.views.findIndex((view) => view.id === event.viewId.toString());
       if (viewIndex === -1) return ok(undefined);
 

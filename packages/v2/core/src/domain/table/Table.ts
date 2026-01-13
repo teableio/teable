@@ -10,11 +10,8 @@ import type { ISpecVisitor } from '../shared/specification/ISpecVisitor';
 import { NotSpec } from '../shared/specification/NotSpec';
 
 import { DbTableName } from './DbTableName';
-import { FieldCreated } from './events/FieldCreated';
-import { FieldDeleted } from './events/FieldDeleted';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
-import { ViewColumnMetaUpdated } from './events/ViewColumnMetaUpdated';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
@@ -507,23 +504,6 @@ export class Table extends AggregateRoot<TableId> {
         ? resolveFormulaFields(nextTable)
         : ok(undefined);
       if (resolved.isErr()) return err(resolved.error);
-      nextTable.addDomainEvent(
-        FieldCreated.create({
-          tableId: nextTable.id(),
-          baseId: nextTable.baseId(),
-          fieldId: field.id(),
-        })
-      );
-      for (const view of nextTable.views()) {
-        nextTable.addDomainEvent(
-          ViewColumnMetaUpdated.create({
-            tableId: nextTable.id(),
-            baseId: nextTable.baseId(),
-            viewId: view.id(),
-            fieldId: field.id(),
-          })
-        );
-      }
       return ok(nextTable);
     });
   }
@@ -557,23 +537,6 @@ export class Table extends AggregateRoot<TableId> {
     }
 
     return Table.rehydrate(props).map((nextTable) => {
-      nextTable.addDomainEvent(
-        FieldDeleted.create({
-          tableId: nextTable.id(),
-          baseId: nextTable.baseId(),
-          fieldId,
-        })
-      );
-      for (const view of nextTable.views()) {
-        nextTable.addDomainEvent(
-          ViewColumnMetaUpdated.create({
-            tableId: nextTable.id(),
-            baseId: nextTable.baseId(),
-            viewId: view.id(),
-            fieldId,
-          })
-        );
-      }
       return nextTable;
     });
   }

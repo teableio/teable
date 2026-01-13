@@ -1,7 +1,6 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type { DomainError } from '../../shared/DomainError';
-import { TableRenamed } from '../events/TableRenamed';
 import type { Table } from '../Table';
 import type { ITableBuildProps } from '../TableBuilder';
 import type { TableName } from '../TableName';
@@ -26,19 +25,6 @@ export function rename(this: Table, nextName: TableName): Result<Table, DomainEr
   };
   const cloned = tableClass.rehydrate(props);
   if (cloned.isErr()) return err(cloned.error);
-  const nextTable = cloned.value;
 
-  const currentName = this.name();
-  if (!currentName.equals(nextName)) {
-    nextTable.addDomainEvent(
-      TableRenamed.create({
-        tableId: nextTable.id(),
-        baseId: nextTable.baseId(),
-        previousName: currentName,
-        nextName,
-      })
-    );
-  }
-
-  return ok(nextTable);
+  return ok(cloned.value);
 }

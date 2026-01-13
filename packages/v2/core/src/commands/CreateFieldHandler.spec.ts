@@ -12,6 +12,7 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import type { FormulaField } from '../domain/table/fields/types/FormulaField';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -20,7 +21,6 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -156,13 +156,11 @@ describe('CreateFieldHandler', () => {
 
     const tableRepository = new InMemoryTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
-    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
-      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -242,5 +240,77 @@ describe('CreateFieldHandler', () => {
     if (!selfTable) return;
     const selfLinks = selfTable.getFields().filter((field) => field.type().toString() === 'link');
     expect(selfLinks.length).toBeGreaterThan(1);
+  });
+
+  it('creates formula field with resolved cellValueType', async () => {
+    const baseId = `bse${'a'.repeat(16)}`;
+    const tableId = `tbl${'b'.repeat(16)}`;
+    const numberFieldId = `fld${'c'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const handler = new CreateFieldHandler(
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService
+    );
+
+    // Create a table with a number field
+    const table = Table.builder()
+      .withId(TableId.create(tableId)._unsafeUnwrap())
+      .withBaseId(BaseId.create(baseId)._unsafeUnwrap())
+      .withName(TableName.create('TestTable')._unsafeUnwrap())
+      .field()
+      .number()
+      .withId(FieldId.create(numberFieldId)._unsafeUnwrap())
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .primary()
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build()
+      ._unsafeUnwrap();
+    tableRepository.tables.push(table);
+
+    // Create a formula field referencing the number field
+    const commandResult = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'formula',
+        name: 'Total',
+        options: { expression: `{${numberFieldId}}` },
+      },
+    });
+    commandResult._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
+
+    const updatedTable = tableRepository.tables.find((t) => t.id().toString() === tableId);
+    expect(updatedTable).toBeDefined();
+    if (!updatedTable) return;
+
+    const formulaField = updatedTable
+      .getFields()
+      .find((field) => field.type().toString() === 'formula') as FormulaField | undefined;
+    expect(formulaField).toBeDefined();
+    if (!formulaField) return;
+
+    // Verify cellValueType is set
+    const cellValueTypeResult = formulaField.cellValueType();
+    expect(cellValueTypeResult.isOk()).toBe(true);
+    cellValueTypeResult._unsafeUnwrap();
   });
 });

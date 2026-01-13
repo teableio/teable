@@ -12,7 +12,6 @@ import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuild
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import { ViewName } from '../domain/table/views/ViewName';
-// Import schema from the new schema files
 import type { ITableFieldInput } from '../schemas/field';
 import { createTableInputSchema } from '../schemas/table/createTable.schema';
 import type { RecordFieldValues } from './CreateRecordCommand';
@@ -22,9 +21,6 @@ import {
   parseTableFieldSpec,
   resolveTableFieldInputs,
 } from './TableFieldSpecs';
-
-// Re-export schema for backward compatibility
-export { createTableInputSchema };
 
 export type ICreateTableCommandInput = z.input<typeof createTableInputSchema>;
 

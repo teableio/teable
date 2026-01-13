@@ -23,7 +23,6 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
-import type { ConditionalLookupField } from '../types/ConditionalLookupField';
 import type { ConditionalRollupField } from '../types/ConditionalRollupField';
 import type { CreatedByField } from '../types/CreatedByField';
 import type { CreatedTimeField } from '../types/CreatedTimeField';

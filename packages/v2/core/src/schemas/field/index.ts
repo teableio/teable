@@ -2,7 +2,6 @@
 export {
   cellValueTypeSchema,
   dateFormattingSchema,
-  fieldColorSchema,
   fieldConditionSchema,
   filterItemSchema,
   filterSetSchema,

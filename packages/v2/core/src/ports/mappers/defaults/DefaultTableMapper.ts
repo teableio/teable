@@ -280,25 +280,30 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
     const meta = field.meta();
+    const base = {
+      ...this.baseField(field),
+      type: 'formula' as const,
+      options,
+    };
 
-    return field
-      .cellValueType()
-      .andThen((cellValueType) =>
-        field.isMultipleCellValue().map((isMultipleCellValue) => ({
-          cellValueType,
-          isMultipleCellValue,
-        }))
-      )
-      .andThen(({ cellValueType, isMultipleCellValue }) =>
-        (meta ? meta.toDto() : ok(undefined)).map((metaDto) => ({
-          ...this.baseField(field),
-          type: 'formula' as const,
-          options,
-          ...(metaDto ? { meta: metaDto as IFormulaFieldMetaDTO } : {}),
-          cellValueType: cellValueType.toString(),
-          isMultipleCellValue: isMultipleCellValue.toBoolean(),
-        }))
-      );
+    const resultType = field.cellValueType().andThen((cellValueType) =>
+      field.isMultipleCellValue().map((isMultipleCellValue) => ({
+        cellValueType,
+        isMultipleCellValue,
+      }))
+    );
+    if (resultType.isErr()) {
+      return (meta ? meta.toDto() : ok(undefined)).map((metaDto) => ({
+        ...base,
+        ...(metaDto ? { meta: metaDto as IFormulaFieldMetaDTO } : {}),
+      }));
+    }
+    return (meta ? meta.toDto() : ok(undefined)).map((metaDto) => ({
+      ...base,
+      ...(metaDto ? { meta: metaDto as IFormulaFieldMetaDTO } : {}),
+      cellValueType: resultType.value.cellValueType.toString(),
+      isMultipleCellValue: resultType.value.isMultipleCellValue.toBoolean(),
+    }));
   }
 
   visitRollupField(field: RollupField): Result<ITableFieldPersistenceDTO, DomainError> {

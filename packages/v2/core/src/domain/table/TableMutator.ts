@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../shared/DomainError';
@@ -8,9 +8,10 @@ import { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
-import { TableByNameSpec } from './specs/TableByNameSpec';
 import { TableRemoveFieldSpec } from './specs/TableRemoveFieldSpec';
+import { TableRenameSpec } from './specs/TableRenameSpec';
 import { TableUpdateViewColumnMetaSpec } from './specs/TableUpdateViewColumnMetaSpec';
+import { TableEventGeneratingSpecVisitor } from './specs/visitors/TableEventGeneratingSpecVisitor';
 import type { Table } from './Table';
 import type { TableName } from './TableName';
 
@@ -24,13 +25,14 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
   }
 
   rename(tableName: TableName): TableMutateSpecBuilder {
+    const previousName = this.currentTable.name();
     const nextTableResult = this.currentTable.rename(tableName);
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);
       return this;
     }
 
-    this.addSpec(TableByNameSpec.create(tableName));
+    this.addSpec(TableRenameSpec.create(previousName, tableName));
     this.currentTable = nextTableResult.value;
     return this;
   }
@@ -46,7 +48,10 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     }
 
     this.addSpec(TableAddFieldSpec.create(field));
-    const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTable(nextTableResult.value);
+    const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTableWithFieldId(
+      nextTableResult.value,
+      field.id()
+    );
     if (viewSpecResult.isErr()) {
       this.recordError(viewSpecResult.error);
       return this;
@@ -76,7 +81,10 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     }
 
     this.addSpec(TableRemoveFieldSpec.create(field));
-    const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTable(nextTableResult.value);
+    const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTableWithFieldId(
+      nextTableResult.value,
+      fieldId
+    );
     if (viewSpecResult.isErr()) {
       this.recordError(viewSpecResult.error);
       return this;
@@ -146,8 +154,16 @@ export class TableMutator {
     const specResult = this.builder.build();
     if (specResult.isErr()) return err(specResult.error);
 
-    return specResult.value
-      .mutate(this.table)
-      .map((updated) => TableUpdateResult.create(updated, specResult.value));
+    return specResult.value.mutate(this.table).andThen((updated) => {
+      // Use visitor to generate events based on specs
+      const eventVisitor = new TableEventGeneratingSpecVisitor(updated);
+      const visitResult = specResult.value.accept(eventVisitor);
+      if (visitResult.isErr()) return err(visitResult.error);
+
+      // Record generated events to the table
+      updated.recordDomainEvents(eventVisitor.getEvents());
+
+      return ok(TableUpdateResult.create(updated, specResult.value));
+    });
   }
 }

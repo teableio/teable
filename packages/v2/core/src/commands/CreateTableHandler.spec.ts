@@ -242,7 +242,6 @@ describe('CreateTableHandler', () => {
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
-      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -290,7 +289,6 @@ describe('CreateTableHandler', () => {
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
-      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -343,7 +341,6 @@ describe('CreateTableHandler', () => {
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
-      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -388,7 +385,6 @@ describe('CreateTableHandler', () => {
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
-      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -442,7 +438,6 @@ describe('CreateTableHandler', () => {
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
-      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -511,7 +506,6 @@ describe('CreateTableHandler', () => {
       const tableUpdateFlow = new TableUpdateFlow(
         tableRepository,
         schemaRepository,
-        tableMapper,
         eventBus,
         unitOfWork
       );
@@ -579,7 +573,6 @@ describe('CreateTableHandler', () => {
       const tableUpdateFlow = new TableUpdateFlow(
         tableRepository,
         schemaRepository,
-        tableMapper,
         eventBus,
         unitOfWork
       );
