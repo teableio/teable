@@ -45,6 +45,9 @@
     "pin": "Pin",
     "empty": "Your pined bases and space will appear here"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "You don't have permission to create base"
+  },
   "tip": {
     "delete": "Are you sure you want to delete <0/>?",
     "title": "Tips",

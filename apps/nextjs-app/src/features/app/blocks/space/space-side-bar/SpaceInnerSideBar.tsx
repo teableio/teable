@@ -5,6 +5,12 @@ import { createBase, getSpaceById } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn/ui/tooltip';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
@@ -18,8 +24,9 @@ import { PinList } from './PinList';
 
 export const SpaceInnerSideBar = (props: {
   renderSettingModal?: (children: React.ReactNode) => React.ReactNode;
+  renderWinFreeCredit?: (spaceId: string) => React.ReactNode;
 }) => {
-  const { renderSettingModal } = props;
+  const { renderSettingModal, renderWinFreeCredit } = props;
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { spaceId } = useParams<{ spaceId: string }>();
@@ -70,16 +77,27 @@ export const SpaceInnerSideBar = (props: {
       <div className="flex flex-col justify-center px-2">
         {space && (
           <div className="p-2">
-            <Button
-              variant={'outline'}
-              size={'sm'}
-              className="w-full"
-              disabled={!canCreateBase || createBaseLoading}
-              onClick={handleCreateBase}
-            >
-              <Plus className="size-4 shrink-0" />
-              {t('space:action.createBase')}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="w-full">
+                    <Button
+                      variant={'outline'}
+                      size={'sm'}
+                      className="w-full"
+                      disabled={!canCreateBase || createBaseLoading}
+                      onClick={handleCreateBase}
+                    >
+                      <Plus className="size-4 shrink-0" />
+                      {t('space:action.createBase')}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canCreateBase && (
+                  <TooltipContent>{t('space:tooltip.noPermissionToCreateBase')}</TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
         <ul className="py-1">
@@ -149,6 +167,7 @@ export const SpaceInnerSideBar = (props: {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <PinList />
       </div>
+      {renderWinFreeCredit && renderWinFreeCredit(spaceId)}
     </>
   );
 };

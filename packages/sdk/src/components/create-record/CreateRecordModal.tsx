@@ -182,11 +182,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
               createRecord(record?.fields ?? {});
             }}
           >
-            {isLoading && (
-              <div className="absolute flex size-full items-center justify-center">
-                <Spin className="mr-2" />
-              </div>
-            )}
+            {isLoading && <Spin className="size-4" />}
             {t('common.create')}
           </Button>
         </div>

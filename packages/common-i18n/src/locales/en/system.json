@@ -1,16 +1,21 @@
 {
   "notFound": {
-    "title": "404 - Page not found"
+    "title": "Page not found",
+    "description": "The link you followed may be broken, or the page has been moved."
   },
   "links": {
     "backToHome": "Back to home"
   },
   "forbidden": {
-    "title": "403 - Forbidden",
-    "description": "You don't have permission to access this page."
+    "title": "Access restricted",
+    "description": "You need permission to access this resource.\nPlease contact your admin."
   },
   "paymentRequired": {
-    "title": "402 - Subscription upgrade required",
-    "description": "Your current subscription does not support access to this feature. <br></br>Please upgrade your subscription to continue."
+    "title": "Unlock premium feature",
+    "description": "This feature is available on advanced plans.\nUpgrade to expand your capabilities."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "description": "An unexpected issue occurred. Please try again later."
   }
 }
