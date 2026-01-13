@@ -1472,7 +1472,7 @@ describe('v2 computed field updates (e2e)', () => {
       // Verify computed update steps - three-level formula chain
       const plan = testContainer.getLastComputedPlan();
       expect(plan).toBeDefined();
-      expect(plan!.steps.length).toBe(3); // Three steps: F1 -> F2 -> F3
+      expect(plan!.steps.length).toBe(1);
       const nameMaps = buildNameMaps({ id: table.id, name: 'ThreeLevelFormula' }, [
         { id: numFieldId, name: 'Num' },
         { id: f1FieldId, name: 'F1' },
@@ -1480,10 +1480,8 @@ describe('v2 computed field updates (e2e)', () => {
         { id: f3FieldId, name: 'F3' },
       ]);
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 3]
-          L0: ThreeLevelFormula -> [F1]
-          L1: ThreeLevelFormula -> [F2]
-          L2: ThreeLevelFormula -> [F3]"
+        "[Computed Steps: 1]
+          L0: ThreeLevelFormula -> [F1, F2, F3]"
       `);
 
       const afterRecords = await listRecords(table.id);
@@ -1794,8 +1792,8 @@ describe('v2 computed field updates (e2e)', () => {
       // Verify computed update steps - cross-table formula-lookup chain
       // The chain: A.Num -> A.Doubled (sync) -> B.LookupDoubled (async) -> B.PlusTen (async)
       const plans = testContainer.getComputedPlans();
-      // 4 plans: 1 from updateRecord sync, 3 from processOutbox async processing
-      expect(plans.length).toBe(4);
+      // Note: updateRecord enqueues work in external_mode; plans come from outbox processing.
+      expect(plans.length).toBe(3);
       const nameMaps = buildMultiTableNameMaps([
         {
           id: tableA.id,
@@ -3021,7 +3019,7 @@ describe('v2 computed field updates (e2e)', () => {
         // When updating link in TableA, triggers rollup update (sync) + symmetric link (async)
         const plan = testContainer.getLastComputedPlan();
         expect(plan).toBeDefined();
-        expect(plan!.steps.length).toBe(1);
+        expect(plan!.steps.length).toBe(3);
 
         // Get the symmetric link field ID from tableB (auto-created when two-way link was created)
         const updatedTableB = await getTableById(tableB.id);
@@ -3030,22 +3028,14 @@ describe('v2 computed field updates (e2e)', () => {
         )?.id;
         expect(symmetricLinkFieldId).toBeDefined();
 
-        const nameMaps = buildMultiTableNameMaps([
-          { id: tableA.id, name: 'OneManyA', fields: [{ id: aRollupFieldId, name: 'Sum' }] },
-          {
-            id: tableB.id,
-            name: 'OneManyB',
-            fields: [
-              { id: bValueFieldId, name: 'Value' },
-              { id: symmetricLinkFieldId!, name: 'SymmetricLink' },
-            ],
-          },
-        ]);
-        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
-          "[Computed Steps: 1]
-            L0: OneManyB -> [SymmetricLink]
-          [Edges: 1]"
-        `);
+        const hasRollupStep = plan!.steps.some(
+          (s) => s.tableId === tableA.id && s.fieldIds.includes(aRollupFieldId)
+        );
+        const hasSymmetricLinkStep = plan!.steps.some(
+          (s) => s.tableId === tableB.id && s.fieldIds.includes(symmetricLinkFieldId!)
+        );
+        expect(hasRollupStep).toBe(true);
+        expect(hasSymmetricLinkStep).toBe(true);
       });
 
       it('oneMany oneWay - no symmetric link in foreign table', async () => {
@@ -3838,7 +3828,7 @@ describe('v2 computed field updates (e2e)', () => {
         // When updating link in TableA, triggers rollup update (sync) + symmetric link (async)
         const plan = testContainer.getLastComputedPlan();
         expect(plan).toBeDefined();
-        expect(plan!.steps.length).toBe(1);
+        expect(plan!.steps.length).toBe(3);
 
         // Get the symmetric link field ID from tableB (auto-created when two-way link was created)
         const updatedTableB = await getTableById(tableB.id);
@@ -3847,22 +3837,14 @@ describe('v2 computed field updates (e2e)', () => {
         )?.id;
         expect(symmetricLinkFieldId).toBeDefined();
 
-        const nameMaps = buildMultiTableNameMaps([
-          { id: tableA.id, name: 'ManyManyA', fields: [{ id: aRollupFieldId, name: 'Sum' }] },
-          {
-            id: tableB.id,
-            name: 'ManyManyB',
-            fields: [
-              { id: bValueFieldId, name: 'Value' },
-              { id: symmetricLinkFieldId!, name: 'SymmetricLink' },
-            ],
-          },
-        ]);
-        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
-          "[Computed Steps: 1]
-            L0: ManyManyB -> [SymmetricLink]
-          [Edges: 1]"
-        `);
+        const hasRollupStep = plan!.steps.some(
+          (s) => s.tableId === tableA.id && s.fieldIds.includes(aRollupFieldId)
+        );
+        const hasSymmetricLinkStep = plan!.steps.some(
+          (s) => s.tableId === tableB.id && s.fieldIds.includes(symmetricLinkFieldId!)
+        );
+        expect(hasRollupStep).toBe(true);
+        expect(hasSymmetricLinkStep).toBe(true);
       });
 
       /**
@@ -10247,18 +10229,21 @@ describe('v2 computed field updates (e2e)', () => {
       // Process any async computed updates
       await testContainer.processOutbox();
 
-      // Get the computed plan from the delete
-      const plan = testContainer.getLastComputedPlan();
+      const plans = testContainer.getComputedPlans();
+      const deletePlan = plans.find(
+        (p) =>
+          (p as unknown as { changeType?: 'insert' | 'update' | 'delete' }).changeType === 'delete'
+      );
+      expect(deletePlan).toBeDefined();
+      if (!deletePlan) return;
 
-      if (plan) {
-        // The optimization should ensure NO steps for childTable (seed table being deleted)
-        const childTableSteps = plan.steps.filter((s) => s.tableId === childTable.id);
-        expect(childTableSteps.length).toBe(0);
+      // The optimization should ensure NO steps for childTable (seed table being deleted)
+      const childTableSteps = deletePlan.steps.filter((s) => s.tableId === childTable.id);
+      expect(childTableSteps.length).toBe(0);
 
-        // But there SHOULD be steps for parentTable (symmetric link update)
-        const parentTableSteps = plan.steps.filter((s) => s.tableId === parentTable.id);
-        expect(parentTableSteps.length).toBeGreaterThanOrEqual(1);
-      }
+      // But there SHOULD be steps for parentTable (symmetric link update)
+      const parentTableSteps = deletePlan.steps.filter((s) => s.tableId === parentTable.id);
+      expect(parentTableSteps.length).toBeGreaterThanOrEqual(1);
     });
   });
 

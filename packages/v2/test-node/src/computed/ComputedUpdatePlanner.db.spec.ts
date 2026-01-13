@@ -768,7 +768,10 @@ describe('ComputedUpdatePlanner (db)', () => {
         v2RecordRepositoryPostgresTokens.computedUpdatePlanner
       );
 
-      const { tableB, bLinkFieldId } = await createMinimalBidirectionalLink(commandBus, baseId);
+      const { tableA, tableB, bLinkFieldId } = await createMinimalBidirectionalLink(
+        commandBus,
+        baseId
+      );
       const recordId = RecordId.generate()._unsafeUnwrap();
 
       // Insert to TableB (Many side, FK IS here)
@@ -782,12 +785,14 @@ describe('ComputedUpdatePlanner (db)', () => {
       expect(planResult.isOk()).toBe(true);
       const plan = planResult._unsafeUnwrap();
 
-      // Steps should include the link field because FK is in TableB
-      // When the link field is set on insert, compute its lookup title
-      expect(plan.steps.length).toBe(1);
-      expect(plan.steps[0].tableId.equals(tableB.id())).toBe(true);
+      // Steps should include link fields for both sides (bidirectional link)
+      expect(plan.steps.length).toBe(2);
+      expect(plan.steps.some((step) => step.tableId.equals(tableB.id()))).toBe(true);
+      expect(plan.steps.some((step) => step.tableId.equals(tableA.id()))).toBe(true);
 
-      const hasLinkField = plan.steps[0].fieldIds.some(
+      const tableBStep = plan.steps.find((step) => step.tableId.equals(tableB.id()));
+      expect(tableBStep).toBeDefined();
+      const hasLinkField = tableBStep!.fieldIds.some(
         (id) => id.toString() === bLinkFieldId.toString()
       );
       expect(hasLinkField).toBe(true);

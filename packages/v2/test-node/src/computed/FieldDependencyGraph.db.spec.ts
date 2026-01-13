@@ -398,7 +398,9 @@ describe('FieldDependencyGraph (db)', () => {
         baseId
       );
 
-      const dataResult = await graph.load(baseId);
+      const dataResult = await graph.load(baseId, undefined, {
+        requiredFieldIds: [baseFieldId, formula1FieldId, formula2FieldId],
+      });
       expect(dataResult.isOk()).toBe(true);
       const data = dataResult._unsafeUnwrap();
 

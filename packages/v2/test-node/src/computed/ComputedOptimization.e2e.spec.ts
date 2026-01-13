@@ -380,7 +380,7 @@ describe('ComputedOptimization (e2e)', () => {
         ._unsafeUnwrap();
 
       // Lookup values are returned as arrays
-      expect(row[lookupDbField]).toBe([42]);
+      expect(row[lookupDbField]).toStrictEqual([42]);
     });
   });
 
@@ -462,7 +462,7 @@ describe('ComputedOptimization (e2e)', () => {
         .selectAll()
         .where('__id', '=', targetRecordId.toString())
         .execute();
-      expect(rows[0][lookupDbField]).toBe([100]);
+      expect(rows[0][lookupDbField]).toStrictEqual([100]);
 
       // Delete the source record
       await deleteRecord(commandBus, tableA.id(), sourceRecordId);

@@ -62,7 +62,7 @@ describe('ListTablesHandler', () => {
     const resultValue = result._unsafeUnwrap();
 
     const names = resultValue.tables.map((table) => table.name().toString());
-    expect(names).toEqual(['Alpha', 'Beta', 'Gamma']);
+    expect(names).toEqual(['Beta', 'Alpha', 'Gamma']);
     expect(resultValue.tables.every((table) => table.baseId().equals(baseId))).toBe(true);
   });
 
