@@ -7,6 +7,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
+import { isComputedFieldType } from './ComputedUpdatePlanner';
 
 /**
  * Edge kind for field dependencies.
@@ -124,6 +125,18 @@ export type FieldDependencyGraphData = {
   edges: ReadonlyArray<FieldDependencyEdge>;
 };
 
+/**
+ * Cross-base field metadata extracted from reference edges.
+ * Used to populate fieldsById for fields that are in a different base
+ * but are referenced by fields in the current base.
+ */
+export type CrossBaseFieldMeta = {
+  id: FieldId;
+  tableId: TableId;
+  type: string;
+  baseId: string;
+};
+
 export type FieldDependencyGraphLoadOptions = {
   requiredFieldIds?: ReadonlyArray<FieldId>;
 };
@@ -156,9 +169,29 @@ export class FieldDependencyGraph {
       async function* (this: FieldDependencyGraph) {
         const db = resolvePostgresDb(this.db, executionContext);
         const fields = yield* await this.loadFields(db, baseId, options);
-        const referenceEdges = yield* await this.loadReferenceEdges(db, baseId);
+        const { edges: referenceEdges, crossBaseFields } = yield* await this.loadReferenceEdges(
+          db,
+          baseId
+        );
 
         const fieldsById = new Map(fields.map((field) => [field.id.toString(), field]));
+
+        // Add cross-base fields to fieldsById so they can be included in computed update steps.
+        // These are fields in other bases that are referenced by fields in the current base.
+        for (const crossBaseField of crossBaseFields) {
+          const fieldKey = crossBaseField.id.toString();
+          if (!fieldsById.has(fieldKey)) {
+            fieldsById.set(fieldKey, {
+              id: crossBaseField.id,
+              tableId: crossBaseField.tableId,
+              type: crossBaseField.type,
+              isComputed: isComputedFieldType(crossBaseField.type),
+              options: null,
+              lookupOptions: null,
+              conditionalOptions: null,
+            });
+          }
+        }
 
         const derivedEdges: FieldDependencyEdge[] = [];
         for (const field of fields) {
@@ -399,7 +432,15 @@ export class FieldDependencyGraph {
   private async loadReferenceEdges(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
     baseId: BaseId
-  ): Promise<Result<ReadonlyArray<FieldDependencyEdge>, DomainError>> {
+  ): Promise<
+    Result<
+      {
+        edges: ReadonlyArray<FieldDependencyEdge>;
+        crossBaseFields: ReadonlyArray<CrossBaseFieldMeta>;
+      },
+      DomainError
+    >
+  > {
     try {
       const rows = await db
         .selectFrom('reference as r')
@@ -429,6 +470,9 @@ export class FieldDependencyGraph {
         .execute();
 
       const edges: FieldDependencyEdge[] = [];
+      const crossBaseFieldsMap = new Map<string, CrossBaseFieldMeta>();
+      const currentBaseId = baseId.toString();
+
       for (const row of rows) {
         const fromFieldId = FieldId.create(row.from_field_id);
         if (fromFieldId.isErr()) return err(fromFieldId.error);
@@ -441,6 +485,20 @@ export class FieldDependencyGraph {
 
         const toFieldType = row.to_field_type;
         const isSameTable = fromTableId.value.equals(toTableId.value);
+
+        // Collect cross-base field metadata for fields that are in a different base.
+        // This allows the planner to include these fields in computed update steps.
+        if (row.to_base_id !== currentBaseId) {
+          const toFieldKey = toFieldId.value.toString();
+          if (!crossBaseFieldsMap.has(toFieldKey)) {
+            crossBaseFieldsMap.set(toFieldKey, {
+              id: toFieldId.value,
+              tableId: toTableId.value,
+              type: toFieldType,
+              baseId: row.to_base_id,
+            });
+          }
+        }
 
         // For lookup/rollup/link/conditional fields, their dependencies are handled in derivedEdges.
         // Skip them here to avoid duplicates, especially for self-referencing links
@@ -471,7 +529,7 @@ export class FieldDependencyGraph {
         });
       }
 
-      return ok(edges);
+      return ok({ edges, crossBaseFields: [...crossBaseFieldsMap.values()] });
     } catch (error) {
       return err(
         domainError.infrastructure({

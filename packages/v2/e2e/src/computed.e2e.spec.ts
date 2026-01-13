@@ -10512,6 +10512,176 @@ describe('v2 computed field updates (e2e)', () => {
           ---------------------------------"
         `);
     });
+
+    /**
+     * Scenario: Value change updates formula which cascades to cross-base link title.
+     *
+     * Setup:
+     * - Base A: TableA with Content (text) and Title (formula = Content & "-suffix")
+     * - Base B: TableB with Name (primary), Link to TableA (twoWay, lookupFieldId=Title)
+     *
+     * When updating Content in TableA:
+     * - The Title formula in TableA should be recalculated
+     * - The Link field's displayed title in TableB should also update (since it uses Title as lookupFieldId)
+     *
+     * This tests the cross-base dependency: valueChange → formula → cross-base link title
+     */
+    it('updates cross-base link title when source field value changes and affects formula', async () => {
+      // Create second base
+      const baseB_Id = `bse${getRandomString(16)}`;
+      const spaceId = `spc${getRandomString(16)}`;
+      const actorId = 'system';
+
+      // Create space and base B in database
+      await testContainer.db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Test Space CrossBase2', created_by: actorId })
+        .onConflict((oc) => oc.column('id').doNothing())
+        .execute();
+
+      await testContainer.db
+        .insertInto('base')
+        .values({
+          id: baseB_Id,
+          space_id: spaceId,
+          name: 'Test Base CrossBase2',
+          order: 3,
+          created_by: actorId,
+        })
+        .execute();
+
+      // Table A in base A (original base)
+      const aContentFieldId = createFieldId();
+      const aTitleFieldId = createFieldId();
+
+      const tableA = await createTable({
+        baseId, // original base
+        name: 'SourceTable',
+        fields: [
+          { type: 'singleLineText', id: aContentFieldId, name: 'Content', isPrimary: true },
+          {
+            type: 'formula',
+            id: aTitleFieldId,
+            name: 'Title',
+            options: {
+              expression: `{${aContentFieldId}}&"-suffix"`,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create record in Table A
+      const recordA = await createRecord(tableA.id, {
+        [aContentFieldId]: 'Initial',
+      });
+
+      await testContainer.processOutbox();
+
+      // Verify initial Title formula value
+      const initialRecordsA = await listRecords(tableA.id);
+      const initialRecordA = initialRecordsA.find((r) => r.id === recordA.id);
+      expect(initialRecordA?.fields[aTitleFieldId]).toBe('Initial-suffix');
+
+      // Table B in base B with link to Table A (twoWay, using Title as lookupFieldId)
+      const bNameFieldId = createFieldId();
+      const bLinkFieldId = createFieldId();
+
+      const tableB = await createTable({
+        baseId: baseB_Id, // different base!
+        name: 'TargetTable',
+        fields: [
+          { type: 'singleLineText', id: bNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: bLinkFieldId,
+            name: 'LinkToSource',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: tableA.id,
+              lookupFieldId: aTitleFieldId, // Use Title (formula) as the display field
+              // twoWay is default (isOneWay: false)
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create record in Table B linked to recordA
+      const recordB = await createRecord(tableB.id, {
+        [bNameFieldId]: 'B1',
+        [bLinkFieldId]: { id: recordA.id },
+      });
+
+      // Process computed updates
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      // Verify initial link title in Table B
+      const initialRecordsB = await listRecords(tableB.id);
+      const initialRecordB = initialRecordsB.find((r) => r.id === recordB.id);
+      const initialLinkValue = initialRecordB?.fields[bLinkFieldId] as
+        | { id: string; title: string }
+        | undefined;
+      expect(initialLinkValue?.title).toBe('Initial-suffix');
+
+      // =========================================================================
+      // Key test: Update Content in Table A, which should cascade to:
+      // 1. Title formula in Table A (same base)
+      // 2. LinkToSource displayed title in Table B (cross-base)
+      // =========================================================================
+      testContainer.clearLogs();
+
+      await updateRecord(tableA.id, recordA.id, {
+        [aContentFieldId]: 'Updated',
+      });
+
+      // Process computed updates (may need multiple rounds for cross-base)
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+      await testContainer.processOutbox();
+
+      // Verify Title formula in Table A is updated
+      const afterRecordsA = await listRecords(tableA.id);
+      const afterRecordA = afterRecordsA.find((r) => r.id === recordA.id);
+      expect(afterRecordA?.fields[aTitleFieldId]).toBe('Updated-suffix');
+
+      // Verify Link title in Table B is also updated (cross-base cascade)
+      const afterRecordsB = await listRecords(tableB.id);
+      const afterRecordB = afterRecordsB.find((r) => r.id === recordB.id);
+      const afterLinkValue = afterRecordB?.fields[bLinkFieldId] as
+        | { id: string; title: string }
+        | undefined;
+      expect(afterLinkValue?.title).toBe('Updated-suffix');
+
+      // Print snapshots for visual verification
+      const aFieldIds = [aContentFieldId, aTitleFieldId];
+      const aFieldNames = ['Content', 'Title'];
+
+      expect(printTableSnapshot(tableA.name, aFieldNames, afterRecordsA, aFieldIds))
+        .toMatchInlineSnapshot(`
+          "[SourceTable]
+          -----------------------------
+          #  | Content | Title
+          -----------------------------
+          R0 | Updated | Updated-suffix
+          -----------------------------"
+        `);
+
+      const bFieldIds = [bNameFieldId, bLinkFieldId];
+      const bFieldNames = ['Name', 'LinkToSource'];
+
+      expect(printTableSnapshot(tableB.name, bFieldNames, afterRecordsB, bFieldIds))
+        .toMatchInlineSnapshot(`
+          "[TargetTable]
+          --------------------------
+          #  | Name | LinkToSource
+          --------------------------
+          R0 | B1   | Updated-suffix
+          --------------------------"
+        `);
+    });
   });
 
   /**

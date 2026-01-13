@@ -513,7 +513,7 @@ const filterComputedFields = (
   return computed;
 };
 
-const computedFieldTypes = new Set([
+export const computedFieldTypes = new Set([
   'formula',
   'lookup',
   'rollup',
@@ -522,7 +522,7 @@ const computedFieldTypes = new Set([
   'conditionalRollup',
 ]);
 
-const isComputedFieldType = (type: string): boolean => computedFieldTypes.has(type);
+export const isComputedFieldType = (type: string): boolean => computedFieldTypes.has(type);
 
 const countSeedRecords = (
   seedRecordIds: ReadonlyArray<RecordId>,
