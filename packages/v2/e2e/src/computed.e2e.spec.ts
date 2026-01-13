@@ -737,7 +737,24 @@ describe('v2 computed field updates (e2e)', () => {
           `);
 
           // Update amount
+          testContainer.clearLogs();
           await updateRecord(table.id, record.id, { [amountFieldId]: 7 });
+          await drainOutbox();
+
+          const plan = testContainer.getLastComputedPlan();
+          expect(plan).toBeDefined();
+          expect(plan!.steps.length).toBe(1);
+          expect(plan!.steps[0].fieldIds).toContain(scoreFieldId);
+          expect(plan!.steps[0].fieldIds).toContain(scoreLabelFieldId);
+          const nameMaps = buildNameMaps({ id: table.id, name: 'Formula Chain Test' }, [
+            { id: amountFieldId, name: 'Amount' },
+            { id: scoreFieldId, name: 'Score' },
+            { id: scoreLabelFieldId, name: 'ScoreLabel' },
+          ]);
+          expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+            "[Computed Steps: 1]
+              L0: Formula Chain Test -> [Score, ScoreLabel]"
+          `);
 
           // After update
           const afterRecords = await listRecords(table.id);
