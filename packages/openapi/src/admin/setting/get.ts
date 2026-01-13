@@ -3,7 +3,12 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
-import { aiConfigVoSchema, appConfigSchema, webSearchConfigSchema } from './update';
+import {
+  aiConfigVoSchema,
+  appConfigSchema,
+  canaryConfigSchema,
+  webSearchConfigSchema,
+} from './update';
 
 export const settingVoSchema = z.object({
   instanceId: z.string(),
@@ -20,6 +25,8 @@ export const settingVoSchema = z.object({
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   appConfig: appConfigSchema.nullable().optional(),
   webSearchConfig: webSearchConfigSchema.nullable().optional(),
+  enableCreditReward: z.boolean().optional(),
+  canaryConfig: canaryConfigSchema.nullable().optional(),
   createdTime: z.string().optional(),
 });
 

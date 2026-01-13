@@ -367,9 +367,9 @@ export const TemplateTable = () => {
         </TableCell>
         <TableCell
           className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
-          style={{ zIndex: 2, right: 144, width: 72, minWidth: 72, maxWidth: 72 }}
+          style={{ zIndex: 2, right: 144, width: 100, minWidth: 100, maxWidth: 100 }}
         >
-          {row.usageCount ?? 0}
+          {row.usageCount ?? 0}/{row.visitCount ?? 0}
         </TableCell>
         <TableCell
           className="sticky bg-background text-center"
@@ -491,9 +491,9 @@ export const TemplateTable = () => {
             </TableHead>
             <TableHead
               className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
-              style={{ zIndex: 3, right: 144, width: 72, minWidth: 72, maxWidth: 72 }}
+              style={{ zIndex: 3, right: 144, width: 100, minWidth: 100, maxWidth: 100 }}
             >
-              {t('settings.templateAdmin.header.usage')}
+              {t('settings.templateAdmin.header.usage')}/{t('settings.templateAdmin.header.visit')}
             </TableHead>
             <TableHead
               className="sticky bg-background text-center"

@@ -41,6 +41,7 @@ import { ATTACHMENT_LG_THUMBNAIL_HEIGHT } from '../attachments/constant';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
+import { CanaryService } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { GraphService } from '../graph/graph.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
@@ -60,6 +61,7 @@ export class BaseService {
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly graphService: GraphService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly canaryService: CanaryService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -119,6 +121,10 @@ export class BaseService {
     const { role, collaboratorType } = template
       ? { role: Role.Viewer, collaboratorType: CollaboratorType.Base }
       : await this.getRoleByBaseId(baseId, base.spaceId);
+
+    // Check if this base's space is in canary release
+    const isCanary = await this.canaryService.isSpaceInCanary(base.spaceId);
+
     return {
       ...base,
       role,
@@ -127,6 +133,7 @@ export class BaseService {
         template?.baseId === baseId
           ? { id: template.id, headers: this.permissionService.generateTemplateHeader(template.id) }
           : undefined,
+      isCanary: isCanary || undefined, // Only include if true
     };
   }
 

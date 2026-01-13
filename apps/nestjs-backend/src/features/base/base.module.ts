@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
 import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
 import { StorageModule } from '../attachments/plugins/storage.module';
+import { CanaryModule } from '../canary';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldDuplicateModule } from '../field/field-duplicate/field-duplicate.module';
 import { FieldModule } from '../field/field.module';
@@ -29,6 +30,7 @@ import { DbConnectionService } from './db-connection.service';
 @Module({
   controllers: [BaseController],
   imports: [
+    CanaryModule,
     CollaboratorModule,
     FieldModule,
     FieldOpenApiModule,

@@ -1,11 +1,13 @@
-import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import { All, Body, Controller, Get, Next, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import type { IQueryParamsVo } from '@teable/openapi';
 import { IQueryParamsRo, queryParamsRoSchema } from '@teable/openapi';
-import express from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
 import { NextService } from './next.service';
+
+const isDev = process.env.NODE_ENV === 'development';
 
 @Controller('/')
 export class NextController {
@@ -39,7 +41,21 @@ export class NextController {
     'integrations/authorize/?*',
     't/?*',
   ])
-  public async home(@Req() req: express.Request, @Res() res: express.Response) {
+  public async home(@Req() req: Request, @Res() res: Response) {
+    await this.nextService.server.getRequestHandler()(req, res);
+  }
+
+  /**
+   * Dev: proxy SockJS to separate port (SOCKET_PORT) via Next.js rewrites
+   * Prod: pass through to let SockJS handle at HTTP server level
+   */
+  @ApiExcludeEndpoint()
+  @Public()
+  @All(['socket', 'socket/*'])
+  public async socket(@Req() req: Request, @Res() res: Response, @Next() next: NextFunction) {
+    if (!isDev) {
+      return next();
+    }
     await this.nextService.server.getRequestHandler()(req, res);
   }
 

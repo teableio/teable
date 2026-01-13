@@ -239,7 +239,7 @@ export class FieldOpenApiService {
       return false;
     }
 
-    return this.validateFilterFieldReferences(tableId, foreignTableId, meta?.filter);
+    return await this.validateFilterFieldReferences(tableId, foreignTableId, meta?.filter);
   }
 
   private async isFieldConfigurationValid(
@@ -552,7 +552,10 @@ export class FieldOpenApiService {
 
         return references.every((reference) => {
           const referenceField = resolveReferenceField(reference);
-          return referenceField ? isFieldReferenceComparable(baseField, referenceField) : false;
+          if (!referenceField) {
+            return false;
+          }
+          return isFieldReferenceComparable(baseField, referenceField);
         });
       }
 
@@ -568,20 +571,28 @@ export class FieldOpenApiService {
 
   private async markError(tableId: string, field: IFieldInstance, hasError: boolean) {
     if (hasError) {
-      !field.hasError && (await this.fieldService.markError(tableId, [field.id], true));
+      if (!field.hasError) {
+        await this.fieldService.markError(tableId, [field.id], true);
+      }
     } else {
-      field.hasError && (await this.fieldService.markError(tableId, [field.id], false));
+      if (field.hasError) {
+        await this.fieldService.markError(tableId, [field.id], false);
+      }
     }
   }
 
   private async checkAndUpdateError(tableId: string, field: IFieldInstance) {
     const fieldReferenceIds = this.fieldSupplementService.getFieldReferenceIds(field);
+    // Deduplicate field IDs since the same field can appear multiple times
+    // (e.g., as lookupFieldId and in filter)
+    const uniqueFieldReferenceIds = [...new Set(fieldReferenceIds)];
+
     const refFields = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: fieldReferenceIds }, deletedTime: null },
+      where: { id: { in: uniqueFieldReferenceIds }, deletedTime: null },
       select: { id: true },
     });
 
-    if (refFields.length !== fieldReferenceIds.length) {
+    if (refFields.length !== uniqueFieldReferenceIds.length) {
       await this.markError(tableId, field, true);
       return;
     }
@@ -591,7 +602,7 @@ export class FieldOpenApiService {
         toFieldId: field.id,
       },
     });
-    const missingReferenceIds = fieldReferenceIds.filter(
+    const missingReferenceIds = uniqueFieldReferenceIds.filter(
       (refId) => !curReference.find((ref) => ref.fromFieldId === refId)
     );
 

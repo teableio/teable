@@ -41,6 +41,9 @@
     "pin": "Fijar",
     "empty": "Tus bases y espacios fijados aparecerán aquí"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "No tienes permiso para crear una base"
+  },
   "tip": {
     "delete": "¿Estás seguro de que quieres eliminar <0/>?",
     "title": "Consejos",
