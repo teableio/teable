@@ -410,6 +410,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     seedFieldIds: ReadonlyArray<FieldId>,
     seedGroups: ReadonlyArray<ComputedSeedGroup>
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
+    if (plan.edges.length === 0) return ok({ ...plan, steps: [], edges: [] });
     if (seedFieldIds.length === 0) return ok({ ...plan, steps: [], edges: [] });
 
     const seedSplit = splitSeedGroupsForPlan(seedGroups, plan.seedTableId);

@@ -1,5 +1,6 @@
 import {
   domainError,
+  FieldType,
   FieldCondition,
   LinkRelationship,
   RecordId,
@@ -17,7 +18,7 @@ import type {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Expression, InsertQueryBuilder, Kysely, SqlBool, Transaction } from 'kysely';
+import type { Expression, Kysely, SqlBool, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -25,9 +26,11 @@ import type { Result } from 'neverthrow';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
+import {
+  SameTableBatchQueryBuilder,
+  type SameTableFieldLevel,
+} from '../query-builder/computed/SameTableBatchQueryBuilder';
 import { TableRecordConditionWhereVisitor } from '../visitors/TableRecordConditionWhereVisitor';
-// NOTE: SameTableBatchQueryBuilder will be used for CTE optimization in future versions
-// import { SameTableBatchQueryBuilder, type SameTableFieldLevel } from '../query-builder/computed/SameTableBatchQueryBuilder';
 import {
   type ComputedUpdateLockConfig,
   type ComputedUpdateLockSummary,
@@ -54,6 +57,69 @@ import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
 const DIRTY_TABLE = 'tmp_computed_dirty';
 const DIRTY_TABLE_ID_COL = 'table_id';
 const DIRTY_RECORD_ID_COL = 'record_id';
+
+const stepKey = (step: UpdateStep): string => `${step.tableId.toString()}|${step.level}`;
+
+/**
+ * Collapse multi-level same-table batches into a single step (per table),
+ * keeping fieldIds ordered by dependency level (and stable within level).
+ *
+ * This is primarily for same-table formula chains where we can compute all formulas
+ * in one UPDATE...FROM by selecting multiple fields at once.
+ */
+const optimizeSameTableBatches = (plan: ComputedUpdatePlan): ComputedUpdatePlan => {
+  const crossRecordDependentFieldIds = new Set(plan.edges.map((e) => e.toFieldId.toString()));
+
+  // Only collapse batches that are purely same-record computed fields across levels.
+  // If a batch includes a cross-record-dependent field (e.g. lookup/rollup/link), keep
+  // the original steps so tests and logs preserve level visibility for cross-table chains.
+  const collapsibleBatches = plan.sameTableBatches.filter((b) => {
+    if (b.steps.length <= 1) return false;
+    return b.steps.every(
+      (step) => !step.fieldIds.some((id) => crossRecordDependentFieldIds.has(id.toString()))
+    );
+  });
+  if (collapsibleBatches.length === 0) return plan;
+
+  const removeKeys = new Set<string>();
+  const collapsedSteps: UpdateStep[] = [];
+
+  for (const batch of collapsibleBatches) {
+    for (const step of batch.steps) {
+      removeKeys.add(stepKey(step));
+    }
+
+    const flattened: FieldId[] = [];
+    const seen = new Set<string>();
+    const orderedSteps = [...batch.steps].sort((a, b) => a.level - b.level);
+    for (const step of orderedSteps) {
+      for (const fieldId of step.fieldIds) {
+        const key = fieldId.toString();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        flattened.push(fieldId);
+      }
+    }
+
+    collapsedSteps.push({
+      tableId: batch.tableId,
+      level: batch.minLevel,
+      fieldIds: flattened,
+    });
+  }
+
+  const remainingSteps = plan.steps.filter((step) => !removeKeys.has(stepKey(step)));
+  const optimizedSteps = [...remainingSteps, ...collapsedSteps].sort((a, b) =>
+    a.level === b.level
+      ? a.tableId.toString().localeCompare(b.tableId.toString())
+      : a.level - b.level
+  );
+
+  return {
+    ...plan,
+    steps: optimizedSteps,
+  };
+};
 
 /**
  * Statistics about dirty record propagation for tracing purposes.
@@ -122,10 +188,12 @@ export class ComputedFieldUpdater {
       return ok(undefined);
     }
 
+    const effectivePlan = optimizeSameTableBatches(plan);
+
     const resolvedRun =
       run ??
       createComputedUpdateRun({
-        totalSteps: plan.steps.length,
+        totalSteps: effectivePlan.steps.length,
         completedStepsBefore: 0,
         phase: 'full',
       });
@@ -133,55 +201,58 @@ export class ComputedFieldUpdater {
     const runStartTime = Date.now();
 
     // Collect table and field summary for tracing
-    const affectedTableIds = [...new Set(plan.steps.map((s) => s.tableId.toString()))];
+    const affectedTableIds = [...new Set(effectivePlan.steps.map((s) => s.tableId.toString()))];
     const affectedFieldIds = [
-      ...new Set(plan.steps.flatMap((s) => s.fieldIds.map((f) => f.toString()))),
+      ...new Set(effectivePlan.steps.flatMap((s) => s.fieldIds.map((f) => f.toString()))),
     ];
 
     // Start main span for the entire computed update execution
     const mainSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.execute', {
       // Plan identification
-      'computed.baseId': plan.baseId.toString(),
-      'computed.seedTableId': plan.seedTableId.toString(),
-      'computed.changeType': plan.changeType,
+      'computed.baseId': effectivePlan.baseId.toString(),
+      'computed.seedTableId': effectivePlan.seedTableId.toString(),
+      'computed.changeType': effectivePlan.changeType,
       // Record counts
-      'computed.seedRecordCount': plan.seedRecordIds.length,
-      'computed.extraSeedGroupCount': plan.extraSeedRecords.length,
+      'computed.seedRecordCount': effectivePlan.seedRecordIds.length,
+      'computed.extraSeedGroupCount': effectivePlan.extraSeedRecords.length,
       // Step and edge counts
-      'computed.stepCount': plan.steps.length,
-      'computed.edgeCount': plan.edges.length,
+      'computed.stepCount': effectivePlan.steps.length,
+      'computed.edgeCount': effectivePlan.edges.length,
       // Affected scope
       'computed.affectedTableCount': affectedTableIds.length,
       'computed.affectedFieldCount': affectedFieldIds.length,
       'computed.affectedTableIds': affectedTableIds.join(','),
       // Complexity estimate
-      'computed.estimatedComplexity': plan.estimatedComplexity,
+      'computed.estimatedComplexity': effectivePlan.estimatedComplexity,
       // Step levels summary (min/max)
-      'computed.minLevel': plan.steps.length > 0 ? Math.min(...plan.steps.map((s) => s.level)) : 0,
-      'computed.maxLevel': plan.steps.length > 0 ? Math.max(...plan.steps.map((s) => s.level)) : 0,
+      'computed.minLevel':
+        effectivePlan.steps.length > 0 ? Math.min(...effectivePlan.steps.map((s) => s.level)) : 0,
+      'computed.maxLevel':
+        effectivePlan.steps.length > 0 ? Math.max(...effectivePlan.steps.map((s) => s.level)) : 0,
     });
     mainSpan?.setAttributes(toRunSpanAttributes(resolvedRun));
 
     // Log plan summary for structured logging
     runLogger.info('computed:run:start', {
-      baseId: plan.baseId.toString(),
-      seedTableId: plan.seedTableId.toString(),
-      changeType: plan.changeType,
+      baseId: effectivePlan.baseId.toString(),
+      seedTableId: effectivePlan.seedTableId.toString(),
+      changeType: effectivePlan.changeType,
       totalSteps: resolvedRun.totalSteps,
       completedStepsBefore: resolvedRun.completedStepsBefore,
       pendingSteps: Math.max(resolvedRun.totalSteps - resolvedRun.completedStepsBefore, 0),
     });
 
     runLogger.debug('computed:plan', {
-      baseId: plan.baseId.toString(),
-      seedTableId: plan.seedTableId.toString(),
-      seedRecordIds: plan.seedRecordIds.map((r) => r.toString()),
-      steps: plan.steps.map((s) => ({
+      baseId: effectivePlan.baseId.toString(),
+      seedTableId: effectivePlan.seedTableId.toString(),
+      changeType: effectivePlan.changeType,
+      seedRecordIds: effectivePlan.seedRecordIds.map((r) => r.toString()),
+      steps: effectivePlan.steps.map((s) => ({
         tableId: s.tableId.toString(),
         level: s.level,
         fieldIds: s.fieldIds.map((f) => f.toString()),
       })),
-      edges: plan.edges.map((e) => ({
+      edges: effectivePlan.edges.map((e) => ({
         from: `${e.fromTableId.toString()}.${e.fromFieldId.toString()}`,
         to: `${e.toTableId.toString()}.${e.toFieldId.toString()}`,
         linkFieldId: e.linkFieldId?.toString(),
@@ -214,7 +285,7 @@ export class ComputedFieldUpdater {
     const runWork = async () =>
       safeTry<void, DomainError>(
         async function* (this: ComputedFieldUpdater) {
-          const prepared = yield* await this.prepareDirtyState(plan, context);
+          const prepared = yield* await this.prepareDirtyState(effectivePlan, context);
           mainSpan?.setAttribute('computed.totalDirtyRecords', prepared.totalDirtyRecords);
           mainSpan?.setAttribute('computed.affectedTableCount', prepared.dirtyStats.length);
 
@@ -224,10 +295,10 @@ export class ComputedFieldUpdater {
           });
 
           const stepTraces = yield* await this.executePreparedSteps(
-            plan,
+            effectivePlan,
             context,
             prepared,
-            plan.steps,
+            effectivePlan.steps,
             resolvedRun
           );
           mainSpan?.setAttribute('computed.executedStepCount', stepTraces.length);
@@ -426,6 +497,25 @@ export class ComputedFieldUpdater {
     const stepTraces: StepTraceInfo[] = [];
     const runLogger = run ? this.logger.child(toRunLogContext(run)) : this.logger;
 
+    // If we collapsed same-table batches into a single step, we still need the original
+    // level structure to execute them correctly (CTE chain), and to avoid volatile formula
+    // re-evaluation caused by formula expansion.
+    const collapsedBatchByStepKey = (() => {
+      const keysInSteps = new Set(steps.map(stepKey));
+      const map = new Map<string, SameTableBatch>();
+      for (const batch of plan.sameTableBatches) {
+        if (batch.steps.length <= 1) continue;
+        const originalKeysPresent = batch.steps.some((s) => keysInSteps.has(stepKey(s)));
+        if (originalKeysPresent) continue;
+
+        const collapsedKey = `${batch.tableId.toString()}|${batch.minLevel}`;
+        if (keysInSteps.has(collapsedKey)) {
+          map.set(collapsedKey, batch);
+        }
+      }
+      return map;
+    })();
+
     // Group steps by level for organized tracing
     const stepsByLevel = new Map<number, Array<{ index: number; step: UpdateStep }>>();
     for (let i = 0; i < steps.length; i++) {
@@ -469,6 +559,7 @@ export class ComputedFieldUpdater {
             prepared.db,
             updateBuilder,
             step,
+            collapsedBatchByStepKey.get(stepKey(step)),
             prepared.tableById,
             context,
             index,
@@ -512,6 +603,7 @@ export class ComputedFieldUpdater {
     db: Kysely<DynamicDB>,
     updateBuilder: UpdateFromSelectBuilder,
     step: UpdateStep,
+    collapsedBatch: SameTableBatch | undefined,
     tableById: Map<string, Table>,
     context: IExecutionContext,
     stepIndex: number,
@@ -598,15 +690,73 @@ export class ComputedFieldUpdater {
             });
           }
 
-          const builder = new ComputedTableRecordQueryBuilder(db)
-            .from(table)
-            .select(fieldIds)
-            .withDirtyFilter({ tableId: step.tableId.toString() });
-          yield* await builder.prepare({
-            context,
-            tableRepository: this.tableRepository,
-          });
-          const selectQuery = yield* builder.build();
+          let selectQuery: QB | undefined;
+
+          // If this step represents a collapsed same-table formula chain, execute using a CTE chain
+          // so later formulas read the computed values of earlier formulas (and avoid volatile
+          // re-evaluation caused by formula expansion).
+          if (collapsedBatch && fieldIds.length > 1) {
+            const fieldLevelsResult = safeTry<SameTableFieldLevel[], DomainError>(function* () {
+              if (!collapsedBatch.tableId.equals(step.tableId)) {
+                return err(domainError.validation({ message: 'Collapsed batch table mismatch' }));
+              }
+
+              const allowedFieldIds = new Set(fieldIds.map((id) => id.toString()));
+              const orderedBatchSteps = [...collapsedBatch.steps].sort((a, b) => a.level - b.level);
+              const fieldLevels: SameTableFieldLevel[] = [];
+
+              for (const batchStep of orderedBatchSteps) {
+                const levelFieldIds: FieldId[] = [];
+                for (const fieldId of batchStep.fieldIds) {
+                  if (!allowedFieldIds.has(fieldId.toString())) continue;
+                  const field = yield* table.getField((f) => f.id().equals(fieldId));
+                  if (!field.type().equals(FieldType.formula())) {
+                    return err(
+                      domainError.validation({
+                        message: 'Same-table batch optimization only supports formula fields',
+                      })
+                    );
+                  }
+                  levelFieldIds.push(fieldId);
+                }
+                if (levelFieldIds.length > 0) {
+                  fieldLevels.push({ level: batchStep.level, fieldIds: levelFieldIds });
+                }
+              }
+
+              return ok(fieldLevels);
+            });
+
+            if (fieldLevelsResult.isErr()) return err(fieldLevelsResult.error);
+
+            // If the batch no longer spans multiple effective levels after filtering, fall back.
+            if (fieldLevelsResult.value.length > 1) {
+              const batchBuilder = new SameTableBatchQueryBuilder(db);
+              const batchResult = yield* batchBuilder.build({
+                table,
+                fieldLevels: fieldLevelsResult.value,
+                dirtyFilter: {
+                  tableId: step.tableId.toString(),
+                  dirtyTableName: DIRTY_TABLE,
+                  tableIdColumn: DIRTY_TABLE_ID_COL,
+                  recordIdColumn: DIRTY_RECORD_ID_COL,
+                },
+              });
+              selectQuery = batchResult.selectQuery;
+            }
+          }
+
+          if (!selectQuery) {
+            const builder = new ComputedTableRecordQueryBuilder(db)
+              .from(table)
+              .select(fieldIds)
+              .withDirtyFilter({ tableId: step.tableId.toString() });
+            yield* await builder.prepare({
+              context,
+              tableRepository: this.tableRepository,
+            });
+            selectQuery = yield* builder.build();
+          }
 
           const compiled = yield* updateBuilder.build({
             table,
@@ -716,6 +866,7 @@ export class ComputedFieldUpdater {
           prepared.db,
           updateBuilder,
           step,
+          undefined,
           prepared.tableById,
           context,
           i,
@@ -1438,353 +1589,6 @@ const buildPropagationSelect = (
     });
 
     return ok(selectQuery);
-  });
-};
-
-const buildPropagationInsert = (
-  db: Kysely<DynamicDB>,
-  edge: ComputedDependencyEdge,
-  tableById: Map<string, Table>
-): Result<InsertQueryBuilder<DynamicDB, string, unknown>, DomainError> => {
-  return safeTry(function* () {
-    const targetTable = tableById.get(edge.toTableId.toString());
-    if (!targetTable) {
-      return err(
-        domainError.notFound({
-          message: `Missing target table ${edge.toTableId.toString()}`,
-        })
-      );
-    }
-
-    if (edge.propagationMode === 'allTargetRecords') {
-      const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-      const dirtyGate = db
-        .selectFrom(`${DIRTY_TABLE} as d`)
-        .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-        .limit(1)
-        .as('dg');
-
-      const select = db
-        .selectFrom(`${targetDbName} as t`)
-        .innerJoin(dirtyGate, (join) => join.onTrue())
-        .select([
-          sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-          sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-        ])
-        .distinct();
-
-      return ok(
-        db
-          .insertInto(DIRTY_TABLE)
-          .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-          .expression(select)
-          .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-      );
-    }
-
-    // conditionalFiltered: Only mark target records as dirty if dirty source records match the filter
-    if (edge.propagationMode === 'conditionalFiltered' && edge.filterCondition) {
-      const sourceTable = tableById.get(edge.fromTableId.toString());
-      if (!sourceTable) {
-        return err(
-          domainError.notFound({
-            message: `Missing source table ${edge.fromTableId.toString()} for conditionalFiltered`,
-          })
-        );
-      }
-
-      // Create FieldCondition from filterDto
-      const fieldConditionResult = FieldCondition.create({
-        filter: edge.filterCondition.filterDto,
-      });
-      if (fieldConditionResult.isErr()) {
-        // Fallback to allTargetRecords if filter is invalid
-        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-        const dirtyGate = db
-          .selectFrom(`${DIRTY_TABLE} as d`)
-          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1)
-          .as('dg');
-
-        const select = db
-          .selectFrom(`${targetDbName} as t`)
-          .innerJoin(dirtyGate, (join) => join.onTrue())
-          .select([
-            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
-
-        return ok(
-          db
-            .insertInto(DIRTY_TABLE)
-            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-            .expression(select)
-            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-        );
-      }
-
-      const fieldCondition = fieldConditionResult.value;
-      if (!fieldCondition.hasFilter()) {
-        // No filter - fallback to allTargetRecords
-        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-        const dirtyGate = db
-          .selectFrom(`${DIRTY_TABLE} as d`)
-          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1)
-          .as('dg');
-
-        const select = db
-          .selectFrom(`${targetDbName} as t`)
-          .innerJoin(dirtyGate, (join) => join.onTrue())
-          .select([
-            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
-
-        return ok(
-          db
-            .insertInto(DIRTY_TABLE)
-            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-            .expression(select)
-            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-        );
-      }
-
-      // Convert to RecordConditionSpec
-      const specResult = yield* fieldCondition.toRecordConditionSpec(sourceTable);
-      if (!specResult) {
-        // No spec generated - fallback to allTargetRecords
-        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-        const dirtyGate = db
-          .selectFrom(`${DIRTY_TABLE} as d`)
-          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1)
-          .as('dg');
-
-        const select = db
-          .selectFrom(`${targetDbName} as t`)
-          .innerJoin(dirtyGate, (join) => join.onTrue())
-          .select([
-            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
-
-        return ok(
-          db
-            .insertInto(DIRTY_TABLE)
-            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-            .expression(select)
-            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-        );
-      }
-
-      // Generate WHERE clause using visitor
-      const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 's' });
-      const acceptResult = specResult.accept(visitor);
-      if (acceptResult.isErr()) {
-        return err(acceptResult.error);
-      }
-      const whereResult = visitor.where();
-      if (whereResult.isErr()) {
-        return err(whereResult.error);
-      }
-      const filterWhere = whereResult.value as unknown as Expression<SqlBool>;
-
-      const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
-      const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-
-      // Build SQL:
-      // SELECT ALL target records WHERE EXISTS (
-      //   dirty source record that matches the filter
-      // )
-      // This is because conditionalRollup/conditionalLookup aggregates ALL source records
-      // matching the filter - so if ANY dirty source matches, ALL target records need update.
-      const dirtySourceExists = db
-        .selectFrom(`${DIRTY_TABLE} as d`)
-        .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
-        .select(sql.lit(1).as('one'))
-        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-        .where(filterWhere)
-        .limit(1);
-
-      const select = db
-        .selectFrom(`${targetDbName} as t`)
-        .select([
-          sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-          sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-        ])
-        .where(({ exists }) => exists(dirtySourceExists))
-        .distinct();
-
-      return ok(
-        db
-          .insertInto(DIRTY_TABLE)
-          .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-          .expression(select)
-          .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-      );
-    }
-
-    if (!edge.linkFieldId) return err(domainError.validation({ message: 'Missing linkFieldId' }));
-    const sourceTable = tableById.get(edge.fromTableId.toString());
-    if (!sourceTable) {
-      return err(
-        domainError.notFound({
-          message: `Missing source table ${edge.fromTableId.toString()}`,
-        })
-      );
-    }
-
-    const linkField = yield* targetTable.getField((field): field is LinkField =>
-      field.id().equals(edge.linkFieldId!)
-    );
-
-    if (!linkField.foreignTableId().equals(edge.fromTableId)) {
-      return err(
-        domainError.validation({
-          message: `Link field ${edge.linkFieldId.toString()} does not reference table ${edge.fromTableId.toString()}`,
-        })
-      );
-    }
-
-    const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
-    const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-
-    const relationship = linkField.relationship();
-    const insertQuery = yield* buildDirtyInsertQuery({
-      db,
-      relationship,
-      linkField,
-      sourceTableName: sourceDbName,
-      targetTableName: targetDbName,
-      sourceTableId: edge.fromTableId.toString(),
-      targetTableId: edge.toTableId.toString(),
-    });
-
-    return ok(insertQuery);
-  });
-};
-
-type DirtyInsertParams = {
-  db: Kysely<DynamicDB>;
-  relationship: LinkRelationship;
-  linkField: LinkField;
-  sourceTableName: string;
-  targetTableName: string;
-  sourceTableId: string;
-  targetTableId: string;
-};
-
-const buildDirtyInsertQuery = (
-  params: DirtyInsertParams
-): Result<InsertQueryBuilder<DynamicDB, string, unknown>, DomainError> => {
-  return safeTry(function* () {
-    const {
-      db,
-      relationship,
-      linkField,
-      sourceTableName,
-      targetTableName,
-      sourceTableId,
-      targetTableId,
-    } = params;
-
-    if (
-      relationship.equals(LinkRelationship.manyOne()) ||
-      relationship.equals(LinkRelationship.oneOne())
-    ) {
-      const foreignKey = yield* linkField.foreignKeyNameString();
-      const select = db
-        .selectFrom(`${targetTableName} as t`)
-        .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `t.${foreignKey}`)
-        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-        .select([
-          sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-          sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-        ])
-        .distinct();
-
-      return ok(
-        db
-          .insertInto(DIRTY_TABLE)
-          .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-          .expression(select)
-          .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-      );
-    }
-
-    if (relationship.equals(LinkRelationship.oneMany())) {
-      if (linkField.isOneWay()) {
-        const fkHostTableName = yield* linkField.fkHostTableNameString();
-        const selfKey = yield* linkField.selfKeyNameString();
-        const foreignKey = yield* linkField.foreignKeyNameString();
-        const select = db
-          .selectFrom(`${fkHostTableName} as j`)
-          .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-          .select([
-            sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-            sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
-          ])
-          .distinct();
-
-        return ok(
-          db
-            .insertInto(DIRTY_TABLE)
-            .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-            .expression(select)
-            .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-        );
-      }
-
-      const selfKey = yield* linkField.selfKeyNameString();
-      const select = db
-        .selectFrom(`${sourceTableName} as f`)
-        .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, 'f.__id')
-        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-        .where(sql.ref(`f.${selfKey}`), 'is not', null)
-        .select([
-          sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-          sql.ref(`f.${selfKey}`).as(DIRTY_RECORD_ID_COL),
-        ])
-        .distinct();
-
-      return ok(
-        db
-          .insertInto(DIRTY_TABLE)
-          .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-          .expression(select)
-          .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-      );
-    }
-
-    const fkHostTableName = yield* linkField.fkHostTableNameString();
-    const selfKey = yield* linkField.selfKeyNameString();
-    const foreignKey = yield* linkField.foreignKeyNameString();
-    const select = db
-      .selectFrom(`${fkHostTableName} as j`)
-      .innerJoin(`${DIRTY_TABLE} as d`, `d.${DIRTY_RECORD_ID_COL}`, `j.${foreignKey}`)
-      .where(`d.${DIRTY_TABLE_ID_COL}`, '=', sourceTableId)
-      .select([
-        sql.lit(targetTableId).as(DIRTY_TABLE_ID_COL),
-        sql.ref(`j.${selfKey}`).as(DIRTY_RECORD_ID_COL),
-      ])
-      .distinct();
-
-    return ok(
-      db
-        .insertInto(DIRTY_TABLE)
-        .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
-        .expression(select)
-        .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
-    );
   });
 };
 

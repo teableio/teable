@@ -272,8 +272,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         .set({
           seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
           affected_field_ids: mergedPayload.changedFieldIds,
-          // Store impact in dirty_stats column (repurposed for seed tasks)
-          dirty_stats: mergedPayload.impact ? toJsonValue(mergedPayload.impact) : null,
+          // Store seed meta in dirty_stats column (repurposed for seed tasks)
+          dirty_stats: toJsonValue({
+            changeType: mergedPayload.changeType,
+            impact: mergedPayload.impact ?? null,
+          }),
           next_run_at: now,
           updated_at: now,
         })
@@ -618,7 +621,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         last_error: null,
         estimated_complexity: seedCount,
         plan_hash: task.planHash,
-        dirty_stats: task.impact ? toJsonValue(task.impact) : null,
+        // Store seed meta in dirty_stats column (repurposed for seed tasks).
+        // This preserves the real changeType ('insert' | 'update' | 'delete') which is
+        // required by the planner (e.g. delete optimizations).
+        dirty_stats: toJsonValue({
+          changeType: task.changeType,
+          impact: task.impact ?? null,
+        }),
         run_id: task.runId,
         origin_run_ids: [],
         run_total_steps: 0, // Will be computed by worker
@@ -999,8 +1008,9 @@ const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): See
   const seedGroups = mergeSeedGroups(inlineSeedGroups, seedGroupsFromTable);
   const { seedRecordIds, extraSeedRecords } = splitSeedGroups(seedTableId, seedGroups);
 
-  // Parse impact from dirty_stats column (repurposed for seed tasks)
+  // Parse seed meta from dirty_stats column (repurposed for seed tasks)
   const impact = parseSeedImpact(row.dirty_stats);
+  const changeType = parseSeedChangeType(row.dirty_stats) ?? 'update';
 
   return {
     taskType: 'seed',
@@ -1010,7 +1020,7 @@ const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): See
     seedRecordIds,
     extraSeedRecords,
     changedFieldIds: parseStringArray(row.affected_field_ids),
-    changeType: 'update', // Default to update for seed tasks loaded from DB
+    changeType,
     impact,
     runId: String(row.run_id ?? ''),
     planHash: String(row.plan_hash),
@@ -1041,7 +1051,7 @@ const parseSeedPayloadFromRow = (row: OutboxRow): ComputedUpdateSeedTaskInput =>
     seedRecordIds,
     extraSeedRecords,
     changedFieldIds: parseStringArray(row.affected_field_ids),
-    changeType: 'update',
+    changeType: parseSeedChangeType(row.dirty_stats) ?? 'update',
     impact: parseSeedImpact(row.dirty_stats),
     runId: String(row.run_id ?? ''),
     planHash: String(row.plan_hash),
@@ -1056,10 +1066,12 @@ const parseSeedImpact = (
 ): { valueFieldIds: string[]; linkFieldIds: string[] } | undefined => {
   const parsed = parseJsonValue(value);
   if (!parsed || typeof parsed !== 'object') return undefined;
-  const impact = parsed as { valueFieldIds?: unknown; linkFieldIds?: unknown };
-  if (!Array.isArray(impact.valueFieldIds) && !Array.isArray(impact.linkFieldIds)) {
-    return undefined;
-  }
+  // New format: { changeType, impact: { valueFieldIds, linkFieldIds } }
+  // Old format: { valueFieldIds, linkFieldIds }
+  const meta = parsed as { impact?: unknown };
+  const inner = meta.impact && typeof meta.impact === 'object' ? meta.impact : parsed;
+  const impact = inner as { valueFieldIds?: unknown; linkFieldIds?: unknown };
+  if (!Array.isArray(impact.valueFieldIds) && !Array.isArray(impact.linkFieldIds)) return undefined;
   return {
     valueFieldIds: Array.isArray(impact.valueFieldIds)
       ? impact.valueFieldIds.map((id) => String(id))
@@ -1068,6 +1080,17 @@ const parseSeedImpact = (
       ? impact.linkFieldIds.map((id) => String(id))
       : [],
   };
+};
+
+const parseSeedChangeType = (value: unknown): 'insert' | 'update' | 'delete' | undefined => {
+  const parsed = parseJsonValue(value);
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const meta = parsed as { changeType?: unknown };
+  const changeType = meta.changeType;
+  if (changeType === 'insert' || changeType === 'update' || changeType === 'delete') {
+    return changeType;
+  }
+  return undefined;
 };
 
 /**

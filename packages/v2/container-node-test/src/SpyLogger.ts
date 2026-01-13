@@ -17,6 +17,7 @@ export interface CapturedLogEntry {
 export interface ComputedPlanLogEntry {
   baseId: string;
   seedTableId: string;
+  changeType?: 'insert' | 'update' | 'delete';
   seedRecordIds: string[];
   steps: Array<{
     tableId: string;

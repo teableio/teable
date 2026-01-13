@@ -41,6 +41,16 @@ export type SameTableBatchConfig = {
   fieldLevels: ReadonlyArray<SameTableFieldLevel>;
   /** Optional: filter to specific record IDs */
   recordIds?: ReadonlyArray<string>;
+  /**
+   * Optional: filter to dirty records by joining the temporary dirty table.
+   * This is required when using the batch builder inside computed updates.
+   */
+  dirtyFilter?: {
+    tableId: string;
+    dirtyTableName?: string;
+    tableIdColumn?: string;
+    recordIdColumn?: string;
+  };
 };
 
 const T = 't'; // main table alias
@@ -114,7 +124,8 @@ export class SameTableBatchQueryBuilder {
         const updateQuery = yield* this.buildUpdateQuery(
           tableName,
           cteChain,
-          config.recordIds ?? []
+          config.recordIds ?? [],
+          config.dirtyFilter
         );
 
         return ok({
@@ -324,7 +335,8 @@ export class SameTableBatchQueryBuilder {
   private buildUpdateQuery(
     tableName: string,
     cteChain: CteChain,
-    _recordIds: ReadonlyArray<string>
+    _recordIds: ReadonlyArray<string>,
+    dirtyFilter?: SameTableBatchConfig['dirtyFilter']
   ): Result<UpdateQueryResult, DomainError> {
     const ctes = cteChain.ctes;
     if (ctes.length === 0) {
@@ -355,7 +367,16 @@ export class SameTableBatchQueryBuilder {
         fromClause = `FROM "${tableName}" AS "${T}" JOIN "${cte.previousCteName}" ON "${T}"."__id" = "${cte.previousCteName}"."__id"`;
       } else {
         // First level - just select from main table
-        fromClause = `FROM "${tableName}" AS "${T}"`;
+        const dirtyJoin = (() => {
+          if (!dirtyFilter) return '';
+          const dirtyTableName = dirtyFilter.dirtyTableName ?? 'tmp_computed_dirty';
+          const tableIdColumn = dirtyFilter.tableIdColumn ?? 'table_id';
+          const recordIdColumn = dirtyFilter.recordIdColumn ?? 'record_id';
+          // Note: tableId is a trusted internal ID, embedded as a SQL literal.
+          const tableIdLiteral = dirtyFilter.tableId.replaceAll("'", "''");
+          return ` INNER JOIN "${dirtyTableName}" AS "__dirty" ON "${T}"."__id" = "__dirty"."${recordIdColumn}" AND "__dirty"."${tableIdColumn}" = '${tableIdLiteral}'`;
+        })();
+        fromClause = `FROM "${tableName}" AS "${T}"${dirtyJoin}`;
       }
 
       const cteDef = `"${cte.name}" AS (SELECT "${T}"."__id", ${selectCols.join(', ')} ${fromClause})`;

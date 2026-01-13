@@ -582,6 +582,7 @@ describe('v2 computed field updates (e2e)', () => {
         const plan = testContainer.getLastComputedPlan();
         expect(plan).toBeDefined();
         expect(plan!.steps.length).toBe(1);
+        expect(plan!.steps[0].fieldIds).toEqual([formula1FieldId, formula2FieldId]);
         const nameMaps = buildNameMaps({ id: table.id, name: 'FormulaChainTest' }, [
           { id: valueFieldId, name: 'Value' },
           { id: formula1FieldId, name: 'F1' },
@@ -647,8 +648,23 @@ describe('v2 computed field updates (e2e)', () => {
             --------------------------------"
           `);
 
+        testContainer.clearLogs();
         const record = beforeRecords[0];
         await updateRecord(table.id, record.id, { [textFieldId]: 'Universe' });
+        await drainOutbox();
+
+        const plan = testContainer.getLastComputedPlan();
+        expect(plan).toBeDefined();
+        expect(plan!.steps.length).toBe(1);
+        expect(plan!.steps[0].fieldIds).toContain(greetingFieldId);
+        const nameMaps = buildNameMaps({ id: table.id, name: 'FormulaTextTest' }, [
+          { id: textFieldId, name: 'Text' },
+          { id: greetingFieldId, name: 'Greeting' },
+        ]);
+        expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+          "[Computed Steps: 1]
+            L0: FormulaTextTest -> [Greeting]"
+        `);
 
         const afterRecords = await listRecords(table.id);
         expectCellDisplay(afterRecords, 0, fieldIds[fieldIds.length - 1], 'Hello, Universe');
@@ -1473,6 +1489,7 @@ describe('v2 computed field updates (e2e)', () => {
       const plan = testContainer.getLastComputedPlan();
       expect(plan).toBeDefined();
       expect(plan!.steps.length).toBe(1);
+      expect(plan!.steps[0].fieldIds).toEqual([f1FieldId, f2FieldId, f3FieldId]);
       const nameMaps = buildNameMaps({ id: table.id, name: 'ThreeLevelFormula' }, [
         { id: numFieldId, name: 'Num' },
         { id: f1FieldId, name: 'F1' },
@@ -2030,11 +2047,10 @@ describe('v2 computed field updates (e2e)', () => {
       ]);
       // First plan: sync formula chain in A + cross-table updates
       // Chain: A.Amount -> A.Double -> A.Total -> B.TotalSum -> C.SumFromB
-      expect(plans[0].steps.length).toBe(4);
+      expect(plans[0].steps.length).toBe(3);
       expect(printComputedSteps(plans[0], nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 4]
-          L0: FormulaRollupA -> [Double]
-          L1: FormulaRollupA -> [Total]
+        "[Computed Steps: 3]
+          L0: FormulaRollupA -> [Double, Total]
           L2: FormulaRollupB -> [TotalSum]
           L3: FormulaRollupC -> [SumFromB]
         [Edges: 4]"

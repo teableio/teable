@@ -517,6 +517,13 @@ export class ComputedUpdateWorker {
       if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
 
       // Plan next stage if needed
+      // If there are no cross-record propagation edges, the plan is purely same-record
+      // (e.g. same-table formula chains) and should not enqueue follow-up stages.
+      if (plan.edges.length === 0) {
+        const doneResult = await this.outbox.markDone(task.id, txContext);
+        if (doneResult.isErr()) return err(doneResult.error);
+        return ok(undefined);
+      }
       const stageFieldIds = plan.steps.flatMap((step) => step.fieldIds);
       const nextPlanResult = await this.planNextStage(
         plan,
@@ -579,6 +586,7 @@ export class ComputedUpdateWorker {
     seedFieldIds: ReadonlyArray<FieldId>,
     seedGroups: ReadonlyArray<ComputedSeedGroup>
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
+    if (plan.edges.length === 0) return ok({ ...plan, steps: [], edges: [] });
     if (seedFieldIds.length === 0) return ok({ ...plan, steps: [], edges: [] });
 
     const seedSplit = splitSeedGroupsForPlan(seedGroups, plan.seedTableId);
