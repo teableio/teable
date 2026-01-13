@@ -22,6 +22,7 @@ export class MemoryEventBus implements IEventBus {
     context: IExecutionContext,
     event: IDomainEvent
   ): Promise<Result<void, DomainError>> {
+    this.enrichWithRequestId(context, event);
     this.publishedEvents.push(event);
     return this.dispatch(context, [event]);
   }
@@ -30,8 +31,17 @@ export class MemoryEventBus implements IEventBus {
     context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
   ): Promise<Result<void, DomainError>> {
+    for (const event of events) {
+      this.enrichWithRequestId(context, event);
+    }
     this.publishedEvents.push(...events);
     return this.dispatch(context, events);
+  }
+
+  private enrichWithRequestId(context: IExecutionContext, event: IDomainEvent): void {
+    if (context.requestId && !event.requestId) {
+      (event as { requestId?: string }).requestId = context.requestId;
+    }
   }
 
   private async dispatch(

@@ -7,6 +7,7 @@ import type { BaseName } from '../BaseName';
 export class BaseCreated implements IDomainEvent {
   readonly name = DomainEventName.baseCreated();
   readonly occurredAt = OccurredAt.now();
+  requestId?: string;
 
   private constructor(
     readonly baseId: BaseId,

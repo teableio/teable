@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
+import type { ComputedUpdateWorker } from '@teable/v2-adapter-table-repository-postgres';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
@@ -32,6 +34,17 @@ async function handlePost({ params }: { params: { taskId: string } }) {
     if (!result.numUpdatedRows || result.numUpdatedRows === 0n) {
       return jsonResponse({ error: 'Task not found or not in retryable state' }, 404);
     }
+
+    // Dispatch worker to process the task (non-blocking)
+    const worker = container.resolve<ComputedUpdateWorker>(
+      v2RecordRepositoryPostgresTokens.computedUpdateWorker
+    );
+    setImmediate(() => {
+      void worker.runOnce({
+        workerId: 'playground-retry',
+        limit: 10,
+      });
+    });
 
     return jsonResponse({ success: true });
   } catch (error) {

@@ -24,6 +24,10 @@ const formatSSEMessage = (result: MetaCheckSSEResult): string => {
   return `data: ${JSON.stringify(result)}\n\n`;
 };
 
+const yieldToEventLoop = async (): Promise<void> => {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
+
 async function handleSSE({
   request,
   params,
@@ -107,6 +111,7 @@ async function handleSSE({
           timestamp: Date.now(),
         };
         controller.enqueue(encoder.encode(formatSSEMessage(connectResult)));
+        await yieldToEventLoop();
 
         // Load all tables in the base for reference validation
         const allTablesSpecResult = Table.specs(baseId).build();
@@ -154,6 +159,7 @@ async function handleSSE({
             timestamp: Date.now(),
           };
           controller.enqueue(encoder.encode(formatSSEMessage(issueResult)));
+          await yieldToEventLoop();
         }
 
         // Send completion message

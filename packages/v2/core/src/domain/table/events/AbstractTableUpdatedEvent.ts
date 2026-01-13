@@ -12,6 +12,11 @@ export abstract class AbstractTableUpdatedEvent implements IDomainEvent {
   abstract readonly name: DomainEventName;
   abstract readonly occurredAt: OccurredAt;
 
+  /**
+   * Request ID for tracing. Set by EventBus at publish time.
+   */
+  requestId?: string;
+
   protected constructor(
     readonly tableId: TableId,
     readonly baseId: BaseId

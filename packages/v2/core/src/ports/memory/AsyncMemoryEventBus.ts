@@ -70,6 +70,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     context: IExecutionContext,
     event: IDomainEvent
   ): Promise<Result<void, DomainError>> {
+    this.enrichWithRequestId(context, event);
     this.publishedEvents.push(event);
     this.enqueue(context, [event]);
     return ok(undefined);
@@ -79,9 +80,18 @@ export class AsyncMemoryEventBus implements IEventBus {
     context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
   ): Promise<Result<void, DomainError>> {
+    for (const event of events) {
+      this.enrichWithRequestId(context, event);
+    }
     this.publishedEvents.push(...events);
     this.enqueue(context, events);
     return ok(undefined);
+  }
+
+  private enrichWithRequestId(context: IExecutionContext, event: IDomainEvent): void {
+    if (context.requestId && !event.requestId) {
+      (event as { requestId?: string }).requestId = context.requestId;
+    }
   }
 
   private enqueue(context: IExecutionContext, events: ReadonlyArray<IDomainEvent>): void {
