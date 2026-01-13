@@ -30,12 +30,7 @@ import {
   type LinkedRecordLockInfo,
 } from '../query-builder/insert/RecordInsertBuilder';
 import { RecordUpdateBuilder } from '../query-builder/update/RecordUpdateBuilder';
-import {
-  FieldInsertValueVisitor,
-  TableRecordConditionWhereVisitor,
-  type FieldInsertResult,
-  type QueryExecutor,
-} from '../visitors';
+import { TableRecordConditionWhereVisitor, type QueryExecutor } from '../visitors';
 
 // System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';

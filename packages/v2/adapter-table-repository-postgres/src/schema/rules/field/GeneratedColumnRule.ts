@@ -109,7 +109,6 @@ export class GeneratedColumnRule implements ISchemaRule {
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const sourceColumn = this.sourceColumn;
     const columnType = this.columnType;
-    const fieldId = this.field.id().toString();
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(ctx.field);
@@ -120,13 +119,7 @@ export class GeneratedColumnRule implements ISchemaRule {
       const dropExisting = dropColumnStatement(table, columnName);
       const statement = addGeneratedColumnStatement(table, columnName, definition);
 
-      // Update field meta to indicate this is persisted as a generated column
-      const updateMeta = ctx.db
-        .updateTable('field')
-        .set({ meta: JSON.stringify({ persistedAsGeneratedColumn: true }) })
-        .where('id', '=', fieldId);
-
-      return ok([dropExisting, statement, updateMeta]);
+      return ok([dropExisting, statement]);
     });
   }
 

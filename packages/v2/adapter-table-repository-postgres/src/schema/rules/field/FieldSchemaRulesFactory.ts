@@ -132,17 +132,25 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   }
 
   visitCreatedTimeField(field: CreatedTimeField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([GeneratedColumnRule.forCreatedTime(field)]);
+    return field
+      .isPersistedAsGeneratedColumn()
+      .map((shouldGenerate) =>
+        shouldGenerate
+          ? [GeneratedColumnRule.forCreatedTime(field)]
+          : ColumnExistsRule.createRulesFromField(field)
+      );
   }
 
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    if (field.isTrackAll()) {
-      return ok([GeneratedColumnRule.forLastModifiedTime(field)]);
-    }
-    // When not tracking all, it's a regular column
-    return ok(ColumnExistsRule.createRulesFromField(field));
+    return field
+      .isPersistedAsGeneratedColumn()
+      .map((shouldGenerate) =>
+        shouldGenerate
+          ? [GeneratedColumnRule.forLastModifiedTime(field)]
+          : ColumnExistsRule.createRulesFromField(field)
+      );
   }
 
   visitUserField(field: UserField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
@@ -150,21 +158,35 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   }
 
   visitCreatedByField(field: CreatedByField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([GeneratedColumnRule.forCreatedBy(field)]);
+    return field
+      .isPersistedAsGeneratedColumn()
+      .map((shouldGenerate) =>
+        shouldGenerate
+          ? [GeneratedColumnRule.forCreatedBy(field)]
+          : ColumnExistsRule.createRulesFromField(field)
+      );
   }
 
   visitLastModifiedByField(
     field: LastModifiedByField
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    if (field.isTrackAll()) {
-      return ok([GeneratedColumnRule.forLastModifiedBy(field)]);
-    }
-    // When not tracking all, it's a regular column
-    return ok(ColumnExistsRule.createRulesFromField(field));
+    return field
+      .isPersistedAsGeneratedColumn()
+      .map((shouldGenerate) =>
+        shouldGenerate
+          ? [GeneratedColumnRule.forLastModifiedBy(field)]
+          : ColumnExistsRule.createRulesFromField(field)
+      );
   }
 
   visitAutoNumberField(field: AutoNumberField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
-    return ok([GeneratedColumnRule.forAutoNumber(field)]);
+    return field
+      .isPersistedAsGeneratedColumn()
+      .map((shouldGenerate) =>
+        shouldGenerate
+          ? [GeneratedColumnRule.forAutoNumber(field)]
+          : ColumnExistsRule.createRulesFromField(field)
+      );
   }
 
   visitButtonField(field: ButtonField): Result<ReadonlyArray<ISchemaRule>, DomainError> {

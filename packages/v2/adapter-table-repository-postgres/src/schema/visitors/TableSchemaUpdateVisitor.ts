@@ -10,6 +10,7 @@ import type {
   TableUpdateViewColumnMetaSpec,
   ITableSpecVisitor,
   DomainError,
+  TableRenameSpec,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
@@ -32,6 +33,12 @@ export class TableSchemaUpdateVisitor
 {
   constructor(private readonly params: TableSchemaUpdateVisitorParams) {
     super();
+  }
+  visitTableRename(
+    _spec: TableRenameSpec
+  ): Result<readonly TableSchemaStatementBuilder[], DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
   }
 
   visitTableAddField(

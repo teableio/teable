@@ -1,4 +1,4 @@
-import type { Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 
 import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
@@ -9,6 +9,7 @@ import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { DateTimeFormatting } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
 import { FormulaExpression } from './FormulaExpression';
+import { GeneratedColumnMeta } from './GeneratedColumnMeta';
 
 export class LastModifiedTimeField extends Field {
   private constructor(
@@ -16,6 +17,7 @@ export class LastModifiedTimeField extends Field {
     name: FieldName,
     private readonly formattingValue: DateTimeFormatting,
     private readonly trackedFieldIdsValue: ReadonlyArray<FieldId>,
+    private readonly metaValue: GeneratedColumnMeta,
     private readonly expressionValue: FormulaExpression
   ) {
     super(id, name, FieldType.lastModifiedTime(), undefined, [], FieldComputed.computed());
@@ -26,12 +28,27 @@ export class LastModifiedTimeField extends Field {
     name: FieldName;
     formatting?: DateTimeFormatting;
     trackedFieldIds?: ReadonlyArray<FieldId>;
+    meta?: GeneratedColumnMeta;
   }): Result<LastModifiedTimeField, DomainError> {
     const formatting = params.formatting ?? DateTimeFormatting.default();
     const trackedFieldIds = params.trackedFieldIds ?? [];
-    return FormulaExpression.create('LAST_MODIFIED_TIME()').map(
-      (expression) =>
-        new LastModifiedTimeField(params.id, params.name, formatting, trackedFieldIds, expression)
+    const metaResult = params.meta
+      ? ok(params.meta)
+      : GeneratedColumnMeta.rehydrate({
+          persistedAsGeneratedColumn: trackedFieldIds.length === 0,
+        });
+    return metaResult.andThen((metaValue) =>
+      FormulaExpression.create('LAST_MODIFIED_TIME()').map(
+        (expression) =>
+          new LastModifiedTimeField(
+            params.id,
+            params.name,
+            formatting,
+            trackedFieldIds,
+            metaValue,
+            expression
+          )
+      )
     );
   }
 
@@ -41,6 +58,14 @@ export class LastModifiedTimeField extends Field {
 
   trackedFieldIds(): ReadonlyArray<FieldId> {
     return [...this.trackedFieldIdsValue];
+  }
+
+  meta(): GeneratedColumnMeta {
+    return this.metaValue;
+  }
+
+  isPersistedAsGeneratedColumn(): Result<boolean, DomainError> {
+    return this.metaValue.persistedAsGeneratedColumn();
   }
 
   isTrackAll(): boolean {

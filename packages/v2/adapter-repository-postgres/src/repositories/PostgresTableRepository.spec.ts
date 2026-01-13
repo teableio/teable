@@ -481,6 +481,83 @@ describe('PostgresTableRepository (pg)', () => {
     }
   });
 
+  it('rehydrates generated column meta for system fields', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseIdResult = BaseId.generate();
+      const actorIdResult = ActorId.create('system');
+      const baseId = baseIdResult._unsafeUnwrap();
+      const actorId = actorIdResult._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Meta Space', created_by: actorId.toString() })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Meta Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableName = TableName.create('Meta Table')._unsafeUnwrap();
+      const primaryName = FieldName.create('Name')._unsafeUnwrap();
+      const createdTimeName = FieldName.create('Created At')._unsafeUnwrap();
+      const createdByName = FieldName.create('Created By')._unsafeUnwrap();
+      const autoNumberName = FieldName.create('Auto Number')._unsafeUnwrap();
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder.field().singleLineText().withName(primaryName).primary().done();
+      builder.field().createdTime().withName(createdTimeName).done();
+      builder.field().createdBy().withName(createdByName).done();
+      builder.field().autoNumber().withName(autoNumberName).done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+
+      (await repo.insert(context, table))._unsafeUnwrap();
+
+      const specResult = Table.specs(baseId).byId(table.id()).build();
+      specResult._unsafeUnwrap();
+      const fetched = (await repo.findOne(context, specResult._unsafeUnwrap()))._unsafeUnwrap();
+
+      const createdTimeField = fetched
+        .getFields()
+        .find((field) => field.type().toString() === 'createdTime') as CreatedTimeField | undefined;
+      expect(createdTimeField).toBeDefined();
+      if (!createdTimeField) return;
+      expect(createdTimeField.isPersistedAsGeneratedColumn()._unsafeUnwrap()).toBe(true);
+
+      const createdByField = fetched
+        .getFields()
+        .find((field) => field.type().toString() === 'createdBy') as CreatedByField | undefined;
+      expect(createdByField).toBeDefined();
+      if (!createdByField) return;
+      expect(createdByField.isPersistedAsGeneratedColumn()._unsafeUnwrap()).toBe(true);
+
+      const autoNumberField = fetched
+        .getFields()
+        .find((field) => field.type().toString() === 'autoNumber') as AutoNumberField | undefined;
+      expect(autoNumberField).toBeDefined();
+      if (!autoNumberField) return;
+      expect(autoNumberField.isPersistedAsGeneratedColumn()._unsafeUnwrap()).toBe(true);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('rejects duplicate db table names within a base', async () => {
     const c = container.createChildContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());

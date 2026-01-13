@@ -992,17 +992,21 @@ export class PostgresTableRepository implements core.ITableRepository {
       };
     }
     if (row.type === 'createdTime') {
+      const meta = asMeta<core.IGeneratedColumnMetaDTO>();
       return {
         ...base,
         type: 'createdTime',
         options: asOptions<core.ICreatedTimeFieldOptionsDTO>(),
+        ...(meta ? { meta } : {}),
       };
     }
     if (row.type === 'lastModifiedTime') {
+      const meta = asMeta<core.IGeneratedColumnMetaDTO>();
       return {
         ...base,
         type: 'lastModifiedTime',
         options: asOptions<core.ILastModifiedTimeFieldOptionsDTO>(),
+        ...(meta ? { meta } : {}),
       };
     }
     if (row.type === 'user') {
@@ -1013,24 +1017,30 @@ export class PostgresTableRepository implements core.ITableRepository {
       };
     }
     if (row.type === 'createdBy') {
+      const meta = asMeta<core.IGeneratedColumnMetaDTO>();
       return {
         ...base,
         type: 'createdBy',
         options: asOptions<core.ICreatedByFieldOptionsDTO>(),
+        ...(meta ? { meta } : {}),
       };
     }
     if (row.type === 'lastModifiedBy') {
+      const meta = asMeta<core.IGeneratedColumnMetaDTO>();
       return {
         ...base,
         type: 'lastModifiedBy',
         options: asOptions<core.ILastModifiedByFieldOptionsDTO>(),
+        ...(meta ? { meta } : {}),
       };
     }
     if (row.type === 'autoNumber') {
+      const meta = asMeta<core.IGeneratedColumnMetaDTO>();
       return {
         ...base,
         type: 'autoNumber',
         options: asOptions<core.IAutoNumberFieldOptionsDTO>(),
+        ...(meta ? { meta } : {}),
       };
     }
     if (row.type === 'button') {

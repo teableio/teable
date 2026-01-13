@@ -7,17 +7,12 @@ import { TableCreationService } from '../application/services/TableCreationServi
 import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
 import { domainError } from '../domain/shared/DomainError';
-import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { AbstractTableUpdatedEvent } from '../domain/table/events/AbstractTableUpdatedEvent';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { Table } from '../domain/table/Table';
 import * as DotTeaParserPort from '../ports/DotTeaParser';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
-import * as TableMapperPort from '../ports/mappers/TableMapper';
-import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
@@ -132,14 +127,10 @@ export class ImportDotTeaStructureHandler
   constructor(
     @inject(v2CoreTokens.dotTeaParser)
     private readonly dotTeaParser: DotTeaParserPort.IDotTeaParser,
-    @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.tableCreationService)
     private readonly tableCreationService: TableCreationService,
-    @inject(v2CoreTokens.tableMapper)
-    private readonly tableMapper: TableMapperPort.ITableMapper,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
@@ -240,65 +231,13 @@ export class ImportDotTeaStructureHandler
       // Build and publish events
       const hostEvents = builtTables.flatMap((table) => table.pullDomainEvents());
       const events = [...hostEvents, ...transactionResult.sideEffectEvents];
-      const snapshots = yield* handler.buildSnapshots(transactionResult.tableState);
-      const enrichedEvents = yield* await handler.enrichEventsWithSnapshots(
-        context,
-        events,
-        snapshots
-      );
-      yield* await handler.eventBus.publishMany(context, enrichedEvents);
+      yield* await handler.eventBus.publishMany(context, events);
 
       const resultTables = transactionResult.persistedTables.map(
         (table) => transactionResult.tableState.get(table.id().toString()) ?? table
       );
 
       return ok(ImportDotTeaStructureResult.create(command.baseId.toString(), resultTables));
-    });
-  }
-
-  private buildSnapshots(
-    tableState: ReadonlyMap<string, Table>
-  ): Result<ReadonlyMap<string, ITablePersistenceDTO>, DomainError> {
-    const snapshots = new Map<string, ITablePersistenceDTO>();
-    for (const table of tableState.values()) {
-      const snapshotResult = this.tableMapper.toDTO(table);
-      if (snapshotResult.isErr()) return err(snapshotResult.error);
-      snapshots.set(table.id().toString(), snapshotResult.value);
-    }
-    return ok(snapshots);
-  }
-
-  private async enrichEventsWithSnapshots(
-    context: ExecutionContextPort.IExecutionContext,
-    events: ReadonlyArray<IDomainEvent>,
-    snapshots: ReadonlyMap<string, ITablePersistenceDTO>
-  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
-    const handler = this;
-    return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-      const snapshotMap = new Map(snapshots);
-      const enriched: IDomainEvent[] = [];
-
-      for (const event of events) {
-        if (!(event instanceof AbstractTableUpdatedEvent) || event.hasSnapshot()) {
-          enriched.push(event);
-          continue;
-        }
-
-        const tableId = event.tableId.toString();
-        let snapshot = snapshotMap.get(tableId);
-        if (!snapshot) {
-          const spec = yield* Table.specs(event.baseId).byId(event.tableId).build();
-          const tableResult = yield* await handler.tableRepository.findOne(context, spec);
-          const snapshotResult = handler.tableMapper.toDTO(tableResult);
-          if (snapshotResult.isErr()) return err(snapshotResult.error);
-          snapshot = snapshotResult.value;
-          snapshotMap.set(tableId, snapshot);
-        }
-
-        enriched.push(event.withSnapshot(snapshot));
-      }
-
-      return ok(enriched);
     });
   }
 }

@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { RecordsDeleted } from '../domain/table/events/RecordsDeleted';
 import { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
@@ -72,7 +73,13 @@ export class DeleteRecordsHandler
         return ok(undefined);
       });
 
-      const events: IDomainEvent[] = [];
+      const events: IDomainEvent[] = [
+        RecordsDeleted.create({
+          tableId: table.id(),
+          baseId: table.baseId(),
+          recordIds: command.recordIds,
+        }),
+      ];
       yield* await handler.eventBus.publishMany(context, events);
 
       return ok(

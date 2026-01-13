@@ -128,6 +128,10 @@ export type IFormulaFieldMetaDTO = {
   persistedAsGeneratedColumn?: boolean;
 };
 
+export type IGeneratedColumnMetaDTO = {
+  persistedAsGeneratedColumn?: boolean;
+};
+
 export type IRollupFieldOptionsDTO = {
   expression: string;
   timeZone?: string;
@@ -254,15 +258,32 @@ export type ITableFieldPersistenceDTO =
   | (ITableFieldBaseDTO & { type: 'checkbox'; options?: ICheckboxFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'attachment'; options?: Record<string, never> })
   | (ITableFieldBaseDTO & { type: 'date'; options?: IDateFieldOptionsDTO })
-  | (ITableFieldBaseDTO & { type: 'createdTime'; options?: ICreatedTimeFieldOptionsDTO })
+  | (ITableFieldBaseDTO & {
+      type: 'createdTime';
+      options?: ICreatedTimeFieldOptionsDTO;
+      meta?: IGeneratedColumnMetaDTO;
+    })
   | (ITableFieldBaseDTO & {
       type: 'lastModifiedTime';
       options?: ILastModifiedTimeFieldOptionsDTO;
+      meta?: IGeneratedColumnMetaDTO;
     })
   | (ITableFieldBaseDTO & { type: 'user'; options?: IUserFieldOptionsDTO })
-  | (ITableFieldBaseDTO & { type: 'createdBy'; options?: ICreatedByFieldOptionsDTO })
-  | (ITableFieldBaseDTO & { type: 'lastModifiedBy'; options?: ILastModifiedByFieldOptionsDTO })
-  | (ITableFieldBaseDTO & { type: 'autoNumber'; options?: IAutoNumberFieldOptionsDTO })
+  | (ITableFieldBaseDTO & {
+      type: 'createdBy';
+      options?: ICreatedByFieldOptionsDTO;
+      meta?: IGeneratedColumnMetaDTO;
+    })
+  | (ITableFieldBaseDTO & {
+      type: 'lastModifiedBy';
+      options?: ILastModifiedByFieldOptionsDTO;
+      meta?: IGeneratedColumnMetaDTO;
+    })
+  | (ITableFieldBaseDTO & {
+      type: 'autoNumber';
+      options?: IAutoNumberFieldOptionsDTO;
+      meta?: IGeneratedColumnMetaDTO;
+    })
   | (ITableFieldBaseDTO & { type: 'button'; options?: IButtonFieldOptionsDTO })
   | (ITableFieldBaseDTO & {
       type: 'link';

@@ -53,10 +53,43 @@ import {
 } from './ComputedUpdateRun';
 import { isPersistedAsGeneratedColumn } from './isPersistedAsGeneratedColumn';
 import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
+import type { UpdatedRecordRow } from './UpdateFromSelectBuilder';
 
 const DIRTY_TABLE = 'tmp_computed_dirty';
 const DIRTY_TABLE_ID_COL = 'table_id';
 const DIRTY_RECORD_ID_COL = 'record_id';
+
+/**
+ * Change data for a single field in a record.
+ */
+export type FieldChangeData = {
+  fieldId: string;
+  newValue: unknown;
+};
+
+/**
+ * Change data for a single record after computed update.
+ */
+export type RecordChangeData = {
+  recordId: string;
+  changes: ReadonlyArray<FieldChangeData>;
+};
+
+/**
+ * Change data for a single computed update step.
+ */
+export type StepChangeData = {
+  tableId: string;
+  recordChanges: ReadonlyArray<RecordChangeData>;
+};
+
+/**
+ * Result of computed update execution with optional change data.
+ */
+export type ComputedUpdateResult = {
+  /** Change data by step, used for event generation */
+  changesByStep: ReadonlyArray<StepChangeData>;
+};
 
 const stepKey = (step: UpdateStep): string => `${step.tableId.toString()}|${step.level}`;
 
@@ -143,6 +176,22 @@ interface StepTraceInfo {
   dirtyRecordCount: number;
 }
 
+/**
+ * Result of a single step execution including optional change data.
+ */
+interface StepExecutionResult {
+  traceInfo: StepTraceInfo;
+  recordChanges: ReadonlyArray<RecordChangeData>;
+}
+
+/**
+ * Result from executePreparedSteps including optional change data.
+ */
+export type ExecutePreparedStepsResult = {
+  traceInfos: ReadonlyArray<StepTraceInfo>;
+  changesByStep: ReadonlyArray<StepChangeData>;
+};
+
 export type PreparedDirtyState = {
   db: Kysely<DynamicDB>;
   tableById: Map<string, Table>;
@@ -179,13 +228,14 @@ export class ComputedFieldUpdater {
   async execute(
     plan: ComputedUpdatePlan,
     context: IExecutionContext,
-    run?: ComputedUpdateRunContext
-  ): Promise<Result<void, DomainError>> {
+    run?: ComputedUpdateRunContext,
+    options?: { collectChanges?: boolean }
+  ): Promise<Result<ComputedUpdateResult, DomainError>> {
     if (
       plan.steps.length === 0 ||
       (plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0)
     ) {
-      return ok(undefined);
+      return ok({ changesByStep: [] });
     }
 
     const effectivePlan = optimizeSameTableBatches(plan);
@@ -282,8 +332,10 @@ export class ComputedFieldUpdater {
       });
     }
 
+    const collectChanges = options?.collectChanges ?? false;
+
     const runWork = async () =>
-      safeTry<void, DomainError>(
+      safeTry<ComputedUpdateResult, DomainError>(
         async function* (this: ComputedFieldUpdater) {
           const prepared = yield* await this.prepareDirtyState(effectivePlan, context);
           mainSpan?.setAttribute('computed.totalDirtyRecords', prepared.totalDirtyRecords);
@@ -294,23 +346,24 @@ export class ComputedFieldUpdater {
             affectedTables: prepared.dirtyStats,
           });
 
-          const stepTraces = yield* await this.executePreparedSteps(
+          const stepsResult = yield* await this.executePreparedSteps(
             effectivePlan,
             context,
             prepared,
             effectivePlan.steps,
-            resolvedRun
+            resolvedRun,
+            collectChanges
           );
-          mainSpan?.setAttribute('computed.executedStepCount', stepTraces.length);
+          mainSpan?.setAttribute('computed.executedStepCount', stepsResult.traceInfos.length);
 
-          const completedSteps = resolvedRun.completedStepsBefore + stepTraces.length;
+          const completedSteps = resolvedRun.completedStepsBefore + stepsResult.traceInfos.length;
           runLogger.info('computed:run:done', {
             completedSteps,
             pendingSteps: Math.max(resolvedRun.totalSteps - completedSteps, 0),
             durationMs: Date.now() - runStartTime,
           });
 
-          return ok(undefined);
+          return ok({ changesByStep: stepsResult.changesByStep });
         }.bind(this)
       );
 
@@ -489,12 +542,14 @@ export class ComputedFieldUpdater {
     context: IExecutionContext,
     prepared: PreparedDirtyState,
     steps: ReadonlyArray<UpdateStep> = plan.steps,
-    run?: ComputedUpdateRunContext
-  ): Promise<Result<ReadonlyArray<StepTraceInfo>, DomainError>> {
-    if (steps.length === 0) return ok([]);
+    run?: ComputedUpdateRunContext,
+    collectChanges: boolean = false
+  ): Promise<Result<ExecutePreparedStepsResult, DomainError>> {
+    if (steps.length === 0) return ok({ traceInfos: [], changesByStep: [] });
 
     const updateBuilder = new UpdateFromSelectBuilder(prepared.db);
     const stepTraces: StepTraceInfo[] = [];
+    const changesByStep: StepChangeData[] = [];
     const runLogger = run ? this.logger.child(toRunLogContext(run)) : this.logger;
 
     // If we collapsed same-table batches into a single step, we still need the original
@@ -537,8 +592,8 @@ export class ComputedFieldUpdater {
         'level.tableIds': levelSteps.map((s) => s.step.tableId.toString()).join(','),
       });
 
-      const executeLevel = async (): Promise<Result<StepTraceInfo[], DomainError>> => {
-        const results: StepTraceInfo[] = [];
+      const executeLevel = async (): Promise<Result<StepExecutionResult[], DomainError>> => {
+        const results: StepExecutionResult[] = [];
         for (const { index, step } of levelSteps) {
           const doneSteps = run ? run.completedStepsBefore + index + 1 : undefined;
           const pendingSteps =
@@ -565,7 +620,8 @@ export class ComputedFieldUpdater {
             index,
             run,
             doneSteps,
-            pendingSteps
+            pendingSteps,
+            collectChanges
           );
 
           if (stepResult.isErr()) {
@@ -579,7 +635,7 @@ export class ComputedFieldUpdater {
         return ok(results);
       };
 
-      let levelResults: Result<StepTraceInfo[], DomainError>;
+      let levelResults: Result<StepExecutionResult[], DomainError>;
       if (levelSpan && context.tracer) {
         levelResults = await context.tracer.withSpan(levelSpan, executeLevel);
       } else {
@@ -591,9 +647,17 @@ export class ComputedFieldUpdater {
         return err(levelResults.error);
       }
 
-      stepTraces.push(...levelResults.value);
+      for (const result of levelResults.value) {
+        stepTraces.push(result.traceInfo);
+        if (result.recordChanges.length > 0) {
+          changesByStep.push({
+            tableId: result.traceInfo.tableId,
+            recordChanges: result.recordChanges,
+          });
+        }
+      }
     }
-    return ok(stepTraces);
+    return ok({ traceInfos: stepTraces, changesByStep });
   }
 
   /**
@@ -609,8 +673,9 @@ export class ComputedFieldUpdater {
     stepIndex: number,
     run?: ComputedUpdateRunContext,
     doneSteps?: number,
-    pendingSteps?: number
-  ): Promise<Result<StepTraceInfo, DomainError>> {
+    pendingSteps?: number,
+    collectChanges: boolean = false
+  ): Promise<Result<StepExecutionResult, DomainError>> {
     const table = tableById.get(step.tableId.toString());
     if (!table) {
       return err(
@@ -674,19 +739,22 @@ export class ComputedFieldUpdater {
     }
 
     try {
-      return await safeTry<StepTraceInfo, DomainError>(
+      return await safeTry<StepExecutionResult, DomainError>(
         async function* (this: ComputedFieldUpdater) {
           if (fieldIds.length === 0) {
             // Nothing to update (all fields are generated columns).
             return ok({
-              tableId: step.tableId.toString(),
-              tableName,
-              level: step.level,
-              fieldIds: [],
-              fieldNames: [],
-              sql: '',
-              parameterCount: 0,
-              dirtyRecordCount: dirtyCount,
+              traceInfo: {
+                tableId: step.tableId.toString(),
+                tableName,
+                level: step.level,
+                fieldIds: [],
+                fieldNames: [],
+                sql: '',
+                parameterCount: 0,
+                dirtyRecordCount: dirtyCount,
+              },
+              recordChanges: [],
             });
           }
 
@@ -758,6 +826,63 @@ export class ComputedFieldUpdater {
             selectQuery = yield* builder.build();
           }
 
+          let recordChanges: RecordChangeData[] = [];
+
+          if (collectChanges) {
+            // Use buildWithReturning to get updated record data
+            const compiledResult = yield* updateBuilder.buildWithReturning({
+              table,
+              fieldIds,
+              selectQuery,
+            });
+
+            // Record SQL on span
+            stepSpan?.setAttribute('step.sql', compiledResult.compiled.sql);
+            stepSpan?.setAttribute(
+              'step.parameterCount',
+              compiledResult.compiled.parameters.length
+            );
+
+            const sqlLogContext = run
+              ? { ...toRunLogContext(run), parameters: compiledResult.compiled.parameters }
+              : { parameters: compiledResult.compiled.parameters };
+            this.logger.debug(
+              `computed:update:table=${tableName}:level=${step.level}:sql:\n${compiledResult.compiled.sql}`,
+              sqlLogContext
+            );
+
+            const result = await db.executeQuery(compiledResult.compiled);
+            const rows = (result.rows ?? []) as UpdatedRecordRow[];
+
+            // Build change data from returned rows
+            recordChanges = rows.map((row) => {
+              const changes: FieldChangeData[] = [];
+              for (const [column, fieldId] of compiledResult.columnToFieldId) {
+                changes.push({
+                  fieldId,
+                  newValue: row[column],
+                });
+              }
+              return {
+                recordId: row.__id,
+                changes,
+              };
+            });
+
+            const traceInfo: StepTraceInfo = {
+              tableId: step.tableId.toString(),
+              tableName,
+              level: step.level,
+              fieldIds: fieldIds.map((f) => f.toString()),
+              fieldNames,
+              sql: compiledResult.compiled.sql,
+              parameterCount: compiledResult.compiled.parameters.length,
+              dirtyRecordCount: dirtyCount,
+            };
+
+            return ok({ traceInfo, recordChanges });
+          }
+
           const compiled = yield* updateBuilder.build({
             table,
             fieldIds,
@@ -791,7 +916,7 @@ export class ComputedFieldUpdater {
             dirtyRecordCount: dirtyCount,
           };
 
-          return ok(traceInfo);
+          return ok({ traceInfo, recordChanges });
         }.bind(this)
       );
     } finally {
@@ -870,10 +995,13 @@ export class ComputedFieldUpdater {
           prepared.tableById,
           context,
           i,
-          run
+          run,
+          undefined,
+          undefined,
+          false // collectChanges not supported for batch execution yet
         );
         if (result.isErr()) return err(result.error);
-        traces.push(result.value);
+        traces.push(result.value.traceInfo);
       }
 
       return ok(traces);

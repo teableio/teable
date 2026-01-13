@@ -3,6 +3,7 @@ import {
   type IExecutionContext,
   type ISpecification,
   type ITableSchemaRepository,
+  DbFieldName,
   type Field,
   type ITableSpecVisitor,
   type Table,
@@ -42,6 +43,17 @@ type ComputedFieldBackfillService = {
   ): Promise<Result<void, DomainError>>;
 };
 
+const ensureDbFieldNames = (fields: ReadonlyArray<Field>): Result<void, DomainError> => {
+  for (const field of fields) {
+    if (field.dbFieldName().isOk()) continue;
+    const dbFieldNameResult = DbFieldName.rehydrate(field.id().toString());
+    if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
+    const setResult = field.setDbFieldName(dbFieldNameResult.value);
+    if (setResult.isErr()) return err(setResult.error);
+  }
+  return ok(undefined);
+};
+
 @injectable()
 export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   constructor(
@@ -61,6 +73,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const introspector = new PostgresSchemaIntrospector(db);
 
       for (const table of tables) {
+        yield* ensureDbFieldNames(table.getFields());
+
         const { schema, tableName } = yield* table
           .dbTableName()
           .andThen((name) => name.split({ defaultSchema: null }));
@@ -107,6 +121,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   async insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     const repository = this;
     return await safeTry<void, DomainError>(async function* () {
+      yield* ensureDbFieldNames(table.getFields());
+
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
@@ -185,6 +201,8 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   ): Promise<Result<void, DomainError>> {
     const repository = this;
     return await safeTry<void, DomainError>(async function* () {
+      yield* ensureDbFieldNames(table.getFields());
+
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));

@@ -1,6 +1,9 @@
 import {
   AbstractFieldVisitor,
+  type AutoNumberField,
   type ConditionalLookupField,
+  type CreatedByField,
+  type CreatedTimeField,
   type DomainError,
   type Field,
   type FormulaField,
@@ -46,25 +49,23 @@ class PersistedAsGeneratedColumnVisitor extends AbstractFieldVisitor<boolean> {
   visitDateField(): Result<boolean, DomainError> {
     return ok(false);
   }
-  visitCreatedTimeField(): Result<boolean, DomainError> {
-    return ok(true);
+  visitCreatedTimeField(field: CreatedTimeField): Result<boolean, DomainError> {
+    return field.isPersistedAsGeneratedColumn();
   }
   visitLastModifiedTimeField(field: LastModifiedTimeField): Result<boolean, DomainError> {
-    // Only "track all" uses the generated column system column.
-    return ok(field.isTrackAll());
+    return field.isPersistedAsGeneratedColumn();
   }
   visitUserField(): Result<boolean, DomainError> {
     return ok(false);
   }
-  visitCreatedByField(): Result<boolean, DomainError> {
-    return ok(true);
+  visitCreatedByField(field: CreatedByField): Result<boolean, DomainError> {
+    return field.isPersistedAsGeneratedColumn();
   }
   visitLastModifiedByField(field: LastModifiedByField): Result<boolean, DomainError> {
-    // Only "track all" uses the generated column system column.
-    return ok(field.isTrackAll());
+    return field.isPersistedAsGeneratedColumn();
   }
-  visitAutoNumberField(): Result<boolean, DomainError> {
-    return ok(true);
+  visitAutoNumberField(field: AutoNumberField): Result<boolean, DomainError> {
+    return field.isPersistedAsGeneratedColumn();
   }
   visitButtonField(): Result<boolean, DomainError> {
     return ok(false);

@@ -4,7 +4,7 @@ import { Entity } from './Entity';
 export abstract class AggregateRoot<Id> extends Entity<Id> {
   private readonly domainEvents: IDomainEvent[] = [];
 
-  protected addDomainEvent(event: IDomainEvent): void {
+  addDomainEvent(event: IDomainEvent): void {
     this.domainEvents.push(event);
   }
 

@@ -66,8 +66,8 @@ export class CreateRecordsHandler
         });
       });
 
-      // 4. Publish events (if any) - only after transaction succeeds
-      const events: IDomainEvent[] = [];
+      // 4. Pull events from Table aggregate root and publish
+      const events = table.pullDomainEvents();
       yield* await handler.eventBus.publishMany(context, events);
 
       return ok(CreateRecordsResult.create(records, events));

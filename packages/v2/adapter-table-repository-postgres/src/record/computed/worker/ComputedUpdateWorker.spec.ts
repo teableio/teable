@@ -1,13 +1,5 @@
-import {
-  domainError,
-  FieldId,
-  type ITableRepository,
-  type ILogger,
-  type IHasher,
-  type IUnitOfWork,
-  RecordId,
-  TableId,
-} from '@teable/v2-core';
+import { domainError, FieldId, RecordId, TableId } from '@teable/v2-core';
+import type { IEventBus, IHasher, ILogger, ITableRepository, IUnitOfWork } from '@teable/v2-core';
 import { ok, err } from 'neverthrow';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -49,6 +41,11 @@ const createBackfillService = (): ComputedFieldBackfillService =>
   ({
     executeSyncMany: vi.fn(),
   }) as unknown as ComputedFieldBackfillService;
+
+const createEventBus = (): IEventBus =>
+  ({
+    publish: vi.fn(),
+  }) as unknown as IEventBus;
 
 const createLockResult = () =>
   ok({
@@ -125,7 +122,8 @@ describe('ComputedUpdateWorker', () => {
         logger,
         hasher,
         createTableRepository(),
-        createBackfillService()
+        createBackfillService(),
+        createEventBus()
       );
 
       const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
@@ -174,7 +172,8 @@ describe('ComputedUpdateWorker', () => {
         logger,
         hasher,
         createTableRepository(),
-        createBackfillService()
+        createBackfillService(),
+        createEventBus()
       );
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
@@ -220,7 +219,8 @@ describe('ComputedUpdateWorker', () => {
         logger,
         hasher,
         createTableRepository(),
-        createBackfillService()
+        createBackfillService(),
+        createEventBus()
       );
 
       const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
@@ -270,7 +270,8 @@ describe('ComputedUpdateWorker', () => {
         logger,
         hasher,
         createTableRepository(),
-        createBackfillService()
+        createBackfillService(),
+        createEventBus()
       );
 
       const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
@@ -339,7 +340,8 @@ describe('ComputedUpdateWorker', () => {
         logger,
         hasher,
         createTableRepository(),
-        createBackfillService()
+        createBackfillService(),
+        createEventBus()
       );
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
@@ -395,7 +397,8 @@ describe('ComputedUpdateWorker', () => {
         logger,
         hasher,
         createTableRepository(),
-        createBackfillService()
+        createBackfillService(),
+        createEventBus()
       );
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
@@ -450,7 +453,8 @@ describe('ComputedUpdateWorker', () => {
         logger,
         hasher,
         createTableRepository(),
-        createBackfillService()
+        createBackfillService(),
+        createEventBus()
       );
 
       // Should not throw

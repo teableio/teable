@@ -37,6 +37,7 @@ import { FieldUnique } from '../../../domain/table/fields/types/FieldUnique';
 import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
 import { FormulaMeta } from '../../../domain/table/fields/types/FormulaMeta';
+import { GeneratedColumnMeta } from '../../../domain/table/fields/types/GeneratedColumnMeta';
 import { LastModifiedByField } from '../../../domain/table/fields/types/LastModifiedByField';
 import { LastModifiedTimeField } from '../../../domain/table/fields/types/LastModifiedTimeField';
 import { LinkField } from '../../../domain/table/fields/types/LinkField';
@@ -98,6 +99,7 @@ import type {
   IDateFieldOptionsDTO,
   IFormulaFieldMetaDTO,
   IFormulaFieldOptionsDTO,
+  IGeneratedColumnMetaDTO,
   ILastModifiedByFieldOptionsDTO,
   ILastModifiedTimeFieldOptionsDTO,
   ILinkFieldMetaDTO,
@@ -412,12 +414,14 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       expression: field.expression().toString(),
       formatting: field.formatting().toDto(),
     };
+    const meta = field.meta();
 
-    return ok({
+    return meta.toDto().map((metaDto) => ({
       ...this.baseField(field),
       type: 'createdTime',
       options,
-    });
+      ...(metaDto ? { meta: metaDto as IGeneratedColumnMetaDTO } : {}),
+    }));
   }
 
   visitLastModifiedTimeField(
@@ -429,12 +433,14 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       formatting: field.formatting().toDto(),
       ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
     };
+    const meta = field.meta();
 
-    return ok({
+    return meta.toDto().map((metaDto) => ({
       ...this.baseField(field),
       type: 'lastModifiedTime',
       options,
-    });
+      ...(metaDto ? { meta: metaDto as IGeneratedColumnMetaDTO } : {}),
+    }));
   }
 
   visitUserField(field: UserField): Result<ITableFieldPersistenceDTO, DomainError> {
@@ -454,11 +460,13 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
 
   visitCreatedByField(field: CreatedByField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: ICreatedByFieldOptionsDTO = {};
-    return ok({
+    const meta = field.meta();
+    return meta.toDto().map((metaDto) => ({
       ...this.baseField(field),
       type: 'createdBy',
       options,
-    });
+      ...(metaDto ? { meta: metaDto as IGeneratedColumnMetaDTO } : {}),
+    }));
   }
 
   visitLastModifiedByField(
@@ -468,23 +476,27 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const options: ILastModifiedByFieldOptionsDTO = {
       ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
     };
+    const meta = field.meta();
 
-    return ok({
+    return meta.toDto().map((metaDto) => ({
       ...this.baseField(field),
       type: 'lastModifiedBy',
       options,
-    });
+      ...(metaDto ? { meta: metaDto as IGeneratedColumnMetaDTO } : {}),
+    }));
   }
 
   visitAutoNumberField(field: AutoNumberField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: IAutoNumberFieldOptionsDTO = {
       expression: field.expression().toString(),
     };
-    return ok({
+    const meta = field.meta();
+    return meta.toDto().map((metaDto) => ({
       ...this.baseField(field),
       type: 'autoNumber',
       options,
-    });
+      ...(metaDto ? { meta: metaDto as IGeneratedColumnMetaDTO } : {}),
+    }));
   }
 
   visitButtonField(field: ButtonField): Result<ITableFieldPersistenceDTO, DomainError> {
@@ -939,19 +951,24 @@ export class DefaultTableMapper implements ITableMapper {
             .with({ type: 'createdTime' }, (dto) => {
               const options = dto.options ?? {};
               return optional(options.formatting, DateTimeFormatting.create).andThen((formatting) =>
-                CreatedTimeField.create({ id, name, formatting })
+                GeneratedColumnMeta.rehydrate(dto.meta ?? {}).andThen((meta) =>
+                  CreatedTimeField.create({ id, name, formatting, meta })
+                )
               );
             })
             .with({ type: 'lastModifiedTime' }, (dto) => {
               const options = dto.options ?? {};
               return optional(options.formatting, DateTimeFormatting.create).andThen((formatting) =>
                 parseTrackedFieldIds(options.trackedFieldIds).andThen((trackedFieldIds) =>
-                  LastModifiedTimeField.create({
-                    id,
-                    name,
-                    formatting,
-                    trackedFieldIds,
-                  })
+                  GeneratedColumnMeta.rehydrate(dto.meta ?? {}).andThen((meta) =>
+                    LastModifiedTimeField.create({
+                      id,
+                      name,
+                      formatting,
+                      trackedFieldIds,
+                      meta,
+                    })
+                  )
                 )
               );
             })
@@ -965,14 +982,24 @@ export class DefaultTableMapper implements ITableMapper {
                 )
               );
             })
-            .with({ type: 'createdBy' }, () => CreatedByField.create({ id, name }))
+            .with({ type: 'createdBy' }, (dto) =>
+              GeneratedColumnMeta.rehydrate(dto.meta ?? {}).andThen((meta) =>
+                CreatedByField.create({ id, name, meta })
+              )
+            )
             .with({ type: 'lastModifiedBy' }, (dto) => {
               const options = dto.options ?? {};
               return parseTrackedFieldIds(options.trackedFieldIds).andThen((trackedFieldIds) =>
-                LastModifiedByField.create({ id, name, trackedFieldIds })
+                GeneratedColumnMeta.rehydrate(dto.meta ?? {}).andThen((meta) =>
+                  LastModifiedByField.create({ id, name, trackedFieldIds, meta })
+                )
               );
             })
-            .with({ type: 'autoNumber' }, () => AutoNumberField.create({ id, name }))
+            .with({ type: 'autoNumber' }, (dto) =>
+              GeneratedColumnMeta.rehydrate(dto.meta ?? {}).andThen((meta) =>
+                AutoNumberField.create({ id, name, meta })
+              )
+            )
             .with({ type: 'button' }, (dto) => {
               const options = dto.options ?? {};
               return optional(options.label, ButtonLabel.create).andThen((label) =>

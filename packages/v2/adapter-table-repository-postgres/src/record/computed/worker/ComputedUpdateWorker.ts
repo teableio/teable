@@ -1,16 +1,21 @@
 import {
   ActorId,
   domainError,
-  type DomainError,
   FieldId,
-  type IExecutionContext,
-  type IHasher,
-  type ITableRepository,
-  type IUnitOfWork,
-  type ILogger,
   TableByIdSpec,
   TableId,
   v2CoreTokens,
+  RecordsBatchUpdated,
+} from '@teable/v2-core';
+import type {
+  BaseId,
+  DomainError,
+  IExecutionContext,
+  IHasher,
+  ITableRepository,
+  IUnitOfWork,
+  ILogger,
+  IEventBus,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
@@ -18,7 +23,7 @@ import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
-import type { ComputedFieldUpdater } from '../ComputedFieldUpdater';
+import type { ComputedFieldUpdater, StepChangeData } from '../ComputedFieldUpdater';
 import type {
   ComputedSeedGroup,
   ComputedUpdatePlan,
@@ -75,7 +80,9 @@ export class ComputedUpdateWorker {
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
     @inject(v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
-    private readonly backfillService: ComputedFieldBackfillService
+    private readonly backfillService: ComputedFieldBackfillService,
+    @inject(v2CoreTokens.eventBus)
+    private readonly eventBus: IEventBus
   ) {}
 
   async runOnce(params: ComputedUpdateWorkerParams): Promise<Result<number, DomainError>> {
@@ -179,8 +186,32 @@ export class ComputedUpdateWorker {
               });
               if (lockResult.isErr()) return err(lockResult.error);
 
-              const stageResult = await this.updater.execute(planResult.value, txContext, run);
+              const stageResult = await this.updater.execute(planResult.value, txContext, run, {
+                collectChanges: true,
+              });
               if (stageResult.isErr()) return err(stageResult.error);
+
+              // Publish events for computed updates
+              const events = buildComputedUpdateEvents(
+                stageResult.value.changesByStep,
+                planResult.value.baseId
+              );
+              if (events.length > 0) {
+                const publishResult = await this.eventBus.publishMany(txContext, events);
+                if (publishResult.isErr()) {
+                  this.logger.warn('computed:worker:events_publish_failed', {
+                    error: publishResult.error.message,
+                    eventCount: events.length,
+                    ...runLogContext,
+                  });
+                } else {
+                  this.logger.debug('computed:worker:events_published', {
+                    eventCount: events.length,
+                    tableIds: [...new Set(events.map((e) => e.tableId.toString()))],
+                    ...runLogContext,
+                  });
+                }
+              }
 
               const completedStepsAfter =
                 computedTask.runCompletedStepsBefore + computedTask.steps.length;
@@ -508,8 +539,29 @@ export class ComputedUpdateWorker {
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
-      const stageResult = await this.updater.execute(plan, txContext, run);
+      const stageResult = await this.updater.execute(plan, txContext, run, {
+        collectChanges: true,
+      });
       if (stageResult.isErr()) return err(stageResult.error);
+
+      // Publish events for computed updates
+      const events = buildComputedUpdateEvents(stageResult.value.changesByStep, plan.baseId);
+      if (events.length > 0) {
+        const publishResult = await this.eventBus.publishMany(txContext, events);
+        if (publishResult.isErr()) {
+          this.logger.warn('computed:worker:seed_events_publish_failed', {
+            error: publishResult.error.message,
+            eventCount: events.length,
+            ...runLogContext,
+          });
+        } else {
+          this.logger.debug('computed:worker:seed_events_published', {
+            eventCount: events.length,
+            tableIds: [...new Set(events.map((e) => e.tableId.toString()))],
+            ...runLogContext,
+          });
+        }
+      }
 
       // Collect seed groups for next stage
       const stageTableIds = plan.steps.map((step) => step.tableId);
@@ -669,4 +721,54 @@ const collectSeedTableIds = (
   }
 
   return ok([...ids.values()]);
+};
+
+/**
+ * Build RecordsBatchUpdated events from step change data.
+ * Groups changes by tableId and creates one event per table.
+ */
+const buildComputedUpdateEvents = (
+  changesByStep: ReadonlyArray<StepChangeData>,
+  baseId: BaseId
+): RecordsBatchUpdated[] => {
+  if (changesByStep.length === 0) return [];
+
+  // Group changes by tableId
+  const changesByTable = new Map<string, StepChangeData['recordChanges']>();
+  for (const stepChange of changesByStep) {
+    const existing = changesByTable.get(stepChange.tableId) ?? [];
+    changesByTable.set(stepChange.tableId, [...existing, ...stepChange.recordChanges]);
+  }
+
+  const events: RecordsBatchUpdated[] = [];
+
+  for (const [tableIdStr, recordChanges] of changesByTable) {
+    if (recordChanges.length === 0) continue;
+
+    const tableIdResult = TableId.create(tableIdStr);
+    if (tableIdResult.isErr()) continue;
+
+    // Convert recordChanges to RecordUpdateDTO format
+    const updates = recordChanges.map((change) => ({
+      recordId: change.recordId,
+      oldVersion: 0,
+      newVersion: 0,
+      changes: change.changes.map((fieldChange) => ({
+        fieldId: fieldChange.fieldId,
+        oldValue: null as unknown,
+        newValue: fieldChange.newValue,
+      })),
+    }));
+
+    events.push(
+      RecordsBatchUpdated.create({
+        tableId: tableIdResult.value,
+        baseId,
+        updates,
+        source: 'computed',
+      })
+    );
+  }
+
+  return events;
 };

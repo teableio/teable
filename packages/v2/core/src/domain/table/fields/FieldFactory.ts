@@ -35,6 +35,7 @@ import type { FieldColor } from './types/FieldColor';
 import type { FieldNotNull } from './types/FieldNotNull';
 import type { FieldUnique } from './types/FieldUnique';
 import type { FormulaExpression } from './types/FormulaExpression';
+import type { GeneratedColumnMeta } from './types/GeneratedColumnMeta';
 import { FormulaField, type FormulaFormatting, type FormulaShowAs } from './types/FormulaField';
 import type { FormulaMeta } from './types/FormulaMeta';
 import { LastModifiedByField } from './types/LastModifiedByField';
@@ -234,6 +235,7 @@ export const createCreatedTimeField = (params: {
   id: FieldId;
   name: FieldName;
   formatting?: DateTimeFormatting;
+  meta?: GeneratedColumnMeta;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>
@@ -244,6 +246,7 @@ export const createLastModifiedTimeField = (params: {
   name: FieldName;
   formatting?: DateTimeFormatting;
   trackedFieldIds?: ReadonlyArray<FieldId>;
+  meta?: GeneratedColumnMeta;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>
@@ -263,6 +266,7 @@ export const createUserField = (params: {
 export const createCreatedByField = (params: {
   id: FieldId;
   name: FieldName;
+  meta?: GeneratedColumnMeta;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>
@@ -272,6 +276,7 @@ export const createLastModifiedByField = (params: {
   id: FieldId;
   name: FieldName;
   trackedFieldIds?: ReadonlyArray<FieldId>;
+  meta?: GeneratedColumnMeta;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>
@@ -280,6 +285,7 @@ export const createLastModifiedByField = (params: {
 export const createAutoNumberField = (params: {
   id: FieldId;
   name: FieldName;
+  meta?: GeneratedColumnMeta;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>

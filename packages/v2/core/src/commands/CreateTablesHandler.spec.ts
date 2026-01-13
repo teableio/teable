@@ -19,7 +19,6 @@ import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordRepository,
@@ -233,7 +232,6 @@ describe('CreateTablesHandler', () => {
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const recordRepository = new FakeTableRecordRepository();
-    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
@@ -255,7 +253,6 @@ describe('CreateTablesHandler', () => {
       recordRepository,
       foreignTableLoaderService,
       tableCreationService,
-      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -297,7 +294,6 @@ describe('CreateTablesHandler', () => {
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const recordRepository = new FakeTableRecordRepository();
-    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
@@ -319,7 +315,6 @@ describe('CreateTablesHandler', () => {
       recordRepository,
       foreignTableLoaderService,
       tableCreationService,
-      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -373,7 +368,6 @@ describe('CreateTablesHandler', () => {
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const recordRepository = new FakeTableRecordRepository();
-    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
@@ -395,7 +389,6 @@ describe('CreateTablesHandler', () => {
       recordRepository,
       foreignTableLoaderService,
       tableCreationService,
-      tableMapper,
       eventBus,
       unitOfWork
     );

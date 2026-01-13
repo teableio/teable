@@ -2,8 +2,10 @@
 import type { Table, DomainError, LinkField } from '@teable/v2-core';
 import { FieldType, ok } from '@teable/v2-core';
 import type { Kysely, CompiledQuery } from 'kysely';
+
 import { safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 
 import { FieldInsertValueVisitor, type FieldInsertResult } from '../../visitors';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
@@ -137,8 +139,44 @@ export class RecordInsertBuilder {
       const fields = table.getFields();
 
       for (const field of fields) {
-        // Skip computed fields
+        const fieldIdStr = field.id().toString();
+        const rawValue = fieldValues.get(fieldIdStr) ?? null;
+
+        const isCreatedTime = field.type().equals(FieldType.createdTime());
+        const isLastModifiedTime = field.type().equals(FieldType.lastModifiedTime());
+        const isCreatedBy = field.type().equals(FieldType.createdBy());
+        const isLastModifiedBy = field.type().equals(FieldType.lastModifiedBy());
+        const isAutoNumber = field.type().equals(FieldType.autoNumber());
+        const isSystemComputedField =
+          isCreatedTime || isLastModifiedTime || isCreatedBy || isLastModifiedBy || isAutoNumber;
+
         if (field.computed().toBoolean()) {
+          if (!isSystemComputedField) {
+            continue;
+          }
+
+          const persistedAsGenerated = yield* isPersistedAsGeneratedColumn(field);
+          if (persistedAsGenerated) {
+            continue;
+          }
+
+          const dbFieldNameResult = field.dbFieldName();
+          if (dbFieldNameResult.isErr()) {
+            continue;
+          }
+          const dbFieldNameValueResult = dbFieldNameResult.value.value();
+          if (dbFieldNameValueResult.isErr()) {
+            continue;
+          }
+          const dbFieldName = dbFieldNameValueResult.value;
+
+          const fallbackValue =
+            isCreatedTime || isLastModifiedTime
+              ? context.now
+              : isCreatedBy || isLastModifiedBy
+                ? context.actorId
+                : null;
+          values[dbFieldName] = rawValue ?? fallbackValue;
           continue;
         }
 
@@ -151,9 +189,6 @@ export class RecordInsertBuilder {
           continue;
         }
         const dbFieldName = dbFieldNameValueResult.value;
-
-        const fieldIdStr = field.id().toString();
-        const rawValue = fieldValues.get(fieldIdStr) ?? null;
 
         // Use visitor to get column values
         const insertVisitor = FieldInsertValueVisitor.create(rawValue, {

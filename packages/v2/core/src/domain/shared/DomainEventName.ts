@@ -46,6 +46,26 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('BaseCreated');
   }
 
+  static recordCreated(): DomainEventName {
+    return new DomainEventName('RecordCreated');
+  }
+
+  static recordsBatchCreated(): DomainEventName {
+    return new DomainEventName('RecordsBatchCreated');
+  }
+
+  static recordUpdated(): DomainEventName {
+    return new DomainEventName('RecordUpdated');
+  }
+
+  static recordsBatchUpdated(): DomainEventName {
+    return new DomainEventName('RecordsBatchUpdated');
+  }
+
+  static recordsDeleted(): DomainEventName {
+    return new DomainEventName('RecordsDeleted');
+  }
+
   equals(other: DomainEventName): boolean {
     return this.value === other.value;
   }

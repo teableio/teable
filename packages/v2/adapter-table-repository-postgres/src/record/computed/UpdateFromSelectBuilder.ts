@@ -53,6 +53,24 @@ export type UpdateFromSelectParams = {
 };
 
 /**
+ * Result of UPDATE with RETURNING clause.
+ */
+export type UpdateWithReturningResult = {
+  /** The compiled query */
+  compiled: CompiledQuery;
+  /** Mapping from column name to field ID */
+  columnToFieldId: Map<string, string>;
+};
+
+/**
+ * A row returned from UPDATE...RETURNING.
+ */
+export type UpdatedRecordRow = {
+  __id: string;
+  [column: string]: unknown;
+};
+
+/**
  * Build UPDATE...FROM statements using a computed SELECT subquery.
  *
  * Example
@@ -125,6 +143,89 @@ export class UpdateFromSelectBuilder {
         }
 
         return ok(query.compile());
+      });
+  }
+
+  /**
+   * Build UPDATE...FROM statement with RETURNING clause to get updated record IDs and new values.
+   * This is used for event generation after computed field updates.
+   */
+  buildWithReturning(
+    params: UpdateFromSelectParams
+  ): Result<UpdateWithReturningResult, DomainError> {
+    const tableAlias = params.tableAlias ?? 'u';
+    const selectAlias = params.selectAlias ?? 'c';
+    const fieldIds = params.fieldIds;
+
+    if (fieldIds.length === 0) {
+      return err(
+        domainError.validation({ message: 'UpdateFromSelect requires at least one field' })
+      );
+    }
+
+    return params.table
+      .dbTableName()
+      .andThen((dbTableName) => dbTableName.value())
+      .andThen((tableName) => {
+        const setValuesResult = buildSetValues(params.table, fieldIds, selectAlias);
+        if (setValuesResult.isErr()) return err(setValuesResult.error);
+
+        // Build column to fieldId mapping for RETURNING
+        const columnMappingResult = buildColumnMapping(params.table, fieldIds);
+        if (columnMappingResult.isErr()) return err(columnMappingResult.error);
+
+        // Apply dirty filter to the SELECT query if provided
+        let finalSelectQuery = params.selectQuery;
+        if (params.dirtyFilter) {
+          const {
+            tableId,
+            dirtyTableName = 'tmp_computed_dirty',
+            tableIdColumn = 'table_id',
+            recordIdColumn = 'record_id',
+          } = params.dirtyFilter;
+
+          finalSelectQuery = params.selectQuery.innerJoin(`${dirtyTableName} as __dirty`, (join) =>
+            join
+              .onRef(`${COMPUTED_TABLE_ALIAS}.__id`, '=', `__dirty.${recordIdColumn}`)
+              .on(`__dirty.${tableIdColumn}`, '=', tableId.toString())
+          ) as QB;
+        }
+
+        let query = this.db
+          .updateTable(`${tableName} as ${tableAlias}`)
+          .from(finalSelectQuery.as(selectAlias))
+          .set((eb) => setValuesResult.value(eb))
+          .whereRef(`${tableAlias}.__id`, '=', `${selectAlias}.__id`);
+
+        if (params.recordFilter) {
+          query = params.recordFilter({
+            db: this.db,
+            query,
+            tableId: params.table.id(),
+            tableAlias,
+            selectAlias,
+          });
+        }
+
+        // Add RETURNING clause for record ID and all updated columns
+        // Use double quotes to preserve case-sensitivity in PostgreSQL
+        const returningColumns = [`"${tableAlias}"."__id"`];
+        for (const [column] of columnMappingResult.value) {
+          returningColumns.push(`"${tableAlias}"."${column}"`);
+        }
+
+        // Use raw SQL for RETURNING since Kysely's typing doesn't support it well for updates
+        const compiled = query.compile();
+        const returningClause = ` RETURNING ${returningColumns.join(', ')}`;
+        const sqlWithReturning = compiled.sql + returningClause;
+
+        return ok({
+          compiled: {
+            ...compiled,
+            sql: sqlWithReturning,
+          },
+          columnToFieldId: columnMappingResult.value,
+        });
       });
   }
 }
@@ -286,5 +387,30 @@ const buildSetValues = (
       }
       return values;
     });
+  });
+};
+
+/**
+ * Build a mapping from column name to field ID for RETURNING clause processing.
+ */
+const buildColumnMapping = (
+  table: Table,
+  fieldIds: ReadonlyArray<FieldId>
+): Result<Map<string, string>, DomainError> => {
+  return safeTry<Map<string, string>, DomainError>(function* () {
+    const mapping = new Map<string, string>();
+
+    for (const fieldId of fieldIds) {
+      const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
+      // Skip fields with errors
+      if (field.hasError().isError()) {
+        continue;
+      }
+      const dbFieldName = yield* field.dbFieldName();
+      const columnName = yield* dbFieldName.value();
+      mapping.set(columnName, fieldId.toString());
+    }
+
+    return ok(mapping);
   });
 };

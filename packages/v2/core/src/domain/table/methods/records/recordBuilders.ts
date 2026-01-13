@@ -1,10 +1,12 @@
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type { DomainError } from '../../../shared/DomainError';
+import { RecordCreated } from '../../events/RecordCreated';
 import { FieldDefaultValueVisitor } from '../../fields/visitors/FieldDefaultValueVisitor';
 import { RecordCreateResult } from '../../records/RecordCreateResult';
 import { RecordId } from '../../records/RecordId';
 import { RecordMutationSpecBuilder } from '../../records/RecordMutationSpecBuilder';
+import { recordToFieldValues } from '../../records/recordToFieldValues';
 import { TableRecord } from '../../records/TableRecord';
 import { TableRecordFields } from '../../records/TableRecordFields';
 import type { Table } from '../../Table';
@@ -62,8 +64,30 @@ export function buildRecordWithSpec(
     if (builder.hasSpecs()) {
       const mutateSpec = yield* builder.build();
       const record = yield* mutateSpec.mutate(emptyRecord);
+
+      // Add RecordCreated event to the Table aggregate root
+      table.addDomainEvent(
+        RecordCreated.create({
+          tableId: table.id(),
+          baseId: table.baseId(),
+          recordId: record.id(),
+          fieldValues: recordToFieldValues(record),
+        })
+      );
+
       return ok(RecordCreateResult.create(record, mutateSpec));
     }
+
+    // Add RecordCreated event even for empty record
+    table.addDomainEvent(
+      RecordCreated.create({
+        tableId: table.id(),
+        baseId: table.baseId(),
+        recordId: emptyRecord.id(),
+        fieldValues: recordToFieldValues(emptyRecord),
+      })
+    );
+
     return ok(RecordCreateResult.create(emptyRecord, null));
   });
 }

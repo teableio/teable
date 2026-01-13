@@ -11,6 +11,7 @@ import type {
   TableByNameSpec,
   TableRemoveFieldSpec,
   TableUpdateViewColumnMetaSpec,
+  TableRenameSpec,
 } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -23,6 +24,10 @@ export class TableAddFieldCollectorVisitor implements ITableSpecVisitor<void> {
   }
 
   visit(_: ISpecification): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableRename(_spec: TableRenameSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 

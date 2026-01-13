@@ -26,6 +26,7 @@ import { sql } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
 import type { DynamicDB } from '../query-builder';
 
 // System columns
@@ -150,14 +151,34 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     return ok({ field, dbFieldName: dbFieldNameValueResult.value });
   }
 
+  private shouldSkipComputed(field: Field): Result<boolean, DomainError> {
+    if (!field.computed().toBoolean()) {
+      return ok(false);
+    }
+
+    const isSystemComputed =
+      field.type().equals(FieldType.createdTime()) ||
+      field.type().equals(FieldType.lastModifiedTime()) ||
+      field.type().equals(FieldType.createdBy()) ||
+      field.type().equals(FieldType.lastModifiedBy()) ||
+      field.type().equals(FieldType.autoNumber());
+
+    if (!isSystemComputed) {
+      return ok(true);
+    }
+
+    return isPersistedAsGeneratedColumn(field);
+  }
+
   private addSimpleValue(fieldId: FieldId, rawValue: unknown): Result<void, DomainError> {
     const result = this.getFieldAndDbName(fieldId.toString());
     if (result.isErr()) return err(result.error);
 
     const { field, dbFieldName } = result.value;
 
-    // Skip computed fields
-    if (field.computed().toBoolean()) {
+    const skipResult = this.shouldSkipComputed(field);
+    if (skipResult.isErr()) return err(skipResult.error);
+    if (skipResult.value) {
       return ok(undefined);
     }
 
@@ -172,8 +193,9 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
 
     const { field, dbFieldName } = result.value;
 
-    // Skip computed fields
-    if (field.computed().toBoolean()) {
+    const skipResult = this.shouldSkipComputed(field);
+    if (skipResult.isErr()) return err(skipResult.error);
+    if (skipResult.value) {
       return ok(undefined);
     }
 
