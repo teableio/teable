@@ -40,6 +40,12 @@ describe('v2 http createRecord link fields (e2e)', () => {
   let baseId: string;
   let testContainer: IV2NodeTestContainer;
 
+  const processOutbox = async (times = 1) => {
+    for (let i = 0; i < times; i += 1) {
+      await testContainer.processOutbox();
+    }
+  };
+
   const createTable = async (payload: ICreateTableCommandInput) => {
     const response = await fetch(`${baseUrl}/tables/create`, {
       method: 'POST',
@@ -184,6 +190,7 @@ describe('v2 http createRecord link fields (e2e)', () => {
       expect(mainRecord.id).toMatch(/^rec/);
 
       // Verify via listRecords
+      await processOutbox();
       const records = await listRecords(mainTableId);
       const found = records.find((r) => r.id === mainRecord.id);
       expect(found).toBeDefined();
@@ -214,6 +221,7 @@ describe('v2 http createRecord link fields (e2e)', () => {
       });
 
       // Verify both records via listRecords
+      await processOutbox();
       const records = await listRecords(mainTableId);
 
       const found1 = records.find((r) => r.id === record1.id);

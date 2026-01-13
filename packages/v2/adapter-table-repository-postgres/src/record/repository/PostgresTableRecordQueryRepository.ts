@@ -1,4 +1,3 @@
-import type * as core from '@teable/v2-core';
 import {
   domainError,
   type ILogger,
@@ -6,6 +5,9 @@ import {
   v2CoreTokens,
   type DomainError,
   FieldType,
+  type IExecutionContext,
+  type ITableRecordQueryRepository,
+  type LinkField,
   LinkRelationship,
   RecordByIdSpec,
   type ITableRecordQueryOptions,
@@ -16,6 +18,7 @@ import {
   type Table,
   type TableRecordReadModel,
   type TableRecord,
+  type TableRecordQueryMode,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -37,7 +40,7 @@ const RECORD_ID_COLUMN = '__id';
 const TABLE_ALIAS = 't';
 
 @injectable()
-export class PostgresTableRecordQueryRepository implements core.ITableRecordQueryRepository {
+export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepository {
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.tableRecordQueryBuilderManager)
     private readonly queryBuilderManager: TableRecordQueryBuilderManager,
@@ -48,10 +51,10 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
   ) {}
 
   async find(
-    context: core.IExecutionContext,
-    table: core.Table,
-    spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>,
-    options?: core.ITableRecordQueryOptions
+    context: IExecutionContext,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
     return safeTry<ITableRecordQueryResult, DomainError>(
       async function* (this: PostgresTableRecordQueryRepository) {
@@ -131,8 +134,8 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
   }
 
   async findOne(
-    context: core.IExecutionContext,
-    table: core.Table,
+    context: IExecutionContext,
+    table: Table,
     recordId: RecordId,
     options?: Pick<ITableRecordQueryOptions, 'mode'>
   ): Promise<Result<TableRecordReadModel, DomainError>> {
@@ -194,7 +197,7 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
 const mapRowsToReadModels = (
   fieldColumns: ReadonlyArray<FieldOutputColumn>,
   rows: ReadonlyArray<Record<string, unknown>>
-): ReadonlyArray<core.TableRecordReadModel> => {
+): ReadonlyArray<TableRecordReadModel> => {
   return rows.map((row) => {
     const rawId = row[RECORD_ID_COLUMN];
     const id = typeof rawId === 'string' ? rawId : String(rawId);
@@ -238,12 +241,12 @@ const buildWhereClause = (
 
 const resolveQueryMode = (
   table: Table,
-  mode: core.TableRecordQueryMode | undefined
-): core.TableRecordQueryMode => {
+  mode: TableRecordQueryMode | undefined
+): TableRecordQueryMode => {
   if (mode) return mode;
   const needsComputedLinks = table.getFields().some((field) => {
     if (!field.type().equals(FieldType.link())) return false;
-    const linkField = field as core.LinkField;
+    const linkField = field as LinkField;
     return (
       linkField.relationship().equals(LinkRelationship.oneMany()) ||
       linkField.relationship().equals(LinkRelationship.manyMany())

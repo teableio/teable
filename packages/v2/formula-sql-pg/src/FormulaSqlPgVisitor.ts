@@ -4,6 +4,7 @@ import type {
   BooleanLiteralContext,
   BracketsContext,
   DecimalLiteralContext,
+  ExprContext,
   FieldReferenceCurlyContext,
   FunctionCallContext,
   IntegerLiteralContext,
@@ -159,7 +160,7 @@ export class FormulaSqlPgVisitor
     const rawName = ctx.func_name().text.toUpperCase();
     const normalized = normalizeFunctionNameAlias(rawName);
     const functionName = normalized as FunctionName;
-    const params = ctx.expr().map((exprCtx) => exprCtx.accept(this));
+    const params = ctx.expr().map((exprCtx: ExprContext) => exprCtx.accept(this));
     const handler = this.functionHandlers[functionName];
     if (handler) {
       return handler(params);

@@ -17,6 +17,7 @@ import type { TableByIdsSpec } from '../TableByIdsSpec';
 import type { TableByNameLikeSpec } from '../TableByNameLikeSpec';
 import type { TableByNameSpec } from '../TableByNameSpec';
 import type { TableRemoveFieldSpec } from '../TableRemoveFieldSpec';
+import type { TableRenameSpec } from '../TableRenameSpec';
 import type { TableUpdateViewColumnMetaSpec } from '../TableUpdateViewColumnMetaSpec';
 
 /**
@@ -119,6 +120,24 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
     return ok(undefined);
   }
 
+  visitTableRename(spec: TableRenameSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
+    const previousName = spec.previousName();
+    const nextName = spec.nextName();
+
+    if (!previousName.equals(nextName)) {
+      this.eventsCollected.push(
+        TableRenamed.create({
+          tableId: this.table.id(),
+          baseId: this.table.baseId(),
+          previousName,
+          nextName,
+        })
+      );
+    }
+
+    return ok(undefined);
+  }
+
   visitTableByBaseId(_spec: TableByBaseIdSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
     // Query-only spec, no events generated
     return ok(undefined);
@@ -135,22 +154,8 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
   }
 
   visitTableByName(spec: TableByNameSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
-    // TableByNameSpec is used for rename mutations
-    const previousName = this.previousTable.name();
-    const nextName = spec.tableName();
-
-    // Only generate event if the name actually changed
-    if (!previousName.equals(nextName)) {
-      this.eventsCollected.push(
-        TableRenamed.create({
-          tableId: this.table.id(),
-          baseId: this.table.baseId(),
-          previousName,
-          nextName,
-        })
-      );
-    }
-
+    // Query-only spec, no events generated
+    void spec;
     return ok(undefined);
   }
 

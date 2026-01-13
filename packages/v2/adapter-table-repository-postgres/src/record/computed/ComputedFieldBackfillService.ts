@@ -376,11 +376,9 @@ export class ComputedFieldBackfillService {
    * Check if a field is a computed field that requires backfill.
    */
   private isComputedField(field: Field): boolean {
-    return Field.specs()
-      .isComputed()
-      .build()
-      .andThen((spec) => ok(spec.isSatisfiedBy(field)))
-      .isOk();
+    const specResult = Field.specs().isComputed().build();
+    if (specResult.isErr()) return false;
+    return specResult.value.isSatisfiedBy(field);
   }
 
   /**

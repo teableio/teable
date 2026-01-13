@@ -9,7 +9,7 @@ import type {
   Table as TableAggregate,
 } from '@teable/v2-core';
 
-import { formatRecordValue } from '@/components/playground/TableMetaPage';
+import { formatRecordValue } from '@/components/playground/recordValueVisitor';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 import { ArrowLeft, Pencil, TriangleAlert, Radio } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -345,10 +345,11 @@ function RecordDetailCard({
                     {linkItems.map((item) => (
                       <a
                         key={item.id}
-                        className="text-sm text-primary underline underline-offset-2 hover:text-primary/80"
+                        className="max-w-[240px] truncate text-sm text-primary underline underline-offset-2 hover:text-primary/80"
                         href={resolveRecordHref(targetBaseId, targetTableId, item.id)}
                         target="_blank"
                         rel="noreferrer"
+                        title={item.label}
                       >
                         {item.label}
                       </a>

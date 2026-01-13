@@ -307,6 +307,18 @@ export class ComputedUpdatePlanner {
           }
         }
 
+        // INSERT: conditional fields (conditionalRollup/conditionalLookup) depend only on
+        // foreign-table changes and can be "invisible" to same-record dependency scanning.
+        // Ensure they're computed for newly inserted records so stored reads are correct.
+        if (context.changeType === 'insert') {
+          for (const meta of fieldsById.values()) {
+            if (!meta.tableId.equals(context.seedTableId)) continue;
+            if (!meta.isComputed) continue;
+            if (meta.type !== 'conditionalRollup' && meta.type !== 'conditionalLookup') continue;
+            affectedFieldIds.add(meta.id.toString());
+          }
+        }
+
         const includeValueEdges = impact.includesValueChange || impact.includesLinkRelation;
         const relevantEdges = edges.filter(
           (edge) =>

@@ -7,6 +7,7 @@ import {
   TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
+  TableRenameSpec,
   TableUpdateViewColumnMetaSpec,
   type ITableMapper,
   type ITableSpecVisitor,
@@ -118,6 +119,13 @@ export class TableMetaUpdateVisitor
         .where('deleted_time', 'is', null)
     );
 
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableRename(spec: TableRenameSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.buildTableMetaUpdate({ name: spec.nextName().toString() }),
+    ];
     return this.addCond(statements).map(() => statements);
   }
 

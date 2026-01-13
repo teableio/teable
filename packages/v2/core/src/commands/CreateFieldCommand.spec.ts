@@ -21,8 +21,8 @@ import { SingleLineTextField } from '../domain/table/fields/types/SingleLineText
 import { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { UserField } from '../domain/table/fields/types/UserField';
 import { TableId } from '../domain/table/TableId';
+import type { ITableFieldInput } from '../schemas/field';
 import { CreateFieldCommand } from './CreateFieldCommand';
-import type { ITableFieldInput } from './TableFieldSpecs';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
 
 const baseId = `bse${'a'.repeat(16)}`;

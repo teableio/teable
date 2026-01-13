@@ -59,30 +59,67 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       return err(domainError.validation({ message: 'Unsupported transaction context' }));
     }
 
-    try {
-      return await this.db.transaction().execute(async (trx) => {
-        const transactionContext: IExecutionContext = {
-          ...context,
-          transaction: new PostgresUnitOfWorkTransaction(trx),
-        };
+    const maxRetries = 3;
+    let attempt = 0;
 
-        const workResult = await work(transactionContext);
-        if (workResult.isErr()) {
-          throw new UnitOfWorkAbort(workResult.error);
+    // Retry only for top-level transactions, and only for retryable infra failures.
+    // Nested transactions must not retry because they share an outer transaction scope.
+    // Keep delays tiny because this is often used in request/response paths.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        return await this.db.transaction().execute(async (trx) => {
+          const transactionContext: IExecutionContext = {
+            ...context,
+            transaction: new PostgresUnitOfWorkTransaction(trx),
+          };
+
+          const workResult = await work(transactionContext);
+          if (workResult.isErr()) {
+            throw new UnitOfWorkAbort(workResult.error);
+          }
+
+          return workResult;
+        });
+      } catch (error) {
+        if (error instanceof UnitOfWorkAbort) {
+          if (attempt < maxRetries && isRetryableTransactionAbort(error.error)) {
+            const delayMs = backoffMs(attempt);
+            attempt += 1;
+            await sleep(delayMs);
+            continue;
+          }
+          return err(error.error);
         }
-
-        return workResult;
-      });
-    } catch (error) {
-      if (error instanceof UnitOfWorkAbort) return err(error.error);
-      return err(
-        domainError.unexpected({
-          message: `Unexpected unit of work error: ${describeError(error)}`,
-        })
-      );
+        return err(
+          domainError.unexpected({
+            message: `Unexpected unit of work error: ${describeError(error)}`,
+          })
+        );
+      }
     }
   }
 }
+
+const sleep = async (ms: number): Promise<void> => {
+  await new Promise<void>((resolve) => setTimeout(resolve, ms));
+};
+
+const backoffMs = (attempt: number): number => {
+  const base = 5 * 2 ** attempt;
+  const jitter = Math.floor(Math.random() * 10);
+  return base + jitter;
+};
+
+const isRetryableTransactionAbort = (error: DomainError): boolean => {
+  if (!error.tags.includes('infrastructure')) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('deadlock detected') ||
+    message.includes('could not serialize access') ||
+    message.includes('serialization failure')
+  );
+};
 
 const describeError = (error: unknown): string => {
   if (isDomainError(error)) return error.message;

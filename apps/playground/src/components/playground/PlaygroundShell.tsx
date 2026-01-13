@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   ChevronsUpDown,
+  Cog,
   Copy,
   Database,
   FlaskConical,
@@ -793,6 +794,21 @@ function PlaygroundSidebar({
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild size="lg" tooltip="Computed Tasks">
+                <Link to="/computed-tasks">
+                  <div className="flex size-9 items-center justify-center rounded-xl border-2 border-orange-400/60 bg-gradient-to-br from-orange-500/20 to-orange-600/10 text-orange-600 shadow-sm">
+                    <Cog className="size-5" />
+                  </div>
+                  <div className="flex flex-1 items-center justify-between gap-3 group-data-[collapsible=icon]:hidden">
+                    <div className="flex flex-col text-left leading-tight">
+                      <span className="text-[11px] font-medium text-muted-foreground">System</span>
+                      <span className="text-sm font-semibold">Computed Tasks</span>
+                    </div>
+                  </div>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

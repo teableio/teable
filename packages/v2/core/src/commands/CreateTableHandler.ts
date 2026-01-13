@@ -6,7 +6,7 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { Table } from '../domain/table/Table';
+import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';

@@ -263,7 +263,8 @@ describe('Table', () => {
 
     const existingMeta = metaResult._unsafeUnwrap().toDto();
     const existingOrders = Object.values(existingMeta).map((entry) => entry.order);
-    const maxOrder = existingOrders.length ? Math.max(...existingOrders) : -1;
+    const numericOrders = existingOrders.filter((v): v is number => typeof v === 'number');
+    const maxOrder = numericOrders.length ? Math.max(...numericOrders) : -1;
 
     const newFieldResult = SingleLineTextField.create({
       id: newFieldIdResult._unsafeUnwrap(),

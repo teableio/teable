@@ -125,6 +125,9 @@ export function PlaygroundIndex() {
               Open default base
             </Link>
           </Button>
+          <Button asChild variant="outline" className="w-full">
+            <Link to="/computed-tasks">View Computed Tasks</Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

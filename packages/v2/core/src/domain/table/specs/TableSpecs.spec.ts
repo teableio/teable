@@ -14,6 +14,7 @@ import { TableByIdsSpec } from './TableByIdsSpec';
 import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
 import type { TableRemoveFieldSpec } from './TableRemoveFieldSpec';
+import type { TableRenameSpec } from './TableRenameSpec';
 import type { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
 
 class SpyVisitor implements ITableSpecVisitor {
@@ -66,6 +67,11 @@ class SpyVisitor implements ITableSpecVisitor {
     _: TableByNameLikeSpec
   ): ReturnType<ITableSpecVisitor['visitTableByNameLike']> {
     this.calls.push('TableByNameLikeSpec');
+    return ok(undefined);
+  }
+
+  visitTableRename(_: TableRenameSpec): ReturnType<ITableSpecVisitor['visitTableRename']> {
+    this.calls.push('TableRenameSpec');
     return ok(undefined);
   }
 }

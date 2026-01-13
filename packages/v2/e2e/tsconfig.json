@@ -17,7 +17,7 @@
     "declaration": true,
     "declarationDir": "dist",
     "composite": true,
-    "rootDir": "../",
+    "rootDir": "../../",
     "outDir": "dist",
     "paths": {
       "@teable/v2-container-node-test": ["../container-node-test/src"],
@@ -37,7 +37,8 @@
       "@teable/v2-di": ["../di/src"],
       "@teable/v2-table-templates": ["../table-templates/src"],
       "@teable/v2-formula-sql-pg": ["../formula-sql-pg/src"],
-      "@teable/v2-utils": ["../utils/src"]
+      "@teable/v2-utils": ["../utils/src"],
+      "@teable/formula": ["../../formula/src"]
     },
     "types": ["vitest/globals", "node"]
   },
@@ -48,7 +49,21 @@
     "./coverage",
     "../core/src/**/*.spec.ts",
     "../core/src/**/*.test.ts",
-    "../core/src/**/__tests__/**"
+    "../core/src/**/__tests__/**",
+    "../adapter-table-repository-postgres/src/**/*.spec.ts",
+    "../adapter-table-repository-postgres/src/**/*.test.ts",
+    "../adapter-table-repository-postgres/src/**/__tests__/**",
+    "../adapter-repository-postgres/src/**/*.spec.ts",
+    "../adapter-repository-postgres/src/**/*.test.ts",
+    "../adapter-repository-postgres/src/**/__tests__/**",
+    "../contract-http-implementation/src/**/*.spec.ts",
+    "../contract-http-implementation/src/**/*.test.ts",
+    "../contract-http-implementation/src/**/__tests__/**",
+    "../formula-sql-pg/src/**/*.spec.ts",
+    "../formula-sql-pg/src/**/*.test.ts",
+    "../formula-sql-pg/src/**/__tests__/**",
+    "../formula-sql-pg/src/testkit/**",
+    "../../formula/src/**/*.spec.ts"
   ],
   "include": [
     "src",
@@ -69,6 +84,7 @@
     "../di/src",
     "../table-templates/src",
     "../formula-sql-pg/src",
-    "../utils/src"
+    "../utils/src",
+    "../../formula/src"
   ]
 }

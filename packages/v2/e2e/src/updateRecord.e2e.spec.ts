@@ -496,6 +496,8 @@ describe('v2 http updateRecord (e2e)', () => {
     expect(body.ok).toBe(true);
     if (!body.ok) return;
 
+    await processOutbox();
+
     const records = await listRecords(mainTable.id);
     const updated = records.find((r) => r.id === record.id);
     expect(updated).toBeDefined();
@@ -545,6 +547,8 @@ describe('v2 http updateRecord (e2e)', () => {
     await updateRecord(table.id, record.id, {
       [amountFieldId]: 7,
     });
+
+    await processOutbox();
 
     const records = await listRecords(table.id);
     const updated = records.find((r) => r.id === record.id);

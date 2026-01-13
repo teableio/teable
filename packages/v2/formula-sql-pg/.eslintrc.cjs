@@ -26,5 +26,12 @@ module.exports = {
     '@typescript-eslint/consistent-type-imports': 'off',
     '@typescript-eslint/naming-convention': 'off',
   },
-  overrides: [],
+  overrides: [
+    {
+      files: ['src/testkit/**'],
+      rules: {
+        'import/no-unresolved': 'off',
+      },
+    },
+  ],
 };

@@ -109,6 +109,12 @@ describe('v2 http createRecords (e2e)', () => {
     return parsed.data.data.records;
   };
 
+  const processOutbox = async (times = 1) => {
+    for (let i = 0; i < times; i += 1) {
+      await testContainer.processOutbox();
+    }
+  };
+
   beforeAll(async () => {
     testContainer = await createV2NodeTestContainer();
     dispose = testContainer.dispose;
@@ -380,6 +386,7 @@ describe('v2 http createRecords (e2e)', () => {
       expect(records.length).toBe(3);
 
       // Verify via listRecords
+      await processOutbox();
       const allRecords = await listRecords(mainTableId);
       const foundRecords = allRecords.filter((r) => records.some((rec) => rec.id === r.id));
 

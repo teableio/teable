@@ -9,7 +9,7 @@ import type { DomainError } from '../domain/shared/DomainError';
 import { domainError } from '../domain/shared/DomainError';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
-import { Table } from '../domain/table/Table';
+import type { Table } from '../domain/table/Table';
 import * as DotTeaParserPort from '../ports/DotTeaParser';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';

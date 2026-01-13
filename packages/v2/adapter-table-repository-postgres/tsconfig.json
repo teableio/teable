@@ -17,14 +17,15 @@
     "declaration": true,
     "declarationDir": "dist",
     "composite": true,
-    "rootDir": "../",
+    "rootDir": "../../",
     "outDir": "dist",
     "paths": {
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"],
       "@teable/v2-formula-sql-pg": ["../formula-sql-pg/src"],
       "@teable/v2-postgres-schema": ["../postgres-schema/src"],
-      "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"]
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
+      "@teable/formula": ["../../formula/src"]
     },
     "types": ["vitest/globals", "node"]
   },
@@ -34,7 +35,18 @@
     "./dist",
     "./coverage",
     "src/**/*.spec.ts",
-    "../core/src/**/*.spec.ts"
+    "../core/src/**/*.spec.ts",
+    "../formula-sql-pg/src/**/*.spec.ts",
+    "../formula-sql-pg/src/**/__tests__/**",
+    "../formula-sql-pg/src/testkit/**",
+    "../../formula/src/**/*.spec.ts"
   ],
-  "include": ["src", "../core/src", "../di/src", "../postgres-schema/src", "../formula-sql-pg/src"]
+  "include": [
+    "src",
+    "../core/src",
+    "../di/src",
+    "../postgres-schema/src",
+    "../formula-sql-pg/src",
+    "../../formula/src"
+  ]
 }

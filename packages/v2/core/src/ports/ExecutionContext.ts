@@ -9,4 +9,5 @@ export interface IExecutionContext {
   actorId: ActorId;
   transaction?: IUnitOfWorkTransaction;
   tracer?: ITracer;
+  requestId?: string;
 }

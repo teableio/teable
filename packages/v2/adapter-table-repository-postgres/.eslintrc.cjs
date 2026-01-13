@@ -13,7 +13,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: 'tsconfig.eslint.json',
   },
-  ignorePatterns: [...getDefaultIgnorePatterns()],
+  ignorePatterns: [...getDefaultIgnorePatterns(), '.eslintrc.cjs'],
   extends: [
     '@teable/eslint-config-bases/typescript',
     '@teable/eslint-config-bases/regexp',
@@ -21,10 +21,19 @@ module.exports = {
     // Apply prettier and disable incompatible rules
     '@teable/eslint-config-bases/prettier-plugin',
   ],
+  overrides: [
+    {
+      files: ['**/*.spec.ts', '**/*.test.ts', '**/__tests__/**/*.ts'],
+      rules: {
+        'no-console': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-empty-function': 'off',
+      },
+    },
+  ],
   rules: {
     '@typescript-eslint/naming-convention': 'off',
     '@typescript-eslint/no-this-alias': 'off',
     'no-console': 'error',
   },
 };
-

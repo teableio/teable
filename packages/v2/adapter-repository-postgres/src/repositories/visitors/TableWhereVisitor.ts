@@ -4,6 +4,7 @@ import {
   TableAddFieldSpec,
   TableRemoveFieldSpec,
   TableUpdateViewColumnMetaSpec,
+  TableRenameSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
   TableByIdsSpec,
@@ -49,6 +50,12 @@ export class TableWhereVisitor
       domainError.validation({
         message: 'TableUpdateViewColumnMetaSpec is not supported for table filters',
       })
+    );
+  }
+
+  visitTableRename(_: TableRenameSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({ message: 'TableRenameSpec is not supported for table filters' })
     );
   }
 

@@ -168,6 +168,7 @@ export interface V1ComputedUpdateDeadLetterTable {
   affected_table_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   affected_field_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   sync_max_level: number | null;
+  trace_data: unknown | null;
   failed_at: ColumnType<Date, Date | undefined, Date | undefined>;
   created_at: ColumnType<Date, Date | undefined, Date | undefined>;
   updated_at: ColumnType<Date, Date | undefined, Date | undefined>;

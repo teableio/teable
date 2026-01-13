@@ -184,6 +184,7 @@ model ComputedUpdateDeadLetter {
   affectedTableIds   Json?    @map("affected_table_ids")
   affectedFieldIds   Json?    @map("affected_field_ids")
   syncMaxLevel       Int?     @map("sync_max_level")
+  traceData          Json?    @map("trace_data")
   failedAt           DateTime @map("failed_at")
   createdAt          DateTime @map("created_at")
   updatedAt          DateTime @map("updated_at")

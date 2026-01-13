@@ -558,7 +558,7 @@ describe('v2 http createRecord (e2e)', () => {
 
     const hostRecord = await createRecord(hostTable.id, {
       [hostTitleFieldId]: 'Host 1',
-      [linkFieldId]: [{ id: sourceRecord.id, title: 'Source 1' }],
+      [linkFieldId]: { id: sourceRecord.id, title: 'Source 1' },
     });
 
     await testContainer.processOutbox();
@@ -588,6 +588,7 @@ describe('v2 http createRecord with link fields (e2e)', () => {
   let baseUrl: string;
   let dispose: (() => Promise<void>) | undefined;
   let baseId: string;
+  let testContainer: IV2NodeTestContainer;
   let foreignTableId: string;
   let mainTableId: string;
   let mainTextFieldId: string;
@@ -650,7 +651,7 @@ describe('v2 http createRecord with link fields (e2e)', () => {
   };
 
   beforeAll(async () => {
-    const testContainer = await createV2NodeTestContainer();
+    testContainer = await createV2NodeTestContainer();
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
 
@@ -746,6 +747,8 @@ describe('v2 http createRecord with link fields (e2e)', () => {
     const createdRecordId = body.data.record.id;
     expect(createdRecordId).toMatch(/^rec/);
 
+    await testContainer.processOutbox();
+
     // Verify with listRecords that link field is correctly saved and retrieved
     const records = await listRecords(mainTableId);
     const foundRecord = records.find((r) => r.id === createdRecordId);
@@ -791,6 +794,9 @@ describe('v2 http createRecord with link fields (e2e)', () => {
     if (!body.ok) return;
 
     const createdRecordId = body.data.record.id;
+
+    await testContainer.processOutbox();
+
     const records = await listRecords(mainTableId);
     const foundRecord = records.find((r) => r.id === createdRecordId);
 

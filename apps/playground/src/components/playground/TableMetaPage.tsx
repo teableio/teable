@@ -5,31 +5,11 @@ import {
   type ITableRecordDto,
 } from '@teable/v2-contract-http';
 import type {
-  AutoNumberField,
-  ButtonField,
-  CreatedByField,
-  CreatedTimeField,
-  DateField,
-  DateTimeFormatting,
   Field,
-  FormulaField,
   ITableFieldPersistenceDTO,
   ITablePersistenceDTO,
   ITableRecordRealtimeDTO,
-  LastModifiedByField,
-  LastModifiedTimeField,
-  LinkField,
-  LookupField,
-  MultipleSelectField,
-  NumberField,
-  NumberFormatting,
-  RatingField,
-  RollupField,
-  SelectOption,
-  SingleLineTextField,
-  SingleSelectField,
   Table as TableAggregate,
-  UserField,
   View,
   ViewColumnMetaValue,
 } from '@teable/v2-core';
@@ -48,7 +28,7 @@ import {
 import type { ColumnDef, Row, RowSelectionState } from '@tanstack/react-table';
 import { Link } from '@tanstack/react-router';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { JsonView } from 'react-json-view-lite';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
@@ -96,6 +76,7 @@ import { cn } from '@/lib/utils';
 import type { ShareDbDocStatus } from '@/lib/shareDb';
 import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 import { renderFieldOptions } from './fieldOptionsVisitor';
+import { formatRecordValue, stringifyRecordValue } from './recordValueVisitor';
 import { SchemaCheckPanel } from './SchemaCheckPanel';
 import { MetaCheckPanel } from './MetaCheckPanel';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
@@ -131,517 +112,6 @@ const formatOptionalNumber = (value: number | undefined): string => {
 const formatOptionalString = (value: string | null | undefined): string => {
   if (value === undefined || value === null) return '-';
   return value;
-};
-
-type FormattedRecordValue = {
-  text: string;
-  node: ReactNode;
-  cellClassName?: string;
-};
-
-const emptyRecordValue: FormattedRecordValue = {
-  text: '-',
-  node: <span className="text-xs text-muted-foreground">-</span>,
-  cellClassName: 'text-muted-foreground',
-};
-
-const isEmptyRecordValue = (value: unknown): boolean =>
-  value === undefined ||
-  value === null ||
-  value === '' ||
-  (Array.isArray(value) && value.length === 0);
-
-const stringifyRecordValue = (value: unknown): string => {
-  if (value === undefined || value === null) return '';
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
-    return value.toString();
-  }
-  try {
-    const json = JSON.stringify(value);
-    return json ?? String(value);
-  } catch {
-    return String(value);
-  }
-};
-
-const formatTextCellValue = (text: string, cellClassName = 'truncate'): FormattedRecordValue => {
-  if (!text) return emptyRecordValue;
-  return {
-    text,
-    node: text,
-    cellClassName,
-  };
-};
-
-const formatBadgeListValue = (
-  labels: string[],
-  options?: {
-    variant?: 'secondary' | 'outline' | 'default' | 'destructive';
-    maxBadges?: number;
-  }
-): FormattedRecordValue => {
-  if (!labels.length) return emptyRecordValue;
-  const maxBadges = options?.maxBadges ?? 3;
-  const visible = labels.slice(0, maxBadges);
-  const remaining = labels.length - visible.length;
-  const renderLabels = remaining > 0 ? [...visible, `+${remaining}`] : visible;
-  return {
-    text: labels.join(', '),
-    node: (
-      <div className="flex flex-wrap gap-1">
-        {renderLabels.map((label, index) => (
-          <Badge key={`${label}-${index}`} variant={options?.variant ?? 'secondary'}>
-            {label}
-          </Badge>
-        ))}
-      </div>
-    ),
-    cellClassName: 'whitespace-normal',
-  };
-};
-
-const resolveNumberValue = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-};
-
-const resolveBooleanValue = (value: unknown): boolean | null => {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') {
-    if (value.toLowerCase() === 'true') return true;
-    if (value.toLowerCase() === 'false') return false;
-  }
-  return null;
-};
-
-const formatNumberText = (value: number, formatting: NumberFormatting): string => {
-  const dto = formatting.toDto();
-  const precision = dto.precision ?? 0;
-
-  if (dto.type === 'percent') {
-    const formatter = new Intl.NumberFormat(undefined, {
-      style: 'percent',
-      minimumFractionDigits: precision,
-      maximumFractionDigits: precision,
-    });
-    return formatter.format(value);
-  }
-
-  const formatter = new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-  });
-
-  if (dto.type === 'currency') {
-    const symbol = dto.symbol ?? '$';
-    const sign = value < 0 ? '-' : '';
-    return `${sign}${symbol}${formatter.format(Math.abs(value))}`;
-  }
-
-  return formatter.format(value);
-};
-
-const formatDateTimeText = (value: unknown, formatting: DateTimeFormatting): string | null => {
-  if (value === undefined || value === null) return null;
-  const date =
-    value instanceof Date
-      ? value
-      : typeof value === 'string' || typeof value === 'number'
-        ? new Date(value)
-        : null;
-  if (!date || Number.isNaN(date.getTime())) return null;
-
-  const dto = formatting.toDto();
-  const timeZone = dto.timeZone === 'utc' ? 'UTC' : dto.timeZone;
-
-  try {
-    const parts = new Intl.DateTimeFormat(undefined, {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).formatToParts(date);
-
-    const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? '';
-    const year = Number(part('year'));
-    const month = Number(part('month'));
-    const day = Number(part('day'));
-    const hour24 = Number(part('hour'));
-    const minute = Number(part('minute'));
-    const hour12 = hour24 % 12 || 12;
-    const dayPeriod = hour24 >= 12 ? 'PM' : 'AM';
-
-    const pad2 = (val: number) => String(val).padStart(2, '0');
-    const tokens: Record<string, string> = {
-      YYYY: String(year),
-      MM: pad2(month),
-      M: String(month),
-      DD: pad2(day),
-      D: String(day),
-      HH: pad2(hour24),
-      hh: pad2(hour12),
-      mm: pad2(minute),
-      A: dayPeriod,
-    };
-
-    const formatWithTokens = (pattern: string) =>
-      pattern.replace(/YYYY|MM|DD|HH|hh|mm|M|D|A/g, (match) => tokens[match] ?? match);
-
-    const dateText = formatWithTokens(dto.date);
-    if (dto.time === 'None') return dateText;
-    const timeText = formatWithTokens(dto.time);
-    return `${dateText} ${timeText}`.trim();
-  } catch {
-    return date.toISOString();
-  }
-};
-
-const formatBooleanValue = (value: unknown): FormattedRecordValue => {
-  const bool = resolveBooleanValue(value);
-  if (bool !== null) {
-    return formatBadgeListValue([bool ? 'Yes' : 'No'], { variant: 'outline' });
-  }
-  if (Array.isArray(value)) {
-    const labels = value
-      .map((entry) => resolveBooleanValue(entry))
-      .filter((entry): entry is boolean => entry !== null)
-      .map((entry) => (entry ? 'Yes' : 'No'));
-    return formatBadgeListValue(labels, { variant: 'outline' });
-  }
-  return formatTextCellValue(stringifyRecordValue(value));
-};
-
-type SelectOptionLookup = {
-  byId: Map<string, SelectOption>;
-  byName: Map<string, SelectOption>;
-};
-
-const buildSelectLookup = (options: ReadonlyArray<SelectOption>): SelectOptionLookup => ({
-  byId: new Map(options.map((option) => [option.id().toString(), option])),
-  byName: new Map(options.map((option) => [option.name().toString(), option])),
-});
-
-const resolveSelectLabel = (lookup: SelectOptionLookup, value: unknown): string | null => {
-  if (value === undefined || value === null) return null;
-
-  if (typeof value === 'string') {
-    return (
-      lookup.byId.get(value)?.name().toString() ??
-      lookup.byName.get(value)?.name().toString() ??
-      value
-    );
-  }
-
-  if (typeof value === 'object') {
-    const candidate = value as { id?: unknown; name?: unknown };
-    if (typeof candidate.name === 'string') return candidate.name;
-    if (typeof candidate.id === 'string') {
-      return lookup.byId.get(candidate.id)?.name().toString() ?? candidate.id;
-    }
-  }
-
-  return stringifyRecordValue(value);
-};
-
-const resolveUserLabel = (value: unknown): string | null => {
-  if (value === undefined || value === null) return null;
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') {
-    const candidate = value as { title?: unknown; name?: unknown; email?: unknown; id?: unknown };
-    if (typeof candidate.title === 'string') return candidate.title;
-    if (typeof candidate.name === 'string') return candidate.name;
-    if (typeof candidate.email === 'string') return candidate.email;
-    if (typeof candidate.id === 'string') return candidate.id;
-  }
-  return stringifyRecordValue(value);
-};
-
-const resolveAttachmentLabel = (value: unknown): string | null => {
-  if (value === undefined || value === null) return null;
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') {
-    const candidate = value as { name?: unknown; id?: unknown };
-    if (typeof candidate.name === 'string') return candidate.name;
-    if (typeof candidate.id === 'string') return candidate.id;
-  }
-  return stringifyRecordValue(value);
-};
-
-const resolveLinkLabel = (value: unknown): string | null => {
-  if (value === undefined || value === null) return null;
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') {
-    const candidate = value as { title?: unknown; name?: unknown; id?: unknown };
-    if (typeof candidate.title === 'string') return candidate.title;
-    if (typeof candidate.name === 'string') return candidate.name;
-    if (typeof candidate.id === 'string') return candidate.id;
-  }
-  return stringifyRecordValue(value);
-};
-
-export const formatRecordValue = (field: Field, value: unknown): FormattedRecordValue => {
-  if (isEmptyRecordValue(value)) return emptyRecordValue;
-
-  const fieldType = field.type().toString();
-  if (fieldType === 'singleLineText') {
-    const textField = field as SingleLineTextField;
-    const text = stringifyRecordValue(value);
-    const showAs = textField.showAs()?.type();
-    if (!text) return emptyRecordValue;
-
-    if (showAs === 'url') {
-      const href = /^https?:\/\//i.test(text) ? text : `https://${text}`;
-      return {
-        text,
-        node: (
-          <a href={href} target="_blank" rel="noreferrer" className="text-primary underline">
-            {text}
-          </a>
-        ),
-        cellClassName: 'truncate',
-      };
-    }
-
-    if (showAs === 'email') {
-      return {
-        text,
-        node: (
-          <a href={`mailto:${text}`} className="text-primary underline">
-            {text}
-          </a>
-        ),
-        cellClassName: 'truncate',
-      };
-    }
-
-    if (showAs === 'phone') {
-      return {
-        text,
-        node: (
-          <a href={`tel:${text}`} className="text-primary underline">
-            {text}
-          </a>
-        ),
-        cellClassName: 'truncate',
-      };
-    }
-
-    return formatTextCellValue(text);
-  }
-
-  if (fieldType === 'longText') {
-    const text = stringifyRecordValue(value);
-    return formatTextCellValue(text);
-  }
-
-  if (fieldType === 'number') {
-    const number = resolveNumberValue(value);
-    if (number === null) return formatTextCellValue(stringifyRecordValue(value));
-    const numberField = field as NumberField;
-    return formatTextCellValue(
-      formatNumberText(number, numberField.formatting()),
-      'text-right tabular-nums whitespace-nowrap'
-    );
-  }
-
-  if (fieldType === 'autoNumber') {
-    const number = resolveNumberValue(value);
-    if (number === null) return formatTextCellValue(stringifyRecordValue(value));
-    return formatTextCellValue(number.toString(), 'text-right tabular-nums whitespace-nowrap');
-  }
-
-  if (fieldType === 'rating') {
-    const rating = resolveNumberValue(value);
-    if (rating === null) return formatTextCellValue(stringifyRecordValue(value));
-    const ratingField = field as RatingField;
-    const max = ratingField.ratingMax().toNumber();
-    return formatTextCellValue(`${rating} / ${max}`, 'text-right tabular-nums whitespace-nowrap');
-  }
-
-  if (fieldType === 'checkbox') {
-    return formatBooleanValue(value);
-  }
-
-  if (fieldType === 'date') {
-    const dateField = field as DateField;
-    const formatted = formatDateTimeText(value, dateField.formatting());
-    return formatted
-      ? formatTextCellValue(formatted, 'font-mono text-xs whitespace-nowrap')
-      : emptyRecordValue;
-  }
-
-  if (fieldType === 'createdTime') {
-    const timeField = field as CreatedTimeField;
-    const formatted = formatDateTimeText(value, timeField.formatting());
-    return formatted
-      ? formatTextCellValue(formatted, 'font-mono text-xs whitespace-nowrap')
-      : emptyRecordValue;
-  }
-
-  if (fieldType === 'lastModifiedTime') {
-    const timeField = field as LastModifiedTimeField;
-    const formatted = formatDateTimeText(value, timeField.formatting());
-    return formatted
-      ? formatTextCellValue(formatted, 'font-mono text-xs whitespace-nowrap')
-      : emptyRecordValue;
-  }
-
-  if (fieldType === 'singleSelect') {
-    const selectField = field as SingleSelectField;
-    const lookup = buildSelectLookup(selectField.selectOptions());
-    const label = resolveSelectLabel(lookup, value);
-    return label ? formatBadgeListValue([label], { variant: 'secondary' }) : emptyRecordValue;
-  }
-
-  if (fieldType === 'multipleSelect') {
-    const selectField = field as MultipleSelectField;
-    const lookup = buildSelectLookup(selectField.selectOptions());
-    const values = Array.isArray(value) ? value : [value];
-    const labels = values
-      .map((entry) => resolveSelectLabel(lookup, entry))
-      .filter((entry): entry is string => Boolean(entry));
-    return formatBadgeListValue(labels, { variant: 'secondary' });
-  }
-
-  if (fieldType === 'user') {
-    const userField = field as UserField;
-    const values = userField.multiplicity().toBoolean()
-      ? Array.isArray(value)
-        ? value
-        : [value]
-      : Array.isArray(value)
-        ? value.slice(0, 1)
-        : [value];
-    const labels = values
-      .map((entry) => resolveUserLabel(entry))
-      .filter((entry): entry is string => Boolean(entry));
-    return formatBadgeListValue(labels, { variant: 'outline' });
-  }
-
-  if (fieldType === 'createdBy' || fieldType === 'lastModifiedBy') {
-    const values = Array.isArray(value) ? value : [value];
-    const labels = values
-      .map((entry) => resolveUserLabel(entry))
-      .filter((entry): entry is string => Boolean(entry));
-    return formatBadgeListValue(labels, { variant: 'outline' });
-  }
-
-  if (fieldType === 'attachment') {
-    const attachments = Array.isArray(value) ? value : [value];
-    const labels = attachments
-      .map((entry) => resolveAttachmentLabel(entry))
-      .filter((entry): entry is string => Boolean(entry));
-    if (!labels.length) return emptyRecordValue;
-    if (labels.length === 1) return formatBadgeListValue([labels[0]], { variant: 'outline' });
-    return {
-      text: labels.join(', '),
-      node: <Badge variant="outline">{`${labels.length} files`}</Badge>,
-      cellClassName: 'whitespace-nowrap',
-    };
-  }
-
-  if (fieldType === 'button') {
-    const buttonField = field as ButtonField;
-    const label = buttonField.label().toString();
-    const count =
-      typeof value === 'object' && value !== null && 'count' in value
-        ? Number((value as { count?: unknown }).count)
-        : resolveNumberValue(value);
-    const text =
-      typeof count === 'number' && Number.isFinite(count) ? `${label} (${count})` : label;
-    return {
-      text,
-      node: <Badge variant="outline">{text}</Badge>,
-      cellClassName: 'whitespace-nowrap',
-    };
-  }
-
-  if (fieldType === 'link') {
-    const linkField = field as LinkField;
-    const values = linkField.isMultipleValue()
-      ? Array.isArray(value)
-        ? value
-        : [value]
-      : Array.isArray(value)
-        ? value.slice(0, 1)
-        : [value];
-    const labels = values
-      .map((entry) => resolveLinkLabel(entry))
-      .filter((entry): entry is string => Boolean(entry));
-    return formatBadgeListValue(labels, { variant: 'outline' });
-  }
-
-  if (fieldType === 'lookup') {
-    const lookupField = field as LookupField;
-    const values = Array.isArray(value) ? value : [value];
-    const innerFieldResult = lookupField.innerField();
-    if (innerFieldResult.isErr()) {
-      const labels = values
-        .map((entry) => stringifyRecordValue(entry))
-        .filter((entry): entry is string => Boolean(entry));
-      return formatBadgeListValue(labels, { variant: 'secondary' });
-    }
-
-    const innerField = innerFieldResult.value;
-    const labels = values
-      .map((entry) => {
-        if (isEmptyRecordValue(entry)) return null;
-        const formatted = formatRecordValue(innerField, entry);
-        return formatted.text || stringifyRecordValue(entry);
-      })
-      .filter((entry): entry is string => Boolean(entry));
-    return formatBadgeListValue(labels, { variant: 'secondary' });
-  }
-
-  if (fieldType === 'formula' || fieldType === 'rollup') {
-    const computedField = field as FormulaField | RollupField;
-    const valueTypeResult = computedField.cellValueType();
-    if (valueTypeResult.isOk()) {
-      const valueType = valueTypeResult.value.toString();
-      const formatting = computedField.formatting();
-
-      if (valueType === 'number') {
-        const number = resolveNumberValue(value);
-        if (number === null) return formatTextCellValue(stringifyRecordValue(value));
-        if (formatting) {
-          const dto = formatting.toDto();
-          if ('precision' in dto) {
-            return formatTextCellValue(
-              formatNumberText(number, formatting as NumberFormatting),
-              'text-right tabular-nums whitespace-nowrap'
-            );
-          }
-        }
-        return formatTextCellValue(number.toString(), 'text-right tabular-nums whitespace-nowrap');
-      }
-
-      if (valueType === 'dateTime' && formatting) {
-        const dto = formatting.toDto();
-        if ('date' in dto) {
-          const formatted = formatDateTimeText(value, formatting as DateTimeFormatting);
-          if (formatted)
-            return formatTextCellValue(formatted, 'font-mono text-xs whitespace-nowrap');
-        }
-      }
-
-      if (valueType === 'boolean') {
-        return formatBooleanValue(value);
-      }
-    }
-
-    return formatTextCellValue(stringifyRecordValue(value));
-  }
-
-  return formatTextCellValue(stringifyRecordValue(value));
 };
 
 const formatColumnMetaExtras = (entry: ViewColumnMetaValue[string]): string => {
@@ -1805,31 +1275,39 @@ function TableRecordsCard({
                 ? formattedValue.text
                 : resolveRecordLabel(row.original);
             return (
-              <Link
-                to={env.routes.record}
-                params={{ baseId, tableId, recordId: row.original.id }}
-                search={(prev) => prev}
-                className={cn(
-                  'max-w-[240px] text-left text-primary underline underline-offset-2 hover:text-primary/80',
-                  formattedValue.cellClassName
-                )}
-                title={label}
-              >
-                {label}
-              </Link>
+              <div className="relative w-full min-w-0 group">
+                <Link
+                  to={env.routes.record}
+                  params={{ baseId, tableId, recordId: row.original.id }}
+                  search={(prev) => prev}
+                  className="absolute inset-0"
+                  aria-label={label}
+                >
+                  <span className="sr-only">{label}</span>
+                </Link>
+                <span
+                  className={cn(
+                    'block truncate text-left text-primary underline underline-offset-2 group-hover:text-primary/80',
+                    formattedValue.cellClassName
+                  )}
+                  title={label}
+                >
+                  {label}
+                </span>
+              </div>
             );
           }
 
           return (
             <div
-              className={cn('max-w-[240px]', formattedValue.cellClassName)}
+              className={cn('max-w-[220px] min-w-0 truncate', formattedValue.cellClassName)}
               title={formattedValue.text}
             >
               {formattedValue.node}
             </div>
           );
         },
-        size: isPrimary ? 180 : 150,
+        size: isPrimary ? 150 : 150,
       };
     });
 

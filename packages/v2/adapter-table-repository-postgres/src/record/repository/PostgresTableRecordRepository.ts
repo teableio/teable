@@ -6,7 +6,7 @@ import {
   v2CoreTokens,
   type DomainError,
   type IHasher,
-  generatePrefixedId,
+  generateUuid,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -482,7 +482,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
         : undefined,
       hasher: this.hasher,
-      runId: generatePrefixedId('run', 16),
+      runId: context.requestId ?? generateUuid(),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -549,7 +549,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       changedFieldIds,
       changeType,
       hasher: this.hasher,
-      runId: generatePrefixedId('run', 16),
+      runId: context.requestId ?? generateUuid(),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -616,7 +616,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
         : undefined,
       hasher: this.hasher,
-      runId: generatePrefixedId('run', 16),
+      runId: context.requestId ?? generateUuid(),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
@@ -670,7 +670,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       changedFieldIds,
       changeType: 'delete',
       hasher: this.hasher,
-      runId: generatePrefixedId('run', 16),
+      runId: context.requestId ?? generateUuid(),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker

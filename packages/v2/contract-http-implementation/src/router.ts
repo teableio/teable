@@ -76,15 +76,18 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throw new ORPCError('INTERNAL_SERVER_ERROR', { message });
   };
 
+  const resolveContainer = async (): Promise<IHandlerResolver> => {
+    try {
+      return await Promise.resolve(createContainer());
+    } catch (error) {
+      return handleContainerError(error);
+    }
+  };
+
   const os = implement(v2Contract);
 
   const basesCreate = os.bases.create.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -114,12 +117,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const basesList = os.bases.list.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -149,12 +147,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesCreate = os.tables.create.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -184,12 +177,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesCreateTables = os.tables.createTables.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -219,12 +207,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesCreateField = os.tables.createField.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -261,12 +244,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesCreateRecord = os.tables.createRecord.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -303,12 +281,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesCreateRecords = os.tables.createRecords.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -345,12 +318,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesUpdateRecord = os.tables.updateRecord.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -387,12 +355,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesDeleteRecords = os.tables.deleteRecords.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -429,12 +392,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesDeleteField = os.tables.deleteField.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -471,12 +429,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesGetById = os.tables.getById.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -513,12 +466,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesGetRecord = os.tables.getRecord.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -555,12 +503,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesDelete = os.tables.delete.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -597,12 +540,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesList = os.tables.list.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -632,12 +570,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesListRecords = os.tables.listRecords.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -674,12 +607,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesRename = os.tables.rename.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -716,12 +644,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesImportCsv = os.tables.importCsv.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -758,12 +681,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesExplainCreateRecord = os.tables.explainCreateRecord.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -806,12 +724,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesExplainUpdateRecord = os.tables.explainUpdateRecord.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {
@@ -854,12 +767,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   });
 
   const tablesExplainDeleteRecords = os.tables.explainDeleteRecords.handler(async ({ input }) => {
-    let container: IHandlerResolver;
-    try {
-      container = await createContainer();
-    } catch (error) {
-      handleContainerError(error);
-    }
+    const container = await resolveContainer();
 
     let executionContext: IExecutionContext;
     try {

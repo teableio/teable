@@ -489,8 +489,8 @@ describe('v2 http createTable (e2e)', () => {
       //    - B1's symmetric link shows [A1]
       //    - B2's symmetric link shows [A1]
 
-      const tableAId = `tbl${'a'.repeat(16)}`;
-      const tableBId = `tbl${'b'.repeat(16)}`;
+      const tableAId = `tbl${'c'.repeat(16)}`;
+      const tableBId = `tbl${'d'.repeat(16)}`;
       const aPrimaryFieldId = createFieldId();
       const bPrimaryFieldId = createFieldId();
       const aLinkFieldId = createFieldId();
