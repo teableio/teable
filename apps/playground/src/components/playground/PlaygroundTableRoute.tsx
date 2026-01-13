@@ -2,7 +2,11 @@ import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate } from '@tanstack/react-router';
 import { mapTableDtoToDomain, type IListTablesOkResponseDto } from '@teable/v2-contract-http';
-import { type ITableFieldPersistenceDTO, type ITablePersistenceDTO } from '@teable/v2-core';
+import type {
+  ITableFieldPersistenceDTO,
+  ITablePersistenceDTO,
+  ITableRecordRealtimeDTO,
+} from '@teable/v2-core';
 import { tableTemplates, type TableTemplateDefinition } from '@teable/v2-table-templates';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -300,6 +304,24 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const realtimeDoc = isSandbox ? broadcastDoc : shareDbDoc;
   const realtimeFields = isSandbox ? broadcastFields : shareDbFields;
 
+  // Record realtime subscription
+  const realtimeRecordCollection = useMemo(() => `rec_${tableId}`, [tableId]);
+  const shareDbRecords = useShareDbQuery<ITableRecordRealtimeDTO>({
+    collection: realtimeRecordCollection,
+    query: {},
+    enabled: !isSandbox,
+    filter: (doc) => {
+      const data = doc.data as { id?: unknown } | null | undefined;
+      return Boolean(doc.type) && typeof data?.id === 'string';
+    },
+  });
+  const broadcastRecords = useBroadcastChannelQuery<ITableRecordRealtimeDTO>({
+    collection: realtimeRecordCollection,
+    enabled: isSandbox,
+    getId: (snapshot) => snapshot.id,
+  });
+  const realtimeRecords = isSandbox ? broadcastRecords : shareDbRecords;
+
   const tableQuery = useQuery(
     orpc.tables.getById.queryOptions({
       input: {
@@ -339,6 +361,56 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const recordsError = recordsQuery.error
     ? getErrorMessage(recordsQuery.error, 'Failed to load records')
     : null;
+
+  // Sync realtime records data to TanStack Query cache
+  useEffect(() => {
+    if (!realtimeRecords.data || realtimeRecords.data.length === 0) return;
+
+    const queryKey = orpc.tables.listRecords.queryOptions({
+      input: {
+        tableId,
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+      },
+    }).queryKey;
+
+    type RecordsQueryData = {
+      ok: true;
+      data: {
+        records: Array<{ id: string; fields: Record<string, unknown> }>;
+        pagination: unknown;
+      };
+    };
+
+    queryClient.setQueryData<RecordsQueryData | undefined>(queryKey, (oldData) => {
+      if (!oldData?.data?.records) return oldData;
+
+      // Create a map of realtime records by id for quick lookup
+      const realtimeMap = new Map(realtimeRecords.data.map((r) => [r.id, r]));
+
+      // Update records with realtime data
+      const updatedRecords = oldData.data.records.map((record) => {
+        const realtimeRecord = realtimeMap.get(record.id);
+        if (!realtimeRecord) return record;
+
+        return {
+          ...record,
+          fields: {
+            ...record.fields,
+            ...realtimeRecord.fields,
+          },
+        };
+      });
+
+      return {
+        ...oldData,
+        data: {
+          ...oldData.data,
+          records: updatedRecords,
+        },
+      };
+    });
+  }, [realtimeRecords.data, queryClient, orpc, tableId, pageSize, pageIndex]);
 
   // Pagination change handler
   const handlePaginationChange = useCallback(
@@ -446,6 +518,9 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       realtimeFieldSnapshots={realtimeFields.data}
       realtimeFieldStatus={realtimeFields.status}
       realtimeFieldError={realtimeFields.error}
+      realtimeRecordSnapshots={realtimeRecords.data}
+      realtimeRecordStatus={realtimeRecords.status}
+      realtimeRecordError={realtimeRecords.error}
       isInitialLoading={isInitialLoading}
       isLoading={isLoading}
       isCreating={isCreating}

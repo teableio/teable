@@ -15,6 +15,7 @@ import type {
   FormulaField,
   ITableFieldPersistenceDTO,
   ITablePersistenceDTO,
+  ITableRecordRealtimeDTO,
   LastModifiedByField,
   LastModifiedTimeField,
   LinkField,
@@ -703,6 +704,9 @@ type TableMetaPageProps = {
   realtimeFieldSnapshots: ReadonlyArray<ITableFieldPersistenceDTO>;
   realtimeFieldStatus: ShareDbDocStatus;
   realtimeFieldError: string | null;
+  realtimeRecordSnapshots: ReadonlyArray<ITableRecordRealtimeDTO>;
+  realtimeRecordStatus: ShareDbDocStatus;
+  realtimeRecordError: string | null;
   isInitialLoading: boolean;
   isLoading: boolean;
   records: ReadonlyArray<ITableRecordDto> | null;
@@ -742,6 +746,9 @@ export function TableMetaPage({
   realtimeFieldSnapshots,
   realtimeFieldStatus,
   realtimeFieldError,
+  realtimeRecordSnapshots,
+  realtimeRecordStatus,
+  realtimeRecordError,
   isInitialLoading,
   isLoading,
   records,
@@ -925,6 +932,9 @@ export function TableMetaPage({
                     realtimeFieldSnapshots={realtimeFieldSnapshots}
                     realtimeFieldStatus={realtimeFieldStatus}
                     realtimeFieldError={realtimeFieldError}
+                    realtimeRecordSnapshots={realtimeRecordSnapshots}
+                    realtimeRecordStatus={realtimeRecordStatus}
+                    realtimeRecordError={realtimeRecordError}
                   />
                 </div>
               </ScrollArea>
@@ -1391,6 +1401,9 @@ type PlaygroundRealtimeLayoutProps = {
   realtimeFieldSnapshots: ReadonlyArray<ITableFieldPersistenceDTO>;
   realtimeFieldStatus: ShareDbDocStatus;
   realtimeFieldError: string | null;
+  realtimeRecordSnapshots: ReadonlyArray<ITableRecordRealtimeDTO>;
+  realtimeRecordStatus: ShareDbDocStatus;
+  realtimeRecordError: string | null;
 };
 
 function PlaygroundRealtimeLayout({
@@ -1400,6 +1413,9 @@ function PlaygroundRealtimeLayout({
   realtimeFieldSnapshots,
   realtimeFieldStatus,
   realtimeFieldError,
+  realtimeRecordSnapshots,
+  realtimeRecordStatus,
+  realtimeRecordError,
 }: PlaygroundRealtimeLayoutProps) {
   return (
     <div className="space-y-6 min-w-0">
@@ -1413,6 +1429,11 @@ function PlaygroundRealtimeLayout({
         snapshots={realtimeFieldSnapshots}
         status={realtimeFieldStatus}
         error={realtimeFieldError}
+      />
+      <RealtimeRecordsCard
+        snapshots={realtimeRecordSnapshots}
+        status={realtimeRecordStatus}
+        error={realtimeRecordError}
       />
     </div>
   );
@@ -2185,6 +2206,23 @@ function RealtimeFieldsCard({ snapshots, status, error }: RealtimeFieldsCardProp
       status={status}
       error={error}
       title="ShareDB Field Query"
+    />
+  );
+}
+
+type RealtimeRecordsCardProps = {
+  snapshots: ReadonlyArray<ITableRecordRealtimeDTO>;
+  status: ShareDbDocStatus;
+  error: string | null;
+};
+
+function RealtimeRecordsCard({ snapshots, status, error }: RealtimeRecordsCardProps) {
+  return (
+    <RealtimeSnapshotCard
+      snapshot={snapshots}
+      status={status}
+      error={error}
+      title="ShareDB Record Query"
     />
   );
 }

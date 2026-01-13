@@ -51,9 +51,16 @@ const acquireConnection = (url: string): SharedConnection => {
   const existing = connections.get(url);
   if (existing) {
     existing.refs += 1;
+    console.log('[ShareDB] reusing existing connection', { url, refs: existing.refs });
     return existing;
   }
+  console.log('[ShareDB] creating new connection', { url });
   const socket = new WebSocket(url);
+  socket.onopen = () => console.log('[ShareDB] WebSocket opened', { url });
+  socket.onclose = (e) =>
+    console.log('[ShareDB] WebSocket closed', { url, code: e.code, reason: e.reason });
+  socket.onerror = (e) => console.error('[ShareDB] WebSocket error', { url, error: e });
+  socket.onmessage = (e) => console.log('[ShareDB] WebSocket message', { url, data: e.data });
   const connection = new Connection(socket as Socket);
   const shared = { url, socket, connection, refs: 1 };
   connections.set(url, shared);
@@ -103,8 +110,16 @@ export const useShareDbDoc = <T>(params: {
     let lastUpdateTime = 0;
     const UPDATE_THROTTLE_MS = 16; // ~60fps
 
-    const updateSnapshot = () => {
+    const updateSnapshot = (source?: string) => {
       if (!isActive) return;
+
+      console.log(`[ShareDB] updateSnapshot called from ${source}`, {
+        collection,
+        docId,
+        docType: doc.type,
+        docData: doc.data,
+        docVersion: doc.version,
+      });
 
       const now = Date.now();
       const timeSinceLastUpdate = now - lastUpdateTime;
@@ -128,20 +143,34 @@ export const useShareDbDoc = <T>(params: {
 
     const doUpdateSnapshot = () => {
       lastUpdateTime = Date.now();
+      console.log('[ShareDB] doUpdateSnapshot', {
+        collection,
+        docId,
+        data: doc.data,
+      });
       setState({ status: 'ready', data: doc.data ?? null, error: null });
     };
 
     const handleError = (error: unknown) => {
       if (!isActive) return;
+      console.error('[ShareDB] error', { collection, docId, error });
       setState({ status: 'error', data: null, error: toErrorMessage(error) });
     };
 
     doc.subscribe((error) => {
+      console.log('[ShareDB] subscribe callback', {
+        collection,
+        docId,
+        error,
+        docType: doc.type,
+        docData: doc.data,
+        docVersion: doc.version,
+      });
       if (error) {
         handleError(error);
         return;
       }
-      updateSnapshot();
+      updateSnapshot('subscribe');
     });
 
     const onConnectionError = (error: unknown) => {
@@ -149,16 +178,19 @@ export const useShareDbDoc = <T>(params: {
     };
 
     connection.on('error', onConnectionError);
-    doc.on('create', updateSnapshot);
-    doc.on('op', updateSnapshot);
-    doc.on('del', updateSnapshot);
+    doc.on('create', () => updateSnapshot('create'));
+    doc.on('op', (op) => {
+      console.log('[ShareDB] received op', { collection, docId, op, docData: doc.data });
+      updateSnapshot('op');
+    });
+    doc.on('del', () => updateSnapshot('del'));
 
     return () => {
       isActive = false;
       connection.removeListener('error', onConnectionError);
-      doc.removeListener('create', updateSnapshot);
-      doc.removeListener('op', updateSnapshot);
-      doc.removeListener('del', updateSnapshot);
+      doc.removeListener('create', () => updateSnapshot('create'));
+      doc.removeListener('op', () => updateSnapshot('op'));
+      doc.removeListener('del', () => updateSnapshot('del'));
       doc.unsubscribe();
       doc.destroy();
       releaseConnection(wsUrl);
@@ -234,7 +266,15 @@ export const useShareDbQuery = <T>(params: {
 
     const attachDocListener = (doc: Doc<T>) => {
       if (docListeners.has(doc)) return;
-      const handler = () => updateResults();
+      const handler = () => {
+        console.log('[ShareDB Query] doc event', {
+          collection,
+          docId: doc.id,
+          docType: doc.type,
+          docData: doc.data,
+        });
+        updateResults();
+      };
       docListeners.set(doc, handler);
       doc.on('create', handler);
       doc.on('op', handler);
@@ -292,6 +332,12 @@ export const useShareDbQuery = <T>(params: {
       const nextIds = new Set(ids);
       const removedIds = [...previousIdsRef.current].filter((id) => !nextIds.has(id));
       previousIdsRef.current = nextIds;
+      console.log('[ShareDB Query] doUpdateResults', {
+        collection,
+        docsCount: docs.length,
+        resultsCount: results.length,
+        ids,
+      });
       setState({
         status: 'ready',
         collection: subscribedCollection,
@@ -315,15 +361,27 @@ export const useShareDbQuery = <T>(params: {
       });
     };
 
-    subscribeQuery.on('ready', updateResults);
-    subscribeQuery.on('changed', updateResults);
+    subscribeQuery.on('ready', () => {
+      console.log('[ShareDB Query] ready', {
+        collection,
+        resultsCount: subscribeQuery.results?.length,
+      });
+      updateResults();
+    });
+    subscribeQuery.on('changed', () => {
+      console.log('[ShareDB Query] changed', {
+        collection,
+        resultsCount: subscribeQuery.results?.length,
+      });
+      updateResults();
+    });
     subscribeQuery.on('error', handleError);
 
     return () => {
       isActive = false;
-      subscribeQuery.removeListener('ready', updateResults);
-      subscribeQuery.removeListener('changed', updateResults);
-      subscribeQuery.removeListener('error', handleError);
+      subscribeQuery.removeAllListeners('ready');
+      subscribeQuery.removeAllListeners('changed');
+      subscribeQuery.removeAllListeners('error');
       for (const doc of docListeners.keys()) {
         detachDocListener(doc);
       }

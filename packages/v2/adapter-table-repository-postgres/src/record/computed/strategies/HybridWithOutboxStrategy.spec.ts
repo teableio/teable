@@ -5,6 +5,7 @@ import {
   NoopHasher,
   RecordId,
   TableId,
+  type IEventBus,
   type ILogger,
   ok,
 } from '@teable/v2-core';
@@ -93,15 +94,19 @@ const createUpdaterStub = () => {
 
 const createOutboxStub = () => {
   const enqueueOrMerge = vi.fn();
+  const enqueueSeedTask = vi.fn();
+  const enqueueFieldBackfill = vi.fn();
 
   const outbox: IComputedUpdateOutbox = {
     enqueueOrMerge,
+    enqueueSeedTask,
+    enqueueFieldBackfill,
     claimBatch: async () => ok([]),
     markDone: async () => ok(undefined),
     markFailed: async () => ok(undefined),
   };
 
-  return { outbox, enqueueOrMerge };
+  return { outbox, enqueueOrMerge, enqueueSeedTask, enqueueFieldBackfill };
 };
 
 const createWorkerStub = () => {
@@ -128,6 +133,11 @@ const createLogger = (): ILogger => ({
   scope: () => createLogger(),
 });
 
+const createEventBusStub = () =>
+  ({
+    publishMany: vi.fn().mockResolvedValue(ok(undefined)),
+  }) as unknown as IEventBus;
+
 describe('HybridWithOutboxStrategy', () => {
   it('syncs seed-table steps and enqueues remaining levels when threshold exceeded', async () => {
     const plan = createPlan();
@@ -145,7 +155,7 @@ describe('HybridWithOutboxStrategy', () => {
         ])
       )
     );
-    executePreparedSteps.mockResolvedValue(ok([]));
+    executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
     collectDirtySeedGroups.mockResolvedValue(ok([]));
     planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
     enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
@@ -165,7 +175,8 @@ describe('HybridWithOutboxStrategy', () => {
       },
       createLogger(),
       testHasher,
-      planner
+      planner,
+      createEventBusStub()
     );
     const actorId = ActorId.create('usr_test')._unsafeUnwrap();
 
@@ -199,7 +210,7 @@ describe('HybridWithOutboxStrategy', () => {
         ])
       )
     );
-    executePreparedSteps.mockResolvedValue(ok([]));
+    executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
     collectDirtySeedGroups.mockResolvedValue(ok([]));
     planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
 
@@ -218,7 +229,8 @@ describe('HybridWithOutboxStrategy', () => {
       },
       createLogger(),
       testHasher,
-      planner
+      planner,
+      createEventBusStub()
     );
     const actorId = ActorId.create('usr_test')._unsafeUnwrap();
 
@@ -248,7 +260,7 @@ describe('HybridWithOutboxStrategy', () => {
         ])
       )
     );
-    executePreparedSteps.mockResolvedValue(ok([]));
+    executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
     collectDirtySeedGroups.mockResolvedValue(ok([]));
     planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
     enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
@@ -268,7 +280,8 @@ describe('HybridWithOutboxStrategy', () => {
       },
       createLogger(),
       testHasher,
-      planner
+      planner,
+      createEventBusStub()
     );
     const actorId = ActorId.create('usr_test')._unsafeUnwrap();
 
@@ -299,7 +312,7 @@ describe('HybridWithOutboxStrategy', () => {
         ])
       )
     );
-    executePreparedSteps.mockResolvedValue(ok([]));
+    executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
     collectDirtySeedGroups.mockResolvedValue(ok([]));
     planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
     enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
@@ -322,7 +335,8 @@ describe('HybridWithOutboxStrategy', () => {
         },
         createLogger(),
         testHasher,
-        planner
+        planner,
+        createEventBusStub()
       );
       const actorId = ActorId.create('usr_test')._unsafeUnwrap();
 

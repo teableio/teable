@@ -1,15 +1,21 @@
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { mapTableDtoToDomain, type ITableRecordDto } from '@teable/v2-contract-http';
-import type { Field, LinkField, Table as TableAggregate } from '@teable/v2-core';
+import type {
+  Field,
+  ITableRecordRealtimeDTO,
+  LinkField,
+  Table as TableAggregate,
+} from '@teable/v2-core';
 
 import { formatRecordValue } from '@/components/playground/TableMetaPage';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
-import { ArrowLeft, Pencil, TriangleAlert } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { ArrowLeft, Pencil, TriangleAlert, Radio } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { RecordUpdateDialog } from '@/components/playground/RecordUpdateDialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,8 +27,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useBroadcastChannelDoc } from '@/lib/broadcastChannel';
 import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
 import { usePlaygroundEnvironment } from '@/lib/playground/environment';
+import { useShareDbDoc, type ShareDbDocStatus } from '@/lib/shareDb';
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error) return error.message;
@@ -86,6 +94,7 @@ export function PlaygroundRecordRoute({ baseId, tableId, recordId }: PlaygroundR
   const navigate = useNavigate();
   const orpcClient = useOrpcClient();
   const orpc = createTanstackQueryUtils(orpcClient);
+  const queryClient = useQueryClient();
 
   const tableQuery = useQuery(
     orpc.tables.getById.queryOptions({
@@ -103,6 +112,59 @@ export function PlaygroundRecordRoute({ baseId, tableId, recordId }: PlaygroundR
       select: (response) => response.data.record,
     })
   );
+
+  // Realtime subscription for single record
+  const isSandbox = env.kind === 'sandbox';
+  const realtimeRecordCollection = useMemo(() => `rec_${tableId}`, [tableId]);
+
+  const shareDbRecord = useShareDbDoc<ITableRecordRealtimeDTO>({
+    collection: realtimeRecordCollection,
+    docId: recordId,
+    enabled: !isSandbox && !!tableId && !!recordId,
+  });
+
+  const broadcastRecord = useBroadcastChannelDoc<ITableRecordRealtimeDTO>({
+    collection: realtimeRecordCollection,
+    docId: recordId,
+    enabled: isSandbox && !!tableId && !!recordId,
+  });
+
+  const realtimeRecord = isSandbox ? broadcastRecord : shareDbRecord;
+
+  // Sync realtime data to TanStack Query cache
+  useEffect(() => {
+    if (!realtimeRecord.data) return;
+
+    const queryKey = orpc.tables.getRecord.queryOptions({
+      input: { tableId, recordId },
+    }).queryKey;
+
+    type RecordQueryData = { ok: true; data: { record: ITableRecordDto } };
+
+    queryClient.setQueryData<RecordQueryData | undefined>(queryKey, (oldData) => {
+      if (!oldData?.data?.record) return oldData;
+
+      // Merge realtime fields into cached record
+      return {
+        ...oldData,
+        data: {
+          ...oldData.data,
+          record: {
+            ...oldData.data.record,
+            fields: {
+              ...oldData.data.record.fields,
+              ...realtimeRecord.data!.fields,
+            },
+          },
+        },
+      };
+    });
+  }, [realtimeRecord.data, queryClient, orpc, tableId, recordId]);
+
+  console.log('[PlaygroundRecordRoute] render', {
+    realtimeRecordData: realtimeRecord.data,
+    realtimeRecordStatus: realtimeRecord.status,
+  });
 
   const tableResult = useMemo(
     () => (tableQuery.data ? mapTableDtoToDomain(tableQuery.data) : null),
@@ -156,7 +218,10 @@ export function PlaygroundRecordRoute({ baseId, tableId, recordId }: PlaygroundR
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Record detail</div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Record detail</span>
+              <RealtimeStatusBadge status={realtimeRecord.status} />
+            </div>
             <div className="text-base font-semibold">{recordId}</div>
           </div>
         </div>
@@ -200,13 +265,20 @@ export function PlaygroundRecordRoute({ baseId, tableId, recordId }: PlaygroundR
               </CardContent>
             </Card>
           ) : (
-            <RecordDetailCard
-              table={table}
-              record={record}
-              fields={sortedFields}
-              baseId={baseId}
-              resolveRecordHref={resolveRecordHref}
-            />
+            <>
+              <RecordDetailCard
+                table={table}
+                record={record}
+                fields={sortedFields}
+                baseId={baseId}
+                resolveRecordHref={resolveRecordHref}
+              />
+              <RealtimeRecordCard
+                realtimeRecord={realtimeRecord.data}
+                status={realtimeRecord.status}
+                error={realtimeRecord.error}
+              />
+            </>
           )}
           {table && record ? (
             <RecordUpdateDialog
@@ -309,6 +381,95 @@ function RecordDetailCard({
             })}
           </TableBody>
         </UITable>
+      </CardContent>
+    </Card>
+  );
+}
+
+type RealtimeStatusBadgeProps = {
+  status: ShareDbDocStatus;
+};
+
+function RealtimeStatusBadge({ status }: RealtimeStatusBadgeProps) {
+  const statusLabel =
+    status === 'ready'
+      ? 'Live'
+      : status === 'connecting'
+        ? 'Connecting'
+        : status === 'error'
+          ? 'Error'
+          : 'Idle';
+  const variant = status === 'ready' ? 'secondary' : status === 'error' ? 'destructive' : 'outline';
+
+  return (
+    <Badge
+      variant={variant}
+      className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider gap-1"
+    >
+      {status === 'ready' ? <Radio className="h-2.5 w-2.5 animate-pulse" /> : null}
+      {statusLabel}
+    </Badge>
+  );
+}
+
+type RealtimeRecordCardProps = {
+  realtimeRecord: ITableRecordRealtimeDTO | null;
+  status: ShareDbDocStatus;
+  error: string | null;
+};
+
+function RealtimeRecordCard({ realtimeRecord, status, error }: RealtimeRecordCardProps) {
+  console.log('[RealtimeRecordCard] render', { realtimeRecord, status, error });
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">Realtime Snapshot</CardTitle>
+          <RealtimeStatusBadge status={status} />
+        </div>
+      </CardHeader>
+      <CardContent>
+        {error ? (
+          <div className="text-sm text-destructive">Realtime error: {error}</div>
+        ) : !realtimeRecord ? (
+          <div className="text-sm text-muted-foreground">
+            {status === 'connecting' ? 'Connecting to ShareDB...' : 'Waiting for realtime data.'}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Record ID</span>
+              <code className="font-mono text-xs">{realtimeRecord.id}</code>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Table ID</span>
+              <code className="font-mono text-xs">{realtimeRecord.tableId}</code>
+            </div>
+            <div className="border-t pt-3">
+              <div className="text-sm font-medium mb-2">
+                Fields ({Object.keys(realtimeRecord.fields).length})
+              </div>
+              <div className="space-y-2 text-sm">
+                {Object.entries(realtimeRecord.fields).map(([fieldId, value]) => (
+                  <div key={fieldId} className="flex items-start justify-between gap-4">
+                    <code className="font-mono text-xs text-muted-foreground shrink-0">
+                      {fieldId}
+                    </code>
+                    <div className="text-right break-all">
+                      {value === null || value === undefined ? (
+                        <span className="text-muted-foreground">-</span>
+                      ) : typeof value === 'object' ? (
+                        <code className="font-mono text-xs">{JSON.stringify(value)}</code>
+                      ) : (
+                        <span>{String(value)}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

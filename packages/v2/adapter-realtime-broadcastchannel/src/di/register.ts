@@ -3,6 +3,10 @@ import {
   FieldDeletedRealtimeProjection,
   TableCreatedRealtimeProjection,
   ViewColumnMetaUpdatedRealtimeProjection,
+  RecordCreatedRealtimeProjection,
+  RecordUpdatedRealtimeProjection,
+  RecordsBatchUpdatedRealtimeProjection,
+  RecordsDeletedRealtimeProjection,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { ILogger } from '@teable/v2-core';
@@ -54,6 +58,20 @@ export const registerV2BroadcastChannelRealtime = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(ViewColumnMetaUpdatedRealtimeProjection, ViewColumnMetaUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+
+  // Record realtime projections
+  c.register(RecordCreatedRealtimeProjection, RecordCreatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(RecordUpdatedRealtimeProjection, RecordUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(RecordsBatchUpdatedRealtimeProjection, RecordsBatchUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(RecordsDeletedRealtimeProjection, RecordsDeletedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
 

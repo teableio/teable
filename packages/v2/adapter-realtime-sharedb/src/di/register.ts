@@ -3,6 +3,10 @@ import {
   FieldDeletedRealtimeProjection,
   TableCreatedRealtimeProjection,
   ViewColumnMetaUpdatedRealtimeProjection,
+  RecordCreatedRealtimeProjection,
+  RecordUpdatedRealtimeProjection,
+  RecordsBatchUpdatedRealtimeProjection,
+  RecordsDeletedRealtimeProjection,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -43,6 +47,20 @@ export const registerV2ShareDbRealtime = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(ViewColumnMetaUpdatedRealtimeProjection, ViewColumnMetaUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+
+  // Record realtime projections
+  c.register(RecordCreatedRealtimeProjection, RecordCreatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(RecordUpdatedRealtimeProjection, RecordUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(RecordsBatchUpdatedRealtimeProjection, RecordsBatchUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(RecordsDeletedRealtimeProjection, RecordsDeletedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
 

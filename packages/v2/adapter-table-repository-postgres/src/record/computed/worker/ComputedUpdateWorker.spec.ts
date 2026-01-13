@@ -45,6 +45,7 @@ const createBackfillService = (): ComputedFieldBackfillService =>
 const createEventBus = (): IEventBus =>
   ({
     publish: vi.fn(),
+    publishMany: vi.fn().mockResolvedValue(ok(undefined)),
   }) as unknown as IEventBus;
 
 const createLockResult = () =>
@@ -195,7 +196,7 @@ describe('ComputedUpdateWorker', () => {
       };
 
       const updater = createUpdaterStub({
-        execute: vi.fn().mockResolvedValue(ok(undefined)),
+        execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
         collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
       });
 
@@ -246,7 +247,7 @@ describe('ComputedUpdateWorker', () => {
       };
 
       const updater = createUpdaterStub({
-        execute: vi.fn().mockResolvedValue(ok(undefined)),
+        execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
         collectDirtySeedGroups: vi.fn().mockResolvedValue(ok([])),
       });
 
@@ -309,7 +310,7 @@ describe('ComputedUpdateWorker', () => {
       };
 
       const updater = createUpdaterStub({
-        execute: vi.fn().mockResolvedValue(ok(undefined)),
+        execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
         collectDirtySeedGroups: vi.fn().mockResolvedValue(
           ok([
             {
