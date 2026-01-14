@@ -2,6 +2,8 @@
  * Generators for test data - field values, formula expressions, etc.
  */
 
+import { FieldId } from '@teable/v2-core';
+
 import type { SourceFieldType, ValueTransition, LinkRelationship } from './types';
 
 // =============================================================================
@@ -210,13 +212,6 @@ export const calculateExpectedFormulaValue = (
 // Field ID Generator Factory
 // =============================================================================
 
-let globalFieldCounter = 0;
-const processUniquePrefix = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-
 export const createFieldIdGenerator = () => {
-  return () => {
-    const counter = globalFieldCounter.toString(36).padStart(6, '0');
-    globalFieldCounter += 1;
-    return `fld${processUniquePrefix}${counter}`;
-  };
+  return () => FieldId.mustGenerate().toString();
 };

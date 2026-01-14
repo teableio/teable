@@ -10,14 +10,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Unit tests - run all packages except e2e in parallel
+  # Unit tests - run each package in parallel
   unit-tests:
     if: github.ref == 'refs/heads/refactor/core' || github.head_ref == 'refactor/core'
     runs-on: ubuntu-latest
-    name: V2 Unit Tests
+    name: V2 Unit Tests (${{ matrix.package }})
     env:
       CI: 1
       TESTCONTAINERS_REUSE_ENABLE: 'false'
+
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        package:
+          - '@teable/v2-adapter-db-postgres-bun-sql'
+          - '@teable/v2-adapter-db-postgres-pg'
+          - '@teable/v2-adapter-db-postgres-pglite'
+          - '@teable/v2-adapter-db-postgres-shared'
+          - '@teable/v2-adapter-repository-postgres'
+          - '@teable/v2-adapter-table-repository-postgres'
+          - '@teable/v2-core'
+          - '@teable/v2-dottea'
+          - '@teable/v2-formula-sql-pg'
+          - '@teable/v2-test-node'
+          - '@teable/v2-utils'
 
     steps:
       - uses: actions/checkout@v4
@@ -30,9 +47,9 @@ jobs:
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
 
-      - name: 🧪 Run unit tests (all packages except e2e)
+      - name: 🧪 Run unit tests (${{ matrix.package }})
         run: |
-          pnpm -F "@teable/v2-*" -F "!@teable/v2-e2e" -F "!@teable/v2-benchmark-*" -r --if-present --workspace-concurrency=4 test-unit-cover
+          pnpm -F "${{ matrix.package }}" --if-present test-unit-cover
 
   # E2E tests - use sharding for parallel execution (the slowest tests)
   e2e-tests:
