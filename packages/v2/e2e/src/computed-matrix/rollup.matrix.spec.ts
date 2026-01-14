@@ -43,7 +43,7 @@ const TRANSITIONS: ValueTransition[] = ['nullToValue', 'valueToValue', 'valueToN
 // Rollup makes most sense with manyMany and oneMany (aggregating multiple records)
 const RELATIONSHIPS: LinkRelationship[] = ['manyMany', 'oneMany'];
 const DIRECTIONS: LinkDirection[] = ['oneWay', 'twoWay'];
-const EXPRESSIONS = ['sum({values})', 'count({values})', 'avg({values})'] as const;
+const EXPRESSIONS = ['sum({values})', 'count({values})', 'average({values})'] as const;
 
 // Generate test cases
 const generateRollupCases = (): RollupTestCase[] =>
@@ -190,13 +190,15 @@ describe('rollup field matrix (e2e)', () => {
 
         if (transition === 'valueToNull') {
           // Rollup with some null values
-          // count should still work, sum/avg might be reduced
           if (expression.startsWith('count')) {
-            // Count should remain 2 (counts records, not values)
-            expect(afterValue).toBe(2);
+            // count({values}) counts non-null values, so it should decrease
+            expect(afterValue).toBe(1);
+          } else if (expression.startsWith('average')) {
+            // AVG ignores null values, so average of remaining value stays the same
+            // e.g., AVG(10, null) = AVG(10) = 10
+            expect(afterValue).toBe(beforeValue);
           } else {
-            // Sum/avg should be reduced or handle nulls
-            // Just verify it changed from before
+            // Sum should be reduced
             expect(afterValue).not.toBe(beforeValue);
           }
         } else if (transition === 'nullToValue') {
@@ -209,17 +211,19 @@ describe('rollup field matrix (e2e)', () => {
           }
           expect(afterValue).not.toBe(beforeValue);
         } else {
-          // valueToValue - value should change
-          expect(afterValue).not.toBe(beforeValue);
-
-          // Calculate expected value based on expression
-          if (expression.startsWith('sum')) {
-            // One updated, one original
-            const expectedSum = (updated as number) + (initial as number);
-            expect(afterValue).toBe(expectedSum);
-          } else if (expression.startsWith('count')) {
-            // Count doesn't change
+          // valueToValue - value should change (except for count which counts records)
+          if (expression.startsWith('count')) {
+            // Count doesn't change - it counts records, not values
             expect(afterValue).toBe(2);
+          } else {
+            expect(afterValue).not.toBe(beforeValue);
+
+            // Calculate expected value based on expression
+            if (expression.startsWith('sum')) {
+              // One updated, one original
+              const expectedSum = (updated as number) + (initial as number);
+              expect(afterValue).toBe(expectedSum);
+            }
           }
         }
 
@@ -342,7 +346,8 @@ describe('rollup field matrix (e2e)', () => {
       ]);
       expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
-          L0: RollupSnapshot_Target -> [Sum]"
+          L0: RollupSnapshot_Target -> [Sum]
+        [Edges: 2]"
       `);
     });
 

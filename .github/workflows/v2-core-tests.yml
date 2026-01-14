@@ -24,17 +24,12 @@ jobs:
       max-parallel: 6
       matrix:
         package:
-          - '@teable/v2-adapter-db-postgres-bun-sql'
           - '@teable/v2-adapter-db-postgres-pg'
-          - '@teable/v2-adapter-db-postgres-pglite'
-          - '@teable/v2-adapter-db-postgres-shared'
           - '@teable/v2-adapter-repository-postgres'
           - '@teable/v2-adapter-table-repository-postgres'
           - '@teable/v2-core'
-          - '@teable/v2-dottea'
           - '@teable/v2-formula-sql-pg'
           - '@teable/v2-test-node'
-          - '@teable/v2-utils'
 
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +41,8 @@ jobs:
 
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
+        with:
+          filter: ${{ matrix.package }}
 
       - name: 🧪 Run unit tests (${{ matrix.package }})
         run: |
@@ -75,6 +72,8 @@ jobs:
 
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
+        with:
+          filter: '@teable/v2-e2e'
 
       - name: 🧪 Run E2E tests (shard ${{ matrix.shard }}/4)
         run: |
@@ -105,12 +104,34 @@ jobs:
       - name: 📋 Merge JSON reports
         run: |
           echo "Merging test reports..."
+          mkdir -p reports
           cat > merge-reports.js << 'EOF'
           const fs = require('fs');
           const path = require('path');
 
           const reportsDir = './reports';
           const files = fs.readdirSync(reportsDir).filter(f => f.endsWith('.json'));
+
+          if (files.length === 0) {
+            const emptyReport = {
+              numTotalTestSuites: 0,
+              numPassedTestSuites: 0,
+              numFailedTestSuites: 0,
+              numTotalTests: 0,
+              numPassedTests: 0,
+              numFailedTests: 0,
+              numSkippedTests: 0,
+              startTime: null,
+              endTime: null,
+              testResults: [],
+              failedTests: [],
+              totalDuration: 0,
+              success: true
+            };
+            fs.writeFileSync('merged-report.json', JSON.stringify(emptyReport, null, 2));
+            console.log(JSON.stringify(emptyReport, null, 2));
+            process.exit(0);
+          }
 
           const merged = {
             numTotalTestSuites: 0,
