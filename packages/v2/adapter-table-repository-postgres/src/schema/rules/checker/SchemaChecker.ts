@@ -215,11 +215,19 @@ export class SchemaChecker {
         });
 
         if (!dependenciesSatisfied) {
-          // Skip this rule if dependencies failed
-          yield errorResult(pending, 'Skipped: dependencies not satisfied', {
-            missing: rule.dependencies.filter((d) => validatedRules.get(d) !== true),
-          });
-          validatedRules.set(rule.id, false);
+          const missingDeps = rule.dependencies.filter((d) => validatedRules.get(d) !== true);
+          if (rule.required) {
+            // Skip this rule if dependencies failed
+            yield errorResult(pending, 'Skipped: dependencies not satisfied', {
+              missing: missingDeps,
+            });
+            validatedRules.set(rule.id, false);
+          } else {
+            yield warnResult(pending, 'Skipped: dependencies not satisfied', {
+              missing: missingDeps,
+            });
+            validatedRules.set(rule.id, true);
+          }
           continue;
         }
 
@@ -249,18 +257,10 @@ export class SchemaChecker {
             };
 
             if (rule.required) {
-              yield errorResult(
-                pending,
-                `Schema validation failed: ${validation.missing?.join(', ') || 'unknown issue'}`,
-                details
-              );
+              yield errorResult(pending, 'Schema validation failed', details);
               validatedRules.set(rule.id, false);
             } else {
-              yield warnResult(
-                pending,
-                `Optional schema element missing: ${validation.missing?.join(', ')}`,
-                details
-              );
+              yield warnResult(pending, 'Schema element missing', details);
               // Optional rules not blocking dependencies
               validatedRules.set(rule.id, true);
             }
@@ -357,8 +357,13 @@ export class SchemaChecker {
       });
 
       if (!dependenciesSatisfied) {
-        yield errorResult(pending, 'Skipped: dependencies not satisfied');
-        validatedRules.set(rule.id, false);
+        if (rule.required) {
+          yield errorResult(pending, 'Skipped: dependencies not satisfied');
+          validatedRules.set(rule.id, false);
+        } else {
+          yield warnResult(pending, 'Skipped: dependencies not satisfied');
+          validatedRules.set(rule.id, true);
+        }
         continue;
       }
 

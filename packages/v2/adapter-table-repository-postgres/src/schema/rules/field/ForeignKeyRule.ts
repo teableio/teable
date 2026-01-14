@@ -22,7 +22,7 @@ export class ForeignKeyRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
-  readonly required = true;
+  readonly required = false;
 
   /**
    * @param field - The field this FK is for

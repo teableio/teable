@@ -78,7 +78,7 @@ const StatusBadge = ({ status }: { status: SchemaCheckStatus }) => {
 
   const labels: Record<SchemaCheckStatus, string> = {
     success: 'Pass',
-    error: 'Error',
+    error: 'Fatal',
     warn: 'Warning',
     running: 'Running',
     pending: 'Pending',

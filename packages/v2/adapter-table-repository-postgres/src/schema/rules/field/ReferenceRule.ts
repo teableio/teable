@@ -27,7 +27,7 @@ export class ReferenceRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string> = [];
-  readonly required = true;
+  readonly required: boolean;
 
   /**
    * @param field - The field that has the dependencies
@@ -39,10 +39,21 @@ export class ReferenceRule implements ISchemaRule {
     private readonly references: ReadonlyArray<ReferenceEntry>,
     private readonly options: {
       fieldType?: string;
+      required?: boolean;
     } = {}
   ) {
-    this.id = `reference:${field.id().toString()}`;
+    this.id = this.buildRuleId();
     this.description = this.buildDescription();
+    this.required = this.options.required ?? true;
+  }
+
+  private buildRuleId(): string {
+    const fieldId = this.field.id().toString();
+    if (this.references.length === 0) {
+      return `reference:${fieldId}:none`;
+    }
+    const fromIds = this.references.map((ref) => ref.fromFieldId).join(',');
+    return `reference:${fieldId}:${fromIds}`;
   }
 
   private buildDescription(): string {
@@ -58,7 +69,7 @@ export class ReferenceRule implements ISchemaRule {
   static single(
     field: Field,
     fromFieldId: string,
-    options: { fieldType?: string } = {}
+    options: { fieldType?: string; required?: boolean } = {}
   ): ReferenceRule {
     const toFieldId = field.id().toString();
     return new ReferenceRule(field, [{ toFieldId, fromFieldId }], options);
@@ -70,7 +81,7 @@ export class ReferenceRule implements ISchemaRule {
   static multiple(
     field: Field,
     fromFieldIds: ReadonlyArray<string>,
-    options: { fieldType?: string } = {}
+    options: { fieldType?: string; required?: boolean } = {}
   ): ReferenceRule {
     const toFieldId = field.id().toString();
     const references = fromFieldIds.map((fromFieldId) => ({

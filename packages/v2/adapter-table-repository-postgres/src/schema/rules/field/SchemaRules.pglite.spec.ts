@@ -9,16 +9,21 @@
 import { PGlite } from '@electric-sql/pglite';
 import type { DomainError, Field, LinkField } from '@teable/v2-core';
 import {
+  BaseId,
   createSingleLineTextField,
   createConditionalLookupFieldPending,
   createLookupFieldPending,
   ConditionalLookupOptions,
   DbFieldName,
+  DbTableName,
   FieldId,
   FieldName,
   FieldNotNull,
   FieldUnique,
   LookupOptions,
+  Table,
+  TableId,
+  TableName,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Dialect, QueryResult } from 'kysely';
@@ -37,6 +42,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { PostgresSchemaIntrospector } from '../context/PostgresSchemaIntrospector';
 import type { SchemaIntrospector } from '../context/SchemaIntrospector';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
+import { createSchemaChecker } from '../checker/SchemaChecker';
+import type { SchemaCheckResult } from '../checker/SchemaCheckResult';
 import { ColumnExistsRule } from './ColumnExistsRule';
 import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
 import { FieldMetaRule } from './FieldMetaRule';
@@ -346,6 +353,57 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     tableId: tableName,
     field,
   });
+
+  const createTableAggregate = (tableName: string, field: Field): Table => {
+    const tableIdResult = TableId.create(createValidTableId(`table_${tableName}`));
+    if (tableIdResult.isErr()) {
+      throw new Error(tableIdResult.error.message);
+    }
+
+    const baseIdResult = BaseId.create(`base_${tableName}`);
+    if (baseIdResult.isErr()) {
+      throw new Error(baseIdResult.error.message);
+    }
+
+    const tableNameResult = TableName.create(tableName);
+    if (tableNameResult.isErr()) {
+      throw new Error(tableNameResult.error.message);
+    }
+
+    const dbTableNameResult = DbTableName.rehydrate(`${TEST_SCHEMA}.${tableName}`);
+    if (dbTableNameResult.isErr()) {
+      throw new Error(dbTableNameResult.error.message);
+    }
+
+    const tableResult = Table.rehydrate({
+      id: tableIdResult.value,
+      baseId: baseIdResult.value,
+      name: tableNameResult.value,
+      fields: [field],
+      views: [],
+      primaryFieldId: field.id(),
+      dbTableName: dbTableNameResult.value,
+    });
+
+    if (tableResult.isErr()) {
+      throw new Error(tableResult.error.message);
+    }
+
+    return tableResult.value;
+  };
+
+  const collectFinalResults = async (
+    generator: AsyncGenerator<SchemaCheckResult, void, unknown>
+  ): Promise<SchemaCheckResult[]> => {
+    const results: SchemaCheckResult[] = [];
+    for await (const result of generator) {
+      if (result.status === 'running' || result.status === 'pending') {
+        continue;
+      }
+      results.push(result);
+    }
+    return results;
+  };
 
   describe('ColumnExistsRule', () => {
     const TABLE_NAME = 'test_column_rule';
@@ -1635,6 +1693,50 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         await db.executeQuery(stmt.compile(db));
       }
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+    });
+  });
+
+  describe('SchemaChecker', () => {
+    const TABLE_NAME = 'test_schema_checker_rule';
+
+    it('should report error when required column is missing', async () => {
+      await createTestTable(TABLE_NAME);
+
+      const fieldResult = createRealField('chk001', 'Name', 'name_col');
+      const field = fieldResult._unsafeUnwrap();
+      const table = createTableAggregate(TABLE_NAME, field);
+
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalResults(checker.checkField(table, field.id().toString()));
+
+      expect(results).toHaveLength(1);
+      expect(results[0].status).toBe('error');
+      expect(results[0].ruleId).toBe(`column:${field.id().toString()}`);
+    });
+
+    it('should report success when required column exists', async () => {
+      await createTestTable(TABLE_NAME, ['name_col TEXT']);
+
+      const fieldResult = createRealField('chk002', 'Name', 'name_col');
+      const field = fieldResult._unsafeUnwrap();
+      const table = createTableAggregate(TABLE_NAME, field);
+
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalResults(checker.checkField(table, field.id().toString()));
+
+      expect(results).toHaveLength(1);
+      expect(results[0].status).toBe('success');
+      expect(results[0].ruleId).toBe(`column:${field.id().toString()}`);
     });
   });
 });

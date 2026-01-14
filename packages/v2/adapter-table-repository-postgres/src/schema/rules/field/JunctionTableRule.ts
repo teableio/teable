@@ -252,7 +252,7 @@ export class JunctionTableUniqueConstraintRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
-  readonly required = true;
+  readonly required = false;
 
   private readonly constraintName: string;
 
@@ -318,7 +318,7 @@ export class JunctionTableIndexRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
-  readonly required = true;
+  readonly required = false;
 
   constructor(
     private readonly field: LinkField,
@@ -376,7 +376,7 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
-  readonly required = true;
+  readonly required = false;
 
   constructor(
     private readonly field: LinkField,

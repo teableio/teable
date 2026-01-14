@@ -313,7 +313,8 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
 
     return ok([
       ...ColumnExistsRule.createRulesFromField(field),
-      ReferenceRule.multiple(field, [linkFieldId, lookupFieldId], { fieldType: 'lookup' }),
+      ReferenceRule.single(field, lookupFieldId, { fieldType: 'lookup' }),
+      ReferenceRule.single(field, linkFieldId, { fieldType: 'lookup-link', required: false }),
     ]);
   }
 
@@ -328,7 +329,10 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
     return ok([
       ...ColumnExistsRule.createRulesFromField(field),
       // Reference only the lookup field - conditional rollup doesn't depend on a link field
-      ReferenceRule.single(field, lookupFieldId, { fieldType: 'conditionalRollup' }),
+      ReferenceRule.single(field, lookupFieldId, {
+        fieldType: 'conditionalRollup',
+        required: false,
+      }),
     ]);
   }
 
@@ -343,7 +347,10 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
     return ok([
       ...ColumnExistsRule.createRulesFromField(field),
       // Reference only the lookup field - conditional lookup doesn't depend on a link field
-      ReferenceRule.single(field, lookupFieldId, { fieldType: 'conditionalLookup' }),
+      ReferenceRule.single(field, lookupFieldId, {
+        fieldType: 'conditionalLookup',
+        required: false,
+      }),
     ]);
   }
 }

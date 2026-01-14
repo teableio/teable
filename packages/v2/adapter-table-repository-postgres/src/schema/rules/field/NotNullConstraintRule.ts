@@ -22,7 +22,7 @@ export class NotNullConstraintRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
-  readonly required = true;
+  readonly required = false;
 
   constructor(
     private readonly field: Field,
