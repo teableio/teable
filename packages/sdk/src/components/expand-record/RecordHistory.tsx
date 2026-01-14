@@ -39,7 +39,10 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
 
-  const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
+  const queryFn = async ({
+    queryKey,
+    pageParam,
+  }: QueryFunctionContext<readonly (string | undefined)[], string | undefined>) => {
     const recordId = queryKey[2] as string | undefined;
     const res = recordId
       ? await getRecordHistory(queryKey[1] as string, recordId, {
@@ -58,7 +61,8 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
-    getNextPageParam: () => nextCursor,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: () => nextCursor ?? undefined,
   });
 
   const allRows = useMemo(() => (data ? data.pages.flatMap((d) => d) : []), [data]);

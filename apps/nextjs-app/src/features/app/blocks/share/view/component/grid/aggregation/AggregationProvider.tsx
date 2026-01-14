@@ -61,7 +61,10 @@ export const AggregationProvider = ({ children }: IAggregationProviderProps) => 
   });
 
   const updateViewAggregations = useCallback(
-    () => queryClient.invalidateQueries(ReactQueryKeys.shareViewAggregations(shareId, query)),
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.shareViewAggregations(shareId, query),
+      }),
     [query, queryClient, shareId]
   );
 

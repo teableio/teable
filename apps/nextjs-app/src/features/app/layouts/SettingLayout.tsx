@@ -1,3 +1,4 @@
+import type { DehydratedState } from '@tanstack/react-query';
 import type { DriverClient } from '@teable/core';
 import type { IUser } from '@teable/sdk';
 import { AppProvider, SessionProvider } from '@teable/sdk';
@@ -15,7 +16,7 @@ export const SettingLayout: React.FC<{
   children: React.ReactNode;
   user?: IUser;
   driver: DriverClient;
-  dehydratedState?: unknown;
+  dehydratedState?: DehydratedState;
 }> = ({ children, user, dehydratedState }) => {
   const router = useRouter();
   const sdkLocale = useSdkLocale();

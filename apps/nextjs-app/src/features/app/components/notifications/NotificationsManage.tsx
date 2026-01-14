@@ -78,6 +78,7 @@ export const NotificationsManage: React.FC = () => {
       getNotificationList({ notifyStates: notifyStatus, cursor: pageParam }).then(
         ({ data }) => data
       ),
+    initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: isOpen,
     staleTime: 0,
@@ -92,8 +93,11 @@ export const NotificationsManage: React.FC = () => {
 
   const refresh = () => {
     setNewUnreadCount(undefined);
-    queryClient.invalidateQueries(ReactQueryKeys.notifyUnreadCount());
-    queryClient.resetQueries(ReactQueryKeys.notifyList({ status: notifyStatus }), { exact: true });
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
+    queryClient.resetQueries({
+      queryKey: ReactQueryKeys.notifyList({ status: notifyStatus }),
+      exact: true,
+    });
   };
 
   const renderNewButton = () => {

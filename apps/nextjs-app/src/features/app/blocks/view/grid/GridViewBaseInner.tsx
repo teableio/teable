@@ -311,7 +311,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     onCellDrop: inPrefilling ? onPrefillingCellDrop : onCellDrop,
   });
 
-  const { mutate: mutateCreateRecord, isLoading: isCreatingRecord } = useMutation({
+  const { mutate: mutateCreateRecord, isPending: isCreatingRecord } = useMutation({
     mutationFn: (records: ICreateRecordsRo['records']) =>
       createRecords(tableId!, {
         records,

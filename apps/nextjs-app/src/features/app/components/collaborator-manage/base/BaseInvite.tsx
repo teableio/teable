@@ -15,7 +15,7 @@ export const BaseInvite = (props: { baseId: string; role: IRole }) => {
   );
   const queryClient = useQueryClient();
 
-  const { mutate: emailInvitation, isLoading: updateCollaboratorLoading } = useMutation({
+  const { mutate: emailInvitation, isPending: updateCollaboratorLoading } = useMutation({
     mutationFn: emailBaseInvitation,
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -34,7 +34,7 @@ export const BaseInvite = (props: { baseId: string; role: IRole }) => {
     });
   };
 
-  const { mutate: createInviteLinkRequest, isLoading: createInviteLinkLoading } = useMutation({
+  const { mutate: createInviteLinkRequest, isPending: createInviteLinkLoading } = useMutation({
     mutationFn: createBaseInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });

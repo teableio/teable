@@ -49,9 +49,9 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children, q
 
   const updateAggregations = useCallback(
     () =>
-      queryClient.invalidateQueries(
-        ReactQueryKeys.aggregations(tableId as string, aggQuery).slice(0, 3)
-      ),
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.aggregations(tableId as string, aggQuery).slice(0, 3),
+      }),
     [aggQuery, queryClient, tableId]
   );
 
@@ -61,9 +61,9 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children, q
 
   const updateAggregationsForTable = useCallback(
     () =>
-      queryClient.invalidateQueries(
-        ReactQueryKeys.aggregations(tableId as string, aggQuery).slice(0, 2)
-      ),
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.aggregations(tableId as string, aggQuery).slice(0, 2),
+      }),
     [aggQuery, queryClient, tableId]
   );
 

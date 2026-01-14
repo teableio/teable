@@ -50,7 +50,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
     mutationFn: () => deleteDashboard(baseId, dashboardId),
     onSuccess: () => {
       setMenuOpen(false);
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboardList(baseId) });
       router.push(`/base/${baseId}/dashboard`);
     },
   });
@@ -61,7 +61,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         name: `${dashboard?.name} ${t('common:noun.copy')}`,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboardList(baseId) });
       toast.success(t('table:table.actionTips.copySuccessful'));
     },
   });
@@ -70,7 +70,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
     mutationFn: ({ name }: { name: string }) => renameDashboard(baseId, dashboardId, name),
     onSuccess: () => {
       setIsRenaming(false);
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(dashboardId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(dashboardId) });
     },
   });
 

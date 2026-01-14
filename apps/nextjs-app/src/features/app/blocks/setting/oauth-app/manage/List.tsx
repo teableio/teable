@@ -27,7 +27,7 @@ export const OAuthAppList = () => {
     refetchOnWindowFocus: false,
   });
 
-  const { mutate: deleteOAuthAppMutate, isLoading: deleteLoading } = useMutation({
+  const { mutate: deleteOAuthAppMutate, isPending: deleteLoading } = useMutation({
     mutationFn: oauthDelete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.oauthAppList() });

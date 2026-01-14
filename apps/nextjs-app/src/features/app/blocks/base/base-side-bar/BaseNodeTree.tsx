@@ -339,13 +339,15 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       const { resourceType, resourceId } = node;
       switch (resourceType) {
         case BaseNodeResourceType.Dashboard:
-          queryClient.invalidateQueries(ReactQueryKeys.getDashboard(resourceId));
+          queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(resourceId) });
           break;
         case BaseNodeResourceType.Workflow:
-          queryClient.invalidateQueries(ReactQueryKeys.workflowItem(baseId, resourceId));
+          queryClient.invalidateQueries({
+            queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
+          });
           break;
         case BaseNodeResourceType.App:
-          queryClient.invalidateQueries(ReactQueryKeys.getApp(baseId, resourceId));
+          queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getApp(baseId, resourceId) });
           break;
       }
     },

@@ -68,7 +68,7 @@ export const PluginContextMenuManageDialog = forwardRef<
     setPluginContextMenuList(pluginContextMenu);
   }, [pluginContextMenu]);
 
-  const { mutate: deletePluginContextMenu, isLoading: isDeleting } = useMutation({
+  const { mutate: deletePluginContextMenu, isPending: isDeleting } = useMutation({
     mutationFn: ({ pluginInstallId }: { pluginInstallId: string }) =>
       removePluginContextMenu(tableId, pluginInstallId),
     onSuccess: () => {

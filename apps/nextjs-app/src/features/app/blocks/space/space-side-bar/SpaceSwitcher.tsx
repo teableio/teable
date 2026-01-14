@@ -116,7 +116,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
 
   const organization = user?.organization;
 
-  const { mutate: addSpace, isLoading } = useMutation({
+  const { mutate: addSpace, isPending: isLoading } = useMutation({
     mutationFn: createSpace,
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });

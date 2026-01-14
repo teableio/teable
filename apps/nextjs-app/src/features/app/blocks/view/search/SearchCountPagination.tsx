@@ -134,8 +134,7 @@ export const SearchCountPagination = forwardRef<
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     enabled: !!value,
-    initialData: undefined,
-    keepPreviousData: false,
+    initialPageParam: 0,
     getNextPageParam: (lastPage) => {
       return lastPage.nextCursor;
     },

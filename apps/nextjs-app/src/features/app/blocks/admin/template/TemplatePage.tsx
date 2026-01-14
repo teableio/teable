@@ -11,7 +11,7 @@ export const TemplatePage = () => {
   const { mutate: createTemplateFn } = useMutation({
     mutationFn: createTemplate,
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
   return (

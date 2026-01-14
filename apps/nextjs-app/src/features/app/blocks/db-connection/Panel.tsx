@@ -24,18 +24,20 @@ export const DbConnectionPanel = ({ className }: { className?: string }) => {
   const hasPermission = permissions?.['base|db_connection'];
   const isUnavailable = isCloud && usage?.level !== BillingProductLevel.Enterprise;
 
-  const mutationCreate = useMutation(createDbConnection, {
+  const mutationCreate = useMutation({
+    mutationFn: createDbConnection,
     onSuccess: (data) => {
-      queryClient.invalidateQueries(['connection', baseId]);
+      queryClient.invalidateQueries({ queryKey: ['connection', baseId] });
       if (!data.data) {
         toast.error(t('table:connection.createFailed'));
       }
     },
   });
 
-  const mutationDelete = useMutation(deleteDbConnection, {
+  const mutationDelete = useMutation({
+    mutationFn: deleteDbConnection,
     onSuccess: () => {
-      queryClient.invalidateQueries(['connection', baseId]);
+      queryClient.invalidateQueries({ queryKey: ['connection', baseId] });
     },
   });
 

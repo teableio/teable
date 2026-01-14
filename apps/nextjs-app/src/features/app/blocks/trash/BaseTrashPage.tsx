@@ -54,14 +54,15 @@ export const BaseTrashPage = () => {
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+    initialPageParam: undefined as string | undefined,
     getNextPageParam: () => nextCursor,
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
     mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId));
-      queryClient.invalidateQueries(ReactQueryKeys.baseNodeTree(baseId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseNodeTree(baseId) });
       toast.success(t('actions.restoreSucceed'));
     },
   });
@@ -69,7 +70,7 @@ export const BaseTrashPage = () => {
   const { mutateAsync: mutateResetTrash } = useMutation({
     mutationFn: () => resetTrashItems({ resourceType: ResourceType.Base, resourceId: baseId }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId) });
       toast.success(t('actions.resetSucceed'));
     },
   });

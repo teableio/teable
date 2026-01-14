@@ -70,7 +70,7 @@ export const Table: React.FC<ITableProps> = ({
       parentResourceId: baseId,
       resourceType: LastVisitResourceType.Table,
     }).then(() => {
-      queryClient.invalidateQueries(ReactQueryKeys.userLastVisitMap(baseId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.userLastVisitMap(baseId) });
     });
   }, [tableId, viewId, baseId, queryClient, isTemplate]);
 

@@ -26,10 +26,11 @@ export const TemplateList = (props: ITemplateListProps) => {
       getPublishedTemplateList({
         categoryId: currentCategoryId,
         search,
-        skip: pageParam ?? 0,
+        skip: pageParam,
         take: PAGE_SIZE,
         featured: isFeatured,
       }).then((res) => res.data),
+    initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < PAGE_SIZE) {
         return undefined;

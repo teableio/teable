@@ -13,10 +13,12 @@ export const SpaceInvite = (props: { spaceId: string; role: IRole }) => {
   const [inviteRole, setInviteRole] = useState<IRole>(role === Role.Owner ? Role.Creator : role);
   const queryClient = useQueryClient();
 
-  const { mutate: emailInvitation, isLoading: updateCollaboratorLoading } = useMutation({
+  const { mutate: emailInvitation, isPending: updateCollaboratorLoading } = useMutation({
     mutationFn: emailSpaceInvitation,
     onSuccess: async () => {
-      await queryClient.invalidateQueries(ReactQueryKeys.spaceCollaboratorList(spaceId));
+      await queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
+      });
     },
   });
 
@@ -30,7 +32,7 @@ export const SpaceInvite = (props: { spaceId: string; role: IRole }) => {
     });
   };
 
-  const { mutate: createInviteLinkRequest, isLoading: createInviteLinkLoading } = useMutation({
+  const { mutate: createInviteLinkRequest, isPending: createInviteLinkLoading } = useMutation({
     mutationFn: createSpaceInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });

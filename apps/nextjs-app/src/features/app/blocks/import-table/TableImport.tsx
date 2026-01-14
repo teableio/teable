@@ -86,7 +86,7 @@ export const TableImport = (props: ITableImportProps) => {
   const [shouldAlert, setShouldAlert] = useLocalStorage(LocalStorageKeys.ImportAlert, true);
   const [shouldTips, setShouldTips] = useState(false);
 
-  const { mutateAsync: importNewTableFn, isLoading } = useMutation({
+  const { mutateAsync: importNewTableFn, isPending: isLoading } = useMutation({
     mutationFn: async ({ baseId, importRo }: { baseId: string; importRo: IImportOptionRo }) => {
       return (await importTableFromFile(baseId, importRo)).data;
     },
@@ -105,7 +105,7 @@ export const TableImport = (props: ITableImportProps) => {
     },
   });
 
-  const { mutateAsync: inplaceImportFn, isLoading: inplaceLoading } = useMutation({
+  const { mutateAsync: inplaceImportFn, isPending: inplaceLoading } = useMutation({
     mutationFn: (args: Parameters<typeof inplaceImportTableFromFile>) => {
       return inplaceImportTableFromFile(...args);
     },
@@ -168,7 +168,7 @@ export const TableImport = (props: ITableImportProps) => {
     tableId ? inplaceImportTable() : importNewTable();
   };
 
-  const { mutateAsync: analyzeByUrl, isLoading: analyzeLoading } = useMutation({
+  const { mutateAsync: analyzeByUrl, isPending: analyzeLoading } = useMutation({
     mutationFn: analyzeFile,
     onSuccess: (data, params) => {
       const { attachmentUrl, fileType } = params;

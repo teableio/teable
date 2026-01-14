@@ -1,3 +1,4 @@
+import type { DehydratedState } from '@tanstack/react-query';
 import { ThemeProvider } from '@teable/next-themes';
 import type { IGetBaseVo } from '@teable/openapi';
 import { isObject, merge } from 'lodash';
@@ -14,7 +15,7 @@ interface IAppProviderProps {
   wsPath?: string;
   lang?: string;
   locale?: ILocalePartial;
-  dehydratedState?: unknown;
+  dehydratedState?: DehydratedState;
   disabledWs?: boolean;
   template?: IGetBaseVo['template'];
 }

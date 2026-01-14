@@ -559,7 +559,7 @@ export const APIDialogContent = ({ onOpenChange }: APIDialogContentProps) => {
     setTimeout(() => setCopied(false), 2000);
   }, [aiContext]);
 
-  const isLoading = createTokenMutation.isLoading;
+  const isLoading = createTokenMutation.isPending;
   const isDataLoading = !tableInfo || !fieldsData;
 
   return (

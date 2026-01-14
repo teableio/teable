@@ -20,7 +20,7 @@ export const BaseInviteLink = (props: { baseId: string; role: IRole }) => {
     queryFn: ({ queryKey }) => listBaseInvitationLink(queryKey[1]).then((res) => res.data),
   }).data;
 
-  const { mutate: updateInviteLink, isLoading: updateInviteLinkLoading } = useMutation({
+  const { mutate: updateInviteLink, isPending: updateInviteLinkLoading } = useMutation({
     mutationFn: updateBaseInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
@@ -35,7 +35,7 @@ export const BaseInviteLink = (props: { baseId: string; role: IRole }) => {
     });
   };
 
-  const { mutate: deleteInviteLink, isLoading: deleteInviteLinkLoading } = useMutation({
+  const { mutate: deleteInviteLink, isPending: deleteInviteLinkLoading } = useMutation({
     mutationFn: deleteBaseInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });

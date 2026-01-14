@@ -53,7 +53,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
     return bases?.filter((base) => base.spaceId === space.id);
   }, [bases, space.id]);
 
-  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
+  const { mutate: createBaseMutator, isPending: createBaseLoading } = useMutation({
     mutationFn: createBase,
     onSuccess: ({ data }) => {
       router.push({

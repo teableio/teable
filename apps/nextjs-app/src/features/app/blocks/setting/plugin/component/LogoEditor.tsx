@@ -19,7 +19,7 @@ export const LogoEditor = (props: {
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
   const fileInput = useRef<HTMLInputElement>(null);
-  const { mutateAsync: uploadLogo, isLoading: uploadLogoLoading } = useMutation({
+  const { mutateAsync: uploadLogo, isPending: uploadLogoLoading } = useMutation({
     mutationFn: (files: File[]) => uploadFiles(files, UploadType.Plugin),
     onSuccess: (res) => {
       if (res?.[0]) {

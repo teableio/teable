@@ -25,7 +25,7 @@ function Sort(props: ISortProps) {
 
   const { text, isActive } = useSortNode(outerSorts);
 
-  const { mutateAsync, isLoading } = useMutation({
+  const { mutateAsync, isPending } = useMutation({
     mutationFn: async ({ view, viewRo }: { view: View; viewRo: IManualSortRo }) => {
       return (await view.manualSort(viewRo)).data;
     },
@@ -95,7 +95,7 @@ function Sort(props: ISortProps) {
     <SortBase
       ref={sortBaseRef}
       sorts={innerSorts}
-      manualSortLoading={isLoading}
+      manualSortLoading={isPending}
       onChange={onChangeInner}
       manualSortOnClick={manualSort}
     >

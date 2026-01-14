@@ -16,7 +16,7 @@ export const BrandingLogo = (props: { value?: string }) => {
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const { mutate: uploadLogoMutation, isLoading } = useMutation({
+  const { mutate: uploadLogoMutation, isPending: isLoading } = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);

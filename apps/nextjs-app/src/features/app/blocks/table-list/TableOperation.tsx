@@ -94,7 +94,7 @@ export const TableOperation = (props: ITableOperationProps) => {
     await base.deleteTable(tableId, permanent);
     setDeleteConfirm(false);
 
-    queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId as string));
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId as string) });
 
     const firstTableId = tables.find((t) => t.id !== tableId)?.id;
     if (routerTableId === tableId) {
@@ -102,7 +102,7 @@ export const TableOperation = (props: ITableOperationProps) => {
     }
   };
 
-  const { mutateAsync: duplicateTableFn, isLoading } = useMutation({
+  const { mutateAsync: duplicateTableFn, isPending: isLoading } = useMutation({
     mutationFn: () => duplicateTable(baseId as string, table.id, duplicateOption),
     onSuccess: (data) => {
       const {

@@ -67,9 +67,10 @@ export const TemplateTable = () => {
     queryKey: ReactQueryKeys.templateList(),
     queryFn: ({ pageParam }) =>
       getTemplateList({
-        skip: pageParam ?? 0,
+        skip: pageParam,
         take: PAGE_SIZE,
       }).then((res) => res.data),
+    initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < PAGE_SIZE) {
         return undefined;
@@ -103,7 +104,7 @@ export const TemplateTable = () => {
   const { mutateAsync: deleteTemplateFn } = useMutation({
     mutationFn: (templateId: string) => deleteTemplate(templateId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 
@@ -119,7 +120,7 @@ export const TemplateTable = () => {
     mutationFn: ({ templateId, updateRo }: { templateId: string; updateRo: IUpdateTemplateRo }) =>
       updateTemplate(templateId, { ...updateRo }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 
@@ -154,7 +155,7 @@ export const TemplateTable = () => {
   const { mutateAsync: pinTopTemplateFn } = useMutation({
     mutationFn: (templateId: string) => pinTopTemplate(templateId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 
@@ -169,7 +170,7 @@ export const TemplateTable = () => {
       position: 'before' | 'after';
     }) => updateTemplateOrder({ templateId, anchorId, position }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 

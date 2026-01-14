@@ -110,10 +110,12 @@ export const SearchButton = (props: ISearchButtonProps) => {
     enabled: Boolean(enabledSearchIndex && !shareView),
   });
 
-  const { mutateAsync: repairIndexFn, isLoading: repairIndexLoading } = useMutation({
+  const { mutateAsync: repairIndexFn, isPending: repairIndexLoading } = useMutation({
     mutationFn: (type: TableIndex) => repairTableIndex(baseId!, tableId!, type),
     onSuccess: () => {
-      queryClient.invalidateQueries(['table-abnormal-index', baseId, tableId, TableIndex.search]);
+      queryClient.invalidateQueries({
+        queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.search],
+      });
     },
   });
 

@@ -69,7 +69,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
     },
     [isTemplate, _setOpen]
   );
-  const { mutateAsync: duplicateViewFn, isLoading: isDuplicateViewLoading } = useMutation({
+  const { mutateAsync: duplicateViewFn, isPending: isDuplicateViewLoading } = useMutation({
     mutationFn: () => duplicateView(tableId, view.id),
     onSuccess: (data) => {
       const { id } = data?.data || {};

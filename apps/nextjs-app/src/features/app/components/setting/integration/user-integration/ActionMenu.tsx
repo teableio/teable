@@ -25,7 +25,7 @@ export const ActionMenu = (props: {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
-  const { mutate: deleteIntegrationMutate, isLoading: deleteLoading } = useMutation({
+  const { mutate: deleteIntegrationMutate, isPending: deleteLoading } = useMutation({
     mutationFn: deleteUserIntegration,
     onSuccess: () => {
       setDeleteConfirm(false);

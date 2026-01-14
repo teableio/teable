@@ -25,7 +25,9 @@ export const useViewFilterLinkContext = (
     if (enabledQuery) {
       tableId &&
         viewId &&
-        queryClient.invalidateQueries(ReactQueryKeys.getViewFilterLinkRecords(tableId, viewId));
+        queryClient.invalidateQueries({
+          queryKey: ReactQueryKeys.getViewFilterLinkRecords(tableId, viewId),
+        });
     }
   }, [enabledQuery, queryClient, tableId, viewId]);
 

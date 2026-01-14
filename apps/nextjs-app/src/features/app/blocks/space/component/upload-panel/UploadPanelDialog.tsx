@@ -30,7 +30,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
 
   const router = useRouter();
 
-  const { mutate: importBaseFn, isLoading } = useMutation({
+  const { mutate: importBaseFn, isPending: isLoading } = useMutation({
     mutationFn: (importBaseRo: ImportBaseRo) => importBase(importBaseRo),
     onSuccess: (result) => {
       const {

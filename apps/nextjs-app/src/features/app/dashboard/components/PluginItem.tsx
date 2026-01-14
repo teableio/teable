@@ -37,14 +37,14 @@ export const PluginItem = (props: {
   const { mutate: removePluginMutate } = useMutation({
     mutationFn: () => removePlugin(baseId, dashboardId, pluginInstallId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(dashboardId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(dashboardId) });
     },
   });
 
   const { mutate: renamePluginMutate } = useMutation({
     mutationFn: (name: string) => renamePlugin(baseId, dashboardId, pluginInstallId, name),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(dashboardId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(dashboardId) });
     },
   });
 
@@ -54,7 +54,7 @@ export const PluginItem = (props: {
         name: `${name} ${t('common:noun.copy')}`,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(dashboardId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(dashboardId) });
     },
   });
 
