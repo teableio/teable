@@ -422,7 +422,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(lateralCount).toBe(1);
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_lookup" as "col_lookup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_single_line_text"))))[0] as "col_link", jsonb_agg(to_jsonb("f"."col_single_line_text")) as "col_lookup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__id" = "t"."__fk_fldkkkkkkkkkkkkkkkk") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
+        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_lookup" as "col_lookup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_single_line_text")::text))))[0] as "col_link", jsonb_agg(to_jsonb("f"."col_single_line_text")) as "col_lookup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__id" = "t"."__fk_fldkkkkkkkkkkkkkkkk") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
       );
     });
 
@@ -581,7 +581,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
+        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_number")::text))) as "col_link", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
       );
     });
   });
@@ -738,7 +738,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain(`"${FOREIGN_TABLE_B_ID}"`);
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_title" as "col_title", "lat_fld1111111111111111"."col_link_project" as "col_link_project", "lat_fld2222222222222222"."col_link_categories" as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_project_name"))))[0] as "col_link_project" from "bseaaaaaaaaaaaaaaaa"."tblaaaaaaaaaaaaaaaa" as "f" where "f"."__id" = "t"."__fk_fld1111111111111111") as "lat_fld1111111111111111" on true inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_category_name"))) as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "f" where "f"."__fk_fld6666666666666666" = "t"."__id") as "lat_fld2222222222222222" on true"`
+        `"select "t"."__id" as "__id", "t"."col_title" as "col_title", "lat_fld1111111111111111"."col_link_project" as "col_link_project", "lat_fld2222222222222222"."col_link_categories" as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_project_name")::text))))[0] as "col_link_project" from "bseaaaaaaaaaaaaaaaa"."tblaaaaaaaaaaaaaaaa" as "f" where "f"."__id" = "t"."__fk_fld1111111111111111") as "lat_fld1111111111111111" on true inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_category_name")::text))) as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "f" where "f"."__fk_fld6666666666666666" = "t"."__id") as "lat_fld2222222222222222" on true"`
       );
     });
   });

@@ -763,8 +763,8 @@ importers:
         specifier: 0.1.1
         version: 0.1.1(tailwindcss@3.4.1(ts-node@10.9.2(@swc/core@1.13.3(@swc/helpers@0.5.17))(@types/node@22.18.0)(typescript@5.4.3)))
       '@tanstack/react-query':
-        specifier: 4.36.1
-        version: 4.36.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 5.90.16
+        version: 5.90.16(react@18.3.1)
       '@tanstack/react-table':
         specifier: 8.11.7
         version: 8.11.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1164,7 +1164,7 @@ importers:
         version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)
       '@orpc/tanstack-query':
         specifier: ^1.13.0
-        version: 1.13.0(@opentelemetry/api@1.9.0)(@orpc/client@1.13.0(@opentelemetry/api@1.9.0))(@tanstack/query-core@5.90.12)
+        version: 1.13.0(@opentelemetry/api@1.9.0)(@orpc/client@1.13.0(@opentelemetry/api@1.9.0))(@tanstack/query-core@5.90.16)
       '@radix-ui/react-alert-dialog':
         specifier: 1.0.5
         version: 1.0.5(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1239,7 +1239,7 @@ importers:
         version: 1.141.8(@tanstack/react-router@1.141.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.141.8)(csstype@3.2.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.10)
       '@tanstack/react-router-ssr-query':
         specifier: ^1.131.7
-        version: 1.141.8(@tanstack/query-core@5.90.12)(@tanstack/react-query@5.90.12(react@19.2.3))(@tanstack/react-router@1.141.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.141.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        version: 1.141.8(@tanstack/query-core@5.90.16)(@tanstack/react-query@5.90.12(react@19.2.3))(@tanstack/react-router@1.141.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.141.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/react-start':
         specifier: ^1.132.0
         version: 1.142.5(crossws@0.4.1(srvx@0.9.8))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
@@ -1941,8 +1941,8 @@ importers:
         specifier: 1.0.7
         version: 1.0.7(@types/react-dom@18.2.22)(@types/react@18.2.69)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-query':
-        specifier: 4.36.1
-        version: 4.36.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 5.90.16
+        version: 5.90.16(react@18.3.1)
       '@tanstack/react-table':
         specifier: 8.11.7
         version: 8.11.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -4744,8 +4744,8 @@ importers:
         specifier: 3.3.4
         version: 3.3.4(react-hook-form@7.51.1(react@18.3.1))
       '@tanstack/react-query':
-        specifier: 4.36.1
-        version: 4.36.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 5.90.16
+        version: 5.90.16(react@18.3.1)
       '@teable/common-i18n':
         specifier: workspace:^
         version: link:../packages/common-i18n
@@ -11603,11 +11603,11 @@ packages:
     resolution: {integrity: sha512-LS54XNyxyTs5m/pl1lkwlg7uZM3lvsv2FIIV1rsJgnfwVCnI+n4ZGZ2CcjNT13BPu/3hPP+iHmliBSscJxW5FQ==}
     engines: {node: '>=12'}
 
-  '@tanstack/query-core@4.36.1':
-    resolution: {integrity: sha512-DJSilV5+ytBP1FbFcEJovv4rnnm/CokuVvrBEtW/Va9DvuJ3HksbXUJEpI0aV1KtuL4ZoO9AVE6PyNLzF7tLeA==}
-
   '@tanstack/query-core@5.90.12':
     resolution: {integrity: sha512-T1/8t5DhV/SisWjDnaiU2drl6ySvsHj1bHBCWNXd+/T+Hh1cf6JodyEYMd5sgwm+b/mETT4EV3H+zCVczCU5hg==}
+
+  '@tanstack/query-core@5.90.16':
+    resolution: {integrity: sha512-MvtWckSVufs/ja463/K4PyJeqT+HMlJWtw6PrCpywznd2NSgO3m4KwO9RqbFqGg6iDE8vVMFWMeQI4Io3eEYww==}
 
   '@tanstack/query-devtools@5.91.1':
     resolution: {integrity: sha512-l8bxjk6BMsCaVQH6NzQEE/bEgFy1hAs5qbgXl0xhzezlaQbPk6Mgz9BqEg2vTLPOHD8N4k+w/gdgCbEzecGyNg==}
@@ -11636,20 +11636,13 @@ packages:
       '@tanstack/react-query': ^5.90.10
       react: ^18 || ^19
 
-  '@tanstack/react-query@4.36.1':
-    resolution: {integrity: sha512-y7ySVHFyyQblPl3J3eQBWpXZkliroki3ARnBKsdJchlgt7yJLRDUcf4B8soufgiYt3pEQIkBWBx1N9/ZPIeUWw==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
-
   '@tanstack/react-query@5.90.12':
     resolution: {integrity: sha512-graRZspg7EoEaw0a8faiUASCyJrqjKPdqJ9EwuDRUF9mEYJ1YPczI9H+/agJ0mOJkPCJDk0lsz5QTrLZ/jQ2rg==}
+    peerDependencies:
+      react: ^18 || ^19
+
+  '@tanstack/react-query@5.90.16':
+    resolution: {integrity: sha512-bpMGOmV4OPmif7TNMteU/Ehf/hoC0Kf98PDc0F4BZkFrEapRMEqI/V6YS0lyzwSV6PQpY1y4xxArUIfBW5LVxQ==}
     peerDependencies:
       react: ^18 || ^19
 
@@ -28941,11 +28934,11 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/tanstack-query@1.13.0(@opentelemetry/api@1.9.0)(@orpc/client@1.13.0(@opentelemetry/api@1.9.0))(@tanstack/query-core@5.90.12)':
+  '@orpc/tanstack-query@1.13.0(@opentelemetry/api@1.9.0)(@orpc/client@1.13.0(@opentelemetry/api@1.9.0))(@tanstack/query-core@5.90.16)':
     dependencies:
       '@orpc/client': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
-      '@tanstack/query-core': 5.90.12
+      '@tanstack/query-core': 5.90.16
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
@@ -32861,9 +32854,9 @@ snapshots:
 
   '@tanstack/history@1.141.0': {}
 
-  '@tanstack/query-core@4.36.1': {}
-
   '@tanstack/query-core@5.90.12': {}
+
+  '@tanstack/query-core@5.90.16': {}
 
   '@tanstack/query-devtools@5.91.1': {}
 
@@ -32897,18 +32890,15 @@ snapshots:
       '@tanstack/react-query': 5.90.12(react@19.2.3)
       react: 19.2.3
 
-  '@tanstack/react-query@4.36.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      '@tanstack/query-core': 4.36.1
-      react: 18.3.1
-      use-sync-external-store: 1.4.0(react@18.3.1)
-    optionalDependencies:
-      react-dom: 18.3.1(react@18.3.1)
-
   '@tanstack/react-query@5.90.12(react@19.2.3)':
     dependencies:
       '@tanstack/query-core': 5.90.12
       react: 19.2.3
+
+  '@tanstack/react-query@5.90.16(react@18.3.1)':
+    dependencies:
+      '@tanstack/query-core': 5.90.16
+      react: 18.3.1
 
   '@tanstack/react-router-devtools@1.141.8(@tanstack/react-router@1.141.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.141.8)(csstype@3.2.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.10)':
     dependencies:
@@ -32922,12 +32912,12 @@ snapshots:
       - csstype
       - solid-js
 
-  '@tanstack/react-router-ssr-query@1.141.8(@tanstack/query-core@5.90.12)(@tanstack/react-query@5.90.12(react@19.2.3))(@tanstack/react-router@1.141.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.141.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@tanstack/react-router-ssr-query@1.141.8(@tanstack/query-core@5.90.16)(@tanstack/react-query@5.90.12(react@19.2.3))(@tanstack/react-router@1.141.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.141.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@tanstack/query-core': 5.90.12
+      '@tanstack/query-core': 5.90.16
       '@tanstack/react-query': 5.90.12(react@19.2.3)
       '@tanstack/react-router': 1.141.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@tanstack/router-ssr-query-core': 1.141.8(@tanstack/query-core@5.90.12)(@tanstack/router-core@1.141.8)
+      '@tanstack/router-ssr-query-core': 1.141.8(@tanstack/query-core@5.90.16)(@tanstack/router-core@1.141.8)
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
     transitivePeerDependencies:
@@ -33073,9 +33063,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@tanstack/router-ssr-query-core@1.141.8(@tanstack/query-core@5.90.12)(@tanstack/router-core@1.141.8)':
+  '@tanstack/router-ssr-query-core@1.141.8(@tanstack/query-core@5.90.16)(@tanstack/router-core@1.141.8)':
     dependencies:
-      '@tanstack/query-core': 5.90.12
+      '@tanstack/query-core': 5.90.16
       '@tanstack/router-core': 1.141.8
 
   '@tanstack/router-utils@1.141.0':

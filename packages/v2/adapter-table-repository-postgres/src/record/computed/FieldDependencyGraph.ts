@@ -515,7 +515,7 @@ export class FieldDependencyGraph {
         // Step 1: Find all affected field IDs using iterative traversal
         // (Recursive CTE with multiple UNION branches is complex in Kysely,
         // so we use application-level iteration with batched queries)
-        const affectedFieldIds = yield* await this.findAffectedFieldIds(db, seedIds);
+        const affectedFieldIds = yield* await this.findAffectedFieldIds(db, baseId, seedIds);
 
         // Include seed fields in the result
         for (const seedId of seedIds) {
@@ -562,7 +562,13 @@ export class FieldDependencyGraph {
           const type = field.type;
           if (type === 'lookup' || type === 'rollup') {
             const lookupOptions = field.lookupOptions;
-            if (!lookupOptions) continue;
+            if (!lookupOptions) {
+              return err(
+                domainError.validation({
+                  message: `Missing lookupOptions for ${type} field ${field.id.toString()}`,
+                })
+              );
+            }
             const linkFieldId = yield* FieldId.create(lookupOptions.linkFieldId);
             const lookupFieldId = yield* FieldId.create(lookupOptions.lookupFieldId);
             const foreignTableId = yield* TableId.create(lookupOptions.foreignTableId);
@@ -589,7 +595,13 @@ export class FieldDependencyGraph {
 
           if (type === 'link') {
             const options = field.options;
-            if (!options) continue;
+            if (!options) {
+              return err(
+                domainError.validation({
+                  message: `Missing options for link field ${field.id.toString()}`,
+                })
+              );
+            }
             const lookupFieldId = yield* FieldId.create(options.lookupFieldId);
             const foreignTableId = yield* TableId.create(options.foreignTableId);
 
@@ -606,7 +618,13 @@ export class FieldDependencyGraph {
 
           if (type === 'conditionalRollup' || type === 'conditionalLookup') {
             const conditionalOptions = field.conditionalOptions;
-            if (!conditionalOptions) continue;
+            if (!conditionalOptions) {
+              return err(
+                domainError.validation({
+                  message: `Missing conditionalOptions for ${type} field ${field.id.toString()}`,
+                })
+              );
+            }
             const lookupFieldId = yield* FieldId.create(conditionalOptions.lookupFieldId);
             const foreignTableId = yield* TableId.create(conditionalOptions.foreignTableId);
 
@@ -654,6 +672,7 @@ export class FieldDependencyGraph {
    */
   private async findAffectedFieldIds(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    baseId: BaseId,
     seedIds: string[]
   ): Promise<Result<Set<string>, DomainError>> {
     try {
@@ -736,8 +755,12 @@ export class FieldDependencyGraph {
           -- Filter fields are referenced in options.condition.filter.filterSet[].fieldId
           -- Using text pattern matching to detect fieldId references in nested filterSet
           SELECT f.id AS field_id
-          FROM field f, (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
+          FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
+          CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.base_id = ${baseId.toString()}
             AND f.type IN ('conditionalRollup', 'conditionalLookup')
             AND f.options IS NOT NULL
             AND f.options::text LIKE '%"fieldId":"' || batch.id || '"%'
@@ -747,8 +770,12 @@ export class FieldDependencyGraph {
           -- 8. Conditional lookup (v1) dependency on condition filter fields
           -- Filter fields are in lookup_options.filter.filterSet[].fieldId or lookup_options.condition.filter.filterSet[].fieldId
           SELECT f.id AS field_id
-          FROM field f, (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
+          FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
+          CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
           WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.base_id = ${baseId.toString()}
             AND f.is_conditional_lookup = true
             AND f.lookup_options IS NOT NULL
             AND f.lookup_options::text LIKE '%"fieldId":"' || batch.id || '"%'

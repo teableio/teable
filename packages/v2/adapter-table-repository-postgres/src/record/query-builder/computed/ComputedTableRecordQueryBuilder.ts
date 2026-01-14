@@ -697,7 +697,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         .with({ type: 'link' }, ({ lookupFieldId, isMultiValue, orderBy }) =>
           this.getForeignColRef(foreignTable, lookupFieldId).map((titleRef) => {
             // Build JSON object: {id: ..., title: ...}
-            const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleRef}))`;
+            const titleTextRef = sql`(${titleRef})::text`;
+            const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleTextRef}))`;
             const orderByExpr = buildLinkOrderByExpr(orderBy);
             if (isMultiValue) {
               // Multi-value: aggregate as JSON array
