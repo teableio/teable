@@ -26,8 +26,7 @@ export default defineConfig({
     setupFiles: './config/tests/setupVitest.ts',
     coverage: {
       provider: 'v8',
-      extension: ['.js', '.jsx', '.ts', '.tsx'],
-      include: ['src/**/*'],
+      include: ['src/**/*.{js,jsx,ts,tsx}'],
     },
     include: testFiles,
     exclude: [...configDefaults.exclude, '**/.next/**'],

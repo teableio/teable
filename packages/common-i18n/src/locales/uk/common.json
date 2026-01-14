@@ -30,6 +30,7 @@
     "duplicate": "Дублювати",
     "change": "Змінити",
     "upgrade": "Оновити",
+    "upgradeToLevel": "Оновити до {{level}}",
     "search": "Пошук",
     "loadMore": "Завантажити більше",
     "collapseSidebar": "Згорнути бічну панель",
@@ -84,7 +85,7 @@
     }
   },
   "settings": {
-    "title": "Налаштування",
+    "title": "Приклад налаштувань",
     "personal": {
       "title": "Особисті налаштування"
     },
@@ -126,6 +127,20 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 Пароль додано успішно."
+      },
+      "deleteAccount": {
+        "title": "Видалити обліковий запис",
+        "desc": "Цю дію неможливо скасувати. Ваш обліковий запис і всі пов'язані дані будуть назавжди видалені.",
+        "error": {
+          "title": "Не вдалося видалити обліковий запис",
+          "desc": "Вам потрібно спочатку вирішити наступні залежності:",
+          "spacesError": "Перш ніж видалити обліковий запис, вам потрібно вийти з просторів (або видалити та перемістити в кошик)."
+        },
+        "confirm": {
+          "title": "Введіть <code>DELETE</code> для підтвердження",
+          "placeholder": "DELETE"
+        },
+        "loading": "Видалення..."
       },
       "changeEmail": {
         "title": "Змінити адресу електронної пошти",
@@ -199,7 +214,8 @@
         "featured": "Рекомендовано",
         "createdBy": "Створено",
         "userNonExistent": "Користувач не існує",
-        "usage": "Використання"
+        "usage": "Використання",
+        "visit": "Відвідування"
       }
     }
   },
@@ -214,13 +230,13 @@
     "automation": "Автоматизація",
     "authorityMatrix": "Матриця повноважень",
     "design": "Дизайн",
-    "adminPanel": "Панель адміністратора",
+    "adminPanel": "Системне адміністрування",
     "license": "Самостійна ліцензія",
     "instanceId": "Ідентифікатор екземпляра",
     "beta": "Бета",
     "trash": "Кошик",
     "global": "Глобальний",
-    "organizationPanel": "Організаційна панель",
+    "organizationPanel": "Налаштування організації",
     "unknownError": "Невідома помилка",
     "pluginPanel": "Панель",
     "pluginContextMenu": "Контекстне меню",
@@ -233,15 +249,19 @@
     "folder": "Папка",
     "newAutomation": "Нова автоматизація",
     "newApp": "Новий додаток",
-    "newFolder": "Нова папка"
+    "newFolder": "Нова папка",
+    "template": "Шаблон"
   },
   "level": {
     "free": "Безкоштовно",
     "plus": "Плюс",
     "pro": "Профі",
+    "business": "Бізнес",
     "enterprise": "Підприємство"
   },
   "noResult": "Немає результату.",
+  "allNodes": "Усі вузли",
+  "noDescription": "Без опису",
   "untitled": "Без назви",
   "name": "Назва",
   "description": "Опис",
@@ -306,6 +326,8 @@
   },
   "help": {
     "title": "Допомога",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai",
     "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Дозволи сторінки оновлено. Будь ласка, оновіть сторінку, щоб побачити найновіший вміст.",
@@ -582,6 +604,8 @@
     "unsubscribe": "Відписатися",
     "unsubscribeList": "Список відписки",
     "unsubscribeTime": "Час відписки",
+    "source": "Джерело",
+    "sourceAutomationDeleted": "Автоматизацію або вузол видалено",
     "processing": "Обробка...",
     "unsubscribeH1": "Підтвердити скасування підписки?",
     "unsubscribeH2": "Ви збираєтеся відписатися від майбутніх рекламних акцій та оновлень продуктів Teable. Ви впевнені, що хочете відписатися?",
@@ -722,6 +746,39 @@
     }
   },
   "base": {
-    "deleteTip": "Ви впевнені, що хочете видалити \"{{name}}\" базу?"
-  }
+    "deleteTip": "Ви впевнені, що хочете видалити \"{{name}}\" базу?",
+    "createResource": "Створити ресурс",
+    "noPermissionToCreateResource": "У вас немає дозволу створювати ресурс"
+  },
+  "clickToCopyTooltip": "Клацніть, щоб скопіювати в буфер обміну",
+  "copiedTooltip": "Скопійовано!",
+  "hiddenFieldCount_one": "{{count}} приховане поле",
+  "hiddenFieldCount_other": "{{count}} прихованих полів",
+  "invalidFieldMapping": "Недійсне зіставлення поля",
+  "sourceFieldNotFoundMapping": "Поле джерела не знайдено",
+  "targetFieldNotFoundMapping": "Цільове поле не знайдено",
+  "fieldTypeNotSupportedMapping": "Тип поля не підтримується",
+  "fieldSettingsNotMatchMapping": "Налаштування поля не збігаються",
+  "fieldSettingsLookupNotMatch": "Налаштування поля пошуку не збігаються",
+  "fieldSettingsLinkTableNotMatch": "Зв'язана таблиця не збігається",
+  "fieldSettingsLinkViewNotMatch": "Зв'язаний вигляд не збігається",
+  "fieldTypeDifferentMapping": "Типи полів різні",
+  "fieldMappingSourceTip": "Зіставте поля джерела з цільовими полями",
+  "fieldMappingTargetTip": "Зіставте поля з ціллю",
+  "reset": "Скинути",
+  "checkAll": "Вибрати все",
+  "uncheckAll": "Скасувати вибір",
+  "duplicateOptionsMapping": "Повторювані варіанти",
+  "lookupFieldInvalidMapping": "Поле пошуку недійсне",
+  "noMatchedOptions": "Немає відповідних варіантів",
+  "needManualSelectionMapping": "Потрібен ручний вибір",
+  "targetFieldIsComputed": "Цільове поле обчислюване",
+  "targetFieldIsComputedTips": "Цільове поле обчислюване і не може бути змінене",
+  "emptyOption": "(порожньо)",
+  "showEmptyTip": "Показати порожні варіанти",
+  "hideEmptyTip": "Приховати порожні варіанти",
+  "hideText": "Приховати текст",
+  "showText": "Показати текст",
+  "sourceTable": "Таблиця джерела",
+  "sourceView": "Вигляд джерела"
 }

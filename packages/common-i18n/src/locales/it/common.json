@@ -32,6 +32,7 @@
     "duplicate": "Duplica",
     "change": "Cambia",
     "upgrade": "Aggiorna",
+    "upgradeToLevel": "Aggiorna a {{level}}",
     "search": "Cerca",
     "loadMore": "Carica altro",
     "collapseSidebar": "Comprimi barra laterale",
@@ -51,7 +52,17 @@
     "select": "Seleziona",
     "view": "Visualizza",
     "preview": "Anteprima",
-    "viewAndEdit": "Visualizza e modifica"
+    "viewAndEdit": "Visualizza e modifica",
+    "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\"?",
+    "refresh": "Aggiorna",
+    "login": "Accedi",
+    "useTemplate": "Usa modello",
+    "backToSpace": "Torna allo Spazio",
+    "switchBase": "Cambia Base",
+    "continue": "Continua",
+    "export": "Esporta",
+    "import": "Importa",
+    "expand": "Espandi"
   },
   "quickAction": {
     "title": "Azioni rapide...",
@@ -60,12 +71,13 @@
   "password": {
     "setInvalid": "La password non è valida, deve contenere almeno 8 caratteri e almeno una lettera e un numero."
   },
-  "non": {
-    "share": "Condividi",
-    "copy": "Copiato"
-  },
   "template": {
+    "non": {
+      "share": "Condividi",
+      "copy": "Copiato"
+    },
     "aiTitle": "Costruiamo insieme",
+    "aiGreeting": "Come posso aiutarti, {{name}}?",
     "aiSubTitle": "La prima piattaforma AI dove i team collaborano sui dati e generano app di produzione",
     "guideTitle": "Inizia dal tuo scenario",
     "watchVideo": "Guarda il video",
@@ -76,6 +88,10 @@
     "loadMore": "Carica Altro",
     "allTemplatesLoaded": "Tutti i modelli caricati",
     "createTemplate": "Crea Modello",
+    "useTemplateDialog": {
+      "title": "Seleziona spazio",
+      "description": "Seleziona uno spazio per il modello"
+    },
     "promptBox": {
       "placeholder": "Costruisci la tua app aziendale con Teable",
       "start": "Inizia",
@@ -91,7 +107,7 @@
     }
   },
   "settings": {
-    "title": "Impostazioni",
+    "title": "Impostazioni dell'istanza",
     "personal": {
       "title": "Impostazioni personali"
     },
@@ -134,6 +150,20 @@
       "addPasswordSuccess": {
         "title": "🎉 Aggiunta password riuscita."
       },
+      "deleteAccount": {
+        "title": "Elimina account",
+        "desc": "Questa azione è irreversibile. Eliminerà permanentemente il tuo account e tutti i dati associati.",
+        "error": {
+          "title": "Impossibile eliminare l'account",
+          "desc": "Devi prima gestire le seguenti dipendenze:",
+          "spacesError": "Prima di eliminare il tuo account, devi prima uscire (o eliminare, poi spostare nel cestino) dai tuoi Spazi."
+        },
+        "confirm": {
+          "title": "Digita <code>DELETE</code> per confermare",
+          "placeholder": "DELETE"
+        },
+        "loading": "Eliminazione in corso..."
+      },
       "changeEmail": {
         "title": "Modifica indirizzo email",
         "desc": "Verifica la tua password e conferma il tuo nuovo indirizzo email",
@@ -162,13 +192,17 @@
     },
     "setting": {
       "title": "Le mie impostazioni",
-      "theme": "Tema",
-      "themeDesc": "Seleziona il tema per l'app.",
+      "theme": "Tema interfaccia",
+      "themeDesc": "Seleziona lo schema di colori dell'interfaccia",
       "dark": "Scuro",
       "light": "Chiaro",
       "system": "Sistema",
       "version": "Versione dell'app",
-      "language": "Lingua"
+      "language": "Lingua",
+      "interactionMode": "Modalità di interazione",
+      "mouseMode": "Modalità cursore",
+      "touchMode": "Modalità touch",
+      "systemMode": "Segui le impostazioni di sistema"
     },
     "nav": {
       "settings": "Impostazioni",
@@ -177,14 +211,40 @@
     },
     "integration": {
       "title": "Integrazioni",
-      "description": "Hai concesso l'accesso al tuo account a {{count}} applicazioni.",
-      "lastUsed": "Ultimo utilizzo il {{date}}",
-      "revoke": "Revoca",
-      "owner": "Proprietario di {{user}}",
-      "revokeTitle": "Sei sicuro di voler revocare l'autorizzazione?",
-      "revokeDesc": "{{name}} non sarà più in grado di accedere all'API di Teable. Non puoi annullare questa azione.",
-      "scopeTitle": "Permessi",
-      "scopeDesc": "Questa applicazione sarà in grado di ottenere i seguenti ambiti:"
+      "thirdPartyIntegrations": {
+        "title": "Integrazioni di terze parti",
+        "description": "Hai concesso l'accesso al tuo account a {{count}} applicazioni.",
+        "lastUsed": "Ultimo utilizzo {{date}}",
+        "revoke": "Revoca",
+        "owner": "Di proprietà di {{user}}",
+        "revokeTitle": "Sei sicuro di voler revocare l'autorizzazione?",
+        "revokeDesc": "{{name}} non sarà più in grado di accedere all'API di Teable. Non puoi annullare questa azione.",
+        "scopeTitle": "Permessi",
+        "scopeDesc": "Questa applicazione sarà in grado di ottenere i seguenti ambiti:"
+      },
+      "userIntegration": {
+        "title": "Account connessi",
+        "description": "Connetti account esterni per consentire a Teable di accedere alle tue risorse.",
+        "emptyDescription": "Nessun account connesso",
+        "actions": {
+          "reconnect": "Riconnetti"
+        },
+        "slack": {
+          "user": "Utente Slack",
+          "workspace": "Area di lavoro Slack"
+        },
+        "deleteTitle": "Rimuovi account connesso",
+        "deleteDesc": "Sei sicuro di voler rimuovere {{name}}?",
+        "create": "Connetti nuovo account",
+        "manage": "Gestisci account connessi",
+        "searchPlaceholder": "Cerca account connessi",
+        "defaultName": "Integrazione {{name}}",
+        "callback": {
+          "error": "Autorizzazione fallita",
+          "title": "Autorizzazione riuscita",
+          "desc": "Puoi chiudere questa finestra ora."
+        }
+      }
     },
     "templateAdmin": {
       "header": {
@@ -202,7 +262,8 @@
         "featured": "In evidenza",
         "createdBy": "Creato da",
         "userNonExistent": "Utente inesistente",
-        "usage": "Utilizzo"
+        "usage": "Utilizzo",
+        "visit": "Visite"
       }
     }
   },
@@ -217,13 +278,13 @@
     "automation": "Automazione",
     "authorityMatrix": "Matrice di autorità",
     "design": "Design",
-    "adminPanel": "Pannello di amministrazione",
+    "adminPanel": "Amministrazione di sistema",
     "license": "Licenza self-hosted",
     "instanceId": "ID istanza",
     "beta": "Beta",
     "trash": "Cestino",
     "global": "Globale",
-    "organizationPanel": "Pannello dell'organizzazione",
+    "organizationPanel": "Impostazioni organizzazione",
     "unknownError": "Errore sconosciuto",
     "pluginPanel": "Pannello",
     "pluginContextMenu": "Menu contestuale",
@@ -236,15 +297,19 @@
     "folder": "Cartella",
     "newAutomation": "Nuova automazione",
     "newApp": "Nuova applicazione",
-    "newFolder": "Nuova cartella"
+    "newFolder": "Nuova cartella",
+    "template": "Modello"
   },
   "level": {
     "free": "Gratuito",
     "plus": "Plus",
     "pro": "Pro",
+    "business": "Business",
     "enterprise": "Enterprise"
   },
   "noResult": "Nessun risultato.",
+  "allNodes": "Tutti i nodi",
+  "noDescription": "Nessuna descrizione",
   "untitled": "Senza titolo",
   "name": "Nome",
   "description": "Descrizione",
@@ -309,6 +374,8 @@
   },
   "help": {
     "title": "Aiuto",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai",
     "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
   "pagePermissionChangeTip": "I permessi della pagina sono stati aggiornati. Si prega di aggiornare la pagina per vedere il contenuto più recente.",
@@ -320,6 +387,10 @@
     "unavailableInPlanTips": "Il piano di abbonamento attuale non supporta questa funzione",
     "unavailableConnectionTips": "La funzione di connessione al database verrà rimossa in futuro e sarà disponibile solo nella versione Enterprise e nelle versioni self-hosted.",
     "levelTips": "Questo spazio è attualmente sul piano {{level}}",
+    "enterpriseFeature": "Funzionalità Enterprise",
+    "automationRequiresUpgrade": "Aggiorna a Enterprise Edition (EE) per abilitare l'automazione",
+    "authorityMatrixRequiresUpgrade": "Aggiorna a Enterprise Edition (EE) per abilitare la matrice di autorità",
+    "viewPricing": "Visualizza prezzi",
     "billable": "Fatturabile",
     "billableByAuthorityMatrix": "Fatturazione generata dalla matrice dei permessi",
     "licenseExpiredGracePeriod": "La tua licenza self-hosted è scaduta e verrà declassata al piano gratuito il {{expiredTime}}. Aggiorna la tua licenza tempestivamente per mantenere l'accesso alle funzionalità premium.",
@@ -341,6 +412,7 @@
   },
   "admin": {
     "setting": {
+      "instanceTitle": "Impostazioni dell'istanza",
       "description": "Modifica le impostazioni per la tua istanza corrente",
       "allowSignUp": "Consenti la creazione di nuovi account",
       "allowSignUpDescription": "Disabilitando questa opzione si proibiranno le nuove registrazioni degli utenti e il pulsante di registrazione non apparirà più nella pagina di accesso.",
@@ -353,10 +425,14 @@
       "enableWaitlist": "Abilita la lista d'attesa",
       "enableWaitlistDescription": "Abilitando questa opzione si consentirà agli utenti di registrarsi solo con un codice di invito.",
       "generalSettings": "Impostazioni generali",
-      "aiSettings": "Impostazioni AI",
+      "aiSettings": {
+        "title": "Impostazioni AI",
+        "description": "Configura le impostazioni AI per questa istanza"
+      },
       "brandingSettings": {
         "title": "Impostazioni di branding",
         "description": "Disponibile solo nell'Edizione Enterprise",
+        "brandName": "Nome del marchio",
         "logo": "Logo",
         "logoDescription": "Il logo è la tua identità di marca in Teable.",
         "logoUpload": "Carica logo",
@@ -585,6 +661,8 @@
     "unsubscribe": "Annulla iscrizione",
     "unsubscribeList": "Lista di annullamento iscrizione",
     "unsubscribeTime": "Ora di annullamento iscrizione",
+    "source": "Fonte",
+    "sourceAutomationDeleted": "Automazione o nodo eliminato",
     "processing": "Elaborazione in corso...",
     "unsubscribeH1": "Confermare la cancellazione dell'iscrizione?",
     "unsubscribeH2": "Stai per annullare l'iscrizione alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di voler annullare l'iscrizione?",
@@ -725,6 +803,8 @@
     }
   },
   "base": {
-    "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\" base?"
+    "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\" base?",
+    "createResource": "Crea risorsa",
+    "noPermissionToCreateResource": "Non hai il permesso di creare una risorsa"
   }
 }

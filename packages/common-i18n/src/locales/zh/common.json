@@ -35,6 +35,7 @@
     "import": "导入",
     "change": "变更",
     "upgrade": "升级",
+    "upgradeToLevel": "升级到{{level}}",
     "search": "搜索",
     "loadMore": "加载更多",
     "collapseSidebar": "折叠侧边栏",
@@ -59,7 +60,9 @@
     "select": "选择",
     "refresh": "刷新",
     "login": "登录",
-    "useTemplate": "使用模版"
+    "useTemplate": "使用模版",
+    "backToSpace": "返回空间",
+    "switchBase": "切换数据库"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -148,7 +151,8 @@
         "createdBy": "创建者",
         "userNonExistent": "用户不存在",
         "preview": "预览",
-        "usage": "应用次数"
+        "usage": "应用次数",
+        "visit": "访问次数"
       },
       "actions": {
         "title": "操作",
@@ -322,13 +326,13 @@
     "automation": "自动化",
     "authorityMatrix": "权限矩阵",
     "design": "设计",
-    "adminPanel": "管理面板",
+    "adminPanel": "系统管理",
     "license": "私有化部署许可证",
     "instanceId": "实例 ID",
     "beta": "测试版",
     "trash": "回收站",
     "global": "全局",
-    "organizationPanel": "组织管理面板",
+    "organizationPanel": "组织设置",
     "unknownError": "未知错误",
     "pluginPanel": "面板",
     "pluginContextMenu": "菜单",
@@ -746,6 +750,19 @@
           "errorTips": "未配置邮箱，自助密码恢复、邮箱验证/通知功能将不可用"
         }
       }
+    },
+    "canary": {
+      "title": "灰度发布",
+      "enable": "启用灰度",
+      "enableDescription": "启用后，所选空间站将激活灰度功能",
+      "spaces": "灰度空间站",
+      "spacesDescription": "已配置 {{count}} 个空间站",
+      "configure": "配置",
+      "spaceIds": "空间站 ID",
+      "spaceIdsDescription": "输入空间站 ID，每行一个或用逗号/空格分隔",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "预览 ({{count}} 个)",
+      "noSpaceIds": "未输入空间站 ID"
     }
   },
   "notification": {
@@ -833,6 +850,8 @@
     "unsubscribe": "取消订阅",
     "unsubscribeList": "取消订阅列表",
     "unsubscribeTime": "取消订阅时间",
+    "source": "来源",
+    "sourceAutomationDeleted": "自动化或节点已删除",
     "processing": "处理中...",
     "unsubscribeH1": "确认取消订阅",
     "unsubscribeH2": "您即将取消订阅 Teable 未来的促销和产品更新信息。您确定要取消订阅吗？",
@@ -948,6 +967,16 @@
               "unknown": "表 \"{{tableName}}\" 的 AI 任务已取消。错误：{{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "奖励领取被拒绝",
+          "message": "您的 <a href=\"{{spaceUrl}}\">{{spaceName}}</a> 奖励申请因以下原因被拒绝：{{errorMessages}}，请检查后重新提交。",
+          "buttonText": "查看空间"
+        },
+        "rewardApproved": {
+          "title": "奖励领取成功",
+          "message": "恭喜！您的 <a href=\"{{spaceUrl}}\">{{spaceName}}</a> 奖励申请已通过。{{amount}} 算力已添加，有效期 {{expiredDays}} 天。",
+          "buttonText": "查看空间"
         }
       }
     }
@@ -978,12 +1007,112 @@
   },
   "noPermissionToCreateBase": "没有权限在任何空间中创建数据库",
   "base": {
-    "deleteTip": "确定要删除 \"{{name}}\" 数据库吗？"
+    "deleteTip": "确定要删除 \"{{name}}\" 数据库吗？",
+    "createResource": "创建资源",
+    "noPermissionToCreateResource": "您没有权限创建资源"
   },
   "app": {
     "title": "应用构建器",
     "description": "配置 v0 API 密钥以启用应用构建器功能，访问 <a>v0 设置</a> 获取 API 密钥",
     "previewAppError": "应用运行报错",
     "sendErrorToAI": "将错误发送给 AI"
+  },
+  "credit": {
+    "title": "算力",
+    "leftAmount": "剩余算力",
+    "winFreeCredits": "获取免费算力",
+    "getCredits": "获取 1000 算力",
+    "winCredit": {
+      "title": "分享正面评价即可获得",
+      "freeCredits": "1000 免费算力",
+      "guidelinesTitle": "分享要求",
+      "tagTeableio": "标记 <bold>@teableio</bold>",
+      "minCharacters": "撰写 <bold>100+</bold> 字符的评价",
+      "minFollowers": "拥有 <bold>10+</bold> 粉丝数",
+      "limitPerWeek": "每个帖子 500 算力，每周最多 2 次（X + LinkedIn）",
+      "postOnX": "发布到 X",
+      "postOnLinkedIn": "发布到 LinkedIn",
+      "preFilledDraft": "🌟 已为您准备好预填草稿！",
+      "claimTitle": "粘贴帖子链接领取算力",
+      "userEmail": "用户邮箱",
+      "postUrlLabel": "帖子链接 (X 或 LinkedIn)",
+      "postUrlPlaceholder": "在此粘贴您的帖子链接",
+      "invalidUrl": "请输入有效的 X 或 LinkedIn 帖子链接",
+      "claiming": "领取中...",
+      "claimCredits": "领取算力",
+      "congratulations": "恭喜！",
+      "claimSuccess": "您已成功领取 500 算力！",
+      "verifying": "正在验证您的帖子...",
+      "verifyingDescription": "我们正在检查您的帖子内容，通常需要几秒钟",
+      "verifyFailed": "验证失败",
+      "tryAgain": "重试"
+    },
+    "error": {
+      "verificationFailed": "验证失败"
+    }
+  },
+  "reward": {
+    "title": "奖励",
+    "rewardCredits": "算力奖励",
+    "minCharCount": "帖子内容至少需要 {{count}} 个字符",
+    "minFollowerCount": "账户至少需要 {{count}} 位粉丝",
+    "mustMention": "帖子必须提及 {{mention}}",
+    "fetchSnapshotFailed": "获取帖子快照失败",
+    "alreadyClaimedThisWeek": "您本周已为此账户领取过奖励",
+    "manage": {
+      "title": "奖励管理",
+      "description": "查看和管理所有空间的奖励记录",
+      "overview": "概览",
+      "records": "记录",
+      "searchSpace": "搜索空间...",
+      "searchRecords": "搜索帖子链接/用户ID...",
+      "dateRange": "选择日期范围",
+      "from": "从",
+      "to": "至",
+      "totalSpaces": "共 {{count}} 个空间",
+      "totalRecords": "共 {{count}} 条记录",
+      "space": "空间",
+      "allSpaces": "全部空间",
+      "user": "用户",
+      "creator": "创建者",
+      "platform": "平台",
+      "allStatuses": "全部状态",
+      "allPlatforms": "全部平台",
+      "pendingCount": "待处理个数",
+      "approvedCount": "通过个数",
+      "rejectedCount": "拒绝个数",
+      "approvedAmount": "通过数量",
+      "consumedAmount": "已消耗数量",
+      "availableAmount": "可用数量",
+      "expiringSoonAmount": "即将过期数量 (7天)",
+      "amount": "数量",
+      "remainingAmount": "剩余数量",
+      "createdTime": "创建时间",
+      "rewardTime": "奖励时间",
+      "expiredTime": "过期时间",
+      "lastModified": "最后修改",
+      "viewDetails": "查看详情",
+      "details": "奖励详情",
+      "basicInfo": "基本信息",
+      "amountInfo": "金额信息",
+      "timeInfo": "时间信息",
+      "socialInfo": "社交信息",
+      "verifyResult": "验证结果",
+      "uniqueKey": "唯一标识",
+      "verify": "验证",
+      "valid": "有效",
+      "invalid": "无效",
+      "errors": "错误",
+      "copied": "{{label}} 已复制",
+      "openPost": "打开帖子",
+      "noData": "暂无数据",
+      "page": "第 {{current}} / {{total}} 页",
+      "status": {
+        "label": "状态",
+        "pending": "待处理",
+        "approved": "已通过",
+        "rejected": "已拒绝"
+      }
+    }
   }
 }

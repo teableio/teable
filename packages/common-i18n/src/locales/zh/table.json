@@ -93,13 +93,13 @@
     "hide": "隐藏",
     "default": {
       "singleLineText": {
-        "title": "标题"
+        "title": "单行文本"
       },
       "longText": {
-        "title": "描述"
+        "title": "长文本"
       },
       "number": {
-        "title": "计数",
+        "title": "数字",
         "formatType": "格式类型",
         "currencySymbol": "货币符号",
         "defaultSymbol": "￥",
@@ -109,7 +109,7 @@
         "percentExample": "百分比 (20%)"
       },
       "singleSelect": {
-        "title": "状态",
+        "title": "单选",
         "options": {
           "todo": "待开始",
           "inProgress": "进行中",
@@ -117,7 +117,7 @@
         }
       },
       "multipleSelect": {
-        "title": "标签"
+        "title": "多选"
       },
       "attachment": {
         "title": "附件"
@@ -146,7 +146,7 @@
         "noDisplay": "不显示"
       },
       "autoNumber": {
-        "title": "自动编号"
+        "title": "自增数字"
       },
       "createdTime": {
         "title": "创建时间"
@@ -557,10 +557,12 @@
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
       "excelFile": "Microsoft Excel",
-      "csvFile": "Csv 文件",
+      "csvFile": "CSV 文件",
+      "importCsvData": "导入 CSV 数据",
+      "importExcelData": "导入 Microsoft Excel 数据",
       "cancel": "取消",
       "leave": "取消",
-      "downAsCsv": "下载 csv",
+      "downAsCsv": "下载 CSV",
       "importData": "导入数据",
       "duplicate": "复制",
       "importing": "导入中",

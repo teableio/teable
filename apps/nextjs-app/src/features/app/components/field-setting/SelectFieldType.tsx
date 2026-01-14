@@ -175,13 +175,13 @@ export const SelectFieldType = (props: {
       };
     });
     if (!isPrimary) {
-      list.push({
+      list.splice(2, 0, {
         id: 'lookup',
         name: t('sdk:field.title.lookup'),
         description: t('sdk:field.description.lookup'),
         icon: <SearchIcon className="size-4" />,
       });
-      list.push({
+      list.splice(4, 0, {
         id: 'conditionalLookup',
         name: t('sdk:field.title.conditionalLookup'),
         description: t('sdk:field.description.conditionalLookup'),

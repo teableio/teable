@@ -427,7 +427,8 @@
     "recordHistory": "Historia récord",
     "you": "Tú",
     "instance": "Instancia",
-    "enterprise": "Empresa"
+    "enterprise": "Empresa",
+    "history": "Historial"
   },
   "formula": {
     "SUM": {
@@ -1366,6 +1367,28 @@
       "cannotDeployAppBeforeInitialization": "No se puede implementar la aplicación antes de la inicialización",
       "noProjectOrVersionFound": "No se encontró proyecto o versión",
       "noDeploymentUrlAvailable": "No hay URL de implementación disponible"
+    },
+    "reward": {
+      "notFound": "Recompensa no encontrada",
+      "unsupportedSourceType": "Tipo de fuente de recompensa no soportado",
+      "maxClaimsReached": "Ha alcanzado el máximo de reclamaciones de recompensa (2) para esta semana",
+      "verificationFailed": "Verificación fallida: {{errors}}",
+      "alreadyClaimedThisWeek": "Ya ha reclamado una recompensa para esta cuenta esta semana",
+      "invalidPostUrl": "Formato de URL de publicación inválido",
+      "postAlreadyUsed": "Esta publicación ya ha sido utilizada para reclamar una recompensa",
+      "unsupportedPlatformUrl": "URL de plataforma social no soportada",
+      "unsupportedPlatform": "Plataforma no soportada: {{platform}}",
+      "minCharCount": "La publicación debe tener al menos {{count}} caracteres",
+      "minFollowerCount": "La cuenta debe tener al menos {{count}} seguidores",
+      "mustMention": "La publicación debe mencionar {{mention}}",
+      "fetchTweetFailed": "Error al obtener el tweet de X: {{error}}",
+      "tweetNotFound": "Tweet de X no encontrado: {{postId}}",
+      "fetchUserFailed": "Error al obtener el usuario de X: {{error}}",
+      "xUserNotFound": "Usuario de X no encontrado: {{username}}",
+      "fetchLinkedInPostFailed": "Error al obtener la publicación de LinkedIn: {{error}}",
+      "linkedInPostNotFound": "Publicación de LinkedIn no encontrada: {{postId}}",
+      "linkedInAuthorNotFound": "Autor de LinkedIn no encontrado: {{postId}}",
+      "fetchLinkedInUserFailed": "Error al obtener el usuario de LinkedIn: {{error}}"
     }
   }
 }

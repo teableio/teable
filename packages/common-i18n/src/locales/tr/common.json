@@ -1,6 +1,7 @@
 {
   "actions": {
-    "title": "işlemler",
+    "title": "İşlemler",
+    "add": "Ekle",
     "save": "Kaydet",
     "doNotSave": "Kaydetme",
     "submit": "Gönder",
@@ -15,6 +16,7 @@
     "zoomIn": "Yakınlaştır",
     "zoomOut": "Uzaklaştır",
     "back": "Geri",
+    "remove": "Kaldır",
     "removeConfig": "Yapılandırmayı sil",
     "saveSucceed": "Başarıyla Kaydedildi!",
     "submitSucceed": "Başarıyla Gönderildi!",
@@ -30,6 +32,7 @@
     "duplicate": "Çoğalt",
     "change": "Değiştir",
     "upgrade": "Yükselt",
+    "upgradeToLevel": "{{level}}'e yükselt",
     "search": "Ara",
     "loadMore": "Daha Fazla Yükle",
     "collapseSidebar": "Kenar Çubuğunu Daralt",
@@ -39,6 +42,9 @@
     "fieldSearch": "Alan Ara",
     "showAllRow": "Tüm satırları göster",
     "hideNotMatchRow": "Eşleşmeyen satırları gizle",
+    "more": "Daha Fazla",
+    "expand": "Genişlet",
+    "tableIndex": "Dizin",
     "move": "Taşı",
     "turnOn": "Aç",
     "exit": "Çıkış",
@@ -47,7 +53,16 @@
     "select": "Seç",
     "view": "Görüntüle",
     "preview": "Önizleme",
-    "viewAndEdit": "Görüntüle ve düzenle"
+    "viewAndEdit": "Görüntüle ve düzenle",
+    "deleteTip": "\"{{name}}\" öğesini silmek istediğinizden emin misiniz?",
+    "refresh": "Yenile",
+    "login": "Giriş Yap",
+    "useTemplate": "Şablon Kullan",
+    "backToSpace": "Alana Dön",
+    "switchBase": "Veritabanı Değiştir",
+    "continue": "Devam Et",
+    "export": "Dışa Aktar",
+    "import": "İçe Aktar"
   },
   "quickAction": {
     "title": "Hızlı İşlemler...",
@@ -56,12 +71,13 @@
   "password": {
     "setInvalid": "Şifre geçersiz, en az 8 karakter olmalı ve en az bir harf ve bir rakam içermelidir."
   },
-  "non": {
-    "share": "Paylaş",
-    "copy": "Kopyalandı"
-  },
   "template": {
+    "non": {
+      "share": "Paylaş",
+      "copy": "Kopyalandı"
+    },
     "aiTitle": "Birlikte inşa edelim",
+    "aiGreeting": "Size nasıl yardımcı olabilirim, {{name}}?",
     "aiSubTitle": "Ekiplerin veriler üzerinde işbirliği yaptığı ve üretim uygulamaları oluşturduğu ilk AI platformu",
     "guideTitle": "Senaryonuzdan başlayın",
     "watchVideo": "Video izle",
@@ -72,6 +88,10 @@
     "loadMore": "Daha Fazla Yükle",
     "allTemplatesLoaded": "Tüm şablonlar yüklendi",
     "createTemplate": "Şablon Oluştur",
+    "useTemplateDialog": {
+      "title": "Alan Seçin",
+      "description": "Şablon için bir alan seçin"
+    },
     "promptBox": {
       "placeholder": "Teable ile iş uygulamanızı oluşturun",
       "start": "Başlat",
@@ -87,7 +107,7 @@
     }
   },
   "settings": {
-    "title": "Ayarlar",
+    "title": "Örnek Ayarları",
     "personal": {
       "title": "Kişisel ayarlar"
     },
@@ -131,6 +151,20 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 Şifre başarıyla eklendi."
+      },
+      "deleteAccount": {
+        "title": "Hesabı Sil",
+        "desc": "Bu işlem geri alınamaz. Hesabınız ve tüm ilişkili veriler kalıcı olarak silinecektir.",
+        "error": {
+          "title": "Hesap silinemedi",
+          "desc": "Önce aşağıdaki bağımlılıkları çözmeniz gerekiyor:",
+          "spacesError": "Hesabınızı silmeden önce, Alanlarınızdan çıkmanız (veya silip çöp kutusuna taşımanız) gerekiyor."
+        },
+        "confirm": {
+          "title": "Onaylamak için <code>DELETE</code> yazın",
+          "placeholder": "DELETE"
+        },
+        "loading": "Siliniyor..."
       },
       "changeEmail": {
         "title": "E-posta adresini değiştir",
@@ -204,7 +238,8 @@
         "featured": "Öne çıkan",
         "createdBy": "Oluşturan",
         "userNonExistent": "Kullanıcı mevcut değil",
-        "usage": "Kullanım"
+        "usage": "Kullanım",
+        "visit": "Ziyaret"
       }
     }
   },
@@ -219,13 +254,13 @@
     "automation": "Otomasyon",
     "authorityMatrix": "Yetki Matrisi",
     "design": "Tasarım",
-    "adminPanel": "Yönetici Paneli",
+    "adminPanel": "Sistem Yönetimi",
     "license": "Kendi sunuculu lisans",
     "instanceId": "Örnek Kimliği",
     "beta": "Beta",
     "trash": "Çöp Kutusu",
     "global": "Genel",
-    "organizationPanel": "Organizasyon Paneli",
+    "organizationPanel": "Organizasyon Ayarları",
     "unknownError": "Bilinmeyen hata",
     "pluginPanel": "Panel",
     "pluginContextMenu": "Bağlam menüsü",
@@ -238,15 +273,19 @@
     "folder": "Klasör",
     "newAutomation": "Yeni otomasyon",
     "newApp": "Yeni uygulama",
-    "newFolder": "Yeni klasör"
+    "newFolder": "Yeni klasör",
+    "template": "Şablon"
   },
   "level": {
     "free": "Ücretsiz",
     "plus": "Plus",
     "pro": "Pro",
+    "business": "İş",
     "enterprise": "Kurumsal"
   },
   "noResult": "Sonuç Bulunamadı.",
+  "allNodes": "Tüm Düğümler",
+  "noDescription": "Açıklama yok",
   "untitled": "Başlıksız",
   "name": "İsim",
   "description": "Açıklama",
@@ -307,6 +346,8 @@
   },
   "help": {
     "title": "Yardım",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai",
     "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Sayfa izinleri güncellendi. En son içeriği görmek için lütfen sayfayı yenileyin.",
@@ -583,6 +624,8 @@
     "unsubscribe": "Abonelikten çık",
     "unsubscribeList": "Abonelikten çıkma listesi",
     "unsubscribeTime": "Abonelikten çıkma zamanı",
+    "source": "Kaynak",
+    "sourceAutomationDeleted": "Otomasyon veya düğüm silindi",
     "processing": "İşleniyor...",
     "unsubscribeH1": "Abonelikten çıkışı onaylıyor musunuz?",
     "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
@@ -723,6 +766,39 @@
     }
   },
   "base": {
-    "deleteTip": "\"{{name}}\" veritabanını silmek istediğinizden emin misiniz?"
-  }
+    "deleteTip": "\"{{name}}\" veritabanını silmek istediğinizden emin misiniz?",
+    "createResource": "Kaynak oluştur",
+    "noPermissionToCreateResource": "Kaynak oluşturma izniniz yok"
+  },
+  "clickToCopyTooltip": "Panoya kopyalamak için tıklayın",
+  "copiedTooltip": "Kopyalandı!",
+  "hiddenFieldCount_one": "{{count}} gizli alan",
+  "hiddenFieldCount_other": "{{count}} gizli alan",
+  "invalidFieldMapping": "Geçersiz alan eşlemesi",
+  "sourceFieldNotFoundMapping": "Kaynak alan bulunamadı",
+  "targetFieldNotFoundMapping": "Hedef alan bulunamadı",
+  "fieldTypeNotSupportedMapping": "Alan türü desteklenmiyor",
+  "fieldSettingsNotMatchMapping": "Alan ayarları eşleşmiyor",
+  "fieldSettingsLookupNotMatch": "Arama alan ayarları eşleşmiyor",
+  "fieldSettingsLinkTableNotMatch": "Bağlantı tablosu eşleşmiyor",
+  "fieldSettingsLinkViewNotMatch": "Bağlantı görünümü eşleşmiyor",
+  "fieldTypeDifferentMapping": "Alan türleri farklı",
+  "fieldMappingSourceTip": "Kaynak alanları hedef alanlarla eşleyin",
+  "fieldMappingTargetTip": "Alanları hedefle eşleştirme",
+  "reset": "Sıfırla",
+  "checkAll": "Tümünü seç",
+  "uncheckAll": "Seçimi kaldır",
+  "duplicateOptionsMapping": "Yinelenen seçenekler",
+  "lookupFieldInvalidMapping": "Arama alanı geçersiz",
+  "noMatchedOptions": "Eşleşen seçenek yok",
+  "needManualSelectionMapping": "Manuel seçim gerekli",
+  "targetFieldIsComputed": "Hedef alan hesaplanmış",
+  "targetFieldIsComputedTips": "Hedef alan hesaplanmış ve değiştirilemez",
+  "emptyOption": "(boş)",
+  "showEmptyTip": "Boş seçenekleri göster",
+  "hideEmptyTip": "Boş seçenekleri gizle",
+  "hideText": "Metni Gizle",
+  "showText": "Metni Göster",
+  "sourceTable": "Kaynak Tablo",
+  "sourceView": "Kaynak Görünüm"
 }

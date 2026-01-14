@@ -455,10 +455,15 @@
       "addFromOtherSource": "Добавить из других источников",
       "excelFile": "Microsoft Excel",
       "csvFile": "Csv файл",
+      "importCsvData": "Импортировать данные CSV",
+      "importExcelData": "Импортировать данные Microsoft Excel",
       "cancel": "Отмена",
       "leave": "Выйти",
       "downAsCsv": "Скачать csv",
-      "importData": "Импортировать данные"
+      "importData": "Импортировать данные",
+      "duplicate": "Дублировать",
+      "importing": "Импорт",
+      "includeRecords": "Включить записи"
     },
     "tips": {
       "importWayTip": "Нажмите или перетащите файл в эту область для загрузки",

@@ -424,10 +424,11 @@
     "automation": "Автоматизация",
     "app": "Приложение",
     "user": "Пользователь",
-    "recordHistory": "История записи",
+    "recordHistory": "История записей",
     "you": "Вы",
     "instance": "Экземпляр",
-    "enterprise": "Enterprise"
+    "enterprise": "Предприятие",
+    "history": "История"
   },
   "formula": {
     "SUM": {
@@ -1354,6 +1355,28 @@
       "cannotDeployAppBeforeInitialization": "Невозможно развернуть приложение до инициализации",
       "noProjectOrVersionFound": "Проект или версия не найдены",
       "noDeploymentUrlAvailable": "URL развертывания недоступен"
+    },
+    "reward": {
+      "notFound": "Награда не найдена",
+      "unsupportedSourceType": "Неподдерживаемый тип источника награды",
+      "maxClaimsReached": "Вы достигли максимального количества запросов наград (2) на этой неделе",
+      "verificationFailed": "Ошибка проверки: {{errors}}",
+      "alreadyClaimedThisWeek": "Вы уже запросили награду для этого аккаунта на этой неделе",
+      "invalidPostUrl": "Неверный формат URL публикации",
+      "postAlreadyUsed": "Эта публикация уже использовалась для получения награды",
+      "unsupportedPlatformUrl": "Неподдерживаемый URL социальной платформы",
+      "unsupportedPlatform": "Неподдерживаемая платформа: {{platform}}",
+      "minCharCount": "Публикация должна содержать не менее {{count}} символов",
+      "minFollowerCount": "Аккаунт должен иметь не менее {{count}} подписчиков",
+      "mustMention": "Публикация должна упоминать {{mention}}",
+      "fetchTweetFailed": "Не удалось получить твит X: {{error}}",
+      "tweetNotFound": "Твит X не найден: {{postId}}",
+      "fetchUserFailed": "Не удалось получить пользователя X: {{error}}",
+      "xUserNotFound": "Пользователь X не найден: {{username}}",
+      "fetchLinkedInPostFailed": "Не удалось получить публикацию LinkedIn: {{error}}",
+      "linkedInPostNotFound": "Публикация LinkedIn не найдена: {{postId}}",
+      "linkedInAuthorNotFound": "Автор LinkedIn не найден: {{postId}}",
+      "fetchLinkedInUserFailed": "Не удалось получить пользователя LinkedIn: {{error}}"
     }
   }
 }

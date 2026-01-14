@@ -9,7 +9,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 
 // Skeleton component for loading state
@@ -74,15 +74,31 @@ const APIDialogContent = dynamic(
 );
 
 interface APIDialogProps {
+  open?: boolean;
+  setOpen?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
-export const APIDialog = ({ children }: APIDialogProps) => {
+export const APIDialog = ({ open, setOpen, children }: APIDialogProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const [open, setOpen] = useState(false);
+
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : internalOpen;
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (isControlled) {
+        setOpen?.(open);
+      } else {
+        setInternalOpen(open);
+      }
+    },
+    [isControlled, setOpen]
+  );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col overflow-hidden">
         <DialogHeader>
@@ -92,7 +108,7 @@ export const APIDialog = ({ children }: APIDialogProps) => {
           </DialogTitle>
         </DialogHeader>
 
-        {open && <APIDialogContent onOpenChange={setOpen} />}
+        {isOpen && <APIDialogContent onOpenChange={handleOpenChange} />}
       </DialogContent>
     </Dialog>
   );
