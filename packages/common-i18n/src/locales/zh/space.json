@@ -45,6 +45,9 @@
     "pin": "收藏",
     "empty": "您收藏的数据库和空间将显示在这里"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "您没有权限创建数据库"
+  },
   "tip": {
     "delete": "确定要删除 \"<0/>\" 空间吗？",
     "title": "提示",

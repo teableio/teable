@@ -95,6 +95,7 @@ describe('Bulk text to link conversion (e2e)', () => {
 
   test(
     'converts 2k text cells into links referencing national agencies',
+    { timeout: 300_000 },
     async () => {
       const nationalBase = await createBase({
         spaceId,
@@ -280,7 +281,6 @@ describe('Bulk text to link conversion (e2e)', () => {
       });
 
       await verifyLinkedRecords(Relationship.ManyMany);
-    },
-    { timeout: 300_000 }
+    }
   );
 });

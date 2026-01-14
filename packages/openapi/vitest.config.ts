@@ -20,15 +20,10 @@ export default defineConfig({
         enabled: true,
       },
     }, */
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    pool: 'forks',
     coverage: {
       provider: 'v8',
-      extension: ['.js', '.ts'],
-      include: ['src/**/*'],
+      include: ['src/**/*.{js,ts}'],
     },
     // To mimic Jest behaviour regarding mocks.
     // @link https://vitest.dev/config/#clearmocks

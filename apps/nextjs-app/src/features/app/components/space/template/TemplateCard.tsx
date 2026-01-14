@@ -46,7 +46,7 @@ export const TemplateCard = ({
     >
       <div
         className={cn(
-          'group w-auto shrink-0 overflow-hidden rounded-lg border bg-secondary p-0 transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08),0_3px_6px_-2px_rgba(0,0,0,0.08)]'
+          'group w-auto shrink-0 overflow-hidden rounded-lg border bg-secondary p-0  transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08),0_3px_6px_-2px_rgba(0,0,0,0.08)]'
         )}
         style={{
           height: imageSize,
@@ -72,14 +72,18 @@ export const TemplateCard = ({
           'text-sm pt-1 gap-0.5': size === 'xs',
         })}
       >
-        <h2 className="flex items-center justify-between">
+        <h2
+          className={cn('flex items-center justify-between gap-3', {
+            'gap-2': size === 'xs',
+          })}
+        >
           <span className="truncate font-medium" title={name}>
             {name}
           </span>
 
           <div
             className={cn('flex shrink-0 items-center gap-2 text-muted-foreground text-sm', {
-              'text-xs': size === 'xs',
+              'text-xs gap-1': size === 'xs',
             })}
           >
             <Eye className="size-4" />

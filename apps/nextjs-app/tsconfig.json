@@ -38,7 +38,7 @@
         "name": "next"
       }
     ],
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "node"]
   },
   "exclude": ["**/node_modules", "**/.*/"],
   "include": [

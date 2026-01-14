@@ -38,6 +38,8 @@ import type {
   ITemplatePermalinkVo,
 } from '@teable/openapi';
 import {
+  IS_TEMPLATE_HEADER,
+  X_CANARY_HEADER,
   ACCEPT_INVITATION_LINK,
   CREATE_BASE,
   GET_BASE,
@@ -84,6 +86,27 @@ export class SsrApi {
 
   constructor() {
     this.axios = getAxios();
+  }
+
+  /**
+   * Configure axios interceptors for base-specific headers (template, canary, etc.)
+   */
+  configureBaseHeaders(base: IGetBaseVo | undefined) {
+    const templateHeader = base?.template?.headers;
+    if (templateHeader) {
+      this.disableLastVisit = true;
+      this.axios.interceptors.request.use((config) => {
+        config.headers[IS_TEMPLATE_HEADER] = templateHeader;
+        return config;
+      });
+    }
+
+    if (base?.isCanary) {
+      this.axios.interceptors.request.use((config) => {
+        config.headers[X_CANARY_HEADER] = 'true';
+        return config;
+      });
+    }
   }
 
   async getTable(

@@ -3,7 +3,15 @@ import { Button, Calendar, cn, Input, NavView } from '@teable/ui-lib';
 import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
 import { formatInTimeZone, toDate, toZonedTime, fromZonedTime } from 'date-fns-tz';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useContext, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { AppContext } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import type { ICellEditor, IEditorRef } from '../type';
@@ -33,6 +41,9 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
     options?.formatting || {};
   const [date, setDate] = useState<string | null>(value || null);
   const [navView, setNavView] = useState<NavView>(NavView.Day);
+  const [displayMonth, setDisplayMonth] = useState<Date | undefined>(() =>
+    value ? toZonedTime(value, timeZone) : undefined
+  );
   const notHaveTimePicker = disableTimePicker || time === TimeFormatting.None;
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const { lang = 'en' } = useContext(AppContext);
@@ -40,7 +51,10 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
 
   useImperativeHandle(ref, () => ({
     focus: () => defaultFocusRef.current?.focus?.(),
-    setValue: (value?: string) => setDate(value || null),
+    setValue: (value?: string) => {
+      setDate(value || null);
+      setDisplayMonth(value ? toZonedTime(value, timeZone) : undefined);
+    },
     saveValue,
   }));
 
@@ -115,7 +129,8 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
         mode="single"
         timeZone={timeZone}
         selected={selectedDate}
-        defaultMonth={selectedDate}
+        month={displayMonth}
+        onMonthChange={setDisplayMonth}
         onSelect={onSelect}
         className={className}
         disabled={readonly}

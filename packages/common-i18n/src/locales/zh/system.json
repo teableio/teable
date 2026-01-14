@@ -1,16 +1,21 @@
 {
   "notFound": {
-    "title": "404 - 找不到页面"
+    "title": "页面未找到",
+    "description": "您访问的链接可能已失效或已被移动。"
   },
   "links": {
-    "backToHome": "返回主页"
+    "backToHome": "返回首页"
   },
   "forbidden": {
-    "title": "403 - 禁止访问",
-    "description": "您没有权限访问此页面"
+    "title": "访问受限",
+    "description": "您需要权限才能访问此资源。\n请联系管理员。"
   },
   "paymentRequired": {
-    "title": "402 - 需要升级订阅",
-    "description": "您当前的订阅计划不支持访问此功能，请升级您的订阅以继续使用"
+    "title": "解锁高级功能",
+    "description": "此功能仅在高级计划中可用。\n升级以扩展您的能力。"
+  },
+  "error": {
+    "title": "出错了",
+    "description": "发生了意外错误，请稍后重试。"
   }
 }

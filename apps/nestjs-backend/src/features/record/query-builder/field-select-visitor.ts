@@ -207,18 +207,28 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
 
       // Conditional lookup CTEs are stored against the field itself.
-      if (field.isConditionalLookup && fieldCteMap.has(field.id)) {
-        const conditionalCteName = fieldCteMap.get(field.id)!;
-        if (!this.state.isCteJoined(conditionalCteName)) {
-          // If the CTE isn't joined in this scope, fall back to raw column access.
+      if (field.isConditionalLookup) {
+        if (!fieldCteMap.has(field.id)) {
+          console.warn(
+            `[ConditionalLookup] CTE not in fieldCteMap for field ${field.id} (${(field as unknown as { name?: string }).name}). ` +
+              `Available CTE keys: [${Array.from(fieldCteMap.keys()).join(', ')}]`
+          );
         } else {
-          const column =
-            field.type === FieldType.ConditionalRollup
-              ? `conditional_rollup_${field.id}`
-              : `conditional_lookup_${field.id}`;
-          const rawExpression = this.qb.client.raw(`??."${column}"`, [conditionalCteName]);
-          this.state.setSelection(field.id, `"${conditionalCteName}"."${column}"`);
-          return rawExpression;
+          const conditionalCteName = fieldCteMap.get(field.id)!;
+          if (!this.state.isCteJoined(conditionalCteName)) {
+            // If the CTE isn't joined in this scope, fall back to raw column access.
+            console.warn(
+              `[ConditionalLookup] CTE ${conditionalCteName} for field ${field.id} (${(field as unknown as { name?: string }).name}) is not joined in current scope`
+            );
+          } else {
+            const column =
+              field.type === FieldType.ConditionalRollup
+                ? `conditional_rollup_${field.id}`
+                : `conditional_lookup_${field.id}`;
+            const rawExpression = this.qb.client.raw(`??."${column}"`, [conditionalCteName]);
+            this.state.setSelection(field.id, `"${conditionalCteName}"."${column}"`);
+            return rawExpression;
+          }
         }
       }
 
