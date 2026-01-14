@@ -404,6 +404,40 @@ export class DatetimeParse extends DateTimeFunc {
   }
 }
 
+export class SetLocale extends DateTimeFunc {
+  name = FunctionName.SetLocale;
+
+  acceptValueType = new Set([CellValueType.DateTime, CellValueType.String]);
+
+  acceptMultipleValue = false;
+
+  validateParams(params: TypedValue[]) {
+    return requireExact(FunctionName.SetLocale, params, 2);
+  }
+
+  getReturnType(params?: TypedValue[]) {
+    if (!params) return ok({ type: CellValueType.DateTime });
+    return this.validateParams(params).map(() => ({ type: CellValueType.DateTime }));
+  }
+}
+
+export class SetTimezone extends DateTimeFunc {
+  name = FunctionName.SetTimezone;
+
+  acceptValueType = new Set([CellValueType.DateTime, CellValueType.String]);
+
+  acceptMultipleValue = false;
+
+  validateParams(params: TypedValue[]) {
+    return requireExact(FunctionName.SetTimezone, params, 2);
+  }
+
+  getReturnType(params?: TypedValue[]) {
+    if (!params) return ok({ type: CellValueType.DateTime });
+    return this.validateParams(params).map(() => ({ type: CellValueType.DateTime }));
+  }
+}
+
 export class CreatedTime extends DateTimeFunc {
   name = FunctionName.CreatedTime;
 

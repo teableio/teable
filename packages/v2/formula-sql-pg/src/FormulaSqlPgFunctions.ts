@@ -99,8 +99,10 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       [FunctionName.Timestr]: (params) => this.timestr(params),
       [FunctionName.DatetimeFormat]: (params) => this.datetimeFormat(params),
       [FunctionName.DatetimeParse]: (params) => this.datetimeParse(params),
-      [FunctionName.CreatedTime]: () => makeExpr('NOW()', 'datetime', false),
-      [FunctionName.LastModifiedTime]: () => makeExpr('NOW()', 'datetime', false),
+      [FunctionName.SetLocale]: (params) => this.setLocale(params),
+      [FunctionName.SetTimezone]: (params) => this.setTimezone(params),
+      [FunctionName.CreatedTime]: (params) => this.createdTime(params),
+      [FunctionName.LastModifiedTime]: (params) => this.lastModifiedTime(params),
       [FunctionName.RecordId]: () =>
         makeExpr(`"${this.translator.tableAlias}".__id`, 'string', false),
       [FunctionName.AutoNumber]: () =>
@@ -1611,6 +1613,48 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       combinedErrorCondition,
       errorMessage
     );
+  }
+
+  private setLocale(params: SqlExpr[]): SqlExpr {
+    const value = params[0];
+    if (!value) return makeExpr(NULL_TIMESTAMPTZ, 'datetime', false);
+    // Locale is a formatting concern; SQL translation keeps the datetime unchanged.
+    return this.coerceToDatetime(value);
+  }
+
+  private setTimezone(params: SqlExpr[]): SqlExpr {
+    const value = params[0];
+    const timeZone = params[1];
+    if (!value || !timeZone) return makeExpr(NULL_TIMESTAMPTZ, 'datetime', false);
+    const datetime = this.coerceToDatetime(value);
+    const timeZoneText = this.coerceToString(timeZone);
+    const errorCondition = combineErrorConditions([datetime, timeZoneText]);
+    const errorMessage = buildErrorMessageSql(
+      [datetime, timeZoneText],
+      buildErrorLiteral('TYPE', 'invalid_timezone')
+    );
+    // Convert to the timezone's local time, then re-tag as UTC so downstream operations
+    // (DATETIME_FORMAT, YEAR, etc.) operate in the requested timezone.
+    const localizedSql = `((${datetime.valueSql} AT TIME ZONE ${timeZoneText.valueSql}) AT TIME ZONE 'UTC')`;
+    const valueSql = guardValueSql(localizedSql, errorCondition);
+    return makeExpr(valueSql, 'datetime', false, errorCondition, errorMessage);
+  }
+
+  private quoteIdentifier(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  private recordSystemColumn(column: string): string {
+    const alias = this.quoteIdentifier(this.translator.tableAlias);
+    return `${alias}.${this.quoteIdentifier(column)}`;
+  }
+
+  private createdTime(_params: SqlExpr[]): SqlExpr {
+    return makeExpr(this.recordSystemColumn('__created_time'), 'datetime', false);
+  }
+
+  private lastModifiedTime(_params: SqlExpr[]): SqlExpr {
+    return makeExpr(this.recordSystemColumn('__last_modified_time'), 'datetime', false);
   }
 
   private count(params: SqlExpr[]): SqlExpr {

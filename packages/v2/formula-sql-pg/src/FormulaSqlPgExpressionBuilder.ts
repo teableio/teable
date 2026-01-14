@@ -893,6 +893,34 @@ export class FormulaSqlPgExpressionBuilder {
 
   protected coerceToNumber(expr: SqlExpr, reason: string): SqlExpr {
     const base = this.unwrapArrayToScalar(expr);
+
+    // Compile-time short-circuit: Check lookup field's innerField type for early error detection
+    // Only button and link are truly non-convertible; attachment/user can extract name for text->number
+    const innerFieldType = this.getLookupInnerFieldType(base);
+    if (innerFieldType === 'button' || innerFieldType === 'link') {
+      return makeExpr(
+        'NULL::double precision',
+        'number',
+        false,
+        'TRUE',
+        buildErrorLiteral('TYPE', 'cannot_cast_to_number'),
+        base.field
+      );
+    }
+
+    // Compile-time short-circuit: button and link JSON object fields can never be converted to numbers
+    // (they don't have meaningful numeric representations)
+    if (this.isJsonObjectField(base)) {
+      return makeExpr(
+        'NULL::double precision',
+        'number',
+        false,
+        'TRUE',
+        buildErrorLiteral('TYPE', 'cannot_cast_to_number'),
+        base.field
+      );
+    }
+
     if (base.valueType === 'number') {
       return makeExpr(
         `(${base.valueSql})::double precision`,
@@ -1269,6 +1297,11 @@ export class FormulaSqlPgExpressionBuilder {
     const type = this.getFieldTypeName(expr);
     if (!type) return false;
     return JSON_OBJECT_FIELD_TYPES.has(type) || JSON_ARRAY_OBJECT_FIELD_TYPES.has(type);
+  }
+
+  protected isJsonObjectField(expr: SqlExpr): boolean {
+    const type = this.getFieldTypeName(expr);
+    return Boolean(type && JSON_OBJECT_FIELD_TYPES.has(type));
   }
 
   protected isJsonArrayObjectField(expr: SqlExpr): boolean {

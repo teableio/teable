@@ -7673,49 +7673,579 @@ describe('v2 http formula (e2e)', () => {
      * Formula:IS_BEFORE({date1}, {date2})
      * Expect: checks date1 before date2
      */
-    test.todo('should check if before - IS_BEFORE({date1}, {date2})');
+    it('should check if before - IS_BEFORE({date1}, {date2})', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('IS_BEFORE Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'date', name: 'Date1' },
+            { type: 'date', name: 'Date2' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const date1FieldId = table.fields.find((f) => f.name === 'Date1')?.id ?? '';
+      const date2FieldId = table.fields.find((f) => f.name === 'Date2')?.id ?? '';
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'IsBefore',
+            options: { expression: `IS_BEFORE({${date1FieldId}}, {${date2FieldId}})` },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'IsBefore')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [date1FieldId]: '2024-01-01T00:00:00.000Z',
+            [date2FieldId]: '2024-01-02T00:00:00.000Z',
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      expect(record.fields[formulaFieldId]).toBe(true);
+    });
 
     /**
      * Scenario:IS_AFTER function
      * Formula:IS_AFTER({date1}, {date2})
      * Expect: checks date1 after date2
      */
-    test.todo('should check if after - IS_AFTER({date1}, {date2})');
+    it('should check if after - IS_AFTER({date1}, {date2})', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('IS_AFTER Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'date', name: 'Date1' },
+            { type: 'date', name: 'Date2' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const date1FieldId = table.fields.find((f) => f.name === 'Date1')?.id ?? '';
+      const date2FieldId = table.fields.find((f) => f.name === 'Date2')?.id ?? '';
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'IsAfter',
+            options: { expression: `IS_AFTER({${date1FieldId}}, {${date2FieldId}})` },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'IsAfter')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [date1FieldId]: '2024-01-02T00:00:00.000Z',
+            [date2FieldId]: '2024-01-01T00:00:00.000Z',
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      expect(record.fields[formulaFieldId]).toBe(true);
+    });
 
     /**
      * Scenario:SET_LOCALE function
      * Formula:SET_LOCALE({dateField}, "zh-CN")
      * Expect: sets date locale
      */
-    test.todo('should set locale - SET_LOCALE({dateField}, "zh-CN")');
+    it('should set locale - SET_LOCALE({dateField}, "zh-CN")', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('SET_LOCALE Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'date', name: 'Date' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const dateFieldId = table.fields.find((f) => f.name === 'Date')?.id ?? '';
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'LocalizedDate',
+            options: { expression: `SET_LOCALE({${dateFieldId}}, "zh-CN")` },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'LocalizedDate')?.id ?? '';
+
+      const value = '2024-06-15T00:00:00.000Z';
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: { [dateFieldId]: value },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const localized = record.fields[formulaFieldId];
+      expect(typeof localized).toBe('string');
+      if (typeof localized !== 'string') return;
+
+      expect(new Date(localized).toISOString()).toBe(new Date(value).toISOString());
+    });
 
     /**
      * Scenario:SET_TIMEZONE function
      * Formula:SET_TIMEZONE({dateField}, "Asia/Shanghai")
      * Expect: sets timezone
      */
-    test.todo('should set timezone - SET_TIMEZONE({dateField}, "Asia/Shanghai")');
+    it('should set timezone - SET_TIMEZONE({dateField}, "Asia/Shanghai")', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('SET_TIMEZONE Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'date', name: 'Date' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const dateFieldId = table.fields.find((f) => f.name === 'Date')?.id ?? '';
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'ZonedDate',
+            options: { expression: `SET_TIMEZONE({${dateFieldId}}, "Asia/Shanghai")` },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'ZonedDate')?.id ?? '';
+
+      const value = '2024-06-15T00:00:00.000Z';
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: { [dateFieldId]: value },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const zoned = record.fields[formulaFieldId];
+      expect(typeof zoned).toBe('string');
+      if (typeof zoned !== 'string') return;
+
+      expect(new Date(zoned).toISOString()).toBe('2024-06-15T08:00:00.000Z');
+    });
 
     /**
      * Scenario:CREATED_TIME function
      * Formula:CREATED_TIME()
      * Expect: returns record created time
      */
-    test.todo('should get created time - CREATED_TIME()');
+    it('should get created time - CREATED_TIME()', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('CREATED_TIME Test'),
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const primaryFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'CreatedAt',
+            options: {
+              expression: `IF({${primaryFieldId}}, CREATED_TIME(), CREATED_TIME())`,
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'CreatedAt')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: { [primaryFieldId]: 'Row 1' },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const createdAt = record.fields[formulaFieldId];
+      expect(typeof createdAt).toBe('string');
+      if (typeof createdAt !== 'string') return;
+
+      const ts = Date.parse(createdAt);
+      expect(Number.isNaN(ts)).toBe(false);
+      const diffMs = Math.abs(Date.now() - ts);
+      expect(diffMs).toBeLessThan(5 * 60 * 1000);
+    });
 
     /**
      * Scenario:LAST_MODIFIED_TIME function
      * Formula:LAST_MODIFIED_TIME()
      * Expect: returns last modified time
      */
-    test.todo('should get last modified time - LAST_MODIFIED_TIME()');
+    it('should get last modified time - LAST_MODIFIED_TIME()', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('LAST_MODIFIED_TIME Test'),
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const primaryFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'UpdatedAt',
+            options: {
+              expression: `IF({${primaryFieldId}}, LAST_MODIFIED_TIME(), LAST_MODIFIED_TIME())`,
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'UpdatedAt')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: { [primaryFieldId]: 'Initial' },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox(2);
+
+      const beforeUpdateRecords = await listRecords(table.id);
+      const beforeUpdate = beforeUpdateRecords.find((r) => r.id === recordId);
+      expect(beforeUpdate).toBeDefined();
+      if (!beforeUpdate) return;
+
+      const beforeValue = beforeUpdate.fields[formulaFieldId];
+      expect(typeof beforeValue).toBe('string');
+      if (typeof beforeValue !== 'string') return;
+      const beforeTs = Date.parse(beforeValue);
+      expect(Number.isNaN(beforeTs)).toBe(false);
+
+      const updateRecordResponse = await fetch(`${baseUrl}/tables/updateRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          recordId,
+          fields: { [primaryFieldId]: 'Updated' },
+        }),
+      });
+      expect(updateRecordResponse.status).toBe(200);
+      const updateRaw = await updateRecordResponse.json();
+      const updateParsed = updateRecordOkResponseSchema.safeParse(updateRaw);
+      expect(updateParsed.success).toBe(true);
+      if (!updateParsed.success || !updateParsed.data.ok) return;
+
+      await processOutbox(2);
+
+      const afterUpdateRecords = await listRecords(table.id);
+      const afterUpdate = afterUpdateRecords.find((r) => r.id === recordId);
+      expect(afterUpdate).toBeDefined();
+      if (!afterUpdate) return;
+
+      const afterValue = afterUpdate.fields[formulaFieldId];
+      expect(typeof afterValue).toBe('string');
+      if (typeof afterValue !== 'string') return;
+      const afterTs = Date.parse(afterValue);
+      expect(Number.isNaN(afterTs)).toBe(false);
+      expect(afterTs).toBeGreaterThanOrEqual(beforeTs);
+    });
 
     /**
      * Scenario: format datetime with timezone option
      * Formula:DATETIME_FORMAT({dateField}, "YYYYMMDD") with timeZone: "Asia/Shanghai"
      * Expect: formats datetime with configured timezone
      */
-    test.todo('should format datetime with timezone config - DATETIME_FORMAT with timeZone option');
+    it('should format datetime with timezone config - DATETIME_FORMAT with timeZone option', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('DATETIME_FORMAT TZ Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'date', name: 'Date' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const dateFieldId = table.fields.find((f) => f.name === 'Date')?.id ?? '';
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'Formatted',
+            options: {
+              expression: `DATETIME_FORMAT(SET_TIMEZONE({${dateFieldId}}, "Asia/Shanghai"), "YYYYMMDD")`,
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'Formatted')?.id ?? '';
+
+      const value = '2024-06-15T23:00:00.000Z';
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: { [dateFieldId]: value },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      expect(record.fields[formulaFieldId]).toBe('20240616');
+    });
   });
 
   // ============================================================================
@@ -7727,21 +8257,273 @@ describe('v2 http formula (e2e)', () => {
      * Formula:ARRAYJOIN({multiSelectField}, ", ")
      * Expect: joins array elements with delimiter
      */
-    test.todo('should join array - ARRAYJOIN({multiSelectField}, ", ")');
+    it('should join array - ARRAYJOIN({multiSelectField}, ", ")', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('ARRAYJOIN Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'multipleSelect', name: 'Tags', options: ['Tag A', 'Tag B', 'Tag C'] },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const multiSelectField = table.fields.find((f) => f.name === 'Tags');
+      const multiSelectFieldId = multiSelectField?.id ?? '';
+      const choices =
+        (multiSelectField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
+        [];
+      const tagA = choices.find((choice) => choice.name === 'Tag A');
+      const tagC = choices.find((choice) => choice.name === 'Tag C');
+      if (!multiSelectFieldId || !tagA?.id || !tagC?.id) {
+        throw new Error('Missing multi select field or option metadata');
+      }
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'Joined',
+            options: { expression: `ARRAYJOIN({${multiSelectFieldId}}, ", ")` },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'Joined')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [multiSelectFieldId]: [tagA.id, tagC.id],
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      expect(record.fields[formulaFieldId]).toBe('Tag A, Tag C');
+    });
 
     /**
      * Scenario:ARRAYUNIQUE function
      * Formula:ARRAYUNIQUE({lookupField})
      * Expect: returns unique array
      */
-    test.todo('should get unique array - ARRAYUNIQUE({lookupField})');
+    it('should get unique array - ARRAYUNIQUE({lookupField})', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('ARRAYUNIQUE Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'multipleSelect', name: 'Tags 1', options: ['Tag A', 'Tag B', 'Tag C'] },
+            { type: 'multipleSelect', name: 'Tags 2', options: ['Tag A', 'Tag B', 'Tag C'] },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const tags1Field = table.fields.find((f) => f.name === 'Tags 1');
+      const tags2Field = table.fields.find((f) => f.name === 'Tags 2');
+      const tags1FieldId = tags1Field?.id ?? '';
+      const tags2FieldId = tags2Field?.id ?? '';
+      const tags1Choices =
+        (tags1Field?.options as { choices?: Array<{ id: string; name: string }> })?.choices ?? [];
+      const tags2Choices =
+        (tags2Field?.options as { choices?: Array<{ id: string; name: string }> })?.choices ?? [];
+      const tagA1 = tags1Choices.find((choice) => choice.name === 'Tag A');
+      const tagB1 = tags1Choices.find((choice) => choice.name === 'Tag B');
+      const tagB2 = tags2Choices.find((choice) => choice.name === 'Tag B');
+      const tagC2 = tags2Choices.find((choice) => choice.name === 'Tag C');
+      if (!tags1FieldId || !tags2FieldId || !tagA1?.id || !tagB1?.id || !tagB2?.id || !tagC2?.id) {
+        throw new Error('Missing multiple select field or option metadata');
+      }
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'Unique Tags',
+            options: {
+              expression: `ARRAYJOIN(ARRAYUNIQUE({${tags1FieldId}}, {${tags2FieldId}}), ", ")`,
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'Unique Tags')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [tags1FieldId]: [tagA1.id, tagB1.id],
+            [tags2FieldId]: [tagB2.id, tagC2.id],
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      expect(record.fields[formulaFieldId]).toBe('Tag A, Tag B, Tag C');
+    });
 
     /**
      * Scenario:ARRAYFLATTEN function
      * Formula:ARRAYFLATTEN({nestedArray})
      * Expect: flattens nested array
      */
-    test.todo('should flatten array - ARRAYFLATTEN({nestedArray})');
+    it('should flatten array - ARRAYFLATTEN({nestedArray})', async () => {
+      const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('ARRAYFLATTEN Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'multipleSelect', name: 'Tags 1', options: ['Tag A', 'Tag B', 'Tag C'] },
+            { type: 'multipleSelect', name: 'Tags 2', options: ['Tag A', 'Tag B', 'Tag C'] },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const tags1Field = table.fields.find((f) => f.name === 'Tags 1');
+      const tags2Field = table.fields.find((f) => f.name === 'Tags 2');
+      const tags1FieldId = tags1Field?.id ?? '';
+      const tags2FieldId = tags2Field?.id ?? '';
+      const tags1Choices =
+        (tags1Field?.options as { choices?: Array<{ id: string; name: string }> })?.choices ?? [];
+      const tags2Choices =
+        (tags2Field?.options as { choices?: Array<{ id: string; name: string }> })?.choices ?? [];
+      const tagA1 = tags1Choices.find((choice) => choice.name === 'Tag A');
+      const tagB1 = tags1Choices.find((choice) => choice.name === 'Tag B');
+      const tagB2 = tags2Choices.find((choice) => choice.name === 'Tag B');
+      const tagC2 = tags2Choices.find((choice) => choice.name === 'Tag C');
+      if (!tags1FieldId || !tags2FieldId || !tagA1?.id || !tagB1?.id || !tagB2?.id || !tagC2?.id) {
+        throw new Error('Missing multiple select field or option metadata');
+      }
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'Flattened Tags',
+            options: {
+              expression: `ARRAYJOIN(ARRAYFLATTEN({${tags1FieldId}}, {${tags2FieldId}}), ", ")`,
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'Flattened Tags')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [tags1FieldId]: [tagA1.id, tagB1.id],
+            [tags2FieldId]: [tagB2.id, tagC2.id],
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      expect(record.fields[formulaFieldId]).toBe('Tag A, Tag B, Tag B, Tag C');
+    });
 
     /**
      * Scenario:ARRAYCOMPACT function

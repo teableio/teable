@@ -553,7 +553,7 @@ describe('v2 http updateRecord (e2e)', () => {
     const records = await listRecords(table.id);
     const updated = records.find((r) => r.id === record.id);
     expect(updated?.fields[scoreFieldId]).toBe(14);
-    expect(updated?.fields[scoreLabelFieldId]).toBe('Score: 14');
+    expect(updated?.fields[scoreLabelFieldId]).toBe('Score: 14.00');
   });
 
   it('updates lookup values when source formulas change', async () => {

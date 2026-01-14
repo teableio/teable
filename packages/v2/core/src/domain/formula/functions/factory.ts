@@ -27,6 +27,8 @@ import {
   Month,
   Now,
   Second,
+  SetLocale,
+  SetTimezone,
   Timestr,
   ToNow,
   Today,
@@ -154,6 +156,8 @@ export const FUNCTIONS: Record<FunctionName, FormulaFunc> = {
   [FunctionName.Timestr]: new Timestr(),
   [FunctionName.DatetimeFormat]: new DatetimeFormat(),
   [FunctionName.DatetimeParse]: new DatetimeParse(),
+  [FunctionName.SetLocale]: new SetLocale(),
+  [FunctionName.SetTimezone]: new SetTimezone(),
   [FunctionName.CreatedTime]: new CreatedTime(),
   [FunctionName.LastModifiedTime]: new LastModifiedTime(),
 

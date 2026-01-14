@@ -122,6 +122,8 @@ export enum FunctionName {
   Timestr = 'TIMESTR',
   DatetimeFormat = 'DATETIME_FORMAT',
   DatetimeParse = 'DATETIME_PARSE',
+  SetLocale = 'SET_LOCALE',
+  SetTimezone = 'SET_TIMEZONE',
   CreatedTime = 'CREATED_TIME',
   LastModifiedTime = 'LAST_MODIFIED_TIME',
 
