@@ -131,35 +131,29 @@ describe('OpenAPI RecordController (e2e)', () => {
       await permanentDeleteTable(baseId, table2.id);
     });
 
-    it(
-      'batch create records',
-      async () => {
-        const { data } = await createRecords(table1.id, {
-          typecast: true,
-          records: Array.from({ length: batchSize }, () => ({
-            fields: {
-              Title: faker.lorem.sentence(),
-              Count: faker.number.int({ min: 1, max: 100 }),
-              Status: faker.helpers.arrayElement(['Not Started', 'In Progress', 'Completed']),
-              Text: faker.lorem.paragraph(),
-              Tags: faker.helpers.arrayElements(['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4', 'Tag 5'], {
-                min: 1,
-                max: 5,
-              }),
-              Member: userId,
-              Date: faker.date.recent().toISOString(),
-              Rating: faker.number.int({ min: 0, max: 5 }),
-              'One-way Link': faker.helpers.arrayElement(['A1', 'A2', 'A3']),
-              'Two-way Link': faker.helpers.arrayElement(['A1', 'A2', 'A3']),
-            },
-          })),
-        });
+    it('batch create records', { timeout: 10000 }, async () => {
+      const { data } = await createRecords(table1.id, {
+        typecast: true,
+        records: Array.from({ length: batchSize }, () => ({
+          fields: {
+            Title: faker.lorem.sentence(),
+            Count: faker.number.int({ min: 1, max: 100 }),
+            Status: faker.helpers.arrayElement(['Not Started', 'In Progress', 'Completed']),
+            Text: faker.lorem.paragraph(),
+            Tags: faker.helpers.arrayElements(['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4', 'Tag 5'], {
+              min: 1,
+              max: 5,
+            }),
+            Member: userId,
+            Date: faker.date.recent().toISOString(),
+            Rating: faker.number.int({ min: 0, max: 5 }),
+            'One-way Link': faker.helpers.arrayElement(['A1', 'A2', 'A3']),
+            'Two-way Link': faker.helpers.arrayElement(['A1', 'A2', 'A3']),
+          },
+        })),
+      });
 
-        expect(data.records).toHaveLength(batchSize);
-      },
-      {
-        timeout: 10000,
-      }
-    );
+      expect(data.records).toHaveLength(batchSize);
+    });
   });
 });

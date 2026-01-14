@@ -34,6 +34,7 @@ describe('Record bulk delete performance (e2e)', () => {
 
   it(
     'deletes 8000 rows from a 10000-row table with all major column types',
+    { timeout: 180_000 },
     async () => {
       const linkedTable = await measure('create linked table', () =>
         createTable(baseId, {
@@ -211,9 +212,6 @@ describe('Record bulk delete performance (e2e)', () => {
         }
         await measure('cleanup linked table', () => permanentDeleteTable(baseId, linkedTable.id));
       }
-    },
-    {
-      timeout: 180_000,
     }
   );
 });

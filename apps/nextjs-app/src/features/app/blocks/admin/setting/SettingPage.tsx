@@ -17,6 +17,7 @@ import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
 import { Branding } from './components/Branding';
+import { CanarySettings } from './components/canary';
 import type { IList } from './components/ConfigurationList';
 import { ConfigurationList } from './components/ConfigurationList';
 import { MailConfigDialog } from './components/mail-config/MailConfig';
@@ -26,10 +27,11 @@ import { scrollToTarget } from './utils';
 
 export interface ISettingPageProps {
   settingServerData?: ISettingVo;
+  rewardManage?: React.ReactNode;
 }
 
 export const SettingPage = (props: ISettingPageProps) => {
-  const { settingServerData } = props;
+  const { settingServerData, rewardManage } = props;
   const queryClient = useQueryClient();
   const { t } = useTranslation('common');
 
@@ -263,6 +265,10 @@ export const SettingPage = (props: ISettingPageProps) => {
               </div>
             </div>
           )}
+
+          {rewardManage}
+
+          <CanarySettings setting={setting} />
 
           {/* email config */}
           <div className="pb-6" ref={emailRef}>

@@ -63,6 +63,7 @@ module.exports = function (options, webpack) {
       new ForkTsCheckerWebpackPlugin({
         typescript: {
           configFile: 'tsconfig.json',
+          memoryLimit: 4096,
         },
       }),
       new CopyPlugin({

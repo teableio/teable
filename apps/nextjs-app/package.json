@@ -64,8 +64,9 @@
     "@types/react-syntax-highlighter": "15.5.11",
     "@types/react-test-renderer": "18.0.7",
     "@types/sharedb": "3.3.10",
+    "@types/canvas-confetti": "1.9.0",
     "@vitejs/plugin-react-swc": "3.6.0",
-    "@vitest/coverage-v8": "2.1.5",
+    "@vitest/coverage-v8": "4.0.17",
     "autoprefixer": "10.4.19",
     "cross-env": "7.0.3",
     "dotenv-flow": "4.1.0",
@@ -88,7 +89,7 @@
     "typescript": "5.4.3",
     "vite-plugin-svgr": "4.2.0",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "2.1.5"
+    "vitest": "4.0.17"
   },
   "dependencies": {
     "@antv/g6": "4.8.24",
@@ -129,11 +130,10 @@
     "@teable/openapi": "workspace:^",
     "@teable/sdk": "workspace:^",
     "@teable/ui-lib": "workspace:^",
-    "@types/canvas-confetti": "1.9.0",
+    "canvas-confetti": "1.9.4",
     "allotment": "1.20.0",
     "axios": "1.7.7",
     "buffer": "6.0.3",
-    "canvas-confetti": "1.9.4",
     "class-variance-authority": "0.7.0",
     "date-fns": "4.1.0",
     "date-fns-tz": "3.2.0",

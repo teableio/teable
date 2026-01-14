@@ -41,6 +41,9 @@
     "pin": "Pin",
     "empty": "Ihre gepinnten Bases und Spaces werden hier erscheinen"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "Sie haben keine Berechtigung, eine Base zu erstellen"
+  },
   "tip": {
     "delete": "Sind Sie sicher, dass Sie <0/> löschen wollen?",
     "title": "Tipps",

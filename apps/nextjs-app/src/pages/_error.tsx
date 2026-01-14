@@ -7,7 +7,9 @@ import { captureException as sentryCaptureException, flush as sentryFlush } from
 import type { NextPage, NextPageContext } from 'next';
 import NextErrorComponent from 'next/error';
 import type { ErrorProps } from 'next/error';
+import { systemConfig } from '@/features/i18n/system.config';
 import { ErrorPage } from '@/features/system/pages';
+import { getServerSideTranslations } from '@/lib/i18n';
 
 const sentryIgnoredStatusCodes: number[] = [404, 410];
 
@@ -78,11 +80,18 @@ const CustomError: NextPage<CustomErrorProps> = (props) => {
   );
 };
 
-CustomError.getInitialProps = async ({ res, err, asPath }: AugmentedNextPageContext) => {
+CustomError.getInitialProps = async (context: AugmentedNextPageContext) => {
+  const { res, err, asPath } = context;
+  const { locale = 'en' } = context;
+
   const errorInitialProps = (await NextErrorComponent.getInitialProps({
     res,
     err,
   } as NextPageContext)) as CustomErrorProps;
+
+  // Load i18n translations for the error page
+  const inlinedTranslation = await getServerSideTranslations(locale, systemConfig.i18nNamespaces);
+  Object.assign(errorInitialProps, inlinedTranslation);
 
   // Workaround for https://github.com/vercel/next.js/issues/8592, mark when
   // getInitialProps has run
