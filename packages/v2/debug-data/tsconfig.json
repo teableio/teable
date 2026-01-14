@@ -23,7 +23,8 @@
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
-      "@teable/v2-postgres-schema": ["../postgres-schema/src"]
+      "@teable/v2-postgres-schema": ["../postgres-schema/src"],
+      "@teable/v2-field-dependency-core": ["../field-dependency-core/src"]
     },
     "types": ["node"]
   },
@@ -42,6 +43,7 @@
     "../core/src",
     "../di/src",
     "../adapter-db-postgres-pg/src",
-    "../postgres-schema/src"
+    "../postgres-schema/src",
+    "../field-dependency-core/src"
   ]
 }

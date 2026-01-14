@@ -1,71 +1,35 @@
 import { domainError, FieldId, TableId } from '@teable/v2-core';
 import type { BaseId, IExecutionContext, DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import {
+  describeError,
+  mergeEdges as mergeEdgesShared,
+  parseConditionalFieldOptions,
+  parseLinkOptions,
+  parseLookupOptions,
+  type FieldDependencyEdge as SharedEdge,
+  type FieldDependencyEdgeKind,
+  type FieldDependencyEdgeSemantic,
+  type ParsedConditionalOptions as ConditionalFieldOptionsMeta,
+  type ParsedLinkOptions as LinkOptionsMeta,
+  type ParsedLookupOptions as LookupOptionsMeta,
+} from '@teable/v2-field-dependency-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely, Transaction } from 'kysely';
+import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { isComputedFieldType } from './ComputedUpdatePlanner';
 
-/**
- * Edge kind for field dependencies.
- *
- * - `same_record`: Dependency within the same record (no link traversal needed)
- * - `cross_record`: Dependency across records via link (includes same-table self-referencing)
- */
-export type FieldDependencyEdgeKind = 'same_record' | 'cross_record';
+// Re-export shared types
+export type { FieldDependencyEdgeKind, FieldDependencyEdgeSemantic };
 
 /**
- * Semantic hint for debugging and logging (does not affect propagation logic).
- *
- * Identifies the origin and nature of field dependency edges:
- *
- * - `formula_ref`: Formula field reference
- *   Indicates a formula field directly references another field's value.
- *   Example: formula `{fieldA} + {fieldB}` creates edges fieldA → formulaField and fieldB → formulaField.
- *   Sourced from the `reference` table which stores formula dependencies.
- *
- * - `lookup_source`: Lookup field's data source dependency
- *   Indicates a Lookup field depends on the source field in the linked table (cross-record dependency).
- *   When the source field value changes, the Lookup field must be recalculated.
- *   Example: Lookup(Order.ProductName) depends on Products.ProductName field.
- *
- * - `lookup_link`: Lookup/Rollup field's dependency on its Link field
- *   Indicates a Lookup or Rollup field depends on its associated Link field (same-record dependency).
- *   When the Link field's linked records change, the Lookup/Rollup value must be recalculated.
- *   Example: Lookup(Order.ProductName) depends on Order.Product (Link field).
- *
- * - `link_title`: Link field's display title dependency
- *   Indicates a Link field's displayed title depends on the lookupField in the linked table (usually the primary field).
- *   When the linked table's primary field value changes, the Link field's displayed title must be updated.
- *   Example: Order.Product (Link) displays the product name from Products.ProductName.
- *
- * - `rollup_source`: Rollup field's data source dependency
- *   Indicates a Rollup field depends on the aggregated source field in the linked table (cross-record dependency).
- *   When the source field value changes, the Rollup aggregation result must be recalculated.
- *   Example: Rollup(SUM, Orders.Amount) depends on Orders.Amount field.
- *
- * - `conditional_rollup_source`: ConditionalRollup field's data source dependency
- *   Indicates a ConditionalRollup field depends on fields in the target table (cross-record dependency).
- *   Unlike regular Rollup, it does not use a Link field for association but matches records via condition filters.
- *   When source or condition field values change, the condition must be re-evaluated and aggregation recalculated.
- *
- * - `conditional_lookup_source`: ConditionalLookup field's data source dependency
- *   Indicates a ConditionalLookup field depends on fields in the target table (cross-record dependency).
- *   Unlike regular Lookup, it does not use a Link field for association but matches records via condition filters.
- *   When source or condition field values change, the condition must be re-evaluated to fetch matching record values.
+ * Field dependency edge with domain types.
+ * Uses FieldId/TableId instead of strings for type safety in the adapter layer.
  */
-export type FieldDependencyEdgeSemantic =
-  | 'formula_ref'
-  | 'lookup_source'
-  | 'lookup_link'
-  | 'link_title'
-  | 'rollup_source'
-  | 'conditional_rollup_source'
-  | 'conditional_lookup_source';
-
 export type FieldDependencyEdge = {
   fromFieldId: FieldId;
   toFieldId: FieldId;
@@ -78,36 +42,9 @@ export type FieldDependencyEdge = {
   semantic?: FieldDependencyEdgeSemantic;
 };
 
-export type LookupOptionsMeta = {
-  linkFieldId: string;
-  foreignTableId: string;
-  lookupFieldId: string;
-};
+export type { LookupOptionsMeta, LinkOptionsMeta, ConditionalFieldOptionsMeta };
 
 export type LinkRelationship = 'oneMany' | 'manyOne' | 'oneOne' | 'manyMany';
-
-export type LinkOptionsMeta = {
-  foreignTableId: string;
-  lookupFieldId: string;
-  symmetricFieldId?: string;
-  /** FK host table name (format: baseDbName.tableDbName) */
-  fkHostTableName?: string;
-  /** Link relationship type */
-  relationship?: LinkRelationship;
-};
-
-/**
- * Metadata for conditional field options (conditionalRollup / conditionalLookup).
- * Unlike regular lookup/rollup, these don't have a linkFieldId.
- */
-export type ConditionalFieldOptionsMeta = {
-  foreignTableId: string;
-  lookupFieldId: string;
-  /** Field IDs referenced in the condition filter - changes to these fields should trigger recalculation */
-  conditionFieldIds: string[];
-  /** Original filter DTO for precise dirty propagation */
-  filterDto?: unknown;
-};
 
 export type FieldMeta = {
   id: FieldId;
@@ -165,9 +102,29 @@ export class FieldDependencyGraph {
     executionContext?: IExecutionContext,
     options: FieldDependencyGraphLoadOptions = {}
   ): Promise<Result<FieldDependencyGraphData, DomainError>> {
+    const db = resolvePostgresDb(this.db, executionContext);
+    const seedFieldIds = options.requiredFieldIds ?? [];
+
+    // Use incremental mode when seed field IDs are provided
+    if (seedFieldIds.length > 0) {
+      return this.loadIncremental(db, baseId, seedFieldIds);
+    }
+
+    // Full mode: load all computed fields for the entire base
+    return this.loadFull(db, baseId, options);
+  }
+
+  /**
+   * Full loading mode - loads all computed fields and references for the entire base.
+   * Used when no seed field IDs are provided (e.g., for schema validation).
+   */
+  private async loadFull(
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    baseId: BaseId,
+    options: FieldDependencyGraphLoadOptions = {}
+  ): Promise<Result<FieldDependencyGraphData, DomainError>> {
     return safeTry<FieldDependencyGraphData, DomainError>(
       async function* (this: FieldDependencyGraph) {
-        const db = resolvePostgresDb(this.db, executionContext);
         const fields = yield* await this.loadFields(db, baseId, options);
         const { edges: referenceEdges, crossBaseFields } = yield* await this.loadReferenceEdges(
           db,
@@ -538,6 +495,468 @@ export class FieldDependencyGraph {
       );
     }
   }
+
+  /**
+   * Incremental loading mode - only loads fields and edges related to the seed fields.
+   * Uses recursive CTE to traverse the dependency graph starting from seed fields.
+   */
+  private async loadIncremental(
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    baseId: BaseId,
+    seedFieldIds: ReadonlyArray<FieldId>
+  ): Promise<Result<FieldDependencyGraphData, DomainError>> {
+    return safeTry<FieldDependencyGraphData, DomainError>(
+      async function* (this: FieldDependencyGraph) {
+        const seedIds = seedFieldIds.map((id) => id.toString());
+        if (seedIds.length === 0) {
+          return ok({ fieldsById: new Map<string, FieldMeta>(), edges: [] });
+        }
+
+        // Step 1: Find all affected field IDs using iterative traversal
+        // (Recursive CTE with multiple UNION branches is complex in Kysely,
+        // so we use application-level iteration with batched queries)
+        const affectedFieldIds = yield* await this.findAffectedFieldIds(db, seedIds);
+
+        // Include seed fields in the result
+        for (const seedId of seedIds) {
+          affectedFieldIds.add(seedId);
+        }
+
+        if (affectedFieldIds.size === 0) {
+          return ok({ fieldsById: new Map<string, FieldMeta>(), edges: [] });
+        }
+
+        const affectedFieldIdArray = [...affectedFieldIds];
+
+        // Step 2: Load field metadata for affected fields
+        const fields = yield* await this.loadFieldsByIds(db, affectedFieldIdArray);
+
+        // Step 3: Load reference edges for affected fields
+        const { edges: referenceEdges, crossBaseFields } = yield* await this.loadEdgesByFieldIds(
+          db,
+          affectedFieldIdArray,
+          baseId
+        );
+
+        const fieldsById = new Map(fields.map((field) => [field.id.toString(), field]));
+
+        // Add cross-base fields
+        for (const crossBaseField of crossBaseFields) {
+          const fieldKey = crossBaseField.id.toString();
+          if (!fieldsById.has(fieldKey)) {
+            fieldsById.set(fieldKey, {
+              id: crossBaseField.id,
+              tableId: crossBaseField.tableId,
+              type: crossBaseField.type,
+              isComputed: isComputedFieldType(crossBaseField.type),
+              options: null,
+              lookupOptions: null,
+              conditionalOptions: null,
+            });
+          }
+        }
+
+        // Step 4: Build derived edges from field metadata
+        const derivedEdges: FieldDependencyEdge[] = [];
+        for (const field of fields) {
+          const type = field.type;
+          if (type === 'lookup' || type === 'rollup') {
+            const lookupOptions = field.lookupOptions;
+            if (!lookupOptions) continue;
+            const linkFieldId = yield* FieldId.create(lookupOptions.linkFieldId);
+            const lookupFieldId = yield* FieldId.create(lookupOptions.lookupFieldId);
+            const foreignTableId = yield* TableId.create(lookupOptions.foreignTableId);
+
+            derivedEdges.push({
+              fromFieldId: linkFieldId,
+              toFieldId: field.id,
+              fromTableId: field.tableId,
+              toTableId: field.tableId,
+              kind: 'same_record',
+              semantic: 'lookup_link',
+            });
+
+            derivedEdges.push({
+              fromFieldId: lookupFieldId,
+              toFieldId: field.id,
+              fromTableId: foreignTableId,
+              toTableId: field.tableId,
+              kind: 'cross_record',
+              linkFieldId,
+              semantic: type === 'rollup' ? 'rollup_source' : 'lookup_source',
+            });
+          }
+
+          if (type === 'link') {
+            const options = field.options;
+            if (!options) continue;
+            const lookupFieldId = yield* FieldId.create(options.lookupFieldId);
+            const foreignTableId = yield* TableId.create(options.foreignTableId);
+
+            derivedEdges.push({
+              fromFieldId: lookupFieldId,
+              toFieldId: field.id,
+              fromTableId: foreignTableId,
+              toTableId: field.tableId,
+              kind: 'cross_record',
+              linkFieldId: field.id,
+              semantic: 'link_title',
+            });
+          }
+
+          if (type === 'conditionalRollup' || type === 'conditionalLookup') {
+            const conditionalOptions = field.conditionalOptions;
+            if (!conditionalOptions) continue;
+            const lookupFieldId = yield* FieldId.create(conditionalOptions.lookupFieldId);
+            const foreignTableId = yield* TableId.create(conditionalOptions.foreignTableId);
+
+            derivedEdges.push({
+              fromFieldId: lookupFieldId,
+              toFieldId: field.id,
+              fromTableId: foreignTableId,
+              toTableId: field.tableId,
+              kind: 'cross_record',
+              semantic:
+                type === 'conditionalRollup'
+                  ? 'conditional_rollup_source'
+                  : 'conditional_lookup_source',
+            });
+
+            for (const conditionFieldId of conditionalOptions.conditionFieldIds) {
+              const condFieldId = yield* FieldId.create(conditionFieldId);
+              if (condFieldId.equals(lookupFieldId)) continue;
+
+              derivedEdges.push({
+                fromFieldId: condFieldId,
+                toFieldId: field.id,
+                fromTableId: foreignTableId,
+                toTableId: field.tableId,
+                kind: 'cross_record',
+                semantic:
+                  type === 'conditionalRollup'
+                    ? 'conditional_rollup_source'
+                    : 'conditional_lookup_source',
+              });
+            }
+          }
+        }
+
+        const edges = mergeEdges(referenceEdges, derivedEdges);
+        return ok({ fieldsById, edges });
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Find all field IDs that are affected by changes to the seed fields.
+   * Uses iterative BFS with batched queries - each iteration queries only the
+   * fields that depend on the current batch, avoiding full table scans.
+   */
+  private async findAffectedFieldIds(
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    seedIds: string[]
+  ): Promise<Result<Set<string>, DomainError>> {
+    try {
+      const visited = new Set<string>();
+      const queue = [...seedIds];
+
+      while (queue.length > 0) {
+        // Process in batches to avoid overly large IN clauses
+        const batch = queue.splice(0, 100);
+        const batchSet = new Set(batch);
+
+        // Build VALUES clause for the batch
+        const batchValues = batch.map((id) => sql`(${id})`);
+        const batchValuesClause = sql.join(batchValues, sql`, `);
+
+        // Single query that finds all dependents from multiple sources
+        // Uses UNION to combine results, each source filters by batch IDs
+        // Each branch is designed to use a specific index
+        const result = await sql<{ field_id: string }>`
+          -- 1. Reference table edges (formula dependencies) - uses index on from_field_id
+          SELECT r.to_field_id AS field_id
+          FROM reference r
+          INNER JOIN field f ON f.id = r.to_field_id
+          WHERE r.from_field_id IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
+            AND f.deleted_time IS NULL
+
+          UNION
+
+          -- 2. Lookup/rollup dependency on linkFieldId - uses field_lookup_options_link_field_id_idx
+          SELECT f.id AS field_id
+          FROM field f
+          WHERE f.deleted_time IS NULL
+            AND f.lookup_options IS NOT NULL
+            AND (f.type = 'rollup' OR f.is_lookup = true)
+            AND (f.lookup_options::jsonb)->>'linkFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
+
+          UNION
+
+          -- 3. Lookup/rollup dependency on lookupFieldId - uses field_lookup_options_lookup_field_id_idx
+          SELECT f.id AS field_id
+          FROM field f
+          WHERE f.deleted_time IS NULL
+            AND f.lookup_options IS NOT NULL
+            AND (f.type = 'rollup' OR f.is_lookup = true)
+            AND (f.lookup_options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
+
+          UNION
+
+          -- 4. Link field dependency on lookupFieldId (link_title) - uses field_options_lookup_field_id_idx
+          SELECT f.id AS field_id
+          FROM field f
+          WHERE f.deleted_time IS NULL
+            AND f.type = 'link'
+            AND f.options IS NOT NULL
+            AND (f.options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
+
+          UNION
+
+          -- 5. ConditionalRollup/ConditionalLookup dependency on lookupFieldId
+          SELECT f.id AS field_id
+          FROM field f
+          WHERE f.deleted_time IS NULL
+            AND f.type IN ('conditionalRollup', 'conditionalLookup')
+            AND f.options IS NOT NULL
+            AND (f.options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
+
+          UNION
+
+          -- 6. Conditional lookup (v1) dependency on lookupFieldId
+          SELECT f.id AS field_id
+          FROM field f
+          WHERE f.deleted_time IS NULL
+            AND f.is_conditional_lookup = true
+            AND f.lookup_options IS NOT NULL
+            AND (f.lookup_options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
+
+          UNION
+
+          -- 7. ConditionalRollup/ConditionalLookup dependency on condition filter fields
+          -- Filter fields are referenced in options.condition.filter.filterSet[].fieldId
+          -- Using text pattern matching to detect fieldId references in nested filterSet
+          SELECT f.id AS field_id
+          FROM field f, (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
+          WHERE f.deleted_time IS NULL
+            AND f.type IN ('conditionalRollup', 'conditionalLookup')
+            AND f.options IS NOT NULL
+            AND f.options::text LIKE '%"fieldId":"' || batch.id || '"%'
+
+          UNION
+
+          -- 8. Conditional lookup (v1) dependency on condition filter fields
+          -- Filter fields are in lookup_options.filter.filterSet[].fieldId or lookup_options.condition.filter.filterSet[].fieldId
+          SELECT f.id AS field_id
+          FROM field f, (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
+          WHERE f.deleted_time IS NULL
+            AND f.is_conditional_lookup = true
+            AND f.lookup_options IS NOT NULL
+            AND f.lookup_options::text LIKE '%"fieldId":"' || batch.id || '"%'
+        `.execute(db);
+
+        for (const row of result.rows) {
+          const fieldId = row.field_id;
+          if (!visited.has(fieldId) && !batchSet.has(fieldId)) {
+            visited.add(fieldId);
+            queue.push(fieldId);
+          }
+        }
+      }
+
+      return ok(visited);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to find affected field IDs: ${describeError(error)}`,
+        })
+      );
+    }
+  }
+
+  /**
+   * Load field metadata by field IDs.
+   */
+  private async loadFieldsByIds(
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    fieldIds: string[]
+  ): Promise<Result<ReadonlyArray<FieldMeta>, DomainError>> {
+    if (fieldIds.length === 0) return ok([]);
+
+    try {
+      const rows = await db
+        .selectFrom('field as f')
+        .select([
+          'f.id as id',
+          'f.table_id as table_id',
+          'f.type as type',
+          'f.is_computed as is_computed',
+          'f.is_lookup as is_lookup',
+          'f.is_conditional_lookup as is_conditional_lookup',
+          'f.options as options',
+          'f.lookup_options as lookup_options',
+        ])
+        .where('f.id', 'in', fieldIds)
+        .where('f.deleted_time', 'is', null)
+        .execute();
+
+      const fields: FieldMeta[] = [];
+      for (const row of rows) {
+        const fieldId = FieldId.create(row.id);
+        if (fieldId.isErr()) return err(fieldId.error);
+        const tableId = TableId.create(row.table_id);
+        if (tableId.isErr()) return err(tableId.error);
+        const options =
+          row.type === 'link' ? parseLinkOptions(row.options) : ok<LinkOptionsMeta | null>(null);
+        if (options.isErr()) return err(options.error);
+
+        const isLookupField = Boolean(row.is_lookup);
+        const isConditionalLookup = Boolean(row.is_conditional_lookup);
+        const isRollupField = row.type === 'rollup';
+        const lookupOptions =
+          (isLookupField && !isConditionalLookup) || isRollupField
+            ? parseLookupOptions(row.lookup_options)
+            : ok<LookupOptionsMeta | null>(null);
+        if (lookupOptions.isErr()) return err(lookupOptions.error);
+
+        const isConditionalField =
+          row.type === 'conditionalRollup' ||
+          row.type === 'conditionalLookup' ||
+          isConditionalLookup;
+
+        const conditionalOptions = isConditionalField
+          ? parseConditionalFieldOptions(isConditionalLookup ? row.lookup_options : row.options)
+          : ok<ConditionalFieldOptionsMeta | null>(null);
+        if (conditionalOptions.isErr()) return err(conditionalOptions.error);
+
+        const normalizedType = isConditionalLookup
+          ? 'conditionalLookup'
+          : isLookupField
+            ? 'lookup'
+            : row.type;
+
+        fields.push({
+          id: fieldId.value,
+          tableId: tableId.value,
+          type: normalizedType,
+          isComputed: Boolean(row.is_computed),
+          options: options.value,
+          lookupOptions: lookupOptions.value,
+          conditionalOptions: conditionalOptions.value,
+        });
+      }
+
+      return ok(fields);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to load fields by IDs: ${describeError(error)}`,
+        })
+      );
+    }
+  }
+
+  /**
+   * Load reference edges for specific field IDs.
+   */
+  private async loadEdgesByFieldIds(
+    db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+    fieldIds: string[],
+    currentBaseId: BaseId
+  ): Promise<
+    Result<
+      {
+        edges: ReadonlyArray<FieldDependencyEdge>;
+        crossBaseFields: ReadonlyArray<CrossBaseFieldMeta>;
+      },
+      DomainError
+    >
+  > {
+    if (fieldIds.length === 0) return ok({ edges: [], crossBaseFields: [] });
+
+    try {
+      const rows = await db
+        .selectFrom('reference as r')
+        .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
+        .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
+        .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
+        .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
+        .select([
+          'r.from_field_id as from_field_id',
+          'r.to_field_id as to_field_id',
+          'f_from.table_id as from_table_id',
+          'f_to.table_id as to_table_id',
+          'f_to.type as to_field_type',
+          't_from.base_id as from_base_id',
+          't_to.base_id as to_base_id',
+        ])
+        .where((eb) =>
+          eb.or([eb('r.from_field_id', 'in', fieldIds), eb('r.to_field_id', 'in', fieldIds)])
+        )
+        .where('f_from.deleted_time', 'is', null)
+        .where('f_to.deleted_time', 'is', null)
+        .where('t_from.deleted_time', 'is', null)
+        .where('t_to.deleted_time', 'is', null)
+        .execute();
+
+      const edges: FieldDependencyEdge[] = [];
+      const crossBaseFieldsMap = new Map<string, CrossBaseFieldMeta>();
+      const baseIdStr = currentBaseId.toString();
+
+      for (const row of rows) {
+        const fromFieldId = FieldId.create(row.from_field_id);
+        if (fromFieldId.isErr()) return err(fromFieldId.error);
+        const toFieldId = FieldId.create(row.to_field_id);
+        if (toFieldId.isErr()) return err(toFieldId.error);
+        const fromTableId = TableId.create(row.from_table_id);
+        if (fromTableId.isErr()) return err(fromTableId.error);
+        const toTableId = TableId.create(row.to_table_id);
+        if (toTableId.isErr()) return err(toTableId.error);
+
+        const toFieldType = row.to_field_type;
+        const isSameTable = fromTableId.value.equals(toTableId.value);
+
+        if (row.to_base_id !== baseIdStr) {
+          const toFieldKey = toFieldId.value.toString();
+          if (!crossBaseFieldsMap.has(toFieldKey)) {
+            crossBaseFieldsMap.set(toFieldKey, {
+              id: toFieldId.value,
+              tableId: toTableId.value,
+              type: toFieldType,
+              baseId: row.to_base_id,
+            });
+          }
+        }
+
+        if (
+          isSameTable &&
+          (toFieldType === 'lookup' ||
+            toFieldType === 'rollup' ||
+            toFieldType === 'link' ||
+            toFieldType === 'conditionalRollup' ||
+            toFieldType === 'conditionalLookup')
+        ) {
+          continue;
+        }
+
+        edges.push({
+          fromFieldId: fromFieldId.value,
+          toFieldId: toFieldId.value,
+          fromTableId: fromTableId.value,
+          toTableId: toTableId.value,
+          kind: isSameTable ? 'same_record' : 'cross_record',
+          semantic: 'formula_ref',
+        });
+      }
+
+      return ok({ edges, crossBaseFields: [...crossBaseFieldsMap.values()] });
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to load edges by field IDs: ${describeError(error)}`,
+        })
+      );
+    }
+  }
 }
 
 interface PostgresTransactionContext<DB> {
@@ -580,175 +999,4 @@ const mergeEdges = (
   derivedEdges.forEach(add);
   referenceEdges.forEach(add);
   return [...map.values()];
-};
-
-const parseLinkOptions = (raw: string | null): Result<LinkOptionsMeta | null, DomainError> => {
-  if (!raw) return ok(null);
-  const parsed = parseJson(raw, 'field.options');
-  if (parsed.isErr()) return err(parsed.error);
-  const value = parsed.value as Record<string, unknown>;
-  const foreignTableId = readString(value, 'foreignTableId');
-  if (foreignTableId.isErr()) return err(foreignTableId.error);
-  const lookupFieldId = readString(value, 'lookupFieldId');
-  if (lookupFieldId.isErr()) return err(lookupFieldId.error);
-  const symmetricFieldId = readOptionalString(value, 'symmetricFieldId');
-  if (symmetricFieldId.isErr()) return err(symmetricFieldId.error);
-  const fkHostTableName = readOptionalString(value, 'fkHostTableName');
-  if (fkHostTableName.isErr()) return err(fkHostTableName.error);
-  const relationship = readOptionalString(value, 'relationship');
-  if (relationship.isErr()) return err(relationship.error);
-
-  return ok({
-    foreignTableId: foreignTableId.value,
-    lookupFieldId: lookupFieldId.value,
-    ...(symmetricFieldId.value ? { symmetricFieldId: symmetricFieldId.value } : {}),
-    ...(fkHostTableName.value ? { fkHostTableName: fkHostTableName.value } : {}),
-    ...(relationship.value ? { relationship: relationship.value as LinkRelationship } : {}),
-  });
-};
-
-const parseLookupOptions = (raw: string | null): Result<LookupOptionsMeta | null, DomainError> => {
-  if (!raw) return ok(null);
-  const parsed = parseJson(raw, 'field.lookup_options');
-  if (parsed.isErr()) return err(parsed.error);
-  const value = parsed.value as Record<string, unknown>;
-  const linkFieldId = readString(value, 'linkFieldId');
-  if (linkFieldId.isErr()) return err(linkFieldId.error);
-  const foreignTableId = readString(value, 'foreignTableId');
-  if (foreignTableId.isErr()) return err(foreignTableId.error);
-  const lookupFieldId = readString(value, 'lookupFieldId');
-  if (lookupFieldId.isErr()) return err(lookupFieldId.error);
-
-  return ok({
-    linkFieldId: linkFieldId.value,
-    foreignTableId: foreignTableId.value,
-    lookupFieldId: lookupFieldId.value,
-  });
-};
-
-/**
- * Parse conditional field options (for conditionalRollup/conditionalLookup).
- *
- * Supports two formats:
- * - v1 format: foreignTableId, lookupFieldId, filter directly in options
- * - v2 format: foreignTableId, lookupFieldId, condition.filter in config/options
- */
-const parseConditionalFieldOptions = (
-  raw: string | null
-): Result<ConditionalFieldOptionsMeta | null, DomainError> => {
-  if (!raw) return ok(null);
-  const parsed = parseJson(raw, 'field.options (conditional)');
-  if (parsed.isErr()) return err(parsed.error);
-  const value = parsed.value as Record<string, unknown>;
-
-  // Read foreignTableId and lookupFieldId
-  const foreignTableId = readOptionalString(value, 'foreignTableId');
-  if (foreignTableId.isErr()) return err(foreignTableId.error);
-  const lookupFieldId = readOptionalString(value, 'lookupFieldId');
-  if (lookupFieldId.isErr()) return err(lookupFieldId.error);
-
-  // If both are missing, return null (field might be incomplete)
-  if (!foreignTableId.value || !lookupFieldId.value) {
-    return ok(null);
-  }
-
-  // Extract filter from either v1 format (value.filter) or v2 format (value.condition.filter)
-  let filter: unknown = value.filter;
-  if (!filter && typeof value.condition === 'object' && value.condition !== null) {
-    const condition = value.condition as Record<string, unknown>;
-    filter = condition.filter;
-  }
-
-  // Extract field IDs from the condition filter
-  const conditionFieldIds = extractConditionFieldIds(filter);
-
-  return ok({
-    foreignTableId: foreignTableId.value,
-    lookupFieldId: lookupFieldId.value,
-    conditionFieldIds,
-    // Save original filter for precise dirty propagation
-    filterDto: filter,
-  });
-};
-
-const parseJson = (raw: string, label: string): Result<unknown, DomainError> => {
-  try {
-    return ok(JSON.parse(raw));
-  } catch {
-    return err(domainError.validation({ message: `Invalid JSON for ${label}` }));
-  }
-};
-
-/**
- * Extract field IDs from a condition filter object.
- * Handles nested filter structures with conjunction (and/or) and filterSet.
- *
- * Filter structure:
- * {
- *   conjunction: 'and' | 'or',
- *   filterSet: Array<{ fieldId: string, operator: string, value: unknown } | NestedFilter>
- * }
- */
-const extractConditionFieldIds = (filter: unknown): string[] => {
-  const fieldIds: string[] = [];
-
-  const extractFromFilterSet = (filterSet: unknown): void => {
-    if (!Array.isArray(filterSet)) return;
-
-    for (const item of filterSet) {
-      if (typeof item !== 'object' || item === null) continue;
-
-      const record = item as Record<string, unknown>;
-
-      // If it has a fieldId, it's a filter condition
-      if (typeof record.fieldId === 'string' && record.fieldId.length > 0) {
-        fieldIds.push(record.fieldId);
-      }
-
-      // If it has a filterSet, it's a nested filter group (recursive)
-      if (Array.isArray(record.filterSet)) {
-        extractFromFilterSet(record.filterSet);
-      }
-    }
-  };
-
-  if (typeof filter !== 'object' || filter === null) return fieldIds;
-
-  const filterRecord = filter as Record<string, unknown>;
-  if (Array.isArray(filterRecord.filterSet)) {
-    extractFromFilterSet(filterRecord.filterSet);
-  }
-
-  return fieldIds;
-};
-
-const readString = (value: Record<string, unknown>, key: string): Result<string, DomainError> => {
-  const candidate = value[key];
-  if (typeof candidate !== 'string' || candidate.length === 0) {
-    return err(domainError.validation({ message: `Missing string "${key}" in config` }));
-  }
-  return ok(candidate);
-};
-
-const readOptionalString = (
-  value: Record<string, unknown>,
-  key: string
-): Result<string | undefined, DomainError> => {
-  const candidate = value[key];
-  if (candidate === undefined || candidate === null) return ok(undefined);
-  if (typeof candidate !== 'string' || candidate.length === 0) {
-    return err(domainError.validation({ message: `Invalid string "${key}" in config` }));
-  }
-  return ok(candidate);
-};
-
-const describeError = (error: unknown): string => {
-  if (error instanceof Error) return error.message ? `${error.name}: ${error.message}` : error.name;
-  if (typeof error === 'string') return error;
-  try {
-    const json = JSON.stringify(error);
-    return json ?? String(error);
-  } catch {
-    return String(error);
-  }
 };

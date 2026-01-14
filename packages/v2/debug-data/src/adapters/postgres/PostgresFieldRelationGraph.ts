@@ -1,6 +1,16 @@
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { domainError, FieldId, TableId, type BaseId, type DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import {
+  describeError,
+  parseConditionalFieldOptions,
+  parseLinkOptions,
+  parseLookupOptions,
+  type FieldDependencyEdgeKind,
+  type ParsedConditionalOptions as ConditionalFieldOptionsMeta,
+  type ParsedLinkOptions as LinkOptionsMeta,
+  type ParsedLookupOptions as LookupOptionsMeta,
+} from '@teable/v2-field-dependency-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
@@ -13,7 +23,7 @@ import type {
 } from '../../ports/FieldRelationGraph';
 import type { DebugFieldRelationEdge, DebugFieldRelationEdgeSemantic } from '../../types';
 
-export type FieldDependencyEdgeKind = 'same_record' | 'cross_record';
+export type { FieldDependencyEdgeKind };
 
 type FieldDependencyEdge = {
   fromFieldId: FieldId;
@@ -23,23 +33,6 @@ type FieldDependencyEdge = {
   kind: FieldDependencyEdgeKind;
   linkFieldId?: FieldId;
   semantic?: DebugFieldRelationEdgeSemantic;
-};
-
-type LookupOptionsMeta = {
-  linkFieldId: string;
-  foreignTableId: string;
-  lookupFieldId: string;
-};
-
-type LinkOptionsMeta = {
-  foreignTableId: string;
-  lookupFieldId: string;
-  symmetricFieldId?: string;
-};
-
-type ConditionalFieldOptionsMeta = {
-  foreignTableId: string;
-  lookupFieldId: string;
 };
 
 type FieldMeta = {
@@ -418,104 +411,4 @@ const mergeEdges = (
   derivedEdges.forEach(add);
   referenceEdges.forEach(add);
   return [...map.values()];
-};
-
-const parseLinkOptions = (raw: string | null): Result<LinkOptionsMeta | null, DomainError> => {
-  if (!raw) return ok(null);
-  const parsed = parseJson(raw, 'field.options');
-  if (parsed.isErr()) return err(parsed.error);
-  const value = parsed.value as Record<string, unknown>;
-  const foreignTableId = readString(value, 'foreignTableId');
-  if (foreignTableId.isErr()) return err(foreignTableId.error);
-  const lookupFieldId = readString(value, 'lookupFieldId');
-  if (lookupFieldId.isErr()) return err(lookupFieldId.error);
-  const symmetricFieldId = readOptionalString(value, 'symmetricFieldId');
-  if (symmetricFieldId.isErr()) return err(symmetricFieldId.error);
-
-  return ok({
-    foreignTableId: foreignTableId.value,
-    lookupFieldId: lookupFieldId.value,
-    ...(symmetricFieldId.value ? { symmetricFieldId: symmetricFieldId.value } : {}),
-  });
-};
-
-const parseLookupOptions = (raw: string | null): Result<LookupOptionsMeta | null, DomainError> => {
-  if (!raw) return ok(null);
-  const parsed = parseJson(raw, 'field.lookup_options');
-  if (parsed.isErr()) return err(parsed.error);
-  const value = parsed.value as Record<string, unknown>;
-  const linkFieldId = readString(value, 'linkFieldId');
-  if (linkFieldId.isErr()) return err(linkFieldId.error);
-  const foreignTableId = readString(value, 'foreignTableId');
-  if (foreignTableId.isErr()) return err(foreignTableId.error);
-  const lookupFieldId = readString(value, 'lookupFieldId');
-  if (lookupFieldId.isErr()) return err(lookupFieldId.error);
-
-  return ok({
-    linkFieldId: linkFieldId.value,
-    foreignTableId: foreignTableId.value,
-    lookupFieldId: lookupFieldId.value,
-  });
-};
-
-const parseConditionalFieldOptions = (
-  raw: string | null
-): Result<ConditionalFieldOptionsMeta | null, DomainError> => {
-  if (!raw) return ok(null);
-  const parsed = parseJson(raw, 'field.options (conditional)');
-  if (parsed.isErr()) return err(parsed.error);
-  const value = parsed.value as Record<string, unknown>;
-
-  const foreignTableId = readOptionalString(value, 'foreignTableId');
-  if (foreignTableId.isErr()) return err(foreignTableId.error);
-  const lookupFieldId = readOptionalString(value, 'lookupFieldId');
-  if (lookupFieldId.isErr()) return err(lookupFieldId.error);
-
-  if (!foreignTableId.value || !lookupFieldId.value) {
-    return ok(null);
-  }
-
-  return ok({
-    foreignTableId: foreignTableId.value,
-    lookupFieldId: lookupFieldId.value,
-  });
-};
-
-const parseJson = (raw: string, label: string): Result<unknown, DomainError> => {
-  try {
-    return ok(JSON.parse(raw));
-  } catch {
-    return err(domainError.validation({ message: `Invalid JSON for ${label}` }));
-  }
-};
-
-const readString = (value: Record<string, unknown>, key: string): Result<string, DomainError> => {
-  const candidate = value[key];
-  if (typeof candidate !== 'string' || candidate.length === 0) {
-    return err(domainError.validation({ message: `Missing string "${key}" in config` }));
-  }
-  return ok(candidate);
-};
-
-const readOptionalString = (
-  value: Record<string, unknown>,
-  key: string
-): Result<string | undefined, DomainError> => {
-  const candidate = value[key];
-  if (candidate === undefined || candidate === null) return ok(undefined);
-  if (typeof candidate !== 'string' || candidate.length === 0) {
-    return err(domainError.validation({ message: `Invalid string "${key}" in config` }));
-  }
-  return ok(candidate);
-};
-
-const describeError = (error: unknown): string => {
-  if (error instanceof Error) return error.message ? `${error.name}: ${error.message}` : error.name;
-  if (typeof error === 'string') return error;
-  try {
-    const json = JSON.stringify(error);
-    return json ?? String(error);
-  } catch {
-    return String(error);
-  }
 };

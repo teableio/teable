@@ -1,6 +1,15 @@
 import { domainError, FieldId, TableId } from '@teable/v2-core';
-import type { BaseId, DomainError, IExecutionContext, RecordId, Table } from '@teable/v2-core';
+import type {
+  BaseId,
+  ConditionalLookupField,
+  ConditionalRollupField,
+  DomainError,
+  IExecutionContext,
+  RecordId,
+  Table,
+} from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import { extractConditionFieldIds } from '@teable/v2-field-dependency-core';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -28,6 +37,7 @@ export type PlanStageContext = {
   changedFieldIds: ReadonlyArray<FieldId>;
   changeType: 'insert' | 'update' | 'delete';
   impact?: UpdateImpactHint;
+  table?: Table;
 };
 
 export type UpdateImpactHint = {
@@ -139,6 +149,7 @@ export class ComputedUpdatePlanner {
         changedFieldIds: context.changedFieldIds,
         changeType: context.changeType,
         impact: context.impact,
+        table: context.table,
       },
       executionContext
     );
@@ -310,12 +321,47 @@ export class ComputedUpdatePlanner {
         // INSERT: conditional fields (conditionalRollup/conditionalLookup) depend only on
         // foreign-table changes and can be "invisible" to same-record dependency scanning.
         // Ensure they're computed for newly inserted records so stored reads are correct.
-        if (context.changeType === 'insert') {
-          for (const meta of fieldsById.values()) {
-            if (!meta.tableId.equals(context.seedTableId)) continue;
-            if (!meta.isComputed) continue;
-            if (meta.type !== 'conditionalRollup' && meta.type !== 'conditionalLookup') continue;
-            affectedFieldIds.add(meta.id.toString());
+        if (context.changeType === 'insert' && context.table) {
+          for (const field of context.table.getFields()) {
+            const fieldType = field.type().toString();
+            if (fieldType !== 'conditionalRollup' && fieldType !== 'conditionalLookup') continue;
+
+            const fieldId = field.id().toString();
+            if (!fieldsById.has(fieldId)) {
+              const conditionalOptions = (() => {
+                if (fieldType === 'conditionalRollup') {
+                  const config = (field as ConditionalRollupField).configDto();
+                  const filter = config.condition?.filter ?? null;
+                  return {
+                    foreignTableId: config.foreignTableId,
+                    lookupFieldId: config.lookupFieldId,
+                    conditionFieldIds: extractConditionFieldIds(filter),
+                    filterDto: filter,
+                  };
+                }
+
+                const config = (field as ConditionalLookupField).conditionalLookupOptionsDto();
+                const filter = config.condition?.filter ?? null;
+                return {
+                  foreignTableId: config.foreignTableId,
+                  lookupFieldId: config.lookupFieldId,
+                  conditionFieldIds: extractConditionFieldIds(filter),
+                  filterDto: filter,
+                };
+              })();
+
+              fieldsById.set(fieldId, {
+                id: field.id(),
+                tableId: context.seedTableId,
+                type: fieldType,
+                isComputed: field.computed().toBoolean(),
+                options: null,
+                lookupOptions: null,
+                conditionalOptions,
+              });
+            }
+
+            affectedFieldIds.add(fieldId);
           }
         }
 
