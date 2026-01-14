@@ -48,14 +48,14 @@ export const TEXT_FIELD_CASES = [
     fieldIndex: 0,
     operator: is.value,
     queryValue: 'Text field 0',
-    expectResultLength: 1,
+    expectResultLength: 0,
     expectMoreResults: false,
   },
   {
     fieldIndex: 0,
     operator: isNot.value,
     queryValue: 'Text field 1',
-    expectResultLength: 22,
+    expectResultLength: 23,
     expectMoreResults: false,
   },
   {

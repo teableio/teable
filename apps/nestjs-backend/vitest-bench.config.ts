@@ -20,11 +20,7 @@ export default defineConfig({
     setupFiles: './vitest-e2e.setup.ts',
     testTimeout: 60000, // Longer timeout for benchmarks
     passWithNoTests: true,
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    pool: 'forks',
     sequence: {
       hooks: 'stack',
     },

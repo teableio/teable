@@ -4,7 +4,6 @@ import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { WsAdapter } from '@nestjs/platform-ws';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
@@ -16,13 +15,9 @@ import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import { setupSwagger } from './swagger';
 import otelSDK from './tracing';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare const module: any;
-
 const host = 'localhost';
 
 export async function setUpAppMiddleware(app: INestApplication, configService: ConfigService) {
-  app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalFilters(new GlobalExceptionFilter(configService));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
@@ -50,11 +45,6 @@ export async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const configService = app.get(ConfigService);
-
-  if (module.hot) {
-    module.hot.accept();
-    module.hot.dispose(() => app.close());
-  }
 
   const logger = app.get(Logger);
   app.useLogger(logger);

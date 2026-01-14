@@ -427,7 +427,8 @@
     "recordHistory": "Cronologia Record",
     "you": "Tu",
     "instance": "Istanza",
-    "enterprise": "Enterprise"
+    "enterprise": "Impresa",
+    "history": "Storico"
   },
   "formula": {
     "SUM": {
@@ -1354,6 +1355,28 @@
       "cannotDeployAppBeforeInitialization": "Impossibile distribuire l'app prima dell'inizializzazione",
       "noProjectOrVersionFound": "Nessun progetto o versione trovato",
       "noDeploymentUrlAvailable": "Nessun URL di distribuzione disponibile"
+    },
+    "reward": {
+      "notFound": "Premio non trovato",
+      "unsupportedSourceType": "Tipo di fonte premio non supportato",
+      "maxClaimsReached": "Hai raggiunto il massimo di richieste premio (2) per questa settimana",
+      "verificationFailed": "Verifica fallita: {{errors}}",
+      "alreadyClaimedThisWeek": "Hai già richiesto un premio per questo account questa settimana",
+      "invalidPostUrl": "Formato URL del post non valido",
+      "postAlreadyUsed": "Questo post è già stato utilizzato per richiedere un premio",
+      "unsupportedPlatformUrl": "URL della piattaforma social non supportato",
+      "unsupportedPlatform": "Piattaforma non supportata: {{platform}}",
+      "minCharCount": "Il post deve avere almeno {{count}} caratteri",
+      "minFollowerCount": "L'account deve avere almeno {{count}} follower",
+      "mustMention": "Il post deve menzionare {{mention}}",
+      "fetchTweetFailed": "Impossibile recuperare il tweet X: {{error}}",
+      "tweetNotFound": "Tweet X non trovato: {{postId}}",
+      "fetchUserFailed": "Impossibile recuperare l'utente X: {{error}}",
+      "xUserNotFound": "Utente X non trovato: {{username}}",
+      "fetchLinkedInPostFailed": "Impossibile recuperare il post LinkedIn: {{error}}",
+      "linkedInPostNotFound": "Post LinkedIn non trovato: {{postId}}",
+      "linkedInAuthorNotFound": "Autore LinkedIn non trovato: {{postId}}",
+      "fetchLinkedInUserFailed": "Impossibile recuperare l'utente LinkedIn: {{error}}"
     }
   }
 }

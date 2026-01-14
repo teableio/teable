@@ -417,8 +417,8 @@
   "noun": {
     "table": "Tabelle",
     "view": "Ansicht",
-    "space": "Space",
-    "base": "Base",
+    "space": "Raum",
+    "base": "Basis",
     "field": "Feld",
     "record": "Datensatz",
     "automation": "Automatisierung",
@@ -427,7 +427,8 @@
     "recordHistory": "Datensatzhistorie",
     "you": "Sie",
     "instance": "Instanz",
-    "enterprise": "Enterprise"
+    "enterprise": "Unternehmen",
+    "history": "Historie"
   },
   "formula": {
     "SUM": {
@@ -1100,7 +1101,8 @@
       "deniedByEnabledAuthorityMatrix": "Berechtigung durch aktivierte Berechtigungsmatrix verweigert",
       "invalidRequestPath": "Anfragepfad ist nicht gültig",
       "notAllowedOperation": "Sie haben keine Berechtigung, diese Operation auszuführen",
-      "notAllowedDepartment": "Sie haben keine Berechtigung, auf diese Abteilung zuzugreifen"
+      "notAllowedDepartment": "Sie haben keine Berechtigung, auf diese Abteilung zuzugreifen",
+      "templateHeaderInvalid": "Vorlagen-Header ist ungültig"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Standardrolle nicht gefunden",
@@ -1149,6 +1151,7 @@
       "lookupFieldIdInvalid": "Nachschlagefeld {{lookupFieldId}} ungültig",
       "formulaExpressionParseError": "Formelausdrucks-Parsefehler",
       "formulaReferenceNotFound": "Formelreferenzfeld {{fieldIds}} nicht gefunden",
+      "formulaReferenceNotFieldId": "Formelreferenzen {{fieldIds}} nicht gefunden. Formeln müssen Feld-IDs (fldXXXXXXXXXXXXXXXX Format) verwenden, nicht Feldnamen.",
       "rollupExpressionParseError": "Rollup-Ausdrucks-Parsefehler",
       "choiceNameAlreadyExists": "Auswahlname {{name}} existiert bereits",
       "symmetricFieldIdRequired": "Symmetrische Feld-ID ist erforderlich",
@@ -1175,10 +1178,13 @@
     },
     "view": {
       "notFound": "Ansicht nicht gefunden",
+      "cannotDeleteLastView": "Die letzte Ansicht in einer Tabelle kann nicht gelöscht werden. Eine Tabelle muss mindestens eine Ansicht haben.",
       "defaultViewNotFound": "Standardansicht nicht gefunden",
       "propertyParseError": "Fehler beim Parsen der Ansichtseigenschaft",
       "primaryFieldCannotBeHidden": "Primärfeld kann nicht ausgeblendet werden",
       "filterUnsupportedFieldType": "Filter unterstützt Feldtyp nicht",
+      "filterInvalidOperator": "Filter hat ungültigen Operator für diesen Feldtyp",
+      "filterInvalidOperatorMode": "Filter hat ungültige Operator- und Modus-Kombination",
       "sortUnsupportedFieldType": "Sortierung unterstützt Feldtyp nicht",
       "groupUnsupportedFieldType": "Gruppierung unterstützt Feldtyp nicht",
       "anchorNotFound": "Anker-Ansicht nicht gefunden",
@@ -1283,7 +1289,8 @@
     "domainVerification": {
       "notFound": "Kein Domain-Verifizierungscode gefunden",
       "invalidCode": "Ungültiger Verifizierungscode",
-      "resendCooldown": "Bitte warten Sie 1 Minute bevor Sie einen neuen Code anfordern"
+      "resendCooldown": "Bitte warten Sie 1 Minute bevor Sie einen neuen Code anfordern",
+      "alreadyVerified": "Domain bereits verifiziert"
     },
     "organization": {
       "notFound": "Organisation nicht gefunden",
@@ -1354,6 +1361,28 @@
       "cannotDeployAppBeforeInitialization": "App kann vor der Initialisierung nicht bereitgestellt werden",
       "noProjectOrVersionFound": "Kein Projekt oder Version gefunden",
       "noDeploymentUrlAvailable": "Keine Bereitstellungs-URL verfügbar"
+    },
+    "reward": {
+      "notFound": "Belohnung nicht gefunden",
+      "unsupportedSourceType": "Nicht unterstützter Belohnungsquellentyp",
+      "maxClaimsReached": "Sie haben die maximale Anzahl an Belohnungsansprüchen (2) für diese Woche erreicht",
+      "verificationFailed": "Verifizierung fehlgeschlagen: {{errors}}",
+      "alreadyClaimedThisWeek": "Sie haben bereits eine Belohnung für dieses Konto in dieser Woche beansprucht",
+      "invalidPostUrl": "Ungültiges Beitrags-URL-Format",
+      "postAlreadyUsed": "Dieser Beitrag wurde bereits verwendet, um eine Belohnung zu beanspruchen",
+      "unsupportedPlatformUrl": "Nicht unterstützte Social-Media-Plattform-URL",
+      "unsupportedPlatform": "Nicht unterstützte Plattform: {{platform}}",
+      "minCharCount": "Beitrag muss mindestens {{count}} Zeichen haben",
+      "minFollowerCount": "Konto muss mindestens {{count}} Follower haben",
+      "mustMention": "Beitrag muss {{mention}} erwähnen",
+      "fetchTweetFailed": "Abrufen des X-Tweets fehlgeschlagen: {{error}}",
+      "tweetNotFound": "X-Tweet nicht gefunden: {{postId}}",
+      "fetchUserFailed": "Abrufen des X-Benutzers fehlgeschlagen: {{error}}",
+      "xUserNotFound": "X-Benutzer nicht gefunden: {{username}}",
+      "fetchLinkedInPostFailed": "Abrufen des LinkedIn-Beitrags fehlgeschlagen: {{error}}",
+      "linkedInPostNotFound": "LinkedIn-Beitrag nicht gefunden: {{postId}}",
+      "linkedInAuthorNotFound": "LinkedIn-Autor nicht gefunden: {{postId}}",
+      "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}"
     }
   }
 }

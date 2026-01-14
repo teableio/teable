@@ -18,16 +18,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     passWithNoTests: true,
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    pool: 'forks',
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage/unit',
-      extension: ['.js', '.ts'],
-      include: ['src/**/*'],
+      include: ['src/**/*.{js,ts}'],
     },
     include: testFiles,
     exclude: [

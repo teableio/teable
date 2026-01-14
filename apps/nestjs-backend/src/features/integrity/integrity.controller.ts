@@ -9,7 +9,7 @@ import { LinkIntegrityService } from './link-integrity.service';
 export class IntegrityController {
   constructor(private readonly linkIntegrityService: LinkIntegrityService) {}
 
-  @Permissions('table|create')
+  @Permissions('base|update')
   @Get('base/:baseId/link-check')
   async checkBaseIntegrity(
     @Param('baseId') baseId: string,
@@ -18,7 +18,7 @@ export class IntegrityController {
     return await this.linkIntegrityService.linkIntegrityCheck(baseId, tableId);
   }
 
-  @Permissions('table|create')
+  @Permissions('base|update')
   @Post('base/:baseId/link-fix')
   async fixBaseIntegrity(
     @Param('baseId') baseId: string,

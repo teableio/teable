@@ -1,6 +1,7 @@
 {
   "actions": {
-    "title": "Fonctionner",
+    "title": "Actions",
+    "add": "Ajouter",
     "save": "Sauvegarder",
     "doNotSave": "Ne pas sauvegarder",
     "submit": "Soumettre",
@@ -15,6 +16,7 @@
     "zoomIn": "Zoomer",
     "zoomOut": "Dézoomer",
     "back": "Retour",
+    "remove": "Supprimer",
     "removeConfig": "Supprimer la configuration",
     "saveSucceed": "Sauvegarde réussie !",
     "submitSucceed": "Soumission réussie !",
@@ -30,12 +32,19 @@
     "duplicate": "Dupliquer",
     "change": "Changer",
     "upgrade": "Mettre à niveau",
+    "upgradeToLevel": "Passer à {{level}}",
     "search": "Rechercher",
     "loadMore": "Charger plus",
     "collapseSidebar": "Réduire la barre latérale",
     "restore": "Récupérer",
     "permanentDelete": "Suppression permanente",
+    "globalSearch": "Recherche globale",
+    "fieldSearch": "Recherche par champ",
+    "tableIndex": "Index",
+    "showAllRow": "Afficher toutes les lignes",
+    "hideNotMatchRow": "Masquer les lignes non correspondantes",
     "more": "Plus",
+    "expand": "Développer",
     "move": "Déplacer vers",
     "turnOn": "Activer",
     "exit": "Déconnexion",
@@ -44,7 +53,16 @@
     "select": "Sélectionner",
     "view": "Voir",
     "preview": "Aperçu",
-    "viewAndEdit": "Voir et modifier"
+    "viewAndEdit": "Voir et modifier",
+    "deleteTip": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" ?",
+    "refresh": "Actualiser",
+    "login": "Se connecter",
+    "useTemplate": "Utiliser le modèle",
+    "backToSpace": "Retour à l'espace",
+    "switchBase": "Changer de base",
+    "continue": "Continuer",
+    "export": "Exporter",
+    "import": "Importer"
   },
   "quickAction": {
     "title": "Actions rapides...",
@@ -53,12 +71,13 @@
   "password": {
     "setInvalid": "Le mot de passe n'est pas valide, il doit contenir au moins 8 caractères et au moins une lettre et un chiffre."
   },
-  "non": {
-    "share": "Partager",
-    "copy": "Copié"
-  },
   "template": {
+    "non": {
+      "share": "Partager",
+      "copy": "Copié"
+    },
     "aiTitle": "Construisons ensemble",
+    "aiGreeting": "Comment puis-je vous aider, {{name}} ?",
     "aiSubTitle": "La première plateforme IA où les équipes collaborent sur les données et génèrent des applications de production",
     "guideTitle": "Commencez à partir de votre scénario",
     "watchVideo": "Regarder la vidéo",
@@ -69,6 +88,10 @@
     "loadMore": "Charger Plus",
     "allTemplatesLoaded": "Tous les modèles chargés",
     "createTemplate": "Créer un Modèle",
+    "useTemplateDialog": {
+      "title": "Sélectionner un espace",
+      "description": "Veuillez sélectionner un espace pour le modèle"
+    },
     "promptBox": {
       "placeholder": "Créez votre application métier avec Teable",
       "start": "Démarrer",
@@ -84,7 +107,7 @@
     }
   },
   "settings": {
-    "title": "Paramètres",
+    "title": "Paramètres d'instance",
     "personal": {
       "title": "Paramètres personnels"
     },
@@ -128,6 +151,20 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 Mot de passe ajouté avec succès."
+      },
+      "deleteAccount": {
+        "title": "Supprimer le compte",
+        "desc": "Cette action est irréversible. Elle supprimera définitivement votre compte et toutes les données associées.",
+        "error": {
+          "title": "Impossible de supprimer le compte",
+          "desc": "Vous devez d'abord gérer les dépendances suivantes :",
+          "spacesError": "Avant de supprimer votre compte, vous devez d'abord quitter (ou supprimer, puis déplacer vers la corbeille) vos Espaces."
+        },
+        "confirm": {
+          "title": "Veuillez taper <code>DELETE</code> pour confirmer",
+          "placeholder": "DELETE"
+        },
+        "loading": "Suppression en cours..."
       },
       "changeEmail": {
         "title": "Changer l'adresse e-mail",
@@ -176,16 +213,65 @@
     },
     "integration": {
       "title": "Intégrations",
-      "description": "Vous avez accordé l'accès à {{count}} applications à votre compte.",
-      "lastUsed": "Dernière utilisation à {{date}}",
-      "revoke": "Révoquer",
-      "owner": "Propriétaire par {{user}}",
-      "revokeTitle": "Êtes-vous sûr de vouloir révoquer l'autorisation ?",
-      "revokeDesc": "{{name}} ne pourra plus accéder à l'API Teable. Vous ne pouvez pas annuler cette action.",
-      "scopeTitle": "Autorisations",
-      "scopeDesc": "Cette application pourra obtenir les autorisations suivantes :"
+      "thirdPartyIntegrations": {
+        "title": "Intégrations tierces",
+        "description": "Vous avez accordé l'accès à {{count}} applications à votre compte.",
+        "lastUsed": "Dernière utilisation {{date}}",
+        "revoke": "Révoquer",
+        "owner": "Propriété de {{user}}",
+        "revokeTitle": "Êtes-vous sûr de vouloir révoquer l'autorisation ?",
+        "revokeDesc": "{{name}} ne pourra plus accéder à l'API Teable. Vous ne pouvez pas annuler cette action.",
+        "scopeTitle": "Autorisations",
+        "scopeDesc": "Cette application pourra obtenir les autorisations suivantes :"
+      },
+      "userIntegration": {
+        "title": "Comptes connectés",
+        "description": "Connectez des comptes externes pour permettre à Teable d'accéder à vos ressources.",
+        "emptyDescription": "Aucun compte connecté",
+        "actions": {
+          "reconnect": "Reconnecter"
+        },
+        "slack": {
+          "user": "Utilisateur Slack",
+          "workspace": "Espace de travail Slack"
+        },
+        "deleteTitle": "Supprimer le compte connecté",
+        "deleteDesc": "Êtes-vous sûr de vouloir supprimer {{name}} ?",
+        "create": "Connecter un nouveau compte",
+        "manage": "Gérer les comptes connectés",
+        "searchPlaceholder": "Rechercher les comptes connectés",
+        "defaultName": "Intégration {{name}}",
+        "callback": {
+          "error": "Échec de l'autorisation",
+          "title": "Autorisation réussie",
+          "desc": "Vous pouvez maintenant fermer cette fenêtre."
+        }
+      }
     },
     "templateAdmin": {
+      "title": "Administration des modèles",
+      "noData": "Aucune donnée",
+      "importing": "Importation...",
+      "usageCount": "Nombre d'utilisations: {{count}}",
+      "useTemplate": "Utiliser ce modèle",
+      "createdBy": "par {{user}}",
+      "backToTemplateList": "Retour à la liste des modèles",
+      "tips": {
+        "errorCategoryName": "La catégorie n'existe pas ou a été supprimée",
+        "needSnapshot": "Veuillez créer un instantané avant de publier, et le nom et la description du modèle ne peuvent pas être vides",
+        "needPublish": "Veuillez publier le modèle avant de le mettre en vedette",
+        "needBaseSource": "Veuillez sélectionner une source Base avant de créer l'instantané",
+        "forbiddenUpdateSystemTemplate": "Les modèles système ne peuvent pas être modifiés",
+        "addCategoryTips": "Veuillez d'abord saisir un nom de catégorie dans la zone de recherche."
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Commencer",
+          "recommended": "Recommandé",
+          "all": "Tous",
+          "browseByCategory": "Parcourir par catégorie"
+        }
+      },
       "header": {
         "cover": "Couverture",
         "name": "Nom",
@@ -201,7 +287,33 @@
         "featured": "En vedette",
         "createdBy": "Créé par",
         "userNonExistent": "Utilisateur inexistant",
-        "usage": "Utilisation"
+        "preview": "Aperçu",
+        "usage": "Utilisation",
+        "visit": "Visites"
+      },
+      "actions": {
+        "title": "Actions",
+        "publish": "Publier",
+        "delete": "Supprimer",
+        "duplicate": "Dupliquer",
+        "preview": "Aperçu",
+        "use": "Utiliser",
+        "pinTop": "Épingler en haut",
+        "addCategory": "Ajouter une catégorie",
+        "selectCategory": "Sélectionner une catégorie",
+        "viewTemplate": "Voir le modèle"
+      },
+      "relatedTemplates": "Modèles associés",
+      "noImage": "Aucune image",
+      "baseSelectPanel": {
+        "title": "Sélectionner la source du modèle",
+        "description": "Sélectionnez une Base comme modèle",
+        "confirm": "Confirmer",
+        "search": "Rechercher...",
+        "cancel": "Annuler",
+        "selectBase": "Sélectionner une Base",
+        "createTemplate": "Créer un modèle",
+        "abnormalBase": "La base n'existe pas ou a été supprimée"
       }
     }
   },
@@ -216,13 +328,13 @@
     "automation": "Automatisation",
     "authorityMatrix": "Matrice d'autorité",
     "design": "Conception",
-    "adminPanel": "Panneau d'administration",
+    "adminPanel": "Administration système",
     "license": "Licence auto-hébergée",
     "instanceId": "ID d'instance",
     "beta": "Bêta",
     "trash": "Corbeille",
     "global": "Global",
-    "organizationPanel": "Panneau d'organisation",
+    "organizationPanel": "Paramètres d'organisation",
     "unknownError": "Erreur inconnue",
     "pluginPanel": "Panneau",
     "pluginContextMenu": "Menu contextuel",
@@ -235,20 +347,25 @@
     "folder": "Dossier",
     "newAutomation": "Nouvelle automatisation",
     "newApp": "Nouvelle application",
-    "newFolder": "Nouveau dossier"
+    "newFolder": "Nouveau dossier",
+    "template": "Modèle"
   },
   "level": {
     "free": "Gratuit",
     "plus": "Plus",
     "pro": "Pro",
-    "enterprise": "Entreprise"
+    "business": "Business",
+    "enterprise": "Enterprise"
   },
   "noResult": "Aucun résultat.",
+  "allNodes": "Tous les nœuds",
+  "noDescription": "Pas de description",
   "untitled": "Sans titre",
   "name": "Nom",
   "description": "Description",
   "required": "Requis",
   "characters": "caractères",
+  "atLeastOne": "Conservez au moins un {{noun}}",
   "guide": {
     "prev": "Précédent",
     "next": "Suivant",
@@ -275,7 +392,7 @@
   "poweredBy": "Propulsé par <0></0>",
   "invite": {
     "dialog": {
-      "title": "Partage de l'espace {{spaceName}}",
+      "title": "Partager l'espace {{spaceName}}",
       "desc_one": "Cet espace a <b>{{count}} collaborateur</b>. Ajouter un collaborateur à l'espace lui donnera accès à toutes les bases au sein de cet espace.",
       "desc_other": "Cet espace a <b>{{count}} collaborateurs</b>. Ajouter un collaborateur à l'espace lui donnera accès à toutes les bases au sein de cet espace.",
       "tabEmail": "Inviter par email",
@@ -292,10 +409,23 @@
       "linkCreatedTime": "créé {{createdTime}}",
       "linkCopySuccess": "Lien copié",
       "linkRemove": "Supprimer le lien"
+    },
+    "base": {
+      "title": "Partager {{baseName}}",
+      "desc_one": "Cette Base est partagée avec {{count}} collaborateur.",
+      "desc_other": "Cette Base est partagée avec {{count}} collaborateurs.",
+      "baseTitle": "Collaborateurs de la Base",
+      "collaboratorSearchPlaceholder": "Trouver un collaborateur de Base par nom ou email"
+    },
+    "addOrgCollaborator": {
+      "title": "Ajouter un collaborateur d'organisation",
+      "placeholder": "Sélectionner un membre ou département de l'organisation"
     }
   },
   "help": {
     "title": "Aide",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai",
     "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Les autorisations de la page ont été mises à jour. Veuillez rafraîchir la page pour voir le contenu le plus récent.",
@@ -307,6 +437,10 @@
     "unavailableInPlanTips": "Le plan d'abonnement actuel ne prend pas en charge cette fonctionnalité",
     "unavailableConnectionTips": "La fonctionnalité de connexion de base de données sera supprimée et ne sera disponible que dans la version Entreprise et les versions auto-hébergées.",
     "levelTips": "Cet espace est actuellement sur le plan {{level}}",
+    "enterpriseFeature": "Fonctionnalité Enterprise",
+    "automationRequiresUpgrade": "Passez à Enterprise Edition (EE) pour activer l'automatisation",
+    "authorityMatrixRequiresUpgrade": "Passez à Enterprise Edition (EE) pour activer la matrice d'autorité",
+    "viewPricing": "Voir les tarifs",
     "billable": "Facturable",
     "billableByAuthorityMatrix": "Facturation générée par la matrice d'autorités",
     "licenseExpiredGracePeriod": "Votre licence auto-hébergée a expiré et sera rétrogradée au forfait gratuit le {{expiredTime}}. Veuillez mettre à jour votre licence rapidement pour conserver l'accès aux fonctionnalités premium.",
@@ -328,6 +462,7 @@
   },
   "admin": {
     "setting": {
+      "instanceTitle": "Paramètres d'instance",
       "description": "Modifier les paramètres de votre instance actuelle",
       "allowSignUp": "Autoriser la création de nouveaux comptes",
       "allowSignUpDescription": "Désactiver cette option interdira les nouvelles inscriptions d'utilisateur, et le bouton d'inscription n'apparaîtra plus sur la page de connexion.",
@@ -340,10 +475,14 @@
       "enableWaitlist": "Activer la liste d'attente",
       "enableWaitlistDescription": "Activer cette option permettra aux utilisateurs de s'inscrire uniquement avec un code d'invitation.",
       "generalSettings": "Paramètres généraux",
-      "aiSettings": "Paramètres AI",
+      "aiSettings": {
+        "title": "Paramètres IA",
+        "description": "Configurer les paramètres IA pour cette instance"
+      },
       "brandingSettings": {
         "title": "Paramètres de marque",
         "description": "Disponible uniquement dans l'Édition Enterprise",
+        "brandName": "Nom de marque",
         "logo": "Logo",
         "logoDescription": "Le logo est votre identité de marque dans Teable.",
         "logoUpload": "Télécharger le logo",
@@ -502,8 +641,24 @@
     "new": "nouveau {{count}}",
     "showMore": "Voir plus"
   },
+  "role": {
+    "title": {
+      "owner": "Propriétaire",
+      "creator": "Créateur",
+      "editor": "Éditeur",
+      "commenter": "Commentateur",
+      "viewer": "Lecteur"
+    },
+    "description": {
+      "owner": "Peut entièrement configurer et modifier les bases, automatisations, matrices d'autorité et gérer les paramètres et la facturation de l'espace",
+      "creator": "Peut entièrement configurer et modifier les bases, automatisations et matrices d'autorité",
+      "editor": "Peut modifier les enregistrements et les vues, mais ne peut pas configurer les tables ou les champs",
+      "commenter": "Peut commenter les enregistrements",
+      "viewer": "Ne peut pas modifier ou commenter"
+    }
+  },
   "trash": {
-    "spaceTrash": "Corbeille d'espace",
+    "spaceTrash": "Corbeille de l'espace",
     "type": "Type",
     "resetTrash": "Vider",
     "deletedBy": "Supprimé par",
@@ -514,8 +669,18 @@
     "addToTrash": "Déplacer dans la corbeille",
     "description": "Les données dans la corbeille occupent toujours un espace d'utilisation de records et d'utilisation de pièces jointes."
   },
+  "pluginCenter": {
+    "pluginUrlEmpty": "Le plugin n'a pas d'URL",
+    "install": "Installer",
+    "publisher": "Éditeur",
+    "lastUpdated": "Dernière mise à jour",
+    "pluginNotFound": "Plugin introuvable",
+    "pluginEmpty": {
+      "title": "Pas encore de plugins"
+    }
+  },
   "automation": {
-    "turnOnTip": "Voulez-vous activer l'automatisation actuelle?"
+    "turnOnTip": "Voulez-vous activer l'automatisation actuelle ?"
   },
   "email": {
     "send": "Envoyer",
@@ -546,6 +711,8 @@
     "unsubscribe": "Se désabonner",
     "unsubscribeList": "Liste de désabonnement",
     "unsubscribeTime": "Heure de désabonnement",
+    "source": "Source",
+    "sourceAutomationDeleted": "Automatisation ou nœud supprimé",
     "processing": "Traitement en cours...",
     "unsubscribeH1": "Confirmer le désabonnement ?",
     "unsubscribeH2": "Vous êtes sur le point de vous désabonner des futures promotions et mises à jour de produits Teable. Êtes-vous sûr de vouloir vous désabonner ?",
@@ -686,6 +853,8 @@
     }
   },
   "base": {
-    "deleteTip": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" base?"
+    "deleteTip": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" base?",
+    "createResource": "Créer une ressource",
+    "noPermissionToCreateResource": "Vous n'avez pas la permission de créer une ressource"
   }
 }

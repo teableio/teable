@@ -1,5 +1,6 @@
 import { getUniqName, ViewType } from '@teable/core';
 import { File, FileCsv, FileExcel, Slack } from '@teable/icons';
+import type { ICreateBaseNodeRo } from '@teable/openapi';
 import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { useTables } from '@teable/sdk';
 import {
@@ -16,7 +17,6 @@ import { useState } from 'react';
 import { TableImport } from '../../import-table';
 import { useDefaultFields } from '../../table-list/useAddTable';
 import { BaseNodeResourceIconMap, ROOT_ID } from '../base-node/hooks';
-import type { BaseNodeCrudHooks } from '../base-node/hooks';
 
 interface BaseNodeAddResourceButtonProps {
   parentId?: string;
@@ -25,13 +25,13 @@ interface BaseNodeAddResourceButtonProps {
   canCreateDashboard?: boolean;
   canCreateWorkflow?: boolean;
   canCreateApp?: boolean;
-  curdHooks: BaseNodeCrudHooks;
+  createNode: (params: ICreateBaseNodeRo) => Promise<void>;
   children: React.ReactNode;
 }
 
 export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps) => {
   const {
-    curdHooks,
+    createNode,
     parentId,
     canCreateFolder,
     children,
@@ -57,7 +57,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
       <>
         <DropdownMenuItem
           onClick={() => {
-            curdHooks.createNode?.({
+            createNode({
               resourceType: BaseNodeResourceType.Table,
               parentId,
               fields: fieldRos,
@@ -129,7 +129,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
           key={resourceType}
           className="flex cursor-pointer items-center"
           onClick={() => {
-            curdHooks.createNode?.({
+            createNode({
               resourceType,
               parentId,
               name: label,

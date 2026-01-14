@@ -445,10 +445,15 @@
       "addFromOtherSource": "Diğer kaynaklardan ekle",
       "excelFile": "Microsoft Excel",
       "csvFile": "Csv dosyası",
+      "importCsvData": "CSV verilerini içe aktar",
+      "importExcelData": "Microsoft Excel verilerini içe aktar",
       "cancel": "İptal",
       "leave": "Ayrıl",
       "downAsCsv": "csv İndir",
-      "importData": "Veri İçe Aktar"
+      "importData": "Veri İçe Aktar",
+      "duplicate": "Çoğalt",
+      "importing": "İçe aktarılıyor",
+      "includeRecords": "Kayıtları dahil et"
     },
     "tips": {
       "importWayTip": "Yüklemek için dosyayı bu alana tıklayın veya sürükleyin",

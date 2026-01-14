@@ -142,6 +142,16 @@ export const webSearchConfigSchema = z.object({
 
 export type IWebSearchConfig = z.infer<typeof webSearchConfigSchema>;
 
+export const canaryConfigSchema = z.object({
+  enabled: z.boolean(),
+  spaceIds: z.array(z.string()).default([]),
+});
+
+export type ICanaryConfig = z.infer<typeof canaryConfigSchema>;
+
+// Header name for canary release override
+export const X_CANARY_HEADER = 'x-teable-canary';
+
 export const updateSettingRoSchema = z.object({
   disallowSignUp: z.boolean().optional(),
   disallowSpaceCreation: z.boolean().optional(),
@@ -151,7 +161,9 @@ export const updateSettingRoSchema = z.object({
   enableWaitlist: z.boolean().optional(),
   appConfig: appConfigSchema.optional(),
   webSearchConfig: webSearchConfigSchema.optional(),
+  enableCreditReward: z.boolean().optional(),
   brandName: z.string().optional(),
+  canaryConfig: canaryConfigSchema.optional(),
 });
 
 export type IUpdateSettingRo = z.infer<typeof updateSettingRoSchema>;

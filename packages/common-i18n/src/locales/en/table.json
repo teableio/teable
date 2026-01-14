@@ -557,10 +557,12 @@
     "menu": {
       "addFromOtherSource": "Add from other sources",
       "excelFile": "Microsoft Excel",
-      "csvFile": "Csv file",
+      "csvFile": "CSV file",
+      "importCsvData": "Import CSV data",
+      "importExcelData": "Import Microsoft Excel data",
       "cancel": "Cancel",
       "leave": "Leave",
-      "downAsCsv": "Download csv",
+      "downAsCsv": "Download CSV",
       "importData": "Import data",
       "duplicate": "Duplicate",
       "includeRecords": "Include records"

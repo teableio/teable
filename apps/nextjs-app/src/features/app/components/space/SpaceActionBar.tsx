@@ -5,6 +5,12 @@ import { createBase, type IGetSpaceVo } from '@teable/openapi';
 import { useIsMobile } from '@teable/sdk/hooks';
 import type { ButtonProps } from '@teable/ui-lib';
 import { Button, cn } from '@teable/ui-lib';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn/ui/tooltip';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useMemo } from 'react';
@@ -66,27 +72,36 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
 
   return (
     <div className={cn('flex shrink-0 items-center gap-2', className)}>
-      {canCreateBase &&
-        (isMobile ? (
-          <Button
-            variant={'outline'}
-            size="icon"
-            className="size-7"
-            onClick={handleCreateBase}
-            disabled={createBaseLoading}
-          >
-            <Plus className="size-4" />
-          </Button>
-        ) : (
-          <Button
-            className={GUIDE_CREATE_BASE}
-            size={buttonSize}
-            onClick={handleCreateBase}
-            disabled={createBaseLoading}
-          >
-            {t('space:action.createBase')}
-          </Button>
-        ))}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {isMobile ? (
+              <Button
+                variant={'outline'}
+                size="icon"
+                className="size-7"
+                onClick={handleCreateBase}
+                disabled={!canCreateBase || createBaseLoading}
+              >
+                <Plus className="size-4" />
+              </Button>
+            ) : (
+              <Button
+                className={GUIDE_CREATE_BASE}
+                size={buttonSize}
+                onClick={handleCreateBase}
+                disabled={!canCreateBase || createBaseLoading}
+              >
+                <Plus className="size-4" />
+                {t('space:action.createBase')}
+              </Button>
+            )}
+          </TooltipTrigger>
+          {!canCreateBase && (
+            <TooltipContent>{t('space:tooltip.noPermissionToCreateBase')}</TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
       {!disallowSpaceInvitation && (
         <InviteSpacePopover space={space}>
           {isMobile ? (
@@ -103,7 +118,8 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
 
       <SpaceActionTrigger
         space={space}
-        showRename={hasPermission(space.role, 'space|update')}
+        showRename={false}
+        showSettings={hasPermission(space.role, 'space|update')}
         showDelete={hasPermission(space.role, 'space|delete')}
         showImportBase={hasPermission(space.role, 'space|update')}
         onDelete={onDelete}

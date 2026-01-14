@@ -35,6 +35,7 @@
     "import": "Import",
     "change": "Change",
     "upgrade": "Upgrade",
+    "upgradeToLevel": "Upgrade to {{level}}",
     "search": "Search",
     "loadMore": "Load more",
     "collapseSidebar": "Collapse sidebar",
@@ -59,7 +60,9 @@
     "select": "Select",
     "refresh": "Refresh",
     "login": "Login",
-    "useTemplate": "Use template"
+    "useTemplate": "Use template",
+    "backToSpace": "Back to space",
+    "switchBase": "Switch base"
   },
   "quickAction": {
     "title": "Quick actions...",
@@ -148,7 +151,8 @@
         "createdBy": "Created by",
         "userNonExistent": "User non-existent",
         "preview": "Preview",
-        "usage": "Usage"
+        "usage": "Usage",
+        "visit": "Visit"
       },
       "actions": {
         "title": "Actions",
@@ -322,13 +326,13 @@
     "automation": "Automation",
     "authorityMatrix": "Authority matrix",
     "design": "Design",
-    "adminPanel": "Admin panel",
+    "adminPanel": "System Admin",
     "license": "Self-hosted license",
     "instanceId": "Instance ID",
     "beta": "Beta",
     "trash": "Trash",
     "global": "Global",
-    "organizationPanel": "Organization panel",
+    "organizationPanel": "Organization settings",
     "unknownError": "Unknown error",
     "pluginPanel": "Panel",
     "pluginContextMenu": "Context menu",
@@ -749,6 +753,19 @@
           "errorTips": "No email configured, self-service password recovery, and email validation / notification function will not be available"
         }
       }
+    },
+    "canary": {
+      "title": "Canary Release",
+      "enable": "Enable canary",
+      "enableDescription": "When enabled, selected spaces will have canary features activated",
+      "spaces": "Canary spaces",
+      "spacesDescription": "{{count}} spaces configured",
+      "configure": "Configure",
+      "spaceIds": "Space IDs",
+      "spaceIdsDescription": "Enter space IDs, one per line or separated by commas/spaces",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "Preview ({{count}} IDs)",
+      "noSpaceIds": "No space IDs entered"
     }
   },
   "notification": {
@@ -836,6 +853,8 @@
     "unsubscribe": "Unsubscribe",
     "unsubscribeList": "Unsubscribe list",
     "unsubscribeTime": "Unsubscribe time",
+    "source": "Source",
+    "sourceAutomationDeleted": "Automation or node deleted",
     "processing": "Processing...",
     "unsubscribeH1": "Confirm unsubscribe?",
     "unsubscribeH2": "You're about to unsubscribe from future Teable promotions and product updates. Are you sure you want to unsubscribe?",
@@ -951,6 +970,16 @@
               "unknown": "AI task for table \"{{tableName}}\" was cancelled. Error: {{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "Reward Claim Rejected",
+          "message": "Your <a href=\"{{spaceUrl}}\">{{spaceName}}</a> reward claim has been rejected for the following reason(s): {{errorMessages}}, Please review and submit again.",
+          "buttonText": "View Space"
+        },
+        "rewardApproved": {
+          "title": "Reward Claim Approved",
+          "message": "Congratulations! Your <a href=\"{{spaceUrl}}\">{{spaceName}}</a> reward claim has been approved. {{amount}} credits have been added, valid for {{expiredDays}} days.",
+          "buttonText": "View Space"
         }
       }
     }
@@ -981,12 +1010,112 @@
   },
   "noPermissionToCreateBase": "No permission to create base in any space",
   "base": {
-    "deleteTip": "Are you sure you want to delete \"{{name}}\" base?"
+    "deleteTip": "Are you sure you want to delete \"{{name}}\" base?",
+    "createResource": "Create resource",
+    "noPermissionToCreateResource": "You don't have permission to create resource"
   },
   "app": {
     "title": "App builder",
     "description": "Configure the v0 API Key to enable App builder capabilities. Access <a>v0 setting</a> to obtain your API Key",
     "previewAppError": "App running error",
     "sendErrorToAI": "Send error to AI"
+  },
+  "credit": {
+    "title": "Credit",
+    "leftAmount": "Credits left",
+    "winFreeCredits": "Win free credits",
+    "getCredits": "Get 1000 credits",
+    "winCredit": {
+      "title": "Share a positive review to earn",
+      "freeCredits": "1000 free credits",
+      "guidelinesTitle": "Sharing checklist",
+      "tagTeableio": "Tag <bold>@teableio</bold>",
+      "minCharacters": "Write  <bold>100+</bold> characters review",
+      "minFollowers": "Have <bold>10+</bold> followers",
+      "limitPerWeek": "500 credits per post, up to 2 posts weekly (X + LinkedIn)",
+      "postOnX": "Post on X",
+      "postOnLinkedIn": "Post on LinkedIn",
+      "preFilledDraft": "🌟 Pre-filled draft ready for you!",
+      "claimTitle": "Paste post URL to claim your credits",
+      "userEmail": "User email",
+      "postUrlLabel": "Post URL (X or LinkedIn)",
+      "postUrlPlaceholder": "Paste the link to your post here",
+      "invalidUrl": "Please enter a valid X or LinkedIn post URL",
+      "claiming": "Claiming...",
+      "claimCredits": "Claim credits",
+      "congratulations": "Congratulations!",
+      "claimSuccess": "You have claimed 500 credits!",
+      "verifying": "Verifying your post...",
+      "verifyingDescription": "We're checking your post content, this usually takes a few seconds",
+      "verifyFailed": "Verification failed",
+      "tryAgain": "Try Again"
+    },
+    "error": {
+      "verificationFailed": "Verification failed"
+    }
+  },
+  "reward": {
+    "title": "Reward",
+    "rewardCredits": "Reward credits",
+    "minCharCount": "Post must have at least {{count}} characters",
+    "minFollowerCount": "Account must have at least {{count}} followers",
+    "mustMention": "Post must mention {{mention}}",
+    "fetchSnapshotFailed": "Failed to fetch post snapshot",
+    "alreadyClaimedThisWeek": "You have already claimed a reward for this account this week",
+    "manage": {
+      "title": "Reward Management",
+      "description": "View and manage reward records across all spaces",
+      "overview": "Overview",
+      "records": "Records",
+      "searchSpace": "Search space...",
+      "searchRecords": "Search postUrl/userId...",
+      "dateRange": "Select date range",
+      "from": "From",
+      "to": "To",
+      "totalSpaces": "Total: {{count}} spaces",
+      "totalRecords": "Total: {{count}} records",
+      "space": "Space",
+      "allSpaces": "All Spaces",
+      "user": "User",
+      "creator": "Creator",
+      "platform": "Platform",
+      "allStatuses": "All Statuses",
+      "allPlatforms": "All Platforms",
+      "pendingCount": "Pending Count",
+      "approvedCount": "Approved Count",
+      "rejectedCount": "Rejected Count",
+      "approvedAmount": "Approved Amount",
+      "consumedAmount": "Consumed Amount",
+      "availableAmount": "Available Amount",
+      "expiringSoonAmount": "Expiring Soon Amount (7d)",
+      "amount": "Amount",
+      "remainingAmount": "Remaining Amount",
+      "createdTime": "Created Time",
+      "rewardTime": "Rewarded Time",
+      "expiredTime": "Expired Time",
+      "lastModified": "Last Modified",
+      "viewDetails": "View Details",
+      "details": "Reward Details",
+      "basicInfo": "Basic Info",
+      "amountInfo": "Amount Info",
+      "timeInfo": "Time Info",
+      "socialInfo": "Social Info",
+      "verifyResult": "Verification Result",
+      "uniqueKey": "Unique Key",
+      "verify": "Verify",
+      "valid": "Valid",
+      "invalid": "Invalid",
+      "errors": "Errors",
+      "copied": "{{label}} copied",
+      "openPost": "Open post",
+      "noData": "No data",
+      "page": "Page {{current}} of {{total}}",
+      "status": {
+        "label": "Status",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      }
+    }
   }
 }

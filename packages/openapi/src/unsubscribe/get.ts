@@ -3,6 +3,7 @@ import { axios } from '../axios';
 import { MailType } from '../mail/types';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { unsubscribeAutomationSendEmailSchema } from './types';
 
 export const GET_UNSUBSCRIBE = '/unsubscribe/{token}';
 
@@ -15,10 +16,9 @@ export const unsubscribeBaseSchema = z.object({
 
 export type IUnsubscribeBase = z.infer<typeof unsubscribeBaseSchema>;
 
-export const unsubscribeAutomationSendEmailActionSchema = unsubscribeBaseSchema.extend({
-  type: z.literal(MailType.AutomationSendEmailAction),
-  actionId: z.string(),
-});
+export const unsubscribeAutomationSendEmailActionSchema = unsubscribeBaseSchema.and(
+  unsubscribeAutomationSendEmailSchema
+);
 
 export type IUnsubscribeAutomationSendEmailAction = z.infer<
   typeof unsubscribeAutomationSendEmailActionSchema
@@ -26,7 +26,7 @@ export type IUnsubscribeAutomationSendEmailAction = z.infer<
 
 export type IUnsubscribe = IUnsubscribeBase | IUnsubscribeAutomationSendEmailAction;
 
-export const unsubscribeVoSchema = unsubscribeBaseSchema.extend({});
+export const unsubscribeVoSchema = unsubscribeBaseSchema;
 
 export type IUnsubscribeVo = z.infer<typeof unsubscribeVoSchema>;
 

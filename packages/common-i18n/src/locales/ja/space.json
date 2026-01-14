@@ -41,6 +41,9 @@
     "pin": "ピン",
     "empty": "ピン留めしたベースとスペースがここに表示されます"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "ベースを作成する権限がありません"
+  },
   "tip": {
     "delete": "<0/> を削除してもよろしいですか?",
     "title": "ヒント",

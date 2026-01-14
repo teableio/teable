@@ -1,5 +1,7 @@
 {
   "actions": {
+    "title": "アクション",
+    "add": "追加",
     "save": "保存",
     "doNotSave": "保存しない",
     "submit": "送信",
@@ -14,6 +16,7 @@
     "zoomIn": "ズームイン",
     "zoomOut": "ズームアウト",
     "back": "戻る",
+    "remove": "削除",
     "removeConfig": "設定を削除",
     "saveSucceed": "保存成功！",
     "submitSucceed": "送信成功！",
@@ -29,12 +32,19 @@
     "duplicate": "複製",
     "change": "変更",
     "upgrade": "アップグレード",
+    "upgradeToLevel": "{{level}}にアップグレード",
     "search": "検索",
     "loadMore": "されに読み込む",
     "collapseSidebar": "サイドバーを折りたたむ",
     "restore": "復元",
     "permanentDelete": "永久削除",
+    "globalSearch": "グローバル検索",
+    "fieldSearch": "フィールドで検索",
+    "tableIndex": "インデックス",
+    "showAllRow": "すべての行を表示",
+    "hideNotMatchRow": "一致しない行を非表示",
     "more": "もっと",
+    "expand": "展開",
     "move": "移動先",
     "turnOn": "有効にする",
     "exit": "ログアウト",
@@ -43,7 +53,16 @@
     "select": "選択",
     "view": "表示",
     "preview": "プレビュー",
-    "viewAndEdit": "表示と編集"
+    "viewAndEdit": "表示と編集",
+    "deleteTip": "\"{{name}}\"を削除してもよろしいですか？",
+    "refresh": "更新",
+    "login": "ログイン",
+    "useTemplate": "テンプレートを使用",
+    "backToSpace": "スペースに戻る",
+    "switchBase": "ベースを切り替え",
+    "continue": "続行",
+    "export": "エクスポート",
+    "import": "インポート"
   },
   "quickAction": {
     "title": "クイックアクション...",
@@ -52,12 +71,13 @@
   "password": {
     "setInvalid": "パスワードが無効です。少なくとも8文字で、少なくとも1つの文字と1つの数字を含める必要があります。"
   },
-  "non": {
-    "share": "共有",
-    "copy": "コピーされました"
-  },
   "template": {
+    "non": {
+      "share": "共有",
+      "copy": "コピーされました"
+    },
     "aiTitle": "一緒に構築しましょう",
+    "aiGreeting": "{{name}}さん、何かお手伝いできますか？",
     "aiSubTitle": "チームがデータで協力し、本番アプリを生成する最初のAIプラットフォーム",
     "guideTitle": "シナリオから始める",
     "watchVideo": "動画を見る",
@@ -68,6 +88,10 @@
     "loadMore": "さらに読み込む",
     "allTemplatesLoaded": "すべてのテンプレートが読み込まれました",
     "createTemplate": "テンプレートを作成",
+    "useTemplateDialog": {
+      "title": "スペースを選択",
+      "description": "テンプレート用のスペースを選択してください"
+    },
     "promptBox": {
       "placeholder": "Teableでビジネスアプリを構築",
       "start": "開始",
@@ -83,7 +107,7 @@
     }
   },
   "settings": {
-    "title": "設定",
+    "title": "インスタンス設定",
     "personal": {
       "title": "個人設定"
     },
@@ -127,6 +151,20 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 パスワードの追加に成功しました。"
+      },
+      "deleteAccount": {
+        "title": "アカウントを削除",
+        "desc": "このアクションは元に戻せません。アカウントとすべての関連データが完全に削除されます。",
+        "error": {
+          "title": "アカウントを削除できません",
+          "desc": "まず以下の依存関係を処理する必要があります：",
+          "spacesError": "アカウントを削除する前に、まずスペースを退出（または削除してゴミ箱に移動）する必要があります。"
+        },
+        "confirm": {
+          "title": "確認するには<code>DELETE</code>と入力してください",
+          "placeholder": "DELETE"
+        },
+        "loading": "削除中..."
       },
       "changeEmail": {
         "title": "メールアドレスの変更",
@@ -175,14 +213,40 @@
     },
     "integration": {
       "title": "統合",
-      "description": "は{{count}}のアプリケーションにアカウントへのアクセスを許可しました。",
-      "lastUsed": "最終使用日：{{date}}",
-      "revoke": "取り消す",
-      "owner": "所有者：{{user}}",
-      "revokeTitle": "本当に承認を取り消しますか?",
-      "revokeDesc": "{{name}}はTeable APIにアクセスできなくなります。この操作を元に戻すことはできません。",
-      "scopeTitle": "権限",
-      "scopeDesc": "このアプリケーションは、次のスコープを取得できます："
+      "thirdPartyIntegrations": {
+        "title": "サードパーティ統合",
+        "description": "{{count}}個のアプリケーションにアカウントへのアクセスを許可しました。",
+        "lastUsed": "最終使用日：{{date}}",
+        "revoke": "取り消す",
+        "owner": "所有者：{{user}}",
+        "revokeTitle": "本当に承認を取り消しますか？",
+        "revokeDesc": "{{name}}はTeable APIにアクセスできなくなります。この操作を元に戻すことはできません。",
+        "scopeTitle": "権限",
+        "scopeDesc": "このアプリケーションは、次のスコープを取得できます："
+      },
+      "userIntegration": {
+        "title": "接続されたアカウント",
+        "description": "外部アカウントを接続して、Teableがあなたのリソースにアクセスできるようにします。",
+        "emptyDescription": "接続されたアカウントがありません",
+        "actions": {
+          "reconnect": "再接続"
+        },
+        "slack": {
+          "user": "Slackユーザー",
+          "workspace": "Slackワークスペース"
+        },
+        "deleteTitle": "接続されたアカウントを削除",
+        "deleteDesc": "{{name}}を削除してもよろしいですか？",
+        "create": "新しいアカウントを接続",
+        "manage": "接続されたアカウントを管理",
+        "searchPlaceholder": "接続されたアカウントを検索",
+        "defaultName": "{{name}}統合",
+        "callback": {
+          "error": "認証に失敗しました",
+          "title": "認証に成功しました",
+          "desc": "このウィンドウを閉じることができます。"
+        }
+      }
     },
     "templateAdmin": {
       "header": {
@@ -200,7 +264,8 @@
         "featured": "おすすめ",
         "createdBy": "作成者",
         "userNonExistent": "ユーザーが存在しません",
-        "usage": "使用回数"
+        "usage": "使用回数",
+        "visit": "閲覧回数"
       }
     }
   },
@@ -215,13 +280,13 @@
     "automation": "オートメーション",
     "authorityMatrix": "権限マトリクス",
     "design": "デザイン",
-    "adminPanel": "管理パネル",
+    "adminPanel": "システム管理",
     "license": "セルフホストライセンス",
     "instanceId": "インスタンスID",
     "beta": "ベータ",
     "trash": "ゴミ箱",
     "global": "グローバル",
-    "organizationPanel": "組織パネル",
+    "organizationPanel": "組織設定",
     "unknownError": "不明なエラー",
     "pluginPanel": "パネル",
     "pluginContextMenu": "コンテキストメニュー",
@@ -234,20 +299,25 @@
     "folder": "フォルダ",
     "newAutomation": "新しいオートメーション",
     "newApp": "新しいアプリ",
-    "newFolder": "新しいフォルダ"
+    "newFolder": "新しいフォルダ",
+    "template": "テンプレート"
   },
   "level": {
     "free": "無料",
     "plus": "プラス",
     "pro": "プロ",
+    "business": "ビジネス",
     "enterprise": "エンタープライズ"
   },
   "noResult": "結果なし。",
+  "allNodes": "すべてのノード",
+  "noDescription": "説明なし",
   "untitled": "無題",
   "name": "名称",
   "description": "説明",
   "required": "必須",
   "characters": "文字",
+  "atLeastOne": "少なくとも1つの{{noun}}を保持してください",
   "guide": {
     "prev": "前へ",
     "next": "次へ",
@@ -298,10 +368,16 @@
       "desc_other": "このベースは{{count}}人の共同作業者と共有されています。",
       "baseTitle": "ベースの共同作業者",
       "collaboratorSearchPlaceholder": "名前またはメールアドレスでベースの共同作業者を探す"
+    },
+    "addOrgCollaborator": {
+      "title": "組織の共同作業者を追加",
+      "placeholder": "組織のメンバーまたは部門を選択"
     }
   },
   "help": {
     "title": "ヘルプ",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai",
     "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
   "pagePermissionChangeTip": "ページの権限が更新されました。最新のコンテンツを表示するにはページを更新してください。",
@@ -312,7 +388,11 @@
     "userLimitExceededDescription": "現在のインスタンスは、ライセンスで許可されている最大ユーザー数に達しました。一部のユーザーを非アクティブ化するか、ライセンスをアップグレードしてください。",
     "unavailableInPlanTips": "現在契約中のプランではこの機能はサポートされていません",
     "unavailableConnectionTips": "データベース接続機能は将来削除され、Enterpriseプランと自己ホストバージョンでのみ利用可能になります。",
-    "levelTips": "このスペースは現在{{level}}プランにです",
+    "levelTips": "このスペースは現在{{level}}プランです",
+    "enterpriseFeature": "エンタープライズ機能",
+    "automationRequiresUpgrade": "オートメーションを有効にするにはEnterprise Edition（EE）にアップグレードしてください",
+    "authorityMatrixRequiresUpgrade": "権限マトリックスを有効にするにはEnterprise Edition（EE）にアップグレードしてください",
+    "viewPricing": "料金を見る",
     "billable": "課金対象",
     "billableByAuthorityMatrix": "権限マトリックスによって生成された課金",
     "licenseExpiredGracePeriod": "セルフホスト版ライセンスの有効期限が切れました。{{expiredTime}}に無料プランへダウングレードされ、プレミアム機能が利用できなくなります。完全な機能を維持するため、速やかにライセンスを更新してください。",
@@ -334,6 +414,7 @@
   },
   "admin": {
     "setting": {
+      "instanceTitle": "インスタンス設定",
       "description": "現在のインスタンスの設定を変更する",
       "allowSignUp": "新しいアカウントの作成を許可する",
       "allowSignUpDescription": "このオプションを無効にすると、新規ユーザーの登録が禁止され、ログインページに登録ボタンが表示されなくなります。",
@@ -346,10 +427,14 @@
       "enableWaitlist": "待機リストを有効にする",
       "enableWaitlistDescription": "このオプションを有効にすると、ユーザーは招待コードを使用して新規アカウントの作成が可能になります。",
       "generalSettings": "一般設定",
-      "aiSettings": "AI設定",
+      "aiSettings": {
+        "title": "AI設定",
+        "description": "このインスタンスのAI設定を構成する"
+      },
       "brandingSettings": {
         "title": "ブランディング設定",
         "description": "エンタープライズエディションでのみ利用可能",
+        "brandName": "ブランド名",
         "logo": "ロゴ",
         "logoDescription": "ロゴはTeableでのあなたのブランドアイデンティティです。",
         "logoUpload": "ロゴをアップロード",
@@ -524,6 +609,16 @@
       "viewer": "編集もコメントもできません"
     }
   },
+  "pluginCenter": {
+    "pluginUrlEmpty": "プラグインにURLがありません",
+    "install": "インストール",
+    "publisher": "発行者",
+    "lastUpdated": "最終更新",
+    "pluginNotFound": "プラグインが見つかりません",
+    "pluginEmpty": {
+      "title": "プラグインがまだありません"
+    }
+  },
   "trash": {
     "spaceTrash": "スペースのゴミ箱",
     "type": "タイプ",
@@ -568,6 +663,8 @@
     "unsubscribe": "購読解除",
     "unsubscribeList": "購読解除リスト",
     "unsubscribeTime": "購読解除時刻",
+    "source": "ソース",
+    "sourceAutomationDeleted": "自動化またはノードが削除されました",
     "processing": "処理中...",
     "unsubscribeH1": "登録解除を確認しますか？",
     "unsubscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を解除しようとしています。登録解除してもよろしいですか？",
@@ -708,6 +805,8 @@
     }
   },
   "base": {
-    "deleteTip": "「{{name}}」ベースを削除してもよろしいですか？"
+    "deleteTip": "「{{name}}」ベースを削除してもよろしいですか？",
+    "createResource": "リソースを作成",
+    "noPermissionToCreateResource": "リソースを作成する権限がありません"
   }
 }

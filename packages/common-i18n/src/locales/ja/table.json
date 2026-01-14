@@ -455,10 +455,15 @@
       "addFromOtherSource": "他のソースから追加",
       "excelFile": "Microsoft Excelル",
       "csvFile": "CSVファイル",
+      "importCsvData": "CSVデータをインポート",
+      "importExcelData": "Microsoft Excelデータをインポート",
       "cancel": "キャンセル",
       "leave": "離れる",
       "downAsCsv": "csvをダウンロード",
-      "importData": "データをインポート"
+      "importData": "データをインポート",
+      "duplicate": "複製",
+      "importing": "インポート中",
+      "includeRecords": "レコードを含む"
     },
     "tips": {
       "importWayTip": "クリックまたはこの領域にドラッグしてファイルをアップロードします",

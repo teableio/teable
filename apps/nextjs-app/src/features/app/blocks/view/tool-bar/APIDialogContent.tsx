@@ -40,6 +40,8 @@ import { SearchBuilder } from '@/features/app/blocks/setting/query-builder/Searc
 import { OrderByBuilder } from '@/features/app/blocks/setting/query-builder/SortBuilder';
 import { ViewBuilder } from '@/features/app/blocks/setting/query-builder/ViewBuilder';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import { useBaseResource } from '@/features/app/hooks/useBaseResource';
+import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface IFieldInfo {
@@ -471,8 +473,7 @@ export interface APIDialogContentProps {
 
 export const APIDialogContent = ({ onOpenChange }: APIDialogContentProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const baseId = useBaseId() as string;
-  const tableId = useTableId() as string;
+  const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
   const [copied, setCopied] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');
   const [generatedToken, setGeneratedToken] = useState<CreateAccessTokenVo | null>(null);
