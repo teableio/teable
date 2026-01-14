@@ -40,13 +40,25 @@ export const getExpectedResult = (
   // valueToNull scenario
   if (transition === 'valueToNull') {
     // For formula with non-numeric types, the formula doesn't return null
-    // - CONCATENATE("Result: ", null) returns "Result: "
-    // - IF(null, "Yes", "No") returns "No"
-    if (computedType === 'formula' && sourceType === 'singleLineText' && depth === 1) {
-      return { shouldChange: true, shouldBeNull: false, exactValue: 'Result: ' };
+    if (computedType === 'formula' && sourceType === 'singleLineText') {
+      if (depth === 1) {
+        // CONCATENATE("Result: ", null) returns "Result: "
+        return { shouldChange: true, shouldBeNull: false, exactValue: 'Result: ' };
+      } else {
+        // depth > 1: "Result: " + 10 + 10 + ... (string concatenation)
+        const suffix = '10'.repeat(depth - 1);
+        return { shouldChange: true, shouldBeNull: false, exactValue: `Result: ${suffix}` };
+      }
     }
-    if (computedType === 'formula' && sourceType === 'checkbox' && depth === 1) {
-      return { shouldChange: true, shouldBeNull: false, exactValue: 'No' };
+    if (computedType === 'formula' && sourceType === 'checkbox') {
+      if (depth === 1) {
+        // IF(null, "Yes", "No") returns "No"
+        return { shouldChange: true, shouldBeNull: false, exactValue: 'No' };
+      } else {
+        // depth > 1: "No" + 10 + 10 + ... (string concatenation)
+        const suffix = '10'.repeat(depth - 1);
+        return { shouldChange: true, shouldBeNull: false, exactValue: `No${suffix}` };
+      }
     }
     // For numeric types and other cases, formula returns null when source is null
     return { shouldChange: true, shouldBeNull: true };

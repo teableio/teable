@@ -561,7 +561,7 @@ describe('cross-table chain matrix (e2e)', () => {
 
       // Verify chain
       const cRecords = await ctx.listRecords(tableC.id);
-      expect(cRecords[0].fields[cLookupFieldId]).toEqual([[100]]);
+      expect(cRecords[0].fields[cLookupFieldId]).toEqual([100]);
 
       // Update A
       ctx.clearLogs();
@@ -571,7 +571,7 @@ describe('cross-table chain matrix (e2e)', () => {
 
       // Verify
       const afterCRecords = await ctx.listRecords(tableC.id);
-      expect(afterCRecords[0].fields[cLookupFieldId]).toEqual([[200]]);
+      expect(afterCRecords[0].fields[cLookupFieldId]).toEqual([200]);
     });
   });
 });
