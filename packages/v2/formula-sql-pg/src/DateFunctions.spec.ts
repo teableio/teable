@@ -118,7 +118,7 @@ const fieldCases = createFieldTypeCases();
 const dateFunctionChunks = chunkArray(dateFunctionCases, 7);
 
 const runDateFunctionSuite = (label: string, cases: ReadonlyArray<DateFunctionCase>) => {
-  describe.sequential(label, () => {
+  describe(label, () => {
     const matrix = cases.flatMap((fn) =>
       fieldCases.map((fieldCase) => ({
         funcId: fn.id,

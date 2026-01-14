@@ -143,7 +143,7 @@ describe('formula field matrix (e2e)', () => {
         const afterValue = afterRecords[0].fields[lastFormulaId];
 
         // Verify result
-        const expected = getExpectedResult(source, 'formula', transition, initial, updated);
+        const expected = getExpectedResult(source, 'formula', transition, initial, updated, depth);
         verifyResult(beforeValue, afterValue, expected);
 
         // Verify steps

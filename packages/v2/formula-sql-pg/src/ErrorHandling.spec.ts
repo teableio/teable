@@ -162,7 +162,7 @@ const errorTestCases: ReadonlyArray<ErrorTestCase> = [
   // These would need to be tested at a different level (formula parser tests)
 ];
 
-describe.sequential('error handling', () => {
+describe('error handling', () => {
   let container: IV2NodeTestContainer;
   let testTable: FormulaTestTable;
 

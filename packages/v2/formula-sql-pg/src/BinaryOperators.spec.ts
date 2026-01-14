@@ -93,7 +93,7 @@ const selectRepresentativeFieldPairs = (
   return pairs;
 };
 
-describe.sequential('binary comparison operators', () => {
+describe('binary comparison operators', () => {
   const fieldCases = createFieldTypeCases();
   const fieldPairs = selectRepresentativeFieldPairs(fieldCases);
   const matrix = comparisonOperatorCases.flatMap((op) =>

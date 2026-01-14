@@ -1,7 +1,9 @@
+import { err } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
+import { domainError } from '../domain/shared/DomainError';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -9,6 +11,7 @@ import { TableName } from '../domain/table/TableName';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { MemoryTableRepository } from '../ports/memory/MemoryTableRepository';
+import type { ITableRepository } from '../ports/TableRepository';
 import { GetTableByIdHandler } from './GetTableByIdHandler';
 import { GetTableByIdQuery } from './GetTableByIdQuery';
 
@@ -61,5 +64,25 @@ describe('GetTableByIdHandler', () => {
     const handler = new GetTableByIdHandler(new MemoryTableRepository(), new NoopLogger());
     const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('Table not found');
+  });
+
+  it('returns repository errors', async () => {
+    const repository: ITableRepository = {
+      insert: async () => err(domainError.unexpected({ message: 'insert failed' })),
+      insertMany: async () => err(domainError.unexpected({ message: 'insert failed' })),
+      findOne: async () => err(domainError.unexpected({ message: 'lookup failed' })),
+      find: async () => err(domainError.unexpected({ message: 'lookup failed' })),
+      updateOne: async () => err(domainError.unexpected({ message: 'update failed' })),
+      delete: async () => err(domainError.unexpected({ message: 'delete failed' })),
+    };
+
+    const queryResult = GetTableByIdQuery.create({
+      baseId: `bse${'c'.repeat(16)}`,
+      tableId: `tbl${'d'.repeat(16)}`,
+    });
+
+    const handler = new GetTableByIdHandler(repository, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+    expect(result._unsafeUnwrapErr().message).toBe('lookup failed');
   });
 });

@@ -34,10 +34,21 @@ export const getExpectedResult = (
   computedType: string,
   transition: ValueTransition,
   _initialValue: unknown,
-  updatedValue: unknown
+  updatedValue: unknown,
+  depth: number = 1
 ): ExpectedResult => {
   // valueToNull scenario
   if (transition === 'valueToNull') {
+    // For formula with non-numeric types, the formula doesn't return null
+    // - CONCATENATE("Result: ", null) returns "Result: "
+    // - IF(null, "Yes", "No") returns "No"
+    if (computedType === 'formula' && sourceType === 'singleLineText' && depth === 1) {
+      return { shouldChange: true, shouldBeNull: false, exactValue: 'Result: ' };
+    }
+    if (computedType === 'formula' && sourceType === 'checkbox' && depth === 1) {
+      return { shouldChange: true, shouldBeNull: false, exactValue: 'No' };
+    }
+    // For numeric types and other cases, formula returns null when source is null
     return { shouldChange: true, shouldBeNull: true };
   }
 
@@ -47,11 +58,14 @@ export const getExpectedResult = (
   }
 
   // valueToValue scenario - calculate exact value for predictable cases
+  // For formula chains with depth > 1, subsequent formulas add 10 each
+  const additionalForDepth = (depth - 1) * 10;
+
   if (computedType === 'formula' && sourceType === 'number') {
     return {
       shouldChange: true,
       shouldBeNull: false,
-      exactValue: (updatedValue as number) * 2,
+      exactValue: (updatedValue as number) * 2 + additionalForDepth,
     };
   }
 
@@ -59,11 +73,13 @@ export const getExpectedResult = (
     return {
       shouldChange: true,
       shouldBeNull: false,
-      exactValue: (updatedValue as number) * 10,
+      exactValue: (updatedValue as number) * 10 + additionalForDepth,
     };
   }
 
-  if (computedType === 'formula' && sourceType === 'singleLineText') {
+  // For non-numeric types with depth > 1, we can't calculate exact value
+  // because formula chain uses numeric operations (+10)
+  if (computedType === 'formula' && sourceType === 'singleLineText' && depth === 1) {
     return {
       shouldChange: true,
       shouldBeNull: false,
@@ -71,7 +87,7 @@ export const getExpectedResult = (
     };
   }
 
-  if (computedType === 'formula' && sourceType === 'checkbox') {
+  if (computedType === 'formula' && sourceType === 'checkbox' && depth === 1) {
     return {
       shouldChange: true,
       shouldBeNull: false,

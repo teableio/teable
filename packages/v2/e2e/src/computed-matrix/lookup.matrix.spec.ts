@@ -333,7 +333,8 @@ describe('lookup field matrix (e2e)', () => {
       ]);
       expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
-          L0: LookupSnapshot_Target -> [LookupVal]"
+          L0: LookupSnapshot_Target -> [LookupVal]
+        [Edges: 2]"
       `);
     });
 
@@ -409,7 +410,7 @@ describe('lookup field matrix (e2e)', () => {
 
       const beforeRecords = await ctx.listRecords(tableB.id);
       const beforeLookup = beforeRecords[0].fields[bLookupFieldId] as number[];
-      expect(beforeLookup.sort()).toEqual([10, 20]);
+      expect(beforeLookup.sort((a, b) => a - b)).toEqual([10, 20]);
 
       // Clear and update one source record
       ctx.clearLogs();
@@ -419,7 +420,7 @@ describe('lookup field matrix (e2e)', () => {
       // Verify - should now be [100, 20]
       const afterRecords = await ctx.listRecords(tableB.id);
       const afterLookup = afterRecords[0].fields[bLookupFieldId] as number[];
-      expect(afterLookup.sort()).toEqual([20, 100]);
+      expect(afterLookup.sort((a, b) => a - b)).toEqual([20, 100]);
     });
   });
 });

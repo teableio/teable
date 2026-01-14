@@ -118,7 +118,7 @@ const edgeCaseTests: ReadonlyArray<EdgeCaseTest> = [
   },
 ];
 
-describe.sequential('edge cases', () => {
+describe('edge cases', () => {
   let container: IV2NodeTestContainer;
   let testTable: FormulaTestTable;
 

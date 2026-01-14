@@ -60,11 +60,11 @@ const buildCondition = (
       return {
         filter: {
           conjunction: 'and',
-          children: [
+          filterSet: [
             {
               fieldId: statusFieldId,
               operator: 'is',
-              value: 'Active',
+              value: 'Active', // Use choice name, not id
             },
           ],
         },
@@ -73,7 +73,7 @@ const buildCondition = (
       return {
         filter: {
           conjunction: 'and',
-          children: [
+          filterSet: [
             {
               fieldId: valueFieldId,
               operator: 'isGreaterEqual',
@@ -86,11 +86,11 @@ const buildCondition = (
       return {
         filter: {
           conjunction: 'and',
-          children: [
+          filterSet: [
             {
               fieldId: statusFieldId,
               operator: 'is',
-              value: 'Active',
+              value: 'Active', // Use choice name, not id
             },
             {
               fieldId: valueFieldId,
@@ -166,7 +166,7 @@ describe('conditional field matrix (e2e)', () => {
         // Create foreign records
         const record1Data: Record<string, unknown> = {
           [fNameFieldId]: 'Item1',
-          [fStatusFieldId]: 'Active',
+          [fStatusFieldId]: 'active',
         };
         if (initial !== null) {
           record1Data[fValueFieldId] = initial;
@@ -175,7 +175,7 @@ describe('conditional field matrix (e2e)', () => {
 
         const record2Data: Record<string, unknown> = {
           [fNameFieldId]: 'Item2',
-          [fStatusFieldId]: 'Inactive',
+          [fStatusFieldId]: 'inactive',
           [fValueFieldId]: 100, // This one doesn't match status filter
         };
         await ctx.createRecord(foreignTable.id, record2Data);
@@ -251,14 +251,27 @@ describe('conditional field matrix (e2e)', () => {
         // =====================================================================
 
         if (transition === 'valueToNull') {
-          if (type === 'conditionalLookup') {
-            // Should be empty or contain null
-            if (Array.isArray(afterValue)) {
-              expect(afterValue.length === 0 || afterValue.every((v) => v === null)).toBe(true);
+          // For valueThreshold, record2 (Value=100) still matches the condition
+          // so result is not null/empty, it's the value from record2
+          if (conditionType === 'valueThreshold') {
+            if (type === 'conditionalLookup') {
+              // Should contain record2's value (100)
+              expect(afterValue).toEqual([100]);
+            } else {
+              // Rollup should be sum of record2's value (100)
+              expect(afterValue).toBe(100);
             }
           } else {
-            // Rollup of null should be 0 or null
-            expect([0, null]).toContain(afterValue);
+            // For statusFilter/multiCondition, only record1 matches and it's now null
+            if (type === 'conditionalLookup') {
+              // Should be empty or contain null
+              if (Array.isArray(afterValue)) {
+                expect(afterValue.length === 0 || afterValue.every((v) => v === null)).toBe(true);
+              }
+            } else {
+              // Rollup of null should be 0 or null
+              expect([0, null]).toContain(afterValue);
+            }
           }
         } else {
           // Value should have changed (if condition matches)
@@ -322,17 +335,17 @@ describe('conditional field matrix (e2e)', () => {
       const activeRecord = await ctx.createRecord(foreignTable.id, {
         [fNameFieldId]: 'Active1',
         [fValueFieldId]: 10,
-        [fStatusFieldId]: 'Active',
+        [fStatusFieldId]: 'active',
       });
       await ctx.createRecord(foreignTable.id, {
         [fNameFieldId]: 'Active2',
         [fValueFieldId]: 20,
-        [fStatusFieldId]: 'Active',
+        [fStatusFieldId]: 'active',
       });
       await ctx.createRecord(foreignTable.id, {
         [fNameFieldId]: 'Inactive1',
         [fValueFieldId]: 100,
-        [fStatusFieldId]: 'Inactive',
+        [fStatusFieldId]: 'inactive',
       });
 
       // Create host table
@@ -355,7 +368,7 @@ describe('conditional field matrix (e2e)', () => {
               condition: {
                 filter: {
                   conjunction: 'and',
-                  children: [{ fieldId: fStatusFieldId, operator: 'is', value: 'Active' }],
+                  filterSet: [{ fieldId: fStatusFieldId, operator: 'is', value: 'Active' }],
                 },
               },
             },
@@ -401,7 +414,8 @@ describe('conditional field matrix (e2e)', () => {
       ]);
       expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
         "[Computed Steps: 1]
-          L0: CondRollup_Snapshot_Host -> [ActiveSum]"
+          L0: CondRollup_Snapshot_Host -> [ActiveSum]
+        [Edges: 2]"
       `);
     });
 
@@ -451,7 +465,7 @@ describe('conditional field matrix (e2e)', () => {
               condition: {
                 filter: {
                   conjunction: 'and',
-                  children: [{ fieldId: fValueFieldId, operator: 'isGreaterEqual', value: 10 }],
+                  filterSet: [{ fieldId: fValueFieldId, operator: 'isGreaterEqual', value: 10 }],
                 },
               },
             },

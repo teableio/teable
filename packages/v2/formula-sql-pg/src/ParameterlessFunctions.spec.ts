@@ -58,7 +58,7 @@ const parameterlessFunctionCases: ReadonlyArray<ParameterlessFunctionCase> = [
   },
 ];
 
-describe.sequential('parameterless functions', () => {
+describe('parameterless functions', () => {
   let container: IV2NodeTestContainer;
   let testTable: FormulaTestTable;
 

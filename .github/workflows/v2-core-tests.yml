@@ -125,6 +125,7 @@ jobs:
               endTime: null,
               testResults: [],
               failedTests: [],
+              failedBySuite: {},
               totalDuration: 0,
               success: true
             };
@@ -133,19 +134,20 @@ jobs:
             process.exit(0);
           }
 
-          const merged = {
-            numTotalTestSuites: 0,
-            numPassedTestSuites: 0,
-            numFailedTestSuites: 0,
-            numTotalTests: 0,
-            numPassedTests: 0,
-            numFailedTests: 0,
-            numSkippedTests: 0,
-            startTime: Infinity,
-            endTime: 0,
-            testResults: [],
-            failedTests: []
-          };
+            const merged = {
+              numTotalTestSuites: 0,
+              numPassedTestSuites: 0,
+              numFailedTestSuites: 0,
+              numTotalTests: 0,
+              numPassedTests: 0,
+              numFailedTests: 0,
+              numSkippedTests: 0,
+              startTime: Infinity,
+              endTime: 0,
+              testResults: [],
+              failedTests: [],
+              failedBySuite: {}
+            };
 
           for (const file of files) {
             try {
@@ -163,21 +165,31 @@ jobs:
               
               if (data.testResults) {
                 for (const suite of data.testResults) {
+                  const suiteName = suite.name || 'Unknown suite';
                   merged.testResults.push({
-                    name: suite.name,
+                    name: suiteName,
                     status: suite.status,
                     duration: suite.endTime - suite.startTime,
                     numTests: suite.assertionResults?.length || 0
                   });
-                  
+
                   // Collect failed tests
                   if (suite.assertionResults) {
                     for (const test of suite.assertionResults) {
                       if (test.status === 'failed') {
+                        const testName = test.fullName || test.title;
+                        const errorMessage = test.failureMessages?.[0]?.substring(0, 500) || 'Unknown error';
                         merged.failedTests.push({
-                          suite: suite.name,
-                          test: test.fullName || test.title,
-                          error: test.failureMessages?.[0]?.substring(0, 500) || 'Unknown error'
+                          suite: suiteName,
+                          test: testName,
+                          error: errorMessage
+                        });
+                        if (!merged.failedBySuite[suiteName]) {
+                          merged.failedBySuite[suiteName] = [];
+                        }
+                        merged.failedBySuite[suiteName].push({
+                          test: testName,
+                          error: errorMessage
                         });
                       }
                     }
@@ -218,6 +230,12 @@ jobs:
         run: |
           if [ "${{ needs.unit-tests.result }}" != "success" ] || [ "${{ needs.e2e-tests.result }}" != "success" ]; then
             echo "❌ Some tests failed"
+            if [ -f merged-report.json ]; then
+              echo "📄 Merged report (JSON):"
+              cat merged-report.json
+            else
+              printf '{"unitTestsResult":"%s","e2eTestsResult":"%s","message":"No merged report found"}\n' "${{ needs.unit-tests.result }}" "${{ needs.e2e-tests.result }}"
+            fi
             exit 1
           fi
           echo "✅ All V2 tests passed!"

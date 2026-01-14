@@ -30,7 +30,7 @@ const logicalFunctionCases: ReadonlyArray<LogicalFunctionCase> = [
 
 const buildFormulaName = (funcId: string, fieldName: string): string => `${funcId}_${fieldName}`;
 
-describe.sequential('logical functions', () => {
+describe('logical functions', () => {
   const fieldCases = createFieldTypeCases();
   const matrix = logicalFunctionCases.flatMap((fn) =>
     fieldCases.map((fieldCase) => ({

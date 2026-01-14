@@ -42,7 +42,7 @@ const textFunctionCases: ReadonlyArray<TextFunctionCase> = [
 
 const buildFormulaName = (funcId: string, fieldName: string): string => `${funcId}_${fieldName}`;
 
-describe.sequential('text functions', () => {
+describe('text functions', () => {
   const fieldCases = createFieldTypeCases();
   const matrix = textFunctionCases.flatMap((fn) =>
     fieldCases.map((fieldCase) => ({

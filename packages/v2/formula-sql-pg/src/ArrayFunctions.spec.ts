@@ -36,7 +36,7 @@ const arrayFunctionCases: ReadonlyArray<ArrayFunctionCase> = [
 
 const buildFormulaName = (funcId: string, fieldName: string): string => `${funcId}_${fieldName}`;
 
-describe.sequential('array functions', () => {
+describe('array functions', () => {
   const fieldCases = createFieldTypeCases();
   const matrix = arrayFunctionCases.flatMap((fn) =>
     fieldCases.map((fieldCase) => ({

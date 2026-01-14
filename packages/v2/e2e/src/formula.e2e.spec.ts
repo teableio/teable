@@ -2,22 +2,22 @@
 /**
  * V2 Formula E2E Tests
  *
- * 这个测试文件基于 v1 的 formula.e2e-spec.ts 和 formula-field.e2e-spec.ts 迁移而来
- * 测试用例保持一致，但实现方式使用 v2 的测试框架
+ * Migrated from v1 formula.e2e-spec.ts and formula-field.e2e-spec.ts.
+ * Test cases remain consistent, but use the v2 test framework.
  *
- * 测试覆盖范围：
- * 1. 基本公式计算（记录创建/更新后的计算）
- * 2. 引用各种字段类型的公式（文本、数字、日期、评分、复选框、选择）
- * 3. 二元运算符类型强制转换
- * 4. 布尔运算符组合
- * 5. LAST_MODIFIED_TIME 带字段参数
- * 6. 数值函数（ROUND, CEILING, FLOOR 等）
- * 7. 文本函数（CONCATENATE, LEFT, RIGHT 等）
- * 8. 逻辑函数（IF, AND, OR, NOT, SWITCH）
- * 9. 日期时间函数（DATE_ADD, DATETIME_DIFF, IS_SAME 等）
- * 10. 链接和查找字段公式
- * 11. 条件引用公式
- * 12. 错误处理场景
+ * Coverage:
+ * 1. Basic formula calculations (create/update flows)
+ * 2. Formula references for diverse field types (text, number, date, rating, checkbox, select)
+ * 3. Binary operator coercion
+ * 4. Boolean operator combinations
+ * 5. LAST_MODIFIED_TIME with field parameters
+ * 6. Numeric functions (ROUND, CEILING, FLOOR, etc.)
+ * 7. Text functions (CONCATENATE, LEFT, RIGHT, etc.)
+ * 8. Logical functions (IF, AND, OR, NOT, SWITCH)
+ * 9. Date/time functions (DATE_ADD, DATETIME_DIFF, IS_SAME, etc.)
+ * 10. Formulas with link/lookup fields
+ * 11. Conditional reference formulas
+ * 12. Error handling scenarios
  */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -97,16 +97,16 @@ describe('v2 http formula (e2e)', () => {
   };
 
   // ============================================================================
-  // 1. 基本公式计算 - 记录创建后的计算
+  // 1. Basic formula calculation after record creation
   // ============================================================================
   describe('basic formula calculation after record creation', () => {
     /**
-     * 测试场景：创建记录后公式字段应正确计算
-     * 公式：{numberField} * 2
-     * 预期：数字字段值乘以2
+     * Scenario: Formula calculates correctly after record creation
+     * Formula:{numberField} * 2
+     * Expect: number field value multiplied by 2
      */
     it('should calculate formula after record creation - {numberField} * 2', async () => {
-      // 1. 创建表，包含数字字段
+      // Step 1: create table with numeric field
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -128,7 +128,7 @@ describe('v2 http formula (e2e)', () => {
       const table = tableParsed.data.data.table;
       const numberFieldId = table.fields.find((f) => f.name === 'Amount')?.id ?? '';
 
-      // 2. 创建公式字段
+      // Step 2: create formula field
       const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -152,7 +152,7 @@ describe('v2 http formula (e2e)', () => {
       const formulaFieldId =
         fieldParsed.data.data.table.fields.find((f) => f.name === 'Double Amount')?.id ?? '';
 
-      // 3. 创建记录
+      // Step 3: create record
       const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -171,26 +171,26 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 4. 处理 outbox 以触发公式计算
+      // Step 4: process outbox to trigger formula calculation
       await processOutbox();
 
-      // 5. 通过 listRecords 获取计算后的记录
+      // Step 5: fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
       if (!record) return;
 
-      // 6. 验证公式计算结果
+      // Step 6: verify formula calculation result
       expect(record.fields[formulaFieldId]).toBe(42); // 21 * 2 = 42
     });
 
     /**
-     * 测试场景：更新记录后公式字段应重新计算
-     * 公式：{numberField} + 10
-     * 预期：更新数字字段后，公式结果应更新
+     * Scenario: Formula recalculates correctly after record update
+     * Formula:{numberField} + 10
+     * Expect: formula result updates after number field change
      */
     it('should recalculate formula after record update - {numberField} + 10', async () => {
-      // 1. 创建表，包含数字字段
+      // Step 1: create table with numeric field
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -212,7 +212,7 @@ describe('v2 http formula (e2e)', () => {
       const table = tableParsed.data.data.table;
       const numberFieldId = table.fields.find((f) => f.name === 'Value')?.id ?? '';
 
-      // 2. 创建公式字段
+      // Step 2: create formula field
       const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -237,7 +237,7 @@ describe('v2 http formula (e2e)', () => {
       const formulaFieldId =
         fieldParsed.data.data.table.fields.find((f) => f.name === 'Plus Ten')?.id ?? '';
 
-      // 3. 创建记录
+      // Step 3: create record
       const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -256,17 +256,17 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 4. 处理 outbox 以触发公式计算
+      // Step 4: process outbox to trigger formula calculation
       await processOutbox();
 
-      // 5. 通过 listRecords 获取计算后的记录
+      // Step 5: fetch records after formula calculation
       let records = await listRecords(table.id);
       let record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
       if (!record) return;
       expect(record.fields[formulaFieldId]).toBe(15); // 5 + 10 = 15
 
-      // 6. 更新记录
+      // Step 6: update record
       const updateRecordResponse = await fetch(`${baseUrl}/tables/updateRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -284,23 +284,23 @@ describe('v2 http formula (e2e)', () => {
       expect(updateParsed.success).toBe(true);
       if (!updateParsed.success || !updateParsed.data.ok) return;
 
-      // 7. 处理 outbox 以触发公式重新计算
+      // Step 7: process outbox to trigger formula recalculation
       await processOutbox();
 
-      // 8. 通过 listRecords 获取重新计算后的记录
+      // Step 8: fetch records after formula recalculation
       records = await listRecords(table.id);
       record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
       if (!record) return;
 
-      // 9. 验证公式重新计算
+      // Step 9: verify formula recalculation
       expect(record.fields[formulaFieldId]).toBe(30); // 20 + 10 = 30
     });
 
     /**
-     * 测试场景：创建空记录时公式字段应正确处理空值
-     * 公式：IF({textField}="", "empty", {textField})
-     * 预期：空值时返回 "empty"
+     * Scenario: Formula handles empty values on empty record creation
+     * Formula:IF({textField}="", "empty", {textField})
+     * Expect: returns "empty" when blank
      */
     it('should handle empty values in formula - IF({textField}="", "empty", {textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -400,16 +400,16 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 2. 引用各种字段类型的公式
+  // 2. Formula references by field type
   // ============================================================================
   describe('formula referencing various field types', () => {
     /**
-     * 测试场景：公式引用单行文本字段
-     * 公式：UPPER({textField})
-     * 预期：文本转换为大写
+     * Scenario:Formula references single line text field
+     * Formula:UPPER({textField})
+     * Expect: converts text to uppercase
      */
     it('should create formula referencing text field - UPPER({textField})', async () => {
-      // 1. 创建表
+      // Step 1: create table
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -428,7 +428,7 @@ describe('v2 http formula (e2e)', () => {
       const table = tableParsed.data.data.table;
       const textFieldId = table.fields.find((f) => f.name === 'Title')?.id ?? '';
 
-      // 2. 创建公式字段
+      // Step 2: create formula field
       const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -453,7 +453,7 @@ describe('v2 http formula (e2e)', () => {
       const formulaFieldId =
         fieldParsed.data.data.table.fields.find((f) => f.name === 'Upper Title')?.id ?? '';
 
-      // 3. 创建记录
+      // Step 3: create record
       const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -472,23 +472,23 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 4. 处理 outbox 以触发公式计算
+      // Step 4: process outbox to trigger formula calculation
       await processOutbox();
 
-      // 5. 通过 listRecords 获取计算后的记录
+      // Step 5: fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
       if (!record) return;
 
-      // 6. 验证公式结果
+      // 6. Verify formula result
       expect(record.fields[formulaFieldId]).toBe('HELLO WORLD');
     });
 
     /**
-     * 测试场景：公式引用数字字段
-     * 公式：{numberField} * 2
-     * 预期：数字乘以2
+     * Scenario:Formula references number field
+     * Formula:{numberField} * 2
+     * Expect: number multiplied by 2
      */
     it('should create formula referencing number field - {numberField} * 2', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -554,10 +554,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -567,9 +567,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用日期字段
-     * 公式：YEAR({dateField})
-     * 预期：提取年份
+     * Scenario:Formula references date field
+     * Formula:YEAR({dateField})
+     * Expect: extracts year
      */
     it('should create formula referencing date field - YEAR({dateField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -635,10 +635,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -648,9 +648,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用评分字段
-     * 公式：{ratingField} + 1
-     * 预期：评分加1
+     * Scenario:Formula references rating field
+     * Formula:{ratingField} + 1
+     * Expect: rating plus 1
      */
     it('should create formula referencing rating field - {ratingField} + 1', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -716,10 +716,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -729,9 +729,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用复选框字段
-     * 公式：IF({checkboxField}, "Yes", "No")
-     * 预期：勾选返回 "Yes"，否则返回 "No"
+     * Scenario:Formula references checkbox field
+     * Formula:IF({checkboxField}, "Yes", "No")
+     * Expect: checked returns "Yes", otherwise "No"
      */
     it('should create formula referencing checkbox field - IF({checkboxField}, "Yes", "No")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -779,7 +779,7 @@ describe('v2 http formula (e2e)', () => {
       const formulaFieldId =
         fieldParsed.data.data.table.fields.find((f) => f.name === 'Status')?.id ?? '';
 
-      // 测试 true 值
+      // Test true value
       const createRecordResponse1 = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -798,7 +798,7 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId1 = recordParsed1.data.data.record.id;
 
-      // 测试 false 值
+      // Test false value
       const createRecordResponse2 = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -817,10 +817,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId2 = recordParsed2.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record1 = records.find((r) => r.id === recordId1);
       const record2 = records.find((r) => r.id === recordId2);
@@ -834,9 +834,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用单选字段
-     * 公式：CONCATENATE("Selected: ", {selectField})
-     * 预期：拼接选项名称
+     * Scenario:Formula references single select field
+     * Formula:CONCATENATE("Selected: ", {selectField})
+     * Expect: concatenates option name
      */
     it('should create formula referencing select field - CONCATENATE("Selected: ", {selectField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -920,9 +920,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用多选字段
-     * 公式：ARRAYJOIN({multiSelectField}, ", ")
-     * 预期：用逗号连接多个选项
+     * Scenario:Formula references multiple select field
+     * Formula:ARRAYJOIN({multiSelectField}, ", ")
+     * Expect: joins multiple options with commas
      */
     it('should create formula referencing multiple select field - ARRAYJOIN({multiSelectField}, ", ")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1008,9 +1008,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用长文本字段
-     * 公式：LEN({longTextField})
-     * 预期：返回文本长度
+     * Scenario:Formula references long text field
+     * Formula:LEN({longTextField})
+     * Expect: returns text length
      */
     it('should create formula referencing long text field - LEN({longTextField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1087,9 +1087,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用用户字段
-     * 公式：IF({userField}, "assigned", "unassigned")
-     * 预期：有用户返回 "assigned"
+     * Scenario:Formula references user field
+     * Formula:IF({userField}, "assigned", "unassigned")
+     * Expect: returns "assigned" when user exists
      */
     it('should create formula referencing user field - IF({userField}, "assigned", "unassigned")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1192,9 +1192,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用自动编号字段
-     * 公式：{autoNumberField} + 1000
-     * 预期：自动编号加1000
+     * Scenario:Formula references auto number field
+     * Formula:{autoNumberField} + 1000
+     * Expect: auto number plus 1000
      */
     it('should create formula referencing auto number field - {autoNumberField} + 1000', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1293,9 +1293,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用创建时间字段
-     * 公式：YEAR({createdTimeField})
-     * 预期：提取创建时间的年份
+     * Scenario:Formula references created time field
+     * Formula:YEAR({createdTimeField})
+     * Expect: extracts year from created time
      */
     it('should create formula referencing created time field - YEAR({createdTimeField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1398,9 +1398,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：公式引用最后修改时间字段
-     * 公式：DATETIME_FORMAT({lastModifiedTimeField}, "YYYY-MM-DD")
-     * 预期：格式化最后修改时间
+     * Scenario:Formula references last modified time field
+     * Formula:DATETIME_FORMAT({lastModifiedTimeField}, "YYYY-MM-DD")
+     * Expect: formats last modified time
      */
     it('should create formula referencing last modified time field - DATETIME_FORMAT({lastModifiedTimeField}, "YYYY-MM-DD")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1525,13 +1525,13 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 3. 二元运算符类型强制转换
+  // 3. Binary operator coercion
   // ============================================================================
   describe('binary operator coercion', () => {
     /**
-     * 测试场景：数字和字符串相加时的类型转换
-     * 公式：{numberField} & "text"
-     * 预期：数字转换为字符串后拼接
+     * Scenario: type coercion when adding number and string
+     * Formula:{numberField} & "text"
+     * Expect: coerces number to string then concatenates
      */
     it('should coerce number to string when concatenating - {numberField} & "text"', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1608,9 +1608,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：字符串数字相加
-     * 公式："10" + {numberField}
-     * 预期：字符串 "10" 转换为数字后相加
+     * Scenario: string number addition
+     * Formula:"10" + {numberField}
+     * Expect: coerces "10" to number then adds
      */
     it('should coerce string to number when adding - "10" + {numberField}', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1687,9 +1687,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：布尔值与数字运算
-     * 公式：{checkboxField} + 1
-     * 预期：true 转换为 1，false 转换为 0
+     * Scenario: boolean and number arithmetic
+     * Formula:{checkboxField} + 1
+     * Expect: true coerces to 1, false to 0
      */
     it('should coerce boolean to number - {checkboxField} + 1', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1789,9 +1789,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：数字字段使用 SUBSTITUTE 函数（数字自动转字符串）
-     * 公式：SUBSTITUTE({numberField}, "0", "X")
-     * 预期：数字转换为字符串后进行替换
+     * Scenario: use SUBSTITUTE with number field (auto string coercion)
+     * Formula:SUBSTITUTE({numberField}, "0", "X")
+     * Expect: coerces number to string before substitution
      */
     it('should substitute numeric field as text - SUBSTITUTE({numberField}, "0", "X")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1871,13 +1871,13 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 4. 布尔运算符组合
+  // 4. Boolean operator combinations
   // ============================================================================
   describe('boolean operator combinations', () => {
     /**
-     * 测试场景：AND 运算符
-     * 公式：AND({checkbox1}, {checkbox2})
-     * 预期：两个都为 true 时返回 true
+     * Scenario:AND operator
+     * Formula:AND({checkbox1}, {checkbox2})
+     * Expect: returns true when both are true
      */
     it('should evaluate AND operator - AND({checkbox1}, {checkbox2})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -1973,9 +1973,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：OR 运算符
-     * 公式：OR({checkbox1}, {checkbox2})
-     * 预期：任一为 true 时返回 true
+     * Scenario:OR operator
+     * Formula:OR({checkbox1}, {checkbox2})
+     * Expect: returns true when any is true
      */
     it('should evaluate OR operator - OR({checkbox1}, {checkbox2})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -2071,9 +2071,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：NOT 运算符
-     * 公式：NOT({checkboxField})
-     * 预期：取反
+     * Scenario:NOT operator
+     * Formula:NOT({checkboxField})
+     * Expect: negates boolean
      */
     it('should evaluate NOT operator - NOT({checkboxField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -2167,9 +2167,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：复杂布尔组合
-     * 公式：AND(OR({a}, {b}), NOT({c}))
-     * 预期：复杂逻辑组合正确计算
+     * Scenario: complex boolean combinations
+     * Formula:AND(OR({a}, {b}), NOT({c}))
+     * Expect: complex logic combines correctly
      */
     it('should evaluate complex boolean combination - AND(OR({a}, {b}), NOT({c}))', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -2290,9 +2290,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：空值的布尔真值性
-     * 公式：IF({textField}, "truthy", "falsy")
-     * 预期：空字符串为 falsy，非空为 truthy
+     * Scenario: truthiness of empty values
+     * Formula:IF({textField}, "truthy", "falsy")
+     * Expect: empty string is falsy, non-empty is truthy
      */
     it('should handle truthiness of empty values - IF({textField}, "truthy", "falsy")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -2386,9 +2386,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：数字零的布尔真值性
-     * 公式：IF({numberField}, "truthy", "falsy")
-     * 预期：0 为 falsy，非零为 truthy
+     * Scenario: truthiness of zero
+     * Formula:IF({numberField}, "truthy", "falsy")
+     * Expect: 0 is falsy, non-zero is truthy
      */
     it('should handle truthiness of zero - IF({numberField}, "truthy", "falsy")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -2483,13 +2483,13 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 5. LAST_MODIFIED_TIME 带字段参数
+  // 5. LAST_MODIFIED_TIME with field parameters
   // ============================================================================
   describe('LAST_MODIFIED_TIME with field parameters', () => {
     /**
-     * 测试场景：LAST_MODIFIED_TIME 追踪特定字段
-     * 字段配置：trackedFieldIds: [numberFieldId]
-     * 预期：只有被追踪的字段更新时才更新时间
+     * Scenario: LAST_MODIFIED_TIME tracks specific fields
+     * Field config: trackedFieldIds: [numberFieldId]
+     * Expect: timestamp updates only when tracked fields change
      */
     it('should track specific field changes with LAST_MODIFIED_TIME', async () => {
       const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -2601,9 +2601,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：LAST_MODIFIED_TIME 追踪多个字段
-     * 字段配置：trackedFieldIds: [field1Id, field2Id]
-     * 预期：任一被追踪字段更新时更新时间
+     * Scenario: LAST_MODIFIED_TIME tracks multiple fields
+     * Field config: trackedFieldIds: [field1Id, field2Id]
+     * Expect: any tracked field updates timestamp
      */
     it('should track multiple field changes with LAST_MODIFIED_TIME', async () => {
       const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -2716,8 +2716,8 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：未追踪字段更新不影响 LAST_MODIFIED_TIME
-     * 预期：更新未追踪字段时，LAST_MODIFIED_TIME 不变
+     * Scenario: untracked field updates do not affect LAST_MODIFIED_TIME
+     * Expect: LAST_MODIFIED_TIME unchanged when untracked fields update
      */
     it('should not update LAST_MODIFIED_TIME when untracked field changes', async () => {
       const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -2830,13 +2830,13 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 6. 数值函数
+  // 6. Numeric functions
   // ============================================================================
   describe('numeric functions', () => {
     /**
-     * 测试场景：ROUND 函数
-     * 公式：ROUND({numberField}, 2)
-     * 预期：四舍五入到2位小数
+     * Scenario:ROUND function
+     * Formula:ROUND({numberField}, 2)
+     * Expect: rounds to 2 decimal places
      */
     it('should round number - ROUND({numberField}, 2)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -2902,22 +2902,22 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
       if (!record) return;
 
-      expect(record.fields[formulaFieldId]).toBe(3.14); // 四舍五入到2位小数
+      expect(record.fields[formulaFieldId]).toBe(3.14); // rounds to 2 decimal places
     });
 
     /**
-     * 测试场景：CEILING 函数
-     * 公式：CEILING({numberField})
-     * 预期：向上取整
+     * Scenario:CEILING function
+     * Formula:CEILING({numberField})
+     * Expect: rounds up
      */
     it('should ceiling number - CEILING({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -2983,10 +2983,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -2996,9 +2996,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：FLOOR 函数
-     * 公式：FLOOR({numberField})
-     * 预期：向下取整
+     * Scenario:FLOOR function
+     * Formula:FLOOR({numberField})
+     * Expect: rounds down
      */
     it('should floor number - FLOOR({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3064,10 +3064,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3077,9 +3077,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：ABS 函数
-     * 公式：ABS({numberField})
-     * 预期：返回绝对值
+     * Scenario:ABS function
+     * Formula:ABS({numberField})
+     * Expect: returns absolute value
      */
     it('should get absolute value - ABS({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3145,10 +3145,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3158,9 +3158,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：SQRT 函数
-     * 公式：SQRT({numberField})
-     * 预期：返回平方根
+     * Scenario:SQRT function
+     * Formula:SQRT({numberField})
+     * Expect: returns square root
      */
     it('should get square root - SQRT({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3226,10 +3226,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3239,9 +3239,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：POWER 函数
-     * 公式：POWER({numberField}, 2)
-     * 预期：返回幂
+     * Scenario:POWER function
+     * Formula:POWER({numberField}, 2)
+     * Expect: returns power
      */
     it('should get power - POWER({numberField}, 2)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3307,10 +3307,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3320,9 +3320,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：MOD 函数
-     * 公式：MOD({numberField}, 3)
-     * 预期：返回模
+     * Scenario:MOD function
+     * Formula:MOD({numberField}, 3)
+     * Expect: returns modulo
      */
     it('should get modulo - MOD({numberField}, 3)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3388,10 +3388,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3401,9 +3401,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：MAX 函数
-     * 公式：MAX({num1}, {num2}, {num3})
-     * 预期：返回最大值
+     * Scenario:MAX function
+     * Formula:MAX({num1}, {num2}, {num3})
+     * Expect: returns maximum
      */
     it('should get max value - MAX({num1}, {num2}, {num3})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3475,10 +3475,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3488,9 +3488,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：MIN 函数
-     * 公式：MIN({num1}, {num2}, {num3})
-     * 预期：返回最小值
+     * Scenario:MIN function
+     * Formula:MIN({num1}, {num2}, {num3})
+     * Expect: returns minimum
      */
     it('should get min value - MIN({num1}, {num2}, {num3})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3562,10 +3562,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3575,9 +3575,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：SUM 函数
-     * 公式：SUM({num1}, {num2}, {num3})
-     * 预期：返回总和
+     * Scenario:SUM function
+     * Formula:SUM({num1}, {num2}, {num3})
+     * Expect: returns sum
      */
     it('should get sum - SUM({num1}, {num2}, {num3})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3649,10 +3649,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3662,9 +3662,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：AVERAGE 函数
-     * 公式：AVERAGE({num1}, {num2}, {num3})
-     * 预期：返回平均值
+     * Scenario:AVERAGE function
+     * Formula:AVERAGE({num1}, {num2}, {num3})
+     * Expect: returns average
      */
     it('should get average - AVERAGE({num1}, {num2}, {num3})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3736,10 +3736,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3749,9 +3749,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：VALUE 函数（字符串转数字）
-     * 公式：VALUE({textField})
-     * 预期：将字符串 "123" 转换为数字 123
+     * Scenario: VALUE function (string to number)
+     * Formula:VALUE({textField})
+     * Expect: coerces "123" to number 123
      */
     it('should convert string to number - VALUE({textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3814,10 +3814,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3827,9 +3827,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：INT 函数
-     * 公式：INT({numberField})
-     * 预期：返回整数部分
+     * Scenario:INT function
+     * Formula:INT({numberField})
+     * Expect: returns integer part
      */
     it('should get integer part - INT({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3895,10 +3895,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3908,9 +3908,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：EVEN 函数
-     * 公式：EVEN({numberField})
-     * 预期：向上取到最近的偶数
+     * Scenario:EVEN function
+     * Formula:EVEN({numberField})
+     * Expect: rounds up to nearest even
      */
     it('should round up to even - EVEN({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -3976,10 +3976,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -3989,9 +3989,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：ODD 函数
-     * 公式：ODD({numberField})
-     * 预期：向上取到最近的奇数
+     * Scenario:ODD function
+     * Formula:ODD({numberField})
+     * Expect: rounds up to nearest odd
      */
     it('should round up to odd - ODD({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4057,10 +4057,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4070,9 +4070,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：LOG 函数
-     * 公式：LOG({numberField}, 10)
-     * 预期：返回以10为底的对数
+     * Scenario:LOG function
+     * Formula:LOG({numberField}, 10)
+     * Expect: returns base-10 logarithm
      */
     it('should get log - LOG({numberField}, 10)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4138,10 +4138,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4151,9 +4151,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：EXP 函数
-     * 公式：EXP({numberField})
-     * 预期：返回 e 的幂
+     * Scenario:EXP function
+     * Formula:EXP({numberField})
+     * Expect: returns e power
      */
     it('should get exp - EXP({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4219,10 +4219,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4235,13 +4235,13 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 7. 文本函数
+  // 7. Text functions
   // ============================================================================
   describe('text functions', () => {
     /**
-     * 测试场景：CONCATENATE 函数
-     * 公式：CONCATENATE({text1}, " ", {text2})
-     * 预期：拼接文本
+     * Scenario:CONCATENATE function
+     * Formula:CONCATENATE({text1}, " ", {text2})
+     * Expect: concatenates text
      */
     it('should concatenate text - CONCATENATE({text1}, " ", {text2})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4309,10 +4309,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4322,9 +4322,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：& 运算符拼接
-     * 公式：{text1} & " - " & {text2}
-     * 预期：使用 & 拼接文本
+     * Scenario: & operator concatenation
+     * Formula:{text1} & " - " & {text2}
+     * Expect: concatenates text using &
      */
     it('should concatenate with & operator - {text1} & " - " & {text2}', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4400,9 +4400,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：LEFT 函数
-     * 公式：LEFT({textField}, 5)
-     * 预期：返回左边5个字符
+     * Scenario:LEFT function
+     * Formula:LEFT({textField}, 5)
+     * Expect: returns left 5 characters
      */
     it('should get left characters - LEFT({textField}, 5)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4465,10 +4465,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4478,9 +4478,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：RIGHT 函数
-     * 公式：RIGHT({textField}, 5)
-     * 预期：返回右边5个字符
+     * Scenario:RIGHT function
+     * Formula:RIGHT({textField}, 5)
+     * Expect: returns right 5 characters
      */
     it('should get right characters - RIGHT({textField}, 5)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4543,10 +4543,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4556,9 +4556,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：MID 函数
-     * 公式：MID({textField}, 2, 3)
-     * 预期：从第2个字符开始取3个字符
+     * Scenario:MID function
+     * Formula:MID({textField}, 2, 3)
+     * Expect: returns 3 characters starting at position 2
      */
     it('should get mid characters - MID({textField}, 2, 3)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4621,10 +4621,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4634,9 +4634,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：LEN 函数
-     * 公式：LEN({textField})
-     * 预期：返回文本长度
+     * Scenario:LEN function
+     * Formula:LEN({textField})
+     * Expect: returns text length
      */
     it('should get text length - LEN({textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4699,10 +4699,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4712,9 +4712,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：UPPER 函数
-     * 公式：UPPER({textField})
-     * 预期：转换为大写
+     * Scenario:UPPER function
+     * Formula:UPPER({textField})
+     * Expect: converts to uppercase
      */
     it('should convert to upper case - UPPER({textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4777,10 +4777,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4790,9 +4790,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：LOWER 函数
-     * 公式：LOWER({textField})
-     * 预期：转换为小写
+     * Scenario:LOWER function
+     * Formula:LOWER({textField})
+     * Expect: converts to lowercase
      */
     it('should convert to lower case - LOWER({textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4855,10 +4855,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4868,9 +4868,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：TRIM 函数
-     * 公式：TRIM({textField})
-     * 预期：去除首尾空格
+     * Scenario:TRIM function
+     * Formula:TRIM({textField})
+     * Expect: trims leading and trailing spaces
      */
     it('should trim whitespace - TRIM({textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -4933,10 +4933,10 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
@@ -4946,9 +4946,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：REPLACE 函数
-     * 公式：REPLACE({textField}, 1, 3, "NEW")
-     * 预期：从位置1开始替换3个字符为 "NEW"
+     * Scenario:REPLACE function
+     * Formula:REPLACE({textField}, 1, 3, "NEW")
+     * Expect: replaces 3 characters from position 1 with "NEW"
      */
     it('should replace text - REPLACE({textField}, 1, 3, "NEW")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5020,9 +5020,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：SUBSTITUTE 函数
-     * 公式：SUBSTITUTE({textField}, "old", "new")
-     * 预期：将 "old" 替换为 "new"
+     * Scenario:SUBSTITUTE function
+     * Formula:SUBSTITUTE({textField}, "old", "new")
+     * Expect: replaces "old" with "new"
      */
     it('should substitute text - SUBSTITUTE({textField}, "old", "new")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5094,9 +5094,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：FIND 函数
-     * 公式：FIND("abc", {textField})
-     * 预期：返回子串位置
+     * Scenario:FIND function
+     * Formula:FIND("abc", {textField})
+     * Expect: returns substring position
      */
     it('should find substring position - FIND("abc", {textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5168,9 +5168,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：SEARCH 函数（不区分大小写）
-     * 公式：SEARCH("ABC", {textField})
-     * 预期：不区分大小写查找子串位置
+     * Scenario: SEARCH function (case-insensitive)
+     * Formula:SEARCH("ABC", {textField})
+     * Expect: finds substring position case-insensitively
      */
     it('should search substring case-insensitive - SEARCH("ABC", {textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5242,9 +5242,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：REPT 函数
-     * 公式：REPT({textField}, 3)
-     * 预期：重复文本3次
+     * Scenario:REPT function
+     * Formula:REPT({textField}, 3)
+     * Expect: repeats text 3 times
      */
     it('should repeat text - REPT({textField}, 3)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5316,9 +5316,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：T 函数
-     * 公式：T({numberField})
-     * 预期：如果是文本返回文本，否则返回空字符串
+     * Scenario:T function
+     * Formula:T({numberField})
+     * Expect: returns text if input is text, otherwise empty string
      */
     it('should convert to text or empty - T({numberField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5394,9 +5394,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：ENCODE_URL_COMPONENT 函数
-     * 公式：ENCODE_URL_COMPONENT({textField})
-     * 预期：URL 编码文本
+     * Scenario:ENCODE_URL_COMPONENT function
+     * Formula:ENCODE_URL_COMPONENT({textField})
+     * Expect: URL-encodes text
      */
     it('should encode url component - ENCODE_URL_COMPONENT({textField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5469,13 +5469,13 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 8. 逻辑函数
+  // 8. Logical functions
   // ============================================================================
   describe('logical functions', () => {
     /**
-     * 测试场景：IF 函数
-     * 公式：IF({condition}, "yes", "no")
-     * 预期：条件为真返回 "yes"，否则返回 "no"
+     * Scenario:IF function
+     * Formula:IF({condition}, "yes", "no")
+     * Expect: returns "yes" when condition true, otherwise "no"
      */
     it('should evaluate IF - IF({condition}, "yes", "no")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5523,7 +5523,7 @@ describe('v2 http formula (e2e)', () => {
       const formulaFieldId =
         fieldParsed.data.data.table.fields.find((f) => f.name === 'PassFail')?.id ?? '';
 
-      // 测试及格情况
+      // Test passing case
       const passRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5539,7 +5539,7 @@ describe('v2 http formula (e2e)', () => {
       if (!passParsed.success || !passParsed.data.ok) return;
       const passRecordId = passParsed.data.data.record.id;
 
-      // 测试不及格情况
+      // Test failing case
       const failRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5555,10 +5555,10 @@ describe('v2 http formula (e2e)', () => {
       if (!failParsed.success || !failParsed.data.ok) return;
       const failRecordId = failParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const passRecordResult = records.find((r) => r.id === passRecordId);
       const failRecordResult = records.find((r) => r.id === failRecordId);
@@ -5572,9 +5572,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：IF 嵌套
-     * 公式：IF({a}, "A", IF({b}, "B", "C"))
-     * 预期：嵌套条件正确计算
+     * Scenario: nested IF
+     * Formula:IF({a}, "A", IF({b}, "B", "C"))
+     * Expect: nested conditions computed correctly
      */
     it('should evaluate nested IF - IF({a}, "A", IF({b}, "B", "C"))', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5624,7 +5624,7 @@ describe('v2 http formula (e2e)', () => {
       const formulaFieldId =
         fieldParsed.data.data.table.fields.find((f) => f.name === 'Nested Result')?.id ?? '';
 
-      // 测试 a=true：应返回 "A"
+      // Test a=true: should return "A"
       const aRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5640,7 +5640,7 @@ describe('v2 http formula (e2e)', () => {
       if (!aParsed.success || !aParsed.data.ok) return;
       const aRecordId = aParsed.data.data.record.id;
 
-      // 测试 a=false, b=true：应返回 "B"
+      // Test a=false, b=true: should return "B"
       const bRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5656,7 +5656,7 @@ describe('v2 http formula (e2e)', () => {
       if (!bParsed.success || !bParsed.data.ok) return;
       const bRecordId = bParsed.data.data.record.id;
 
-      // 测试 a=false, b=false：应返回 "C"
+      // Test a=false, b=false: should return "C"
       const cRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5672,10 +5672,10 @@ describe('v2 http formula (e2e)', () => {
       if (!cParsed.success || !cParsed.data.ok) return;
       const cRecordId = cParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const aRecordResult = records.find((r) => r.id === aRecordId);
       const bRecordResult = records.find((r) => r.id === bRecordId);
@@ -5692,9 +5692,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：SWITCH 函数
-     * 公式：SWITCH({selectField}, "A", 1, "B", 2, 0)
-     * 预期：根据值返回对应结果
+     * Scenario:SWITCH function
+     * Formula:SWITCH({selectField}, "A", 1, "B", 2, 0)
+     * Expect: returns matching result by value
      */
     it('should evaluate SWITCH - SWITCH({selectField}, "A", 1, "B", 2, 0)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5814,9 +5814,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：AND 函数
-     * 公式：AND({a} > 0, {b} > 0)
-     * 预期：所有条件为真时返回 true
+     * Scenario:AND function
+     * Formula:AND({a} > 0, {b} > 0)
+     * Expect: returns true when all conditions are true
      */
     it('should evaluate AND - AND({a} > 0, {b} > 0)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5866,7 +5866,7 @@ describe('v2 http formula (e2e)', () => {
       const formulaFieldId =
         fieldParsed.data.data.table.fields.find((f) => f.name === 'Both Positive')?.id ?? '';
 
-      // 测试两个都大于0的情况
+      // Test both greater than zero
       const trueRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5882,7 +5882,7 @@ describe('v2 http formula (e2e)', () => {
       if (!trueParsed.success || !trueParsed.data.ok) return;
       const trueRecordId = trueParsed.data.data.record.id;
 
-      // 测试其中一个小于等于0的情况
+      // Test case where one is <= 0
       const falseRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5898,10 +5898,10 @@ describe('v2 http formula (e2e)', () => {
       if (!falseParsed.success || !falseParsed.data.ok) return;
       const falseRecordId = falseParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const trueRecordResult = records.find((r) => r.id === trueRecordId);
       const falseRecordResult = records.find((r) => r.id === falseRecordId);
@@ -5915,9 +5915,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：OR 函数
-     * 公式：OR({a} > 0, {b} > 0)
-     * 预期：任一条件为真时返回 true
+     * Scenario:OR function
+     * Formula:OR({a} > 0, {b} > 0)
+     * Expect: returns true when any condition is true
      */
     it('should evaluate OR - OR({a} > 0, {b} > 0)', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -5967,7 +5967,7 @@ describe('v2 http formula (e2e)', () => {
       const formulaFieldId =
         fieldParsed.data.data.table.fields.find((f) => f.name === 'Either Positive')?.id ?? '';
 
-      // 测试其中一个大于0的情况
+      // Test case where one is > 0
       const trueRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5983,7 +5983,7 @@ describe('v2 http formula (e2e)', () => {
       if (!trueParsed.success || !trueParsed.data.ok) return;
       const trueRecordId = trueParsed.data.data.record.id;
 
-      // 测试两个都小于等于0的情况
+      // Test case where both are <= 0
       const falseRecord = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -5999,10 +5999,10 @@ describe('v2 http formula (e2e)', () => {
       if (!falseParsed.success || !falseParsed.data.ok) return;
       const falseRecordId = falseParsed.data.data.record.id;
 
-      // 处理 outbox 以触发公式计算
+      // Process outbox to trigger formula calculation
       await processOutbox();
 
-      // 通过 listRecords 获取计算后的记录
+      // Fetch records after formula calculation
       const records = await listRecords(table.id);
       const trueRecordResult = records.find((r) => r.id === trueRecordId);
       const falseRecordResult = records.find((r) => r.id === falseRecordId);
@@ -6016,9 +6016,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：XOR 函数
-     * 公式：XOR({a}, {b})
-     * 预期：异或运算
+     * Scenario:XOR function
+     * Formula:XOR({a}, {b})
+     * Expect: exclusive-or operation
      */
     it('should evaluate XOR - XOR({a}, {b})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6113,9 +6113,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：NOT 函数
-     * 公式：NOT({condition})
-     * 预期：取反
+     * Scenario:NOT function
+     * Formula:NOT({condition})
+     * Expect: negates boolean
      */
     it('should evaluate NOT - NOT({condition})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6207,9 +6207,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：BLANK 函数
-     * 公式：BLANK()
-     * 预期：返回空值
+     * Scenario:BLANK function
+     * Formula:BLANK()
+     * Expect: returns blank
      */
     it('should return blank - BLANK()', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6276,9 +6276,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：ERROR 函数
-     * 公式：ERROR("custom error")
-     * 预期：返回错误
+     * Scenario:ERROR function
+     * Formula:ERROR("custom error")
+     * Expect: returns error
      */
     it('should return error - ERROR("custom error")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6345,9 +6345,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：IS_ERROR 函数
-     * 公式：IS_ERROR({formulaField})
-     * 预期：检测是否为错误
+     * Scenario:IS_ERROR function
+     * Formula:IS_ERROR({formulaField})
+     * Expect: detects error
      */
     it('should check if error - IS_ERROR({formulaField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6495,13 +6495,13 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 9. 日期时间函数
+  // 9. Date/time functions
   // ============================================================================
   describe('datetime functions', () => {
     /**
-     * 测试场景：NOW 函数
-     * 公式：NOW()
-     * 预期：返回当前时间
+     * Scenario:NOW function
+     * Formula:NOW()
+     * Expect: returns current time
      */
     it('should get current datetime - NOW()', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6577,9 +6577,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：TODAY 函数
-     * 公式：TODAY()
-     * 预期：返回今天日期
+     * Scenario:TODAY function
+     * Formula:TODAY()
+     * Expect: returns today's date
      */
     it('should get today date - TODAY()', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6662,9 +6662,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：YEAR 函数
-     * 公式：YEAR({dateField})
-     * 预期：提取年份
+     * Scenario:YEAR function
+     * Formula:YEAR({dateField})
+     * Expect: extracts year
      */
     it('should get year - YEAR({dateField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6737,9 +6737,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：MONTH 函数
-     * 公式：MONTH({dateField})
-     * 预期：提取月份
+     * Scenario:MONTH function
+     * Formula:MONTH({dateField})
+     * Expect: extracts month
      */
     it('should get month - MONTH({dateField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6812,9 +6812,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：DAY 函数
-     * 公式：DAY({dateField})
-     * 预期：提取日期
+     * Scenario:DAY function
+     * Formula:DAY({dateField})
+     * Expect: extracts day
      */
     it('should get day - DAY({dateField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6887,9 +6887,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：HOUR 函数
-     * 公式：HOUR({dateField})
-     * 预期：提取小时
+     * Scenario:HOUR function
+     * Formula:HOUR({dateField})
+     * Expect: extracts hour
      */
     it('should get hour - HOUR({dateField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -6962,9 +6962,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：MINUTE 函数
-     * 公式：MINUTE({dateField})
-     * 预期：提取分钟
+     * Scenario:MINUTE function
+     * Formula:MINUTE({dateField})
+     * Expect: extracts minute
      */
     it('should get minute - MINUTE({dateField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -7037,9 +7037,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：SECOND 函数
-     * 公式：SECOND({dateField})
-     * 预期：提取秒
+     * Scenario:SECOND function
+     * Formula:SECOND({dateField})
+     * Expect: extracts second
      */
     it('should get second - SECOND({dateField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -7112,9 +7112,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：WEEKDAY 函数
-     * 公式：WEEKDAY({dateField})
-     * 预期：返回星期几（0-6）
+     * Scenario:WEEKDAY function
+     * Formula:WEEKDAY({dateField})
+     * Expect: returns weekday (0-6)
      */
     it('should get weekday - WEEKDAY({dateField})', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -7187,9 +7187,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：WEEKNUM 函数
-     * 公式：WEEKNUM({dateField})
-     * 预期：返回第几周
+     * Scenario:WEEKNUM function
+     * Formula:WEEKNUM({dateField})
+     * Expect: returns week number
      */
     it('should get week number - WEEKNUM({dateField})', async () => {
       const isoWeekNumber = (date: Date): number => {
@@ -7273,9 +7273,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：DATEADD / DATE_ADD 函数
-     * 公式：DATE_ADD({dateField}, 1, "month")
-     * 预期：日期加1个月
+     * Scenario:DATEADD / DATE_ADD function
+     * Formula:DATE_ADD({dateField}, 1, "month")
+     * Expect: adds 1 month
      */
     it('should add to date - DATE_ADD({dateField}, 1, "month")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -7357,9 +7357,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：DATETIME_DIFF 函数
-     * 公式：DATETIME_DIFF({date1}, {date2}, "days")
-     * 预期：计算日期差（天）
+     * Scenario:DATETIME_DIFF function
+     * Formula:DATETIME_DIFF({date1}, {date2}, "days")
+     * Expect: computes date diff (days)
      */
     it('should get datetime diff - DATETIME_DIFF({date1}, {date2}, "days")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -7436,9 +7436,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：DATETIME_FORMAT 函数
-     * 公式：DATETIME_FORMAT({dateField}, "YYYY-MM-DD")
-     * 预期：格式化日期
+     * Scenario:DATETIME_FORMAT function
+     * Formula:DATETIME_FORMAT({dateField}, "YYYY-MM-DD")
+     * Expect: formats date
      */
     it('should format datetime - DATETIME_FORMAT({dateField}, "YYYY-MM-DD")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -7511,9 +7511,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：DATETIME_PARSE 函数
-     * 公式：DATETIME_PARSE({textField}, "YYYY-MM-DD")
-     * 预期：解析日期字符串
+     * Scenario:DATETIME_PARSE function
+     * Formula:DATETIME_PARSE({textField}, "YYYY-MM-DD")
+     * Expect: parses date string
      */
     it('should parse datetime - DATETIME_PARSE({textField}, "YYYY-MM-DD")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -7590,9 +7590,9 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：IS_SAME 函数
-     * 公式：IS_SAME({date1}, {date2}, "day")
-     * 预期：判断是否同一天
+     * Scenario:IS_SAME function
+     * Formula:IS_SAME({date1}, {date2}, "day")
+     * Expect: checks same day
      */
     it('should check if same - IS_SAME({date1}, {date2}, "day")', async () => {
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
@@ -7669,196 +7669,196 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * 测试场景：IS_BEFORE 函数
-     * 公式：IS_BEFORE({date1}, {date2})
-     * 预期：判断 date1 是否在 date2 之前
+     * Scenario:IS_BEFORE function
+     * Formula:IS_BEFORE({date1}, {date2})
+     * Expect: checks date1 before date2
      */
     test.todo('should check if before - IS_BEFORE({date1}, {date2})');
 
     /**
-     * 测试场景：IS_AFTER 函数
-     * 公式：IS_AFTER({date1}, {date2})
-     * 预期：判断 date1 是否在 date2 之后
+     * Scenario:IS_AFTER function
+     * Formula:IS_AFTER({date1}, {date2})
+     * Expect: checks date1 after date2
      */
     test.todo('should check if after - IS_AFTER({date1}, {date2})');
 
     /**
-     * 测试场景：SET_LOCALE 函数
-     * 公式：SET_LOCALE({dateField}, "zh-CN")
-     * 预期：设置日期的区域设置
+     * Scenario:SET_LOCALE function
+     * Formula:SET_LOCALE({dateField}, "zh-CN")
+     * Expect: sets date locale
      */
     test.todo('should set locale - SET_LOCALE({dateField}, "zh-CN")');
 
     /**
-     * 测试场景：SET_TIMEZONE 函数
-     * 公式：SET_TIMEZONE({dateField}, "Asia/Shanghai")
-     * 预期：设置时区
+     * Scenario:SET_TIMEZONE function
+     * Formula:SET_TIMEZONE({dateField}, "Asia/Shanghai")
+     * Expect: sets timezone
      */
     test.todo('should set timezone - SET_TIMEZONE({dateField}, "Asia/Shanghai")');
 
     /**
-     * 测试场景：CREATED_TIME 函数
-     * 公式：CREATED_TIME()
-     * 预期：返回记录创建时间
+     * Scenario:CREATED_TIME function
+     * Formula:CREATED_TIME()
+     * Expect: returns record created time
      */
     test.todo('should get created time - CREATED_TIME()');
 
     /**
-     * 测试场景：LAST_MODIFIED_TIME 函数
-     * 公式：LAST_MODIFIED_TIME()
-     * 预期：返回最后修改时间
+     * Scenario:LAST_MODIFIED_TIME function
+     * Formula:LAST_MODIFIED_TIME()
+     * Expect: returns last modified time
      */
     test.todo('should get last modified time - LAST_MODIFIED_TIME()');
 
     /**
-     * 测试场景：公式使用时区配置格式化日期
-     * 公式：DATETIME_FORMAT({dateField}, "YYYYMMDD") with timeZone: "Asia/Shanghai"
-     * 预期：使用配置的时区格式化日期
+     * Scenario: format datetime with timezone option
+     * Formula:DATETIME_FORMAT({dateField}, "YYYYMMDD") with timeZone: "Asia/Shanghai"
+     * Expect: formats datetime with configured timezone
      */
     test.todo('should format datetime with timezone config - DATETIME_FORMAT with timeZone option');
   });
 
   // ============================================================================
-  // 10. 数组函数
+  // 10. Array functions
   // ============================================================================
   describe('array functions', () => {
     /**
-     * 测试场景：ARRAYJOIN 函数
-     * 公式：ARRAYJOIN({multiSelectField}, ", ")
-     * 预期：用分隔符连接数组元素
+     * Scenario:ARRAYJOIN function
+     * Formula:ARRAYJOIN({multiSelectField}, ", ")
+     * Expect: joins array elements with delimiter
      */
     test.todo('should join array - ARRAYJOIN({multiSelectField}, ", ")');
 
     /**
-     * 测试场景：ARRAYUNIQUE 函数
-     * 公式：ARRAYUNIQUE({lookupField})
-     * 预期：返回去重后的数组
+     * Scenario:ARRAYUNIQUE function
+     * Formula:ARRAYUNIQUE({lookupField})
+     * Expect: returns unique array
      */
     test.todo('should get unique array - ARRAYUNIQUE({lookupField})');
 
     /**
-     * 测试场景：ARRAYFLATTEN 函数
-     * 公式：ARRAYFLATTEN({nestedArray})
-     * 预期：展平嵌套数组
+     * Scenario:ARRAYFLATTEN function
+     * Formula:ARRAYFLATTEN({nestedArray})
+     * Expect: flattens nested array
      */
     test.todo('should flatten array - ARRAYFLATTEN({nestedArray})');
 
     /**
-     * 测试场景：ARRAYCOMPACT 函数
-     * 公式：ARRAYCOMPACT({arrayWithNulls})
-     * 预期：移除空值
+     * Scenario:ARRAYCOMPACT function
+     * Formula:ARRAYCOMPACT({arrayWithNulls})
+     * Expect: removes null values
      */
     test.todo('should compact array - ARRAYCOMPACT({arrayWithNulls})');
 
     /**
-     * 测试场景：COUNTALL 函数
-     * 公式：COUNTALL({lookupField})
-     * 预期：返回所有元素数量（包含空值）
+     * Scenario:COUNTALL function
+     * Formula:COUNTALL({lookupField})
+     * Expect: counts all elements (including nulls)
      */
     test.todo('should count all - COUNTALL({lookupField})');
 
     /**
-     * 测试场景：COUNTA 函数
-     * 公式：COUNTA({lookupField})
-     * 预期：返回非空元素数量
+     * Scenario:COUNTA function
+     * Formula:COUNTA({lookupField})
+     * Expect: counts non-empty elements
      */
     test.todo('should count non-empty - COUNTA({lookupField})');
 
     /**
-     * 测试场景：COUNT 函数
-     * 公式：COUNT({lookupField})
-     * 预期：返回数字元素数量
+     * Scenario:COUNT function
+     * Formula:COUNT({lookupField})
+     * Expect: counts numeric elements
      */
     test.todo('should count numbers - COUNT({lookupField})');
   });
 
   // ============================================================================
-  // 11. 链接和查找字段公式
+  // 11. Formulas with link and lookup fields
   // ============================================================================
   describe('formula with link and lookup fields', () => {
     /**
-     * 测试场景：公式引用链接字段
-     * 公式：IF({linkField}, "Has Link", "No Link")
-     * 预期：有链接返回 "Has Link"
+     * Scenario: Formula references link field
+     * Formula:IF({linkField}, "Has Link", "No Link")
+     * Expect: returns "Has Link" when linked
      */
     test.todo(
       'should create formula referencing link field - IF({linkField}, "Has Link", "No Link")'
     );
 
     /**
-     * 测试场景：公式引用查找字段
-     * 公式：{lookupField}
-     * 预期：返回查找字段的值
+     * Scenario: Formula references lookup field
+     * Formula:{lookupField}
+     * Expect: returns lookup field value
      */
     test.todo('should create formula referencing lookup field - {lookupField}');
 
     /**
-     * 测试场景：公式引用汇总字段
-     * 公式：{rollupField} * 2
-     * 预期：汇总值乘以2
+     * Scenario: Formula references rollup field
+     * Formula:{rollupField} * 2
+     * Expect: rollup value multiplied by 2
      */
     test.todo('should create formula referencing rollup field - {rollupField} * 2');
 
     /**
-     * 测试场景：公式处理查找字段为空的情况
-     * 公式：IF({lookupField}="", "no lookup", {lookupField})
-     * 预期：空查找时返回 "no lookup"
+     * Scenario: formula handles empty lookup field
+     * Formula:IF({lookupField}="", "no lookup", {lookupField})
+     * Expect: returns "no lookup" when lookup is empty
      */
     test.todo(
       'should handle empty lookup in formula - IF({lookupField}="", "no lookup", {lookupField})'
     );
 
     /**
-     * 测试场景：公式处理汇总字段为空的情况
-     * 公式：IF({rollupField} > 0, "Has rollup", "No rollup")
-     * 预期：无汇总数据时返回 "No rollup"
+     * Scenario: formula handles empty rollup field
+     * Formula:IF({rollupField} > 0, "Has rollup", "No rollup")
+     * Expect: returns "No rollup" when rollup is empty
      */
     test.todo(
       'should handle empty rollup in formula - IF({rollupField} > 0, "Has rollup", "No rollup")'
     );
 
     /**
-     * 测试场景：公式引用链接字段的显示值（formula referencing link display）
-     * 公式：{linkField}
-     * 预期：返回链接字段的显示值（主字段值）
+     * Scenario: Formula references link display value
+     * Formula:{linkField}
+     * Expect: returns link display value (primary field)
      */
     test.todo('should get link field display value in formula - {linkField}');
 
     /**
-     * 测试场景：公式引用查找单选字段
-     * 公式：IF({lookupSingleSelect}="Paid", "No reminder", "Follow up")
-     * 预期：根据查找的单选值判断
+     * Scenario: Formula references lookup single select field
+     * Formula:IF({lookupSingleSelect}="Paid", "No reminder", "Follow up")
+     * Expect: evaluates based on lookup single select value
      */
     test.todo(
       'should handle lookup single select in formula - IF({lookupSingleSelect}="Paid", ...)'
     );
 
     /**
-     * 测试场景：嵌套查找公式（lookup -> lookup -> number）
-     * 公式：Table3 -> Table2(lookup) -> Table1(number)
-     * 预期：正确获取嵌套查找的值
+     * Scenario: nested lookup formula (lookup -> lookup -> number)
+     * Formula:Table3 -> Table2(lookup) -> Table1(number)
+     * Expect: retrieves nested lookup value correctly
      */
     test.todo('should handle nested lookup formula - lookup of lookup field');
 
     /**
-     * 测试场景：链接显示依赖查找的公式
-     * 公式：{orderNo} & "-" & {patientLink} (link display depends on lookup)
-     * 预期：链接显示字段依赖另一个查找字段时正确计算
+     * Scenario: link display depends on lookup
+     * Formula:{orderNo} & "-" & {patientLink} (link display depends on lookup)
+     * Expect: computes correctly when link display depends on lookup
      */
     test.todo('should compute formula when link display depends on lookup');
   });
 
   // ============================================================================
-  // 12. 公式引用公式
+  // 12. Formula referencing formula
   // ============================================================================
   describe('formula referencing formula', () => {
     /**
-     * 测试场景：公式引用另一个公式
-     * 公式：{formula1} + 5
-     * 预期：正确计算嵌套公式
+     * Scenario: Formula references another formula
+     * Formula:{formula1} + 5
+     * Expect: computes nested formulas correctly
      */
     it('should create formula referencing another formula - {formula1} + 5', async () => {
-      // 1. 创建表，包含数字字段
+      // Step 1: create table with numeric field
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -7880,7 +7880,7 @@ describe('v2 http formula (e2e)', () => {
       const table = tableParsed.data.data.table;
       const numberFieldId = table.fields.find((f) => f.name === 'BaseValue')?.id ?? '';
 
-      // 2. 创建第一个公式字段 - 数字 * 2
+      // 2. Create first formula field - number * 2
       const createFormula1Response = await fetch(`${baseUrl}/tables/createField`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -7905,7 +7905,7 @@ describe('v2 http formula (e2e)', () => {
       const formula1FieldId =
         formula1Parsed.data.data.table.fields.find((f) => f.name === 'Formula1')?.id ?? '';
 
-      // 3. 创建第二个公式字段 - 引用第一个公式 + 5
+      // 3. Create second formula field - reference first formula + 5
       const createFormula2Response = await fetch(`${baseUrl}/tables/createField`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -7930,7 +7930,7 @@ describe('v2 http formula (e2e)', () => {
       const formula2FieldId =
         formula2Parsed.data.data.table.fields.find((f) => f.name === 'Formula2')?.id ?? '';
 
-      // 4. 创建记录
+      // 4. Create record
       const createRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -7949,115 +7949,115 @@ describe('v2 http formula (e2e)', () => {
 
       const recordId = recordParsed.data.data.record.id;
 
-      // 5. 处理 outbox 以触发公式计算（需要多次处理以支持嵌套公式）
+      // 5. Process outbox to trigger formula calculation (requires multiple runs for nested formulas)
       await processOutbox(2);
 
-      // 6. 通过 listRecords 获取计算后的记录
+      // 6. Fetch calculated records via listRecords
       const records = await listRecords(table.id);
       const record = records.find((r) => r.id === recordId);
       expect(record).toBeDefined();
       if (!record) return;
 
-      // 7. 验证公式计算结果
+      // 7. Verify formula calculation result
       expect(record.fields[formula1FieldId]).toBe(20); // 10 * 2 = 20
       expect(record.fields[formula2FieldId]).toBe(25); // 20 + 5 = 25
     });
 
     /**
-     * 测试场景：多层公式链
-     * 公式：formula1 -> formula2 -> formula3 -> rollup field
-     * 预期：多层嵌套公式正确计算
+     * Scenario: multi-level formula chain
+     * Formula:formula1 -> formula2 -> formula3 -> rollup field
+     * Expect: multi-level formulas compute correctly
      */
     test.todo('should handle multi-level formula chain');
 
     /**
-     * 测试场景：公式间接引用链接字段
-     * 公式：formula1 -> formula2(references link) -> link field
-     * 预期：通过另一个公式间接引用链接字段时正确计算
+     * Scenario: formula indirectly references link field
+     * Formula:formula1 -> formula2(references link) -> link field
+     * Expect: computes correctly when formula indirectly references link field
      */
     test.todo('should handle formula indirectly referencing link field through another formula');
 
     /**
-     * 测试场景：公式间接引用查找字段
-     * 公式：formula1 -> formula2(references lookup) -> lookup field
-     * 预期：通过另一个公式间接引用查找字段时正确计算
+     * Scenario: formula indirectly references lookup field
+     * Formula:formula1 -> formula2(references lookup) -> lookup field
+     * Expect: computes correctly when formula indirectly references lookup field
      */
     test.todo('should handle formula indirectly referencing lookup field through another formula');
 
     /**
-     * 测试场景：公式间接引用汇总字段
-     * 公式：formula1 -> formula2(references rollup) -> rollup field
-     * 预期：通过另一个公式间接引用汇总字段时正确计算
+     * Scenario: formula indirectly references rollup field
+     * Formula:formula1 -> formula2(references rollup) -> rollup field
+     * Expect: computes correctly when formula indirectly references rollup field
      */
     test.todo('should handle formula indirectly referencing rollup field through another formula');
   });
 
   // ============================================================================
-  // 13. 公式重新计算场景
+  // 13. Formula recalculation scenarios
   // ============================================================================
   describe('formula recalculation scenarios', () => {
     /**
-     * 测试场景：创建记录时省略引用字段，公式仍应计算
-     * 公式：IF({statusField}="", 1, 222222)
-     * 预期：状态字段省略时，公式返回 1
+     * Scenario: formula computes when referenced fields are omitted on record creation
+     * Formula:IF({statusField}="", 1, 222222)
+     * Expect: returns 1 when status field omitted
      */
     test.todo(
       'should calculate formula when referenced field is omitted on creation - IF({status}="", 1, 222222)'
     );
 
     /**
-     * 测试场景：创建记录时提供引用字段，公式返回另一个分支
-     * 公式：IF({statusField}="", 1, 222222)
-     * 预期：状态字段有值时，公式返回 222222
+     * Scenario: formula takes alternate branch when referenced fields are provided on record creation
+     * Formula:IF({statusField}="", 1, 222222)
+     * Expect: returns 222222 when status field provided
      */
     test.todo(
       'should calculate alternate branch when referenced field has value - IF({status}="", 1, 222222)'
     );
 
     /**
-     * 测试场景：基于查找的公式在省略链接时的计算
-     * 公式：IF({lookupField}="", "no lookup", {lookupField})
-     * 预期：链接省略时，公式返回 "no lookup"
+     * Scenario: lookup-based formula when link is omitted
+     * Formula:IF({lookupField}="", "no lookup", {lookupField})
+     * Expect: returns "no lookup" when link omitted
      */
     test.todo('should compute lookup-based formula when link is omitted on creation');
 
     /**
-     * 测试场景：基于查找的公式在提供链接时的计算
-     * 公式：IF({lookupField}="", "no lookup", {lookupField})
-     * 预期：链接提供时，公式返回查找值
+     * Scenario: lookup-based formula when link is provided
+     * Formula:IF({lookupField}="", "no lookup", {lookupField})
+     * Expect: returns lookup value when link provided
      */
     test.todo('should compute lookup-based formula when link is provided on creation');
 
     /**
-     * 测试场景：即使 reference 表缺少条目也应回退
-     * 预期：即使引用关系表损坏，公式也应返回默认值
+     * Scenario: fallback even when reference table entries are missing
+     * Expect: returns default even if reference table is corrupted
      */
     test.todo('should fallback even if reference table is missing entries');
 
     /**
-     * 测试场景：即使查找字段未标记为 computed 也应回退
-     * 预期：即使 isComputed 被错误设置为 false，公式也应正确计算
+     * Scenario: fallback even when lookup field is not marked computed
+     * Expect: computes correctly even when isComputed is false
      */
     test.todo('should fallback even if lookup fields are not marked computed');
 
     /**
-     * 测试场景：即使引用图完全缺失也应回退
-     * 预期：引用关系完全删除时，公式仍应返回默认值
+     * Scenario: fallback even when reference graph is missing
+     * Expect: returns default when reference graph is removed
      */
     test.todo('should fallback even if reference graph is completely missing');
   });
 
   // ============================================================================
-  // 14. 错误处理场景
+  // 14. Error handling scenarios
   // ============================================================================
   describe('formula error scenarios', () => {
     /**
-     * 测试场景：无效的表达式语法
-     * 公式：INVALID_FUNCTION({field})
-     * 预期：返回 400 错误
+     * Scenario: invalid expression syntax
+     * Formula:INVALID_FUNCTION({field})
+     * Expect: returns 400 error
      */
     it('should fail with invalid expression syntax - INVALID_FUNCTION({field})', async () => {
-      // 1. 创建表
+      // Step 1: create table
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -8079,7 +8079,7 @@ describe('v2 http formula (e2e)', () => {
       const table = tableParsed.data.data.table;
       const numberFieldId = table.fields.find((f) => f.name === 'Value')?.id ?? '';
 
-      // 2. 尝试创建使用无效函数的公式字段
+      // 2. Attempt to create formula field with invalid function
       const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -8096,17 +8096,17 @@ describe('v2 http formula (e2e)', () => {
         }),
       });
 
-      // 3. 验证返回 500 错误（无效的函数会导致解析错误）
+      // 3. Verify 500 error (invalid function causes parse error)
       expect(createFieldResponse.status).toBe(500);
     });
 
     /**
-     * 测试场景：引用不存在的字段
-     * 公式：{nonExistentFieldId}
-     * 预期：返回 404 错误
+     * Scenario: references missing field
+     * Formula:{nonExistentFieldId}
+     * Expect: returns 404 error
      */
     it('should fail with non-existent field reference - {nonExistentFieldId}', async () => {
-      // 1. 创建表
+      // Step 1: create table
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -8124,7 +8124,7 @@ describe('v2 http formula (e2e)', () => {
 
       const table = tableParsed.data.data.table;
 
-      // 2. 尝试创建引用不存在字段的公式
+      // 2. Attempt to create formula referencing missing field
       const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -8141,17 +8141,17 @@ describe('v2 http formula (e2e)', () => {
         }),
       });
 
-      // 3. 验证返回 404 错误（引用不存在的字段）
+      // 3. Verify 404 error (missing referenced field)
       expect(createFieldResponse.status).toBe(404);
     });
 
     /**
-     * 测试场景：空表达式
-     * 公式：""
-     * 预期：返回 400 错误
+     * Scenario: empty expression
+     * Formula:""
+     * Expect: returns 400 error
      */
     it('should fail with empty expression', async () => {
-      // 1. 创建表
+      // Step 1: create table
       const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -8169,7 +8169,7 @@ describe('v2 http formula (e2e)', () => {
 
       const table = tableParsed.data.data.table;
 
-      // 2. 尝试创建空表达式的公式
+      // 2. Attempt to create formula with empty expression
       const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -8186,83 +8186,80 @@ describe('v2 http formula (e2e)', () => {
         }),
       });
 
-      // 3. 验证返回 400 错误
+      // 3. Verify 400 error
       expect(createFieldResponse.status).toBe(400);
     });
 
     /**
-     * 测试场景：循环引用
-     * 公式：formula1 -> formula2 -> formula1
-     * 预期：返回错误（循环依赖）
+     * Scenario: circular reference
+     * Formula:formula1 -> formula2 -> formula1
+     * Expect: returns error (circular dependency)
      */
     test.todo('should fail with circular reference');
 
     /**
-     * 测试场景：除以零
-     * 公式：{numberField} / 0
-     * 预期：返回错误或无穷大
+     * Scenario: division by zero
+     * Formula:{numberField} / 0
+     * Expect: returns error or infinity
      */
     test.todo('should handle division by zero - {numberField} / 0');
   });
 
   // ============================================================================
-  // 15. 复杂公式场景
+  // 15. Complex formula scenarios
   // ============================================================================
   describe('complex formula scenarios', () => {
     /**
-     * 测试场景：多字段引用的字符串拼接
-     * 公式：CONCATENATE({firstName}, " ", {lastName})
-     * 预期：正确拼接多个字段
+     * Scenario: string concatenation with multiple fields
+     * Formula:CONCATENATE({firstName}, " ", {lastName})
+     * Expect: concatenates multiple fields correctly
      */
     test.todo(
       'should create formula with string concatenation - CONCATENATE({firstName}, " ", {lastName})'
     );
 
     /**
-     * 测试场景：条件逻辑组合
-     * 公式：IF(AND({age} >= 18, {isActive}), "Adult Active", IF({age} >= 18, "Adult Inactive", "Minor"))
-     * 预期：复杂条件逻辑正确计算
+     * Scenario: conditional logic combination
+     * Formula:IF(AND({age} >= 18, {isActive}), "Adult Active", IF({age} >= 18, "Adult Inactive", "Minor"))
+     * Expect: complex conditions compute correctly
      */
     test.todo(
       'should create formula with conditional logic - IF(AND({age} >= 18, {isActive}), ...)'
     );
 
     /**
-     * 测试场景：数学运算组合
-     * 公式：ROUND(({score} * {age}) / 10, 2)
-     * 预期：数学运算正确计算
+     * Scenario: mathematical operations
+     * Formula:ROUND(({score} * {age}) / 10, 2)
+     * Expect: math operations compute correctly
      */
     test.todo(
       'should create formula with mathematical operations - ROUND(({score} * {age}) / 10, 2)'
     );
 
     /**
-     * 测试场景：日期函数组合
-     * 公式：YEAR({birthDate})
-     * 预期：提取出生年份
+     * Scenario: date function combination
+     * Formula:YEAR({birthDate})
+     * Expect: extracts birth year
      */
     test.todo('should create formula with date functions - YEAR({birthDate})');
 
     /**
-     * 测试场景：查找日期时间格式化的拼接
-     * 公式："NAS-" & {schoolLookup} & "-" & DATETIME_FORMAT({dateLookup}, "YYYYMMDD")
-     * 预期：正确拼接查找字段和格式化日期
+     * Scenario: lookup datetime formatting concatenation
+     * Formula:"NAS-" & {schoolLookup} & "-" & DATETIME_FORMAT({dateLookup}, "YYYYMMDD")
+     * Expect: concatenates lookup field with formatted date
      */
     test.todo(
       'should concatenate lookup datetime output safely - "NAS-" & {schoolLookup} & "-" & DATETIME_FORMAT({dateLookup}, "YYYYMMDD")'
     );
 
     /**
-     * 测试场景：本地化单选字段的数值转换
-     * 公式：VALUE({singleSelectField}) - 解析 "20分钟" 为 20
-     * 预期：从选项标签中提取数字
+     * Scenario: localized single select numeric parsing
+     * Formula: VALUE({singleSelectField}) - parse "20 minutes" as 20
+     * Expect: extracts number from option label
      */
     test.todo('should parse localized option labels through VALUE() - VALUE({singleSelectField})');
   });
 
-  // ============================================================================
-  // 15.1 Customer-grade complex formula templates (todo only)
-  // ============================================================================
   describe('customer-grade complex formula templates (todo)', () => {
     /**
      * Scenario: Very long IF/FIND concatenation mapping (text field + many branches).
@@ -8371,91 +8368,91 @@ describe('v2 http formula (e2e)', () => {
   });
 
   // ============================================================================
-  // 16. 特殊边界情况
+  // 16. Special edge cases
   // ============================================================================
   describe('special edge cases', () => {
     /**
-     * 测试场景：空值处理
-     * 公式：IF({field} = BLANK(), "empty", "has value")
-     * 预期：正确识别空值
+     * Scenario: blank value handling
+     * Formula:IF({field} = BLANK(), "empty", "has value")
+     * Expect: correctly identifies blanks
      */
     test.todo('should handle blank values - IF({field} = BLANK(), "empty", "has value")');
 
     /**
-     * 测试场景：非常长的文本
-     * 公式：LEN({longTextField})
-     * 预期：正确计算长文本的长度
+     * Scenario: very long text
+     * Formula:LEN({longTextField})
+     * Expect: correctly computes long text length
      */
     test.todo('should handle very long text - LEN({longTextField})');
 
     /**
-     * 测试场景：特殊字符
-     * 公式：{textField} with special characters like emoji, unicode
-     * 预期：正确处理特殊字符
+     * Scenario: special characters
+     * Formula:{textField} with special characters like emoji, unicode
+     * Expect: handles special characters correctly
      */
     test.todo('should handle special characters in text fields');
 
     /**
-     * 测试场景：极大数值
-     * 公式：{numberField} with very large numbers
-     * 预期：正确处理大数值
+     * Scenario: very large numbers
+     * Formula:{numberField} with very large numbers
+     * Expect: handles large numbers correctly
      */
     test.todo('should handle very large numbers');
 
     /**
-     * 测试场景：极小数值（浮点精度）
-     * 公式：{numberField} with very small decimals
-     * 预期：正确处理小数精度
+     * Scenario: very small decimals (floating-point precision)
+     * Formula:{numberField} with very small decimals
+     * Expect: handles decimal precision correctly
      */
     test.todo('should handle very small decimals (floating point precision)');
 
     /**
-     * 测试场景：负数
-     * 公式：ABS({negativeNumber})
-     * 预期：正确处理负数
+     * Scenario: negative numbers
+     * Formula:ABS({negativeNumber})
+     * Expect: handles negative numbers correctly
      */
     test.todo('should handle negative numbers - ABS({negativeNumber})');
 
     /**
-     * 测试场景：空字符串 vs null vs undefined
-     * 公式：IF({field}="", "empty string", "not empty string")
-     * 预期：正确区分空字符串和 null
+     * Scenario: empty string vs null vs undefined
+     * Formula:IF({field}="", "empty string", "not empty string")
+     * Expect: distinguishes empty string and null
      */
     test.todo('should distinguish empty string vs null vs undefined');
 
     /**
-     * 测试场景：记录只发送 null 值时的回退
-     * 公式：当唯一发送的字段显式为 null 时
-     * 预期：公式仍应正确计算默认值
+     * Scenario: fallback when only null is sent
+     * Formula: when the only sent field is explicitly null
+     * Expect: formula still computes default value
      */
     test.todo('should fallback when the only field sent is explicitly null');
   });
 
   // ============================================================================
-  // 17. 公式字段选项
+  // 17. Formula field options
   // ============================================================================
   describe('formula field options', () => {
     /**
-     * 测试场景：公式字段带数字格式化选项
-     * 公式：{numberField} * 2
-     * 选项：formatting: { type: 'decimal', precision: 1 }
-     * 预期：结果按指定精度格式化
+     * Scenario: formula field with number formatting options
+     * Formula:{numberField} * 2
+     * Options: formatting: { type: 'decimal', precision: 1 }
+     * Expect: result formatted with specified precision
      */
     test.todo('should apply number formatting to formula result');
 
     /**
-     * 测试场景：公式字段带 showAs 选项（进度条）
-     * 公式：{numberField}
-     * 选项：showAs: { type: 'bar', color: 'red', showValue: true, maxValue: 100 }
-     * 预期：公式结果以进度条形式显示
+     * Scenario: formula field with showAs option (bar)
+     * Formula:{numberField}
+     * Options: showAs: { type: 'bar', color: 'red', showValue: true, maxValue: 100 }
+     * Expect: formula result displayed as bar
      */
     test.todo('should apply showAs option to formula field - bar display');
 
     /**
-     * 测试场景：公式字段带时区选项
-     * 公式：DATETIME_FORMAT({dateField}, "YYYY-MM-DD HH:mm")
-     * 选项：timeZone: "Asia/Shanghai"
-     * 预期：使用指定时区格式化
+     * Scenario: formula field with timezone option
+     * Formula:DATETIME_FORMAT({dateField}, "YYYY-MM-DD HH:mm")
+     * Options: timeZone: "Asia/Shanghai"
+     * Expect: formats with specified timezone
      */
     test.todo('should apply timezone option to formula field');
   });

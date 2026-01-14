@@ -39,7 +39,7 @@ const numericFunctionCases: ReadonlyArray<NumericFunctionCase> = [
 
 const buildFormulaName = (funcId: string, fieldName: string): string => `${funcId}_${fieldName}`;
 
-describe.sequential('numeric functions', () => {
+describe('numeric functions', () => {
   const fieldCases = createFieldTypeCases();
   const matrix = numericFunctionCases.flatMap((fn) =>
     fieldCases.map((fieldCase) => ({
