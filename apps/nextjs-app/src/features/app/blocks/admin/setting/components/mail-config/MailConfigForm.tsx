@@ -54,7 +54,7 @@ export const MailConfigForm = (props: {
 
   const [testEmail, setTestEmail] = useState<string | null>(null);
 
-  const { mutateAsync: testEmailConfig, isLoading: isTestEmailLoading } = useMutation({
+  const { mutateAsync: testEmailConfig, isPending: isTestEmailLoading } = useMutation({
     mutationFn: (ro: ITestMailTransportConfigRo) => testMailTransportConfig(ro),
     onSuccess: () => {
       toast.success(t('email.testEmailSend'));

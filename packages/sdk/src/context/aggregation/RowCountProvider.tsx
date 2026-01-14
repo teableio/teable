@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITableActionKey, IViewActionKey } from '@teable/core';
 import type { IQueryBaseRo } from '@teable/openapi';
 import { getRowCount, getShareViewRowCount } from '@teable/openapi';
@@ -61,38 +61,44 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
 
   const prevQueryRef = useRef(rowCountQuery);
 
-  const rowCountQueryKey = useMemo(() => {
+  // Use different query keys for common and share queries to avoid conflicts
+  const commonRowCountQueryKey = useMemo(() => {
     prevQueryRef.current = rowCountQuery;
-    return ReactQueryKeys.rowCount(shareId || (tableId as string), rowCountQuery);
-  }, [rowCountQuery, shareId, tableId]);
+    return ReactQueryKeys.rowCount(tableId as string, rowCountQuery);
+  }, [rowCountQuery, tableId]);
 
-  const { data: commonRowCount } = useQuery({
-    queryKey: rowCountQueryKey,
-    queryFn: ({ queryKey }) => getRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
+  const shareRowCountQueryKey = useMemo(() => {
+    return ReactQueryKeys.shareViewRowCount(shareId as string, rowCountQuery);
+  }, [rowCountQuery, shareId]);
+
+  const { data: commonRowCount } = useQuery<{ rowCount: number }>({
+    queryKey: commonRowCountQueryKey,
+    queryFn: () => getRowCount(tableId as string, rowCountQuery).then((data) => data.data),
     enabled: Boolean(!shareId && tableId && isHydrated && visible),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
-  const { data: shareRowCount } = useQuery({
-    queryKey: rowCountQueryKey,
-    queryFn: ({ queryKey }) =>
-      getShareViewRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
+  const { data: shareRowCount } = useQuery<{ rowCount: number }>({
+    queryKey: shareRowCountQueryKey,
+    queryFn: () => getShareViewRowCount(shareId as string, rowCountQuery).then((data) => data.data),
     enabled: Boolean(shareId && tableId && isHydrated && visible),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const resRowCount = shareId ? shareRowCount : commonRowCount;
 
+  const activeQueryKey = shareId ? shareRowCountQueryKey : commonRowCountQueryKey;
+
   const updateRowCount = useCallback(
     () =>
       queryClient.invalidateQueries({
-        queryKey: rowCountQueryKey.slice(0, 3),
+        queryKey: activeQueryKey.slice(0, 3),
       }),
-    [queryClient, rowCountQueryKey]
+    [queryClient, activeQueryKey]
   );
 
   const throttleUpdateRowCount = useMemo(() => {
@@ -101,9 +107,9 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
 
   const updateRowCountForTable = useCallback(() => {
     queryClient.invalidateQueries({
-      queryKey: rowCountQueryKey.slice(0, 2),
+      queryKey: activeQueryKey.slice(0, 2),
     });
-  }, [queryClient, rowCountQueryKey]);
+  }, [queryClient, activeQueryKey]);
 
   const throttleUpdateRowCountForTable = useMemo(() => {
     return throttle(updateRowCountForTable, THROTTLE_TIME);

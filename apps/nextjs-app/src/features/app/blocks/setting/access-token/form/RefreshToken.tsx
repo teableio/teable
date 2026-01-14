@@ -30,7 +30,7 @@ export const RefreshToken = (props: IRefreshTokenProps) => {
   const { t } = useTranslation(personalAccessTokenConfig.i18nNamespaces);
   const [expiredTime, setExpiredTime] = useState<string | undefined>(undefined);
   const queryClient = useQueryClient();
-  const { mutate: refreshTokenMute, isLoading } = useMutation({
+  const { mutate: refreshTokenMute, isPending: isLoading } = useMutation({
     mutationFn: (body?: RefreshAccessTokenRo) => refreshAccessToken(accessTokenId, body),
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.personAccessTokenList() });

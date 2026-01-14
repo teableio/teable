@@ -43,7 +43,7 @@ export const SettingPage = (props: ISettingPageProps) => {
   const { mutateAsync: mutateUpdateSetting } = useMutation({
     mutationFn: (props: IUpdateSettingRo) => updateSetting(props),
     onSuccess: () => {
-      queryClient.invalidateQueries(['setting']);
+      queryClient.invalidateQueries({ queryKey: ['setting'] });
     },
   });
 

@@ -50,7 +50,7 @@ export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
   const { mutateAsync: updateTemplateFn } = useMutation({
     mutationFn: (baseId: string) => updateTemplate(templateId, { baseId }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
       setOpen(false);
     },
   });

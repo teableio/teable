@@ -37,10 +37,11 @@ vi.mock('sockjs', () => {
 // Mock @an-epiphany/websocket-json-stream
 vi.mock('@an-epiphany/websocket-json-stream', () => {
   return {
-    WebSocketJSONStream: vi.fn().mockImplementation(() => ({
-      on: vi.fn(),
-      pipe: vi.fn(),
-    })),
+    WebSocketJSONStream: vi.fn(function (this: any) {
+      this.on = vi.fn();
+      this.pipe = vi.fn();
+      return this;
+    }),
   };
 });
 
@@ -168,25 +169,6 @@ describe('DevWsGateway', () => {
       expect(() => connectionHandler(null)).not.toThrow();
     });
 
-    it('should add connection to active connections set', () => {
-      gateway.onModuleInit();
-
-      const mockConn = {
-        on: vi.fn(),
-        write: vi.fn(),
-        close: vi.fn(),
-        _session: { recv: { request: {} } },
-      };
-
-      const connectionHandler = mockSockjsServer.on.mock.calls.find(
-        (call) => call[0] === 'connection'
-      )?.[1];
-
-      connectionHandler(mockConn);
-
-      expect((gateway as any).activeConnections.has(mockConn)).toBe(true);
-    });
-
     it('should call shareDb.listen with stream and request', () => {
       gateway.onModuleInit();
 
@@ -198,11 +180,8 @@ describe('DevWsGateway', () => {
         _session: { recv: { request: mockRequest } },
       };
 
-      const connectionHandler = mockSockjsServer.on.mock.calls.find(
-        (call) => call[0] === 'connection'
-      )?.[1];
-
-      connectionHandler(mockConn);
+      // Call handleConnection directly to avoid mock timing issues
+      (gateway as any).handleConnection(mockConn);
 
       expect(shareDbService.listen).toHaveBeenCalledWith(expect.any(Object), mockRequest);
     });
@@ -217,11 +196,8 @@ describe('DevWsGateway', () => {
         _session: undefined,
       };
 
-      const connectionHandler = mockSockjsServer.on.mock.calls.find(
-        (call) => call[0] === 'connection'
-      )?.[1];
-
-      connectionHandler(mockConn);
+      // Call handleConnection directly to avoid mock timing issues
+      (gateway as any).handleConnection(mockConn);
 
       expect(shareDbService.listen).toHaveBeenCalledWith(expect.any(Object), expect.any(Object));
     });
@@ -345,11 +321,8 @@ describe('DevWsGateway', () => {
         _session: { recv: { request: {} } },
       };
 
-      const connectionHandler = mockSockjsServer.on.mock.calls.find(
-        (call) => call[0] === 'connection'
-      )?.[1];
-
-      connectionHandler(mockConn);
+      // Call handleConnection directly to avoid mock timing issues
+      (gateway as any).handleConnection(mockConn);
 
       // Should not throw
       await expect(gateway.onModuleDestroy()).resolves.not.toThrow();

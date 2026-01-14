@@ -23,13 +23,15 @@ export const Account: React.FC = () => {
   const { t } = useTranslation('common');
   const isTouchDevice = useIsTouchDevice();
 
-  const updateUserAvatarMutation = useMutation(updateUserAvatar, {
+  const updateUserAvatarMutation = useMutation({
+    mutationFn: updateUserAvatar,
     onSuccess: () => {
       refreshAvatar?.();
     },
   });
 
-  const updateUserNameMutation = useMutation(updateUserName, {
+  const updateUserNameMutation = useMutation({
+    mutationFn: updateUserName,
     onSuccess: () => {
       refresh?.();
     },

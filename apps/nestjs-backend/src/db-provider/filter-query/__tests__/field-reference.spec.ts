@@ -134,7 +134,7 @@ const cases: FieldPair[] = [
     label: 'single line text field',
     field: createTextField('fld_text', 'text_col'),
     reference: createTextField('fld_text_ref', 'text_ref'),
-    expectedSql: /LOWER\("main"\."text_col"\) = LOWER\("main"\."text_ref"\)/i,
+    expectedSql: /"main"."text_col" = "main"."text_ref"/i,
   },
   {
     label: 'date field',

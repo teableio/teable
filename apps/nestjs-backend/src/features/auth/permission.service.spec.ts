@@ -342,8 +342,8 @@ describe('PermissionService', () => {
     it('should throw an error if user does not have all required permissions', async () => {
       vi.spyOn(service, 'getPermissions').mockResolvedValue(getPermissions(Role.Editor));
       const resourceId = 'bsexxxxxx';
-      await expect(service.validPermissions(resourceId, ['space|create'])).rejects.toThrowError(
-        new ForbiddenException(`not allowed to operate space|create on ${resourceId}`)
+      await expect(service.validPermissions(resourceId, ['space|create'])).rejects.toThrow(
+        `not allowed to operate space|create on ${resourceId}`
       );
     });
   });

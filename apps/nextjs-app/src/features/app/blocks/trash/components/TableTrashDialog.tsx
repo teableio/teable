@@ -29,7 +29,7 @@ export const TableTrashDialog = (props: ITableTrashDialogProps) => {
   const { mutateAsync: mutateResetTrash } = useMutation({
     mutationFn: () => resetTrashItems({ resourceType: ResourceType.Table, resourceId: tableId }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(tableId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(tableId) });
       toast.success(t('actions.resetSucceed'));
     },
   });

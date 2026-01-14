@@ -52,7 +52,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
   const spaceId = useSpaceId();
   const routerBaseId = router.query.baseId as string | undefined;
 
-  const { mutateAsync: createTemplateToBase, isLoading } = useMutation({
+  const { mutateAsync: createTemplateToBase, isPending: isLoading } = useMutation({
     mutationFn: () =>
       createBaseFromTemplate({
         spaceId: spaceId as string,

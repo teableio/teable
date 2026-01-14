@@ -50,13 +50,14 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
           search,
           includeBase: true,
         }),
-    queryFn: ({ queryKey, pageParam = 0 }) =>
+    queryFn: ({ queryKey, pageParam }) =>
       getSpaceCollaboratorList(queryKey[1], {
         ...queryKey[2],
         skip: pageParam * MEMBERS_PER_PAGE,
         take: MEMBERS_PER_PAGE,
       }).then((res) => res.data),
     staleTime: 1000,
+    initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => {
       const allCollaborators = pages.flatMap((page) => page.collaborators);
       return allCollaborators.length >= lastPage.total ? undefined : pages.length;
@@ -67,7 +68,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
     return data?.pages.flatMap((page) => page.collaborators);
   }, [data]);
 
-  const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
+  const { mutate: updateCollaborator, isPending: updateCollaboratorLoading } = useMutation({
     mutationFn: ({
       resourceId,
       updateCollaborateRo,
@@ -93,17 +94,21 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
     onSuccess: async (_, context) => {
       const { isBase, resourceId } = context;
 
-      await queryClient.invalidateQueries(ReactQueryKeys.spaceCollaboratorList(spaceId));
+      await queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
+      });
       if (isBase) {
-        queryClient.invalidateQueries(ReactQueryKeys.baseCollaboratorList(resourceId));
+        queryClient.invalidateQueries({
+          queryKey: ReactQueryKeys.baseCollaboratorList(resourceId),
+        });
       } else {
-        queryClient.invalidateQueries(ReactQueryKeys.space(spaceId));
-        queryClient.invalidateQueries(ReactQueryKeys.spaceList());
+        queryClient.invalidateQueries({ queryKey: ReactQueryKeys.space(spaceId) });
+        queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
       }
     },
   });
 
-  const { mutate: deleteCollaborator, isLoading: deleteCollaboratorLoading } = useMutation({
+  const { mutate: deleteCollaborator, isPending: deleteCollaboratorLoading } = useMutation({
     mutationFn: ({
       principalId,
       resourceId,
@@ -127,10 +132,12 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
     onSuccess: async (_, context) => {
       if (context.principalId === user.id) {
         router.push('/space');
-        queryClient.invalidateQueries(ReactQueryKeys.spaceList());
+        queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
         return;
       }
-      await queryClient.invalidateQueries(ReactQueryKeys.spaceCollaboratorList(spaceId));
+      await queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
+      });
     },
   });
 

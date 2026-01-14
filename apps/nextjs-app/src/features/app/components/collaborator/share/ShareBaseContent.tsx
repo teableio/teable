@@ -74,12 +74,13 @@ export const ShareBaseContent = ({
     queryKey: ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true, search }),
     staleTime: 1000,
     refetchOnWindowFocus: false,
-    queryFn: ({ queryKey, pageParam = 0 }) =>
+    queryFn: ({ queryKey, pageParam }) =>
       getBaseCollaboratorList(queryKey[1], {
         ...queryKey[2],
         skip: pageParam * MEMBERS_PER_PAGE,
         take: MEMBERS_PER_PAGE,
       }).then((res) => res.data),
+    initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => {
       const allCollaborators = pages.flatMap((page) => page.collaborators);
       return allCollaborators.length >= lastPage.total ? undefined : pages.length;
@@ -98,7 +99,7 @@ export const ShareBaseContent = ({
     enabled: hasInviteLinkPermission,
   });
 
-  const { mutate: emailInvitation, isLoading: emailInvitationLoading } = useMutation({
+  const { mutate: emailInvitation, isPending: emailInvitationLoading } = useMutation({
     mutationFn: emailBaseInvitation,
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -109,42 +110,42 @@ export const ShareBaseContent = ({
     },
   });
 
-  const { mutate: createInviteLinkRequest, isLoading: createInviteLinkLoading } = useMutation({
+  const { mutate: createInviteLinkRequest, isPending: createInviteLinkLoading } = useMutation({
     mutationFn: createBaseInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
     },
   });
 
-  const { mutate: updateInviteLink, isLoading: updateInviteLinkLoading } = useMutation({
+  const { mutate: updateInviteLink, isPending: updateInviteLinkLoading } = useMutation({
     mutationFn: updateBaseInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
     },
   });
 
-  const { mutate: deleteInviteLink, isLoading: deleteInviteLinkLoading } = useMutation({
+  const { mutate: deleteInviteLink, isPending: deleteInviteLinkLoading } = useMutation({
     mutationFn: deleteBaseInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
     },
   });
 
-  const { mutate: deleteCollaborator, isLoading: deleteCollaboratorLoading } = useMutation({
+  const { mutate: deleteCollaborator, isPending: deleteCollaboratorLoading } = useMutation({
     mutationFn: deleteBaseCollaborator,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseCollaboratorList(baseId) });
     },
   });
 
-  const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
+  const { mutate: updateCollaborator, isPending: updateCollaboratorLoading } = useMutation({
     mutationFn: updateBaseCollaborator,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseCollaboratorList(baseId) });
     },
   });
 
-  const { mutate: addCollaborators, isLoading: addCollaboratorsLoading } = useMutation({
+  const { mutate: addCollaborators, isPending: addCollaboratorsLoading } = useMutation({
     mutationFn: async ({
       role,
       collaborators,

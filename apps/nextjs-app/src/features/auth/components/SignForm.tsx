@@ -156,7 +156,7 @@ export const SignForm: FC<ISignForm> = (props) => {
 
   const {
     mutate: sendSignupVerificationCodeMutation,
-    isLoading: sendSignupVerificationCodeLoading,
+    isPending: sendSignupVerificationCodeLoading,
   } = useMutation({
     mutationFn: ({ email, turnstileToken }: { email: string; turnstileToken?: string }) =>
       sendSignupVerificationCode(email, turnstileToken),

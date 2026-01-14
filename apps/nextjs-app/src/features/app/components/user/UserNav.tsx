@@ -23,7 +23,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
   const { t } = useTranslation(['common']);
   const { user } = useSession();
   const setting = useSettingStore();
-  const { mutateAsync: loginOut, isLoading } = useMutation({
+  const { mutateAsync: loginOut, isPending: isLoading } = useMutation({
     mutationFn: signout,
   });
   const isCloud = useIsCloud();

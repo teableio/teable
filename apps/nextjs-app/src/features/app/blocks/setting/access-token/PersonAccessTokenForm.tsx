@@ -25,7 +25,7 @@ export const PersonAccessTokenForm = (props: IAccessTokenFormProps) => {
   const type = router.query.form as IFormType;
   const accessTokenId = router.query.id as string;
 
-  const { mutate: createAccessTokenMutate, isLoading: createAccessTokenLoading } = useMutation({
+  const { mutate: createAccessTokenMutate, isPending: createAccessTokenLoading } = useMutation({
     mutationFn: createAccessToken,
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.personAccessTokenList() });
@@ -33,7 +33,7 @@ export const PersonAccessTokenForm = (props: IAccessTokenFormProps) => {
     },
   });
 
-  const { mutate: updateAccessTokenMutate, isLoading: updateAccessTokenLoading } = useMutation({
+  const { mutate: updateAccessTokenMutate, isPending: updateAccessTokenLoading } = useMutation({
     mutationFn: (updateRo: UpdateAccessTokenRo) => updateAccessToken(accessTokenId, updateRo),
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.personAccessTokenList() });

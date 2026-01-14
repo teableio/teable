@@ -27,7 +27,7 @@ export const DeleteAccountDialog = () => {
   const [confirmText, setConfirmText] = useState('');
   const [deleteError, setDeleteError] = useState<IDeleteUserErrorData | string | null>(null);
 
-  const { mutate: deleteAccountMutation, isLoading } = useMutation({
+  const { mutate: deleteAccountMutation, isPending: isLoading } = useMutation({
     mutationFn: (confirm: string) => deleteUser(confirm),
     meta: {
       preventGlobalError: true,

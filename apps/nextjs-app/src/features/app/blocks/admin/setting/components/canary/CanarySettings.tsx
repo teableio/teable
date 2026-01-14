@@ -34,7 +34,7 @@ export const CanarySettings = ({ setting }: ICanarySettingsProps) => {
   const { mutateAsync: mutateUpdateSetting } = useMutation({
     mutationFn: (props: IUpdateSettingRo) => updateSetting(props),
     onSuccess: () => {
-      queryClient.invalidateQueries(['setting']);
+      queryClient.invalidateQueries({ queryKey: ['setting'] });
     },
   });
 

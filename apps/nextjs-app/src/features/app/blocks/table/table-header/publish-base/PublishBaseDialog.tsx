@@ -91,6 +91,28 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   }, [treeItems]);
 
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(base?.name || '');
+  const [description, setDescription] = useState<string | undefined>('');
+  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>();
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedCover, setUploadedCover] = useState<
+    | (INotifyVo & {
+        id: string;
+        name: string;
+      })
+    | null
+  >(null);
+  const [includeData, setIncludeData] = useState(true);
+  const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [unpublishedAppsDialogOpen, setUnpublishedAppsDialogOpen] = useState(false);
+  const [unpublishedApps, setUnpublishedApps] = useState<IUnpublishedApp[]>([]);
+  const [externalApps, setExternalApps] = useState<IUnpublishedApp[] | undefined>(undefined);
 
   const { data: templateDetail } = useQuery({
     queryKey: ['template-by-base', baseId],
@@ -98,45 +120,53 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     refetchOnWindowFocus: false,
     queryFn: () => getTemplateByBaseId(baseId!).then((res) => res.data),
     enabled: !!baseId,
-    onSuccess: (data) => {
-      setTitle(data?.name || base?.name || '');
-      setDescription(data?.description);
-      // only update with server data when no manual upload of image
-      if (!uploadedCover) {
-        setScreenshotUrl(data?.cover?.presignedUrl || undefined);
-      }
-
-      const savedNodes = data?.publishInfo?.nodes;
-      const nodesToSelect = savedNodes && savedNodes.length > 0 ? savedNodes : allNodeIds;
-      if (nodesToSelect.length > 0) {
-        setSelectedNodeIds(nodesToSelect);
-
-        // Set default active node: use saved data if available and it's in selected nodes
-        const savedDefaultNodeId = data?.publishInfo?.defaultActiveNodeId;
-        if (savedDefaultNodeId && nodesToSelect.includes(savedDefaultNodeId)) {
-          setDefaultActiveNodeId(savedDefaultNodeId);
-        } else {
-          // Find first non-folder node in selected nodes
-          const firstNonFolderNode = nodesToSelect.find((id) => {
-            const node = treeItems[id];
-            return node && node.resourceType !== BaseNodeResourceType.Folder;
-          });
-          setDefaultActiveNodeId(firstNonFolderNode || null);
-        }
-
-        // Only mark as loaded when nodes are actually set
-        setHasLoadedTemplate(true);
-      }
-      setIncludeData(data?.publishInfo?.includeData ?? true);
-      // Use permalink for stable share URL
-      const permalink = data?.id ? `/t/${data.id}` : undefined;
-      setShareUrl(
-        generateShareUrl(permalink, data?.publishInfo?.defaultUrl, data?.snapshot?.baseId)
-      );
-    },
   });
 
-  const { mutateAsync: unpublishTemplateMutate, isLoading: unpublishTemplateLoading } = useMutation(
+  // Handle template data changes (replaces onSuccess callback removed in React Query v5)
+  useEffect(() => {
+    if (!templateDetail) return;
+
+    setTitle(templateDetail?.name || base?.name || '');
+    setDescription(templateDetail?.description);
+    // only update with server data when no manual upload of image
+    if (!uploadedCover) {
+      setScreenshotUrl(templateDetail?.cover?.presignedUrl || undefined);
+    }
+
+    const savedNodes = templateDetail?.publishInfo?.nodes;
+    const nodesToSelect = savedNodes && savedNodes.length > 0 ? savedNodes : allNodeIds;
+    if (nodesToSelect.length > 0) {
+      setSelectedNodeIds(nodesToSelect);
+
+      // Set default active node: use saved data if available and it's in selected nodes
+      const savedDefaultNodeId = templateDetail?.publishInfo?.defaultActiveNodeId;
+      if (savedDefaultNodeId && nodesToSelect.includes(savedDefaultNodeId)) {
+        setDefaultActiveNodeId(savedDefaultNodeId);
+      } else {
+        // Find first non-folder node in selected nodes
+        const firstNonFolderNode = nodesToSelect.find((id: string) => {
+          const node = treeItems[id];
+          return node && node.resourceType !== BaseNodeResourceType.Folder;
+        });
+        setDefaultActiveNodeId(firstNonFolderNode || null);
+      }
+
+      // Only mark as loaded when nodes are actually set
+      setHasLoadedTemplate(true);
+    }
+    setIncludeData(templateDetail?.publishInfo?.includeData ?? true);
+    // Use permalink for stable share URL
+    const permalink = templateDetail?.id ? `/t/${templateDetail.id}` : undefined;
+    setShareUrl(
+      generateShareUrl(
+        permalink,
+        templateDetail?.publishInfo?.defaultUrl,
+        templateDetail?.snapshot?.baseId
+      )
+    );
+  }, [templateDetail, base?.name, allNodeIds, treeItems, uploadedCover]);
+
+  const { mutateAsync: unpublishTemplateMutate, isPending: unpublishTemplateLoading } = useMutation(
     {
       mutationFn: () => unpublishTemplate(templateDetail?.id as string).then((res) => res.data),
       onSuccess: () => {
@@ -150,7 +180,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     }
   );
 
-  const { mutateAsync: publishBaseMutate, isLoading: publishBaseLoading } = useMutation({
+  const { mutateAsync: publishBaseMutate, isPending: publishBaseLoading } = useMutation({
     mutationFn: async ({ title, description }: { title: string; description: string }) => {
       // if user manually uploaded a new image, use the new cover; otherwise use the existing cover
       const cover: ITemplateCoverRo | null = uploadedCover
@@ -194,29 +224,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       }
     },
   });
-
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState(base?.name || '');
-  const [description, setDescription] = useState<string | undefined>('');
-  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>();
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadedCover, setUploadedCover] = useState<
-    | (INotifyVo & {
-        id: string;
-        name: string;
-      })
-    | null
-  >(null);
-  const [includeData, setIncludeData] = useState(true);
-  const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
-  const uploadRef = useRef<HTMLInputElement>(null);
-  const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [shareUrl, setShareUrl] = useState('');
-  const [unpublishedAppsDialogOpen, setUnpublishedAppsDialogOpen] = useState(false);
-  const [unpublishedApps, setUnpublishedApps] = useState<IUnpublishedApp[]>([]);
-  const [externalApps, setExternalApps] = useState<IUnpublishedApp[] | undefined>(undefined);
 
   // Initialize selected nodes on first load
   useEffect(() => {

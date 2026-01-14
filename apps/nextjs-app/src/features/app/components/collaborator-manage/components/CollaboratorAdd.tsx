@@ -40,7 +40,7 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
   const filteredBaseRoleStatic = useFilteredBaseRoleStatic(currentRole);
   const [selectedMembers, setSelectedMembers] = useState<ISelectedMember[]>([]);
 
-  const { mutate: addCollaborators, isLoading } = useMutation({
+  const { mutate: addCollaborators, isPending: isLoading } = useMutation({
     mutationFn: async (collaborators: IAddCollaborator[]) => {
       const userCollaborators = collaborators.filter((c) => c.principalType === PrincipalType.User);
       const departmentCollaborators = collaborators.filter(

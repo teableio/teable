@@ -28,7 +28,9 @@ export const TaskStatusCollectionProvider: FC<ITaskStatusCollectionProviderProps
   });
 
   const updateTaskStatusCollectionForTable = useCallback(() => {
-    queryClient.invalidateQueries(ReactQueryKeys.getTaskStatusCollection(tableId as string));
+    queryClient.invalidateQueries({
+      queryKey: ReactQueryKeys.getTaskStatusCollection(tableId as string),
+    });
   }, [queryClient, tableId]);
 
   const tableMatches = useMemo<ITableActionKey[]>(

@@ -39,7 +39,7 @@ export const AccessTokenList = (props: { newToken?: string }) => {
     queryFn: () => listAccessToken().then((data) => data.data),
   });
 
-  const { mutate: deleteAccessTokenMutate, isLoading: deleteLoading } = useMutation({
+  const { mutate: deleteAccessTokenMutate, isPending: deleteLoading } = useMutation({
     mutationFn: deleteAccessToken,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.personAccessTokenList() });

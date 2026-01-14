@@ -81,7 +81,7 @@ export function DepartmentList({
       departmentId: currentDepartment,
       search: debouncedSearch,
     }),
-    queryFn: ({ pageParam = 0, queryKey: [_, ro] }) =>
+    queryFn: ({ pageParam, queryKey: [_, ro] }) =>
       getDepartmentUsers({
         ...ro,
         departmentId: ro?.search ? undefined : ro?.departmentId,
@@ -91,6 +91,7 @@ export function DepartmentList({
       }).then((res) => res.data),
     staleTime: 1000,
     refetchOnWindowFocus: false,
+    initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => {
       const allUsers = pages.flatMap((page) => page.users);
       return allUsers.length >= lastPage.total ? undefined : pages.length;

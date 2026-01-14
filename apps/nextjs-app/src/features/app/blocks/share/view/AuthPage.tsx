@@ -13,7 +13,7 @@ export const AuthPage = () => {
   const [error, setError] = useState('');
   const router = useRouter();
   const shareId = router.query.shareId as string;
-  const { mutateAsync: authShareView, isLoading } = useMutation({
+  const { mutateAsync: authShareView, isPending: isLoading } = useMutation({
     mutationFn: shareViewAuth,
   });
   const { t } = useTranslation(shareConfig.i18nNamespaces);

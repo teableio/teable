@@ -37,7 +37,10 @@ export const TableTrash = (props: ITableTrashProps) => {
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
 
-  const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
+  const queryFn = async ({
+    queryKey,
+    pageParam,
+  }: QueryFunctionContext<readonly ['trash-items', string], string | undefined>) => {
     const res = await getTrashItems({
       resourceType: ResourceType.Table,
       resourceId: queryKey[1] as string,
@@ -55,13 +58,14 @@ export const TableTrash = (props: ITableTrashProps) => {
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
+    initialPageParam: undefined as string | undefined,
     getNextPageParam: () => nextCursor,
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
     mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(tableId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(tableId) });
       toast.success(t('actions.restoreSucceed'));
     },
   });

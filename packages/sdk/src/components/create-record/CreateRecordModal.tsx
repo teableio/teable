@@ -33,7 +33,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const filter = view?.filter;
   const userId = user.id;
 
-  const { mutate: createRecord, isLoading } = useMutation({
+  const { mutate: createRecord, isPending } = useMutation({
     mutationFn: (fields: { [fieldId: string]: unknown }) =>
       createRecords(tableId!, {
         records: [{ fields }],
@@ -177,12 +177,12 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
           <Button
             className="relative overflow-hidden"
             size={'sm'}
-            disabled={!tableId || isLoading}
+            disabled={!tableId || isPending}
             onClick={() => {
               createRecord(record?.fields ?? {});
             }}
           >
-            {isLoading && <Spin className="size-4" />}
+            {isPending && <Spin className="size-4" />}
             {t('common.create')}
           </Button>
         </div>

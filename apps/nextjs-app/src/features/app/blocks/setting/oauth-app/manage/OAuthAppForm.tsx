@@ -67,7 +67,7 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
   const getPreviewUrl = usePreviewUrl();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const { mutateAsync: uploadLogo, isLoading: uploadLogoLoading } = useMutation({
+  const { mutateAsync: uploadLogo, isPending: uploadLogoLoading } = useMutation({
     mutationFn: (files: File[]) => uploadFiles(files, UploadType.OAuth),
     onSuccess: (res) => {
       if (res?.[0]?.path) {

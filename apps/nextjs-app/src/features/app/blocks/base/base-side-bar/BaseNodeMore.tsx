@@ -346,10 +346,10 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
     if (!resourceId) return;
     await onDelete?.(permanent, false);
     setDeleteConfirm(false);
-    queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId as string));
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId as string) });
   };
 
-  const { mutateAsync: duplicateTableFn, isLoading } = useMutation({
+  const { mutateAsync: duplicateTableFn, isPending: isLoading } = useMutation({
     mutationFn: async (ro?: IDuplicateBaseNodeRo) => onDuplicate?.(ro),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -827,13 +827,15 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
       const { resourceType, resourceId } = node;
       switch (resourceType) {
         case BaseNodeResourceType.Dashboard:
-          queryClient.invalidateQueries(ReactQueryKeys.getDashboard(resourceId));
+          queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(resourceId) });
           break;
         case BaseNodeResourceType.Workflow:
-          queryClient.invalidateQueries(ReactQueryKeys.workflowItem(baseId, resourceId));
+          queryClient.invalidateQueries({
+            queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
+          });
           break;
         case BaseNodeResourceType.App:
-          queryClient.invalidateQueries(ReactQueryKeys.getApp(baseId, resourceId));
+          queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getApp(baseId, resourceId) });
           break;
       }
     },
