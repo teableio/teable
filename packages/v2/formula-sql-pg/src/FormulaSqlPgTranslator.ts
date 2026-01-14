@@ -252,7 +252,33 @@ export class FormulaSqlPgTranslator {
       );
     }
     this.visiting.add(fieldId);
-    const result = this.translateExpression(field.expression().toString());
+    const result = this.translateExpression(field.expression().toString()).andThen((expr) =>
+      buildFieldSqlMetadata(field)
+        .map((metadata) =>
+          makeExpr(
+            expr.valueSql,
+            metadata.valueType,
+            metadata.isArray,
+            expr.errorConditionSql,
+            expr.errorMessageSql,
+            field,
+            metadata.storageKind
+          )
+        )
+        .orElse(() =>
+          ok(
+            makeExpr(
+              expr.valueSql,
+              expr.valueType ?? 'unknown',
+              expr.isArray ?? false,
+              expr.errorConditionSql,
+              expr.errorMessageSql,
+              field,
+              expr.storageKind
+            )
+          )
+        )
+    );
     this.visiting.delete(fieldId);
     this.formulaCache.set(fieldId, result);
     return result;

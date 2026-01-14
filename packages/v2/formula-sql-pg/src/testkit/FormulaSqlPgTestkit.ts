@@ -5,9 +5,12 @@ import {
 } from '@teable/v2-container-node-test';
 import {
   ActorId,
+  ConditionalLookupField,
   DateTimeFormatting,
   FieldId,
+  FieldType,
   fieldTypeValues,
+  LookupField,
   NumberFormatting,
   v2CoreTokens,
   type ICommandBus,
@@ -50,6 +53,7 @@ type FieldSnapshotValue = {
   formatting?: unknown;
   rawValue: string | null;
   formattedValue: string | null;
+  innerField?: FieldSnapshotValue | null;
 };
 
 type FormulaSnapshotContext = {
@@ -909,33 +913,80 @@ const fetchRawFieldValueSql = (field: Field, tableAlias: string): string => {
     ._unsafeUnwrap();
 };
 
+const resolveLookupInnerField = (field: Field): Field | null => {
+  if (field.type().equals(FieldType.lookup())) {
+    const innerResult = (field as LookupField).innerField();
+    return innerResult.isOk() ? innerResult.value : null;
+  }
+  if (field.type().equals(FieldType.conditionalLookup())) {
+    const innerResult = (field as ConditionalLookupField).innerField();
+    return innerResult.isOk() ? innerResult.value : null;
+  }
+  return null;
+};
+
 const buildFieldSnapshotValue = async (
   testTable: FormulaTestTable,
-  field: Field
+  field: Field,
+  options: { includeValues?: boolean; visited?: ReadonlySet<string> } = {}
 ): Promise<FieldSnapshotValue> => {
-  const rawSql = fetchRawFieldValueSql(field, testTable.tableAlias);
-  const formattedSql = buildFormattedFieldValueSql(testTable, field);
-  const [rawValue, formattedValue] = await Promise.all([
-    fetchSqlValue(testTable, rawSql),
-    fetchSqlValue(testTable, formattedSql),
-  ]);
+  const includeValues = options.includeValues ?? true;
+  const visited = options.visited ?? new Set<string>();
+  const fieldId = field.id().toString();
+  const nextVisited = new Set(visited);
+  nextVisited.add(fieldId);
+
   const fieldType = field.type().toString();
   const isTemporalField = fieldType === 'createdTime' || fieldType === 'lastModifiedTime';
-  const normalizedRawValue = isTemporalField
-    ? normalizeTemporalText(rawValue)
-    : fieldType === 'link'
-      ? normalizeLinkRawValue(rawValue)
-      : rawValue;
-  const normalizedFormattedValue = isTemporalField
-    ? normalizeTemporalText(formattedValue)
-    : formattedValue;
-  return {
+  const formatting = formatFieldFormatting(field);
+
+  let normalizedRawValue: string | null = null;
+  let normalizedFormattedValue: string | null = null;
+  if (includeValues) {
+    const rawSql = fetchRawFieldValueSql(field, testTable.tableAlias);
+    const formattedSql = buildFormattedFieldValueSql(testTable, field);
+    const [rawValue, formattedValue] = await Promise.all([
+      fetchSqlValue(testTable, rawSql),
+      fetchSqlValue(testTable, formattedSql),
+    ]);
+    normalizedRawValue = isTemporalField
+      ? normalizeTemporalText(rawValue)
+      : fieldType === 'link'
+        ? normalizeLinkRawValue(rawValue)
+        : rawValue;
+    normalizedFormattedValue = isTemporalField
+      ? normalizeTemporalText(formattedValue)
+      : formattedValue;
+  }
+
+  let innerField: FieldSnapshotValue | null = null;
+  const resolvedInnerField = resolveLookupInnerField(field);
+  if (resolvedInnerField) {
+    const innerFieldId = resolvedInnerField.id().toString();
+    if (!nextVisited.has(innerFieldId)) {
+      innerField = await buildFieldSnapshotValue(testTable, resolvedInnerField, {
+        includeValues: false,
+        visited: nextVisited,
+      });
+    }
+  }
+
+  const snapshot: FieldSnapshotValue = {
     fieldName: field.name().toString(),
     fieldType,
-    formatting: formatFieldFormatting(field),
+    formatting,
     rawValue: normalizedRawValue,
     formattedValue: normalizedFormattedValue,
   };
+
+  if (
+    field.type().equals(FieldType.lookup()) ||
+    field.type().equals(FieldType.conditionalLookup())
+  ) {
+    return { ...snapshot, innerField };
+  }
+
+  return snapshot;
 };
 
 const getFieldSnapshotValue = (

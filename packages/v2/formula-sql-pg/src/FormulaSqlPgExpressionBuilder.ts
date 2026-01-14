@@ -5,10 +5,13 @@ import {
   FieldType,
   type ConditionalLookupField,
   type LookupField,
+  type Field,
   NumberFormatting,
   NumberFormattingType,
   TimeFormatting,
 } from '@teable/v2-core';
+
+import { buildFieldSqlMetadata } from './FieldSqlCoercionVisitor';
 
 import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 import {
@@ -93,6 +96,14 @@ export const IS_SAME_UNIT_ALIASES: Record<string, IsSameUnit> = {
 const JSON_OBJECT_FIELD_TYPES = new Set(['button', 'link']);
 const JSON_ARRAY_OBJECT_FIELD_TYPES = new Set(['user', 'attachment']);
 const JSON_ARRAY_SCALAR_FIELD_TYPES = new Set(['multipleSelect']);
+const SCALAR_STRING_FIELD_TYPES = new Set([
+  'singleLineText',
+  'longText',
+  'singleSelect',
+  'createdBy',
+  'lastModifiedBy',
+  'formula',
+]);
 const NON_DATETIME_FIELD_TYPES = new Set([
   'singleSelect',
   'multipleSelect',
@@ -380,6 +391,29 @@ export class FormulaSqlPgExpressionBuilder {
     ) {
       return `COALESCE(NULLIF((${expr.valueSql})::jsonb, 'null'::jsonb), '[]'::jsonb)`;
     }
+    const fieldType = this.getFieldTypeName(expr);
+    if (
+      expr.storageKind === 'scalar' &&
+      expr.valueType !== 'string' &&
+      expr.valueType !== 'unknown'
+    ) {
+      return `(CASE
+        WHEN ${expr.valueSql} IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(${expr.valueSql}))
+      END)`;
+    }
+    if (
+      expr.storageKind === 'scalar' &&
+      expr.valueType === 'string' &&
+      !expr.isArray &&
+      fieldType &&
+      SCALAR_STRING_FIELD_TYPES.has(fieldType)
+    ) {
+      return `(CASE
+        WHEN ${expr.valueSql} IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(${expr.valueSql}))
+      END)`;
+    }
     if (expr.storageKind === 'array' || expr.storageKind === 'json') {
       const jsonValue =
         expr.storageKind === 'array' ? `to_jsonb(${expr.valueSql})` : `(${expr.valueSql})::jsonb`;
@@ -397,9 +431,21 @@ export class FormulaSqlPgExpressionBuilder {
     if (expr.storageKind === 'array' || expr.storageKind === 'json') {
       const normalized = this.normalizeArrayExpr(expr);
 
-      // For lookup fields that are proxied to innerField, use the proxied valueType
-      // to determine extraction logic. This avoids type checking in multiple places.
+      // For lookup fields, prefer innerField-aware extraction when available.
       if (this.isLookupArrayField(expr)) {
+        const innerField = this.getLookupInnerField(expr);
+        if (innerField) {
+          if (innerField.type().equals(FieldType.formula())) {
+            const metadataResult = buildFieldSqlMetadata(innerField);
+            if (metadataResult.isOk()) {
+              return this.extractProxiedLookupScalarText(
+                normalized,
+                metadataResult.value.valueType
+              );
+            }
+          }
+          return this.extractLookupScalarText(normalized, innerField.type().toString());
+        }
         return this.extractProxiedLookupScalarText(normalized, expr.valueType);
       }
 
@@ -440,6 +486,7 @@ export class FormulaSqlPgExpressionBuilder {
         END
         FROM (SELECT (${normalizedJson} -> 0) AS elem) AS lkp)`;
       case 'datetime':
+      case 'string':
         // For datetime, extract as text - the actual conversion happens in coerceToDatetime
         return `(SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
@@ -660,10 +707,12 @@ export class FormulaSqlPgExpressionBuilder {
   protected unwrapArrayToScalar(expr: SqlExpr): SqlExpr {
     if (!expr.isArray) return expr;
     const scalarText = this.extractArrayScalarText(expr);
+    const lookupValueType = this.resolveLookupScalarValueType(expr);
     const valueType =
-      expr.valueType === 'number' || expr.valueType === 'boolean' || expr.valueType === 'datetime'
+      lookupValueType ??
+      (expr.valueType === 'number' || expr.valueType === 'boolean' || expr.valueType === 'datetime'
         ? expr.valueType
-        : 'string';
+        : 'string');
     return makeExpr(
       scalarText,
       valueType,
@@ -976,16 +1025,23 @@ export class FormulaSqlPgExpressionBuilder {
     }
 
     const textValue = this.coerceToString(base);
-    const textSql = `(${textValue.valueSql})::text`;
-    const validTimestamp = `pg_input_is_valid(${textSql}, 'timestamptz')`;
-    const validTimestampNoTz = `pg_input_is_valid(${textSql}, 'timestamp')`;
-    const valueSql = `(CASE
-      WHEN ${textValue.valueSql} IS NULL THEN NULL::timestamptz
-      WHEN ${validTimestamp} THEN (${textSql})::timestamptz
-      WHEN ${validTimestampNoTz} THEN (${textSql})::timestamp::timestamptz
-      ELSE NULL::timestamptz
-    END)`;
-    const errorCondition = `(${textValue.valueSql} IS NOT NULL AND NOT (${validTimestamp} OR ${validTimestampNoTz}))`;
+    const valueSql = this.withValueAlias(textValue.valueSql, (ref) => {
+      const textSql = `(${ref})::text`;
+      const validTimestamp = `pg_input_is_valid(${textSql}, 'timestamptz')`;
+      const validTimestampNoTz = `pg_input_is_valid(${textSql}, 'timestamp')`;
+      return `(CASE
+        WHEN ${ref} IS NULL THEN NULL::timestamptz
+        WHEN ${validTimestamp} THEN (${textSql})::timestamptz
+        WHEN ${validTimestampNoTz} THEN (${textSql})::timestamp::timestamptz
+        ELSE NULL::timestamptz
+      END)`;
+    });
+    const errorCondition = this.withValueAlias(textValue.valueSql, (ref) => {
+      const textSql = `(${ref})::text`;
+      const validTimestamp = `pg_input_is_valid(${textSql}, 'timestamptz')`;
+      const validTimestampNoTz = `pg_input_is_valid(${textSql}, 'timestamp')`;
+      return `(${ref} IS NOT NULL AND NOT (${validTimestamp} OR ${validTimestampNoTz}))`;
+    });
     const combinedErrorCondition = combineErrorConditions([
       textValue,
       makeExpr(
@@ -1124,6 +1180,9 @@ export class FormulaSqlPgExpressionBuilder {
 
   private normalizeLookupArrayExpr(expr: SqlExpr): string {
     const base = `(${expr.valueSql})`;
+    if (expr.field && this.isLookupArrayField(expr)) {
+      return `COALESCE(NULLIF(${base}::jsonb, 'null'::jsonb), '[]'::jsonb)`;
+    }
     const jsonbBase = `${base}::jsonb`;
     const jsonbStringValue = `(${jsonbBase} #>> '{}')`;
     const jsonbStringTrimmed = `BTRIM(${jsonbStringValue})`;
@@ -1152,27 +1211,58 @@ export class FormulaSqlPgExpressionBuilder {
    * Returns null if the field is not a lookup field or if the inner field is not resolved.
    */
   protected getLookupInnerFieldType(expr: SqlExpr): string | null {
+    const innerField = this.getLookupInnerField(expr);
+    return innerField?.type().toString() ?? null;
+  }
+
+  private getLookupInnerField(expr: SqlExpr): Field | null {
     if (!expr.field) return null;
     const field = expr.field;
 
-    // Check if field is a LookupField
     if (field.type().equals(FieldType.lookup())) {
       const lookupField = field as LookupField;
       const innerFieldResult = lookupField.innerField();
       if (innerFieldResult.isErr()) return null;
-      const innerField = innerFieldResult.value;
-      return innerField.type().toString();
+      return innerFieldResult.value;
     }
 
     if (field.type().equals(FieldType.conditionalLookup())) {
       const conditionalField = field as ConditionalLookupField;
       const innerFieldResult = conditionalField.innerField();
       if (innerFieldResult.isErr()) return null;
-      const innerField = innerFieldResult.value;
-      return innerField.type().toString();
+      return innerFieldResult.value;
     }
 
     return null;
+  }
+
+  private resolveLookupScalarValueType(expr: SqlExpr): SqlValueType | null {
+    const innerField = this.getLookupInnerField(expr);
+    if (!innerField) return null;
+    if (innerField.type().equals(FieldType.formula())) {
+      const metadataResult = buildFieldSqlMetadata(innerField);
+      if (metadataResult.isOk()) {
+        return metadataResult.value.valueType;
+      }
+      return null;
+    }
+    const innerFieldType = innerField.type().toString();
+    if (innerFieldType === 'checkbox') return 'boolean';
+    if (
+      innerFieldType === 'number' ||
+      innerFieldType === 'rating' ||
+      innerFieldType === 'autoNumber'
+    ) {
+      return 'number';
+    }
+    if (
+      innerFieldType === 'date' ||
+      innerFieldType === 'createdTime' ||
+      innerFieldType === 'lastModifiedTime'
+    ) {
+      return 'datetime';
+    }
+    return 'string';
   }
 
   protected isStructuredJsonField(expr: SqlExpr): boolean {

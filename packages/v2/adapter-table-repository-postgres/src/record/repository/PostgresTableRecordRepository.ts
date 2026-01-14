@@ -419,6 +419,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
         }
 
+        for (const linkField of linkFields) {
+          yield* await clearLinkReferencesForDelete(db, recordIdStrings, linkField);
+        }
+
         try {
           await db.deleteFrom(tableName).where(whereExpression).execute();
 
@@ -704,6 +708,63 @@ const resolveFkHostTableName = (field: core.LinkField): Result<string, DomainErr
     .fkHostTableName()
     .split({ defaultSchema: 'public' })
     .map((split) => (split.schema ? `${split.schema}.${split.tableName}` : split.tableName));
+};
+
+const clearLinkReferencesForDelete = async (
+  db: Kysely<DynamicDB>,
+  recordIds: ReadonlyArray<string>,
+  field: core.LinkField
+): Promise<Result<void, DomainError>> => {
+  if (recordIds.length === 0) return ok(undefined);
+
+  const relationship = field.relationship().toString();
+
+  const orderColumnNameResult = field.hasOrderColumn() ? field.orderColumnName() : ok(null);
+  if (orderColumnNameResult.isErr()) return err(orderColumnNameResult.error);
+  const orderColumnName = orderColumnNameResult.value;
+
+  try {
+    if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
+      const junctionTableResult = resolveFkHostTableName(field);
+      if (junctionTableResult.isErr()) return err(junctionTableResult.error);
+      const selfKeyResult = field.selfKeyNameString();
+      if (selfKeyResult.isErr()) return err(selfKeyResult.error);
+
+      await db
+        .deleteFrom(junctionTableResult.value)
+        .where(selfKeyResult.value, 'in', recordIds)
+        .execute();
+      return ok(undefined);
+    }
+
+    if (relationship === 'oneMany') {
+      const foreignTableResult = resolveFkHostTableName(field);
+      if (foreignTableResult.isErr()) return err(foreignTableResult.error);
+      const selfKeyResult = field.selfKeyNameString();
+      if (selfKeyResult.isErr()) return err(selfKeyResult.error);
+
+      const updateValues: Record<string, null> = {
+        [selfKeyResult.value]: null,
+      };
+      if (orderColumnName) {
+        updateValues[orderColumnName] = null;
+      }
+
+      await db
+        .updateTable(foreignTableResult.value)
+        .set(updateValues)
+        .where(selfKeyResult.value, 'in', recordIds)
+        .execute();
+    }
+
+    return ok(undefined);
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to clear link references before delete: ${describeError(error)}`,
+      })
+    );
+  }
 };
 
 const loadExistingLinkRecordIds = async (

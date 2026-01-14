@@ -3,6 +3,8 @@ import type {
   DomainError,
   Field,
   ICellValueSpecVisitor,
+  LastModifiedByField,
+  LastModifiedTimeField,
   LinkField,
   MultipleSelectField,
   SetAttachmentValueSpec,
@@ -102,6 +104,12 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
    * Build the final mutation statements.
    */
   build(): Result<MutationStatements, DomainError> {
+    const lastModifiedTimeResult = this.applyTrackedLastModifiedTimeUpdates();
+    if (lastModifiedTimeResult.isErr()) return err(lastModifiedTimeResult.error);
+
+    const lastModifiedByResult = this.applyTrackedLastModifiedByUpdates();
+    if (lastModifiedByResult.isErr()) return err(lastModifiedByResult.error);
+
     const mainUpdate = this.db
       .updateTable(this.tableName)
       .set(this.setClauses)
@@ -112,6 +120,80 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       mainUpdate,
       additionalStatements: this.additionalStatements,
       changedFieldIds: this.changedFieldIds,
+    });
+  }
+
+  private applyTrackedLastModifiedTimeUpdates(): Result<void, DomainError> {
+    const visitor = this;
+    return safeTry<void, DomainError>(function* () {
+      if (visitor.changedFieldIds.length === 0) return ok(undefined);
+
+      const lastModifiedTimeFields = visitor.table.getFields(
+        (field): field is LastModifiedTimeField => field.type().equals(FieldType.lastModifiedTime())
+      );
+
+      for (const field of lastModifiedTimeFields) {
+        const shouldSkip = yield* visitor.shouldSkipComputed(field);
+        if (shouldSkip) continue;
+
+        const trackedFieldIds = field.trackedFieldIds();
+        if (trackedFieldIds.length === 0) continue;
+
+        const shouldUpdate = trackedFieldIds.some((tracked) =>
+          visitor.changedFieldIds.some((changed) => changed.equals(tracked))
+        );
+        if (!shouldUpdate) continue;
+
+        const dbFieldName = yield* visitor.resolveDbFieldName(field);
+        visitor.setClauses[dbFieldName] = visitor.ctx.now;
+
+        if (!visitor.changedFieldIds.some((changed) => changed.equals(field.id()))) {
+          visitor.changedFieldIds.push(field.id());
+        }
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  private applyTrackedLastModifiedByUpdates(): Result<void, DomainError> {
+    const visitor = this;
+    return safeTry<void, DomainError>(function* () {
+      if (visitor.changedFieldIds.length === 0) return ok(undefined);
+
+      const lastModifiedByFields = visitor.table.getFields((field): field is LastModifiedByField =>
+        field.type().equals(FieldType.lastModifiedBy())
+      );
+
+      for (const field of lastModifiedByFields) {
+        const shouldSkip = yield* visitor.shouldSkipComputed(field);
+        if (shouldSkip) continue;
+
+        const trackedFieldIds = field.trackedFieldIds();
+        if (trackedFieldIds.length === 0) continue;
+
+        const shouldUpdate = trackedFieldIds.some((tracked) =>
+          visitor.changedFieldIds.some((changed) => changed.equals(tracked))
+        );
+        if (!shouldUpdate) continue;
+
+        const dbFieldName = yield* visitor.resolveDbFieldName(field);
+        visitor.setClauses[dbFieldName] = visitor.ctx.actorId;
+
+        if (!visitor.changedFieldIds.some((changed) => changed.equals(field.id()))) {
+          visitor.changedFieldIds.push(field.id());
+        }
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  private resolveDbFieldName(field: Field): Result<string, DomainError> {
+    return safeTry<string, DomainError>(function* () {
+      const dbFieldName = yield* field.dbFieldName();
+      const dbFieldNameValue = yield* dbFieldName.value();
+      return ok(dbFieldNameValue);
     });
   }
 

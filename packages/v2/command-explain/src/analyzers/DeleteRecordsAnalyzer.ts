@@ -9,6 +9,8 @@ import {
   DeleteRecordsCommand,
   v2CoreTokens,
   type Table,
+  type LinkField,
+  RecordId,
   FieldType,
   FieldId,
   TableId,
@@ -43,11 +45,20 @@ import type {
 } from '../types';
 import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
-import { SqlExplainRunner, type SetupStatement } from '../utils/SqlExplainRunner';
+import {
+  SqlExplainRunner,
+  type SetupStatement,
+  type BatchExplainStatement,
+} from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { buildComputedUpdateReason } from '../utils/ComputedUpdateReasonBuilder';
 import { buildComputedUpdateLockInfo } from '../utils/ComputedUpdateLockInfoBuilder';
 import { buildDirtyTableSetupStatements } from '../utils/DirtyTableSetupBuilder';
+
+type LinkCleanupStatement = {
+  stepDescription: string;
+  sql: string;
+};
 
 /**
  * Analyzer for DeleteRecordsCommand.
@@ -163,52 +174,138 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
       if (mergedOptions.includeSql) {
         // Generate DELETE statement with real record IDs
         const recordIdList = command.recordIds.map((id) => `'${id.toString()}'`).join(', ');
-        // Properly quote schema.table as "schema"."table"
-        const quotedTableName = tableName
-          .split('.')
-          .map((p) => `"${p}"`)
-          .join('.');
+        const quotedTableName = analyzer.quoteTableName(tableName);
         const deleteSql = `DELETE FROM ${quotedTableName} WHERE "__id" IN (${recordIdList})`;
 
-        // Run EXPLAIN on delete
-        let deleteExplainAnalyze: ExplainAnalyzeOutput | null = null;
-        let deleteExplainOnly: ExplainOutput | null = null;
-        let deleteExplainError: string | null = null;
+        const runExplainForSql = async (
+          stepDescription: string,
+          sql: string
+        ): Promise<SqlExplainInfo> => {
+          let explainAnalyze: ExplainAnalyzeOutput | null = null;
+          let explainOnly: ExplainOutput | null = null;
+          let explainError: string | null = null;
+
+          if (mergedOptions.analyze) {
+            const analyzeResult = await analyzer.sqlExplainRunner.explain(
+              analyzer.db,
+              sql,
+              [],
+              true
+            );
+            if (analyzeResult.isOk()) {
+              explainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+            } else {
+              explainError = analyzeResult.error.message;
+            }
+          } else {
+            const explainResult = await analyzer.sqlExplainRunner.explain(
+              analyzer.db,
+              sql,
+              [],
+              false
+            );
+            if (explainResult.isOk()) {
+              explainOnly = explainResult.value as ExplainOutput;
+            } else {
+              explainError = explainResult.error.message;
+            }
+          }
+
+          return {
+            stepDescription,
+            sql,
+            parameters: [],
+            explainAnalyze,
+            explainOnly,
+            explainError,
+          };
+        };
+
+        const cleanupStatementsResult = analyzer.buildLinkCleanupStatements(
+          table,
+          command.recordIds
+        );
+        const deleteStepDescription = `Delete ${command.recordIds.length} record(s) from ${table
+          .name()
+          .toString()}`;
 
         if (mergedOptions.analyze) {
-          const analyzeResult = await analyzer.sqlExplainRunner.explain(
+          const batchStatements: BatchExplainStatement[] = [];
+          if (cleanupStatementsResult.isOk()) {
+            for (const statement of cleanupStatementsResult.value) {
+              batchStatements.push({
+                sql: statement.sql,
+                parameters: [],
+                description: statement.stepDescription,
+              });
+            }
+          }
+          batchStatements.push({
+            sql: deleteSql,
+            parameters: [],
+            description: deleteStepDescription,
+          });
+
+          const batchResult = await analyzer.sqlExplainRunner.explainBatchInTransaction(
             analyzer.db,
-            deleteSql,
-            [],
-            true
+            batchStatements
           );
-          if (analyzeResult.isOk()) {
-            deleteExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+
+          if (batchResult.isOk()) {
+            batchResult.value.forEach((result, index) => {
+              const statement = batchStatements[index];
+              if ('error' in result) {
+                sqlExplains.push({
+                  stepDescription: statement.description,
+                  sql: statement.sql,
+                  parameters: statement.parameters,
+                  explainAnalyze: null,
+                  explainOnly: null,
+                  explainError: result.error,
+                });
+                return;
+              }
+
+              const explainAnalyze = 'executionTimeMs' in result ? result : null;
+              const explainOnly = 'executionTimeMs' in result ? null : result;
+
+              sqlExplains.push({
+                stepDescription: statement.description,
+                sql: statement.sql,
+                parameters: statement.parameters,
+                explainAnalyze,
+                explainOnly,
+                explainError: null,
+              });
+            });
           } else {
-            deleteExplainError = analyzeResult.error.message;
+            sqlExplains.push({
+              stepDescription: 'Explain batch failed',
+              sql: '-- Failed to run batch explain',
+              parameters: [],
+              explainAnalyze: null,
+              explainOnly: null,
+              explainError: batchResult.error.message,
+            });
           }
         } else {
-          const explainResult = await analyzer.sqlExplainRunner.explain(
-            analyzer.db,
-            deleteSql,
-            [],
-            false
-          );
-          if (explainResult.isOk()) {
-            deleteExplainOnly = explainResult.value as ExplainOutput;
+          if (cleanupStatementsResult.isOk()) {
+            for (const statement of cleanupStatementsResult.value) {
+              sqlExplains.push(await runExplainForSql(statement.stepDescription, statement.sql));
+            }
           } else {
-            deleteExplainError = explainResult.error.message;
+            sqlExplains.push({
+              stepDescription: 'Clear link references before delete (failed)',
+              sql: `-- Failed to build cleanup SQL: ${cleanupStatementsResult.error.message}`,
+              parameters: [],
+              explainAnalyze: null,
+              explainOnly: null,
+              explainError: cleanupStatementsResult.error.message,
+            });
           }
-        }
 
-        sqlExplains.push({
-          stepDescription: `Delete ${command.recordIds.length} record(s) from ${table.name().toString()}`,
-          sql: deleteSql,
-          parameters: [],
-          explainAnalyze: deleteExplainAnalyze,
-          explainOnly: deleteExplainOnly,
-          explainError: deleteExplainError,
-        });
+          sqlExplains.push(await runExplainForSql(deleteStepDescription, deleteSql));
+        }
 
         // Generate SQL for computed field updates on linked tables
         if (plan && plan.sameTableBatches.length > 0 && tableById && graphData) {
@@ -390,6 +487,71 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
     });
   }
 
+  private quoteTableName(tableName: string): string {
+    return tableName
+      .split('.')
+      .map((part) => `"${part}"`)
+      .join('.');
+  }
+
+  private buildLinkCleanupStatements(
+    table: Table,
+    recordIds: ReadonlyArray<RecordId>
+  ): Result<LinkCleanupStatement[], DomainError> {
+    if (recordIds.length === 0) return ok([]);
+
+    const statements: LinkCleanupStatement[] = [];
+    const recordIdList = recordIds.map((id) => `'${id.toString()}'`).join(', ');
+    const linkFields = table
+      .getFields()
+      .filter((field): field is LinkField => field.type().equals(FieldType.link()));
+
+    for (const linkField of linkFields) {
+      const relationship = linkField.relationship().toString();
+
+      if (relationship === 'manyMany' || (relationship === 'oneMany' && linkField.isOneWay())) {
+        const junctionTableResult = linkField.fkHostTableNameString();
+        if (junctionTableResult.isErr()) return err(junctionTableResult.error);
+        const selfKeyResult = linkField.selfKeyNameString();
+        if (selfKeyResult.isErr()) return err(selfKeyResult.error);
+
+        statements.push({
+          stepDescription: `Clear link references for ${linkField.name().toString()} (junction)`,
+          sql: `DELETE FROM ${this.quoteTableName(
+            junctionTableResult.value
+          )} WHERE "${selfKeyResult.value}" IN (${recordIdList})`,
+        });
+        continue;
+      }
+
+      if (relationship === 'oneMany') {
+        const foreignTableResult = linkField.fkHostTableNameString();
+        if (foreignTableResult.isErr()) return err(foreignTableResult.error);
+        const selfKeyResult = linkField.selfKeyNameString();
+        if (selfKeyResult.isErr()) return err(selfKeyResult.error);
+        const orderColumnNameResult = linkField.hasOrderColumn()
+          ? linkField.orderColumnName()
+          : ok(null);
+        if (orderColumnNameResult.isErr()) return err(orderColumnNameResult.error);
+        const orderColumnName = orderColumnNameResult.value;
+
+        const assignments = [`"${selfKeyResult.value}" = NULL`];
+        if (orderColumnName) {
+          assignments.push(`"${orderColumnName}" = NULL`);
+        }
+
+        statements.push({
+          stepDescription: `Clear link references for ${linkField.name().toString()}`,
+          sql: `UPDATE ${this.quoteTableName(
+            foreignTableResult.value
+          )} SET ${assignments.join(', ')} WHERE "${selfKeyResult.value}" IN (${recordIdList})`,
+        });
+      }
+    }
+
+    return ok(statements);
+  }
+
   /**
    * Load all tables needed for the update plan.
    */
@@ -400,6 +562,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
   ): Promise<Result<Map<string, Table>, DomainError>> {
     return safeTry<Map<string, Table>, DomainError>(
       async function* (this: DeleteRecordsAnalyzer) {
+        yield* ok(undefined);
         const tableById = new Map<string, Table>();
         tableById.set(seedTable.id().toString(), seedTable);
 

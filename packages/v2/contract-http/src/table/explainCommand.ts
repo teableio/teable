@@ -43,14 +43,69 @@ export type IExplainUpdateRecordInput = z.infer<typeof explainUpdateRecordInputS
 export type IExplainDeleteRecordsInput = z.infer<typeof explainDeleteRecordsInputSchema>;
 
 // Response types matching ExplainResult from command-explain
+
+/**
+ * PostgreSQL EXPLAIN JSON plan node schema.
+ */
+const explainPlanNodeSchema: z.ZodType<unknown> = z.lazy(() =>
+  z
+    .object({
+      'Node Type': z.string(),
+      'Parallel Aware': z.boolean().optional(),
+      'Async Capable': z.boolean().optional(),
+      'Relation Name': z.string().optional(),
+      Alias: z.string().optional(),
+      'Startup Cost': z.number().optional(),
+      'Total Cost': z.number().optional(),
+      'Plan Rows': z.number().optional(),
+      'Plan Width': z.number().optional(),
+      'Actual Startup Time': z.number().optional(),
+      'Actual Total Time': z.number().optional(),
+      'Actual Rows': z.number().optional(),
+      'Actual Loops': z.number().optional(),
+      Output: z.array(z.string()).optional(),
+      Filter: z.string().optional(),
+      'Rows Removed by Filter': z.number().optional(),
+      'Join Type': z.string().optional(),
+      'Inner Unique': z.boolean().optional(),
+      'Hash Cond': z.string().optional(),
+      'Index Name': z.string().optional(),
+      'Index Cond': z.string().optional(),
+      'Scan Direction': z.string().optional(),
+      'Shared Hit Blocks': z.number().optional(),
+      'Shared Read Blocks': z.number().optional(),
+      'Shared Dirtied Blocks': z.number().optional(),
+      'Shared Written Blocks': z.number().optional(),
+      'Local Hit Blocks': z.number().optional(),
+      'Local Read Blocks': z.number().optional(),
+      'Local Dirtied Blocks': z.number().optional(),
+      'Local Written Blocks': z.number().optional(),
+      'Temp Read Blocks': z.number().optional(),
+      'Temp Written Blocks': z.number().optional(),
+      Plans: z.array(explainPlanNodeSchema).optional(),
+    })
+    .passthrough()
+);
+
+/**
+ * PostgreSQL EXPLAIN JSON output structure schema.
+ */
+const explainJsonOutputSchema = z.object({
+  Plan: explainPlanNodeSchema,
+  'Planning Time': z.number().optional(),
+  'Execution Time': z.number().optional(),
+  Triggers: z.array(z.unknown()).optional(),
+});
+
 const explainOutputSchema = z.object({
-  raw: z.string(),
+  plan: explainJsonOutputSchema,
   estimatedCost: z.number().optional(),
   estimatedRows: z.number().optional(),
+  analyzeError: z.string().optional(),
 });
 
 const explainAnalyzeOutputSchema = z.object({
-  raw: z.string(),
+  plan: explainJsonOutputSchema,
   planningTimeMs: z.number().optional(),
   executionTimeMs: z.number().optional(),
   actualRows: z.number().optional(),

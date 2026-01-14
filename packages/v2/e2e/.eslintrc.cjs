@@ -21,6 +21,8 @@ module.exports = {
     // Apply prettier and disable incompatible rules
     '@teable/eslint-config-bases/prettier-plugin',
   ],
-  rules: {},
+  rules: {
+    '@typescript-eslint/naming-convention': 'off',
+  },
   overrides: [],
 };

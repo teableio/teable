@@ -3,6 +3,7 @@ import {
   type IListTableRecordsPaginationDto,
   type ITableDto,
   type ITableRecordDto,
+  type IExplainResultDto,
 } from '@teable/v2-contract-http';
 import type {
   Field,
@@ -14,6 +15,8 @@ import type {
   ViewColumnMetaValue,
 } from '@teable/v2-core';
 import type { TableTemplateDefinition } from '@teable/v2-table-templates';
+import { createTanstackQueryUtils } from '@orpc/tanstack-query';
+import { useMutation } from '@tanstack/react-query';
 import {
   Copy,
   ExternalLink,
@@ -21,6 +24,7 @@ import {
   MoreVertical,
   Pencil,
   RefreshCcw,
+  Search,
   Table as TableIcon,
   Trash2,
   TriangleAlert,
@@ -37,6 +41,7 @@ import { CreateTableDropdown } from '@/components/playground/CreateTableDropdown
 import { FieldCreateDialog } from '@/components/playground/FieldCreateDialog';
 import { RecordCreateDialog } from '@/components/playground/RecordCreateDialog';
 import { RecordUpdateDialog } from '@/components/playground/RecordUpdateDialog';
+import { ExplainResultPanel } from '@/components/playground/ExplainResultPanel';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +56,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu';
 import {
   DropdownMenu,
@@ -75,6 +88,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { ShareDbDocStatus } from '@/lib/shareDb';
 import { usePlaygroundEnvironment } from '@/lib/playground/environment';
+import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
 import { renderFieldOptions } from './fieldOptionsVisitor';
 import { formatRecordValue, stringifyRecordValue } from './recordValueVisitor';
 import { SchemaCheckPanel } from './SchemaCheckPanel';
@@ -1125,7 +1139,13 @@ function TableRecordsCard({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [pendingDeleteLabel, setPendingDeleteLabel] = useState<string | null>(null);
+  const [explainResult, setExplainResult] = useState<IExplainResultDto | null>(null);
+  const [explainDialogOpen, setExplainDialogOpen] = useState(false);
+  const [analyzeMode, setAnalyzeMode] = useState(true);
+  const [explainTargetCount, setExplainTargetCount] = useState(0);
   const env = usePlaygroundEnvironment();
+  const orpcClient = useOrpcClient();
+  const orpc = createTanstackQueryUtils(orpcClient);
 
   const handleUpdateOpen = useCallback((record: ITableRecordDto) => {
     setUpdateTarget(record);
@@ -1161,12 +1181,40 @@ function TableRecordsCard({
   );
 
   const canDeleteSelected = selectedRecordIds.length > 0 && !isDeletingRecord;
+  const explainDialogLabel = explainTargetCount > 1 ? 'Delete Records' : 'Delete Record';
 
   const openDeleteDialog = useCallback((recordIds: string[], label?: string) => {
     setPendingDeleteIds(recordIds);
     setPendingDeleteLabel(label ?? null);
     setDeleteDialogOpen(true);
   }, []);
+
+  const explainMutation = useMutation(
+    orpc.tables.explainDeleteRecords.mutationOptions({
+      onSuccess: (response) => {
+        setExplainResult(response.data);
+        setExplainDialogOpen(true);
+      },
+      onError: (error: Error) => {
+        toast.error(error.message || 'Failed to explain command');
+      },
+    })
+  );
+
+  const handleExplainDelete = useCallback(() => {
+    if (!pendingDeleteIds.length) {
+      toast.info('No records to explain');
+      return;
+    }
+    setExplainTargetCount(pendingDeleteIds.length);
+    explainMutation.mutate({
+      tableId,
+      recordIds: pendingDeleteIds,
+      analyze: analyzeMode,
+      includeSql: true,
+      includeGraph: false,
+    });
+  }, [analyzeMode, explainMutation, pendingDeleteIds, tableId]);
 
   const handleCopyRecordId = useCallback(
     (recordId: string) => {
@@ -1518,10 +1566,13 @@ function TableRecordsCard({
           if (!open) {
             setPendingDeleteIds([]);
             setPendingDeleteLabel(null);
+            setExplainResult(null);
+            setExplainTargetCount(0);
+            explainMutation.reset();
           }
         }}
       >
-        <AlertDialogContent className="max-w-sm">
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete record</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1532,18 +1583,61 @@ function TableRecordsCard({
                   : 'Delete this record?'}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingRecord}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60"
-              onClick={handleDeleteConfirm}
-              disabled={!pendingDeleteIds.length || isDeletingRecord}
-            >
-              {isDeletingRecord ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
+          <AlertDialogFooter className="sm:justify-between sm:items-center flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleExplainDelete}
+                disabled={!pendingDeleteIds.length || explainMutation.isPending}
+                className="text-muted-foreground"
+              >
+                <Search className="mr-1.5 h-3.5 w-3.5" />
+                {explainMutation.isPending ? 'Analyzing...' : 'Explain'}
+              </Button>
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  id="analyze-mode-delete"
+                  checked={analyzeMode}
+                  onCheckedChange={(checked) => setAnalyzeMode(!!checked)}
+                />
+                <Label
+                  htmlFor="analyze-mode-delete"
+                  className="text-xs text-muted-foreground cursor-pointer"
+                >
+                  ANALYZE
+                </Label>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <AlertDialogCancel disabled={isDeletingRecord}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60"
+                onClick={handleDeleteConfirm}
+                disabled={!pendingDeleteIds.length || isDeletingRecord}
+              >
+                {isDeletingRecord ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={explainDialogOpen} onOpenChange={setExplainDialogOpen}>
+        <DialogContent className="sm:max-w-[90vw] w-[90vw] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Explain: {explainDialogLabel}</DialogTitle>
+            <DialogDescription>
+              {explainTargetCount > 1
+                ? `Analysis of deleting ${explainTargetCount} records`
+                : 'Analysis of the delete record operation'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {explainResult && <ExplainResultPanel result={explainResult} />}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

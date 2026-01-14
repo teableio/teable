@@ -6,7 +6,7 @@ import type { Kysely, CompiledQuery } from 'kysely';
 import { sql } from 'kysely';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 
-import type { ExplainAnalyzeOutput, ExplainOutput } from '../types';
+import type { ExplainAnalyzeOutput, ExplainOutput, ExplainJsonOutput } from '../types';
 
 /**
  * Error class used to signal intentional rollback after EXPLAIN ANALYZE.
@@ -160,7 +160,7 @@ export class SqlExplainRunner {
             // Use a savepoint so we can continue after statement failures.
             await sql`SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
 
-            const explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) ${stmt.sql}`;
+            const explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${stmt.sql}`;
             const query = sql`${sql.raw(explainSql)}`;
             const compiled = query.compile(trx);
             const finalQuery = {
@@ -169,7 +169,7 @@ export class SqlExplainRunner {
             };
 
             const result = await trx.executeQuery<{ 'QUERY PLAN': string }>(finalQuery);
-            results.push(this.parseExplainAnalyze(result.rows));
+            results.push(this.parseExplainAnalyzeJson(result.rows));
             await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
           } catch (stmtError) {
             // On EXPLAIN ANALYZE failure, try EXPLAIN ONLY as fallback
@@ -177,7 +177,7 @@ export class SqlExplainRunner {
               await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
 
               // Try EXPLAIN ONLY
-              const explainOnlySql = `EXPLAIN (FORMAT TEXT) ${stmt.sql}`;
+              const explainOnlySql = `EXPLAIN (FORMAT JSON) ${stmt.sql}`;
               const explainOnlyQuery = sql`${sql.raw(explainOnlySql)}`;
               const explainOnlyCompiled = explainOnlyQuery.compile(trx);
               const explainOnlyFinalQuery = {
@@ -188,7 +188,7 @@ export class SqlExplainRunner {
               const explainOnlyResult = await trx.executeQuery<{ 'QUERY PLAN': string }>(
                 explainOnlyFinalQuery
               );
-              const explainOnly = this.parseExplainOnly(explainOnlyResult.rows);
+              const explainOnly = this.parseExplainOnlyJson(explainOnlyResult.rows);
 
               // Return EXPLAIN ONLY result with a note about the ANALYZE failure
               results.push({
@@ -258,7 +258,7 @@ export class SqlExplainRunner {
           }
         }
 
-        const explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) ${sqlStatement}`;
+        const explainSql = `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${sqlStatement}`;
 
         // Build the query with parameters using template literal
         const query = sql`${sql.raw(explainSql)}`;
@@ -283,7 +283,7 @@ export class SqlExplainRunner {
       );
     } catch (error) {
       if (error instanceof RollbackSignal) {
-        return ok(this.parseExplainAnalyze(error.rows as Array<{ 'QUERY PLAN': string }>));
+        return ok(this.parseExplainAnalyzeJson(error.rows as Array<{ 'QUERY PLAN': string }>));
       }
       return err(
         domainError.infrastructure({
@@ -312,7 +312,7 @@ export class SqlExplainRunner {
             }
           }
 
-          const explainSql = `EXPLAIN (FORMAT TEXT) ${sqlStatement}`;
+          const explainSql = `EXPLAIN (FORMAT JSON) ${sqlStatement}`;
           const query = sql`${sql.raw(explainSql)}`;
           const compiled = query.compile(trx);
           const finalQuery = {
@@ -321,7 +321,7 @@ export class SqlExplainRunner {
           };
 
           const result = await trx.executeQuery<{ 'QUERY PLAN': string }>(finalQuery);
-          return ok(this.parseExplainOnly(result.rows));
+          return ok(this.parseExplainOnlyJson(result.rows));
         });
       } catch (error) {
         return err(
@@ -334,7 +334,7 @@ export class SqlExplainRunner {
 
     // No setup statements, run directly
     try {
-      const explainSql = `EXPLAIN (FORMAT TEXT) ${sqlStatement}`;
+      const explainSql = `EXPLAIN (FORMAT JSON) ${sqlStatement}`;
 
       const query = sql`${sql.raw(explainSql)}`;
       const compiled = query.compile(db);
@@ -345,7 +345,7 @@ export class SqlExplainRunner {
 
       const result = await db.executeQuery<{ 'QUERY PLAN': string }>(finalQuery);
 
-      return ok(this.parseExplainOnly(result.rows));
+      return ok(this.parseExplainOnlyJson(result.rows));
     } catch (error) {
       return err(
         domainError.infrastructure({
@@ -355,36 +355,53 @@ export class SqlExplainRunner {
     }
   }
 
-  private parseExplainAnalyze(rows: Array<{ 'QUERY PLAN': string }>): ExplainAnalyzeOutput {
-    const raw = rows.map((r) => r['QUERY PLAN']).join('\n');
+  private parseExplainAnalyzeJson(
+    rows: Array<{ 'QUERY PLAN': string | object }>
+  ): ExplainAnalyzeOutput {
+    // PostgreSQL FORMAT JSON returns a single row with the JSON plan
+    // Some drivers return the value as already-parsed object, others as string
+    let plan: ExplainJsonOutput;
 
-    // Parse timing info from EXPLAIN ANALYZE output
-    const planningMatch = raw.match(/Planning Time:\s*([\d.]+)\s*ms/);
-    const executionMatch = raw.match(/Execution Time:\s*([\d.]+)\s*ms/);
-    const actualRowsMatch = raw.match(/actual.*rows=(\d+)/);
-    const estimatedRowsMatch = raw.match(/rows=(\d+)/);
+    if (rows.length === 1 && typeof rows[0]['QUERY PLAN'] === 'object') {
+      // Already parsed (e.g., PGlite)
+      const rawPlan = rows[0]['QUERY PLAN'];
+      plan = Array.isArray(rawPlan) ? rawPlan[0] : rawPlan;
+    } else {
+      // String format - need to parse
+      const jsonStr = rows.map((r) => r['QUERY PLAN']).join('');
+      const jsonArray = JSON.parse(jsonStr) as ExplainJsonOutput[];
+      plan = jsonArray[0];
+    }
 
     return {
-      raw,
-      planningTimeMs: planningMatch ? parseFloat(planningMatch[1]) : undefined,
-      executionTimeMs: executionMatch ? parseFloat(executionMatch[1]) : undefined,
-      actualRows: actualRowsMatch ? parseInt(actualRowsMatch[1], 10) : undefined,
-      estimatedRows: estimatedRowsMatch ? parseInt(estimatedRowsMatch[1], 10) : undefined,
+      plan,
+      planningTimeMs: plan['Planning Time'],
+      executionTimeMs: plan['Execution Time'],
+      actualRows: plan.Plan['Actual Rows'],
+      estimatedRows: plan.Plan['Plan Rows'],
     };
   }
 
-  private parseExplainOnly(rows: Array<{ 'QUERY PLAN': string }>): ExplainOutput {
-    const raw = rows.map((r) => r['QUERY PLAN']).join('\n');
+  private parseExplainOnlyJson(rows: Array<{ 'QUERY PLAN': string | object }>): ExplainOutput {
+    // PostgreSQL FORMAT JSON returns a single row with the JSON plan
+    // Some drivers return the value as already-parsed object, others as string
+    let plan: ExplainJsonOutput;
 
-    // Parse cost and rows from EXPLAIN output
-    // Format: (cost=0.00..35.50 rows=2550 width=4)
-    const costMatch = raw.match(/cost=\d+(?:\.\d+)?\.\.(\d+(?:\.\d+)?)/);
-    const rowsMatch = raw.match(/rows=(\d+)/);
+    if (rows.length === 1 && typeof rows[0]['QUERY PLAN'] === 'object') {
+      // Already parsed (e.g., PGlite)
+      const rawPlan = rows[0]['QUERY PLAN'];
+      plan = Array.isArray(rawPlan) ? rawPlan[0] : rawPlan;
+    } else {
+      // String format - need to parse
+      const jsonStr = rows.map((r) => r['QUERY PLAN']).join('');
+      const jsonArray = JSON.parse(jsonStr) as ExplainJsonOutput[];
+      plan = jsonArray[0];
+    }
 
     return {
-      raw,
-      estimatedCost: costMatch ? parseFloat(costMatch[1]) : undefined,
-      estimatedRows: rowsMatch ? parseInt(rowsMatch[1], 10) : undefined,
+      plan,
+      estimatedCost: plan.Plan['Total Cost'],
+      estimatedRows: plan.Plan['Plan Rows'],
     };
   }
 }

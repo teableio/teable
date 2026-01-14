@@ -10,29 +10,176 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  # Unit tests - run all packages except e2e in parallel
+  unit-tests:
     if: github.ref == 'refs/heads/refactor/core' || github.head_ref == 'refactor/core'
     runs-on: ubuntu-latest
-    name: V2 Tests
+    name: V2 Unit Tests
+    env:
+      CI: 1
+      TESTCONTAINERS_REUSE_ENABLE: 'false'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/pnpm-install
+
+      - name: 🧪 Run unit tests (all packages except e2e)
+        run: |
+          pnpm -F "@teable/v2-*" -F "!@teable/v2-e2e" -F "!@teable/v2-benchmark-*" -r --if-present --workspace-concurrency=4 test-unit-cover
+
+  # E2E tests - use sharding for parallel execution (the slowest tests)
+  e2e-tests:
+    if: github.ref == 'refs/heads/refactor/core' || github.head_ref == 'refactor/core'
+    runs-on: ubuntu-latest
+    name: V2 E2E Tests (Shard ${{ matrix.shard }}/4)
     env:
       CI: 1
       TESTCONTAINERS_REUSE_ENABLE: 'false'
 
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [22.18.0]
+        shard: [1, 2, 3, 4]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 22.18.0
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22.18.0
 
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
 
-      - name: 🧪 Run v2 vitest
+      - name: 🧪 Run E2E tests (shard ${{ matrix.shard }}/4)
         run: |
-          pnpm -F "@teable/v2-*" -r --if-present --workspace-concurrency=1 test-unit-cover
+          pnpm -C packages/v2/e2e test-e2e -- --shard=${{ matrix.shard }}/4 --reporter=json --reporter=default --outputFile=e2e-report-${{ matrix.shard }}.json
+
+      - name: 📊 Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-shard-${{ matrix.shard }}
+          path: packages/v2/e2e/e2e-report-${{ matrix.shard }}.json
+          retention-days: 7
+
+  # Summary job to check all tests passed and merge reports
+  tests-passed:
+    if: always() && (github.ref == 'refs/heads/refactor/core' || github.head_ref == 'refactor/core')
+    runs-on: ubuntu-latest
+    name: V2 Tests Summary
+    needs: [unit-tests, e2e-tests]
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: e2e-report-shard-*
+          path: reports
+          merge-multiple: true
+
+      - name: 📋 Merge JSON reports
+        run: |
+          echo "Merging test reports..."
+          cat > merge-reports.js << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const reportsDir = './reports';
+          const files = fs.readdirSync(reportsDir).filter(f => f.endsWith('.json'));
+
+          const merged = {
+            numTotalTestSuites: 0,
+            numPassedTestSuites: 0,
+            numFailedTestSuites: 0,
+            numTotalTests: 0,
+            numPassedTests: 0,
+            numFailedTests: 0,
+            numSkippedTests: 0,
+            startTime: Infinity,
+            endTime: 0,
+            testResults: [],
+            failedTests: []
+          };
+
+          for (const file of files) {
+            try {
+              const data = JSON.parse(fs.readFileSync(path.join(reportsDir, file), 'utf8'));
+              merged.numTotalTestSuites += data.numTotalTestSuites || 0;
+              merged.numPassedTestSuites += data.numPassedTestSuites || 0;
+              merged.numFailedTestSuites += data.numFailedTestSuites || 0;
+              merged.numTotalTests += data.numTotalTests || 0;
+              merged.numPassedTests += data.numPassedTests || 0;
+              merged.numFailedTests += data.numFailedTests || 0;
+              merged.numSkippedTests += data.numPendingTests || 0;
+              
+              if (data.startTime < merged.startTime) merged.startTime = data.startTime;
+              if (data.endTime > merged.endTime) merged.endTime = data.endTime;
+              
+              if (data.testResults) {
+                for (const suite of data.testResults) {
+                  merged.testResults.push({
+                    name: suite.name,
+                    status: suite.status,
+                    duration: suite.endTime - suite.startTime,
+                    numTests: suite.assertionResults?.length || 0
+                  });
+                  
+                  // Collect failed tests
+                  if (suite.assertionResults) {
+                    for (const test of suite.assertionResults) {
+                      if (test.status === 'failed') {
+                        merged.failedTests.push({
+                          suite: suite.name,
+                          test: test.fullName || test.title,
+                          error: test.failureMessages?.[0]?.substring(0, 500) || 'Unknown error'
+                        });
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.error(`Error parsing ${file}:`, e.message);
+            }
+          }
+
+          merged.totalDuration = merged.endTime - merged.startTime;
+          merged.success = merged.numFailedTests === 0;
+
+          fs.writeFileSync('merged-report.json', JSON.stringify(merged, null, 2));
+          console.log(JSON.stringify(merged, null, 2));
+          EOF
+
+          node merge-reports.js
+
+      - name: 📊 Upload merged report
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-test-report-merged
+          path: merged-report.json
+          retention-days: 30
+
+      - name: 📝 Create summary
+        run: |
+          if [ -f merged-report.json ]; then
+            echo "## V2 Test Results" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat merged-report.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: ✅ Check test results
+        run: |
+          if [ "${{ needs.unit-tests.result }}" != "success" ] || [ "${{ needs.e2e-tests.result }}" != "success" ]; then
+            echo "❌ Some tests failed"
+            exit 1
+          fi
+          echo "✅ All V2 tests passed!"

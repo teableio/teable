@@ -7657,6 +7657,264 @@ describe('v2 computed field updates (e2e)', () => {
     test.todo(
       'Select option name synchronization in conditionalRollup: Need to verify filters update when select option names change'
     );
+
+    /**
+     * Scenario: ConditionalRollup with field reference filter (Self equality filters).
+     * v1 reference: conditional-rollup.e2e-spec.ts (lines 289-400)
+     *
+     * Tests that conditionalRollup correctly uses field reference filters:
+     * - filter: { fieldId: foreignCategory, operator: 'is', value: { type: 'field', fieldId: hostCategoryFilter } }
+     * - When host field value changes, the rollup recomputes to include/exclude different foreign records
+     */
+    it('updates conditionalRollup when host field reference filter value changes', async () => {
+      // Foreign table: Source of rollup values with category
+      const foreignNameFieldId = createFieldId();
+      const foreignAmountFieldId = createFieldId();
+      const foreignCategoryFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'CR_FieldRef_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignAmountFieldId, name: 'Amount' },
+          { type: 'singleLineText', id: foreignCategoryFieldId, name: 'Category' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create foreign records with different categories
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignAmountFieldId]: 100,
+        [foreignCategoryFieldId]: 'Hardware',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignAmountFieldId]: 50,
+        [foreignCategoryFieldId]: 'Hardware',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignAmountFieldId]: 70,
+        [foreignCategoryFieldId]: 'Software',
+      });
+
+      // Host table: Has conditionalRollup with field reference filter
+      const hostNameFieldId = createFieldId();
+      const hostCategoryFilterFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'CR_FieldRef_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: hostCategoryFilterFieldId, name: 'CategoryFilter' },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'CategorySum',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignAmountFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignCategoryFieldId,
+                      operator: 'is',
+                      // Field reference: compare foreign.Category = host.CategoryFilter
+                      value: { type: 'field', fieldId: hostCategoryFilterFieldId },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, hostCategoryFilterFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'CategoryFilter', 'CategorySum'];
+
+      // Create host record with CategoryFilter = 'Hardware'
+      const hostRecord = await createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Host1',
+        [hostCategoryFilterFieldId]: 'Hardware',
+      });
+      await testContainer.processOutbox();
+
+      // Verify initial rollup value (100 + 50 = 150 for Hardware)
+      const beforeRecords = await listRecords(hostTable.id);
+      expectCellDisplay(beforeRecords, 0, conditionalRollupFieldId, '150');
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CR_FieldRef_Host]
+          -------------------------------------
+          #  | Name  | CategoryFilter | CategorySum
+          -------------------------------------
+          R0 | Host1 | Hardware       | 150
+          -------------------------------------"
+        `);
+
+      // Update host.CategoryFilter to 'Software' - should trigger rollup recomputation
+      testContainer.clearLogs();
+      await updateRecord(hostTable.id, hostRecord.id, {
+        [hostCategoryFilterFieldId]: 'Software',
+      });
+      await testContainer.processOutbox();
+
+      // Verify rollup now shows Software total (70)
+      const afterRecords = await listRecords(hostTable.id);
+      expectCellDisplay(afterRecords, 0, conditionalRollupFieldId, '70');
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CR_FieldRef_Host]
+          -------------------------------------
+          #  | Name  | CategoryFilter | CategorySum
+          -------------------------------------
+          R0 | Host1 | Software       | 70
+          -------------------------------------"
+        `);
+
+      // Verify computed update plan
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      const nameMaps = buildMultiTableNameMaps([
+        {
+          id: hostTable.id,
+          name: 'CR_FieldRef_Host',
+          fields: [
+            { id: hostCategoryFilterFieldId, name: 'CategoryFilter' },
+            { id: conditionalRollupFieldId, name: 'CategorySum' },
+          ],
+        },
+      ]);
+      expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 1]
+          L0: CR_FieldRef_Host -> [CategorySum]
+        [Edges: 1]"
+      `);
+    });
+
+    /**
+     * Scenario: ConditionalRollup with numeric field reference filter.
+     * v1 reference: conditional-rollup.e2e-spec.ts (lines 519-704)
+     *
+     * Tests numeric comparison with field reference:
+     * - filter: { fieldId: foreignAmount, operator: 'isGreater', value: { type: 'field', fieldId: hostMinimumAmount } }
+     * - When host threshold field changes, the rollup recomputes
+     */
+    it('updates conditionalRollup when host numeric threshold field changes', async () => {
+      // Foreign table: Source with numeric values
+      const foreignNameFieldId = createFieldId();
+      const foreignAmountFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'CR_NumericRef_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignAmountFieldId, name: 'Amount' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignAmountFieldId]: 100,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignAmountFieldId]: 50,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignAmountFieldId]: 30,
+      });
+
+      // Host table with numeric threshold filter
+      const hostNameFieldId = createFieldId();
+      const hostMinAmountFieldId = createFieldId();
+      const conditionalRollupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'CR_NumericRef_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: hostMinAmountFieldId, name: 'MinAmount' },
+          {
+            type: 'conditionalRollup',
+            id: conditionalRollupFieldId,
+            name: 'SumAboveThreshold',
+            options: {
+              expression: 'sum({values})',
+            },
+            config: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignAmountFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignAmountFieldId,
+                      operator: 'isGreater',
+                      value: { type: 'field', fieldId: hostMinAmountFieldId },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, hostMinAmountFieldId, conditionalRollupFieldId];
+      const fieldNames = ['Name', 'MinAmount', 'SumAboveThreshold'];
+
+      // Create host record with MinAmount = 40 (items > 40: 100, 50 = 150)
+      const hostRecord = await createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Host1',
+        [hostMinAmountFieldId]: 40,
+      });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expectCellDisplay(beforeRecords, 0, conditionalRollupFieldId, '150');
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CR_NumericRef_Host]
+          -------------------------------------
+          #  | Name  | MinAmount | SumAboveThreshold
+          -------------------------------------
+          R0 | Host1 | 40        | 150
+          -------------------------------------"
+        `);
+
+      // Update threshold to 60 (items > 60: only 100)
+      testContainer.clearLogs();
+      await updateRecord(hostTable.id, hostRecord.id, {
+        [hostMinAmountFieldId]: 60,
+      });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expectCellDisplay(afterRecords, 0, conditionalRollupFieldId, '100');
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CR_NumericRef_Host]
+          -------------------------------------
+          #  | Name  | MinAmount | SumAboveThreshold
+          -------------------------------------
+          R0 | Host1 | 60        | 100
+          -------------------------------------"
+        `);
+    });
   });
 
   describe('conditionalLookup field updates', () => {
@@ -8711,6 +8969,258 @@ describe('v2 computed field updates (e2e)', () => {
     test.todo(
       'ConditionalLookup with field reference (isSymbol): Need to verify support for column-to-column comparison in conditions'
     );
+
+    /**
+     * Scenario: ConditionalLookup with field reference filter.
+     * v1 reference: conditional-lookup.e2e-spec.ts (lines 59-169)
+     *
+     * Tests that conditionalLookup correctly uses field reference filters:
+     * - filter: { fieldId: foreignStatus, operator: 'is', value: { type: 'field', fieldId: hostStatusFilter } }
+     * - When host field value changes, the lookup recomputes to include/exclude different foreign records
+     */
+    it('updates conditionalLookup when host field reference filter value changes', async () => {
+      // Foreign table: Source of lookup values with status
+      const foreignNameFieldId = createFieldId();
+      const foreignTitleFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'CL_FieldRef_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: foreignTitleFieldId, name: 'Title' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      // Create foreign records with different statuses
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignTitleFieldId]: 'Alpha',
+        [foreignStatusFieldId]: 'Active',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignTitleFieldId]: 'Beta',
+        [foreignStatusFieldId]: 'Active',
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignTitleFieldId]: 'Gamma',
+        [foreignStatusFieldId]: 'Closed',
+      });
+
+      // Host table: Has conditionalLookup with field reference filter
+      const hostNameFieldId = createFieldId();
+      const hostStatusFilterFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'CL_FieldRef_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: hostStatusFilterFieldId, name: 'StatusFilter' },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'MatchingTitles',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignTitleFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignStatusFieldId,
+                      operator: 'is',
+                      // Field reference: compare foreign.Status = host.StatusFilter
+                      value: { type: 'field', fieldId: hostStatusFilterFieldId },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, hostStatusFilterFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'StatusFilter', 'MatchingTitles'];
+
+      // Create host record with StatusFilter = 'Active'
+      const hostRecord = await createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Host1',
+        [hostStatusFilterFieldId]: 'Active',
+      });
+      await testContainer.processOutbox();
+
+      // Verify initial lookup value (Alpha, Beta for Active)
+      const beforeRecords = await listRecords(hostTable.id);
+      expectCellDisplay(beforeRecords, 0, conditionalLookupFieldId, '[Alpha, Beta]');
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CL_FieldRef_Host]
+          -------------------------------------
+          #  | Name  | StatusFilter | MatchingTitles
+          -------------------------------------
+          R0 | Host1 | Active       | [Alpha, Beta]
+          -------------------------------------"
+        `);
+
+      // Update host.StatusFilter to 'Closed' - should trigger lookup recomputation
+      testContainer.clearLogs();
+      await updateRecord(hostTable.id, hostRecord.id, {
+        [hostStatusFilterFieldId]: 'Closed',
+      });
+      await testContainer.processOutbox();
+
+      // Verify lookup now shows Closed items (Gamma)
+      const afterRecords = await listRecords(hostTable.id);
+      expectCellDisplay(afterRecords, 0, conditionalLookupFieldId, '[Gamma]');
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CL_FieldRef_Host]
+          -------------------------------------
+          #  | Name  | StatusFilter | MatchingTitles
+          -------------------------------------
+          R0 | Host1 | Closed       | [Gamma]
+          -------------------------------------"
+        `);
+
+      // Verify computed update plan
+      const plan = testContainer.getLastComputedPlan();
+      expect(plan).toBeDefined();
+      const nameMaps = buildMultiTableNameMaps([
+        {
+          id: hostTable.id,
+          name: 'CL_FieldRef_Host',
+          fields: [
+            { id: hostStatusFilterFieldId, name: 'StatusFilter' },
+            { id: conditionalLookupFieldId, name: 'MatchingTitles' },
+          ],
+        },
+      ]);
+      expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
+        "[Computed Steps: 1]
+          L0: CL_FieldRef_Host -> [MatchingTitles]
+        [Edges: 1]"
+      `);
+    });
+
+    /**
+     * Scenario: ConditionalLookup with numeric field reference filter.
+     * v1 reference: conditional-lookup.e2e-spec.ts (lines 3564-3829 "numeric array field reference filters")
+     *
+     * Tests numeric comparison with field reference in conditionalLookup:
+     * - filter: { fieldId: foreignScore, operator: 'isGreater', value: { type: 'field', fieldId: hostThreshold } }
+     * - When host threshold changes, lookup recomputes
+     */
+    it('updates conditionalLookup when host numeric threshold field changes', async () => {
+      // Foreign table with numeric scores
+      const foreignNameFieldId = createFieldId();
+      const foreignScoreFieldId = createFieldId();
+      const foreignTable = await createTable({
+        baseId,
+        name: 'CL_NumericRef_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: foreignScoreFieldId, name: 'Score' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item1',
+        [foreignScoreFieldId]: 100,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item2',
+        [foreignScoreFieldId]: 50,
+      });
+      await createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Item3',
+        [foreignScoreFieldId]: 30,
+      });
+
+      // Host table with numeric threshold filter
+      const hostNameFieldId = createFieldId();
+      const hostThresholdFieldId = createFieldId();
+      const conditionalLookupFieldId = createFieldId();
+      const hostTable = await createTable({
+        baseId,
+        name: 'CL_NumericRef_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: hostThresholdFieldId, name: 'Threshold' },
+          {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'ScoresAbove',
+            options: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignScoreFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignScoreFieldId,
+                      operator: 'isGreater',
+                      value: { type: 'field', fieldId: hostThresholdFieldId },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldIds = [hostNameFieldId, hostThresholdFieldId, conditionalLookupFieldId];
+      const fieldNames = ['Name', 'Threshold', 'ScoresAbove'];
+
+      // Create host record with Threshold = 40 (items > 40: 100, 50)
+      const hostRecord = await createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Host1',
+        [hostThresholdFieldId]: 40,
+      });
+      await testContainer.processOutbox();
+
+      const beforeRecords = await listRecords(hostTable.id);
+      expectCellDisplay(beforeRecords, 0, conditionalLookupFieldId, '[100, 50]');
+      expect(printTableSnapshot(hostTable.name, fieldNames, beforeRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CL_NumericRef_Host]
+          -------------------------------------
+          #  | Name  | Threshold | ScoresAbove
+          -------------------------------------
+          R0 | Host1 | 40        | [100, 50]
+          -------------------------------------"
+        `);
+
+      // Update threshold to 60 (items > 60: only 100)
+      testContainer.clearLogs();
+      await updateRecord(hostTable.id, hostRecord.id, {
+        [hostThresholdFieldId]: 60,
+      });
+      await testContainer.processOutbox();
+
+      const afterRecords = await listRecords(hostTable.id);
+      expectCellDisplay(afterRecords, 0, conditionalLookupFieldId, '[100]');
+      expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
+        .toMatchInlineSnapshot(`
+          "[CL_NumericRef_Host]
+          -------------------------------------
+          #  | Name  | Threshold | ScoresAbove
+          -------------------------------------
+          R0 | Host1 | 60        | [100]
+          -------------------------------------"
+        `);
+    });
 
     /**
      * Scenario: ConditionalRollup with field reference in condition (isSymbol).

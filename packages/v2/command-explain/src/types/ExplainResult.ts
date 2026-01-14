@@ -149,10 +149,60 @@ export type LinkRecordLocksInfo = {
 };
 
 /**
+ * PostgreSQL EXPLAIN JSON plan node.
+ */
+export type ExplainPlanNode = {
+  readonly 'Node Type': string;
+  readonly 'Parallel Aware'?: boolean;
+  readonly 'Async Capable'?: boolean;
+  readonly 'Relation Name'?: string;
+  readonly Alias?: string;
+  readonly 'Startup Cost'?: number;
+  readonly 'Total Cost'?: number;
+  readonly 'Plan Rows'?: number;
+  readonly 'Plan Width'?: number;
+  readonly 'Actual Startup Time'?: number;
+  readonly 'Actual Total Time'?: number;
+  readonly 'Actual Rows'?: number;
+  readonly 'Actual Loops'?: number;
+  readonly Output?: ReadonlyArray<string>;
+  readonly Filter?: string;
+  readonly 'Rows Removed by Filter'?: number;
+  readonly 'Join Type'?: string;
+  readonly 'Inner Unique'?: boolean;
+  readonly 'Hash Cond'?: string;
+  readonly 'Index Name'?: string;
+  readonly 'Index Cond'?: string;
+  readonly 'Scan Direction'?: string;
+  readonly 'Shared Hit Blocks'?: number;
+  readonly 'Shared Read Blocks'?: number;
+  readonly 'Shared Dirtied Blocks'?: number;
+  readonly 'Shared Written Blocks'?: number;
+  readonly 'Local Hit Blocks'?: number;
+  readonly 'Local Read Blocks'?: number;
+  readonly 'Local Dirtied Blocks'?: number;
+  readonly 'Local Written Blocks'?: number;
+  readonly 'Temp Read Blocks'?: number;
+  readonly 'Temp Written Blocks'?: number;
+  readonly Plans?: ReadonlyArray<ExplainPlanNode>;
+  readonly [key: string]: unknown;
+};
+
+/**
+ * PostgreSQL EXPLAIN JSON output structure.
+ */
+export type ExplainJsonOutput = {
+  readonly Plan: ExplainPlanNode;
+  readonly 'Planning Time'?: number;
+  readonly 'Execution Time'?: number;
+  readonly Triggers?: ReadonlyArray<unknown>;
+};
+
+/**
  * EXPLAIN output (without ANALYZE).
  */
 export type ExplainOutput = {
-  readonly raw: string;
+  readonly plan: ExplainJsonOutput;
   readonly estimatedCost?: number;
   readonly estimatedRows?: number;
   /**
@@ -166,7 +216,7 @@ export type ExplainOutput = {
  * EXPLAIN ANALYZE output.
  */
 export type ExplainAnalyzeOutput = {
-  readonly raw: string;
+  readonly plan: ExplainJsonOutput;
   readonly planningTimeMs?: number;
   readonly executionTimeMs?: number;
   readonly actualRows?: number;
