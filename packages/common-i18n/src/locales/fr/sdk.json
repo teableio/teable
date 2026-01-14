@@ -425,9 +425,10 @@
     "app": "Application",
     "user": "Utilisateur",
     "recordHistory": "Historique des enregistrements",
-    "you": "You",
+    "you": "Vous",
     "instance": "Instance",
-    "enterprise": "Enterprise"
+    "enterprise": "Entreprise",
+    "history": "Historique"
   },
   "formula": {
     "SUM": {
@@ -1354,6 +1355,28 @@
       "cannotDeployAppBeforeInitialization": "Impossible de déployer l'application avant l'initialisation",
       "noProjectOrVersionFound": "Aucun projet ou version trouvé",
       "noDeploymentUrlAvailable": "Aucune URL de déploiement disponible"
+    },
+    "reward": {
+      "notFound": "Récompense non trouvée",
+      "unsupportedSourceType": "Type de source de récompense non pris en charge",
+      "maxClaimsReached": "Vous avez atteint le maximum de réclamations de récompenses (2) pour cette semaine",
+      "verificationFailed": "Vérification échouée : {{errors}}",
+      "alreadyClaimedThisWeek": "Vous avez déjà réclamé une récompense pour ce compte cette semaine",
+      "invalidPostUrl": "Format d'URL de publication invalide",
+      "postAlreadyUsed": "Cette publication a déjà été utilisée pour réclamer une récompense",
+      "unsupportedPlatformUrl": "URL de plateforme sociale non prise en charge",
+      "unsupportedPlatform": "Plateforme non prise en charge : {{platform}}",
+      "minCharCount": "La publication doit contenir au moins {{count}} caractères",
+      "minFollowerCount": "Le compte doit avoir au moins {{count}} abonnés",
+      "mustMention": "La publication doit mentionner {{mention}}",
+      "fetchTweetFailed": "Échec de la récupération du tweet X : {{error}}",
+      "tweetNotFound": "Tweet X non trouvé : {{postId}}",
+      "fetchUserFailed": "Échec de la récupération de l'utilisateur X : {{error}}",
+      "xUserNotFound": "Utilisateur X non trouvé : {{username}}",
+      "fetchLinkedInPostFailed": "Échec de la récupération de la publication LinkedIn : {{error}}",
+      "linkedInPostNotFound": "Publication LinkedIn non trouvée : {{postId}}",
+      "linkedInAuthorNotFound": "Auteur LinkedIn non trouvé : {{postId}}",
+      "fetchLinkedInUserFailed": "Échec de la récupération de l'utilisateur LinkedIn : {{error}}"
     }
   }
 }

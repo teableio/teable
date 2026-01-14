@@ -464,10 +464,15 @@
       "addFromOtherSource": "Додати з інших джерел",
       "excelFile": "Microsoft Excel",
       "csvFile": "CSV-файл",
+      "importCsvData": "Імпортувати дані CSV",
+      "importExcelData": "Імпортувати дані Microsoft Excel",
       "cancel": "Скасувати",
       "leave": "Залишити",
       "downAsCsv": "Завантажити csv",
       "importData": "Імпорт даних",
+      "duplicate": "Дублювати",
+      "importing": "Імпорт",
+      "includeRecords": "Включити записи",
       "autoFill": "Оновити всі записи"
     },
     "tips": {

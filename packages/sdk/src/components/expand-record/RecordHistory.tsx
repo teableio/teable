@@ -21,6 +21,7 @@ import { InfiniteTable } from '../table';
 import { CopyButton } from './components';
 
 interface IRecordHistoryProps {
+  tableId?: string;
   recordId?: string;
   onRecordClick?: (recordId: string) => void;
 }
@@ -29,7 +30,8 @@ const SUPPORTED_COPY_FIELD_TYPES = [FieldType.SingleLineText, FieldType.LongText
 
 export const RecordHistory = (props: IRecordHistoryProps) => {
   const { recordId, onRecordClick } = props;
-  const tableId = useTableId() as string;
+  const anchorTableId = useTableId() as string;
+  const tableId = props.tableId || anchorTableId;
   const { t } = useTranslation();
   const isHydrated = useIsHydrated();
   const getFieldStatic = useFieldStaticGetter();

@@ -458,10 +458,15 @@
       "addFromOtherSource": "Agregar de otras fuentes",
       "excelFile": "Microsoft Excel",
       "csvFile": "Archivo CSV",
+      "importCsvData": "Importar datos CSV",
+      "importExcelData": "Importar datos de Microsoft Excel",
       "cancel": "Cancelar",
       "leave": "Dejar",
       "downAsCsv": "Descargar csv",
-      "importData": "Importar datos"
+      "importData": "Importar datos",
+      "duplicate": "Duplicar",
+      "importing": "Importando",
+      "includeRecords": "Incluir registros"
     },
     "tips": {
       "importWayTip": "Haga clic o arrastre el archivo a esta área para cargar",

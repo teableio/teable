@@ -1037,6 +1037,8 @@ export class FieldSupplementService {
       isComputed: true,
       cellValueType,
       dbFieldType: this.getDbFieldType(field.type, cellValueType, true),
+      // Clear hasError since we validated all required fields exist
+      hasError: undefined,
     };
   }
 

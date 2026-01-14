@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { resetTrashItems, ResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBasePermission, useTableId } from '@teable/sdk/hooks';
+import { useBasePermission } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -13,11 +13,11 @@ import { TableTrash } from './TableTrash';
 interface ITableTrashDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  tableId: string;
 }
 
 export const TableTrashDialog = (props: ITableTrashDialogProps) => {
-  const { open, onOpenChange } = props;
-  const tableId = useTableId() as string;
+  const { open, onOpenChange, tableId } = props;
   const permission = useBasePermission();
   const queryClient = useQueryClient();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -51,7 +51,7 @@ export const TableTrashDialog = (props: ITableTrashDialogProps) => {
               </Button>
             )}
           </DialogHeader>
-          <TableTrash />
+          <TableTrash tableId={tableId} />
         </DialogContent>
       </Dialog>
       <ConfirmDialog

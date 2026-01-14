@@ -24,6 +24,11 @@ const MoreMenu = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
 
+  const canUpdateBase = Boolean(basePermission?.['base|update']);
+  if (!canUpdateBase) {
+    return null;
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

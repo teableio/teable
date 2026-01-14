@@ -11,12 +11,7 @@ import { getTrashItems, ResourceType, restoreTrash } from '@teable/openapi';
 import { CollaboratorWithHoverCard, InfiniteTable } from '@teable/sdk/components';
 import { VIEW_ICON_MAP } from '@teable/sdk/components/view/constant';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import {
-  useBasePermission,
-  useFieldStaticGetter,
-  useIsHydrated,
-  useTableId,
-} from '@teable/sdk/hooks';
+import { useBasePermission, useFieldStaticGetter, useIsHydrated } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
@@ -24,8 +19,12 @@ import { useTranslation } from 'next-i18next';
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 
-export const TableTrash = () => {
-  const tableId = useTableId() as string;
+interface ITableTrashProps {
+  tableId: string;
+}
+
+export const TableTrash = (props: ITableTrashProps) => {
+  const { tableId } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const isHydrated = useIsHydrated();
   const queryClient = useQueryClient();

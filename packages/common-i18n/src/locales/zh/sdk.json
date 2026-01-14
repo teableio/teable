@@ -49,7 +49,8 @@
     "recordHistory": "记录历史",
     "you": "你",
     "instance": "实例",
-    "enterprise": "企业"
+    "enterprise": "企业",
+    "history": "历史"
   },
   "preview": {
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
@@ -1360,6 +1361,28 @@
       "cannotDeployAppBeforeInitialization": "无法在初始化前部署应用",
       "noProjectOrVersionFound": "没有找到项目或版本",
       "noDeploymentUrlAvailable": "没有可用的部署 URL"
+    },
+    "reward": {
+      "notFound": "奖励记录不存在",
+      "unsupportedSourceType": "不支持的奖励来源类型",
+      "maxClaimsReached": "您本周已达到最大奖励领取次数 (2 次)",
+      "verificationFailed": "验证失败：{{errors}}",
+      "alreadyClaimedThisWeek": "您本周已为此账户领取过奖励",
+      "invalidPostUrl": "帖子链接格式无效",
+      "postAlreadyUsed": "此帖子已被用于领取奖励",
+      "unsupportedPlatformUrl": "不支持的社交平台链接",
+      "unsupportedPlatform": "不支持的平台：{{platform}}",
+      "minCharCount": "帖子内容至少需要 {{count}} 个字符",
+      "minFollowerCount": "账户至少需要 {{count}} 位粉丝",
+      "mustMention": "帖子必须提及 {{mention}}",
+      "fetchTweetFailed": "获取 X 推文失败：{{error}}",
+      "tweetNotFound": "未找到 X 推文：{{postId}}",
+      "fetchUserFailed": "获取 X 用户失败：{{error}}",
+      "xUserNotFound": "未找到 X 用户：{{username}}",
+      "fetchLinkedInPostFailed": "获取 LinkedIn 帖子失败：{{error}}",
+      "linkedInPostNotFound": "未找到 LinkedIn 帖子：{{postId}}",
+      "linkedInAuthorNotFound": "未找到 LinkedIn 作者：{{postId}}",
+      "fetchLinkedInUserFailed": "获取 LinkedIn 用户失败：{{error}}"
     }
   }
 }

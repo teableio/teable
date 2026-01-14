@@ -41,6 +41,9 @@
     "pin": "Preferiti",
     "empty": "Le tue basi e spazi preferiti appariranno qui"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "Non hai il permesso di creare una base"
+  },
   "tip": {
     "delete": "Sei sicuro di voler eliminare <0/>?",
     "title": "Suggerimenti",

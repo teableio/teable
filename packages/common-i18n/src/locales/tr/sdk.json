@@ -424,10 +424,11 @@
     "automation": "Otomasyon",
     "app": "Uygulama",
     "user": "Kullanıcı",
-    "recordHistory": "Kayıt Geçmişi",
+    "recordHistory": "Kayıt geçmişi",
     "you": "Sen",
     "instance": "Örnek",
-    "enterprise": "Enterprise"
+    "enterprise": "Kurumsal",
+    "history": "Geçmiş"
   },
   "formula": {
     "SUM": {
@@ -1354,6 +1355,28 @@
       "cannotDeployAppBeforeInitialization": "Başlatmadan önce uygulama dağıtılamaz",
       "noProjectOrVersionFound": "Proje veya sürüm bulunamadı",
       "noDeploymentUrlAvailable": "Dağıtım URL'si mevcut değil"
+    },
+    "reward": {
+      "notFound": "Ödül bulunamadı",
+      "unsupportedSourceType": "Desteklenmeyen ödül kaynak türü",
+      "maxClaimsReached": "Bu hafta için maksimum ödül talebine (2) ulaştınız",
+      "verificationFailed": "Doğrulama başarısız: {{errors}}",
+      "alreadyClaimedThisWeek": "Bu hesap için bu hafta zaten bir ödül talep ettiniz",
+      "invalidPostUrl": "Geçersiz gönderi URL formatı",
+      "postAlreadyUsed": "Bu gönderi zaten bir ödül talep etmek için kullanıldı",
+      "unsupportedPlatformUrl": "Desteklenmeyen sosyal platform URL'si",
+      "unsupportedPlatform": "Desteklenmeyen platform: {{platform}}",
+      "minCharCount": "Gönderi en az {{count}} karakter içermelidir",
+      "minFollowerCount": "Hesapta en az {{count}} takipçi olmalıdır",
+      "mustMention": "Gönderi {{mention}} kişisinden bahsetmelidir",
+      "fetchTweetFailed": "X tweeti alınamadı: {{error}}",
+      "tweetNotFound": "X tweeti bulunamadı: {{postId}}",
+      "fetchUserFailed": "X kullanıcısı alınamadı: {{error}}",
+      "xUserNotFound": "X kullanıcısı bulunamadı: {{username}}",
+      "fetchLinkedInPostFailed": "LinkedIn gönderisi alınamadı: {{error}}",
+      "linkedInPostNotFound": "LinkedIn gönderisi bulunamadı: {{postId}}",
+      "linkedInAuthorNotFound": "LinkedIn yazarı bulunamadı: {{postId}}",
+      "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}"
     }
   }
 }

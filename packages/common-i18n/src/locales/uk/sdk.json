@@ -427,7 +427,8 @@
     "recordHistory": "Історія записів",
     "you": "Ви",
     "instance": "Екземпляр",
-    "enterprise": "Підприємство"
+    "enterprise": "Підприємство",
+    "history": "Історія"
   },
   "formula": {
     "SUM": {
@@ -1354,6 +1355,28 @@
       "cannotDeployAppBeforeInitialization": "Неможливо розгорнути додаток до ініціалізації",
       "noProjectOrVersionFound": "Проект або версію не знайдено",
       "noDeploymentUrlAvailable": "URL розгортання недоступний"
+    },
+    "reward": {
+      "notFound": "Нагороду не знайдено",
+      "unsupportedSourceType": "Непідтримуваний тип джерела нагороди",
+      "maxClaimsReached": "Ви досягли максимальної кількості запитів нагород (2) на цьому тижні",
+      "verificationFailed": "Помилка перевірки: {{errors}}",
+      "alreadyClaimedThisWeek": "Ви вже запитали нагороду для цього акаунту на цьому тижні",
+      "invalidPostUrl": "Недійсний формат URL публікації",
+      "postAlreadyUsed": "Ця публікація вже використовувалась для отримання нагороди",
+      "unsupportedPlatformUrl": "Непідтримуваний URL соціальної платформи",
+      "unsupportedPlatform": "Непідтримувана платформа: {{platform}}",
+      "minCharCount": "Публікація повинна містити щонайменше {{count}} символів",
+      "minFollowerCount": "Акаунт повинен мати щонайменше {{count}} підписників",
+      "mustMention": "Публікація повинна згадувати {{mention}}",
+      "fetchTweetFailed": "Не вдалося отримати твіт X: {{error}}",
+      "tweetNotFound": "Твіт X не знайдено: {{postId}}",
+      "fetchUserFailed": "Не вдалося отримати користувача X: {{error}}",
+      "xUserNotFound": "Користувача X не знайдено: {{username}}",
+      "fetchLinkedInPostFailed": "Не вдалося отримати публікацію LinkedIn: {{error}}",
+      "linkedInPostNotFound": "Публікацію LinkedIn не знайдено: {{postId}}",
+      "linkedInAuthorNotFound": "Автора LinkedIn не знайдено: {{postId}}",
+      "fetchLinkedInUserFailed": "Не вдалося отримати користувача LinkedIn: {{error}}"
     }
   }
 }

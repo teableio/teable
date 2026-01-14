@@ -56,7 +56,7 @@ export const BaseLayout: React.FC<{
                         <div className="flex h-screen w-full">
                           <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
                             <Fragment>
-                              <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
+                              <div className="flex h-full flex-col gap-2 divide-y divide-solid overflow-auto py-2">
                                 <BaseSideBar />
                               </div>
                               <div className="grow basis-0" />

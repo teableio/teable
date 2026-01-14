@@ -427,7 +427,8 @@
     "recordHistory": "Record history",
     "you": "You",
     "instance": "Instance",
-    "enterprise": "Enterprise"
+    "enterprise": "Enterprise",
+    "history": "History"
   },
   "formula": {
     "SUM": {
@@ -1360,6 +1361,28 @@
       "cannotDeployAppBeforeInitialization": "Cannot deploy app before initialization",
       "noProjectOrVersionFound": "No project or version found",
       "noDeploymentUrlAvailable": "No deployment URL available"
+    },
+    "reward": {
+      "notFound": "Reward not found",
+      "unsupportedSourceType": "Unsupported reward source type",
+      "maxClaimsReached": "You have reached the maximum reward claims (2) for this week",
+      "verificationFailed": "Verification failed: {{errors}}",
+      "alreadyClaimedThisWeek": "You have already claimed a reward for this account this week",
+      "invalidPostUrl": "Invalid post URL format",
+      "postAlreadyUsed": "This post has already been used to claim a reward",
+      "unsupportedPlatformUrl": "Unsupported social platform URL",
+      "unsupportedPlatform": "Unsupported platform: {{platform}}",
+      "minCharCount": "Post must have at least {{count}} characters",
+      "minFollowerCount": "Account must have at least {{count}} followers",
+      "mustMention": "Post must mention {{mention}}",
+      "fetchTweetFailed": "Failed to fetch X tweet: {{error}}",
+      "tweetNotFound": "X tweet not found: {{postId}}",
+      "fetchUserFailed": "Failed to fetch X user: {{error}}",
+      "xUserNotFound": "X user not found: {{username}}",
+      "fetchLinkedInPostFailed": "Failed to fetch LinkedIn post: {{error}}",
+      "linkedInPostNotFound": "LinkedIn post not found: {{postId}}",
+      "linkedInAuthorNotFound": "LinkedIn author not found: {{postId}}",
+      "fetchLinkedInUserFailed": "Failed to fetch LinkedIn user: {{error}}"
     }
   }
 }
