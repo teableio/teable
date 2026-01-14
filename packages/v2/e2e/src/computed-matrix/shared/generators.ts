@@ -210,11 +210,13 @@ export const calculateExpectedFormulaValue = (
 // Field ID Generator Factory
 // =============================================================================
 
+let globalFieldCounter = 0;
+const processUniquePrefix = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
 export const createFieldIdGenerator = () => {
-  let counter = 0;
   return () => {
-    const suffix = counter.toString(36).padStart(16, '0');
-    counter += 1;
-    return `fld${suffix}`;
+    const counter = globalFieldCounter.toString(36).padStart(6, '0');
+    globalFieldCounter += 1;
+    return `fld${processUniquePrefix}${counter}`;
   };
 };
