@@ -8262,107 +8262,150 @@ describe('v2 http formula (e2e)', () => {
 
   describe('customer-grade complex formula templates (todo)', () => {
     /**
-     * Scenario: Very long IF/FIND concatenation mapping (text field + many branches).
-     * Formula: IF(FIND("A", {codeField})>0, "A", "") & IF(FIND("B", {codeField})>0, "B", "") & ...
-     * Expect: Long chained concatenation remains stable.
+     * Scenario: Very long IF/FIND concatenation mapping driven by normalized codes.
+     * Field types:
+     * - {rawCode}: singleLineText (source code list)
+     * - {normalizedCode}: formula (singleLineText output, normalization of {rawCode})
+     * Formula: IF(FIND("AD", {normalizedCode})>0, "Andorra", "") & IF(FIND("AE", {normalizedCode})>0, "UAE", "") & ... (170+ branches)
+     * Expect: long chained concatenation remains stable with large branch counts.
      */
     test.todo('should handle long IF/FIND concatenation mapping');
 
     /**
-     * Scenario: Large SWITCH mapping table (text -> text).
-     * Formula: SWITCH({appId}, "id1", "Name1", "id2", "Name2", ..., BLANK())
-     * Expect: Large lookup table mapping remains stable.
+     * Scenario: Large SWITCH mapping table for app identifiers.
+     * Field types:
+     * - {appId}: singleLineText
+     * Formula: SWITCH({appId}, "com.app.a", "App A", "com.app.b", "App B", ..., BLANK())
+     * Expect: large mapping table produces correct labels.
      */
     test.todo('should handle large SWITCH mapping table');
 
     /**
-     * Scenario: Complex text parsing (MID/FIND/LEFT chain).
-     * Formula: IF({textField}, LEFT(MID({textField}, ...), ...), "fallback")
-     * Expect: Multi-delimiter parsing remains stable.
+     * Scenario: Complex text parsing with MID/FIND/LEFT chain.
+     * Field types:
+     * - {addressText}: singleLineText (space-delimited address string)
+     * Formula: IF({addressText}, LEFT(MID({addressText}, ...), ...), "fallback") with multiple FIND/MID nesting
+     * Expect: parses multi-delimiter segments consistently.
      */
     test.todo('should parse complex text with MID/FIND/LEFT chain');
 
     /**
-     * Scenario: Large numeric aggregation (many SUM arguments).
+     * Scenario: Large numeric aggregation across many columns.
+     * Field types:
+     * - {num1}..{num39}: number
      * Formula: SUM({num1}, {num2}, ... {num39})
-     * Expect: Summation across many fields is correct.
+     * Expect: summation across dozens of numeric fields is correct.
      */
     test.todo('should sum many numeric fields in a single formula');
 
     /**
-     * Scenario: Multi-field conditional count (single select comparisons + SUM).
-     * Formula: SUM({status1}="X", {status2}="X", ...)
-     * Expect: Batch conditional count remains correct.
+     * Scenario: Multi-field conditional count from many single selects.
+     * Field types:
+     * - {status1}..{status31}: singleSelect (same option set)
+     * Formula: SUM({status1}="Target", {status2}="Target", ...)
+     * Expect: batch conditional count remains correct.
      */
     test.todo('should sum many single-select comparisons');
 
     /**
-     * Scenario: Nested IF + SUM threshold logic (multiple numeric fields).
-     * Formula: IF(SUM({a},{b})>1.6, SUM({a},{b})/1.6*..., 1)
-     * Expect: Threshold branching is correct.
+     * Scenario: Nested IF + SUM threshold logic for size coefficients.
+     * Field types:
+     * - {length}, {width}: number
+     * Formula: IF(SUM({length},{width})>1.6, SUM({length},{width})/1.6*SUM({length},{width})/1.6, 1)
+     * Expect: threshold branching and squared coefficient calculation remain correct.
      */
     test.todo('should handle nested IF with SUM threshold logic');
 
     /**
-     * Scenario: Branching pricing/cost formula (select + multi-number + MAX).
-     * Formula: MAX(IF({mode}="A", {qty}*{rateA}, IF({mode}="B", {qty}*{rateB}, ...)), {fallback})
-     * Expect: Branch selection is correct.
+     * Scenario: Branching pricing/cost formula with MAX + nested IF.
+     * Field types:
+     * - {pricingMode}: singleSelect
+     * - {qty}: number
+     * - {rateWeight}, {rateVolume}, {rateCount}, {flatPrice}: number
+     * - {fallback}: number
+     * Formula: MAX(IF({pricingMode}="Weight", {qty}*{rateWeight}, IF({pricingMode}="Volume", {qty}*{rateVolume}, IF({pricingMode}="Count", {qty}*{rateCount}, IF({pricingMode}="Flat", {flatPrice}, 0)))), {fallback})
+     * Expect: branch selection respects pricing mode and max fallback.
      */
     test.todo('should handle branching pricing formula with MAX and IF');
 
     /**
-     * Scenario: Multi-field cost aggregation (sum of numbers).
+     * Scenario: Multi-field cost aggregation.
+     * Field types:
+     * - {cost1}..{cost6}: number
      * Formula: {cost1}+{cost2}+{cost3}+{cost4}+{cost5}+{cost6}
-     * Expect: Summation across multiple fields is correct.
+     * Expect: aggregation across multiple cost fields is correct.
      */
     test.todo('should handle multi-field cost aggregation');
 
     /**
-     * Scenario: Conditional settlement date formatting (IF + DATETIME_FORMAT).
-     * Formula: IF({status}="X", DATETIME_FORMAT({dateA}, "YYYY-MM-DD"), DATETIME_FORMAT({dateB}, "YYYY-MM-DD"))
-     * Expect: Conditional date formatting is correct.
+     * Scenario: Conditional settlement date formatting.
+     * Field types:
+     * - {status}: singleSelect
+     * - {dateA}, {dateB}: dateTime
+     * Formula: IF({status}="SettleA", DATETIME_FORMAT({dateA}, "YYYY-MM-DD"), DATETIME_FORMAT({dateB}, "YYYY-MM-DD"))
+     * Expect: conditional date formatting chooses the correct date.
      */
     test.todo('should handle conditional datetime formatting chain');
 
     /**
-     * Scenario: Inventory countdown (DATE_ADD + IS_AFTER + CONCATENATE).
-     * Formula: IF(IS_AFTER(DATE_ADD({date}, {days}, "day"), NOW()), CONCATENATE(...), ...)
-     * Expect: Date comparison and concatenation remain stable.
+     * Scenario: Inventory countdown with DATE_ADD + IS_AFTER + CONCATENATE.
+     * Field types:
+     * - {stockDate}: dateTime
+     * - {graceDays}: number
+     * - {label}: singleLineText
+     * Formula: IF(IS_AFTER(DATE_ADD({stockDate}, {graceDays}, "day"), NOW()), CONCATENATE({label}, " OK"), CONCATENATE({label}, " EXP"))
+     * Expect: date comparison and concatenation remain stable.
      */
     test.todo('should handle inventory countdown with DATE_ADD and IS_AFTER');
 
     /**
-     * Scenario: Tiered adjustments (nested IF + select coefficient).
-     * Formula: IF({category}="A", {price}*0.7, IF({category}="B", {price}*0.5, ...))
-     * Expect: Tier coefficients are applied correctly.
+     * Scenario: Tiered adjustments by category.
+     * Field types:
+     * - {category}: singleSelect
+     * - {price}: number
+     * Formula: IF({category}="A", {price}*0.7, IF({category}="B", {price}*0.5, {price}*0.3))
+     * Expect: tier coefficients apply correctly.
      */
     test.todo('should handle tiered adjustments by category');
 
     /**
-     * Scenario: Stock status thresholds (two numbers + nested IF).
-     * Formula: IF({stock}<= {min}, "low", IF({stock}<= {min}*1.5, "mid", "ok"))
-     * Expect: Threshold status is correct.
+     * Scenario: Stock status thresholds with nested IF.
+     * Field types:
+     * - {stock}: number
+     * - {minStock}: number
+     * Formula: IF({stock}<= {minStock}, "low", IF({stock}<= {minStock}*1.5, "mid", "ok"))
+     * Expect: threshold status is correct.
      */
     test.todo('should handle nested stock status thresholds');
 
     /**
-     * Scenario: Composite key concatenation (multiple text fields).
-     * Formula: CONCATENATE({a}, "-", {b}, "-", {c})
-     * Expect: Concatenation output is stable.
+     * Scenario: Composite key concatenation.
+     * Field types:
+     * - {partA}, {partB}, {partC}: singleLineText
+     * Formula: CONCATENATE({partA}, "-", {partB}, "-", {partC})
+     * Expect: composite key output is stable.
      */
     test.todo('should concatenate multiple fields as composite key');
 
     /**
-     * Scenario: Lookup + date formatting concatenation.
-     * Formula: {lookupText} & "-" & DATETIME_FORMAT({lookupDate}, "YYYYMMDD")
-     * Expect: Cross-table concatenation is correct.
+     * Scenario: Lookup + date formatting concatenation across linked tables.
+     * Field types:
+     * - {linkToOrders}: link (Table A -> Table B)
+     * - {lookupOrderName}: lookup (singleLineText) from linked table
+     * - {lookupOrderDate}: lookup (dateTime) from linked table
+     * Formula: {lookupOrderName} & "-" & DATETIME_FORMAT({lookupOrderDate}, "YYYYMMDD")
+     * Expect: cross-table concatenation is correct.
      */
     test.todo('should concatenate lookup text with formatted lookup date');
 
     /**
-     * Scenario: Mixed lookup + rollup aggregation.
+     * Scenario: Mixed lookup + rollup aggregation across linked records.
+     * Field types:
+     * - {linkToItems}: link (Table A -> Table B)
+     * - {lookupNums}: lookup (number array)
+     * - {rollupSum}: rollup (number)
      * Formula: IF(SUM({lookupNums})>0, {rollupSum} / SUM({lookupNums}), 0)
-     * Expect: Aggregation remains stable with linked data.
+     * Expect: aggregation remains stable with linked data.
      */
     test.todo('should handle lookup + rollup mixed aggregation');
   });
