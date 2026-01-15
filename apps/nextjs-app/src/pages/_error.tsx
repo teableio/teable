@@ -7,9 +7,7 @@ import { captureException as sentryCaptureException, flush as sentryFlush } from
 import type { NextPage, NextPageContext } from 'next';
 import NextErrorComponent from 'next/error';
 import type { ErrorProps } from 'next/error';
-import { systemConfig } from '@/features/i18n/system.config';
 import { ErrorPage } from '@/features/system/pages';
-import { getServerSideTranslations } from '@/lib/i18n';
 
 const sentryIgnoredStatusCodes: number[] = [404, 410];
 
@@ -59,6 +57,30 @@ const sentryFlushServerSide = async (flushAfter: number) => {
   }
 };
 
+type LocaleLoader = () => Promise<{ default: Record<string, unknown> }>;
+
+const localeLoaders: Record<string, LocaleLoader> = {
+  en: () => import('@teable/common-i18n/src/locales/en/system.json'),
+  it: () => import('@teable/common-i18n/src/locales/it/system.json'),
+  zh: () => import('@teable/common-i18n/src/locales/zh/system.json'),
+  fr: () => import('@teable/common-i18n/src/locales/fr/system.json'),
+  ja: () => import('@teable/common-i18n/src/locales/ja/system.json'),
+  ru: () => import('@teable/common-i18n/src/locales/ru/system.json'),
+  de: () => import('@teable/common-i18n/src/locales/de/system.json'),
+  uk: () => import('@teable/common-i18n/src/locales/uk/system.json'),
+  tr: () => import('@teable/common-i18n/src/locales/tr/system.json'),
+  es: () => import('@teable/common-i18n/src/locales/es/system.json'),
+};
+
+const loadSystemTranslations = async (locale: string) => {
+  try {
+    const loader = localeLoaders[locale] ?? localeLoaders.en;
+    return (await loader()).default;
+  } catch {
+    return (await localeLoaders.en()).default;
+  }
+};
+
 const CustomError: NextPage<CustomErrorProps> = (props) => {
   const { statusCode, err, hasGetInitialPropsRun, sentryErrorId, message } = props;
 
@@ -82,16 +104,26 @@ const CustomError: NextPage<CustomErrorProps> = (props) => {
 
 CustomError.getInitialProps = async (context: AugmentedNextPageContext) => {
   const { res, err, asPath } = context;
-  const { locale = 'en' } = context;
+  const locale = localeLoaders[context.locale ?? ''] ? (context.locale as string) : 'en';
 
   const errorInitialProps = (await NextErrorComponent.getInitialProps({
     res,
     err,
   } as NextPageContext)) as CustomErrorProps;
 
-  // Load i18n translations for the error page
-  const inlinedTranslation = await getServerSideTranslations(locale, systemConfig.i18nNamespaces);
-  Object.assign(errorInitialProps, inlinedTranslation);
+  const resources = await loadSystemTranslations(locale);
+  Object.assign(errorInitialProps, {
+    _nextI18Next: {
+      initialI18nStore: {
+        [locale]: {
+          system: resources,
+        },
+      },
+      initialLocale: locale,
+      ns: ['system'],
+      userConfig: null,
+    },
+  });
 
   // Workaround for https://github.com/vercel/next.js/issues/8592, mark when
   // getInitialProps has run
