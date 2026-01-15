@@ -29,13 +29,25 @@ export class AutoLoginController {
 
     const accessToken = authHeader.substring(7);
 
-    // 解析 access token 格式：pat_accessTokenId_encryptedSign
+    // 解析 access token 格式：pat_accessTokenId_encryptedSign 或 pat_accessTokenId_sign（未加密）
     const accessTokenObj = splitAccessToken(accessToken);
-    if (!accessTokenObj) {
-      throw new UnauthorizedException('Invalid access token format');
-    }
+    let accessTokenId: string;
+    let sign: string;
 
-    const { accessTokenId, sign } = accessTokenObj;
+    if (accessTokenObj) {
+      // 标准格式（加密的 sign）
+      accessTokenId = accessTokenObj.accessTokenId;
+      sign = accessTokenObj.sign;
+    } else {
+      // 尝试解析简化格式：pat_accessTokenId_sign（未加密，用于直接创建的 token）
+      const parts = accessToken.split('_');
+      if (parts.length === 3 && parts[0] === 'pat') {
+        accessTokenId = parts[1];
+        sign = parts[2];
+      } else {
+        throw new UnauthorizedException('Invalid access token format');
+      }
+    }
 
     // 使用 access token 验证用户
     try {
