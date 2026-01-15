@@ -8,8 +8,8 @@
  * Total: ~16 test cases
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { buildMultiTableNameMaps, printComputedSteps } from '@teable/v2-container-node-test';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { createTestContext, createFieldIdGenerator } from './shared';
 import type { TestContext, LinkRelationship, LinkOpTestCase } from './shared';
 

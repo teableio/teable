@@ -39,11 +39,11 @@ import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createSchemaChecker } from '../checker/SchemaChecker';
+import type { SchemaCheckResult } from '../checker/SchemaCheckResult';
 import { PostgresSchemaIntrospector } from '../context/PostgresSchemaIntrospector';
 import type { SchemaIntrospector } from '../context/SchemaIntrospector';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
-import { createSchemaChecker } from '../checker/SchemaChecker';
-import type { SchemaCheckResult } from '../checker/SchemaCheckResult';
 import { ColumnExistsRule } from './ColumnExistsRule';
 import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
 import { FieldMetaRule } from './FieldMetaRule';

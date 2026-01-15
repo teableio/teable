@@ -14,6 +14,7 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { LinkFieldLabel } from '@/components/playground/LinkFieldLabel';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +44,8 @@ type FieldMeta = {
   id: string;
   name: string;
   type: string;
+  relationship?: string;
+  isOneWay?: boolean;
 };
 
 type SchemaCheckPanelProps = {
@@ -375,6 +378,7 @@ export function SchemaCheckPanel({ tableId, tableName, fields }: SchemaCheckPane
             const fieldName =
               fieldMeta?.name || fieldResults[0]?.fieldName || (isSystemField ? 'System' : fieldId);
             const fieldType = fieldMeta?.type;
+            const fieldRelationship = fieldMeta?.relationship;
             const FieldIcon = fieldType ? getFieldTypeIcon(fieldType) : null;
             const hasError = fieldResults.some((r) => r.status === 'error');
             const hasWarn = fieldResults.some((r) => r.status === 'warn');
@@ -407,7 +411,16 @@ export function SchemaCheckPanel({ tableId, tableName, fields }: SchemaCheckPane
                     <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
                   )}
                   {FieldIcon ? <FieldIcon className="h-4 w-4 text-muted-foreground" /> : null}
-                  <span>{fieldName || 'System'}</span>
+                  {fieldType === 'link' && fieldRelationship && fieldId !== 'system' ? (
+                    <LinkFieldLabel
+                      name={fieldName || 'System'}
+                      fieldId={fieldId}
+                      relationship={fieldRelationship}
+                      isOneWay={fieldMeta?.isOneWay ?? false}
+                    />
+                  ) : (
+                    <span>{fieldName || 'System'}</span>
+                  )}
                   {fieldType ? (
                     <Badge
                       variant="outline"

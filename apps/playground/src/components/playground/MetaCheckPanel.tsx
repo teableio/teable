@@ -15,6 +15,7 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { LinkFieldLabel } from '@/components/playground/LinkFieldLabel';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 import { cn } from '@/lib/utils';
 
@@ -49,6 +50,8 @@ type FieldMeta = {
   id: string;
   name: string;
   type: string;
+  relationship?: string;
+  isOneWay?: boolean;
 };
 
 type MetaCheckPanelProps = {
@@ -407,6 +410,7 @@ export function MetaCheckPanel({ tableId, tableName, fields }: MetaCheckPanelPro
             const fieldName =
               fieldMeta?.name || fieldIssues[0]?.fieldName || (isSystemField ? 'System' : fieldId);
             const fieldType = fieldMeta?.type || fieldIssues[0]?.fieldType;
+            const fieldRelationship = fieldMeta?.relationship;
             const FieldIcon = fieldType ? getFieldTypeIcon(fieldType) : null;
             const hasError = fieldIssues.some((i) => i.severity === 'error');
             const hasWarning = fieldIssues.some((i) => i.severity === 'warning');
@@ -432,7 +436,16 @@ export function MetaCheckPanel({ tableId, tableName, fields }: MetaCheckPanelPro
                     <CheckCircle2 className="h-4 w-4 text-blue-500" />
                   )}
                   {FieldIcon ? <FieldIcon className="h-4 w-4 text-muted-foreground" /> : null}
-                  <span>{fieldName}</span>
+                  {fieldType === 'link' && fieldRelationship && fieldId !== 'system' ? (
+                    <LinkFieldLabel
+                      name={fieldName}
+                      fieldId={fieldId}
+                      relationship={fieldRelationship}
+                      isOneWay={fieldMeta?.isOneWay ?? false}
+                    />
+                  ) : (
+                    <span>{fieldName}</span>
+                  )}
                   {fieldType ? (
                     <Badge
                       variant="outline"

@@ -219,7 +219,7 @@ export type { LinkField } from './domain/table/fields/types/LinkField';
 export * from './domain/table/fields/types/LinkFieldMeta';
 export * from './domain/table/fields/types/LinkFieldConfig';
 export * from './domain/table/fields/types/LinkRelationship';
-export type { LookupField } from './domain/table/fields/types/LookupField';
+export { LookupField } from './domain/table/fields/types/LookupField';
 export * from './domain/table/fields/types/LookupOptions';
 export type { ConditionalRollupField } from './domain/table/fields/types/ConditionalRollupField';
 export * from './domain/table/fields/types/ConditionalRollupConfig';

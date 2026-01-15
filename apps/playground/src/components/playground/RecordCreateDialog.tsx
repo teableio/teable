@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
-import { type Table as TableAggregate } from '@teable/v2-core';
+import { type Table as TableAggregate, type LinkField } from '@teable/v2-core';
 import type { IExplainResultDto } from '@teable/v2-contract-http';
 import { Plus, Search } from 'lucide-react';
 import { useMemo, useState, useCallback } from 'react';
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
+import { LinkFieldLabel } from '@/components/playground/LinkFieldLabel';
 import { FieldInput } from './field-inputs';
 import { ExplainResultPanel } from './ExplainResultPanel';
 
@@ -184,15 +185,29 @@ export function RecordCreateDialog({ table, onSuccess, baseId }: RecordCreateDia
                     name={field.id().toString()}
                     children={(formField) => {
                       const isRequired = field.notNull().toBoolean();
+                      const fieldType = field.type().toString();
+                      const fieldName = field.name().toString();
+                      const isLinkField = fieldType === 'link';
+                      const linkField = isLinkField ? (field as LinkField) : null;
                       return (
                         <div className="space-y-2">
                           <Label htmlFor={field.id().toString()}>
-                            {field.name().toString()}
+                            {isLinkField && linkField ? (
+                              <LinkFieldLabel
+                                name={fieldName}
+                                fieldId={linkField.id().toString()}
+                                relationship={linkField.relationship().toString()}
+                                isOneWay={linkField.isOneWay()}
+                              />
+                            ) : (
+                              <span>{fieldName}</span>
+                            )}
                             {isRequired && <span className="text-destructive ml-1">*</span>}
                             <span className="ml-2 text-xs text-muted-foreground font-normal">
-                              ({field.type().toString()})
+                              ({fieldType})
                             </span>
                           </Label>
+
                           <FieldInput
                             field={field}
                             value={formField.state.value}

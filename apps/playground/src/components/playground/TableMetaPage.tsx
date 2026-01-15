@@ -10,6 +10,7 @@ import type {
   ITableFieldPersistenceDTO,
   ITablePersistenceDTO,
   ITableRecordRealtimeDTO,
+  LinkField,
   Table as TableAggregate,
   View,
   ViewColumnMetaValue,
@@ -93,6 +94,7 @@ import { renderFieldOptions } from './fieldOptionsVisitor';
 import { formatRecordValue, stringifyRecordValue } from './recordValueVisitor';
 import { SchemaCheckPanel } from './SchemaCheckPanel';
 import { MetaCheckPanel } from './MetaCheckPanel';
+import { LinkFieldLabel } from '@/components/playground/LinkFieldLabel';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 
 const formatViewLabel = (view: View): string =>
@@ -432,11 +434,23 @@ export function TableMetaPage({
                   <SchemaCheckPanel
                     tableId={table.id().toString()}
                     tableName={table.name().toString()}
-                    fields={table.getFields().map((field) => ({
-                      id: field.id().toString(),
-                      name: field.name().toString(),
-                      type: field.type().toString(),
-                    }))}
+                    fields={table.getFields().map((field) => {
+                      const fieldType = field.type().toString();
+                      const baseMeta = {
+                        id: field.id().toString(),
+                        name: field.name().toString(),
+                        type: fieldType,
+                      };
+                      if (fieldType === 'link') {
+                        const linkField = field as LinkField;
+                        return {
+                          ...baseMeta,
+                          relationship: linkField.relationship().toString(),
+                          isOneWay: linkField.isOneWay(),
+                        };
+                      }
+                      return baseMeta;
+                    })}
                   />
                 </div>
               </ScrollArea>
@@ -447,11 +461,23 @@ export function TableMetaPage({
                   <MetaCheckPanel
                     tableId={table.id().toString()}
                     tableName={table.name().toString()}
-                    fields={table.getFields().map((field) => ({
-                      id: field.id().toString(),
-                      name: field.name().toString(),
-                      type: field.type().toString(),
-                    }))}
+                    fields={table.getFields().map((field) => {
+                      const fieldType = field.type().toString();
+                      const baseMeta = {
+                        id: field.id().toString(),
+                        name: field.name().toString(),
+                        type: fieldType,
+                      };
+                      if (fieldType === 'link') {
+                        const linkField = field as LinkField;
+                        return {
+                          ...baseMeta,
+                          relationship: linkField.relationship().toString(),
+                          isOneWay: linkField.isOneWay(),
+                        };
+                      }
+                      return baseMeta;
+                    })}
                   />
                 </div>
               </ScrollArea>
@@ -1012,13 +1038,25 @@ function TableSchemaCard({
               const isPrimary = field.id().equals(primaryFieldId);
               const disableDelete = isPrimary || isDeletingField;
               const fieldType = field.type().toString();
+              const fieldName = field.name().toString();
+              const isLinkField = fieldType === 'link';
+              const linkField = isLinkField ? (field as LinkField) : null;
               const FieldIcon = getFieldTypeIcon(fieldType);
               return (
                 <TableRow key={field.id().toString()} className="group">
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <FieldIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>{field.name().toString()}</span>
+                      {isLinkField && linkField ? (
+                        <LinkFieldLabel
+                          name={fieldName}
+                          fieldId={linkField.id().toString()}
+                          relationship={linkField.relationship().toString()}
+                          isOneWay={linkField.isOneWay()}
+                        />
+                      ) : (
+                        <span>{fieldName}</span>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon-sm"
@@ -1030,6 +1068,7 @@ function TableSchemaCard({
                       </Button>
                     </div>
                   </TableCell>
+
                   <TableCell className="break-all font-mono text-xs text-muted-foreground">
                     {field.id().toString()}
                   </TableCell>
@@ -1303,6 +1342,9 @@ function TableRecordsCard({
 
     const fieldColumns: ColumnDef<ITableRecordDto>[] = sortedFields.map((field) => {
       const fieldType = field.type().toString();
+      const fieldName = field.name().toString();
+      const isLinkField = fieldType === 'link';
+      const linkField = isLinkField ? (field as LinkField) : null;
       const FieldIcon = getFieldTypeIcon(fieldType);
       const isPrimary = field.id().toString() === primaryFieldId;
       return {
@@ -1310,7 +1352,16 @@ function TableRecordsCard({
         header: () => (
           <div className="flex items-center gap-2">
             <FieldIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-            {field.name().toString()}
+            {isLinkField && linkField ? (
+              <LinkFieldLabel
+                name={fieldName}
+                fieldId={linkField.id().toString()}
+                relationship={linkField.relationship().toString()}
+                isOneWay={linkField.isOneWay()}
+              />
+            ) : (
+              <span>{fieldName}</span>
+            )}
           </div>
         ),
         cell: ({ row }) => {

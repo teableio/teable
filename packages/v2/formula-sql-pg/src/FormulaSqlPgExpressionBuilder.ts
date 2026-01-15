@@ -1,16 +1,13 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
 import {
-  DateTimeFormatting,
   FieldType,
   type ConditionalLookupField,
   type LookupField,
   type Field,
-  NumberFormatting,
-  NumberFormattingType,
-  TimeFormatting,
 } from '@teable/v2-core';
 
+import { formatFieldValueAsStringSql } from './FieldFormattingSql';
 import { buildFieldSqlMetadata } from './FieldSqlCoercionVisitor';
 
 import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
@@ -597,9 +594,9 @@ export class FormulaSqlPgExpressionBuilder {
     const normalized = this.normalizeArrayExpr(expr);
 
     // Check if this is a lookup field with a known innerField type
-    const innerFieldType = this.getLookupInnerFieldType(expr);
-    if (innerFieldType) {
-      return this.stringifyLookupArrayExpr(normalized, innerFieldType, separator);
+    const innerField = this.getLookupInnerField(expr);
+    if (innerField) {
+      return this.stringifyLookupArrayExpr(normalized, innerField, separator);
     }
 
     if (this.isJsonArrayObjectField(expr)) {
@@ -621,9 +618,11 @@ export class FormulaSqlPgExpressionBuilder {
    */
   protected stringifyLookupArrayExpr(
     normalizedJson: string,
-    innerFieldType: string,
+    innerField: Field,
     separator = ', '
   ): string {
+    const innerFieldType = innerField.type().toString();
+
     // Button, link, and attachment types: extract as object text
     if (
       innerFieldType === 'button' ||
@@ -670,9 +669,10 @@ export class FormulaSqlPgExpressionBuilder {
       innerFieldType === 'rating' ||
       innerFieldType === 'autoNumber'
     ) {
+      const formatted = formatFieldValueAsStringSql(innerField, "elem #>> '{}'", 'number');
       return this.stringifyNormalizedJsonArrayWithElement(
         normalizedJson,
-        "(elem #>> '{}')::text",
+        formatted ?? "(elem #>> '{}')::text",
         separator
       );
     }
@@ -684,9 +684,10 @@ export class FormulaSqlPgExpressionBuilder {
       innerFieldType === 'createdTime' ||
       innerFieldType === 'lastModifiedTime'
     ) {
+      const formatted = formatFieldValueAsStringSql(innerField, "elem #>> '{}'", 'datetime');
       return this.stringifyNormalizedJsonArrayWithElement(
         normalizedJson,
-        "elem #>> '{}'",
+        formatted ?? "elem #>> '{}'",
         separator
       );
     }
@@ -695,7 +696,7 @@ export class FormulaSqlPgExpressionBuilder {
     if (innerFieldType === 'checkbox') {
       return this.stringifyNormalizedJsonArrayWithElement(
         normalizedJson,
-        "(CASE WHEN (elem #>> '{}')::boolean THEN 'true' ELSE 'false' END)",
+        "(elem #>> '{}')::text",
         separator
       );
     }
@@ -776,87 +777,7 @@ export class FormulaSqlPgExpressionBuilder {
   }
 
   protected formatScalarForString(expr: SqlExpr): string | undefined {
-    const field = expr.field;
-    if (!field) return undefined;
-    const formatting = (field as { formatting?: () => unknown }).formatting?.();
-    if (!formatting) return undefined;
-    if (formatting instanceof NumberFormatting && expr.valueType === 'number') {
-      return this.formatNumberString(expr.valueSql, formatting);
-    }
-    if (formatting instanceof DateTimeFormatting && expr.valueType === 'datetime') {
-      return this.formatDatetimeString(expr.valueSql, formatting);
-    }
-    return undefined;
-  }
-
-  protected formatNumberString(valueSql: string, formatting: NumberFormatting): string {
-    const precision = formatting.precision().toNumber();
-    const decimalPart = precision > 0 ? `D${'0'.repeat(precision)}` : '';
-    const mask = `FM999999990${decimalPart}`;
-    const maskSql = sqlStringLiteral(mask);
-    const baseValue = `(${valueSql})::numeric`;
-
-    switch (formatting.type()) {
-      case NumberFormattingType.Percent: {
-        const percentValue = `(${baseValue} * 100)`;
-        const formatted = `to_char(${percentValue}, ${maskSql})`;
-        return `${formatted} || ${sqlStringLiteral('%')}`;
-      }
-      case NumberFormattingType.Currency: {
-        const formatted = `to_char(${baseValue}, ${maskSql})`;
-        return `${sqlStringLiteral(formatting.symbol() ?? '')} || ${formatted}`;
-      }
-      case NumberFormattingType.Decimal:
-      default:
-        return `to_char(${baseValue}, ${maskSql})`;
-    }
-  }
-
-  protected formatDatetimeString(valueSql: string, formatting: DateTimeFormatting): string {
-    const dateMask = this.mapDateFormatMask(formatting.date());
-    const timeMask = this.mapTimeFormatMask(formatting.time());
-    const fullMask = timeMask ? `${dateMask} ${timeMask}` : dateMask;
-    const maskSql = sqlStringLiteral(fullMask);
-    const tz = formatting.timeZone().toString();
-    const zonedValue = `(${valueSql})::timestamptz AT TIME ZONE ${sqlStringLiteral(tz)}`;
-    return `TO_CHAR(${zonedValue}, ${maskSql})`;
-  }
-
-  protected mapDateFormatMask(format: string): string {
-    switch (format) {
-      case 'M/D/YYYY':
-        return 'FMMM/FMDD/YYYY';
-      case 'D/M/YYYY':
-        return 'FMDD/FMMM/YYYY';
-      case 'YYYY/MM/DD':
-        return 'YYYY/MM/DD';
-      case 'YYYY-MM-DD':
-        return 'YYYY-MM-DD';
-      case 'YYYY-MM':
-        return 'YYYY-MM';
-      case 'MM-DD':
-        return 'MM-DD';
-      case 'YYYY':
-        return 'YYYY';
-      case 'MM':
-        return 'MM';
-      case 'DD':
-        return 'DD';
-      default:
-        return 'YYYY-MM-DD';
-    }
-  }
-
-  protected mapTimeFormatMask(format: TimeFormatting): string {
-    switch (format) {
-      case TimeFormatting.Hour24:
-        return 'HH24:MI';
-      case TimeFormatting.Hour12:
-        return 'HH12:MI AM';
-      case TimeFormatting.None:
-      default:
-        return '';
-    }
+    return formatFieldValueAsStringSql(expr.field, expr.valueSql, expr.valueType);
   }
 
   protected coerceToBoolean(expr: SqlExpr): SqlExpr {

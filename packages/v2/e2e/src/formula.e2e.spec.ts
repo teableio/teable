@@ -8530,81 +8530,1834 @@ describe('v2 http formula (e2e)', () => {
      * Formula:ARRAYCOMPACT({arrayWithNulls})
      * Expect: removes null values
      */
-    test.todo('should compact array - ARRAYCOMPACT({arrayWithNulls})');
+    it('should compact array - ARRAYCOMPACT({arrayWithNulls})', async () => {
+      const createSourceResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('ARRAYCOMPACT Source'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'number',
+              name: 'Age',
+              options: { formatting: { type: 'decimal', precision: 0 } },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const sourceRaw = await createSourceResponse.json();
+      const sourceParsed = createTableOkResponseSchema.safeParse(sourceRaw);
+      expect(sourceParsed.success).toBe(true);
+      if (!sourceParsed.success || !sourceParsed.data.ok) return;
+
+      const sourceTable = sourceParsed.data.data.table;
+      const sourceNameFieldId = sourceTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const ageFieldId = sourceTable.fields.find((f) => f.name === 'Age')?.id ?? '';
+      if (!sourceNameFieldId || !ageFieldId) throw new Error('Missing source table fields');
+
+      const createSourceRecord = async (name: string, age?: number) => {
+        const response = await fetch(`${baseUrl}/tables/createRecord`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tableId: sourceTable.id,
+            fields: {
+              [sourceNameFieldId]: name,
+              ...(age === undefined ? {} : { [ageFieldId]: age }),
+            },
+          }),
+        });
+        expect(response.status).toBe(201);
+        const rawBody = await response.json();
+        const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return undefined;
+        return parsed.data.data.record.id;
+      };
+
+      const recordAId = await createSourceRecord('A', 10);
+      const recordBId = await createSourceRecord('B');
+      const recordCId = await createSourceRecord('C', 30);
+      if (!recordAId || !recordBId || !recordCId)
+        throw new Error('Failed to create source records');
+
+      const createHostResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('ARRAYCOMPACT Host'),
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const hostRaw = await createHostResponse.json();
+      const hostParsed = createTableOkResponseSchema.safeParse(hostRaw);
+      expect(hostParsed.success).toBe(true);
+      if (!hostParsed.success || !hostParsed.data.ok) return;
+
+      const hostTable = hostParsed.data.data.table;
+      const hostTitleFieldId = hostTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!hostTitleFieldId) throw new Error('Missing host primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'link',
+            name: 'People',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'People')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createLookupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'lookup',
+            name: 'Ages',
+            options: {
+              linkFieldId,
+              foreignTableId: sourceTable.id,
+              lookupFieldId: ageFieldId,
+            },
+          },
+        }),
+      });
+      expect(createLookupResponse.status).toBe(200);
+      const lookupRaw = await createLookupResponse.json();
+      const lookupParsed = createFieldOkResponseSchema.safeParse(lookupRaw);
+      expect(lookupParsed.success).toBe(true);
+      if (!lookupParsed.success || !lookupParsed.data.ok) return;
+      const lookupFieldId =
+        lookupParsed.data.data.table.fields.find((f) => f.name === 'Ages')?.id ?? '';
+      if (!lookupFieldId) throw new Error('Missing lookup field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'formula',
+            name: 'Compacted',
+            options: {
+              expression: `ARRAYJOIN(ARRAYCOMPACT({${lookupFieldId}}), ", ")`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Compacted')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createHostRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          fields: {
+            [hostTitleFieldId]: 'Group 1',
+            [linkFieldId]: [{ id: recordAId }, { id: recordBId }, { id: recordCId }],
+          },
+        }),
+      });
+      expect(createHostRecordResponse.status).toBe(201);
+      const hostRecordRaw = await createHostRecordResponse.json();
+      const hostRecordParsed = createRecordOkResponseSchema.safeParse(hostRecordRaw);
+      expect(hostRecordParsed.success).toBe(true);
+      if (!hostRecordParsed.success || !hostRecordParsed.data.ok) return;
+      const hostRecordId = hostRecordParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(hostTable.id);
+      const record = records.find((r) => r.id === hostRecordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const compacted = record.fields[formulaFieldId];
+      expect(typeof compacted).toBe('string');
+      if (typeof compacted !== 'string') return;
+      expect(compacted.replace(/\.00/g, '')).toBe('10, 30');
+    });
 
     /**
      * Scenario:COUNTALL function
      * Formula:COUNTALL({lookupField})
      * Expect: counts all elements (including nulls)
      */
-    test.todo('should count all - COUNTALL({lookupField})');
+    it('should count all - COUNTALL({lookupField})', async () => {
+      const createSourceResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('COUNTALL Source'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'number',
+              name: 'Age',
+              options: { formatting: { type: 'decimal', precision: 0 } },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const sourceRaw = await createSourceResponse.json();
+      const sourceParsed = createTableOkResponseSchema.safeParse(sourceRaw);
+      expect(sourceParsed.success).toBe(true);
+      if (!sourceParsed.success || !sourceParsed.data.ok) return;
+
+      const sourceTable = sourceParsed.data.data.table;
+      const sourceNameFieldId = sourceTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const ageFieldId = sourceTable.fields.find((f) => f.name === 'Age')?.id ?? '';
+      if (!sourceNameFieldId || !ageFieldId) throw new Error('Missing source table fields');
+
+      const createSourceRecord = async (name: string, age?: number) => {
+        const response = await fetch(`${baseUrl}/tables/createRecord`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tableId: sourceTable.id,
+            fields: {
+              [sourceNameFieldId]: name,
+              ...(age === undefined ? {} : { [ageFieldId]: age }),
+            },
+          }),
+        });
+        expect(response.status).toBe(201);
+        const rawBody = await response.json();
+        const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return undefined;
+        return parsed.data.data.record.id;
+      };
+
+      const recordAId = await createSourceRecord('A', 10);
+      const recordBId = await createSourceRecord('B');
+      const recordCId = await createSourceRecord('C', 30);
+      if (!recordAId || !recordBId || !recordCId)
+        throw new Error('Failed to create source records');
+
+      const createHostResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('COUNTALL Host'),
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const hostRaw = await createHostResponse.json();
+      const hostParsed = createTableOkResponseSchema.safeParse(hostRaw);
+      expect(hostParsed.success).toBe(true);
+      if (!hostParsed.success || !hostParsed.data.ok) return;
+
+      const hostTable = hostParsed.data.data.table;
+      const hostTitleFieldId = hostTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!hostTitleFieldId) throw new Error('Missing host primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'link',
+            name: 'People',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'People')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createLookupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'lookup',
+            name: 'Ages',
+            options: {
+              linkFieldId,
+              foreignTableId: sourceTable.id,
+              lookupFieldId: ageFieldId,
+            },
+          },
+        }),
+      });
+      expect(createLookupResponse.status).toBe(200);
+      const lookupRaw = await createLookupResponse.json();
+      const lookupParsed = createFieldOkResponseSchema.safeParse(lookupRaw);
+      expect(lookupParsed.success).toBe(true);
+      if (!lookupParsed.success || !lookupParsed.data.ok) return;
+      const lookupFieldId =
+        lookupParsed.data.data.table.fields.find((f) => f.name === 'Ages')?.id ?? '';
+      if (!lookupFieldId) throw new Error('Missing lookup field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'formula',
+            name: 'Count All',
+            options: {
+              expression: `COUNTALL({${lookupFieldId}})`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Count All')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createHostRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          fields: {
+            [hostTitleFieldId]: 'Group 1',
+            [linkFieldId]: [{ id: recordAId }, { id: recordBId }, { id: recordCId }],
+          },
+        }),
+      });
+      expect(createHostRecordResponse.status).toBe(201);
+      const hostRecordRaw = await createHostRecordResponse.json();
+      const hostRecordParsed = createRecordOkResponseSchema.safeParse(hostRecordRaw);
+      expect(hostRecordParsed.success).toBe(true);
+      if (!hostRecordParsed.success || !hostRecordParsed.data.ok) return;
+      const hostRecordId = hostRecordParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(hostTable.id);
+      const record = records.find((r) => r.id === hostRecordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const countValue = record.fields[formulaFieldId];
+      expect(countValue).not.toBeNull();
+      expect(Number(countValue)).toBe(3);
+    });
 
     /**
      * Scenario:COUNTA function
      * Formula:COUNTA({lookupField})
      * Expect: counts non-empty elements
      */
-    test.todo('should count non-empty - COUNTA({lookupField})');
+    it('should count non-empty - COUNTA({lookupField})', async () => {
+      const createSourceResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('COUNTA Source'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'number',
+              name: 'Age',
+              options: { formatting: { type: 'decimal', precision: 0 } },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const sourceRaw = await createSourceResponse.json();
+      const sourceParsed = createTableOkResponseSchema.safeParse(sourceRaw);
+      expect(sourceParsed.success).toBe(true);
+      if (!sourceParsed.success || !sourceParsed.data.ok) return;
+
+      const sourceTable = sourceParsed.data.data.table;
+      const sourceNameFieldId = sourceTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const ageFieldId = sourceTable.fields.find((f) => f.name === 'Age')?.id ?? '';
+      if (!sourceNameFieldId || !ageFieldId) throw new Error('Missing source table fields');
+
+      const createSourceRecord = async (name: string, age?: number) => {
+        const response = await fetch(`${baseUrl}/tables/createRecord`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tableId: sourceTable.id,
+            fields: {
+              [sourceNameFieldId]: name,
+              ...(age === undefined ? {} : { [ageFieldId]: age }),
+            },
+          }),
+        });
+        expect(response.status).toBe(201);
+        const rawBody = await response.json();
+        const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return undefined;
+        return parsed.data.data.record.id;
+      };
+
+      const recordAId = await createSourceRecord('A', 10);
+      const recordBId = await createSourceRecord('B');
+      const recordCId = await createSourceRecord('C', 30);
+      if (!recordAId || !recordBId || !recordCId)
+        throw new Error('Failed to create source records');
+
+      const createHostResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('COUNTA Host'),
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const hostRaw = await createHostResponse.json();
+      const hostParsed = createTableOkResponseSchema.safeParse(hostRaw);
+      expect(hostParsed.success).toBe(true);
+      if (!hostParsed.success || !hostParsed.data.ok) return;
+
+      const hostTable = hostParsed.data.data.table;
+      const hostTitleFieldId = hostTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!hostTitleFieldId) throw new Error('Missing host primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'link',
+            name: 'People',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'People')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createLookupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'lookup',
+            name: 'Ages',
+            options: {
+              linkFieldId,
+              foreignTableId: sourceTable.id,
+              lookupFieldId: ageFieldId,
+            },
+          },
+        }),
+      });
+      expect(createLookupResponse.status).toBe(200);
+      const lookupRaw = await createLookupResponse.json();
+      const lookupParsed = createFieldOkResponseSchema.safeParse(lookupRaw);
+      expect(lookupParsed.success).toBe(true);
+      if (!lookupParsed.success || !lookupParsed.data.ok) return;
+      const lookupFieldId =
+        lookupParsed.data.data.table.fields.find((f) => f.name === 'Ages')?.id ?? '';
+      if (!lookupFieldId) throw new Error('Missing lookup field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'formula',
+            name: 'Count A',
+            options: {
+              expression: `COUNTA({${lookupFieldId}})`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Count A')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createHostRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          fields: {
+            [hostTitleFieldId]: 'Group 1',
+            [linkFieldId]: [{ id: recordAId }, { id: recordBId }, { id: recordCId }],
+          },
+        }),
+      });
+      expect(createHostRecordResponse.status).toBe(201);
+      const hostRecordRaw = await createHostRecordResponse.json();
+      const hostRecordParsed = createRecordOkResponseSchema.safeParse(hostRecordRaw);
+      expect(hostRecordParsed.success).toBe(true);
+      if (!hostRecordParsed.success || !hostRecordParsed.data.ok) return;
+      const hostRecordId = hostRecordParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(hostTable.id);
+      const record = records.find((r) => r.id === hostRecordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const countValue = record.fields[formulaFieldId];
+      expect(countValue).not.toBeNull();
+      expect(Number(countValue)).toBe(2);
+    });
 
     /**
      * Scenario:COUNT function
      * Formula:COUNT({lookupField})
      * Expect: counts numeric elements
      */
-    test.todo('should count numbers - COUNT({lookupField})');
+    it('should count numbers - COUNT({lookupField})', async () => {
+      const createSourceResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('COUNT Source'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'number',
+              name: 'Age',
+              options: { formatting: { type: 'decimal', precision: 0 } },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const sourceRaw = await createSourceResponse.json();
+      const sourceParsed = createTableOkResponseSchema.safeParse(sourceRaw);
+      expect(sourceParsed.success).toBe(true);
+      if (!sourceParsed.success || !sourceParsed.data.ok) return;
+
+      const sourceTable = sourceParsed.data.data.table;
+      const sourceNameFieldId = sourceTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const ageFieldId = sourceTable.fields.find((f) => f.name === 'Age')?.id ?? '';
+      if (!sourceNameFieldId || !ageFieldId) throw new Error('Missing source table fields');
+
+      const createSourceRecord = async (name: string, age?: number) => {
+        const response = await fetch(`${baseUrl}/tables/createRecord`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tableId: sourceTable.id,
+            fields: {
+              [sourceNameFieldId]: name,
+              ...(age === undefined ? {} : { [ageFieldId]: age }),
+            },
+          }),
+        });
+        expect(response.status).toBe(201);
+        const rawBody = await response.json();
+        const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return undefined;
+        return parsed.data.data.record.id;
+      };
+
+      const recordAId = await createSourceRecord('A', 10);
+      const recordBId = await createSourceRecord('B');
+      const recordCId = await createSourceRecord('C', 30);
+      if (!recordAId || !recordBId || !recordCId)
+        throw new Error('Failed to create source records');
+
+      const createHostResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('COUNT Host'),
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const hostRaw = await createHostResponse.json();
+      const hostParsed = createTableOkResponseSchema.safeParse(hostRaw);
+      expect(hostParsed.success).toBe(true);
+      if (!hostParsed.success || !hostParsed.data.ok) return;
+
+      const hostTable = hostParsed.data.data.table;
+      const hostTitleFieldId = hostTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!hostTitleFieldId) throw new Error('Missing host primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'link',
+            name: 'People',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'People')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createLookupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'lookup',
+            name: 'Ages',
+            options: {
+              linkFieldId,
+              foreignTableId: sourceTable.id,
+              lookupFieldId: ageFieldId,
+            },
+          },
+        }),
+      });
+      expect(createLookupResponse.status).toBe(200);
+      const lookupRaw = await createLookupResponse.json();
+      const lookupParsed = createFieldOkResponseSchema.safeParse(lookupRaw);
+      expect(lookupParsed.success).toBe(true);
+      if (!lookupParsed.success || !lookupParsed.data.ok) return;
+      const lookupFieldId =
+        lookupParsed.data.data.table.fields.find((f) => f.name === 'Ages')?.id ?? '';
+      if (!lookupFieldId) throw new Error('Missing lookup field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'formula',
+            name: 'Count Numbers',
+            options: {
+              expression: `COUNT({${lookupFieldId}})`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Count Numbers')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createHostRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          fields: {
+            [hostTitleFieldId]: 'Group 1',
+            [linkFieldId]: [{ id: recordAId }, { id: recordBId }, { id: recordCId }],
+          },
+        }),
+      });
+      expect(createHostRecordResponse.status).toBe(201);
+      const hostRecordRaw = await createHostRecordResponse.json();
+      const hostRecordParsed = createRecordOkResponseSchema.safeParse(hostRecordRaw);
+      expect(hostRecordParsed.success).toBe(true);
+      if (!hostRecordParsed.success || !hostRecordParsed.data.ok) return;
+      const hostRecordId = hostRecordParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(hostTable.id);
+      const record = records.find((r) => r.id === hostRecordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const countValue = record.fields[formulaFieldId];
+      expect(countValue).not.toBeNull();
+      expect(Number(countValue)).toBe(2);
+    });
   });
 
   // ============================================================================
   // 11. Formulas with link and lookup fields
   // ============================================================================
   describe('formula with link and lookup fields', () => {
+    const normalizeLookupArray = (value: unknown): unknown[] | undefined => {
+      if (Array.isArray(value)) return value;
+      if (typeof value !== 'string') return undefined;
+      if (!value.trim().startsWith('[')) return undefined;
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed) ? parsed : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
+    const extractLookupScalar = (value: unknown): unknown => {
+      const normalized = normalizeLookupArray(value);
+      if (normalized && normalized.length > 0) return normalized[0];
+      return value;
+    };
+
+    const extractLinkDisplayTitles = (value: unknown): string[] | undefined => {
+      const normalized = normalizeLookupArray(value) ?? (Array.isArray(value) ? value : undefined);
+      if (!normalized) return undefined;
+
+      const titles: string[] = [];
+      for (const entry of normalized) {
+        if (typeof entry === 'string') {
+          titles.push(entry);
+          continue;
+        }
+        if (entry && typeof entry === 'object' && 'title' in entry) {
+          const title = (entry as { title?: unknown }).title;
+          if (typeof title === 'string') titles.push(title);
+        }
+      }
+      return titles.length > 0 ? titles : undefined;
+    };
     /**
      * Scenario: Formula references link field
      * Formula:IF({linkField}, "Has Link", "No Link")
      * Expect: returns "Has Link" when linked
      */
-    test.todo(
-      'should create formula referencing link field - IF({linkField}, "Has Link", "No Link")'
-    );
+    it('should create formula referencing link field - IF({linkField}, "Has Link", "No Link")', async () => {
+      const createContactsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Link Formula Contacts'),
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const contactsRaw = await createContactsResponse.json();
+      const contactsParsed = createTableOkResponseSchema.safeParse(contactsRaw);
+      expect(contactsParsed.success).toBe(true);
+      if (!contactsParsed.success || !contactsParsed.data.ok) return;
+
+      const contactsTable = contactsParsed.data.data.table;
+      const contactNameFieldId = contactsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!contactNameFieldId) throw new Error('Missing contacts primary field');
+
+      const createContactResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: contactsTable.id,
+          fields: {
+            [contactNameFieldId]: 'Alice',
+          },
+        }),
+      });
+      expect(createContactResponse.status).toBe(201);
+      const contactRaw = await createContactResponse.json();
+      const contactParsed = createRecordOkResponseSchema.safeParse(contactRaw);
+      expect(contactParsed.success).toBe(true);
+      if (!contactParsed.success || !contactParsed.data.ok) return;
+      const contactId = contactParsed.data.data.record.id;
+
+      const createDealsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Link Formula Deals'),
+          fields: [{ type: 'singleLineText', name: 'Deal', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const dealsRaw = await createDealsResponse.json();
+      const dealsParsed = createTableOkResponseSchema.safeParse(dealsRaw);
+      expect(dealsParsed.success).toBe(true);
+      if (!dealsParsed.success || !dealsParsed.data.ok) return;
+
+      const dealsTable = dealsParsed.data.data.table;
+      const dealNameFieldId = dealsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!dealNameFieldId) throw new Error('Missing deals primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'link',
+            name: 'Contact',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: contactsTable.id,
+              lookupFieldId: contactNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'Contact')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'formula',
+            name: 'Has Contact',
+            options: {
+              expression: `IF({${linkFieldId}}, "Has Link", "No Link")`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Has Contact')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createWithLinkResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: dealsTable.id,
+          fields: {
+            [dealNameFieldId]: 'Deal With',
+            [linkFieldId]: { id: contactId },
+          },
+        }),
+      });
+      expect(createWithLinkResponse.status).toBe(201);
+      const withLinkRaw = await createWithLinkResponse.json();
+      const withLinkParsed = createRecordOkResponseSchema.safeParse(withLinkRaw);
+      expect(withLinkParsed.success).toBe(true);
+      if (!withLinkParsed.success || !withLinkParsed.data.ok) return;
+      const withLinkId = withLinkParsed.data.data.record.id;
+
+      const createWithoutLinkResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: dealsTable.id,
+          fields: {
+            [dealNameFieldId]: 'Deal Without',
+          },
+        }),
+      });
+      expect(createWithoutLinkResponse.status).toBe(201);
+      const withoutLinkRaw = await createWithoutLinkResponse.json();
+      const withoutLinkParsed = createRecordOkResponseSchema.safeParse(withoutLinkRaw);
+      expect(withoutLinkParsed.success).toBe(true);
+      if (!withoutLinkParsed.success || !withoutLinkParsed.data.ok) return;
+      const withoutLinkId = withoutLinkParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(dealsTable.id);
+      const withLink = records.find((r) => r.id === withLinkId);
+      const withoutLink = records.find((r) => r.id === withoutLinkId);
+      expect(withLink).toBeDefined();
+      expect(withoutLink).toBeDefined();
+      if (!withLink || !withoutLink) return;
+
+      expect(withLink.fields[formulaFieldId]).toBe('Has Link');
+      expect(withoutLink.fields[formulaFieldId]).toBe('No Link');
+    });
 
     /**
      * Scenario: Formula references lookup field
      * Formula:{lookupField}
      * Expect: returns lookup field value
      */
-    test.todo('should create formula referencing lookup field - {lookupField}');
+    it('should create formula referencing lookup field - {lookupField}', async () => {
+      const createContactsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Lookup Formula Contacts'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'singleLineText', name: 'Code' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const contactsRaw = await createContactsResponse.json();
+      const contactsParsed = createTableOkResponseSchema.safeParse(contactsRaw);
+      expect(contactsParsed.success).toBe(true);
+      if (!contactsParsed.success || !contactsParsed.data.ok) return;
+
+      const contactsTable = contactsParsed.data.data.table;
+      const contactNameFieldId = contactsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const contactCodeFieldId = contactsTable.fields.find((f) => f.name === 'Code')?.id ?? '';
+      if (!contactNameFieldId || !contactCodeFieldId) throw new Error('Missing contacts fields');
+
+      const createContactResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: contactsTable.id,
+          fields: {
+            [contactNameFieldId]: 'Alice',
+            [contactCodeFieldId]: 'C-001',
+          },
+        }),
+      });
+      expect(createContactResponse.status).toBe(201);
+      const contactRaw = await createContactResponse.json();
+      const contactParsed = createRecordOkResponseSchema.safeParse(contactRaw);
+      expect(contactParsed.success).toBe(true);
+      if (!contactParsed.success || !contactParsed.data.ok) return;
+      const contactId = contactParsed.data.data.record.id;
+
+      const createDealsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Lookup Formula Deals'),
+          fields: [{ type: 'singleLineText', name: 'Deal', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const dealsRaw = await createDealsResponse.json();
+      const dealsParsed = createTableOkResponseSchema.safeParse(dealsRaw);
+      expect(dealsParsed.success).toBe(true);
+      if (!dealsParsed.success || !dealsParsed.data.ok) return;
+
+      const dealsTable = dealsParsed.data.data.table;
+      const dealNameFieldId = dealsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!dealNameFieldId) throw new Error('Missing deals primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'link',
+            name: 'Contact',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: contactsTable.id,
+              lookupFieldId: contactNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'Contact')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createLookupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'lookup',
+            name: 'Contact Code',
+            options: {
+              linkFieldId,
+              foreignTableId: contactsTable.id,
+              lookupFieldId: contactCodeFieldId,
+            },
+          },
+        }),
+      });
+      expect(createLookupResponse.status).toBe(200);
+      const lookupRaw = await createLookupResponse.json();
+      const lookupParsed = createFieldOkResponseSchema.safeParse(lookupRaw);
+      expect(lookupParsed.success).toBe(true);
+      if (!lookupParsed.success || !lookupParsed.data.ok) return;
+      const lookupFieldId =
+        lookupParsed.data.data.table.fields.find((f) => f.name === 'Contact Code')?.id ?? '';
+      if (!lookupFieldId) throw new Error('Missing lookup field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'formula',
+            name: 'Code Formula',
+            options: {
+              expression: `{${lookupFieldId}}`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Code Formula')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createDealResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: dealsTable.id,
+          fields: {
+            [dealNameFieldId]: 'Deal 1',
+            [linkFieldId]: { id: contactId },
+          },
+        }),
+      });
+      expect(createDealResponse.status).toBe(201);
+      const dealRaw = await createDealResponse.json();
+      const dealParsed = createRecordOkResponseSchema.safeParse(dealRaw);
+      expect(dealParsed.success).toBe(true);
+      if (!dealParsed.success || !dealParsed.data.ok) return;
+      const dealId = dealParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(dealsTable.id);
+      const stored = records.find((r) => r.id === dealId);
+      expect(stored).toBeDefined();
+      if (!stored) return;
+
+      const scalar = extractLookupScalar(stored.fields[formulaFieldId]);
+      expect(scalar).toBe('C-001');
+    });
 
     /**
      * Scenario: Formula references rollup field
      * Formula:{rollupField} * 2
      * Expect: rollup value multiplied by 2
      */
-    test.todo('should create formula referencing rollup field - {rollupField} * 2');
+    it('should create formula referencing rollup field - {rollupField} * 2', async () => {
+      const createTasksResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Rollup Formula Tasks'),
+          fields: [
+            { type: 'singleLineText', name: 'Task', isPrimary: true },
+            {
+              type: 'number',
+              name: 'Hours',
+              options: { formatting: { type: 'decimal', precision: 0 } },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tasksRaw = await createTasksResponse.json();
+      const tasksParsed = createTableOkResponseSchema.safeParse(tasksRaw);
+      expect(tasksParsed.success).toBe(true);
+      if (!tasksParsed.success || !tasksParsed.data.ok) return;
+
+      const tasksTable = tasksParsed.data.data.table;
+      const taskNameFieldId = tasksTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const hoursFieldId = tasksTable.fields.find((f) => f.name === 'Hours')?.id ?? '';
+      if (!taskNameFieldId || !hoursFieldId) throw new Error('Missing task fields');
+
+      const createTask = async (name: string, hours: number) => {
+        const response = await fetch(`${baseUrl}/tables/createRecord`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tableId: tasksTable.id,
+            fields: {
+              [taskNameFieldId]: name,
+              [hoursFieldId]: hours,
+            },
+          }),
+        });
+        expect(response.status).toBe(201);
+        const rawBody = await response.json();
+        const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return undefined;
+        return parsed.data.data.record.id;
+      };
+
+      const taskAId = await createTask('Design', 2);
+      const taskBId = await createTask('Build', 3);
+      if (!taskAId || !taskBId) throw new Error('Failed to create tasks');
+
+      const createProjectsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Rollup Formula Projects'),
+          fields: [{ type: 'singleLineText', name: 'Project', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const projectsRaw = await createProjectsResponse.json();
+      const projectsParsed = createTableOkResponseSchema.safeParse(projectsRaw);
+      expect(projectsParsed.success).toBe(true);
+      if (!projectsParsed.success || !projectsParsed.data.ok) return;
+
+      const projectsTable = projectsParsed.data.data.table;
+      const projectNameFieldId = projectsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!projectNameFieldId) throw new Error('Missing projects primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: projectsTable.id,
+          field: {
+            type: 'link',
+            name: 'Tasks',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: tasksTable.id,
+              lookupFieldId: taskNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'Tasks')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createRollupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: projectsTable.id,
+          field: {
+            type: 'rollup',
+            name: 'Total Hours',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId,
+              foreignTableId: tasksTable.id,
+              lookupFieldId: hoursFieldId,
+            },
+          },
+        }),
+      });
+      expect(createRollupResponse.status).toBe(200);
+      const rollupRaw = await createRollupResponse.json();
+      const rollupParsed = createFieldOkResponseSchema.safeParse(rollupRaw);
+      expect(rollupParsed.success).toBe(true);
+      if (!rollupParsed.success || !rollupParsed.data.ok) return;
+      const rollupFieldId =
+        rollupParsed.data.data.table.fields.find((f) => f.name === 'Total Hours')?.id ?? '';
+      if (!rollupFieldId) throw new Error('Missing rollup field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: projectsTable.id,
+          field: {
+            type: 'formula',
+            name: 'Double Hours',
+            options: {
+              expression: `{${rollupFieldId}} * 2`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Double Hours')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createProjectResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: projectsTable.id,
+          fields: {
+            [projectNameFieldId]: 'Launch',
+            [linkFieldId]: [{ id: taskAId }, { id: taskBId }],
+          },
+        }),
+      });
+      expect(createProjectResponse.status).toBe(201);
+      const projectRaw = await createProjectResponse.json();
+      const projectParsed = createRecordOkResponseSchema.safeParse(projectRaw);
+      expect(projectParsed.success).toBe(true);
+      if (!projectParsed.success || !projectParsed.data.ok) return;
+      const projectId = projectParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(projectsTable.id);
+      const stored = records.find((r) => r.id === projectId);
+      expect(stored).toBeDefined();
+      if (!stored) return;
+
+      const doubled = stored.fields[formulaFieldId];
+      expect(doubled).not.toBeNull();
+      expect(Number(doubled)).toBe(10);
+    });
 
     /**
      * Scenario: formula handles empty lookup field
      * Formula:IF({lookupField}="", "no lookup", {lookupField})
      * Expect: returns "no lookup" when lookup is empty
      */
-    test.todo(
-      'should handle empty lookup in formula - IF({lookupField}="", "no lookup", {lookupField})'
-    );
+    it('should handle empty lookup in formula - IF({lookupField}="", "no lookup", {lookupField})', async () => {
+      const createContactsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Empty Lookup Contacts'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'singleLineText', name: 'Code' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const contactsRaw = await createContactsResponse.json();
+      const contactsParsed = createTableOkResponseSchema.safeParse(contactsRaw);
+      expect(contactsParsed.success).toBe(true);
+      if (!contactsParsed.success || !contactsParsed.data.ok) return;
+
+      const contactsTable = contactsParsed.data.data.table;
+      const contactNameFieldId = contactsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const contactCodeFieldId = contactsTable.fields.find((f) => f.name === 'Code')?.id ?? '';
+      if (!contactNameFieldId || !contactCodeFieldId) throw new Error('Missing contacts fields');
+
+      const createContactResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: contactsTable.id,
+          fields: {
+            [contactNameFieldId]: 'Alice',
+            [contactCodeFieldId]: 'C-EMPTY',
+          },
+        }),
+      });
+      expect(createContactResponse.status).toBe(201);
+      const contactRaw = await createContactResponse.json();
+      const contactParsed = createRecordOkResponseSchema.safeParse(contactRaw);
+      expect(contactParsed.success).toBe(true);
+      if (!contactParsed.success || !contactParsed.data.ok) return;
+      const contactId = contactParsed.data.data.record.id;
+
+      const createDealsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Empty Lookup Deals'),
+          fields: [{ type: 'singleLineText', name: 'Deal', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const dealsRaw = await createDealsResponse.json();
+      const dealsParsed = createTableOkResponseSchema.safeParse(dealsRaw);
+      expect(dealsParsed.success).toBe(true);
+      if (!dealsParsed.success || !dealsParsed.data.ok) return;
+
+      const dealsTable = dealsParsed.data.data.table;
+      const dealNameFieldId = dealsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!dealNameFieldId) throw new Error('Missing deals primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'link',
+            name: 'Contact',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: contactsTable.id,
+              lookupFieldId: contactNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'Contact')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createLookupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'lookup',
+            name: 'Contact Code',
+            options: {
+              linkFieldId,
+              foreignTableId: contactsTable.id,
+              lookupFieldId: contactCodeFieldId,
+            },
+          },
+        }),
+      });
+      expect(createLookupResponse.status).toBe(200);
+      const lookupRaw = await createLookupResponse.json();
+      const lookupParsed = createFieldOkResponseSchema.safeParse(lookupRaw);
+      expect(lookupParsed.success).toBe(true);
+      if (!lookupParsed.success || !lookupParsed.data.ok) return;
+      const lookupFieldId =
+        lookupParsed.data.data.table.fields.find((f) => f.name === 'Contact Code')?.id ?? '';
+      if (!lookupFieldId) throw new Error('Missing lookup field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'formula',
+            name: 'Lookup Maybe',
+            options: {
+              expression: `IF({${lookupFieldId}}="", "no lookup", {${lookupFieldId}})`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Lookup Maybe')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createEmptyDealResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: dealsTable.id,
+          fields: {
+            [dealNameFieldId]: 'Deal Empty',
+          },
+        }),
+      });
+      expect(createEmptyDealResponse.status).toBe(201);
+      const emptyDealRaw = await createEmptyDealResponse.json();
+      const emptyDealParsed = createRecordOkResponseSchema.safeParse(emptyDealRaw);
+      expect(emptyDealParsed.success).toBe(true);
+      if (!emptyDealParsed.success || !emptyDealParsed.data.ok) return;
+      const emptyDealId = emptyDealParsed.data.data.record.id;
+
+      const createLinkedDealResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: dealsTable.id,
+          fields: {
+            [dealNameFieldId]: 'Deal Linked',
+            [linkFieldId]: { id: contactId },
+          },
+        }),
+      });
+      expect(createLinkedDealResponse.status).toBe(201);
+      const linkedDealRaw = await createLinkedDealResponse.json();
+      const linkedDealParsed = createRecordOkResponseSchema.safeParse(linkedDealRaw);
+      expect(linkedDealParsed.success).toBe(true);
+      if (!linkedDealParsed.success || !linkedDealParsed.data.ok) return;
+      const linkedDealId = linkedDealParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(dealsTable.id);
+      const emptyDeal = records.find((r) => r.id === emptyDealId);
+      const linkedDeal = records.find((r) => r.id === linkedDealId);
+      expect(emptyDeal).toBeDefined();
+      expect(linkedDeal).toBeDefined();
+      if (!emptyDeal || !linkedDeal) return;
+
+      expect(emptyDeal.fields[formulaFieldId]).toBe('no lookup');
+      const scalar = extractLookupScalar(linkedDeal.fields[formulaFieldId]);
+      expect(scalar).toBe('C-EMPTY');
+    });
 
     /**
      * Scenario: formula handles empty rollup field
      * Formula:IF({rollupField} > 0, "Has rollup", "No rollup")
      * Expect: returns "No rollup" when rollup is empty
      */
-    test.todo(
-      'should handle empty rollup in formula - IF({rollupField} > 0, "Has rollup", "No rollup")'
-    );
+    it('should handle empty rollup in formula - IF({rollupField} > 0, "Has rollup", "No rollup")', async () => {
+      const createTasksResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Empty Rollup Tasks'),
+          fields: [
+            { type: 'singleLineText', name: 'Task', isPrimary: true },
+            {
+              type: 'number',
+              name: 'Hours',
+              options: { formatting: { type: 'decimal', precision: 0 } },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tasksRaw = await createTasksResponse.json();
+      const tasksParsed = createTableOkResponseSchema.safeParse(tasksRaw);
+      expect(tasksParsed.success).toBe(true);
+      if (!tasksParsed.success || !tasksParsed.data.ok) return;
+
+      const tasksTable = tasksParsed.data.data.table;
+      const taskNameFieldId = tasksTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const hoursFieldId = tasksTable.fields.find((f) => f.name === 'Hours')?.id ?? '';
+      if (!taskNameFieldId || !hoursFieldId) throw new Error('Missing task fields');
+
+      const createTaskResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: tasksTable.id,
+          fields: {
+            [taskNameFieldId]: 'Design',
+            [hoursFieldId]: 2,
+          },
+        }),
+      });
+      expect(createTaskResponse.status).toBe(201);
+      const taskRaw = await createTaskResponse.json();
+      const taskParsed = createRecordOkResponseSchema.safeParse(taskRaw);
+      expect(taskParsed.success).toBe(true);
+      if (!taskParsed.success || !taskParsed.data.ok) return;
+      const taskId = taskParsed.data.data.record.id;
+
+      const createProjectsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Empty Rollup Projects'),
+          fields: [{ type: 'singleLineText', name: 'Project', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const projectsRaw = await createProjectsResponse.json();
+      const projectsParsed = createTableOkResponseSchema.safeParse(projectsRaw);
+      expect(projectsParsed.success).toBe(true);
+      if (!projectsParsed.success || !projectsParsed.data.ok) return;
+
+      const projectsTable = projectsParsed.data.data.table;
+      const projectNameFieldId = projectsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!projectNameFieldId) throw new Error('Missing projects primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: projectsTable.id,
+          field: {
+            type: 'link',
+            name: 'Tasks',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: tasksTable.id,
+              lookupFieldId: taskNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'Tasks')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createRollupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: projectsTable.id,
+          field: {
+            type: 'rollup',
+            name: 'Total Hours',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId,
+              foreignTableId: tasksTable.id,
+              lookupFieldId: hoursFieldId,
+            },
+          },
+        }),
+      });
+      expect(createRollupResponse.status).toBe(200);
+      const rollupRaw = await createRollupResponse.json();
+      const rollupParsed = createFieldOkResponseSchema.safeParse(rollupRaw);
+      expect(rollupParsed.success).toBe(true);
+      if (!rollupParsed.success || !rollupParsed.data.ok) return;
+      const rollupFieldId =
+        rollupParsed.data.data.table.fields.find((f) => f.name === 'Total Hours')?.id ?? '';
+      if (!rollupFieldId) throw new Error('Missing rollup field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: projectsTable.id,
+          field: {
+            type: 'formula',
+            name: 'Rollup Flag',
+            options: {
+              expression: `IF({${rollupFieldId}} > 0, "Has rollup", "No rollup")`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Rollup Flag')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createEmptyProjectResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: projectsTable.id,
+          fields: {
+            [projectNameFieldId]: 'Empty',
+          },
+        }),
+      });
+      expect(createEmptyProjectResponse.status).toBe(201);
+      const emptyProjectRaw = await createEmptyProjectResponse.json();
+      const emptyProjectParsed = createRecordOkResponseSchema.safeParse(emptyProjectRaw);
+      expect(emptyProjectParsed.success).toBe(true);
+      if (!emptyProjectParsed.success || !emptyProjectParsed.data.ok) return;
+      const emptyProjectId = emptyProjectParsed.data.data.record.id;
+
+      const createLinkedProjectResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: projectsTable.id,
+          fields: {
+            [projectNameFieldId]: 'Linked',
+            [linkFieldId]: [{ id: taskId }],
+          },
+        }),
+      });
+      expect(createLinkedProjectResponse.status).toBe(201);
+      const linkedProjectRaw = await createLinkedProjectResponse.json();
+      const linkedProjectParsed = createRecordOkResponseSchema.safeParse(linkedProjectRaw);
+      expect(linkedProjectParsed.success).toBe(true);
+      if (!linkedProjectParsed.success || !linkedProjectParsed.data.ok) return;
+      const linkedProjectId = linkedProjectParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(projectsTable.id);
+      const emptyProject = records.find((r) => r.id === emptyProjectId);
+      const linkedProject = records.find((r) => r.id === linkedProjectId);
+      expect(emptyProject).toBeDefined();
+      expect(linkedProject).toBeDefined();
+      if (!emptyProject || !linkedProject) return;
+
+      expect(emptyProject.fields[formulaFieldId]).toBe('No rollup');
+      expect(linkedProject.fields[formulaFieldId]).toBe('Has rollup');
+    });
 
     /**
      * Scenario: Formula references link display value
      * Formula:{linkField}
      * Expect: returns link display value (primary field)
      */
-    test.todo('should get link field display value in formula - {linkField}');
+    it('should get link field display value in formula - {linkField}', async () => {
+      const createContactsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Link Display Contacts'),
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const contactsRaw = await createContactsResponse.json();
+      const contactsParsed = createTableOkResponseSchema.safeParse(contactsRaw);
+      expect(contactsParsed.success).toBe(true);
+      if (!contactsParsed.success || !contactsParsed.data.ok) return;
+
+      const contactsTable = contactsParsed.data.data.table;
+      const contactNameFieldId = contactsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!contactNameFieldId) throw new Error('Missing contacts primary field');
+
+      const createContactResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: contactsTable.id,
+          fields: {
+            [contactNameFieldId]: 'Alice',
+          },
+        }),
+      });
+      expect(createContactResponse.status).toBe(201);
+      const contactRaw = await createContactResponse.json();
+      const contactParsed = createRecordOkResponseSchema.safeParse(contactRaw);
+      expect(contactParsed.success).toBe(true);
+      if (!contactParsed.success || !contactParsed.data.ok) return;
+      const contactId = contactParsed.data.data.record.id;
+
+      const createDealsResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Link Display Deals'),
+          fields: [{ type: 'singleLineText', name: 'Deal', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const dealsRaw = await createDealsResponse.json();
+      const dealsParsed = createTableOkResponseSchema.safeParse(dealsRaw);
+      expect(dealsParsed.success).toBe(true);
+      if (!dealsParsed.success || !dealsParsed.data.ok) return;
+
+      const dealsTable = dealsParsed.data.data.table;
+      const dealNameFieldId = dealsTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      if (!dealNameFieldId) throw new Error('Missing deals primary field');
+
+      const createLinkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'link',
+            name: 'Contacts',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: contactsTable.id,
+              lookupFieldId: contactNameFieldId,
+              isOneWay: true,
+            },
+          },
+        }),
+      });
+      expect(createLinkResponse.status).toBe(200);
+      const linkRaw = await createLinkResponse.json();
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) return;
+      const linkFieldId =
+        linkParsed.data.data.table.fields.find((f) => f.name === 'Contacts')?.id ?? '';
+      if (!linkFieldId) throw new Error('Missing link field id');
+
+      const createFormulaResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: dealsTable.id,
+          field: {
+            type: 'formula',
+            name: 'Linked Names',
+            options: {
+              expression: `{${linkFieldId}}`,
+            },
+          },
+        }),
+      });
+      expect(createFormulaResponse.status).toBe(200);
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'Linked Names')?.id ?? '';
+      if (!formulaFieldId) throw new Error('Missing formula field id');
+
+      const createDealResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: dealsTable.id,
+          fields: {
+            [dealNameFieldId]: 'Deal 1',
+            [linkFieldId]: [{ id: contactId }],
+          },
+        }),
+      });
+      expect(createDealResponse.status).toBe(201);
+      const dealRaw = await createDealResponse.json();
+      const dealParsed = createRecordOkResponseSchema.safeParse(dealRaw);
+      expect(dealParsed.success).toBe(true);
+      if (!dealParsed.success || !dealParsed.data.ok) return;
+      const dealId = dealParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const records = await listRecords(dealsTable.id);
+      const stored = records.find((r) => r.id === dealId);
+      expect(stored).toBeDefined();
+      if (!stored) return;
+
+      const titles = extractLinkDisplayTitles(stored.fields[formulaFieldId]);
+      if (titles) {
+        expect(titles).toContain('Alice');
+        return;
+      }
+
+      const rawValue = stored.fields[formulaFieldId];
+      expect(typeof rawValue).toBe('string');
+      if (typeof rawValue !== 'string') return;
+      expect(rawValue).toContain('Alice');
+    });
 
     /**
      * Scenario: Formula references lookup single select field
@@ -9190,6 +10943,294 @@ describe('v2 http formula (e2e)', () => {
      * Expect: aggregation remains stable with linked data.
      */
     test.todo('should handle lookup + rollup mixed aggregation');
+  });
+
+  // ============================================================================
+  // 16. Formatted value matrix
+  // ============================================================================
+  describe('formatted value matrix', () => {
+    it('formats number/date for formulas, lookups, rollups, and nested lookups', async () => {
+      const createForeignTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Format Foreign'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'number',
+              name: 'Amount',
+              options: { formatting: { type: 'decimal', precision: 2 } },
+            },
+            {
+              type: 'date',
+              name: 'Due',
+              options: { formatting: { date: 'YYYY/MM/DD', time: 'None', timeZone: 'utc' } },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const foreignRaw = await createForeignTableResponse.json();
+      const foreignParsed = createTableOkResponseSchema.safeParse(foreignRaw);
+      expect(foreignParsed.success).toBe(true);
+      if (!foreignParsed.success || !foreignParsed.data.ok) return;
+
+      const foreignTable = foreignParsed.data.data.table;
+      const foreignNameId = foreignTable.fields.find((f) => f.name === 'Name')?.id ?? '';
+      const foreignAmountId = foreignTable.fields.find((f) => f.name === 'Amount')?.id ?? '';
+      const foreignDueId = foreignTable.fields.find((f) => f.name === 'Due')?.id ?? '';
+
+      const createForeignRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: foreignTable.id,
+          fields: {
+            [foreignNameId]: 'Foreign 1',
+            [foreignAmountId]: 20,
+            [foreignDueId]: '2024-01-03T00:00:00.000Z',
+          },
+        }),
+      });
+      expect(createForeignRecordResponse.status).toBe(201);
+      const foreignRecordRaw = await createForeignRecordResponse.json();
+      const foreignRecordParsed = createRecordOkResponseSchema.safeParse(foreignRecordRaw);
+      expect(foreignRecordParsed.success).toBe(true);
+      if (!foreignRecordParsed.success || !foreignRecordParsed.data.ok) return;
+      const foreignRecordId = foreignRecordParsed.data.data.record.id;
+
+      const createHostTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Format Host'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'number',
+              name: 'AmountLocal',
+              options: { formatting: { type: 'decimal', precision: 2 } },
+            },
+            {
+              type: 'link',
+              name: 'LinkToForeign',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: foreignTable.id,
+                lookupFieldId: foreignNameId,
+                isOneWay: true,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const hostRaw = await createHostTableResponse.json();
+      const hostParsed = createTableOkResponseSchema.safeParse(hostRaw);
+      expect(hostParsed.success).toBe(true);
+      if (!hostParsed.success || !hostParsed.data.ok) return;
+
+      const hostTable = hostParsed.data.data.table;
+      const hostLinkId = hostTable.fields.find((f) => f.name === 'LinkToForeign')?.id ?? '';
+      const hostAmountId = hostTable.fields.find((f) => f.name === 'AmountLocal')?.id ?? '';
+
+      const createField = async (field: Record<string, unknown>) => {
+        const response = await fetch(`${baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ baseId, tableId: hostTable.id, field }),
+        });
+        expect(response.status).toBe(200);
+        const raw = await response.json();
+        const parsed = createFieldOkResponseSchema.safeParse(raw);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return null;
+        return parsed.data.data.table.fields.find((f) => f.name === field.name)?.id ?? null;
+      };
+
+      const lookupAmountId = await createField({
+        type: 'lookup',
+        name: 'LookupAmount',
+        options: {
+          linkFieldId: hostLinkId,
+          foreignTableId: foreignTable.id,
+          lookupFieldId: foreignAmountId,
+        },
+      });
+      if (!lookupAmountId) return;
+
+      const lookupDueId = await createField({
+        type: 'lookup',
+        name: 'LookupDue',
+        options: {
+          linkFieldId: hostLinkId,
+          foreignTableId: foreignTable.id,
+          lookupFieldId: foreignDueId,
+        },
+      });
+      if (!lookupDueId) return;
+
+      const rollupAmountId = await createField({
+        type: 'rollup',
+        name: 'RollupAmount',
+        options: { expression: 'sum({values})', formatting: { type: 'decimal', precision: 2 } },
+        config: {
+          linkFieldId: hostLinkId,
+          foreignTableId: foreignTable.id,
+          lookupFieldId: foreignAmountId,
+        },
+      });
+      if (!rollupAmountId) return;
+
+      const formulaRightLookupAmountId = await createField({
+        type: 'formula',
+        name: 'RightLookupAmount',
+        options: { expression: `RIGHT({${lookupAmountId}}, 2)` },
+      });
+      if (!formulaRightLookupAmountId) return;
+
+      const formulaRightLookupDueId = await createField({
+        type: 'formula',
+        name: 'RightLookupDue',
+        options: { expression: `RIGHT({${lookupDueId}}, 2)` },
+      });
+      if (!formulaRightLookupDueId) return;
+
+      const formulaRightRollupAmountId = await createField({
+        type: 'formula',
+        name: 'RightRollupAmount',
+        options: { expression: `RIGHT({${rollupAmountId}}, 2)` },
+      });
+      if (!formulaRightRollupAmountId) return;
+
+      const formulaRightAmountId = await createField({
+        type: 'formula',
+        name: 'RightAmountLocal',
+        options: { expression: `RIGHT({${hostAmountId}}, 2)` },
+      });
+      if (!formulaRightAmountId) return;
+
+      const createHostRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: hostTable.id,
+          fields: {
+            [hostAmountId]: 20,
+            [hostLinkId]: { id: foreignRecordId, title: 'Foreign 1' },
+          },
+        }),
+      });
+      expect(createHostRecordResponse.status).toBe(201);
+      const hostRecordRaw = await createHostRecordResponse.json();
+      const hostRecordParsed = createRecordOkResponseSchema.safeParse(hostRecordRaw);
+      expect(hostRecordParsed.success).toBe(true);
+      if (!hostRecordParsed.success || !hostRecordParsed.data.ok) return;
+      const hostRecordId = hostRecordParsed.data.data.record.id;
+
+      const createOuterTableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: uniqueName('Format Outer'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              name: 'LinkToHost',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: hostTable.id,
+                lookupFieldId: hostAmountId,
+                isOneWay: true,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const outerRaw = await createOuterTableResponse.json();
+      const outerParsed = createTableOkResponseSchema.safeParse(outerRaw);
+      expect(outerParsed.success).toBe(true);
+      if (!outerParsed.success || !outerParsed.data.ok) return;
+
+      const outerTable = outerParsed.data.data.table;
+      const outerLinkId = outerTable.fields.find((f) => f.name === 'LinkToHost')?.id ?? '';
+
+      const createOuterField = async (field: Record<string, unknown>) => {
+        const response = await fetch(`${baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ baseId, tableId: outerTable.id, field }),
+        });
+        expect(response.status).toBe(200);
+        const raw = await response.json();
+        const parsed = createFieldOkResponseSchema.safeParse(raw);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return null;
+        return parsed.data.data.table.fields.find((f) => f.name === field.name)?.id ?? null;
+      };
+
+      const nestedLookupId = await createOuterField({
+        type: 'lookup',
+        name: 'NestedLookupAmount',
+        options: {
+          linkFieldId: outerLinkId,
+          foreignTableId: hostTable.id,
+          lookupFieldId: lookupAmountId,
+        },
+      });
+      if (!nestedLookupId) return;
+
+      const formulaRightNestedId = await createOuterField({
+        type: 'formula',
+        name: 'RightNestedAmount',
+        options: { expression: `RIGHT({${nestedLookupId}}, 2)` },
+      });
+      if (!formulaRightNestedId) return;
+
+      const createOuterRecordResponse = await fetch(`${baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: outerTable.id,
+          fields: {
+            [outerLinkId]: { id: hostRecordId, title: 'Host 1' },
+          },
+        }),
+      });
+      expect(createOuterRecordResponse.status).toBe(201);
+      const outerRecordRaw = await createOuterRecordResponse.json();
+      const outerRecordParsed = createRecordOkResponseSchema.safeParse(outerRecordRaw);
+      expect(outerRecordParsed.success).toBe(true);
+      if (!outerRecordParsed.success || !outerRecordParsed.data.ok) return;
+      const outerRecordId = outerRecordParsed.data.data.record.id;
+
+      await processOutbox(3);
+
+      const hostRecords = await listRecords(hostTable.id);
+      const hostRecord = hostRecords.find((r) => r.id === hostRecordId);
+      expect(hostRecord).toBeDefined();
+      if (!hostRecord) return;
+
+      expect(hostRecord.fields[formulaRightLookupAmountId]).toBe('00');
+      expect(hostRecord.fields[formulaRightLookupDueId]).toBe('03');
+      expect(hostRecord.fields[formulaRightRollupAmountId]).toBe('00');
+      expect(hostRecord.fields[formulaRightAmountId]).toBe('00');
+
+      const outerRecords = await listRecords(outerTable.id);
+      const outerRecord = outerRecords.find((r) => r.id === outerRecordId);
+      expect(outerRecord).toBeDefined();
+      if (!outerRecord) return;
+
+      const linkValue = outerRecord.fields[outerLinkId] as { id?: string; title?: string };
+      expect(linkValue?.title).toBe('20.00');
+      expect(outerRecord.fields[formulaRightNestedId]).toBe('00');
+    });
   });
 
   // ============================================================================

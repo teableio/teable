@@ -1,5 +1,9 @@
 import {
   BaseId,
+  DateTimeFormatting,
+  NumberFormatting,
+  NumberFormattingType,
+  TimeFormatting,
   createSingleLineTextField,
   DbFieldName,
   FieldId,
@@ -407,6 +411,122 @@ describe('ComputedTableRecordQueryBuilder', () => {
       return { mainTable, foreignTable, foreignTableId };
     };
 
+    type TitleFormattingCase = {
+      fieldType: 'number' | 'date';
+      expectedSql: string;
+    };
+
+    const createFormattedTitleTable = (caseItem: TitleFormattingCase) => {
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const lookupFieldId = FieldId.create(LOOKUP_TARGET_FIELD_ID)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+
+      if (caseItem.fieldType === 'number') {
+        const formatting = NumberFormatting.create({
+          type: NumberFormattingType.Decimal,
+          precision: 2,
+        })._unsafeUnwrap();
+        foreignBuilder
+          .field()
+          .number()
+          .withId(lookupFieldId)
+          .withName(FieldName.create('Amount')._unsafeUnwrap())
+          .withFormatting(formatting)
+          .done();
+      } else {
+        const formatting = DateTimeFormatting.create({
+          date: 'YYYY/MM/DD',
+          time: TimeFormatting.Hour24,
+          timeZone: 'UTC',
+        })._unsafeUnwrap();
+        foreignBuilder
+          .field()
+          .date()
+          .withId(lookupFieldId)
+          .withName(FieldName.create('Due')._unsafeUnwrap())
+          .withFormatting(formatting)
+          .done();
+      }
+      foreignBuilder.view().defaultGrid().done();
+
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(
+          DbFieldName.rehydrate(
+            caseItem.fieldType === 'number' ? 'col_number' : 'col_date'
+          )._unsafeUnwrap()
+        )
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_single_line_text')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      return { mainTable, foreignTable, foreignTableId };
+    };
+
+    test.each<TitleFormattingCase>([
+      {
+        fieldType: 'number',
+        expectedSql: 'to_char(("f"."col_number")::numeric, \'FM999999990D00\')',
+      },
+      {
+        fieldType: 'date',
+        expectedSql:
+          'TO_CHAR(("f"."col_date")::timestamptz AT TIME ZONE \'UTC\', \'YYYY/MM/DD HH24:MI\')',
+      },
+    ])('formats link titles with $fieldType formatting', (caseItem) => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createFormattedTitleTable(caseItem);
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(mainTable)
+      );
+
+      expect(sql).toContain(caseItem.expectedSql);
+    });
+
     test('shares LATERAL JOIN between link and lookup on same link', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createLookupTable();
@@ -581,7 +701,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_number")::text))) as "col_link", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
+        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', to_char(("f"."col_number")::numeric, 'FM999999990D00')))) as "col_link", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
       );
     });
   });

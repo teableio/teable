@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { LinkFieldLabel } from '@/components/playground/LinkFieldLabel';
 import {
   Select,
   SelectContent,
@@ -76,7 +77,12 @@ export function RollupOptions({ form, tableId, tables, isTablesLoading }: Rollup
                 <SelectContent>
                   {linkFields.map((entry) => (
                     <SelectItem key={entry.id} value={entry.id}>
-                      {entry.name}
+                      <LinkFieldLabel
+                        name={entry.name}
+                        fieldId={entry.id}
+                        relationship={entry.options?.relationship ?? 'manyMany'}
+                        isOneWay={entry.options?.isOneWay ?? false}
+                      />
                     </SelectItem>
                   ))}
                 </SelectContent>

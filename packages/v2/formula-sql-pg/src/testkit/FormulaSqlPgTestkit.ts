@@ -447,6 +447,11 @@ const createHostTable = async (params: {
   });
   formulaFieldIds.forEach((id, name) => fieldNameToId.set(name, id));
 
+  const lookupNumberId = generateFieldId('lookup-number');
+  const lookupDateId = generateFieldId('lookup-date');
+  fieldNameToId.set('LookupNumber', lookupNumberId);
+  fieldNameToId.set('LookupDate', lookupDateId);
+
   const resolvedFormulaFieldDefinitions = formulaFieldDefinitions.map((definition) => ({
     ...definition,
     expressionWithIds: replaceFormulaFieldRefs(definition.expression, fieldNameToId),
@@ -590,10 +595,12 @@ const createHostTable = async (params: {
       lookupFieldId: foreignPrimary.id().toString(),
     },
     {
+      id: lookupNumberId,
       name: 'LookupNumber', // Lookup with number innerField
       lookupFieldId: foreignNumber.id().toString(),
     },
     {
+      id: lookupDateId,
       name: 'LookupDate', // Lookup with date innerField
       lookupFieldId: foreignDate.id().toString(),
     },

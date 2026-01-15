@@ -16,6 +16,7 @@ import {
   type Table,
   type TableRecord,
 } from '@teable/v2-core';
+import { formatFieldValueAsStringSql } from '@teable/v2-formula-sql-pg';
 import {
   sql,
   type AliasedExpression,
@@ -695,25 +696,37 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return (
       match(columnType)
         .with({ type: 'link' }, ({ lookupFieldId, isMultiValue, orderBy }) =>
-          this.getForeignColRef(foreignTable, lookupFieldId).map((titleRef) => {
-            // Build JSON object: {id: ..., title: ...}
-            const titleTextRef = sql`(${titleRef})::text`;
-            const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleTextRef}))`;
-            const orderByExpr = buildLinkOrderByExpr(orderBy);
-            if (isMultiValue) {
-              // Multi-value: aggregate as JSON array
-              // Use jsonb_agg to get JSONB type which is more efficient for storage and indexing
-              return orderByExpr
-                ? sql`jsonb_agg(${jsonObj} ORDER BY ${orderByExpr})`.as(outputAlias)
-                : sql`jsonb_agg(${jsonObj})`.as(outputAlias);
-            } else {
-              // Single value: return single object (use first match)
-              // Must use jsonb_agg (not json_agg) because only JSONB supports subscript [0] access
-              return orderByExpr
-                ? sql`(jsonb_agg(${jsonObj} ORDER BY ${orderByExpr}))[0]`.as(outputAlias)
-                : sql`(jsonb_agg(${jsonObj}))[0]`.as(outputAlias);
-            }
-          })
+          foreignTable
+            .getField((f) => f.id().equals(lookupFieldId))
+            .andThen((field) =>
+              field
+                .dbFieldName()
+                .andThen((dbFieldName) => dbFieldName.value())
+                .map((columnName) => {
+                  const columnRef = sql.ref(`${F}.${columnName}`);
+                  const qualifiedRef = this.buildQualifiedRef(F, columnName);
+                  const formattedSql = formatFieldValueAsStringSql(field, qualifiedRef);
+                  const titleTextRef = formattedSql
+                    ? sql.raw(formattedSql)
+                    : sql`(${columnRef})::text`;
+                  // Build JSON object: {id: ..., title: ...}
+                  const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleTextRef}))`;
+                  const orderByExpr = buildLinkOrderByExpr(orderBy);
+                  if (isMultiValue) {
+                    // Multi-value: aggregate as JSON array
+                    // Use jsonb_agg to get JSONB type which is more efficient for storage and indexing
+                    return orderByExpr
+                      ? sql`jsonb_agg(${jsonObj} ORDER BY ${orderByExpr})`.as(outputAlias)
+                      : sql`jsonb_agg(${jsonObj})`.as(outputAlias);
+                  } else {
+                    // Single value: return single object (use first match)
+                    // Must use jsonb_agg (not json_agg) because only JSONB supports subscript [0] access
+                    return orderByExpr
+                      ? sql`(jsonb_agg(${jsonObj} ORDER BY ${orderByExpr}))[0]`.as(outputAlias)
+                      : sql`(jsonb_agg(${jsonObj}))[0]`.as(outputAlias);
+                  }
+                })
+            )
         )
         .with({ type: 'lookup' }, ({ foreignFieldId }) =>
           this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias)
@@ -740,6 +753,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         )
         .exhaustive()
     );
+  }
+
+  private buildQualifiedRef(tableAlias: string, columnName: string): string {
+    const escapeIdentifier = (value: string): string => value.replace(/"/g, '""');
+    return `"${escapeIdentifier(tableAlias)}"."${escapeIdentifier(columnName)}"`;
   }
 
   private getForeignColRef(

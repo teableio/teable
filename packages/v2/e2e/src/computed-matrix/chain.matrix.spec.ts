@@ -9,8 +9,8 @@
  * Total: ~9 test cases
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { buildMultiTableNameMaps, printComputedSteps } from '@teable/v2-container-node-test';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { createTestContext, createFieldIdGenerator, getFieldValues } from './shared';
 import type { TestContext, ValueTransition, ChainTestCase } from './shared';
 
@@ -166,7 +166,7 @@ describe('cross-table chain matrix (e2e)', () => {
       });
 
       // Create C record linked to B
-      let recordC = await ctx.createRecord(tableC.id, {
+      const recordC = await ctx.createRecord(tableC.id, {
         [cNameFieldId]: 'ItemC',
         [cLinkFieldId]: { id: recordB.id },
       });

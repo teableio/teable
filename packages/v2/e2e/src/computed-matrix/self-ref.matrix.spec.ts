@@ -9,12 +9,12 @@
  * Total: ~12 test cases
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import {
   buildNameMaps,
   printComputedSteps,
   type ComputedPlanLogEntry,
 } from '@teable/v2-container-node-test';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTestContext,
   createFieldIdGenerator,

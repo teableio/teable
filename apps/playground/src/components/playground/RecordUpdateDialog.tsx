@@ -11,6 +11,7 @@ import {
   type Table as TableAggregate,
   type SingleSelectField,
   type MultipleSelectField,
+  type LinkField,
 } from '@teable/v2-core';
 import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
+import { LinkFieldLabel } from '@/components/playground/LinkFieldLabel';
 import { FieldInput } from './field-inputs';
 import { ExplainResultPanel } from './ExplainResultPanel';
 
@@ -102,6 +104,56 @@ export function RecordUpdateDialog({
     []
   );
 
+  const getDirtyFieldValues = useCallback(
+    (values: RecordFieldValues, fieldMeta: Record<string, { isDirty?: boolean }>) => {
+      const dirtyValues: RecordFieldValues = {};
+      for (const [key, val] of Object.entries(values)) {
+        if (fieldMeta[key]?.isDirty) {
+          dirtyValues[key] = val;
+        }
+      }
+      return dirtyValues;
+    },
+    []
+  );
+
+  const validateDirtyFields = useCallback(
+    ({
+      value,
+      formApi,
+    }: {
+      value: RecordFieldValues;
+      formApi: { state: { fieldMeta: Record<string, { isDirty?: boolean }> } };
+    }) => {
+      if (!recordSchema) return;
+      const dirtyValues = getDirtyFieldValues(value, formApi.state.fieldMeta);
+      if (Object.keys(dirtyValues).length === 0) return;
+      const dirtyShape: Record<string, ZodTypeAny> = {};
+      for (const key of Object.keys(dirtyValues)) {
+        const fieldSchema = recordSchema.shape[key];
+        if (fieldSchema) {
+          dirtyShape[key] = fieldSchema;
+        }
+      }
+      if (Object.keys(dirtyShape).length === 0) return;
+      const result = z.object(dirtyShape).safeParse(dirtyValues);
+      if (result.success) return;
+      const fieldErrors = result.error.flatten().fieldErrors;
+      const fields: Record<string, string> = {};
+      for (const [fieldId, errors] of Object.entries(fieldErrors)) {
+        const message = errors?.[0];
+        if (message) {
+          fields[fieldId] = message;
+        }
+      }
+      if (Object.keys(fields).length > 0) {
+        return { fields };
+      }
+      return 'Invalid form values';
+    },
+    [getDirtyFieldValues, recordSchema]
+  );
+
   const defaultValues = useMemo(() => {
     const values: RecordFieldValues = {};
     for (const field of editableFields) {
@@ -165,14 +217,9 @@ export function RecordUpdateDialog({
   const form = useForm<RecordFieldValues, RecordFormValidator>({
     defaultValues,
     validatorAdapter,
-    validators: recordSchema ? { onSubmit: recordSchema } : {},
+    validators: recordSchema ? { onSubmit: validateDirtyFields } : {},
     onSubmit: async ({ value, formApi }) => {
-      const fields: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(value)) {
-        if (formApi.state.fieldMeta[key]?.isDirty) {
-          fields[key] = val;
-        }
-      }
+      const fields = getDirtyFieldValues(value, formApi.state.fieldMeta);
       if (Object.keys(fields).length === 0) {
         toast.info('No changes to update');
         return;
@@ -182,13 +229,7 @@ export function RecordUpdateDialog({
   });
 
   const handleExplain = useCallback(() => {
-    const value = form.state.values;
-    const fields: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(value)) {
-      if (form.state.fieldMeta[key]?.isDirty) {
-        fields[key] = val;
-      }
-    }
+    const fields = getDirtyFieldValues(form.state.values, form.state.fieldMeta);
     if (Object.keys(fields).length === 0) {
       toast.info('No changes to explain');
       return;
@@ -201,7 +242,15 @@ export function RecordUpdateDialog({
       includeSql: true,
       includeGraph: false,
     });
-  }, [explainMutation, form.state.values, form.state.fieldMeta, tableId, record.id, analyzeMode]);
+  }, [
+    analyzeMode,
+    explainMutation,
+    form.state.fieldMeta,
+    form.state.values,
+    getDirtyFieldValues,
+    record.id,
+    tableId,
+  ]);
 
   const lastOpenRef = useRef(false);
   const lastRecordIdRef = useRef<string | null>(null);
@@ -257,16 +306,29 @@ export function RecordUpdateDialog({
                   <form.Field key={field.id().toString()} name={field.id().toString()}>
                     {(formField) => {
                       const isRequired = field.notNull().toBoolean();
+                      const fieldType = field.type().toString();
+                      const fieldName = field.name().toString();
+                      const isLinkField = fieldType === 'link';
+                      const linkField = isLinkField ? (field as LinkField) : null;
                       return (
                         <div className="space-y-2">
                           <Label
                             htmlFor={field.id().toString()}
                             className="flex items-center gap-2"
                           >
-                            <span>{field.name().toString()}</span>
+                            {isLinkField && linkField ? (
+                              <LinkFieldLabel
+                                name={fieldName}
+                                fieldId={linkField.id().toString()}
+                                relationship={linkField.relationship().toString()}
+                                isOneWay={linkField.isOneWay()}
+                              />
+                            ) : (
+                              <span>{fieldName}</span>
+                            )}
                             {isRequired && <span className="text-destructive">*</span>}
                             <span className="text-xs text-muted-foreground font-normal">
-                              ({field.type().toString()})
+                              ({fieldType})
                             </span>
                             {formField.state.meta.isDirty && (
                               <span className="text-xs font-medium text-amber-600">已修改</span>

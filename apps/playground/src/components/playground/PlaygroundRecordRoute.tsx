@@ -10,6 +10,7 @@ import type {
 } from '@teable/v2-core';
 
 import { formatRecordValue } from '@/components/playground/recordValueVisitor';
+import { LinkFieldLabel } from '@/components/playground/LinkFieldLabel';
 import { getFieldTypeIcon } from '@/lib/fieldTypeIcons';
 import { ArrowLeft, Pencil, TriangleAlert, Radio } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -330,6 +331,9 @@ function RecordDetailCard({
               const fieldId = field.id().toString();
               const value = record.fields[fieldId];
               const fieldType = field.type().toString();
+              const fieldName = field.name().toString();
+              const isLinkField = fieldType === 'link';
+              const linkField = isLinkField ? (field as LinkField) : null;
               const FieldIcon = getFieldTypeIcon(fieldType);
 
               let valueNode: ReactNode = null;
@@ -368,7 +372,16 @@ function RecordDetailCard({
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <FieldIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      {field.name().toString()}
+                      {isLinkField && linkField ? (
+                        <LinkFieldLabel
+                          name={fieldName}
+                          fieldId={linkField.id().toString()}
+                          relationship={linkField.relationship().toString()}
+                          isOneWay={linkField.isOneWay()}
+                        />
+                      ) : (
+                        <span>{fieldName}</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
