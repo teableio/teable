@@ -333,7 +333,7 @@
       "link": "Link to records in the table you choose",
       "singleLineText": "Enter text, or prefill each new cell with a default value.",
       "longText": "Enter multiple lines of text.",
-      "attachment": "Add images, documents, or other files to be viewed or downloaded.",
+      "attachment": "Add or AI generate images, or upload documents or other files to be viewed or downloaded.",
       "checkbox": "Check or uncheck to indicate status.",
       "multipleSelect": "Select one or more predefined options in a list.",
       "singleSelect": "Select one predefined option from a list, or prefill each new cell with a default option.",

@@ -318,6 +318,9 @@
       "createdBy": "Erstellt von",
       "lastModifiedBy": "Letzte Änderung von"
     },
+    "tag": {
+      "attachmentAiGen": "🍌 AI"
+    },
     "description": {
       "singleLineText": "Kurze Texte wie Namen oder Titel speichern.",
       "longText": "Längere Notizen und Beschreibungen erfassen.",
@@ -329,7 +332,7 @@
       "date": "Daten oder Zeiten festhalten.",
       "createdTime": "Anzeigen, wann ein Datensatz erstellt wurde.",
       "lastModifiedTime": "Die zuletzt aktualisierte Zeit anzeigen.",
-      "attachment": "Dateien oder Bilder hochladen.",
+      "attachment": "Dateien hochladen oder KI-generierte Bilder erstellen, unterstützt Modelle wie 🍌 Nano banana pro",
       "checkbox": "Ein einfaches Ja oder Nein umschalten.",
       "rollup": "Verknüpfte Datensätze mit Formeln zusammenfassen.",
       "conditionalRollup": "Daten anhand von Bedingungen zusammenfassen.",

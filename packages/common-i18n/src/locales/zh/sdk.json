@@ -334,6 +334,9 @@
       "createdBy": "创建人",
       "lastModifiedBy": "最近修改人"
     },
+    "tag": {
+      "attachmentAiGen": "🍌 生图"
+    },
     "description": {
       "singleLineText": "存储简短的文本，如名称或标题。",
       "longText": "记录较长的备注和描述。",
@@ -345,7 +348,7 @@
       "date": "记录特定日期或时间。",
       "createdTime": "显示记录的创建时间。",
       "lastModifiedTime": "显示记录最近的更新时间。",
-      "attachment": "上传文件或图片。",
+      "attachment": "上传文件或 AI 生成图片，支持 🍌 Nano banana pro 等模型",
       "checkbox": "用开关标记是否完成。",
       "rollup": "对关联记录进行汇总计算。",
       "conditionalRollup": "根据条件汇总数据。",

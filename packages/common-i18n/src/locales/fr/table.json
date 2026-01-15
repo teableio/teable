@@ -278,7 +278,7 @@
       "link": "Lien vers les enregistrements dans la table que vous choisissez",
       "singleLineText": "Entrez du texte ou pré-remplissez chaque nouvelle cellule avec une valeur par défaut.",
       "longText": "Entrez plusieurs lignes de texte.",
-      "attachment": "Ajoutez des images, des documents ou d'autres fichiers à visualiser ou télécharger.",
+      "attachment": "Ajoutez ou générez des images par IA, ou téléversez des documents ou d'autres fichiers à visualiser ou télécharger.",
       "checkbox": "Cochez ou décochez pour indiquer le statut.",
       "multipleSelect": "Sélectionnez une ou plusieurs options prédéfinies dans une liste.",
       "singleSelect": "Sélectionnez une option prédéfinie dans une liste, ou pré-remplissez chaque nouvelle cellule avec une option par défaut.",

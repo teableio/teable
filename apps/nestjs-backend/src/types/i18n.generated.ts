@@ -1889,6 +1889,9 @@ export type I18nTranslations = {
                 "createdBy": string;
                 "lastModifiedBy": string;
             };
+            "tag": {
+                "attachmentAiGen": string;
+            };
             "description": {
                 "singleLineText": string;
                 "longText": string;

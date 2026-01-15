@@ -318,6 +318,9 @@
       "createdBy": "Created by",
       "lastModifiedBy": "Last modified by"
     },
+    "tag": {
+      "attachmentAiGen": "🍌 AI"
+    },
     "description": {
       "singleLineText": "Store short text like names or titles.",
       "longText": "Capture longer notes and descriptions.",
@@ -329,7 +332,7 @@
       "date": "Record dates or times.",
       "createdTime": "Show when a record was created.",
       "lastModifiedTime": "Show the most recent update time.",
-      "attachment": "Upload files or images.",
+      "attachment": "Upload files or AI generate images, supports models such as 🍌 Nano banana pro",
       "checkbox": "Toggle a simple yes or no.",
       "rollup": "Summarize linked records with formulas.",
       "conditionalRollup": "Summarize data from conditions.",
