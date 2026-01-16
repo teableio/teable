@@ -1,12 +1,10 @@
 import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle, Link } from '@teable/icons';
 import type { ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
 import {
   deleteTemplate,
-  getBaseAll,
-  getSpaceList,
   getTemplateList,
   pinTopTemplate,
   updateTemplate,
@@ -41,8 +39,6 @@ import {
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState, useEffect } from 'react';
-import { useEnv } from '@/features/app/hooks/useEnv';
-import { BaseSelectPanel } from './BaseSelectPanel';
 import { MarkdownPreviewButton } from './MarkdownPreviewButton';
 import { TemplateCategorySelect } from './TemplateCategorySelect';
 import { TemplateCover } from './TemplateCover';
@@ -54,10 +50,6 @@ const PAGE_SIZE = 20;
 
 export const TemplateTable = () => {
   const { t } = useTranslation(['common']);
-
-  const env = useEnv();
-
-  const { edition } = env;
 
   const isHydrated = useIsHydrated();
 
@@ -88,16 +80,6 @@ export const TemplateTable = () => {
   useEffect(() => {
     setInnerTemplates(displayedData);
   }, [displayedData]);
-
-  const { data: baseList } = useQuery({
-    queryKey: ReactQueryKeys.baseAll(),
-    queryFn: () => getBaseAll().then((data) => data.data),
-  });
-
-  const { data: spaceList } = useQuery({
-    queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList().then((data) => data.data),
-  });
 
   const queryClient = useQueryClient();
 
@@ -322,20 +304,6 @@ export const TemplateTable = () => {
             <span className="text-gray-500">{t('settings.templateAdmin.noData')}</span>
           )}
         </TableCell>
-        <TableCell className="text-center">
-          <TemplateTooltips
-            content={t('settings.templateAdmin.tips.forbiddenUpdateSystemTemplate')}
-            disabled={(edition !== 'CLOUD' || !edition) && row.isSystem}
-          >
-            <BaseSelectPanel
-              disabled={(edition !== 'CLOUD' || !edition) && row.isSystem}
-              baseList={baseList || []}
-              templateId={row.id}
-              baseId={row?.baseId}
-              spaceList={spaceList || []}
-            />
-          </TemplateTooltips>
-        </TableCell>
         <TableCell>
           {row.createdBy && row.createdBy.name ? (
             <TooltipProvider>
@@ -483,9 +451,6 @@ export const TemplateTable = () => {
             </TableHead> */}
             <TableHead className="min-w-48">
               {t('settings.templateAdmin.header.snapshotTime')}
-            </TableHead>
-            <TableHead className="text-center">
-              {t('settings.templateAdmin.header.source')}
             </TableHead>
             <TableHead className="min-w-32">
               {t('settings.templateAdmin.header.createdBy')}

@@ -73,8 +73,8 @@ export type IAttachmentFieldCustomizeAIConfig = z.infer<
 >;
 
 export const attachmentFieldAIConfigSchema = z.discriminatedUnion('type', [
-  attachmentFieldGenerateImageAIConfigSchema.strict(),
-  attachmentFieldCustomizeAIConfigSchema.strict(),
+  attachmentFieldGenerateImageAIConfigSchema,
+  attachmentFieldCustomizeAIConfigSchema,
 ]);
 
 export type IAttachmentFieldAIConfig = z.infer<typeof attachmentFieldAIConfigSchema>;
