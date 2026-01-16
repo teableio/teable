@@ -17,8 +17,8 @@ export const dateFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
 export type IDateFieldCustomizeAIConfig = z.infer<typeof dateFieldCustomizeAIConfigSchema>;
 
 export const dateFieldAIConfigSchema = z.discriminatedUnion('type', [
-  dateFieldExtractionAIConfigSchema.strict(),
-  dateFieldCustomizeAIConfigSchema.strict(),
+  dateFieldExtractionAIConfigSchema,
+  dateFieldCustomizeAIConfigSchema,
 ]);
 
 export type IDateFieldAIConfig = z.infer<typeof dateFieldAIConfigSchema>;
