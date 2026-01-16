@@ -1,3 +1,4 @@
+import type { IAttachmentCellValue } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import type { IButtonClickStatusHook } from '../../hooks';
 import { useFieldStaticGetter } from '../../hooks';
@@ -11,8 +12,17 @@ export const RecordEditorItem = (props: {
   onChange?: (newValue: unknown, fieldId: string) => void;
   readonly?: boolean;
   buttonClickStatusHook?: IButtonClickStatusHook;
+  onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
 }) => {
-  const { field, record, vertical, onChange, readonly, buttonClickStatusHook } = props;
+  const {
+    field,
+    record,
+    vertical,
+    onChange,
+    readonly,
+    buttonClickStatusHook,
+    onAttachmentDownload,
+  } = props;
   const { type, isLookup } = field;
   const fieldStaticGetter = useFieldStaticGetter();
   const { Icon } = fieldStaticGetter(type, {
@@ -51,6 +61,7 @@ export const RecordEditorItem = (props: {
         readonly={!record || readonly}
         record={record}
         buttonClickStatusHook={buttonClickStatusHook}
+        onAttachmentDownload={onAttachmentDownload}
       />
     </div>
   );

@@ -13,7 +13,27 @@ import {
   Ollama,
   AmazonBedrock,
   OpenRouter,
+  Zap,
+  // Gateway provider icons
+  Meta,
+  Moonshot,
+  Perplexity,
+  Nvidia,
+  Minimax,
+  Vercel,
+  Voyage,
+  Bfl,
+  Bytedance,
+  Xiaomi,
+  Meituan,
+  Kwaipilot,
+  ArceeAi,
+  PrimeIntellect,
+  Morph,
+  Inception,
+  Stealth,
 } from '@teable/icons';
+import type { GatewayModelProvider } from '@teable/openapi';
 import { LLMProviderType } from '@teable/openapi';
 
 export const LLM_PROVIDER_ICONS = {
@@ -33,6 +53,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.AMAZONBEDROCK]: AmazonBedrock,
   [LLMProviderType.OPENROUTER]: OpenRouter,
   [LLMProviderType.OPENAI_COMPATIBLE]: Openai,
+  [LLMProviderType.AI_GATEWAY]: Zap, // AI Gateway uses Zap icon
 };
 
 export const LLM_PROVIDERS = [
@@ -150,3 +171,37 @@ export const LLM_PROVIDERS = [
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.OPENAI_COMPATIBLE],
   },
 ] as const;
+
+// Gateway provider icons (owned_by field from AI Gateway API)
+export const GATEWAY_PROVIDER_ICONS: Record<
+  GatewayModelProvider,
+  React.ComponentType<{ className?: string }>
+> = {
+  alibaba: Qwen,
+  amazon: AmazonBedrock,
+  anthropic: Anthropic,
+  'arcee-ai': ArceeAi,
+  bfl: Bfl,
+  bytedance: Bytedance,
+  cohere: Cohere,
+  deepseek: Deepseek,
+  google: GoogleLogo,
+  inception: Inception,
+  kwaipilot: Kwaipilot,
+  meituan: Meituan,
+  meta: Meta,
+  minimax: Minimax,
+  mistral: Mistral,
+  moonshotai: Moonshot,
+  morph: Morph,
+  nvidia: Nvidia,
+  openai: Openai,
+  perplexity: Perplexity,
+  'prime-intellect': PrimeIntellect,
+  stealth: Stealth,
+  vercel: Vercel,
+  voyage: Voyage,
+  xai: Xai,
+  xiaomi: Xiaomi,
+  zai: Zhipu,
+};

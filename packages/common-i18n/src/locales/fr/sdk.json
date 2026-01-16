@@ -329,7 +329,7 @@
       "date": "Enregistrez des dates ou des heures.",
       "createdTime": "Affiche quand l'enregistrement a été créé.",
       "lastModifiedTime": "Affiche la dernière mise à jour.",
-      "attachment": "Téléversez des fichiers ou des images.",
+      "attachment": "Téléverser des fichiers ou générer des images par IA, prend en charge des modèles comme 🍌 Nano banana pro",
       "checkbox": "Basculez un simple oui ou non.",
       "rollup": "Résumez les enregistrements liés avec des formules.",
       "conditionalRollup": "Résumez les données selon des conditions.",

@@ -1,6 +1,5 @@
 import { TeableNew } from '@teable/icons';
 import { cn } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
 import { useBrand } from '@/features/app/hooks/useBrand';
 
 export const TeableLogo = ({ className }: { className: string }) => {
@@ -11,7 +10,7 @@ export const TeableLogo = ({ className }: { className: string }) => {
   }
 
   return (
-    <Image
+    <img
       src={brandLogo}
       alt={brandName}
       width={64}

@@ -49,6 +49,7 @@ export const CodingModels = ({
   models,
   onTestChatModelAbility,
   onEnableAI,
+  needGroup,
 }: {
   value: IAIIntegrationConfig['chatModel'];
   onChange: (value: IAIIntegrationConfig['chatModel']) => void;
@@ -58,6 +59,7 @@ export const CodingModels = ({
   onTestChatModelAbility?: (
     chatModel: IAIIntegrationConfig['chatModel']
   ) => Promise<IChatModelAbility | undefined>;
+  needGroup?: boolean;
 }) => {
   const { t } = useTranslation('common');
   const [showTestModal, setShowTestModal] = useState(false);
@@ -210,8 +212,8 @@ export const CodingModels = ({
     return missing;
   }, [value?.ability, t]);
 
-  // Abilities to test and display (exclude webSearch)
-  const testableAbilities = chatModelAbilityType.options.filter((type) => type !== 'webSearch');
+  // Abilities to test and display
+  const testableAbilities = chatModelAbilityType.options;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -231,6 +233,7 @@ export const CodingModels = ({
           onValueChange={handleLgModelChange}
           options={models}
           className="flex-1"
+          needGroup={needGroup}
         />
 
         {/* Model Ability Section - directly under lg model */}
@@ -344,6 +347,7 @@ export const CodingModels = ({
             onValueChange={(model) => onChange({ ...value, [key]: model })}
             options={models}
             className="flex-1"
+            needGroup={needGroup}
           />
         </div>
       ))}

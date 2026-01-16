@@ -21,6 +21,8 @@ interface IAIModelPreferencesCardProps {
   onTestChatModelAbility?: (
     chatModel: IAIIntegrationConfig['chatModel']
   ) => Promise<IChatModelAbility | undefined>;
+  needGroup?: boolean;
+  hideEmbeddingModel?: boolean;
 }
 
 export const AIModelPreferencesCard = ({
@@ -29,6 +31,8 @@ export const AIModelPreferencesCard = ({
   onChange,
   onTestChatModelAbility,
   onEnableAI,
+  needGroup,
+  hideEmbeddingModel,
 }: IAIModelPreferencesCardProps) => {
   const { t } = useTranslation('common');
 
@@ -53,6 +57,7 @@ export const AIModelPreferencesCard = ({
                       onTestChatModelAbility={onTestChatModelAbility}
                       onEnableAI={onEnableAI}
                       formValues={control._formValues as NonNullable<ISettingVo['aiConfig']>}
+                      needGroup={needGroup}
                     />
                   </FormControl>
                 </div>
@@ -61,35 +66,38 @@ export const AIModelPreferencesCard = ({
             </FormItem>
           )}
         />
-        <FormField
-          control={control}
-          name="embeddingModel"
-          render={({ field }) => (
-            <FormItem>
-              <div className="flex flex-col items-center justify-between">
-                <FormLabel className="flex w-full flex-col items-start justify-start gap-2">
-                  <span>{t('admin.setting.ai.embeddingModel')}</span>
-                  <FormDescription className="text-left text-xs text-muted-foreground">
-                    {t('admin.setting.ai.embeddingModelDescription')}
-                  </FormDescription>
-                </FormLabel>
-                <div className="flex w-full space-x-2 pt-2">
-                  <FormControl className="grow">
-                    <AIModelSelect
-                      value={field.value ?? ''}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        onChange?.();
-                      }}
-                      options={models}
-                    />
-                  </FormControl>
+        {!hideEmbeddingModel && (
+          <FormField
+            control={control}
+            name="embeddingModel"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex flex-col items-center justify-between">
+                  <FormLabel className="flex w-full flex-col items-start justify-start gap-2">
+                    <span>{t('admin.setting.ai.embeddingModel')}</span>
+                    <FormDescription className="text-left text-xs text-muted-foreground">
+                      {t('admin.setting.ai.embeddingModelDescription')}
+                    </FormDescription>
+                  </FormLabel>
+                  <div className="flex w-full space-x-2 pt-2">
+                    <FormControl className="grow">
+                      <AIModelSelect
+                        value={field.value ?? ''}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          onChange?.();
+                        }}
+                        options={models}
+                        needGroup={needGroup}
+                      />
+                    </FormControl>
+                  </div>
                 </div>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
       </div>
     </div>
   );

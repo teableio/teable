@@ -72,7 +72,7 @@
     "empty": "暂无分享给我的数据库"
   },
   "trash": {
-    "spaceDescription": "该实例下所有已删除的空间",
+    "spaceDescription": "所有已删除的空间",
     "baseDescription": "该空间下所有已删除的数据库"
   },
   "integration": {

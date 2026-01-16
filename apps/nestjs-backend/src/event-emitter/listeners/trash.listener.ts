@@ -17,7 +17,7 @@ export class TrashListener {
     const { user } = context;
     let resourceId: string;
     let resourceType: ResourceType;
-    let deletedTime: Date | null = null;
+    let deletedTime: Date | undefined | null;
     let parentId: string | undefined;
 
     switch (name) {
@@ -27,11 +27,11 @@ export class TrashListener {
         }
         resourceId = payload.spaceId;
         resourceType = ResourceType.Space;
-        const space = await this.prismaService.space.findUniqueOrThrow({
+        const space = await this.prismaService.space.findUnique({
           where: { id: resourceId },
           select: { id: true, deletedTime: true },
         });
-        deletedTime = space.deletedTime;
+        deletedTime = space?.deletedTime;
         break;
       }
       case Events.BASE_DELETE: {
@@ -40,22 +40,22 @@ export class TrashListener {
         }
         resourceId = payload.baseId;
         resourceType = ResourceType.Base;
-        const base = await this.prismaService.base.findUniqueOrThrow({
+        const base = await this.prismaService.base.findUnique({
           where: { id: resourceId },
           select: { id: true, spaceId: true, deletedTime: true },
         });
-        deletedTime = base.deletedTime;
+        deletedTime = base?.deletedTime;
         parentId = base?.spaceId;
         break;
       }
       case Events.TABLE_DELETE: {
         resourceId = payload.tableId;
         resourceType = ResourceType.Table;
-        const space = await this.prismaService.tableMeta.findUniqueOrThrow({
+        const space = await this.prismaService.tableMeta.findUnique({
           where: { id: resourceId },
           select: { id: true, baseId: true, deletedTime: true },
         });
-        deletedTime = space.deletedTime;
+        deletedTime = space?.deletedTime;
         parentId = space?.baseId;
         break;
       }

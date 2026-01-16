@@ -3,7 +3,6 @@ import { UploadType } from '@teable/openapi';
 import { FileZone } from '@teable/sdk/components/FileZone';
 import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
@@ -85,14 +84,10 @@ export const LogoEditor = (props: {
       >
         {value && (
           <div className="relative size-full overflow-hidden rounded-md border border-border">
-            <Image
+            <img
               src={previewUrl(uploadedPath || value)}
               alt="card cover"
-              fill
-              sizes="100%"
-              style={{
-                objectFit: 'contain',
-              }}
+              className="absolute inset-0 size-full object-contain"
             />
           </div>
         )}

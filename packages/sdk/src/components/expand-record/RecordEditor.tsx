@@ -1,3 +1,4 @@
+import type { IAttachmentCellValue } from '@teable/core';
 import { Button } from '@teable/ui-lib';
 import { useRef } from 'react';
 import { useLocalStorage, useMeasure } from 'react-use';
@@ -17,11 +18,20 @@ export const RecordEditor = (props: {
   onChange?: (newValue: unknown, fieldId: string) => void;
   readonly?: boolean | ((field: IFieldInstance) => boolean);
   buttonClickStatusHook?: IButtonClickStatusHook;
+  onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
 }) => {
   const { t } = useTranslation();
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const wrapRef = useRef<HTMLDivElement>(null);
-  const { fields, hiddenFields = [], record, onChange, readonly, buttonClickStatusHook } = props;
+  const {
+    fields,
+    hiddenFields = [],
+    record,
+    onChange,
+    readonly,
+    buttonClickStatusHook,
+    onAttachmentDownload,
+  } = props;
   const vertical = width > EDITOR_VERTICAL_MIN;
   const [hiddenFieldsVisible, setHiddenFieldsVisible] = useLocalStorage(
     LocalStorageKeys.ExpandRecordHiddenFieldsVisible,
@@ -40,6 +50,7 @@ export const RecordEditor = (props: {
             onChange={onChange}
             readonly={typeof readonly === 'function' ? readonly(field) : readonly}
             buttonClickStatusHook={buttonClickStatusHook}
+            onAttachmentDownload={onAttachmentDownload}
           />
         ))}
         {hiddenFields.length !== 0 && (
@@ -67,6 +78,7 @@ export const RecordEditor = (props: {
               onChange={onChange}
               readonly={typeof readonly === 'function' ? readonly(field) : readonly}
               buttonClickStatusHook={buttonClickStatusHook}
+              onAttachmentDownload={onAttachmentDownload}
             />
           ))}
       </div>

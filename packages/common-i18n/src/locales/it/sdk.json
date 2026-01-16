@@ -329,7 +329,7 @@
       "date": "Memorizza date o orari.",
       "createdTime": "Mostra quando è stato creato il record.",
       "lastModifiedTime": "Mostra l'ultimo aggiornamento.",
-      "attachment": "Carica file o immagini.",
+      "attachment": "Può caricare file o generare immagini con IA, supporta modelli come 🍌 Nano banana pro",
       "checkbox": "Attiva o disattiva un semplice sì/no.",
       "rollup": "Riassumi i record collegati con formule.",
       "conditionalRollup": "Riassumi dati in base a condizioni.",

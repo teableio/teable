@@ -1,26 +1,80 @@
 import { DeepThinking, Eye, ImageGeneration, Audio } from '@teable/icons';
 import type {
+  IGatewayModel,
   IImageModelDefination,
   ISimpleLLMProvider,
   ITextModelDefination,
   LLMProvider,
 } from '@teable/openapi';
+import { LLMProviderType } from '@teable/openapi';
 import type { TFunction } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { Trans } from 'react-i18next';
+
+// Fixed name for AI Gateway provider in modelKey
+export const AI_GATEWAY_PROVIDER_NAME = 'teable';
 
 export const generateModelKeyList = (llmProviders: ISimpleLLMProvider[] | LLMProvider[]) => {
   return llmProviders
     .map((provider) => {
       const { models, type, name, isInstance } = provider;
       const modelConfigs = 'modelConfigs' in provider ? provider.modelConfigs : undefined;
-      return models.split(',').map((model) => ({
-        modelKey: `${type}@${model}@${name}`,
-        isInstance,
-        isImageModel: modelConfigs?.[model]?.isImageModel,
-      }));
+      return models.split(',').map((model) => {
+        const config = modelConfigs?.[model];
+        return {
+          modelKey: `${type}@${model}@${name}`,
+          isInstance,
+          isImageModel: config?.isImageModel,
+          // Use configured label if available, otherwise use model ID
+          label: config?.label || model,
+          // Include metadata from modelConfigs
+          modelType: config?.modelType,
+          tags: config?.tags,
+          contextWindow: config?.contextWindow,
+          maxTokens: config?.maxTokens,
+          description: config?.description,
+        };
+      });
     })
     .flat();
+};
+
+/**
+ * Generate model key list from gateway models
+ * Format: aiGateway@<modelId>@teable
+ */
+export const generateGatewayModelKeyList = (gatewayModels: IGatewayModel[] | undefined) => {
+  if (!gatewayModels) return [];
+
+  return gatewayModels
+    .filter((model) => model.enabled)
+    .map((model) => ({
+      modelKey: `${LLMProviderType.AI_GATEWAY}@${model.id}@${AI_GATEWAY_PROVIDER_NAME}`,
+      isInstance: true, // Gateway models are instance-level
+      isImageModel: model.isImageModel,
+      label: model.label,
+      capabilities: model.capabilities,
+      isGateway: true,
+      pricing: model.pricing, // Pricing format (USD per token)
+      // API metadata for enhanced functionality
+      ownedBy: model.ownedBy,
+      modelType: model.modelType,
+      tags: model.tags,
+      contextWindow: model.contextWindow,
+      maxTokens: model.maxTokens,
+      description: model.description,
+    }));
+};
+
+/**
+ * Check if a modelKey is a gateway model
+ */
+export const isGatewayModelKey = (modelKey: string): boolean => {
+  const { type, name } = parseModelKey(modelKey);
+  return (
+    type?.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase() &&
+    name?.toLowerCase() === AI_GATEWAY_PROVIDER_NAME.toLowerCase()
+  );
 };
 
 export const parseModelKey = (modelKey: string | undefined) => {

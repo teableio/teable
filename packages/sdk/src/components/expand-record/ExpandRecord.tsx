@@ -1,4 +1,4 @@
-import type { IRecord } from '@teable/core';
+import type { IAttachmentCellValue, IRecord } from '@teable/core';
 import { Skeleton, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useCallback, useMemo } from 'react';
@@ -40,6 +40,7 @@ interface IExpandRecordProps {
   onDelete?: () => Promise<void>;
   onDuplicate?: () => Promise<void>;
   buttonClickStatusHook?: IButtonClickStatusHook;
+  onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
 }
 
 export const ExpandRecord = (props: IExpandRecordProps) => {
@@ -61,6 +62,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     onDelete,
     onDuplicate,
     buttonClickStatusHook,
+    onAttachmentDownload,
   } = props;
   const views = useViews() as (GridView | undefined)[];
   const tableId = useTableId();
@@ -179,6 +181,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
                     onChange={onChange}
                     readonly={fieldCellReadonly}
                     buttonClickStatusHook={buttonClickStatusHook}
+                    onAttachmentDownload={onAttachmentDownload}
                   />
                 </div>
               ) : (

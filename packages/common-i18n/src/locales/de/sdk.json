@@ -329,7 +329,7 @@
       "date": "Daten oder Zeiten festhalten.",
       "createdTime": "Anzeigen, wann ein Datensatz erstellt wurde.",
       "lastModifiedTime": "Die zuletzt aktualisierte Zeit anzeigen.",
-      "attachment": "Dateien oder Bilder hochladen.",
+      "attachment": "Dateien hochladen oder KI-generierte Bilder erstellen, unterstützt Modelle wie 🍌 Nano banana pro",
       "checkbox": "Ein einfaches Ja oder Nein umschalten.",
       "rollup": "Verknüpfte Datensätze mit Formeln zusammenfassen.",
       "conditionalRollup": "Daten anhand von Bedingungen zusammenfassen.",

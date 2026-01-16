@@ -285,7 +285,7 @@
       "link": "Seçtiğiniz tablodaki kayıtlara bağlantı oluşturun",
       "singleLineText": "Metin girin veya her yeni hücreyi varsayılan bir değerle doldurun.",
       "longText": "Birden fazla satır metin girin.",
-      "attachment": "Görüntülenecek veya indirilecek resimler, belgeler veya diğer dosyalar ekleyin.",
+      "attachment": "Resimler ekleyin veya yapay zeka ile oluşturun, ya da görüntülenecek veya indirilecek belgeler veya diğer dosyalar yükleyin.",
       "checkbox": "Durumu belirtmek için işaretleyin veya işareti kaldırın.",
       "multipleSelect": "Listeden bir veya daha fazla önceden tanımlanmış seçenek seçin.",
       "singleSelect": "Listeden bir önceden tanımlanmış seçenek seçin veya her yeni hücreyi varsayılan bir seçenekle doldurun.",
@@ -452,6 +452,9 @@
       "downAsCsv": "csv İndir",
       "importData": "Veri İçe Aktar",
       "duplicate": "Çoğalt",
+      "duplicating": "Çoğaltılıyor...",
+      "duplicateSuccess": "Başarıyla çoğaltıldı",
+      "duplicateFailed": "Çoğaltılamadı",
       "importing": "İçe aktarılıyor",
       "includeRecords": "Kayıtları dahil et"
     },

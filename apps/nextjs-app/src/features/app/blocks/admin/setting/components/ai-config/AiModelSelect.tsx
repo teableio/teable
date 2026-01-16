@@ -1,11 +1,7 @@
 'use client';
 
-import { ChevronDown, Plus } from '@teable/icons';
-import type { IModelDefinationMap } from '@teable/openapi';
-import { useBase } from '@teable/sdk/hooks';
-import { Button } from '@teable/ui-lib';
+import { Plus } from '@teable/icons';
 import {
-  cn,
   Command,
   CommandEmpty,
   CommandGroup,
@@ -17,38 +13,23 @@ import {
   PopoverContent,
   PopoverTrigger,
   ScrollArea,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { Check } from 'lucide-react';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import type { ReactNode } from 'react';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
-import { LLM_PROVIDER_ICONS } from './constant';
-import { parseModelKey, processModelDefinition, isImageOutputModel } from './utils';
+import {
+  GatewayModelOption,
+  ModelSelectTrigger,
+  ProviderModelOption,
+  useGatewayModels,
+  useModelCategories,
+} from './ai-model-select';
+import type { IAIModelSelectProps, IModelOption } from './ai-model-select/types';
+import type { IPickerModel } from './GatewayModelPickerDialog';
+import { GatewayModelPickerDialog } from './GatewayModelPickerDialog';
 
-export interface IModelOption {
-  isInstance?: boolean;
-  modelKey: string;
-  isImageModel?: boolean; // User-configured image model flag from admin panel
-}
-
-interface IAIModelSelectProps {
-  value: string;
-  onValueChange: (value: string) => void;
-  size?: 'xs' | 'sm' | 'lg' | 'default' | null | undefined;
-  className?: string;
-  options?: IModelOption[];
-  disabled?: boolean;
-  needGroup?: boolean;
-  modelDefinationMap?: IModelDefinationMap;
-  children?: ReactNode;
-  onlyImageOutput?: boolean; // if true, only show image output models
-}
+// Re-export types for backward compatibility
+export type { IModelOption } from './ai-model-select/types';
 
 export function AIModelSelect({
   value = '',
@@ -62,253 +43,226 @@ export function AIModelSelect({
   children,
   onlyImageOutput = false,
 }: IAIModelSelectProps) {
-  const base = useBase();
-  const router = useRouter();
   const isCloud = useIsCloud();
   const { t } = useTranslation('common');
 
   const [open, setOpen] = useState(false);
-  const currentModel = options.find(
-    ({ modelKey }) => modelKey.toLowerCase() === value.toLowerCase()
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Use custom hooks for gateway models and model categories
+  const {
+    isLoadingGateway,
+    gatewayConfigured,
+    pickerModels,
+    selectedModelIdForPicker,
+    findGatewayModel,
+  } = useGatewayModels({
+    needGroup,
+    onlyImageOutput,
+    value,
+    options,
+  });
+
+  const { gatewayOptions, spaceOptions, instanceOptions } = useModelCategories({
+    options,
+    onlyImageOutput,
+    modelDefinationMap,
+  });
+
+  // Find current model
+  const currentModel = useMemo(() => findGatewayModel(value), [findGatewayModel, value]);
+
+  // Handle model selection
+  const handleSelect = useCallback(
+    (modelKey: string, isSelected: boolean) => {
+      setValue(isSelected ? '' : modelKey);
+      setOpen(false);
+    },
+    [setValue]
   );
-  const { type, name, model } = parseModelKey(currentModel?.modelKey);
-  const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
 
-  const { spaceOptions, instanceOptions } = useMemo(() => {
-    const filterImageOutput = (model: string, isImageModel?: boolean) => {
-      if (!onlyImageOutput) return true;
-      // Check user-configured isImageModel flag first
-      if (isImageModel) return true;
-      // Fallback to static model definition
-      const modelDefination = modelDefinationMap?.[model];
-      return isImageOutputModel(modelDefination);
-    };
+  // Handle model selection from picker dialog
+  const handlePickerModelSelect = useCallback(
+    (model: IPickerModel) => {
+      const modelKey = `aiGateway@${model.id}@teable`;
+      setValue(modelKey);
+      setPickerOpen(false);
+      setOpen(false);
+    },
+    [setValue]
+  );
 
-    return {
-      spaceOptions: options.filter(({ isInstance, modelKey, isImageModel }) => {
-        if (isInstance) return false;
-        const { model = '' } = parseModelKey(modelKey);
-        return filterImageOutput(model, isImageModel);
-      }),
-      instanceOptions: options.filter(({ isInstance, modelKey, isImageModel }) => {
-        const { model = '' } = parseModelKey(modelKey);
-        return (
-          isInstance &&
-          !model.toLowerCase().includes('embedding') &&
-          filterImageOutput(model, isImageModel)
-        );
-      }),
-    };
-  }, [options, onlyImageOutput, modelDefinationMap]);
+  // Check if model is selected
+  const isModelSelected = useCallback(
+    (modelKey: string) => value.toLowerCase() === modelKey.toLowerCase(),
+    [value]
+  );
 
-  const onLinkIntegration = () => {
-    router.push({
-      pathname: '/space/[spaceId]/setting/ai-setting',
-      query: { spaceId: base.spaceId },
-    });
+  // Render gateway model options
+  const renderGatewayOptions = (
+    options: IModelOption[],
+    showGroupHeading = false,
+    showSeparator = false
+  ) => {
+    const content = options.map((option) => (
+      <GatewayModelOption
+        key={option.modelKey}
+        option={option}
+        isSelected={isModelSelected(option.modelKey)}
+        showPrice={isCloud}
+        onSelect={handleSelect}
+      />
+    ));
+
+    if (showGroupHeading) {
+      return (
+        <Fragment>
+          {showSeparator && <CommandSeparator />}
+          <CommandGroup heading={<span>{t('admin.setting.ai.recommended')}</span>}>
+            {content}
+          </CommandGroup>
+        </Fragment>
+      );
+    }
+
+    if (!options.length) return null;
+    return content;
   };
 
-  return (
-    <Popover open={open} onOpenChange={setOpen} modal>
-      <PopoverTrigger asChild disabled={disabled}>
-        {children ?? (
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            size={size}
-            className={cn('grow justify-between font-normal flex', className)}
-          >
-            <div className="flex flex-1 items-center truncate">
-              {!currentModel ? (
-                t('admin.setting.ai.selectModel')
-              ) : (
-                <>
-                  <div className="mr-1 max-w-[300px] truncate">{name}</div>
-                  <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
-                    <Icon className="size-4 shrink-0 pr-1" />
-                    {model}
-                  </div>
-                </>
-              )}
-            </div>
-            <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
-          </Button>
-        )}
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
-          <CommandInput placeholder={t('admin.setting.ai.searchModel')} />
-          <CommandEmpty>{t('admin.setting.ai.noModelFound')}</CommandEmpty>
-          <ScrollArea className="w-full">
-            <div className="max-h-[500px]">
-              <CommandList>
-                {needGroup ? (
-                  <Fragment>
-                    {!!spaceOptions.length && (
-                      <CommandGroup heading={t('noun.space')}>
-                        {spaceOptions.map(({ modelKey }) => {
-                          const { type, model, name } = parseModelKey(modelKey);
-                          const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
-                          const checked = value.toLowerCase() === modelKey.toLowerCase();
-                          return (
-                            <CommandItem
-                              key={modelKey}
-                              value={modelKey}
-                              onSelect={(modelKey) => {
-                                setValue(checked ? '' : modelKey);
-                                setOpen(false);
-                              }}
-                            >
-                              <div className="flex items-center">
-                                <Check
-                                  className={cn(
-                                    'mr-2 size-4',
-                                    checked ? 'opacity-100' : 'opacity-0'
-                                  )}
-                                />
-                                <p className="mr-1 max-w-[300px] truncate">{name}</p>
-                                <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
-                                  <Icon className="size-4 shrink-0 pr-1" />
-                                  {model}
-                                </div>
-                              </div>
-                            </CommandItem>
-                          );
-                        })}
-                      </CommandGroup>
-                    )}
-                    {!!instanceOptions.length && (
-                      <Fragment>
-                        <CommandSeparator />
-                        <CommandGroup
-                          heading={
-                            <div className="flex items-center">{t('settings.setting.system')}</div>
-                          }
-                        >
-                          {instanceOptions.map(({ modelKey }) => {
-                            const { type, model, name } = parseModelKey(modelKey);
-                            const Icon =
-                              LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
-                            const checked = value.toLowerCase() === modelKey.toLowerCase();
-                            const modelDefination = modelDefinationMap?.[model as string];
-                            const { usageTags, featureTags } = processModelDefinition(
-                              modelDefination,
-                              t
-                            );
+  // Render space model options
+  const renderSpaceOptions = (options: IModelOption[], showSeparator = false) => {
+    if (!options.length) return null;
 
-                            return (
-                              <CommandItem
-                                key={modelKey}
-                                value={modelKey}
-                                onSelect={(modelKey) => {
-                                  setValue(
-                                    modelKey.toLowerCase() === value.toLowerCase() ? '' : modelKey
-                                  );
-                                  setOpen(false);
-                                }}
-                              >
-                                <div className="w-full flex-col space-y-1">
-                                  <div className="flex items-center">
-                                    <Check
-                                      className={cn(
-                                        'mr-2 size-4',
-                                        checked ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
-                                    <p className="mr-1 max-w-[300px] truncate">{name}</p>
-                                    <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
-                                      <Icon className="size-4 shrink-0 pr-1" />
-                                      {model}
-                                    </div>
-                                  </div>
-                                  {isCloud && modelDefination && (
-                                    <div className="ml-6 flex items-center space-x-1 text-xs text-slate-500">
-                                      {usageTags.map(({ key, text, tooltip }) => (
-                                        <TooltipProvider key={key}>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <span className="rounded-md border px-2.5 py-0.5">
-                                                {text}
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p className="max-w-[320px]">{tooltip}</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      ))}
-                                      {featureTags.map(({ key, tooltip, icon }) => (
-                                        <TooltipProvider key={key}>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <span className="rounded-md border p-0.5">
-                                                {icon}
-                                              </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p className="max-w-[320px]">{tooltip}</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </Fragment>
-                    )}
-                  </Fragment>
-                ) : (
-                  <Fragment>
-                    {spaceOptions.map(({ modelKey }) => {
-                      const { type, model, name } = parseModelKey(modelKey);
-                      const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
-                      const checked = value.toLowerCase() === modelKey.toLowerCase();
-                      return (
-                        <CommandItem
-                          key={modelKey}
-                          value={modelKey}
-                          onSelect={(modelKey) => {
-                            setValue(checked ? '' : modelKey);
-                            setOpen(false);
-                          }}
-                        >
-                          <div className="flex items-center">
-                            <Check
-                              className={cn('mr-2 size-4', checked ? 'opacity-100' : 'opacity-0')}
-                            />
-                            <p className="mr-1 max-w-[300px] truncate">{name}</p>
-                            <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
-                              <Icon className="size-4 shrink-0 pr-1" />
-                              {model}
-                            </div>
-                          </div>
-                        </CommandItem>
-                      );
-                    })}
-                  </Fragment>
-                )}
-              </CommandList>
-            </div>
-          </ScrollArea>
-          {needGroup && (
-            <Fragment>
-              {Boolean(spaceOptions.length || instanceOptions.length) && <CommandSeparator />}
-              <CommandItem
-                className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground"
-                onSelect={onLinkIntegration}
-              >
-                <Plus className="size-4" />
-                {t('admin.setting.ai.addCustomModel')}
-              </CommandItem>
-            </Fragment>
+    return (
+      <Fragment>
+        {showSeparator && <CommandSeparator />}
+        <CommandGroup heading={t('noun.space')}>
+          {options.map((option) => (
+            <ProviderModelOption
+              key={option.modelKey}
+              option={option}
+              isSelected={isModelSelected(option.modelKey)}
+              onSelect={handleSelect}
+            />
+          ))}
+        </CommandGroup>
+      </Fragment>
+    );
+  };
+
+  // Render instance model options
+  const renderInstanceOptions = (options: IModelOption[]) => {
+    if (!options.length) return null;
+
+    return (
+      <Fragment>
+        <CommandSeparator />
+        <CommandGroup
+          heading={<div className="flex items-center">{t('settings.setting.system')}</div>}
+        >
+          {options.map((option) => (
+            <ProviderModelOption
+              key={option.modelKey}
+              option={option}
+              isSelected={isModelSelected(option.modelKey)}
+              onSelect={handleSelect}
+              modelDefinationMap={modelDefinationMap}
+              t={t}
+              showPriceInfo
+            />
+          ))}
+        </CommandGroup>
+      </Fragment>
+    );
+  };
+
+  // Render all provider options (space + instance) for non-grouped view
+  const renderProviderOptions = (spaceOpts: IModelOption[], instanceOpts: IModelOption[]) => {
+    const allOptions = [...spaceOpts, ...instanceOpts];
+    if (!allOptions.length) return null;
+
+    return allOptions.map((option) => (
+      <ProviderModelOption
+        key={option.modelKey}
+        option={option}
+        isSelected={isModelSelected(option.modelKey)}
+        onSelect={handleSelect}
+      />
+    ));
+  };
+
+  const hasAnyOptions =
+    gatewayOptions.length > 0 || spaceOptions.length > 0 || instanceOptions.length > 0;
+
+  return (
+    <>
+      <Popover open={open} onOpenChange={setOpen} modal>
+        <PopoverTrigger asChild disabled={disabled}>
+          {children ?? (
+            <ModelSelectTrigger
+              currentModel={currentModel}
+              value={value}
+              size={size}
+              className={className}
+              open={open}
+            />
           )}
-        </Command>
-      </PopoverContent>
-    </Popover>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+          <Command>
+            <CommandInput placeholder={t('admin.setting.ai.searchModel')} />
+            <CommandEmpty>{t('admin.setting.ai.noModelFound')}</CommandEmpty>
+            <ScrollArea className="w-full">
+              <div className="max-h-[500px]">
+                <CommandList>
+                  {needGroup ? (
+                    <Fragment>
+                      {renderSpaceOptions(spaceOptions, false)}
+                      {renderGatewayOptions(gatewayOptions, true, !!spaceOptions.length)}
+                      {renderInstanceOptions(instanceOptions)}
+                    </Fragment>
+                  ) : (
+                    <Fragment>
+                      {renderGatewayOptions(gatewayOptions)}
+                      {renderProviderOptions(spaceOptions, instanceOptions)}
+                    </Fragment>
+                  )}
+                </CommandList>
+              </div>
+            </ScrollArea>
+            {needGroup && gatewayConfigured === true && (
+              <Fragment>
+                {hasAnyOptions && <CommandSeparator />}
+                <CommandItem
+                  className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground"
+                  onSelect={() => {
+                    setPickerOpen(true);
+                  }}
+                >
+                  <Plus className="size-4" />
+                  {t('admin.setting.ai.moreModels')}
+                  {!isLoadingGateway && pickerModels.length > 0 && (
+                    <span className="text-xs text-yellow-500 dark:text-yellow-600">
+                      ({pickerModels.length})
+                    </span>
+                  )}
+                </CommandItem>
+              </Fragment>
+            )}
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {/* Gateway Model Picker Dialog */}
+      <GatewayModelPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        models={pickerModels}
+        isLoading={isLoadingGateway}
+        selectedModelId={selectedModelIdForPicker}
+        onSelectModel={handlePickerModelSelect}
+        priceMode={isCloud ? 'credits' : 'none'}
+      />
+    </>
   );
 }

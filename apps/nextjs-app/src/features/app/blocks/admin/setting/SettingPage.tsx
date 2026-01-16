@@ -74,44 +74,60 @@ export const SettingPage = (props: ISettingPageProps) => {
           envPublicOrigin: publicOrigin,
           currentPublicOrigin: isHydrated ? location?.origin : '',
         },
-        shouldShow: isHydrated ? location?.origin !== publicOrigin : false,
+        isRequired: true,
+        isComplete: isHydrated ? location?.origin === publicOrigin : false,
+        group: 'system' as const,
         path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.https.title'),
         key: 'https' as const,
-        shouldShow: isHydrated ? location?.protocol !== 'https:' : false,
+        isRequired: true,
+        isComplete: isHydrated ? location?.protocol === 'https:' : false,
+        group: 'system' as const,
         path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.databaseProxy.title'),
         key: 'databaseProxy' as const,
-        shouldShow: !publicDatabaseProxy,
+        isRequired: true,
+        isComplete: Boolean(publicDatabaseProxy),
+        group: 'system' as const,
         path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.llmApi.title'),
         key: 'llmApi' as const,
-        shouldShow: !setting?.aiConfig?.enable || setting?.aiConfig?.llmProviders.length === 0,
+        isRequired: true,
+        isComplete: (() => {
+          const aiConfig = setting?.aiConfig;
+          const enabled = Boolean(aiConfig?.enable);
+          const hasLlmApi =
+            Boolean(aiConfig?.aiGatewayApiKey) || (aiConfig?.llmProviders?.length ?? 0) > 0;
+          const hasModelPool = aiConfig?.aiGatewayApiKey
+            ? (aiConfig?.gatewayModels ?? []).some((m) => m.enabled)
+            : (aiConfig?.llmProviders?.length ?? 0) > 0;
+          const hasChatModel = Boolean(aiConfig?.chatModel?.lg);
+          return enabled && hasLlmApi && hasModelPool && hasChatModel;
+        })(),
+        group: 'ai' as const,
         path: '/admin/ai-setting?anchor=llm',
       },
       {
         title: t('admin.configuration.list.app.title'),
         key: 'app' as const,
-        shouldShow: !setting?.appConfig?.apiKey,
+        isRequired: true,
+        isComplete: Boolean(setting?.appConfig?.apiKey),
+        group: 'appBuilder' as const,
         path: '/admin/ai-setting?anchor=app',
-      },
-      {
-        title: t('admin.configuration.list.webSearch.title'),
-        key: 'webSearch' as const,
-        shouldShow: !setting?.webSearchConfig?.apiKey,
-        path: '/admin/ai-setting?anchor=webSearch',
       },
       {
         title: t('admin.configuration.list.email.title'),
         key: 'email' as const,
         anchor: emailRef,
-        shouldShow: !setting?.notifyMailTransportConfig,
+        isRequired: true,
+        isComplete: Boolean(setting?.notifyMailTransportConfig),
+        group: 'system' as const,
         path: '/admin/setting?anchor=email',
       },
     ],
@@ -119,10 +135,8 @@ export const SettingPage = (props: ISettingPageProps) => {
       isHydrated,
       publicDatabaseProxy,
       publicOrigin,
-      setting?.aiConfig?.enable,
-      setting?.aiConfig?.llmProviders.length,
-      setting?.appConfig?.apiKey,
-      setting?.webSearchConfig?.apiKey,
+      setting?.aiConfig,
+      setting?.appConfig,
       setting?.notifyMailTransportConfig,
       t,
     ]
@@ -139,9 +153,7 @@ export const SettingPage = (props: ISettingPageProps) => {
     }
   }, [router.query]);
 
-  const finalList = useMemo(() => {
-    return todoLists.filter((item) => item.shouldShow);
-  }, [todoLists]);
+  const finalList = todoLists;
 
   if (!setting || !isHydrated) return null;
 

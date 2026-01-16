@@ -2036,10 +2036,9 @@ export class FieldSupplementService {
     const { type } = aiConfig ?? {};
 
     if (type === FieldAIActionType.Customization) {
-      const { prompt, attachmentFieldIds = [] } = aiConfig as ITextFieldCustomizeAIConfig;
+      const { prompt } = aiConfig as ITextFieldCustomizeAIConfig;
       const fieldIds = extractFieldReferences(prompt);
-      const allFieldIds = Array.from(new Set([...fieldIds, ...attachmentFieldIds]));
-      const fieldIdsToCreate = allFieldIds.filter((id) => existingFieldIdSet.has(id));
+      const fieldIdsToCreate = fieldIds.filter((id) => existingFieldIdSet.has(id));
 
       return await this.prismaService.txClient().taskReference.createMany({
         data: fieldIdsToCreate.map((id) => ({
@@ -2087,10 +2086,9 @@ export class FieldSupplementService {
       if (!type) continue;
 
       if (type === FieldAIActionType.Customization) {
-        const { prompt, attachmentFieldIds = [] } = aiConfig as ITextFieldCustomizeAIConfig;
+        const { prompt } = aiConfig as ITextFieldCustomizeAIConfig;
         const fieldIds = extractFieldReferences(prompt);
-        const allFieldIds = Array.from(new Set([...fieldIds, ...attachmentFieldIds]));
-        const fieldIdsToCreate = allFieldIds.filter((id) => existingFieldIdSet.has(id));
+        const fieldIdsToCreate = fieldIds.filter((id) => existingFieldIdSet.has(id));
         fieldIdsToCreate.forEach((fromFieldId) => rows.push({ fromFieldId, toFieldId }));
         continue;
       }
