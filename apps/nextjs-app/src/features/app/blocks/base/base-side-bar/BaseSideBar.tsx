@@ -1,8 +1,10 @@
 // import { TableList } from '../../table-list/TableList';
 import { CollaboratorType } from '@teable/openapi';
 import { useBase } from '@teable/sdk/hooks';
+import { MoveBaseSelectPanel } from '../../table-list/MoveBasePanel';
 import { BaseNodeTree } from './BaseNodeTree';
 import { BasePageRouter } from './BasePageRouter';
+import { useBaseSideBarStore } from './store';
 
 export const BaseSideBar = (props: {
   renderWinFreeCredit?: (spaceId: string) => React.ReactNode;
@@ -10,6 +12,8 @@ export const BaseSideBar = (props: {
   const { renderWinFreeCredit } = props;
   const base = useBase();
   const isSpaceCollaborator = base.collaboratorType === CollaboratorType.Space;
+  const { moveBaseOpen, setMoveBaseOpen } = useBaseSideBarStore();
+
   return (
     <>
       <BasePageRouter />
@@ -18,6 +22,7 @@ export const BaseSideBar = (props: {
         <BaseNodeTree />
       </div>
       {isSpaceCollaborator && renderWinFreeCredit && renderWinFreeCredit(base.spaceId)}
+      <MoveBaseSelectPanel open={moveBaseOpen} onOpenChange={setMoveBaseOpen} />
     </>
   );
 };

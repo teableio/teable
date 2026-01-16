@@ -1,7 +1,17 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
-import { Copy, FileCsv, FileExcel, Pencil, History, Code2, Trash2, Download } from '@teable/icons';
+import {
+  ArrowRight,
+  Copy,
+  FileCsv,
+  FileExcel,
+  Pencil,
+  History,
+  Code2,
+  Trash2,
+  Download,
+} from '@teable/icons';
 import type { IBaseNodeVo, IDuplicateBaseNodeRo } from '@teable/openapi';
 import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
@@ -51,6 +61,7 @@ import { APIDialog } from '../../view/tool-bar/APIDialog';
 import type { TreeItemData } from '../base-node/hooks';
 import { findAdjacentNonFolderNode, getNodeUrl, useBaseNodeCrud } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
+import { useBaseSideBarStore } from './store';
 
 // Menu item component for list variant (mobile)
 const ListMenuItem = ({
@@ -315,6 +326,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
   const basePermission = useBasePermission();
   const canTableRecordHistoryRead = basePermission?.['table_record_history|read'];
   const canTableTrashRead = basePermission?.['table|trash_read'];
+  const { setMoveBaseOpen, setSelectTableId } = useBaseSideBarStore();
 
   const router = useRouter();
   const [apiDialogOpen, setApiDialogOpen] = useState(false);
@@ -346,6 +358,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
       deleteTable: table?.permission?.['table|delete'],
       updateTable: table?.permission?.['table|update'],
       duplicateTable: table?.permission?.['table|read'] && basePermission?.['table|create'],
+      moveTable: table?.permission?.['table|read'] && basePermission?.['table|create'],
       exportTable: table?.permission?.['table|export'],
       importTable: table?.permission?.['table|import'],
       tableRecordHistory: canTableRecordHistoryRead,
@@ -503,6 +516,16 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
             onClick={() => setDuplicateSetting(true)}
           />
         )}
+        {menuPermission.moveTable && (
+          <ListMenuItem
+            icon={<ArrowRight className="size-4" />}
+            label={t('table:import.menu.moveTo')}
+            onClick={() => {
+              setSelectTableId(resourceId);
+              setMoveBaseOpen(true);
+            }}
+          />
+        )}
         {menuPermission.exportTable && (
           <ListMenuItem
             icon={<Download className="size-4" />}
@@ -616,7 +639,20 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
-          {(menuPermission.updateTable || menuPermission.duplicateTable) &&
+          {menuPermission.moveTable && (
+            <DropdownMenuItem
+              onClick={() => {
+                setSelectTableId(resourceId);
+                setMoveBaseOpen(true);
+              }}
+            >
+              <ArrowRight className="mr-2 size-4" />
+              {t('table:import.menu.moveTo')}
+            </DropdownMenuItem>
+          )}
+          {(menuPermission.updateTable ||
+            menuPermission.duplicateTable ||
+            menuPermission.moveTable) &&
             menuPermission.exportTable && <DropdownMenuSeparator />}
 
           {menuPermission.exportTable && (

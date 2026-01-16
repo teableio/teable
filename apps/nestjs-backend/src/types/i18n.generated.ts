@@ -3866,6 +3866,7 @@ export type I18nTranslations = {
                 "deleteRecord": string;
                 "clear": string;
                 "conjunction": string;
+                "moveTableSucceedAndJump": string;
                 "pasing": string;
             };
             "graph": {
@@ -3907,6 +3908,11 @@ export type I18nTranslations = {
                 "keepAsIs": string;
                 "ignoreIndexError": string;
             };
+            "moveTableTips": {
+                "title": string;
+                "tips": string;
+                "stillContinue": string;
+            };
             "searchTips": {
                 "maxFieldTips_limited": string;
             };
@@ -3945,6 +3951,7 @@ export type I18nTranslations = {
                 "duplicateFailed": string;
                 "importing": string;
                 "includeRecords": string;
+                "moveTo": string;
                 "autoFill": string;
             };
             "tips": {
