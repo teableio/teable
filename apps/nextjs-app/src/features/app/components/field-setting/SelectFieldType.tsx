@@ -31,6 +31,7 @@ interface ISelectorItem {
   name: string;
   icon?: React.ReactNode;
   description?: string;
+  tag?: string;
 }
 
 export const FIELD_TYPE_ORDER1 = [
@@ -91,13 +92,18 @@ const fieldTypeItem = (
   setOpen: (open: boolean) => void,
   onChange?: (type: InnerFieldType) => void
 ) => {
-  const { id, name, icon, description } = item;
+  const { id, name, icon, description, tag } = item;
 
   const content = (
     <div className="flex w-full min-w-0 items-center gap-2">
       <Check className={cn('h-4 w-4 flex-shrink-0', id === value ? 'opacity-100' : 'opacity-0')} />
       {icon}
       <span className={cn('truncate flex-1', name ? '' : 'text-primary/60')}>{name}</span>
+      {tag && (
+        <span className="flex h-5 shrink-0 items-center justify-center rounded-sm border bg-muted px-1 text-xs text-foreground">
+          {tag}
+        </span>
+      )}
     </div>
   );
 
@@ -109,7 +115,6 @@ const fieldTypeItem = (
         onChange?.(id);
         setOpen(false);
       }}
-      title={description || name}
       className="flex"
     >
       {description ? (
@@ -154,9 +159,10 @@ export const SelectFieldType = (props: {
         name: title,
         description,
         icon: <Icon className="size-4" />,
+        tag: type === FieldType.Attachment ? t('sdk:field.tag.attachmentAiGen') : undefined,
       };
     });
-  }, [getFieldStatic, isPrimary]);
+  }, [getFieldStatic, isPrimary, t]);
 
   const advancedGroup = useMemo((): ISelectorItem[] => {
     const fieldTypes = isPrimary
@@ -223,6 +229,7 @@ export const SelectFieldType = (props: {
         name: title,
         description,
         icon: <Icon className="size-4" />,
+        tag: type === FieldType.Attachment ? t('sdk:field.tag.attachmentAiGen') : undefined,
       };
     });
 
@@ -265,15 +272,20 @@ export const SelectFieldType = (props: {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('flex gap-1 font-normal px-3')}
+          className={cn('flex gap-2 font-normal px-3')}
         >
           {selected.icon}
           <span className="truncate">{selected.name}</span>
+          {selected.tag && (
+            <span className="ml-1 flex h-5 shrink-0 items-center justify-center rounded-sm border bg-muted px-1.5 text-xs text-foreground">
+              {selected.tag}
+            </span>
+          )}
           <div className="grow"></div>
           <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn('w-96 p-0', 'select-field-type')}>
+      <PopoverContent align="end" className={cn('w-[398px] p-0', 'select-field-type')}>
         <TooltipProvider delayDuration={200}>
           <Command
             filter={(value, search) => {
@@ -287,17 +299,17 @@ export const SelectFieldType = (props: {
             <CommandInput placeholder={searchTip} />
             <CommandEmpty>{emptyTip}</CommandEmpty>
             <CommandList>
-              <CommandGroup className="border-b border-border">
+              <CommandGroup className="border-b border-border py-2">
                 <div className="grid grid-cols-2 gap-1">
                   {baseGroup.map((item) => fieldTypeItem(item, value, setOpen, onChange))}
                 </div>
               </CommandGroup>
-              <CommandGroup className="border-b border-border">
+              <CommandGroup className="border-b border-border py-2">
                 <div className="grid grid-cols-2 gap-1">
                   {advancedGroup.map((item) => fieldTypeItem(item, value, setOpen, onChange))}
                 </div>
               </CommandGroup>
-              <CommandGroup>
+              <CommandGroup className="py-2">
                 <div className="grid grid-cols-2 gap-1">
                   {systemGroup.map((item) => fieldTypeItem(item, value, setOpen, onChange))}
                 </div>

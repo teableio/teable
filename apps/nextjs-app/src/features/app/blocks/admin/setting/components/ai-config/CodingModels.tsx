@@ -210,8 +210,8 @@ export const CodingModels = ({
     return missing;
   }, [value?.ability, t]);
 
-  // Abilities to test and display (exclude webSearch)
-  const testableAbilities = chatModelAbilityType.options.filter((type) => type !== 'webSearch');
+  // Abilities to test and display
+  const testableAbilities = chatModelAbilityType.options;
 
   return (
     <div className="flex flex-1 flex-col gap-4">

@@ -3,7 +3,6 @@ import type { IGetPluginCenterListVo } from '@teable/openapi';
 import { MarkdownPreview } from '@teable/sdk';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { UserAvatar } from '../user/UserAvatar';
 
@@ -24,16 +23,7 @@ export const PluginDetail = (props: {
       <div className="flex-1 gap-3 overflow-auto px-4 md:flex">
         <div className="flex-1">
           <div className="mb-4 flex h-20 items-center gap-3 p-2">
-            <Image
-              src={plugin.logo}
-              alt={plugin.name}
-              width={56}
-              height={56}
-              sizes="100%"
-              style={{
-                objectFit: 'contain',
-              }}
-            />
+            <img src={plugin.logo} alt={plugin.name} className="size-14 object-contain" />
             <div className="flex-auto">
               <div>{plugin.name}</div>
               <div

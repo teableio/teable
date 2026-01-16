@@ -6,6 +6,10 @@ import {
   CommandItem,
   CommandList,
   cn,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@teable/ui-lib';
 import React, { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
@@ -21,6 +25,8 @@ interface IFieldCommand {
   emptyHolder?: React.ReactNode;
   groupHeading?: string;
   isDisabled?: (field: IFieldInstance) => boolean;
+  getDisabledReason?: (field: IFieldInstance) => string | undefined;
+  maxHeight?: number;
 }
 
 export function FieldCommand(props: IFieldCommand) {
@@ -32,6 +38,8 @@ export function FieldCommand(props: IFieldCommand) {
     fields: propsFields,
     groupHeading,
     isDisabled,
+    getDisabledReason,
+    maxHeight,
   } = props;
   const { t } = useTranslation();
 
@@ -44,6 +52,51 @@ export function FieldCommand(props: IFieldCommand) {
     return fields.filter((field) => (selectedIds?.length ? !selectedIds.includes(field.id) : true));
   }, [fields, selectedIds]);
 
+  const renderFieldItem = (field: IFieldInstance) => {
+    const { Icon } = fieldStaticGetter(field.type, {
+      isLookup: field.isLookup,
+      isConditionalLookup: field.isConditionalLookup,
+      hasAiConfig: Boolean(field.aiConfig),
+      deniedReadRecord: !field.canReadFieldRecord,
+    });
+    const disabled = isDisabled?.(field) ?? false;
+    const disabledReason = disabled ? getDisabledReason?.(field) : undefined;
+
+    const itemContent = (
+      <CommandItem
+        key={field.id}
+        disabled={disabled}
+        onSelect={() => {
+          if (disabled) {
+            return;
+          }
+          onSelect?.(field.id);
+        }}
+        className={cn('flex', disabled && 'pointer-events-none opacity-50')}
+      >
+        <Icon className="size-4 shrink-0" />
+        <span className="truncate pl-3">{field.name}</span>
+      </CommandItem>
+    );
+
+    if (disabled && disabledReason) {
+      return (
+        <TooltipProvider key={field.id}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>{itemContent}</div>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p className="max-w-[200px] text-xs">{disabledReason}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return itemContent;
+  };
+
   return (
     <Command className="max-w-md rounded-lg p-0 shadow-md">
       <CommandInput
@@ -51,35 +104,9 @@ export function FieldCommand(props: IFieldCommand) {
         className="text-xs"
         containerClassName="border-none"
       />
-      <CommandList>
+      <CommandList style={maxHeight ? { maxHeight } : undefined}>
         <CommandEmpty>{emptyHolder || t('common.search.empty')}</CommandEmpty>
-        <CommandGroup heading={groupHeading}>
-          {mergeFields?.map((field) => {
-            const { Icon } = fieldStaticGetter(field.type, {
-              isLookup: field.isLookup,
-              isConditionalLookup: field.isConditionalLookup,
-              hasAiConfig: Boolean(field.aiConfig),
-              deniedReadRecord: !field.canReadFieldRecord,
-            });
-            const disabled = isDisabled?.(field) ?? false;
-            return (
-              <CommandItem
-                key={field.id}
-                disabled={disabled}
-                onSelect={() => {
-                  if (disabled) {
-                    return;
-                  }
-                  onSelect?.(field.id);
-                }}
-                className={cn('flex', disabled && 'pointer-events-none opacity-40')}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="truncate pl-3">{field.name}</span>
-              </CommandItem>
-            );
-          })}
-        </CommandGroup>
+        <CommandGroup heading={groupHeading}>{mergeFields?.map(renderFieldItem)}</CommandGroup>
       </CommandList>
     </Command>
   );

@@ -1,4 +1,4 @@
-import type { IRecord } from '@teable/core';
+import type { IAttachmentCellValue, IRecord } from '@teable/core';
 import type { IButtonClickStatusHook } from '@teable/sdk';
 import { ExpandRecorder, ExpandRecordModel } from '@teable/sdk';
 import { useRouter } from 'next/router';
@@ -14,6 +14,7 @@ export const ExpandRecordContainerBase = forwardRef<
     onClose?: () => void;
     onUpdateRecordIdCallback?: (recordId: string) => void;
     buttonClickStatusHook?: IButtonClickStatusHook;
+    onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
   }
 >((props, forwardRef) => {
   const {
@@ -23,6 +24,7 @@ export const ExpandRecordContainerBase = forwardRef<
     onClose,
     onUpdateRecordIdCallback,
     buttonClickStatusHook,
+    onAttachmentDownload,
   } = props;
   const router = useRouter();
   const {
@@ -56,6 +58,7 @@ export const ExpandRecordContainerBase = forwardRef<
       buttonClickStatusHook={buttonClickStatusHook}
       showHistory={showHistory}
       showComment={showComment}
+      onAttachmentDownload={onAttachmentDownload}
     />
   );
 });

@@ -402,19 +402,19 @@ export const BatchTestModels = ({
       {/* Header with test button and progress */}
       <div className="flex items-center gap-4">
         {isRunning ? (
-          <Button variant="destructive" size="sm" onClick={handleStop} className="gap-2">
+          <Button variant="destructive" size="xs" onClick={handleStop} className="gap-2">
             <Square className="size-3" />
             {t('admin.setting.ai.stopTest')}
           </Button>
         ) : (
           <Button
             variant="outline"
-            size="sm"
+            size="xs"
             onClick={handleBatchTest}
             disabled={disabled}
             className="gap-2"
           >
-            <Play className="size-3" />
+            <Play className="size-4" />
             {t('admin.setting.ai.batchTest')}
           </Button>
         )}
@@ -424,10 +424,10 @@ export const BatchTestModels = ({
           <div className="flex flex-1 items-center gap-3">
             <Progress value={progressPercent} className="h-1.5 flex-1" />
             <div className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
-              {isRunning && <Loader2 className="size-3 animate-spin" />}
+              {isRunning && <Loader2 className="size-4 animate-spin" />}
               <span>{progressPercent}%</span>
-              <span className="text-green-600">{successCount}✓</span>
-              <span className="text-red-600">{failedCount}✗</span>
+              <span className="text-green-600 dark:text-green-400">{successCount} ✓</span>
+              <span className="text-red-600 dark:text-red-400">{failedCount} ✗</span>
             </div>
           </div>
         )}

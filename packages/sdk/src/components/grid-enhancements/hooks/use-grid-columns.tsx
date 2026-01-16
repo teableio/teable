@@ -11,7 +11,6 @@ import {
   ColorUtils,
   FieldType,
   checkButtonClickable,
-  TimeFormatting,
 } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { keyBy } from 'lodash';
@@ -45,7 +44,6 @@ import {
   expandPreviewModal,
 } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
-import { useBuildBaseAgentStore } from '../store/useBuildBaseAgentStore';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 

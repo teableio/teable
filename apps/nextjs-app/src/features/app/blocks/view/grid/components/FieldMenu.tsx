@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { useMutation } from '@tanstack/react-query';
 import type { IFilter, IGroup, ISort } from '@teable/core';
-import { getValidFilterOperators } from '@teable/core';
+import { FieldType, getValidFilterOperators } from '@teable/core';
 import {
   Trash2,
   Edit,
@@ -14,6 +14,7 @@ import {
   ArrowUpDown,
   Copy,
   MagicAi,
+  Download,
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
 import { duplicateField } from '@teable/openapi';
@@ -23,6 +24,7 @@ import {
   useFields,
   useGridViewStore,
   useIsTouchDevice,
+  usePersonalView,
   useTableId,
   useTablePermission,
   useView,
@@ -46,6 +48,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
+import { useColumnDownloadDialogStore } from '@/features/app/components/download-attachments';
 import { FieldDeleteConfirmDialog } from '@/features/app/components/field-setting/field-delete-confirm-dialog/FieldDeleteConfirmDialog';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -66,6 +69,7 @@ enum MenuItemType {
   Filter = 'Filter',
   Group = 'Group',
   Duplicate = 'Duplicate',
+  DownloadAllAttachments = 'DownloadAllAttachments',
 }
 
 const iconClassName = 'mr-2 h-4 w-4';
@@ -86,6 +90,7 @@ export const FieldMenu = () => {
   const fieldSettingRef = useRef<HTMLDivElement>(null);
   const { fields, aiEnable, onSelectionClear, onAutoFill } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
+  const { personalViewCommonQuery } = usePersonalView();
   const emptyFieldMenu = !view || !fields?.length || !allFields.length;
   const [deleteFieldDialog, setDeleteFieldDialog] = useState<{
     open: boolean;
@@ -94,6 +99,7 @@ export const FieldMenu = () => {
   }>({
     open: false,
   });
+  const { openDialog: openDownloadDialog } = useColumnDownloadDialogStore();
 
   const { mutateAsync: duplicateFieldFn } = useMutation({
     mutationFn: ({
@@ -159,6 +165,18 @@ export const FieldMenu = () => {
     await view?.updateOption({ frozenFieldId: fieldId });
   };
 
+  const handleDownloadAllAttachments = () => {
+    if (!tableId || !fields?.length) return;
+    const field = fields[0];
+    openDownloadDialog({
+      tableId,
+      fieldId: field.id,
+      fieldName: field.name,
+      viewId: view?.id,
+      personalViewCommonQuery: personalViewCommonQuery ?? undefined,
+    });
+  };
+
   const menuGroups: IMenuItemProps<MenuItemType>[][] = [
     [
       {
@@ -204,6 +222,13 @@ export const FieldMenu = () => {
         onClick: async () => {
           onAutoFill?.(fieldIds[0]);
         },
+      },
+      {
+        type: MenuItemType.DownloadAllAttachments,
+        name: t('table:menu.downloadAllAttachments'),
+        icon: <Download className={iconClassName} />,
+        hidden: fieldIds.length !== 1 || fields[0]?.type !== FieldType.Attachment,
+        onClick: handleDownloadAllAttachments,
       },
     ],
     [

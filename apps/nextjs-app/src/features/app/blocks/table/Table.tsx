@@ -22,6 +22,10 @@ import Head from 'next/head';
 import { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
+import {
+  CellDownloadHandler,
+  DownloadAllAttachmentsDialog,
+} from '../../components/download-attachments';
 import { PluginContextMenu } from '../../components/plugin-context-menu/PluginContextMenu';
 import { PluginPanel } from '../../components/plugin-panel/PluginPanel';
 import type { IBaseResourceTable } from '../../hooks/useBaseResource';
@@ -120,6 +124,8 @@ export const Table: React.FC<ITableProps> = ({
                   </div>
                   <PluginPanel tableId={tableId} />
                   <PluginContextMenu tableId={tableId} baseId={baseId} />
+                  <DownloadAllAttachmentsDialog />
+                  <CellDownloadHandler />
                   {/* <ChatPanel /> */}
                 </div>
               </PersonalViewProvider>

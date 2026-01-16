@@ -19,6 +19,7 @@
     "back": "返回",
     "remove": "移除",
     "removeConfig": "清空配置",
+    "retry": "重试",
     "saveSucceed": "保存成功！",
     "submitSucceed": "提交成功！",
     "editSucceed": "编辑成功！",
@@ -341,7 +342,6 @@
     "credits": "算力",
     "aiChat": "AI 对话",
     "app": "应用",
-    "webSearch": "网络搜索",
     "folder": "文件夹",
     "newAutomation": "新自动化",
     "newApp": "新应用",
@@ -520,7 +520,6 @@
         "provider": "模型提供商",
         "aiAbilitySettings": "AI 能力设置",
         "aiAbilitySettingsDescription": "配置 AI 能力",
-        "providerDescription": "要使用的模型提供商",
         "modelPreferences": "模型偏好",
         "modelPreferencesDescription": "模型提供商的模型偏好",
         "embeddingModel": "嵌入模型",
@@ -583,6 +582,8 @@
           "pdf": "PDF",
           "webSearch": "网络搜索",
           "toolCall": "工具调用",
+          "reasoning": "深度推理",
+          "imageGeneration": "图像生成",
           "disabledWebSearch": "禁用网络搜索",
           "lgModelAbility": "模型能力",
           "missingVision": "不支持图片或 PDF 处理",
@@ -593,6 +594,8 @@
         "noModelFound": "未找到模型",
         "searchModel": "搜索模型...",
         "selectModel": "选择模型...",
+        "moreModels": "更多模型",
+        "noModelsAvailable": "暂无可用模型",
         "input": "输入 {{ratio}}",
         "output": "输出 {{ratio}}",
         "inputOrOutputTip": "比例表示算力与 Token 的兑换关系，如 “1:1000” 表示 1 算力 ≈ 1000 Token。<br></br>注意：每次使用至少扣 1 算力，即使实际不足 1 个算力",
@@ -607,7 +610,7 @@
         "testing": "测试中...",
         "testSuccess": "测试成功",
         "testFailed": "测试失败",
-        "batchTest": "批量测试所有模型",
+        "batchTest": "测试模型能力",
         "testProvider": "测试",
         "testProviderTooltip": "测试此提供商下的 {{count}} 个模型",
         "batchTesting": "正在测试所有模型...",
@@ -681,10 +684,135 @@
           "ollamaRunning": "请确保 Ollama 正在本地运行，可以通过 'ollama serve' 命令启动",
           "sslCertificate": "存在 SSL 证书问题，如果使用自签名证书，可能需要额外配置",
           "checkConfiguration": "请检查您的配置，确保 Base URL、API Key 和模型名称都正确"
+        },
+        "recommended": "推荐",
+        "gatewayModels": "AI Gateway 模型",
+        "gatewayModelsDescription": "通过 Vercel AI Gateway 配置推荐模型，获得最佳 AI SDK 支持",
+        "gatewayDescription": "使用 AI Gateway 获得最佳兼容性和可靠性。请在下方 App 配置区域配置 API 密钥。",
+        "providerDescription": "高级选项：为特定用例或自托管模型配置自定义 AI 服务商。",
+        "noGatewayModels": "未配置 Gateway 模型。添加模型以开始使用。",
+        "addModel": "添加模型",
+        "addGatewayModel": "添加 Gateway 模型",
+        "popularModels": "常用模型",
+        "modelId": "模型 ID",
+        "modelIdHint": "AI Gateway 使用的模型标识符（例如：anthropic/claude-sonnet-4）",
+        "searchModelPlaceholder": "输入模型名称搜索...",
+        "noMatchingModels": "未找到匹配的模型",
+        "useCustomId": "使用自定义 ID: {{id}}",
+        "typeToSearch": "输入关键词搜索可用模型",
+        "modelNotFound": "此模型 ID 在可用列表中未找到，请确认拼写正确",
+        "testModel": "测试模型",
+        "testModelSuccess": "模型测试成功！API 响应正常",
+        "testModelImageSuccess": "图像模型已确认存在于 API 中",
+        "testModelNotFound": "模型在 API 列表中未找到",
+        "displayLabel": "显示名称",
+        "isImageModel": "这是图像生成模型",
+        "capabilities": "模型能力",
+        "setAsDefault": "设为默认聊天模型",
+        "quickAdd": "快速添加常用模型：",
+        "guide": {
+          "configStatus": "配置状态",
+          "ready": "就绪",
+          "needsAttention": "需要注意",
+          "incomplete": "未完成",
+          "aiEnabled": "AI 已启用",
+          "aiEnabledDesc": "此实例已启用自定义模型",
+          "aiDisabledDesc": "启用以使用自定义 AI 模型",
+          "gatewayKey": "Gateway API 密钥",
+          "gatewayKeyConfigured": "AI Gateway 密钥已配置",
+          "gatewayKeyMissing": "配置 AI Gateway API 密钥以获得推荐设置",
+          "gatewayKeyRequired": "请先在下方 App 配置区域配置 AI Gateway API 密钥",
+          "gatewayModels": "Gateway 模型",
+          "gatewayModelsConfigured": "已启用 {{count}} 个模型",
+          "gatewayModelsEmpty": "添加 Gateway 模型供用户选择",
+          "providers": "自定义服务商",
+          "providersConfigured": "已配置 {{count}} 个服务商",
+          "providersEmpty": "未配置自定义服务商",
+          "chatModel": "默认聊天模型",
+          "chatModelGateway": "使用 Gateway 模型",
+          "chatModelProvider": "使用自定义服务商模型",
+          "chatModelMissing": "请选择默认聊天模型"
+        },
+        "enableCard": {
+          "title": "AI 服务",
+          "ready": "已配置完成，AI 功能可正常使用",
+          "needsConfig": "已启用，但需要完成以下配置",
+          "disabled": "AI 功能当前未启用",
+          "missingConfig": "待完成配置：",
+          "allConfigured": "所有配置已完成"
+        },
+        "wizard": {
+          "setupProgress": "配置进度",
+          "checklist": "配置清单",
+          "allComplete": "所有必需配置已完成！AI 功能已就绪。",
+          "nextStep": "下一步：{{step}}",
+          "configureAI": "完成以下步骤以启用 AI 功能",
+          "optional": "可选",
+          "gatewayHelp": "AI Gateway：一个 API Key 访问数百模型；首次使用需在 Vercel 绑定信用卡启用免费额度；支持",
+          "gatewayByok": "（自带 Provider Key）",
+          "getApiKey": "获取 API 密钥",
+          "keyInvalid": "API 密钥无效，请检查后重试",
+          "gatewayErrorUnauthorized": "API 密钥无效，请检查是否正确复制",
+          "gatewayErrorNeedCreditCard": "需要绑定信用卡才能使用 AI Gateway，请前往 Vercel 控制台添加",
+          "gatewayErrorInsufficientQuota": "账户余额不足，请充值后再试",
+          "gatewayErrorForbidden": "访问被拒绝，请在 Vercel 控制台检查账户状态",
+          "gatewayErrorNetwork": "网络错误，请检查网络连接或代理配置",
+          "pleaseTest": "请点击测试验证 API 密钥是否有效",
+          "test": "测试",
+          "testing": "测试中...",
+          "attachmentTest": {
+            "title": "附件传输模式",
+            "urlMode": "URL 模式",
+            "base64Mode": "Base64 模式",
+            "accessible": "可用",
+            "inaccessible": "不可用",
+            "urlNotAccessibleWarning": "AI 服务无法访问附件 URL，这在内网部署时很常见。已自动启用 Base64 模式。",
+            "useBase64Mode": "使用 Base64 模式",
+            "base64ModeDescription": "发送前将附件转换为 Base64（Teable 无法被公网访问时使用）",
+            "originChanged": "服务器地址已变更",
+            "originChangedDesc": "自上次测试以来服务器地址已变更，请重新测试以验证附件可访问性。"
+          },
+          "saveAndContinue": "保存并继续",
+          "completeStep1First": "请先完成步骤 1：配置 LLM API",
+          "completeStep2First": "请先完成步骤 2：添加至少一个模型",
+          "addCustom": "自定义...",
+          "enabledModels": "已启用模型",
+          "chatDefault": "聊天默认",
+          "noModelsAvailable": "暂无可用模型，请先在步骤 2 添加模型",
+          "quickSetup": "快速设置",
+          "useRecommended": "使用推荐配置",
+          "useRecommendedDesc": "一键将 {{model}} 设为所有聊天场景的默认模型",
+          "chatModels": "聊天模型",
+          "chatModelTip": "此模型用于侧边栏 AI 聊天功能，由管理员指定，用户无法更改",
+          "selectChatModel": "选择聊天模型...",
+          "lgDesc": "复杂任务、深度分析",
+          "mdDesc": "日常对话、一般任务",
+          "smDesc": "简单查询、快速响应",
+          "readyToUse": "AI 已配置完成，可以开始使用了！",
+          "customProviderHelp": "添加您自己的 AI 服务商（如 OpenAI、Anthropic、Azure 等），配置 API 密钥和模型。",
+          "testModelCapabilities": "测试模型能力",
+          "customModelsAutoImported": "您配置的服务商模型已自动导入到可选模型池。",
+          "modelsCount": "共 {{count}} 个可选模型",
+          "customModelsHint": "如需调整模型配置，请返回步骤 1 修改服务商设置。",
+          "gatewayOption": {
+            "title": "AI Gateway（推荐）",
+            "desc": "通过 Vercel AI Gateway 访问数百种模型，最佳兼容性和可靠性"
+          },
+          "customOption": {
+            "title": "自定义服务商",
+            "desc": "接入自建/私有模型，支持多服务商配置"
+          },
+          "step": {
+            "llmApi": "配置 LLM API",
+            "llmApiDesc": "选择 AI Gateway 或配置自定义服务商",
+            "modelPool": "配置推荐模型",
+            "modelPoolDesc": "用户在 AI 字段和自动化中的推荐模型列表",
+            "chatModel": "设置聊天模型",
+            "chatModelDesc": "侧边栏 AI 聊天使用的模型（从推荐模型列表选择）",
+            "providers": "配置服务商",
+            "providersDesc": "添加和管理 AI 服务商"
+          }
         }
-      },
-      "webSearch": {
-        "description": "配置 Firecrawl API 密钥以启用网络搜索功能，访问 <a>Firecrawl 设置</a> 获取 API 密钥"
       },
       "app": {
         "domain": "域名",
@@ -697,9 +825,11 @@
         "apiProxyDescription": "配置 v0 和 Vercel API 的反向代理地址（如 Cloudflare Workers）。留空则使用默认地址。",
         "v0BaseUrl": "v0 API 代理地址",
         "vercelBaseUrl": "Vercel API 代理地址",
-        "aiGateway": "Vercel AI Gateway (可选)",
+        "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "配置 Vercel AI Gateway 以通过单一端点访问数百种模型。访问 <a>AI Gateway 设置</a> 获取 API 密钥",
-        "aiGatewayApiKey": "AI Gateway API 密钥"
+        "aiGatewayApiKey": "AI Gateway API 密钥",
+        "aiGatewayKeyConfigured": "API 密钥已配置",
+        "aiGatewayBaseUrl": "自定义网关地址"
       }
     },
     "action": {
@@ -714,6 +844,16 @@
     "configuration": {
       "title": "待配置项",
       "description": "完成这些配置以获得完整功能",
+      "progressTitle": "配置进度",
+      "allComplete": "所有配置已完成",
+      "incomplete": "还有配置未完成",
+      "optional": "可选",
+      "completed": "已完成",
+      "group": {
+        "system": "基础配置",
+        "ai": "AI 服务",
+        "appBuilder": "应用构建器"
+      },
       "copyInstance": "复制 ID",
       "list": {
         "publicOrigin": {
@@ -734,15 +874,38 @@
           "description": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用，<anchor>前往设置</anchor>",
           "errorTips": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用"
         },
+        "aiEnable": {
+          "title": "AI 服务（聊天 / AI 字段）",
+          "description": "开启后可使用 AI Chat、AI 字段与自动化能力，<anchor>前往设置</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "AI：配置 LLM API",
+          "description": "选择 AI Gateway 或配置自定义 Provider，<anchor>前往设置</anchor>"
+        },
+        "aiModelPool": {
+          "title": "AI：配置可选模型",
+          "description": "添加/启用至少一个模型供 AI 字段与自动化选择，<anchor>前往设置</anchor>"
+        },
+        "aiChatModel": {
+          "title": "AI：设置聊天模型",
+          "description": "为侧边栏 AI Chat 选择一个默认模型，<anchor>前往设置</anchor>"
+        },
         "app": {
           "title": "应用构建器",
           "description": "您尚未配置 v0 API，应用构建器功能将无法使用，<anchor>前往设置</anchor>",
           "errorTips": "您尚未配置 v0 API，应用构建器功能将无法使用"
         },
-        "webSearch": {
-          "title": "网络搜索",
-          "description": "您尚未配置网络搜索 API，网络搜索功能将无法使用，<anchor>前往设置</anchor>",
-          "errorTips": "您尚未配置网络搜索 API，网络搜索功能将无法使用"
+        "appBuilderV0": {
+          "title": "应用构建器：启用 v0",
+          "description": "配置 v0 API Key 后即可使用应用构建器，<anchor>前往设置</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "应用构建器：自定义域名",
+          "description": "如需使用自定义域名发布应用，请配置域名与 Vercel Token，<anchor>前往设置</anchor>"
+        },
+        "appBuilderApiProxy": {
+          "title": "应用构建器：API 代理",
+          "description": "如需通过代理访问 v0/Vercel API，请配置代理地址，<anchor>前往设置</anchor>"
         },
         "email": {
           "title": "邮箱",
@@ -1008,8 +1171,8 @@
   "noPermissionToCreateBase": "没有权限在任何空间中创建数据库",
   "base": {
     "deleteTip": "确定要删除 \"{{name}}\" 数据库吗？",
-    "createResource": "创建资源",
-    "noPermissionToCreateResource": "您没有权限创建资源"
+    "createResource": "创建",
+    "noPermissionToCreateResource": "您没有权限创建，请联系管理员"
   },
   "app": {
     "title": "应用构建器",

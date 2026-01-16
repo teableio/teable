@@ -2,7 +2,6 @@ import { ViewType } from '@teable/core';
 import { Component, Database, Table2 } from '@teable/icons';
 import type { IGetPinListVo } from '@teable/openapi';
 import { BaseNodeResourceType, PinType } from '@teable/openapi';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
@@ -103,13 +102,7 @@ export const PinItem = (props: IPinItemProps) => {
             title={pin.name}
           >
             {pin.viewMeta?.type === ViewType.Plugin && pin.viewMeta?.pluginLogo ? (
-              <Image
-                className="mr-1 size-4 shrink-0"
-                width={16}
-                height={16}
-                src={pin.viewMeta?.pluginLogo}
-                alt={pin.name}
-              />
+              <img className="mr-1 size-4 shrink-0" src={pin.viewMeta?.pluginLogo} alt={pin.name} />
             ) : (
               <ViewIcon className="size-4 shrink-0" />
             )}
