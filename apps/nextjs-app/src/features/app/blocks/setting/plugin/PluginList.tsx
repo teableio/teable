@@ -3,7 +3,6 @@ import { Plus, Settings, Trash2 } from '@teable/icons';
 import { deletePlugin, getPlugins } from '@teable/openapi';
 import type { PluginStatus } from '@teable/openapi';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
@@ -52,14 +51,10 @@ export const PluginList = () => {
           <Card key={plugin.id} className="group shadow-none hover:shadow-md">
             <CardContent className="relative flex size-full items-center gap-5 px-2 py-3">
               <div className="relative size-16 overflow-hidden rounded-sm">
-                <Image
+                <img
                   src={plugin.logo}
                   alt={plugin.name}
-                  fill
-                  sizes="100%"
-                  style={{
-                    objectFit: 'contain',
-                  }}
+                  className="absolute inset-0 size-full object-contain"
                 />
               </div>
               <div className="h-full flex-1 overflow-hidden">

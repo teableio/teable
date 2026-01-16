@@ -88,7 +88,7 @@ export const LLMProviderManage = ({
 
           return (
             <div
-              className="group rounded-lg border p-3 hover:border-primary/50"
+              className="group rounded-lg border p-4 pr-3 hover:border-primary/50"
               key={provider.name}
             >
               {/* Provider header */}
@@ -103,10 +103,10 @@ export const LLMProviderManage = ({
                         <TooltipTrigger asChild>
                           <Button
                             size="xs"
-                            variant="ghost"
+                            variant="outline"
                             onClick={() => onTestProvider?.(provider)}
                             disabled={isTesting}
-                            className="h-6 gap-1 px-2 text-xs"
+                            className="h-6 gap-1 px-2 text-xs shadow-none"
                           >
                             {isTesting ? (
                               <Loader2 className="size-3 animate-spin" />
@@ -125,14 +125,14 @@ export const LLMProviderManage = ({
                     </TooltipProvider>
                   )}
                 </div>
-                <div className="flex shrink-0 gap-1 opacity-70">
+                <div className="flex shrink-0 gap-1">
                   <Button
                     onClick={() => handleRemove(index)}
                     size="xs"
                     variant="ghost"
-                    className="opacity-0 group-hover:opacity-100"
+                    className="w-7 p-0 opacity-0 group-hover:opacity-100"
                   >
-                    <XIcon className="size-4" />
+                    <XIcon className="size-4 text-muted-foreground" />
                   </Button>
                   <UpdateLLMProviderForm
                     value={provider}
@@ -140,8 +140,8 @@ export const LLMProviderManage = ({
                     onTest={onTest}
                     hideModelRates={hideModelRates}
                   >
-                    <Button size="xs" variant="ghost">
-                      <SlidersHorizontalIcon className="size-4" />
+                    <Button size="xs" variant="ghost" className="w-7 p-0">
+                      <SlidersHorizontalIcon className="size-4 text-muted-foreground" />
                     </Button>
                   </UpdateLLMProviderForm>
                 </div>
@@ -149,7 +149,7 @@ export const LLMProviderManage = ({
 
               {/* Model pills */}
               {models.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div className="mt-2 flex flex-wrap gap-2">
                   {models.map((model) => {
                     const modelKey = `${provider.type}@${model}@${provider.name}`;
                     const testResult = modelTestResults?.get(modelKey);
@@ -216,15 +216,15 @@ const ModelPill = ({
   const getStatusStyles = () => {
     switch (status) {
       case 'idle':
-        return 'bg-muted/50 text-muted-foreground border-transparent';
+        return 'bg-primary/5 rounded-sm font-normal text-muted-foreground border-transparent';
       case 'pending':
-        return 'bg-muted/70 text-muted-foreground border-transparent';
+        return 'bg-primary/5 rounded-sm font-normal text-foreground border-transparent';
       case 'testing':
-        return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800';
+        return 'font-normal rounded-sm bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
       case 'success':
-        return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-800';
+        return 'font-normal rounded-sm bg-green-50 text-green-600 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20';
       case 'failed':
-        return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800';
+        return 'font-normal rounded-sm bg-red-50 text-red-600 border-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20';
     }
   };
 
@@ -320,7 +320,7 @@ const ModelPill = ({
             className={cn(
               'inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-80',
               getStatusStyles(),
-              isImageModel && 'ring-1 ring-purple-400 dark:ring-purple-600'
+              isImageModel && 'ring-1 ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/20'
             )}
           >
             <span className="max-w-[100px] truncate">{model}</span>

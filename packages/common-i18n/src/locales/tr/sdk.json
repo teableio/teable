@@ -329,7 +329,7 @@
       "date": "Tarih veya saatleri kaydeder.",
       "createdTime": "Kaydın ne zaman oluşturulduğunu gösterir.",
       "lastModifiedTime": "Son güncellenme zamanını gösterir.",
-      "attachment": "Dosya veya görseller yükler.",
+      "attachment": "Dosya yükleyebilir veya yapay zeka ile görsel oluşturabilir, 🍌 Nano banana pro gibi modelleri destekler",
       "checkbox": "Basit bir evet/hayır anahtarını değiştirir.",
       "rollup": "Bağlı kayıtları formüllerle özetler.",
       "conditionalRollup": "Koşullara göre verileri özetler.",

@@ -17,10 +17,12 @@ import {
 import { useTranslation } from 'next-i18next';
 import React, { Fragment, useState } from 'react';
 import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai-config/AiModelSelect';
-import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
+import {
+  generateModelKeyList,
+  generateGatewayModelKeyList,
+} from '@/features/app/blocks/admin/setting/components/ai-config/utils';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
-import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { tableConfig } from '@/features/i18n/table.config';
 import { UpgradeWrapper } from '../../billing/UpgradeWrapper';
 import type { IFieldEditorRo } from '../type';
@@ -51,7 +53,6 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
   const { type: fieldType, isLookup, aiConfig } = field;
   const usage = useBaseUsage();
   const baseId = useBaseId() as string;
-  const isCloud = useIsCloud();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const [_isExpanded, setIsExpanded] = useState(!!aiConfig);
@@ -64,8 +65,14 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
   const { type } = aiConfig ?? {};
   const { fieldAIEnable = false } = usage?.limit ?? {};
   const isExpanded = _isExpanded && fieldAIEnable;
-  const { llmProviders = [], modelDefinationMap } = baseAiConfig ?? {};
-  const models = generateModelKeyList(llmProviders);
+  const { llmProviders = [], modelDefinationMap, gatewayModels } = baseAiConfig ?? {};
+
+  // Generate model list: Space models first, then Gateway recommended models, then Instance models
+  const providerModels = generateModelKeyList(llmProviders);
+  const gatewayModelsList = generateGatewayModelKeyList(gatewayModels);
+  const spaceModels = providerModels.filter((m) => !m.isInstance);
+  const instanceModels = providerModels.filter((m) => m.isInstance);
+  const models = [...spaceModels, ...gatewayModelsList, ...instanceModels];
 
   const onConfigChange = (key: keyof IFieldAIConfig, value: unknown) => {
     switch (key) {
@@ -82,22 +89,61 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
     }
   };
 
+  // Model selector component to be passed to field configs
+  const modelSelector =
+    fieldType !== FieldType.Attachment && models.length > 0 ? (
+      <div className="flex flex-col gap-y-2">
+        <span>
+          {t('table:field.aiConfig.label.model')}
+          <RequireCom />
+        </span>
+        <AIModelSelect
+          value={aiConfig?.modelKey || ''}
+          onValueChange={(newValue) => {
+            onConfigChange('modelKey', newValue);
+          }}
+          options={models}
+          className="w-full px-2"
+          modelDefinationMap={modelDefinationMap}
+          needGroup
+        />
+      </div>
+    ) : null;
+
   const getAiConfigRenderer = () => {
     switch (fieldType) {
       case FieldType.SingleLineText:
       case FieldType.LongText:
-        return <TextFieldAiConfig field={field} onChange={onChange} />;
+        return (
+          <TextFieldAiConfig field={field} onChange={onChange} modelSelector={modelSelector} />
+        );
       case FieldType.SingleSelect:
-        return <SingleSelectFieldAiConfig field={field} onChange={onChange} />;
+        return (
+          <SingleSelectFieldAiConfig
+            field={field}
+            onChange={onChange}
+            modelSelector={modelSelector}
+          />
+        );
       case FieldType.MultipleSelect:
-        return <MultipleSelectFieldAiConfig field={field} onChange={onChange} />;
+        return (
+          <MultipleSelectFieldAiConfig
+            field={field}
+            onChange={onChange}
+            modelSelector={modelSelector}
+          />
+        );
       case FieldType.Attachment:
         return <AttachmentFieldAiConfig field={field} onChange={onChange} />;
       case FieldType.Rating:
       case FieldType.Number:
-        return <RatingFieldAiConfig field={field} onChange={onChange} />;
+        return (
+          <RatingFieldAiConfig field={field} onChange={onChange} modelSelector={modelSelector} />
+        );
       case FieldType.Date:
-        return <DateFieldAiConfig field={field} onChange={onChange} />;
+        return (
+          <DateFieldAiConfig field={field} onChange={onChange} modelSelector={modelSelector} />
+        );
       default:
         throw new Error(`Unsupported field type: ${fieldType}`);
     }
@@ -173,52 +219,31 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
           <div className="space-y-4 border-t p-4">
             {getAiConfigRenderer()}
             {type && (
-              <Fragment>
-                {/* Model selector - only show for non-attachment field types */}
-                {fieldType !== FieldType.Attachment && models.length > 0 && (
-                  <div className="flex flex-col gap-y-2">
-                    <span>
-                      {t('table:field.aiConfig.label.model')}
-                      <RequireCom />
-                    </span>
-                    <AIModelSelect
-                      value={aiConfig?.modelKey || ''}
-                      onValueChange={(newValue) => {
-                        onConfigChange('modelKey', newValue);
-                      }}
-                      options={models}
-                      className="w-full px-2"
-                      modelDefinationMap={modelDefinationMap}
-                      needGroup
-                    />
-                  </div>
-                )}
-                <div className="flex h-8 items-center">
-                  <Switch
-                    id="autoFill"
-                    className="mr-2"
-                    checked={Boolean(aiConfig?.isAutoFill)}
-                    onCheckedChange={(checked) => {
-                      onConfigChange('isAutoFill', checked);
-                    }}
-                  />
-                  <Label htmlFor="autoFill" className="font-normal">
-                    {t('table:field.aiConfig.autoFill.title')}
-                  </Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="ml-2 cursor-pointer text-muted-foreground">
-                          <HelpCircle className="size-4" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-[320px]">{t('table:field.aiConfig.autoFill.tip')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </Fragment>
+              <div className="flex h-8 items-center">
+                <Switch
+                  id="autoFill"
+                  className="mr-2"
+                  checked={Boolean(aiConfig?.isAutoFill)}
+                  onCheckedChange={(checked) => {
+                    onConfigChange('isAutoFill', checked);
+                  }}
+                />
+                <Label htmlFor="autoFill" className="font-normal">
+                  {t('table:field.aiConfig.autoFill.title')}
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="ml-2 cursor-pointer text-muted-foreground">
+                        <HelpCircle className="size-4" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-[320px]">{t('table:field.aiConfig.autoFill.tip')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             )}
           </div>
         )}

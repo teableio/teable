@@ -12,7 +12,6 @@ export type IMultipleSelectFieldTagAIConfig = z.infer<typeof multipleSelectField
 export const multipleSelectFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
   type: z.literal(FieldAIActionType.Customization),
   prompt: z.string(),
-  attachmentFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
   onlyAllowConfiguredOptions: z.boolean().optional(),
 });
 

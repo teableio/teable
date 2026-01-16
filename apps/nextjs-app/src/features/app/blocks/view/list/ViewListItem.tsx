@@ -23,7 +23,6 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { Unlock } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, Fragment, useEffect, useCallback, useMemo } from 'react';
@@ -161,13 +160,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const commonPart = (
     <div className="relative flex w-full items-center overflow-hidden px-0.5">
       {view.type === ViewType.Plugin ? (
-        <Image
-          className="mr-1 size-4 shrink-0"
-          width={16}
-          height={16}
-          src={view.options.pluginLogo}
-          alt={view.name}
-        />
+        <img className="mr-1 size-4 shrink-0" src={view.options.pluginLogo} alt={view.name} />
       ) : (
         <Fragment>
           {view.isLocked && <Lock className="mr-[2px] size-4 shrink-0" />}

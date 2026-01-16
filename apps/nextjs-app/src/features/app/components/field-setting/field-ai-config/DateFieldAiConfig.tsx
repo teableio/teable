@@ -8,15 +8,16 @@ import { Fragment, useMemo } from 'react';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
-import { AttachmentSelect, FieldSelect, PromptEditorContainer } from './components';
+import { FieldSelect, PromptEditorContainer } from './components';
 
 interface IDateFieldAiConfigProps {
   field: Partial<IFieldEditorRo>;
   onChange?: (partialField: Partial<IFieldEditorRo>) => void;
+  modelSelector?: React.ReactNode;
 }
 
 export const DateFieldAiConfig = (props: IDateFieldAiConfigProps) => {
-  const { field, onChange } = props;
+  const { field, onChange, modelSelector } = props;
   const { id, aiConfig } = field;
   const { type } = aiConfig ?? {};
 
@@ -59,13 +60,6 @@ export const DateFieldAiConfig = (props: IDateFieldAiConfigProps) => {
         return onChange?.({
           aiConfig: { ...aiConfig, prompt: value as string } as IDateFieldCustomizeAIConfig,
         });
-      case 'attachmentFieldIds':
-        return onChange?.({
-          aiConfig: {
-            ...aiConfig,
-            attachmentFieldIds: value as string[],
-          } as IDateFieldCustomizeAIConfig,
-        });
       default:
         throw new Error(`Unsupported key: ${key}`);
     }
@@ -87,6 +81,9 @@ export const DateFieldAiConfig = (props: IDateFieldAiConfigProps) => {
           emptyTip={t('sdk:common.search.empty')}
         />
       </div>
+
+      {/* Model selector - placed right after type selector */}
+      {type && modelSelector}
 
       {type && type !== FieldAIActionType.Customization && (
         <Fragment>
@@ -124,13 +121,6 @@ export const DateFieldAiConfig = (props: IDateFieldAiConfigProps) => {
               label={t('table:field.aiConfig.label.prompt')}
               placeholder={t('table:field.aiConfig.placeholder.prompt')}
               required={true}
-            />
-          </div>
-          <div className="flex flex-col gap-y-2">
-            <span>{t('table:field.default.attachment.title')}</span>
-            <AttachmentSelect
-              value={(aiConfig as IDateFieldCustomizeAIConfig)?.attachmentFieldIds || []}
-              onChange={(value) => onConfigChange('attachmentFieldIds', value)}
             />
           </div>
         </Fragment>

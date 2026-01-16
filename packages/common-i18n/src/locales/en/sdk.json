@@ -58,7 +58,13 @@
       "uploadBaseTextPrefix": "Click to upload ",
       "uploadBaseText": " or paste or drag and drop here",
       "uploadDragDefault": "Paste or drag and drop to upload here",
-      "upload": "Upload file"
+      "upload": "Upload file",
+      "downloadAll": "Download all",
+      "downloading": "Downloading...",
+      "downloadSuccess": "Download completed",
+      "downloadFailed": "Download failed",
+      "downloadCancelled": "Download cancelled",
+      "requireHttps": "Bulk download requires HTTPS. Please access via HTTPS or localhost"
     },
     "date": {
       "placeholder": "Pick a date",
@@ -329,7 +335,7 @@
       "date": "Record dates or times.",
       "createdTime": "Show when a record was created.",
       "lastModifiedTime": "Show the most recent update time.",
-      "attachment": "Upload files or images.",
+      "attachment": "Upload files or AI generate images, supports models such as 🍌 Nano banana pro",
       "checkbox": "Toggle a simple yes or no.",
       "rollup": "Summarize linked records with formulas.",
       "conditionalRollup": "Summarize data from conditions.",
@@ -1216,6 +1222,7 @@
       "configurationNotSet": "AI configuration is not set",
       "unsupportedProvider": "Unsupported AI provider {{type}}",
       "providerConfigurationNotSet": "AI provider configuration is not set",
+      "gatewayApiKeyNotSet": "AI Gateway API key is not configured",
       "testLLMFailed": "LLM connection test failed",
       "audioNotSupported": "Audio input not supported by this model {{model}}",
       "imageNotSupported": "Image input not supported by this model {{model}}",
@@ -1225,7 +1232,8 @@
       "embeddingModelNotSet": "Embedding model is not set",
       "validateActionFailed": "Validate field AI action failed",
       "generateFailed": "AI generation failed",
-      "unsupportedActionType": "Unsupported AI action type"
+      "unsupportedActionType": "Unsupported AI action type",
+      "geminiImageNotSupportedViaGateway": "Gemini image generation is not supported through AI Gateway. Please configure a direct Google provider instead."
     },
     "role": {
       "notFound": "Role not found"

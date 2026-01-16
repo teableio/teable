@@ -41,6 +41,9 @@ export interface IPerformanceCacheStore {
 
   // billable user count cache, format: instance-billable-count
   'instance-billable-count': number;
+
+  // AI Gateway models cache, format: ai-gateway:models
+  'ai-gateway:models': unknown;
 }
 
 /**

@@ -11,22 +11,21 @@ import {
   chatModelAbilityType,
   getPublicSetting,
 } from '@teable/openapi/src/admin/setting';
-import { Form, Input, toast } from '@teable/ui-lib/shadcn';
-import Link from 'next/link';
+import { Form, toast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
-import { Trans, useTranslation } from 'next-i18next';
+import { useTranslation } from 'next-i18next';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useIsCloud } from '@/features/app/hooks/useIsCloud';
-import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
 import { AIModelPreferencesCard } from '../../../admin/setting/components/ai-config/AIModelPreferencesCard';
+import type { IModelOption } from '../../../admin/setting/components/ai-config/AiModelSelect';
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
 import { BatchTestModels } from '../../../admin/setting/components/ai-config/BatchTestModels';
 import type { IModelTestResult } from '../../../admin/setting/components/ai-config/LlmproviderManage';
 import {
   generateModelKeyList,
+  generateGatewayModelKeyList,
   parseModelKey,
 } from '../../../admin/setting/components/ai-config/utils';
 
@@ -56,11 +55,43 @@ export const AIConfig = (props: IAIConfigProps) => {
     defaultValues: defaultValues,
   });
   const llmProviders = form.watch('llmProviders') ?? [];
-  const models = generateModelKeyList(llmProviders);
   const { reset } = form;
   const { t } = useTranslation('common');
-  const isEE = useIsEE();
-  const isCloud = useIsCloud();
+
+  // Get public setting for instance AI config
+  const { data: setting } = useQuery({
+    queryKey: ['public-setting'],
+    queryFn: () => getPublicSetting().then(({ data }) => data),
+  });
+
+  // Get admin setting to access gateway models
+  const { data: adminSetting } = useQuery({
+    queryKey: ['admin-ai-setting'],
+    queryFn: async () => {
+      const response = await fetch('/api/admin/setting');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch admin setting: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.aiConfig;
+    },
+  });
+
+  // Generate combined model list: space models, gateway models, instance models
+  const models = useMemo((): IModelOption[] => {
+    const providerModels = generateModelKeyList(llmProviders);
+
+    // Get gateway models from admin settings (enabled models only)
+    const adminGatewayModels = adminSetting?.gatewayModels || [];
+    const gatewayModels = generateGatewayModelKeyList(adminGatewayModels);
+
+    // Separate space and instance models
+    const spaceModels = providerModels.filter((m) => !m.isInstance);
+    const instanceModels = providerModels.filter((m) => m.isInstance);
+
+    // Combine in order: space models, gateway models, instance models
+    return [...spaceModels, ...gatewayModels, ...instanceModels];
+  }, [llmProviders, adminSetting]);
 
   // State for batch testing models
   const [modelTestResults, setModelTestResults] = useState<Map<string, IModelTestResult>>(
@@ -201,11 +232,6 @@ export const AIConfig = (props: IAIConfigProps) => {
     onEnableAIProp?.();
   }, [onEnableAIProp]);
 
-  const { data: setting } = useQuery({
-    queryKey: ['public-setting'],
-    queryFn: () => getPublicSetting().then(({ data }) => data),
-  });
-
   const instanceAIDisableActions = setting?.aiConfig?.capabilities?.disableActions || [];
 
   return (
@@ -253,104 +279,10 @@ export const AIConfig = (props: IAIConfigProps) => {
             onChange={() => onSubmit(form.getValues())}
             onTestChatModelAbility={onTestChatModelAbility}
             onEnableAI={onEnableAI}
+            needGroup={true}
+            hideEmbeddingModel
           />
         </div>
-        {/* App Configuration Section */}
-        {(isEE || isCloud) && (
-          <div className="relative flex flex-col gap-2">
-            <div className="text-left text-lg font-semibold text-foreground">{t('app.title')}</div>
-            <div className="flex flex-col gap-4 overflow-hidden">
-              <div className="relative flex flex-col gap-1">
-                <div className="text-left text-xs text-muted-foreground">
-                  <Trans
-                    ns="common"
-                    i18nKey="app.description"
-                    components={{
-                      a: (
-                        <Link
-                          className="cursor-pointer text-blue-500"
-                          href="https://v0.app/chat/settings/keys"
-                          target="_blank"
-                          rel="noreferrer"
-                        />
-                      ),
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="relative flex flex-col gap-2">
-                <div className="self-stretch text-left text-sm font-medium text-foreground">
-                  {t('admin.setting.app.v0ApiKey')}
-                </div>
-                <div className="flex flex-col gap-2 p-0.5">
-                  <Input
-                    type="password"
-                    value={form.watch('appConfig')?.apiKey}
-                    placeholder={t('admin.action.enterApiKey')}
-                    onChange={(e) => {
-                      const value = e.target.value?.trim();
-                      form.setValue('appConfig', { ...config?.appConfig, apiKey: value });
-                    }}
-                    onBlur={() => {
-                      onSubmit(form.getValues());
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Web Search Configuration Section */}
-        {(isEE || isCloud) && (
-          <div className="relative flex flex-col gap-2">
-            <div className="flex flex-col gap-4 overflow-hidden">
-              <div className="text-left text-lg font-semibold text-foreground">
-                {t('admin.configuration.list.webSearch.title')}
-              </div>
-              <div className="relative flex flex-col gap-1">
-                <div className="text-left text-xs text-muted-foreground">
-                  <Trans
-                    ns="common"
-                    i18nKey="admin.setting.webSearch.description"
-                    components={{
-                      a: (
-                        <Link
-                          className="cursor-pointer text-blue-500"
-                          href="https://www.firecrawl.dev/app/api-keys"
-                          target="_blank"
-                          rel="noreferrer"
-                        />
-                      ),
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="relative flex flex-col gap-2">
-                <div className="self-stretch text-left text-sm font-medium text-foreground">
-                  {t('admin.setting.ai.apiKey')}
-                </div>
-                <div className="flex flex-col gap-2 p-0.5">
-                  <Input
-                    type="password"
-                    value={form.watch('webSearchConfig')?.apiKey}
-                    placeholder={t('admin.action.enterApiKey')}
-                    onChange={(e) => {
-                      const value = e.target.value?.trim();
-                      form.setValue('webSearchConfig', {
-                        ...config?.webSearchConfig,
-                        apiKey: value,
-                      });
-                    }}
-                    onBlur={() => {
-                      onSubmit(form.getValues());
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </form>
     </Form>
   );

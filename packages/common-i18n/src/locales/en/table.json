@@ -333,7 +333,7 @@
       "link": "Link to records in the table you choose",
       "singleLineText": "Enter text, or prefill each new cell with a default value.",
       "longText": "Enter multiple lines of text.",
-      "attachment": "Add images, documents, or other files to be viewed or downloaded.",
+      "attachment": "Add or AI generate images, or upload documents or other files to be viewed or downloaded.",
       "checkbox": "Check or uncheck to indicate status.",
       "multipleSelect": "Select one or more predefined options in a list.",
       "singleSelect": "Select one predefined option from a list, or prefill each new cell with a default option.",
@@ -383,7 +383,10 @@
         "sourceFieldForAttachment": "Source field for attachment",
         "imageSize": "Image size",
         "imageQuality": "Image quality",
-        "imageCount": "Image count"
+        "imageCount": "Image count",
+        "aspectRatio": "Aspect ratio",
+        "resolution": "Resolution",
+        "advancedSettings": "Advanced settings"
       },
       "placeholder": {
         "summarize": "Summary of the content",
@@ -394,11 +397,13 @@
         "attachPromptForTag": "Not allowed to exceed three tags",
         "attachPromptForClassify": "Classify \"In Progress\" as \"No Risk\"",
         "attachPrompt": "Please enter additional requirements",
-        "prompt": "Please enter a custom prompt",
+        "prompt": "Enter / select the referenced field",
         "type": "Select AI action",
         "targetLanguage": "English, Chinese, French...",
         "imageSize": "Please enter the image size",
         "imageQuality": "Please enter the image quality",
+        "aspectRatio": "Select aspect ratio",
+        "resolution": "Select resolution",
         "attachPromptForImageGeneration": "The image should be vivid and natural",
         "attachPromptForRating": "Rate the image quality"
       },
@@ -408,7 +413,15 @@
         "high": "High"
       },
       "hint": {
-        "imageInputSupported": "💡 This model supports image input. You can select an attachment field to use images as reference for generation."
+        "imageInputSupported": "💡 This model supports image input. You can select an attachment field to use images as reference for generation.",
+        "attachmentNotSupported": "💡 This model does not support attachment input. Only Gemini models support image-to-image generation.",
+        "singleImageOnly": "This model can only generate one image at a time"
+      },
+      "auto": "Auto",
+      "resolution": {
+        "1K": "1K (Standard)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
       },
       "autoFill": {
         "title": "Auto update",
@@ -565,6 +578,9 @@
       "downAsCsv": "Download CSV",
       "importData": "Import data",
       "duplicate": "Duplicate",
+      "duplicating": "Duplicating...",
+      "duplicateSuccess": "Duplicated successfully",
+      "duplicateFailed": "Failed to duplicate",
       "includeRecords": "Include records"
     },
     "tips": {
@@ -604,6 +620,29 @@
   "export": {
     "menu": {
       "exportCsv": "Download Csv"
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Download All Attachments",
+      "loading": "Loading preview...",
+      "rowsWithAttachments": "{{count}} rows with attachments",
+      "totalAttachments": "{{count}} attachments",
+      "totalSize": "Total size: {{size}}",
+      "startDownload": "Start Download",
+      "confirmTitle": "Download {{count}} files",
+      "confirmDescription": "Total size: {{size}}. The files will be compressed into a zip file.",
+      "confirm": "Download",
+      "cancel": "Cancel",
+      "downloading": "Downloading...",
+      "downloadingFile": "Downloading: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Download completed",
+      "cancelled": "Download cancelled",
+      "noAttachments": "No attachments to download",
+      "error": "Download failed",
+      "errorPartial": "{{failedCount}} files failed to download",
+      "requireHttps": "Batch download requires HTTPS. Please access via HTTPS or localhost."
     }
   },
   "grid": {
@@ -693,6 +732,7 @@
     "filterField": "Filter by this field",
     "sortField": "Sort by this field",
     "groupField": "Group by this field",
+    "downloadAllAttachments": "Download all files",
     "autoFill": "Regenerate",
     "groupMenuTitle": "Group menu",
     "expandGroup": "Expand this group and its sub-groups",
@@ -1142,6 +1182,10 @@
       "waitFailed": "Wait failed"
     },
     "newChat": "New Chat",
+    "clearChat": "Clear Chat",
+    "clearChatConfirmTitle": "Confirm Clear Chat",
+    "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
+    "dontShowAgain": "Don't show again",
     "noModel": "No available models",
     "noHistory": "No chat history",
     "noFoundHistory": "No chat history found, please start a new conversation",
@@ -1170,7 +1214,11 @@
       "tokens": "Tokens",
       "totalTimeCost": "Total time cost",
       "totalCreditCost": "Total credit cost",
-      "customModel": "Custom model"
+      "customModel": "Custom model",
+      "tokenDetails": "Token Details",
+      "cachedInput": "Cached Input (90% off)",
+      "cacheWrite": "Cache Write",
+      "reasoning": "Reasoning (Thinking)"
     },
     "dataVisualization": {
       "error": "Data visualization failed"

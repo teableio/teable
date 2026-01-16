@@ -11,10 +11,12 @@ import type { IUploadAttachmentRef } from './upload-attachment/UploadAttachment'
 import { UploadAttachment } from './upload-attachment/UploadAttachment';
 import { AttachmentManager } from './upload-attachment/uploadManage';
 
-type IAttachmentEditor = ICellEditor<IAttachmentCellValue>;
+type IAttachmentEditor = ICellEditor<IAttachmentCellValue> & {
+  onDownload?: (attachments: IAttachmentCellValue) => void;
+};
 
 export const AttachmentEditor = (props: IAttachmentEditor) => {
-  const { className, value, onChange = noop, readonly } = props;
+  const { className, value, onChange = noop, readonly, onDownload } = props;
   const { t } = useTranslation();
   const uploadAttachmentRef = useRef<IUploadAttachmentRef>(null);
   const isTouchDevice = useIsTouchDevice();
@@ -30,43 +32,59 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
       attachmentManager.current.onUploadingTaskChange = undefined;
     };
   }, []);
+
+  const hasAttachments = value && value.length > 0;
+
   return (
     <div>
-      {isTouchDevice ? (
-        <FileInput
-          onChange={(files) => uploadAttachmentRef.current?.uploadAttachment(files)}
-          disabled={readonly}
-        />
-      ) : (
-        <Popover
-          modal
-          onOpenChange={(value) => {
-            if (!value) {
-              setUploadingCount(0);
-            }
-          }}
-        >
-          <PopoverTrigger>
-            <Button variant="outline" size={'sm'} className="w-full" disabled={readonly}>
-              <Plus fontSize={16} />
-              {t('editor.attachment.upload')}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            className={cn('max-h-[320px] w-[462px] p-0 overflow-hidden', {
-              'h-[320px]': (value?.length || 0) + uploadingCount > 4,
-            })}
-            align="start"
+      <div className="flex gap-2">
+        {isTouchDevice ? (
+          <FileInput
+            onChange={(files) => uploadAttachmentRef.current?.uploadAttachment(files)}
+            disabled={readonly}
+          />
+        ) : (
+          <Popover
+            modal
+            onOpenChange={(value) => {
+              if (!value) {
+                setUploadingCount(0);
+              }
+            }}
           >
-            <UploadAttachment
-              attachments={value || []}
-              onChange={onChange}
-              readonly={readonly}
-              attachmentManager={attachmentManager.current}
-            />
-          </PopoverContent>
-        </Popover>
-      )}
+            <PopoverTrigger asChild>
+              <Button variant="outline" size={'sm'} disabled={readonly}>
+                <Plus fontSize={16} />
+                {t('editor.attachment.upload')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className={cn('max-h-[320px] w-[462px] p-0 overflow-hidden', {
+                'h-[320px]': (value?.length || 0) + uploadingCount > 4,
+              })}
+              align="start"
+            >
+              <UploadAttachment
+                attachments={value || []}
+                onChange={onChange}
+                readonly={readonly}
+                attachmentManager={attachmentManager.current}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {hasAttachments && onDownload && (
+          <Button
+            className="font-normal"
+            variant="link"
+            size={'sm'}
+            onClick={() => onDownload(value)}
+          >
+            {t('editor.attachment.downloadAll')}
+          </Button>
+        )}
+      </div>
 
       <div className="max-h-[320px] overflow-auto pt-2">
         <div>

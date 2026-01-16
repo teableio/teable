@@ -4,13 +4,12 @@ import {
   FieldKeyType,
   FieldType,
   RowHeightLevel,
-  StatisticsFunc,
   contractColorForTheme,
   fieldVoSchema,
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { createRecords, getAggregation, stopFillField, UploadType } from '@teable/openapi';
+import { createRecords, stopFillField, UploadType } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -78,7 +77,6 @@ import {
   useViewId,
   useRecordOperations,
   useButtonClickStatus,
-  useFieldOperations,
 } from '@teable/sdk/hooks';
 import { useConfirm } from '@teable/ui-lib';
 import { toast, toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -95,11 +93,15 @@ import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
-import type { AiAutoFillMode } from '../../../components/field-setting/dialog/AiAutoFillDialog';
-import { AiAutoFillDialog } from '../../../components/field-setting/dialog/AiAutoFillDialog';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { useContextMenu } from '../hooks/useContextMenu';
-import { AiGenerateButton, PrefillingRowContainer, PresortRowContainer } from './components';
+import type { IAiAutoFillDialogContainerRef } from './components';
+import {
+  AiAutoFillDialogContainer,
+  AiGenerateButton,
+  PrefillingRowContainer,
+  PresortRowContainer,
+} from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
 import { ResetClickCountButton } from './components/ResetClickCountButton';
@@ -124,7 +126,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { groupPointsServerData, onRowExpand } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { updateRecord, duplicateRecord } = useRecordOperations();
-  const { autoFillField } = useFieldOperations();
   const router = useRouter();
   const baseId = useBaseId();
   const tableId = useTableId() as string;
@@ -181,14 +182,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { setGridRef, searchCursor, setRecordMap, setFields } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
-  const [autoFillFieldId, setAutoFillFieldId] = useState<string | undefined>();
-  const [aiFieldStats, setAiFieldStats] = useState<{
-    emptyCount?: number;
-    filledCount?: number;
-    isLoading: boolean;
-  }>({ isLoading: false });
 
   const { fieldAIEnable = false } = usage?.limit ?? {};
+
+  const aiAutoFillDialogRef = useRef<IAiAutoFillDialogContainerRef>(null);
 
   const aiGenerateButtonRef = useRef<{
     onScrollHandler: () => void;
@@ -423,53 +420,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const { confirm } = useConfirm();
 
-  // Fetch field stats (empty/filled count) for AI regenerate dialog
-  const fetchFieldStats = async (fieldId: string) => {
-    if (!tableId) return;
-
-    setAiFieldStats({ isLoading: true });
-    try {
-      const query = view?.id ? { viewId: view.id } : {};
-      const result = await getAggregation(tableId, {
-        ...query,
-        field: {
-          [StatisticsFunc.Empty]: [fieldId],
-          [StatisticsFunc.Filled]: [fieldId],
-        },
-      });
-
-      const aggregations = result.data.aggregations;
-      if (aggregations && aggregations.length > 0) {
-        const parseValue = (value: string | number | null | undefined): number | undefined => {
-          if (value == null) return undefined;
-          return typeof value === 'string' ? parseInt(value, 10) : value;
-        };
-
-        const emptyAgg = aggregations.find(
-          (agg) => agg.fieldId === fieldId && agg.total?.aggFunc === StatisticsFunc.Empty
-        );
-        const filledAgg = aggregations.find(
-          (agg) => agg.fieldId === fieldId && agg.total?.aggFunc === StatisticsFunc.Filled
-        );
-
-        setAiFieldStats({
-          emptyCount: parseValue(emptyAgg?.total?.value),
-          filledCount: parseValue(filledAgg?.total?.value),
-          isLoading: false,
-        });
-      } else {
-        setAiFieldStats({ isLoading: false });
-      }
-    } catch (e) {
-      console.error('Failed to fetch field stats', e);
-      setAiFieldStats({ isLoading: false });
-    }
-  };
-
   // Handle auto-fill click from menu
   const handleAutoFillClick = (fieldId: string) => {
-    setAutoFillFieldId(fieldId);
-    fetchFieldStats(fieldId);
+    aiAutoFillDialogRef.current?.open(fieldId);
   };
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -1428,69 +1381,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         }}
         onConfirm={() => newRecords && mutateCreateRecord(newRecords)}
       />
-      <AiAutoFillDialog
-        open={Boolean(autoFillFieldId)}
-        title={t('table:field.aiConfig.autoFillFieldDialog.title')}
-        rowCount={rowCount ?? 0}
-        emptyCount={aiFieldStats.emptyCount}
-        filledCount={aiFieldStats.filledCount}
-        isLoadingStats={aiFieldStats.isLoading}
-        cancelText={t('common:actions.cancel')}
-        hideSaveOnly
-        labels={{
-          description: t('table:field.aiConfig.autoFillFieldDialog.description'),
-          emptyOnly: t('table:field.aiConfig.autoFillConfirm.emptyOnlyMode'),
-          emptyOnlyDesc: t('table:field.aiConfig.autoFillConfirm.emptyOnlyModeDesc'),
-          all: t('table:field.aiConfig.autoFillConfirm.allMode'),
-          allDesc: t('table:field.aiConfig.autoFillConfirm.allModeDesc'),
-          saveOnly: t('table:field.aiConfig.autoFillConfirm.saveOnlyMode'),
-          saveOnlyDesc: t('table:field.aiConfig.autoFillConfirm.saveOnlyModeDesc'),
-          recommended: t('table:field.aiConfig.autoFillConfirm.recommended'),
-          limitWarning: t('table:field.aiConfig.autoFillConfirm.limitWarning'),
-        }}
-        confirmLabels={{
-          emptyOnly: t('table:field.aiConfig.autoFillConfirm.fillEmptyCells'),
-          all: t('table:field.aiConfig.autoFillConfirm.generateAll'),
-          saveOnly: t('table:field.aiConfig.autoFillConfirm.saveConfigOnly'),
-        }}
-        onClose={() => {
-          setAutoFillFieldId(undefined);
-          setAiFieldStats({ isLoading: false });
-        }}
-        onConfirm={async (mode: AiAutoFillMode) => {
-          if (!tableId || !view || !autoFillFieldId || mode === 'saveOnly') {
-            setAutoFillFieldId(undefined);
-            setAiFieldStats({ isLoading: false });
-            return;
-          }
-
-          const baseQuery = personalViewCommonQuery
-            ? {
-                filter: personalViewCommonQuery.filter,
-                orderBy: personalViewCommonQuery.orderBy,
-                groupBy: personalViewCommonQuery.groupBy,
-                ignoreViewQuery: true,
-              }
-            : {
-                viewId: view.id,
-                groupBy: group,
-              };
-
-          try {
-            const apiMode = mode as 'emptyOnly' | 'all';
-            await autoFillField({
-              tableId,
-              fieldId: autoFillFieldId,
-              query: { ...baseQuery, mode: apiMode },
-            });
-          } catch (e) {
-            toast.error(t('table:field.aiConfig.autoFillConfirm.generateFailed'));
-            console.error('autoFillField error', e);
-          } finally {
-            setAutoFillFieldId(undefined);
-            setAiFieldStats({ isLoading: false });
-          }
-        }}
+      <AiAutoFillDialogContainer
+        ref={aiAutoFillDialogRef}
+        group={group}
+        personalViewCommonQuery={personalViewCommonQuery}
       />
     </div>
   );

@@ -13,7 +13,6 @@ import {
   HoverCardTrigger,
   ScrollArea,
 } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useRef } from 'react';
 import {
@@ -88,16 +87,10 @@ export const PluginMenu = (props: { tableId?: string; closeRecordMenu: () => voi
                             setActivePluginId(pluginInstallId);
                           }}
                         >
-                          <Image
-                            className="size-4 shrink-0 rounded-sm"
+                          <img
+                            className="size-4 shrink-0 rounded-sm object-contain"
                             src={logo}
                             alt={name}
-                            width={56}
-                            height={56}
-                            sizes="100%"
-                            style={{
-                              objectFit: 'contain',
-                            }}
                           />
                           {name}
                         </Button>
@@ -121,17 +114,7 @@ export const PluginMenu = (props: { tableId?: string; closeRecordMenu: () => voi
             }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <Image
-              className="size-4 shrink-0 rounded-sm"
-              src={logo}
-              alt={name}
-              width={56}
-              height={56}
-              sizes="100%"
-              style={{
-                objectFit: 'contain',
-              }}
-            />
+            <img className="size-4 shrink-0 rounded-sm object-contain" src={logo} alt={name} />
             {name}
           </CommandItem>
         ))}
