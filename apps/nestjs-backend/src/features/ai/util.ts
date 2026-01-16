@@ -105,6 +105,7 @@ export const modelProviders = {
   [LLMProviderType.AMAZONBEDROCK]: createAmazonBedrock,
   [LLMProviderType.OPENROUTER]: createOpenRouter,
   [LLMProviderType.OPENAI_COMPATIBLE]: createOpenAICompatibleWrapper,
+  // AI_GATEWAY is handled separately in ai.service.ts using createGateway from 'ai'
 } as const;
 
 export const getAdaptedProviderOptions = (
@@ -131,6 +132,15 @@ export const getAdaptedProviderOptions = (
       return { name, baseURL: originalBaseURL };
     case LLMProviderType.OPENAI_COMPATIBLE:
       return { ...originalOptions, includeUsage: true };
+    case LLMProviderType.AI_GATEWAY:
+      // AI Gateway - use official gateway provider options
+      // Gateway handles provider routing via modelId format (e.g., "google/gemini-3-pro-image")
+      // See: https://ai-sdk.dev/providers/ai-sdk-providers/ai-gateway
+      // SDK default baseURL: https://ai-gateway.vercel.sh/v1/ai
+      return {
+        baseURL: originalBaseURL || undefined,
+        apiKey: originalApiKey,
+      };
     default: {
       return originalOptions;
     }

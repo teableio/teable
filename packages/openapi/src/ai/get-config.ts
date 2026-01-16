@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { aiConfigSchema } from '../admin';
+import { aiConfigSchema, chatModelAbilitySchema, gatewayModelTagSchema } from '../admin';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 
@@ -48,8 +48,19 @@ export const modelDefinationMapSchema = z.record(z.string(), modelDefinationSche
 
 export type IModelDefinationMap = z.infer<typeof modelDefinationMapSchema>;
 
-export const getAIConfigSchema = aiConfigSchema.extend({
+// Extended chatModel schema for API response (includes tags for frontend capability detection)
+export const chatModelResponseSchema = z.object({
+  lg: z.string().optional(),
+  md: z.string().optional(),
+  sm: z.string().optional(),
+  ability: chatModelAbilitySchema.optional(),
+  /** Model capability tags for the lg model (e.g., ['vision', 'file-input', 'tool-use']) */
+  tags: z.array(gatewayModelTagSchema).optional(),
+});
+
+export const getAIConfigSchema = aiConfigSchema.omit({ chatModel: true }).extend({
   modelDefinationMap: modelDefinationMapSchema.optional(),
+  chatModel: chatModelResponseSchema.optional(),
 });
 
 export type IGetAIConfig = z.infer<typeof getAIConfigSchema>;

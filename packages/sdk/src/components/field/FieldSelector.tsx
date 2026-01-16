@@ -22,6 +22,8 @@ interface IFieldSelector {
   tableId?: string;
   tableName?: string;
   isOptionDisabled?: (field: IFieldInstance) => boolean;
+  getDisabledReason?: (field: IFieldInstance) => string | undefined;
+  maxHeight?: number;
 }
 
 export function FieldSelector(props: IFieldSelector) {
@@ -39,6 +41,8 @@ export function FieldSelector(props: IFieldSelector) {
     tableId: tableIdProp,
     tableName: tableNameProp,
     isOptionDisabled,
+    getDisabledReason,
+    maxHeight,
   } = props;
 
   const [open, setOpen] = useState(false);
@@ -126,6 +130,8 @@ export function FieldSelector(props: IFieldSelector) {
           onSelect={selectHandler}
           groupHeading={tableHeading}
           isDisabled={isOptionDisabled}
+          getDisabledReason={getDisabledReason}
+          maxHeight={maxHeight}
         />
       </PopoverContent>
     </Popover>

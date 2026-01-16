@@ -181,6 +181,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           value={cellValue as IAttachmentCellValue}
           onChange={onChange}
           readonly={readonly}
+          onDownload={props.onAttachmentDownload}
         />
       );
     }

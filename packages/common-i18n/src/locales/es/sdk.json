@@ -329,7 +329,7 @@
       "date": "Registra fechas u horas.",
       "createdTime": "Muestra cuándo se creó un registro.",
       "lastModifiedTime": "Muestra la última hora de actualización.",
-      "attachment": "Sube archivos o imágenes.",
+      "attachment": "Puede subir archivos o generar imágenes con IA, compatible con modelos como 🍌 Nano banana pro",
       "checkbox": "Activa o desactiva un sí o no sencillo.",
       "rollup": "Resume registros vinculados con fórmulas.",
       "conditionalRollup": "Resume datos según condiciones.",
@@ -531,10 +531,6 @@
       "summary": "Búsqueda de una aparición de StringToFind en Wheretosearch String que comienza desde una Opcional StartFromposition. ",
       "example": "Buscar (\"table\", \"hello table\") => 7\n"
     },
-    "MID": {
-      "summary": "Extrae una subcadena de count caracteres comenzando en whereToStart.",
-      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
-    },
     "LEFT": {
       "summary": "Extraiga a Howmany personajes desde el comienzo de la cadena.",
       "example": "Izquierda (\"2023-09-06\", 4) => \"2023\""
@@ -631,10 +627,6 @@
       "summary": "Devuelve el año de cuatro dígitos de una hora de fecha.",
       "example": "Año (\"2023-09-08\") => 2023"
     },
-    "MONTH": {
-      "summary": "Devuelve el mes de una fecha como un número entre 1 (Enero) y 12 (Diciembre).",
-      "example": "MONTH(\"2023-09-08\") => 9"
-    },
     "WEEKNUM": {
       "summary": "Devuelve el número de semana en un año.",
       "example": "Weeknum (\"2023-09-08\") => 36"
@@ -714,10 +706,6 @@
     "CREATED_TIME": {
       "summary": "Devuelve el tiempo de creación del registro actual.",
       "example": "Creat_time () => \"2023-09-08 18:00:00\""
-    },
-    "LAST_MODIFIED_TIME": {
-      "summary": "Devuelve la fecha y hora de la modificación más reciente realizada por un usuario en un campo no calculado en la tabla.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
     },
     "COUNTALL": {
       "summary": "Devuelve el número de todos los elementos, incluidos el texto y los espacios en blanco.",

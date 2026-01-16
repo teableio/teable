@@ -16,15 +16,16 @@ import { Fragment, useMemo } from 'react';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
-import { AttachmentSelect, FieldSelect, PromptEditorContainer } from './components';
+import { FieldSelect, PromptEditorContainer } from './components';
 
 interface ITextFieldAiConfigProps {
   field: Partial<IFieldEditorRo>;
   onChange?: (partialField: Partial<IFieldEditorRo>) => void;
+  modelSelector?: React.ReactNode;
 }
 
 export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
-  const { field, onChange } = props;
+  const { field, onChange, modelSelector } = props;
   const { id, aiConfig } = field;
   const { type } = aiConfig ?? {};
 
@@ -105,13 +106,6 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
         return onChange?.({
           aiConfig: { ...aiConfig, prompt: value as string } as ITextFieldCustomizeAIConfig,
         });
-      case 'attachmentFieldIds':
-        return onChange?.({
-          aiConfig: {
-            ...aiConfig,
-            attachmentFieldIds: value as string[],
-          } as ITextFieldCustomizeAIConfig,
-        });
       default:
         throw new Error(`Unsupported key: ${key}`);
     }
@@ -133,6 +127,9 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
           emptyTip={t('sdk:common.search.empty')}
         />
       </div>
+
+      {/* Model selector - placed right after type selector */}
+      {type && modelSelector}
 
       {type && type !== FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
@@ -181,25 +178,16 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
       )}
 
       {type === FieldAIActionType.Customization && (
-        <Fragment>
-          <div className="flex flex-col gap-y-2">
-            <PromptEditorContainer
-              excludedFieldId={id}
-              value={(aiConfig as ITextFieldCustomizeAIConfig)?.prompt || ''}
-              onChange={(value) => onConfigChange('prompt', value)}
-              label={t('table:field.aiConfig.label.prompt')}
-              placeholder={t('table:field.aiConfig.placeholder.prompt')}
-              required={true}
-            />
-          </div>
-          <div className="flex flex-col gap-y-2">
-            <span>{t('table:field.default.attachment.title')}</span>
-            <AttachmentSelect
-              value={(aiConfig as ITextFieldCustomizeAIConfig)?.attachmentFieldIds || []}
-              onChange={(value) => onConfigChange('attachmentFieldIds', value)}
-            />
-          </div>
-        </Fragment>
+        <div className="flex flex-col gap-y-2">
+          <PromptEditorContainer
+            excludedFieldId={id}
+            value={(aiConfig as ITextFieldCustomizeAIConfig)?.prompt || ''}
+            onChange={(value) => onConfigChange('prompt', value)}
+            label={t('table:field.aiConfig.label.prompt')}
+            placeholder={t('table:field.aiConfig.placeholder.prompt')}
+            required={true}
+          />
+        </div>
       )}
     </Fragment>
   );
