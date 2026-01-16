@@ -1,8 +1,8 @@
 import type { EditorView } from '@codemirror/view';
-import { FieldType } from '@teable/core';
 import { Maximize2, Plus } from '@teable/icons';
 import { FieldSelector } from '@teable/sdk/components';
 import { useFields } from '@teable/sdk/hooks';
+import type { IFieldInstance } from '@teable/sdk/model';
 import {
   Button,
   cn,
@@ -20,12 +20,13 @@ import { PromptEditor, type EditorViewRef, type IPromptEditorProps } from './Pro
 
 interface IPromptEditorContainerProps extends IPromptEditorProps {
   label?: string;
-  excludedFieldId?: string;
   required?: boolean;
+  getDisabledReason?: (field: IFieldInstance) => string | undefined;
 }
 
 export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
-  const { label, className, excludedFieldId, required } = props;
+  const { label, className, excludedFieldId, required, isOptionDisabled, getDisabledReason } =
+    props;
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation('common');
   const [isDialogVisible, setDialogVisible] = useState(false);
@@ -46,14 +47,21 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
     }
   };
 
+  // Allow all field types including Attachment fields to be selected
+  // Attachment fields can now be referenced in prompts for AI processing
   const excludedFieldIds = useMemo(() => {
-    return fields
-      .filter((field) => field.type === FieldType.Attachment || field.id === excludedFieldId)
-      .map((field) => field.id);
+    return fields.filter((field) => field.id === excludedFieldId).map((field) => field.id);
   }, [fields, excludedFieldId]);
 
   const fieldSelector = (
-    <FieldSelector excludedIds={excludedFieldIds} onSelect={onFieldSelect} modal>
+    <FieldSelector
+      excludedIds={excludedFieldIds}
+      onSelect={onFieldSelect}
+      isOptionDisabled={isOptionDisabled}
+      getDisabledReason={getDisabledReason}
+      maxHeight={360}
+      modal
+    >
       <Button variant="outline" size="xs" className="gap-1">
         <Plus className="size-4" />
         {t('noun.field')}
@@ -82,7 +90,7 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
           </div>
         </div>
         <div className="flex-1">
-          <PromptEditor {...props} editorViewRef={mainEditorViewRef} />
+          <PromptEditor {...props} editorViewRef={mainEditorViewRef} resizable />
         </div>
       </div>
 

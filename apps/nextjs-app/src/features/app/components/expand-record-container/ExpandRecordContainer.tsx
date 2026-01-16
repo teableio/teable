@@ -1,8 +1,9 @@
-import type { IRecord } from '@teable/core';
+import type { IAttachmentCellValue, IRecord } from '@teable/core';
 import type { IButtonClickStatusHook } from '@teable/sdk/hooks';
 import { useTableId, useViewId } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { forwardRef, useCallback } from 'react';
+import { useDownloadAttachmentsStore } from '../download-attachments';
 import { ExpandRecordContainerBase } from './ExpandRecordContainerBase';
 import type { IExpandRecordContainerRef } from './types';
 
@@ -15,6 +16,7 @@ export const ExpandRecordContainer = forwardRef<
   const tableId = useTableId();
   const viewId = useViewId();
   const recordId = router.query.recordId as string;
+  const triggerCellDownload = useDownloadAttachmentsStore((state) => state.triggerCellDownload);
 
   const onClose = useCallback(() => {
     if (!recordId) {
@@ -56,6 +58,13 @@ export const ExpandRecordContainer = forwardRef<
     [router]
   );
 
+  const onAttachmentDownload = useCallback(
+    (attachments: IAttachmentCellValue) => {
+      triggerCellDownload(attachments);
+    },
+    [triggerCellDownload]
+  );
+
   if (!tableId) {
     return <></>;
   }
@@ -69,6 +78,7 @@ export const ExpandRecordContainer = forwardRef<
       onClose={onClose}
       onUpdateRecordIdCallback={onUpdateRecordIdCallback}
       buttonClickStatusHook={buttonClickStatusHook}
+      onAttachmentDownload={onAttachmentDownload}
     />
   );
 });

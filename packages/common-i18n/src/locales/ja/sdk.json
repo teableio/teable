@@ -329,7 +329,7 @@
       "date": "日付や時間を記録します。",
       "createdTime": "レコードが作成された日時を表示します。",
       "lastModifiedTime": "最新の更新日時を表示します。",
-      "attachment": "ファイルや画像をアップロードします。",
+      "attachment": "ファイルのアップロードやAI画像生成が可能、🍌 Nano banana pro などのモデルに対応",
       "checkbox": "シンプルなオン／オフを切り替えます。",
       "rollup": "関連レコードを数式で集計します。",
       "conditionalRollup": "条件に基づいてデータを集計します。",

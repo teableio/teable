@@ -3,7 +3,6 @@ import type { IGetPluginCenterListVo, IPluginI18n, PluginPosition } from '@teabl
 import { getPluginCenterList } from '@teable/openapi';
 import { Button, cn, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { get } from 'lodash';
-import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { forwardRef, useImperativeHandle, useState } from 'react';
 import { PluginDetail } from './PluginDetail';
@@ -89,16 +88,7 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
                     })
                   }
                 >
-                  <Image
-                    src={plugin.logo}
-                    alt={name}
-                    width={56}
-                    height={56}
-                    sizes="100%"
-                    style={{
-                      objectFit: 'contain',
-                    }}
-                  />
+                  <img src={plugin.logo} alt={name} className="size-14 object-contain" />
                   <div className="flex-auto text-left">
                     <div>{name}</div>
                     <div

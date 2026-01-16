@@ -17,11 +17,12 @@ import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { UploadType, type INotifyVo } from '@teable/openapi';
-import { FilePreviewProvider, ScrollArea, cn, sonner } from '@teable/ui-lib';
+import { Button, FilePreviewProvider, ScrollArea, cn, sonner } from '@teable/ui-lib';
 import { omit } from 'lodash';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useBaseId, useIsMobile } from '../../../../hooks';
+import { useDownloadAttachmentsStore } from '../../../../store';
 import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
 import { useAttachmentPreviewI18Map } from '../../../hooks';
 import { FileZone } from '../../../upload/FileZone';
@@ -38,6 +39,8 @@ export interface IUploadAttachment {
   attachments: IAttachmentCellValue;
   attachmentManager?: AttachmentManager;
   onChange?: (attachment: IAttachmentCellValue | null) => void;
+  /** Show download all button, uses store to trigger download */
+  showDownloadAll?: boolean;
   readonly?: boolean;
   disabled?: boolean;
 }
@@ -62,10 +65,12 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
       className,
       attachments,
       onChange,
+      showDownloadAll,
       readonly,
       disabled,
       attachmentManager = defaultAttachmentManager,
     } = props;
+    const triggerCellDownload = useDownloadAttachmentsStore((state) => state.triggerCellDownload);
     const { resolvedTheme } = useTheme();
     const baseId = useBaseId();
     const [uploadingFiles, setUploadingFiles] = useState<IUploadingFile[]>([]);
@@ -282,6 +287,18 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 
     return (
       <div className={cn('flex h-full flex-col overflow-hidden p-4', className)}>
+        {attachments.length > 0 && showDownloadAll && (
+          <div className="absolute bottom-0 right-0 z-10">
+            <Button
+              className="font-normal opacity-50"
+              variant="link"
+              size={'sm'}
+              onClick={() => triggerCellDownload(attachments, 'attachments.zip')}
+            >
+              {t('editor.attachment.downloadAll')}
+            </Button>
+          </div>
+        )}
         <div className="relative flex-1 overflow-hidden">
           <FileZone
             action={['drop', 'paste']}

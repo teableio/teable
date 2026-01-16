@@ -300,57 +300,6 @@ export const AIConfig = (props: IAIConfigProps) => {
             </div>
           </div>
         )}
-
-        {/* Web Search Configuration Section */}
-        {(isEE || isCloud) && (
-          <div className="relative flex flex-col gap-2">
-            <div className="flex flex-col gap-4 overflow-hidden">
-              <div className="text-left text-lg font-semibold text-foreground">
-                {t('admin.configuration.list.webSearch.title')}
-              </div>
-              <div className="relative flex flex-col gap-1">
-                <div className="text-left text-xs text-muted-foreground">
-                  <Trans
-                    ns="common"
-                    i18nKey="admin.setting.webSearch.description"
-                    components={{
-                      a: (
-                        <Link
-                          className="cursor-pointer text-blue-500"
-                          href="https://www.firecrawl.dev/app/api-keys"
-                          target="_blank"
-                          rel="noreferrer"
-                        />
-                      ),
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="relative flex flex-col gap-2">
-                <div className="self-stretch text-left text-sm font-medium text-foreground">
-                  {t('admin.setting.ai.apiKey')}
-                </div>
-                <div className="flex flex-col gap-2 p-0.5">
-                  <Input
-                    type="password"
-                    value={form.watch('webSearchConfig')?.apiKey}
-                    placeholder={t('admin.action.enterApiKey')}
-                    onChange={(e) => {
-                      const value = e.target.value?.trim();
-                      form.setValue('webSearchConfig', {
-                        ...config?.webSearchConfig,
-                        apiKey: value,
-                      });
-                    }}
-                    onBlur={() => {
-                      onSubmit(form.getValues());
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </form>
     </Form>
   );

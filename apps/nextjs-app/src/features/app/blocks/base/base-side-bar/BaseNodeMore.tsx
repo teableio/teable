@@ -34,6 +34,7 @@ import {
   SheetTrigger,
   Switch,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { FileInputIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -124,6 +125,16 @@ const CommonOperation = (props: ICommonOperationProps) => {
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
+  const handleDuplicate = useCallback(() => {
+    if (!onDuplicate) return;
+    const promise = onDuplicate();
+    toast.promise(promise, {
+      loading: t('table:import.menu.duplicating'),
+      success: t('table:import.menu.duplicateSuccess'),
+      error: (err) => (err instanceof Error ? err.message : t('table:import.menu.duplicateFailed')),
+    });
+  }, [onDuplicate, t]);
+
   if (!canRename && !canDelete && !canPermanentDelete && !canDuplicate) {
     return null;
   }
@@ -143,7 +154,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
           <ListMenuItem
             icon={<Copy className="size-4" />}
             label={t('table:import.menu.duplicate')}
-            onClick={() => onDuplicate?.()}
+            onClick={handleDuplicate}
           />
         )}
         {canPermanentDelete && (
@@ -183,7 +194,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
             </DropdownMenuItem>
           )}
           {canDuplicate && (
-            <DropdownMenuItem onClick={() => onDuplicate?.()}>
+            <DropdownMenuItem onClick={handleDuplicate}>
               <Copy className="mr-2" />
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
@@ -254,7 +265,7 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
   const canRename = Boolean(permission?.['app|update']);
   const canDelete = false;
   const canPermanentDelete = Boolean(permission?.['app|delete']);
-  const canDuplicate = false;
+  const canDuplicate = Boolean(permission?.['app|create']);
 
   return (
     <CommonOperation

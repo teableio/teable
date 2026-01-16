@@ -68,7 +68,7 @@
     "empty": "Aún no hay bases compartidas"
   },
   "trash": {
-    "spaceDescription": "Todos los espacios eliminados en esta instancia",
+    "spaceDescription": "Todos los espacios",
     "baseDescription": "Todas las bases eliminadas en este espacio"
   },
   "integration": {

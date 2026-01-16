@@ -11,6 +11,42 @@ import { NextService } from './next.service';
 export class NextController {
   constructor(private nextService: NextService) {}
 
+  /**
+   * StreamSaver mitm.html needs relaxed CSP to allow inline scripts
+   * The default CSP blocks inline scripts which prevents Service Worker registration
+   */
+  @ApiExcludeEndpoint()
+  @Public()
+  @Get('streamsaver/mitm.html')
+  public async streamSaverMitm(@Req() req: Request, @Res() res: Response) {
+    if (!this.nextService.server) {
+      return res.status(404).send('Not Found');
+    }
+    // Allow inline scripts for mitm.html (required for StreamSaver to work)
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; frame-ancestors *"
+    );
+    await this.nextService.server.getRequestHandler()(req, res);
+  }
+
+  /**
+   * Service Worker file needs special headers for registration
+   * - Content-Type must be application/javascript
+   * - Service-Worker-Allowed header to allow broader scope
+   */
+  @ApiExcludeEndpoint()
+  @Public()
+  @Get('streamsaver/sw.js')
+  public async serviceWorker(@Req() req: Request, @Res() res: Response) {
+    if (!this.nextService.server) {
+      return res.status(404).send('Not Found');
+    }
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Service-Worker-Allowed', '/');
+    await this.nextService.server.getRequestHandler()(req, res);
+  }
+
   @ApiExcludeEndpoint()
   @Public()
   @Get([
@@ -19,6 +55,7 @@ export class NextController {
     '_next/*',
     '__nextjs*',
     'images/*',
+    'streamsaver/*',
     'home',
     '404/*',
     '403/?*',

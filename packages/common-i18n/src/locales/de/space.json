@@ -68,7 +68,7 @@
     "empty": "Noch keine geteilten Bases"
   },
   "trash": {
-    "spaceDescription": "Alle gelöschten Spaces in dieser Instanz",
+    "spaceDescription": "Alle gelöschten Spaces",
     "baseDescription": "Alle gelöschten Bases in diesem Space"
   },
   "integration": {

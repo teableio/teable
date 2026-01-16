@@ -16,6 +16,7 @@ export const AttachmentEditorMain = (
       attachments={value || []}
       onChange={onChange}
       readonly={readonly}
+      showDownloadAll
       attachmentManager={attachmentManager}
     />
   );

@@ -251,6 +251,7 @@ export type I18nTranslations = {
             "useTemplate": string;
             "backToSpace": string;
             "switchBase": string;
+            "retry": string;
         };
         "quickAction": {
             "title": string;
@@ -760,6 +761,8 @@ export type I18nTranslations = {
                         "disabledWebSearch": string;
                         "lgModelAbility": string;
                         "toolCall": string;
+                        "reasoning": string;
+                        "imageGeneration": string;
                         "missingVision": string;
                         "missingToolCall": string;
                         "supportedFormats": string;
@@ -817,6 +820,8 @@ export type I18nTranslations = {
                             "description": string;
                         };
                     };
+                    "moreModels": string;
+                    "noModelsAvailable": string;
                     "batchTest": string;
                     "testProvider": string;
                     "testProviderTooltip": string;
@@ -887,6 +892,133 @@ export type I18nTranslations = {
                         "sslCertificate": string;
                         "checkConfiguration": string;
                     };
+                    "recommended": string;
+                    "gatewayModels": string;
+                    "gatewayModelsDescription": string;
+                    "gatewayDescription": string;
+                    "noGatewayModels": string;
+                    "addModel": string;
+                    "addGatewayModel": string;
+                    "popularModels": string;
+                    "modelId": string;
+                    "modelIdHint": string;
+                    "searchModelPlaceholder": string;
+                    "noMatchingModels": string;
+                    "useCustomId": string;
+                    "typeToSearch": string;
+                    "modelNotFound": string;
+                    "testModel": string;
+                    "testModelSuccess": string;
+                    "testModelImageSuccess": string;
+                    "testModelNotFound": string;
+                    "displayLabel": string;
+                    "isImageModel": string;
+                    "capabilities": string;
+                    "setAsDefault": string;
+                    "quickAdd": string;
+                    "guide": {
+                        "configStatus": string;
+                        "ready": string;
+                        "needsAttention": string;
+                        "incomplete": string;
+                        "aiEnabled": string;
+                        "aiEnabledDesc": string;
+                        "aiDisabledDesc": string;
+                        "gatewayKey": string;
+                        "gatewayKeyConfigured": string;
+                        "gatewayKeyMissing": string;
+                        "gatewayKeyRequired": string;
+                        "gatewayModels": string;
+                        "gatewayModelsConfigured": string;
+                        "gatewayModelsEmpty": string;
+                        "providers": string;
+                        "providersConfigured": string;
+                        "providersEmpty": string;
+                        "chatModel": string;
+                        "chatModelGateway": string;
+                        "chatModelProvider": string;
+                        "chatModelMissing": string;
+                    };
+                    "enableCard": {
+                        "title": string;
+                        "ready": string;
+                        "needsConfig": string;
+                        "disabled": string;
+                        "missingConfig": string;
+                        "allConfigured": string;
+                    };
+                    "wizard": {
+                        "setupProgress": string;
+                        "checklist": string;
+                        "allComplete": string;
+                        "nextStep": string;
+                        "configureAI": string;
+                        "optional": string;
+                        "gatewayHelp": string;
+                        "gatewayByok": string;
+                        "getApiKey": string;
+                        "keyInvalid": string;
+                        "gatewayErrorUnauthorized": string;
+                        "gatewayErrorNeedCreditCard": string;
+                        "gatewayErrorInsufficientQuota": string;
+                        "gatewayErrorForbidden": string;
+                        "gatewayErrorNetwork": string;
+                        "pleaseTest": string;
+                        "test": string;
+                        "testing": string;
+                        "attachmentTest": {
+                            "title": string;
+                            "urlMode": string;
+                            "base64Mode": string;
+                            "accessible": string;
+                            "inaccessible": string;
+                            "urlNotAccessibleWarning": string;
+                            "useBase64Mode": string;
+                            "base64ModeDescription": string;
+                            "originChanged": string;
+                            "originChangedDesc": string;
+                        };
+                        "saveAndContinue": string;
+                        "completeStep1First": string;
+                        "completeStep2First": string;
+                        "addCustom": string;
+                        "enabledModels": string;
+                        "chatDefault": string;
+                        "noModelsAvailable": string;
+                        "quickSetup": string;
+                        "useRecommended": string;
+                        "useRecommendedDesc": string;
+                        "chatModels": string;
+                        "chatModelTip": string;
+                        "selectChatModel": string;
+                        "lgDesc": string;
+                        "mdDesc": string;
+                        "smDesc": string;
+                        "readyToUse": string;
+                        "customProviderHelp": string;
+                        "testModelCapabilities": string;
+                        "customModelsAutoImported": string;
+                        "modelsCount": string;
+                        "customModelsHint": string;
+                        "gatewayOption": {
+                            "title": string;
+                            "desc": string;
+                        };
+                        "customOption": {
+                            "title": string;
+                            "desc": string;
+                        };
+                        "step": {
+                            "llmApi": string;
+                            "llmApiDesc": string;
+                            "modelPool": string;
+                            "modelPoolDesc": string;
+                            "chatModel": string;
+                            "chatModelDesc": string;
+                            "providers": string;
+                            "providersDesc": string;
+                        };
+                    };
                 };
                 "webSearch": {
                     "description": string;
@@ -905,6 +1037,8 @@ export type I18nTranslations = {
                     "aiGateway": string;
                     "aiGatewayDescription": string;
                     "aiGatewayApiKey": string;
+                    "aiGatewayKeyConfigured": string;
+                    "aiGatewayBaseUrl": string;
                 };
             };
             "action": {
@@ -954,6 +1088,44 @@ export type I18nTranslations = {
                         "description": string;
                         "errorTips": string;
                     };
+                    "aiEnable": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "aiLlmApi": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "aiModelPool": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "aiChatModel": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "appBuilderV0": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "appBuilderDomain": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "appBuilderApiProxy": {
+                        "title": string;
+                        "description": string;
+                    };
+                };
+                "progressTitle": string;
+                "allComplete": string;
+                "incomplete": string;
+                "optional": string;
+                "completed": string;
+                "group": {
+                    "system": string;
+                    "ai": string;
+                    "appBuilder": string;
                 };
             };
             "canary": {
@@ -1630,6 +1802,12 @@ export type I18nTranslations = {
                 "uploadBaseText": string;
                 "uploadDragDefault": string;
                 "upload": string;
+                "downloadAll": string;
+                "downloading": string;
+                "downloadSuccess": string;
+                "downloadFailed": string;
+                "downloadCancelled": string;
+                "requireHttps": string;
             };
             "date": {
                 "placeholder": string;
@@ -2797,6 +2975,8 @@ export type I18nTranslations = {
                 "validateActionFailed": string;
                 "generateFailed": string;
                 "unsupportedActionType": string;
+                "gatewayApiKeyNotSet": string;
+                "geminiImageNotSupportedViaGateway": string;
             };
             "role": {
                 "notFound": string;
@@ -3563,6 +3743,9 @@ export type I18nTranslations = {
                     "imageSize": string;
                     "imageQuality": string;
                     "imageCount": string;
+                    "aspectRatio": string;
+                    "resolution": string;
+                    "advancedSettings": string;
                 };
                 "placeholder": {
                     "summarize": string;
@@ -3580,6 +3763,8 @@ export type I18nTranslations = {
                     "imageQuality": string;
                     "attachPromptForImageGeneration": string;
                     "attachPromptForRating": string;
+                    "aspectRatio": string;
+                    "resolution": string;
                 };
                 "imageQuality": {
                     "low": string;
@@ -3618,6 +3803,14 @@ export type I18nTranslations = {
                 };
                 "hint": {
                     "imageInputSupported": string;
+                    "attachmentNotSupported": string;
+                    "singleImageOnly": string;
+                };
+                "auto": string;
+                "resolution": {
+                    "1K": string;
+                    "2K": string;
+                    "4K": string;
                 };
             };
         };
@@ -3747,6 +3940,9 @@ export type I18nTranslations = {
                 "downAsCsv": string;
                 "importData": string;
                 "duplicate": string;
+                "duplicating": string;
+                "duplicateSuccess": string;
+                "duplicateFailed": string;
                 "importing": string;
                 "includeRecords": string;
                 "autoFill": string;
@@ -3901,6 +4097,7 @@ export type I18nTranslations = {
             "expandAllGroups": string;
             "collapseAllGroups": string;
             "duplicateField": string;
+            "downloadAllAttachments": string;
         };
         "connection": {
             "title": string;
@@ -4091,6 +4288,10 @@ export type I18nTranslations = {
                 "preview": string;
             };
             "newChat": string;
+            "clearChat": string;
+            "clearChatConfirmTitle": string;
+            "clearChatConfirmDesc": string;
+            "dontShowAgain": string;
             "noModel": string;
             "noHistory": string;
             "noFoundHistory": string;
@@ -4120,6 +4321,10 @@ export type I18nTranslations = {
                 "totalTimeCost": string;
                 "totalCreditCost": string;
                 "customModel": string;
+                "tokenDetails": string;
+                "cachedInput": string;
+                "cacheWrite": string;
+                "reasoning": string;
             };
             "tools": {
                 "getTeableApi": string;
@@ -4388,6 +4593,29 @@ export type I18nTranslations = {
                 "codeProject": {
                     "defaultTitle": string;
                 };
+            };
+        };
+        "download": {
+            "allAttachments": {
+                "title": string;
+                "loading": string;
+                "rowsWithAttachments": string;
+                "totalAttachments": string;
+                "totalSize": string;
+                "startDownload": string;
+                "confirmTitle": string;
+                "confirmDescription": string;
+                "confirm": string;
+                "cancel": string;
+                "downloading": string;
+                "downloadingFile": string;
+                "progress": string;
+                "completed": string;
+                "cancelled": string;
+                "noAttachments": string;
+                "error": string;
+                "errorPartial": string;
+                "requireHttps": string;
             };
         };
         "plugin": {

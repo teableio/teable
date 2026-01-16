@@ -68,7 +68,7 @@
     "empty": "Aucune base partagée avec moi pour le moment"
   },
   "trash": {
-    "spaceDescription": "Tous les espaces supprimés dans cette instance",
+    "spaceDescription": "Tous les espaces supprimés",
     "baseDescription": "Toutes les bases supprimées dans cet espace"
   },
   "integration": {

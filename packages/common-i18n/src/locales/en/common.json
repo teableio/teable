@@ -19,6 +19,7 @@
     "back": "Back",
     "remove": "Remove",
     "removeConfig": "Remove config",
+    "retry": "Retry",
     "saveSucceed": "Save succeed!",
     "submitSucceed": "Submit succeed!",
     "editSucceed": "Edit succeed!",
@@ -523,7 +524,6 @@
         "provider": "LLM provider",
         "aiAbilitySettings": "AI ability settings",
         "aiAbilitySettingsDescription": "Configure the AI abilities",
-        "providerDescription": "The LLM provider to use",
         "modelPreferences": "Model preferences",
         "modelPreferencesDescription": "The model preferences for the LLM provider",
         "embeddingModel": "Embedding model",
@@ -586,6 +586,8 @@
           "pdf": "PDF",
           "webSearch": "Web search",
           "toolCall": "Tool Call",
+          "reasoning": "Reasoning",
+          "imageGeneration": "Image Generation",
           "disabledWebSearch": "Disabled web search",
           "lgModelAbility": "Model Capabilities",
           "missingVision": "Does not support image or PDF processing",
@@ -596,6 +598,8 @@
         "noModelFound": "No model found.",
         "searchModel": "Search model...",
         "selectModel": "Select model...",
+        "moreModels": "More Models",
+        "noModelsAvailable": "No models available",
         "input": "Input {{ratio}}",
         "output": "Output {{ratio}}",
         "inputOrOutputTip": "The ratio represents the exchange rate between credits and tokens, e.g. \"1:1000\" means 1 credit ≈ 1000 tokens.<br></br>Note: Each use will deduct at least 1 credit. Even if the actual consumption is less than 1 credit, it will still be charged as 1 credit.",
@@ -610,7 +614,7 @@
         "testing": "Testing...",
         "testSuccess": "Test successful",
         "testFailed": "Test failed",
-        "batchTest": "Batch Test All Models",
+        "batchTest": "Test Model Capabilities",
         "testProvider": "Test",
         "testProviderTooltip": "Test all {{count}} models under this provider",
         "batchTesting": "Testing all models...",
@@ -684,10 +688,135 @@
           "ollamaRunning": "Ensure Ollama is running locally. You can start it with the 'ollama serve' command",
           "sslCertificate": "There's an SSL certificate issue. If using a self-signed certificate, you may need additional configuration",
           "checkConfiguration": "Please check your configuration. Ensure the Base URL, API key, and model name are all correct"
+        },
+        "recommended": "Recommended",
+        "gatewayModels": "AI Gateway Models",
+        "gatewayModelsDescription": "Configure recommended models via Vercel AI Gateway for optimal AI SDK support",
+        "gatewayDescription": "Use AI Gateway for best compatibility and reliability. Configure API key in the App section below.",
+        "providerDescription": "Advanced: Configure custom AI providers for specific use cases or self-hosted models.",
+        "noGatewayModels": "No gateway models configured. Add models to get started.",
+        "addModel": "Add Model",
+        "addGatewayModel": "Add Gateway Model",
+        "popularModels": "Popular Models",
+        "modelId": "Model ID",
+        "modelIdHint": "The model identifier used by AI Gateway (e.g., anthropic/claude-sonnet-4)",
+        "searchModelPlaceholder": "Type to search models...",
+        "noMatchingModels": "No matching models found",
+        "useCustomId": "Use custom ID: {{id}}",
+        "typeToSearch": "Type keywords to search available models",
+        "modelNotFound": "This model ID was not found in available list, please verify spelling",
+        "testModel": "Test Model",
+        "testModelSuccess": "Model test successful! API responded correctly",
+        "testModelImageSuccess": "Image model confirmed to exist in API",
+        "testModelNotFound": "Model not found in API list",
+        "displayLabel": "Display Label",
+        "isImageModel": "This is an image generation model",
+        "capabilities": "Capabilities",
+        "setAsDefault": "Set as default chat model",
+        "quickAdd": "Quick add popular models:",
+        "guide": {
+          "configStatus": "Configuration Status",
+          "ready": "Ready",
+          "needsAttention": "Needs Attention",
+          "incomplete": "Incomplete",
+          "aiEnabled": "AI Enabled",
+          "aiEnabledDesc": "Custom models are enabled for this instance",
+          "aiDisabledDesc": "Enable to use custom AI models",
+          "gatewayKey": "Gateway API Key",
+          "gatewayKeyConfigured": "AI Gateway key is configured",
+          "gatewayKeyMissing": "Configure AI Gateway API key for recommended setup",
+          "gatewayKeyRequired": "Please configure AI Gateway API key first in the App section below",
+          "gatewayModels": "Gateway Models",
+          "gatewayModelsConfigured": "{{count}} models enabled",
+          "gatewayModelsEmpty": "Add gateway models for user selection",
+          "providers": "Custom Providers",
+          "providersConfigured": "{{count}} providers configured",
+          "providersEmpty": "No custom providers configured",
+          "chatModel": "Default Chat Model",
+          "chatModelGateway": "Using gateway model",
+          "chatModelProvider": "Using custom provider model",
+          "chatModelMissing": "Select a default chat model"
+        },
+        "enableCard": {
+          "title": "AI Services",
+          "ready": "Configured and ready to use",
+          "needsConfig": "Enabled, but needs configuration below",
+          "disabled": "AI features are currently disabled",
+          "missingConfig": "Missing configuration:",
+          "allConfigured": "All configurations complete"
+        },
+        "wizard": {
+          "setupProgress": "Setup Progress",
+          "checklist": "Checklist",
+          "allComplete": "All required settings complete! AI is ready to use.",
+          "nextStep": "Next: {{step}}",
+          "configureAI": "Complete the following steps to enable AI",
+          "optional": "Optional",
+          "gatewayHelp": "AI Gateway: One API key for hundreds of models; first-time use requires adding a credit card in Vercel;",
+          "gatewayByok": "supported (bring your own provider keys)",
+          "getApiKey": "Get API Key",
+          "keyInvalid": "Invalid API key, please check and try again",
+          "gatewayErrorUnauthorized": "Invalid API key. Please check if it was copied correctly",
+          "gatewayErrorNeedCreditCard": "Credit card required to use AI Gateway. Please add one in the Vercel dashboard",
+          "gatewayErrorInsufficientQuota": "Insufficient account balance. Please top up and try again",
+          "gatewayErrorForbidden": "Access forbidden. Please check your account status in the Vercel dashboard",
+          "gatewayErrorNetwork": "Network error. Please check your connection or proxy settings",
+          "pleaseTest": "Please click Test to verify the API key",
+          "test": "Test",
+          "testing": "Testing...",
+          "attachmentTest": {
+            "title": "Attachment Transfer Mode",
+            "urlMode": "URL Mode",
+            "base64Mode": "Base64 Mode",
+            "accessible": "Available",
+            "inaccessible": "Unavailable",
+            "urlNotAccessibleWarning": "AI service cannot access attachment URLs. This is common for intranet deployments. Base64 mode has been auto-enabled.",
+            "useBase64Mode": "Use Base64 Mode",
+            "base64ModeDescription": "Convert attachments to Base64 before sending (Teable cannot be accessed from the public network)",
+            "originChanged": "PUBLIC_ORIGIN has changed",
+            "originChangedDesc": "The server address has changed since the last test. Please re-test to verify attachment accessibility."
+          },
+          "saveAndContinue": "Save & Continue",
+          "completeStep1First": "Please complete Step 1: Configure LLM API first",
+          "completeStep2First": "Please complete Step 2: Add at least one model first",
+          "addCustom": "Custom...",
+          "enabledModels": "Enabled Models",
+          "chatDefault": "Chat Default",
+          "noModelsAvailable": "No models available, please add models in Step 2 first",
+          "quickSetup": "Quick Setup",
+          "useRecommended": "Use Recommended",
+          "useRecommendedDesc": "Set {{model}} as default for all chat scenarios with one click",
+          "chatModels": "Chat Model",
+          "chatModelTip": "This model is used for sidebar AI chat, specified by admin and cannot be changed by users",
+          "selectChatModel": "Select chat model...",
+          "lgDesc": "Complex tasks, deep analysis",
+          "mdDesc": "Daily conversations, general tasks",
+          "smDesc": "Simple queries, quick responses",
+          "readyToUse": "AI is configured and ready to use!",
+          "customProviderHelp": "Add your own AI providers (OpenAI, Anthropic, Azure, etc.), configure API keys and models.",
+          "testModelCapabilities": "Test Model Capabilities",
+          "customModelsAutoImported": "Your provider models have been automatically imported to the model pool.",
+          "modelsCount": "{{count}} models available",
+          "customModelsHint": "To adjust model configurations, go back to Step 1 to modify provider settings.",
+          "gatewayOption": {
+            "title": "AI Gateway (Recommended)",
+            "desc": "Access hundreds of models via Vercel AI Gateway with best compatibility and reliability"
+          },
+          "customOption": {
+            "title": "Custom Provider",
+            "desc": "Connect to self-hosted/private models, supports multiple providers"
+          },
+          "step": {
+            "llmApi": "Configure LLM API",
+            "llmApiDesc": "Choose AI Gateway or configure custom providers",
+            "modelPool": "Configure Recommended Models",
+            "modelPoolDesc": "Recommended models for users to select in AI fields & automation",
+            "chatModel": "Set Chat Model",
+            "chatModelDesc": "Model for sidebar AI chat (select from recommended models)",
+            "providers": "Configure Providers",
+            "providersDesc": "Add and manage AI providers"
+          }
         }
-      },
-      "webSearch": {
-        "description": "Configure Firecrawl API key to enable web search feature, access <a>Firecrawl settings</a> to get API key"
       },
       "app": {
         "domain": "Domain",
@@ -700,9 +829,11 @@
         "apiProxyDescription": "Configure reverse proxy URLs for v0 and Vercel APIs (e.g., Cloudflare Workers). Leave empty to use default endpoints.",
         "v0BaseUrl": "v0 API Base URL",
         "vercelBaseUrl": "Vercel API Base URL",
-        "aiGateway": "Vercel AI Gateway (Optional)",
+        "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "Configure Vercel AI Gateway to access hundreds of models through a single endpoint. Access <a>AI Gateway settings</a> to get API key",
-        "aiGatewayApiKey": "AI Gateway API Key"
+        "aiGatewayApiKey": "AI Gateway API Key",
+        "aiGatewayKeyConfigured": "API key configured",
+        "aiGatewayBaseUrl": "Custom Gateway URL"
       }
     },
     "action": {
@@ -717,6 +848,16 @@
     "configuration": {
       "title": "Pending configuration",
       "description": "Complete those configuration to get full features",
+      "progressTitle": "Setup progress",
+      "allComplete": "All configurations completed",
+      "incomplete": "Some configurations are incomplete",
+      "optional": "Optional",
+      "completed": "Completed",
+      "group": {
+        "system": "Basics",
+        "ai": "AI Services",
+        "appBuilder": "App Builder"
+      },
       "copyInstance": "Copy ID",
       "list": {
         "publicOrigin": {
@@ -737,15 +878,38 @@
           "description": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable, <anchor>go to setting</anchor>",
           "errorTips": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable"
         },
+        "aiEnable": {
+          "title": "AI Services (Chat / AI Field)",
+          "description": "Enable to use AI Chat, AI Fields, and automations, <anchor>go to setting</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "AI: Configure LLM API",
+          "description": "Choose AI Gateway or configure custom providers, <anchor>go to setting</anchor>"
+        },
+        "aiModelPool": {
+          "title": "AI: Configure available models",
+          "description": "Enable at least one model for AI Fields and automations, <anchor>go to setting</anchor>"
+        },
+        "aiChatModel": {
+          "title": "AI: Set chat model",
+          "description": "Select a default model for the sidebar AI Chat, <anchor>go to setting</anchor>"
+        },
         "app": {
           "title": "App builder",
           "description": "You have not configured the v0 API key, the App builder feature will not be available, <anchor>go to setting</anchor>",
           "errorTips": "You have not configured the v0 API key, the App builder feature will not be available"
         },
-        "webSearch": {
-          "title": "Web search",
-          "description": "You have not configured the web search API, the web search feature will not be available, <anchor>go to setting</anchor>",
-          "errorTips": "You have not configured the web search API, the web search feature will not be available"
+        "appBuilderV0": {
+          "title": "App Builder: Enable v0",
+          "description": "Configure the v0 API key to enable App Builder, <anchor>go to setting</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "App Builder: Custom domain",
+          "description": "If you want to publish apps under your custom domain, configure domain + Vercel token, <anchor>go to setting</anchor>"
+        },
+        "appBuilderApiProxy": {
+          "title": "App Builder: API proxy",
+          "description": "If you need a proxy for v0/Vercel APIs, configure the proxy URLs, <anchor>go to setting</anchor>"
         },
         "email": {
           "title": "Email",
@@ -1011,8 +1175,8 @@
   "noPermissionToCreateBase": "No permission to create base in any space",
   "base": {
     "deleteTip": "Are you sure you want to delete \"{{name}}\" base?",
-    "createResource": "Create resource",
-    "noPermissionToCreateResource": "You don't have permission to create resource"
+    "createResource": "Create",
+    "noPermissionToCreateResource": "You don't have permission to create, please contact owner"
   },
   "app": {
     "title": "App builder",

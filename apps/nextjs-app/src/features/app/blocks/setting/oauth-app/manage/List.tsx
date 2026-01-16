@@ -5,7 +5,6 @@ import { oauthGetList, oauthDelete } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
@@ -78,14 +77,10 @@ export const OAuthAppList = () => {
             <CardContent className="relative flex size-full items-center gap-5 px-2 py-3">
               <div className="relative size-16 overflow-hidden rounded-sm">
                 {app.logo ? (
-                  <Image
+                  <img
                     src={getPreviewUrl(app.logo)}
                     alt={app.name}
-                    fill
-                    sizes="100%"
-                    style={{
-                      objectFit: 'contain',
-                    }}
+                    className="absolute inset-0 size-full object-contain"
                   />
                 ) : (
                   <TeableLogo className="size-16" />

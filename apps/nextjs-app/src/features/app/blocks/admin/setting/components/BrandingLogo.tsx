@@ -5,7 +5,6 @@ import { Plus } from '@teable/icons';
 import { uploadLogo } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
@@ -58,7 +57,7 @@ export const BrandingLogo = (props: { value?: string }) => {
         >
           {logoUrl ? (
             <div className="relative size-14 overflow-hidden rounded-md border border-border">
-              <Image src={logoUrl} alt="logo" fill sizes="100%" style={{ objectFit: 'contain' }} />
+              <img src={logoUrl} alt="logo" className="absolute inset-0 size-full object-contain" />
             </div>
           ) : (
             <div className="flex size-14 items-center justify-center rounded-md border border-border">

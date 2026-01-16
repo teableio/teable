@@ -10,7 +10,6 @@ export enum SettingKey {
   ENABLE_WAITLIST = 'enableWaitlist',
   AI_CONFIG = 'aiConfig',
   APP_CONFIG = 'appConfig',
-  WEB_SEARCH_CONFIG = 'webSearchConfig',
   NOTIFY_MAIL_TRANSPORT_CONFIG = 'notifyMailTransportConfig',
   AUTOMATION_MAIL_TRANSPORT_CONFIG = 'automationMailTransportConfig',
   ENABLE_CREDIT_REWARD = 'enableCreditReward',
