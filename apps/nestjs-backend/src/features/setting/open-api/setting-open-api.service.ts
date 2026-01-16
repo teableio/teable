@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import type { OpenAIProvider } from '@ai-sdk/openai';
@@ -15,10 +16,16 @@ import type {
   IBatchTestLLMVo,
   IModelTestResult,
   LLMProvider,
+  ITestApiKeyRo,
+  ITestApiKeyVo,
+  GatewayModelType,
+  GatewayModelTag,
+  GatewayModelProvider,
 } from '@teable/openapi';
 import { chatModelAbilityType, UploadType, LLMProviderType } from '@teable/openapi';
-import { generateText, tool, experimental_generateImage } from 'ai';
+import { createGateway, generateText, tool, experimental_generateImage } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
+import axios from 'axios';
 import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
@@ -348,7 +355,40 @@ export class SettingOpenApiService {
       const modelArray = models.split(',');
       const model = modelKey ? this.parseModelKey(modelKey).model : modelArray[0];
 
-      const provider = modelProviders[type];
+      // Handle AI Gateway separately using createGateway from AI SDK
+      // See: https://ai-sdk.dev/providers/ai-sdk-providers/ai-gateway
+      if (type === LLMProviderType.AI_GATEWAY) {
+        const gatewayProvider = createGateway({
+          apiKey,
+          baseURL: baseUrl || undefined,
+        });
+
+        // Handle image generation model testing
+        if (testImageGeneration) {
+          // Gemini image models via Gateway use generateText, not experimental_generateImage
+          throw new CustomHttpException(
+            'Image generation testing not supported for AI Gateway models yet',
+            HttpErrorCode.VALIDATION_ERROR
+          );
+        }
+
+        // Standard text model testing
+        const testPrompt = 'Hello, please respond with "Connection successful!"';
+        const modelInstance = gatewayProvider(model) as unknown as LanguageModel;
+        const { text } = await generateText({
+          model: modelInstance,
+          prompt: testPrompt,
+          temperature: 1,
+        });
+        const supportAbilities = await this.testChatModelAbility(modelInstance, ability);
+        return {
+          success: true,
+          response: text,
+          ability: supportAbilities,
+        };
+      }
+
+      const provider = modelProviders[type as keyof typeof modelProviders];
       const providerOptions = getAdaptedProviderOptions(type, {
         name: model,
         baseURL: baseUrl,
@@ -356,7 +396,7 @@ export class SettingOpenApiService {
       });
       const modelProvider = provider({
         ...providerOptions,
-      }) as OpenAIProvider;
+      } as never) as OpenAIProvider;
 
       // Handle image generation model testing
       if (testImageGeneration) {
@@ -551,28 +591,39 @@ export class SettingOpenApiService {
     const testPrompt = 'Hello, please respond with "Connection successful!"';
 
     try {
-      const providerFactory = modelProviders[type];
+      let modelInstance: LanguageModel;
 
-      if (!providerFactory) {
-        return {
-          modelKey,
-          providerName,
-          providerType: type,
-          model,
-          success: false,
-          error: `Unsupported provider type: ${type}`,
-        };
+      // Handle AI Gateway separately
+      if (type === LLMProviderType.AI_GATEWAY) {
+        const gatewayProvider = createGateway({
+          apiKey,
+          baseURL: baseUrl || undefined,
+        });
+        modelInstance = gatewayProvider(model) as unknown as LanguageModel;
+      } else {
+        const providerFactory = modelProviders[type as keyof typeof modelProviders];
+
+        if (!providerFactory) {
+          return {
+            modelKey,
+            providerName,
+            providerType: type,
+            model,
+            success: false,
+            error: `Unsupported provider type: ${type}`,
+          };
+        }
+
+        const providerOptions = getAdaptedProviderOptions(type, {
+          name: model,
+          baseURL: baseUrl,
+          apiKey,
+        });
+        const modelProvider = providerFactory({
+          ...providerOptions,
+        } as never) as OpenAIProvider;
+        modelInstance = modelProvider(model) as unknown as LanguageModel;
       }
-
-      const providerOptions = getAdaptedProviderOptions(type, {
-        name: model,
-        baseURL: baseUrl,
-        apiKey,
-      });
-      const modelProvider = providerFactory({
-        ...providerOptions,
-      }) as OpenAIProvider;
-      const modelInstance = modelProvider(model) as unknown as LanguageModel;
 
       // Test basic generation
       await generateText({
@@ -689,5 +740,351 @@ export class SettingOpenApiService {
       failedCount,
       results,
     };
+  }
+
+  /**
+   * Test API key validity for AI Gateway or v0
+   * Optionally also tests attachment transfer modes (URL and Base64)
+   * When testAttachment is true, results are automatically saved to appConfig
+   */
+  async testApiKey(testApiKeyRo: ITestApiKeyRo): Promise<ITestApiKeyVo> {
+    const { type, apiKey, baseUrl, testAttachment } = testApiKeyRo;
+
+    if (type === 'aiGateway') {
+      const keyResult = await this.testAiGatewayKey(apiKey, baseUrl);
+
+      // If key test failed or attachment test not requested, return early
+      if (!keyResult.success || !testAttachment) {
+        return keyResult;
+      }
+
+      // Key is valid, now test attachment transfer modes
+      const attachmentResult = await this.testAttachmentTransferModes(apiKey, baseUrl);
+
+      // Auto-save results and switch mode if needed
+      if (attachmentResult) {
+        await this.saveAttachmentTestResults(attachmentResult);
+      }
+
+      return {
+        ...keyResult,
+        attachmentTest: attachmentResult,
+      };
+    } else if (type === 'v0') {
+      return this.testV0Key(apiKey, baseUrl);
+    }
+
+    return { success: false, error: { code: 'unknown', message: 'Unknown API type' } };
+  }
+
+  /**
+   * Save attachment test results to aiConfig and auto-switch mode if needed
+   */
+  private async saveAttachmentTestResults(
+    attachmentResult: NonNullable<ITestApiKeyVo['attachmentTest']>
+  ): Promise<void> {
+    try {
+      const { aiConfig } = await this.settingService.getSetting();
+      const currentMode = aiConfig?.attachmentTransferMode || 'url';
+
+      // Prepare the update
+      const update: {
+        attachmentTest: NonNullable<ITestApiKeyVo['attachmentTest']> & { testedAt: string };
+        attachmentTransferMode?: 'url' | 'base64';
+      } = {
+        attachmentTest: {
+          ...attachmentResult,
+          testedAt: new Date().toISOString(),
+        },
+      };
+
+      // Auto-switch mode if:
+      // 1. URL mode failed but Base64 succeeded -> switch to base64
+      // 2. Current mode is base64 but now URL works -> switch to url (optional, keep user choice)
+      const urlWorks = attachmentResult.urlMode?.success ?? false;
+      const base64Works = attachmentResult.base64Mode?.success ?? false;
+
+      if (!urlWorks && base64Works && currentMode === 'url') {
+        // URL doesn't work, switch to base64
+        update.attachmentTransferMode = 'base64';
+        this.logger.log('Auto-switching attachment transfer mode to base64 (URL mode failed)');
+      }
+      // Note: We don't auto-switch back to URL even if it now works,
+      // because the user might have intentionally chosen base64
+
+      await this.settingService.updateSetting({
+        aiConfig: {
+          ...aiConfig,
+          llmProviders: aiConfig?.llmProviders ?? [],
+          ...update,
+        },
+      });
+      this.logger.log('Saved attachment test results to aiConfig');
+    } catch (error) {
+      this.logger.error(`Failed to save attachment test results: ${error}`);
+      // Don't throw - this is a non-critical operation
+    }
+  }
+
+  /**
+   * Test attachment transfer modes (URL and Base64) in parallel
+   * Uses vision model to verify if AI can access attachments via each mode
+   */
+  private async testAttachmentTransferModes(
+    apiKey: string,
+    baseUrl?: string
+  ): Promise<ITestApiKeyVo['attachmentTest']> {
+    const testModel = 'openai/gpt-4o-mini';
+
+    try {
+      // Create gateway instance
+      const gatewayOptions: { apiKey: string; baseURL?: string } = { apiKey };
+      if (baseUrl) {
+        gatewayOptions.baseURL = baseUrl;
+      }
+      const gateway = createGateway(gatewayOptions);
+      const modelInstance = gateway(testModel);
+
+      // Test image with both URL and Base64 modes in parallel
+      const imageResult = await this.testAttachmentAbility(
+        modelInstance,
+        actTestImageToken,
+        testImagePath,
+        'image/png'
+      );
+
+      // Determine recommended mode based on test results
+      let recommendedMode: 'url' | 'base64' | undefined;
+      if (imageResult.url && imageResult.base64) {
+        recommendedMode = 'url'; // Both work, prefer URL for performance
+      } else if (!imageResult.url && imageResult.base64) {
+        recommendedMode = 'base64'; // Only Base64 works
+      } else if (imageResult.url && !imageResult.base64) {
+        recommendedMode = 'url'; // Only URL works (rare case)
+      }
+      // If both fail, recommendedMode remains undefined
+
+      return {
+        urlMode: {
+          success: imageResult.url ?? false,
+          errorMessage: imageResult.url ? undefined : 'AI service cannot access attachment URL',
+        },
+        base64Mode: {
+          success: imageResult.base64 ?? false,
+          errorMessage: imageResult.base64
+            ? undefined
+            : 'AI service cannot process base64 attachment',
+        },
+        recommendedMode,
+        testedOrigin: this.baseConfig.publicOrigin,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`testAttachmentTransferModes error: ${errorMessage}`);
+
+      return {
+        urlMode: { success: false, errorMessage },
+        base64Mode: { success: false, errorMessage },
+        testedOrigin: this.baseConfig.publicOrigin,
+      };
+    }
+  }
+
+  private async testAiGatewayKey(apiKey: string, baseUrl?: string): Promise<ITestApiKeyVo> {
+    try {
+      // Only set baseURL if user provided a custom one, otherwise use SDK default
+      // SDK default: https://ai-gateway.vercel.sh/v1/ai
+      const gatewayOptions: { apiKey: string; baseURL?: string } = { apiKey };
+      if (baseUrl) {
+        gatewayOptions.baseURL = baseUrl;
+      }
+      const gateway = createGateway(gatewayOptions);
+
+      // Use a minimal generateText call to verify the key
+      await generateText({
+        model: gateway('openai/gpt-4o-mini'),
+        prompt: 'hi',
+      });
+
+      return { success: true };
+    } catch (error) {
+      return this.parseApiKeyError(error, 'AI Gateway');
+    }
+  }
+
+  private parseApiKeyError(error: unknown, service: string): ITestApiKeyVo {
+    const errorMessage = String(error).toLowerCase();
+    const rawMessage = String(error);
+    const errorObj = error as {
+      status?: number;
+      statusCode?: number;
+      message?: string;
+      cause?: { status?: number; message?: string };
+      data?: { error?: { type?: string; code?: string; message?: string } };
+    };
+
+    const status = errorObj.status || errorObj.statusCode || errorObj.cause?.status;
+    const detailedMessage = errorObj.data?.error?.message || errorObj.message || rawMessage;
+
+    this.logger.error(
+      '%s key test failed: status=%s, message=%s, raw=%s',
+      service,
+      status,
+      detailedMessage,
+      rawMessage
+    );
+
+    // Determine error code based on status and message
+    const code = this.getApiKeyErrorCode(status, errorMessage);
+    return { success: false, error: { code, message: detailedMessage } };
+  }
+
+  private getApiKeyErrorCode(
+    status: number | undefined,
+    errorMessage: string
+  ):
+    | 'unauthorized'
+    | 'forbidden'
+    | 'need_credit_card'
+    | 'insufficient_quota'
+    | 'network_error'
+    | 'unknown' {
+    // 401 unauthorized
+    if (
+      status === 401 ||
+      errorMessage.includes('401') ||
+      errorMessage.includes('unauthorized') ||
+      errorMessage.includes('invalid api key') ||
+      errorMessage.includes('invalid_api_key')
+    ) {
+      return 'unauthorized';
+    }
+
+    // 403 forbidden / credit card required
+    if (status === 403 || errorMessage.includes('403')) {
+      if (
+        errorMessage.includes('customer_verification_required') ||
+        errorMessage.includes('credit card')
+      ) {
+        return 'need_credit_card';
+      }
+      return 'forbidden';
+    }
+
+    // Insufficient quota
+    if (
+      errorMessage.includes('insufficient') ||
+      errorMessage.includes('quota') ||
+      errorMessage.includes('balance')
+    ) {
+      return 'insufficient_quota';
+    }
+
+    // Network errors
+    if (
+      errorMessage.includes('econnrefused') ||
+      errorMessage.includes('enotfound') ||
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('fetch failed')
+    ) {
+      return 'network_error';
+    }
+
+    return 'unknown';
+  }
+
+  private async testV0Key(apiKey: string, baseUrl?: string): Promise<ITestApiKeyVo> {
+    const url = `${baseUrl || 'https://api.v0.dev/v1'}/projects`;
+
+    try {
+      await axios.get(url, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      return { success: true };
+    } catch (error) {
+      if (!axios.isAxiosError(error)) {
+        return this.parseApiKeyError(error, 'v0');
+      }
+
+      const status = error.response?.status;
+      const data = error.response?.data as {
+        error?: { type?: string; code?: string; message?: string };
+      };
+      const detailedMessage = data?.error?.message || error.message;
+
+      this.logger.error('v0 key test failed: status=%s, message=%s', status, detailedMessage);
+
+      // No response = network error
+      if (!error.response) {
+        return { success: false, error: { code: 'network_error', message: detailedMessage } };
+      }
+
+      const code = this.getV0ErrorCode(status, data, detailedMessage);
+      return { success: false, error: { code, message: detailedMessage } };
+    }
+  }
+
+  private getV0ErrorCode(
+    status: number | undefined,
+    data: { error?: { type?: string; code?: string; message?: string } } | undefined,
+    message: string
+  ): 'unauthorized' | 'forbidden' | 'insufficient_quota' | 'unknown' {
+    if (status === 401) return 'unauthorized';
+    if (status === 403) return 'forbidden';
+
+    const errorType = data?.error?.type?.toLowerCase() || '';
+    const errorCode = data?.error?.code?.toLowerCase() || '';
+    const errorMsg = message.toLowerCase();
+
+    if (
+      errorType.includes('insufficient') ||
+      errorCode.includes('insufficient') ||
+      errorMsg.includes('insufficient') ||
+      errorMsg.includes('quota')
+    ) {
+      return 'insufficient_quota';
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Get available models from AI Gateway
+   * Returns empty array if gateway is not configured
+   * Uses Redis cache with 1 hour TTL from SettingService
+   */
+  async getGatewayModels(): Promise<{
+    configured: boolean;
+    models: Array<{
+      id: string;
+      name?: string;
+      description?: string;
+      type?: GatewayModelType;
+      tags?: GatewayModelTag[];
+      contextWindow?: number;
+      maxTokens?: number;
+      created?: number;
+      ownedBy?: GatewayModelProvider;
+      pricing?: Record<string, string>;
+    }>;
+  }> {
+    // Check if gateway is configured
+    const { aiConfig } = await this.settingService.getSetting();
+    if (!aiConfig?.aiGatewayApiKey) {
+      return { configured: false, models: [] };
+    }
+
+    try {
+      const models = await this.settingService.getGatewayModels();
+      this.logger.log(`Fetched ${models.length} gateway models`);
+      return { configured: true, models };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : '';
+      this.logger.error(`Failed to fetch gateway models: ${errorMessage}`, errorStack);
+      // Return configured=true but empty models on error
+      // so frontend knows gateway is configured but had a fetch error
+      return { configured: true, models: [] };
+    }
   }
 }

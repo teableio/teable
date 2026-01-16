@@ -74,7 +74,13 @@
       "uploadBaseTextPrefix": "点击上传 ",
       "uploadBaseText": "或粘贴或拖放文件到此处上传",
       "uploadDragDefault": "粘贴或拖放文件到此处上传",
-      "upload": "上传文件"
+      "upload": "上传文件",
+      "downloadAll": "下载全部",
+      "downloading": "下载中...",
+      "downloadSuccess": "下载完成",
+      "downloadFailed": "下载失败",
+      "downloadCancelled": "下载已取消",
+      "requireHttps": "批量下载需要 HTTPS 环境，请通过 HTTPS 或 localhost 访问"
     },
     "date": {
       "placeholder": "选择日期",
@@ -345,7 +351,7 @@
       "date": "记录特定日期或时间。",
       "createdTime": "显示记录的创建时间。",
       "lastModifiedTime": "显示记录最近的更新时间。",
-      "attachment": "上传文件或图片。",
+      "attachment": "上传文件或 AI 生成图片，支持 🍌 Nano banana pro 等模型",
       "checkbox": "用开关标记是否完成。",
       "rollup": "对关联记录进行汇总计算。",
       "conditionalRollup": "根据条件汇总数据。",
@@ -1216,6 +1222,7 @@
       "configurationNotSet": "AI 配置未设置",
       "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
       "providerConfigurationNotSet": "AI 模型提供商配置未设置",
+      "gatewayApiKeyNotSet": "AI Gateway API 密钥未配置",
       "testLLMFailed": "LLM 连接测试失败",
       "audioNotSupported": "此模型{{model}}不支持音频输入",
       "imageNotSupported": "此模型{{model}}不支持图像输入",
@@ -1225,7 +1232,8 @@
       "embeddingModelNotSet": "嵌入模型未设置",
       "validateActionFailed": "验证字段AI操作失败",
       "generateFailed": "AI生成失败",
-      "unsupportedActionType": "不支持的AI操作类型"
+      "unsupportedActionType": "不支持的AI操作类型",
+      "geminiImageNotSupportedViaGateway": "AI Gateway 不支持 Gemini 图像生成。请改为配置直连 Google 服务商。"
     },
     "role": {
       "notFound": "角色不存在"

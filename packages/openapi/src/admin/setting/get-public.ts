@@ -40,7 +40,6 @@ export const publicSettingVoSchema = settingVoSchema
   })
   .extend({
     aiConfig: publicAiConfigSchema.nullable(),
-    webSearchEnabled: z.boolean().optional(),
     appGenerationEnabled: z.boolean().optional(),
     turnstileSiteKey: z.string().nullable().optional(),
     changeEmailSendCodeMailRate: z.number().optional(),

@@ -35,7 +35,7 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
 
-    const { mutate: mutateGenerate } = useMutation({
+    const { mutate: mutateGenerate, isPending } = useMutation({
       mutationFn: ({ recordId, fieldId }: { recordId: string; fieldId: string }) =>
         autoFillCell(tableId, recordId, fieldId),
     });
@@ -107,7 +107,7 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     }, []);
 
     const onGenerate = () => {
-      if (!activeCell || isCellInTaskQueue(activeCell)) return;
+      if (!activeCell || isCellInTaskQueue(activeCell) || isPending) return;
       mutateGenerate({
         recordId: activeCell.recordId,
         fieldId: activeCell.fieldId,
@@ -118,9 +118,9 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     if (!style || isCellInTaskQueue(activeCell)) return null;
 
     return (
-      <div className="absolute z-50" style={style}>
-        <Button variant="outline" size="sm" onClick={onGenerate}>
-          <RefreshCcw className="size-4" />
+      <div className="absolute z-50 rounded-lg border bg-background" style={style}>
+        <Button variant="outline" size="sm" onClick={onGenerate} disabled={isPending}>
+          <RefreshCcw className={isPending ? 'size-4 animate-spin' : 'size-4'} />
         </Button>
       </div>
     );

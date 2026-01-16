@@ -287,7 +287,7 @@
       "link": "Collega ai record nella tabella che scegli",
       "singleLineText": "Inserisci testo, o precompila ogni nuova cella con un valore predefinito.",
       "longText": "Inserisci più righe di testo.",
-      "attachment": "Aggiungi immagini, documenti o altri file da visualizzare o scaricare.",
+      "attachment": "Aggiungi o genera con IA immagini, oppure carica documenti o altri file da visualizzare o scaricare.",
       "checkbox": "Seleziona o deseleziona per indicare lo stato.",
       "multipleSelect": "Seleziona una o più opzioni predefinite in un elenco.",
       "singleSelect": "Seleziona un'opzione predefinita da un elenco, o precompila ogni nuova cella con un'opzione predefinita.",

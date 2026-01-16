@@ -228,8 +228,17 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // StreamSaver service worker files - needs relaxed CORS for iframe/popup
+        source: '/streamsaver/:path*',
+        headers: [
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
+        ],
+      },
+      {
         // All page routes, not the api ones
-        source: '/:path((?!api).*)*',
+        source: '/:path((?!api|streamsaver).*)*',
         headers: [
           ...secureHeaders,
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },

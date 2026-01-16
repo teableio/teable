@@ -35,8 +35,8 @@ export const AIProviderCard = ({
   hideModelRates,
 }: IAIProviderCardProps) => {
   return (
-    <Card className="pt-6 shadow-sm">
-      <CardContent>
+    <Card className="pt-4 shadow-sm">
+      <CardContent className="p-4 pt-0">
         <FormField
           control={control}
           name="llmProviders"

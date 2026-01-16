@@ -72,7 +72,7 @@
     "empty": "No bases shared with me yet"
   },
   "trash": {
-    "spaceDescription": "All deleted spaces under this instance",
+    "spaceDescription": "All deleted spaces",
     "baseDescription": "All deleted bases under this space"
   },
   "integration": {
