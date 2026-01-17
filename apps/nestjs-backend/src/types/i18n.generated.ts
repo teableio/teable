@@ -765,6 +765,7 @@ export type I18nTranslations = {
                         "imageGeneration": string;
                         "missingVision": string;
                         "missingToolCall": string;
+                        "notTested": string;
                         "supportedFormats": string;
                     };
                     "configUpdated": string;
@@ -820,9 +821,16 @@ export type I18nTranslations = {
                             "description": string;
                         };
                     };
+                    "imageModelAbility": {
+                        "generation": string;
+                        "imageToImage": string;
+                    };
                     "moreModels": string;
                     "noModelsAvailable": string;
+                    "testCompleteWithCount": string;
+                    "allTestsFailed": string;
                     "batchTest": string;
+                    "test": string;
                     "testProvider": string;
                     "testProviderTooltip": string;
                     "batchTesting": string;
@@ -867,6 +875,8 @@ export type I18nTranslations = {
                     "imageGeneration": string;
                     "imageToImage": string;
                     "clickToToggleImageModel": string;
+                    "markAsImageModel": string;
+                    "imageGenerationModel": string;
                     "markedAsImageModel": string;
                     "markedAsTextModel": string;
                     "fetchPricing": string;

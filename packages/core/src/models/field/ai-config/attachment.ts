@@ -64,7 +64,7 @@ export type IAttachmentFieldGenerateImageAIConfig = z.infer<
 >;
 
 export const attachmentFieldCustomizeAIConfigSchema = attachmentFieldAIConfigBaseSchema.extend({
-  type: z.literal(FieldAIActionType.Customization),
+  type: z.literal(FieldAIActionType.ImageCustomization),
   prompt: z.string(),
 });
 
@@ -73,8 +73,8 @@ export type IAttachmentFieldCustomizeAIConfig = z.infer<
 >;
 
 export const attachmentFieldAIConfigSchema = z.discriminatedUnion('type', [
-  attachmentFieldGenerateImageAIConfigSchema.strict(),
-  attachmentFieldCustomizeAIConfigSchema.strict(),
+  attachmentFieldGenerateImageAIConfigSchema,
+  attachmentFieldCustomizeAIConfigSchema,
 ]);
 
 export type IAttachmentFieldAIConfig = z.infer<typeof attachmentFieldAIConfigSchema>;
