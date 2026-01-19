@@ -36,6 +36,11 @@
   "notification": {
     "title": "Notification"
   },
+  "aiError": {
+    "title": "AI Generation Failed",
+    "retry": "Retry",
+    "dismiss": "Dismiss"
+  },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
     "loadFileError": "Failed to load file"

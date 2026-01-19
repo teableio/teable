@@ -17,7 +17,7 @@ import {
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { developerConfig } from '@/features/i18n/developer.config';
 import { SettingRight } from '../SettingRight';
@@ -53,6 +53,18 @@ export const QueryBuilder = () => {
   });
 
   const [activeTab, setActiveTab] = useState<string>('api-builder');
+
+  const query = useMemo(
+    () => ({
+      fieldKeyType,
+      viewId,
+      filter,
+      orderBy,
+      search,
+      cellFormat,
+    }),
+    [fieldKeyType, viewId, filter, orderBy, search, cellFormat]
+  );
 
   return (
     <SettingRight title={<SettingRightTitle title={t('developer:apiQueryBuilder')} />}>
@@ -194,26 +206,14 @@ export const QueryBuilder = () => {
 
                   <div className="flex flex-col gap-4">
                     <h2 className="text-sm font-medium">{t('developer:buildResult')}</h2>
-                    <PreviewScript
-                      tableId={tableId}
-                      query={{
-                        fieldKeyType,
-                        viewId,
-                        filter,
-                        orderBy,
-                        search,
-                        cellFormat,
-                      }}
-                    />
+                    <PreviewScript tableId={tableId} query={query} />
                   </div>
 
                   <hr className="my-4" />
 
                   <div className="flex w-full flex-col gap-4">
                     <h2 className="text-sm font-medium">{t('developer:previewReturnValue')}</h2>
-                    <PreviewTable
-                      query={{ filter, orderBy, viewId, search, cellFormat, fieldKeyType }}
-                    />
+                    <PreviewTable query={query} />
                   </div>
                 </>
               ) : (

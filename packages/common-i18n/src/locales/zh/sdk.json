@@ -36,6 +36,11 @@
   "notification": {
     "title": "通知"
   },
+  "aiError": {
+    "title": "AI 生成失败",
+    "retry": "重试",
+    "dismiss": "忽略"
+  },
   "noun": {
     "table": "表格",
     "view": "视图",

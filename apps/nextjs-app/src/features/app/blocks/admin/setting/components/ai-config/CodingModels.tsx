@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Loader2, Image, File, Settings } from '@teable/icons';
+import { AlertTriangle, Check, Image, File, Settings } from '@teable/icons';
 import {
   chatModelAbilityType,
   type IAIIntegrationConfig,
@@ -8,15 +8,13 @@ import {
 import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
-  Button,
   cn,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { Cpu, Code, Zap } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { AIModelSelect, type IModelOption } from './AiModelSelect';
@@ -47,7 +45,6 @@ export const CodingModels = ({
   onChange,
   formValues,
   models,
-  onTestChatModelAbility,
   onEnableAI,
   needGroup,
 }: {
@@ -56,16 +53,14 @@ export const CodingModels = ({
   models?: IModelOption[];
   formValues?: NonNullable<ISettingVo['aiConfig']>;
   onEnableAI?: () => void;
+  // Kept for backward compatibility, but not used since testing happens in provider config
   onTestChatModelAbility?: (
     chatModel: IAIIntegrationConfig['chatModel']
   ) => Promise<IChatModelAbility | undefined>;
   needGroup?: boolean;
 }) => {
   const { t } = useTranslation('common');
-  const [showTestModal, setShowTestModal] = useState(false);
   const [showEnableAIModal, setShowEnableAIModal] = useState(false);
-  const [pendingModel, setPendingModel] = useState<string>('');
-  const [isTestingModel, setIsTestingModel] = useState(false);
 
   const abilityIconMap = useMemo(() => {
     return {
@@ -75,198 +70,123 @@ export const CodingModels = ({
     };
   }, []);
 
-  const handleLgModelChange = async (model: string) => {
-    // Show test modal when lg model is selected
-    if (model && model !== value?.lg) {
-      setPendingModel(model);
-      setShowTestModal(true);
-    } else {
-      onChange({ ...value, lg: model, ability: {} });
+  // Get ability from the selected model's capabilities or from value.ability
+  // Priority: value.ability (from selection) > model capabilities (from provider config)
+  const selectedModelAbility = useMemo(() => {
+    // First check value.ability (set when model is selected)
+    if (value?.ability && Object.keys(value.ability).length > 0) {
+      return value.ability as IChatModelAbility;
     }
-  };
+    // Fallback to model's capabilities from provider config
+    if (!value?.lg || !models) return undefined;
+    const selectedModel = models.find((m) => m.modelKey === value.lg);
+    return selectedModel?.capabilities as IChatModelAbility | undefined;
+  }, [value?.lg, value?.ability, models]);
 
-  const handleTestConfirm = async () => {
-    if (!pendingModel || !onTestChatModelAbility || !formValues) {
-      // If no test function provided, just update the model
-      onChange({ ...value, lg: pendingModel, ability: {} });
-      setShowTestModal(false);
-      setPendingModel('');
-      return;
+  const handleModelChange = (model: string) => {
+    // Get ability from the model's capabilities (already tested)
+    const selectedModel = models?.find((m) => m.modelKey === model);
+    const ability = (selectedModel?.capabilities as IChatModelAbility) || {};
+
+    // Set all sizes to the same model (simplified selection)
+    onChange({ ...value, lg: model, md: model, sm: model, ability });
+
+    // Check if AI needs to be enabled
+    if (model && formValues && !formValues.enable) {
+      setShowEnableAIModal(true);
     }
-
-    setIsTestingModel(true);
-
-    try {
-      // Use pendingModel instead of value.lg for testing the newly selected model
-      const testResult = await onTestChatModelAbility({ ...value, lg: pendingModel });
-
-      // Update model with test results
-      onChange({
-        ...value,
-        lg: pendingModel,
-        ability: testResult || {},
-      });
-
-      // Check if image or pdf capabilities are missing and show warning toast [[memory:6422115]]
-      if (
-        testResult &&
-        !isAbilitySupported(testResult.image) &&
-        !isAbilitySupported(testResult.pdf)
-      ) {
-        toast.warning(t('admin.setting.ai.chatModelTest.missingCapabilitiesWarning'));
-      }
-
-      // After test completion, check if AI is enabled and show enable modal if needed
-      if (!formValues.enable) {
-        setShowTestModal(false);
-        setShowEnableAIModal(true);
-        return;
-      }
-    } catch (error) {
-      console.error('Model test failed:', error);
-      // Still update the model even if test fails
-      onChange({ ...value, lg: pendingModel, ability: {} });
-
-      // Even if test failed, still check if AI needs to be enabled
-      if (!formValues.enable) {
-        setShowTestModal(false);
-        setShowEnableAIModal(true);
-        return;
-      }
-    } finally {
-      setIsTestingModel(false);
-    }
-
-    setShowTestModal(false);
-    setPendingModel('');
-  };
-
-  const handleTestCancel = () => {
-    setShowTestModal(false);
-    setPendingModel('');
   };
 
   const handleEnableAIConfirm = () => {
-    // Enable AI after test completion
+    // Enable AI after model selection
     onEnableAI?.();
-
-    // Close the enable AI modal and clear pending state
     setShowEnableAIModal(false);
-    setPendingModel('');
   };
 
   const handleEnableAICancel = () => {
-    // Don't enable AI, just close modal and clear pending state
+    // Don't enable AI, just close modal
     setShowEnableAIModal(false);
-    setPendingModel('');
   };
 
-  const icons = useMemo(() => {
-    return {
-      sm: <Zap className="size-4 text-emerald-500" />,
-      md: <Code className="size-4 text-blue-500" />,
-      lg: <Cpu className="size-4 text-purple-500" />,
-    };
-  }, []);
+  // Icon for chat model selection
+  const chatModelIcon = useMemo(() => <Cpu className="size-4 text-purple-500" />, []);
 
-  const [testChatModelAbilityLoading, setTestChatModelAbilityLoading] = useState(false);
-
-  const testChatModelAbility = async (data: IAIIntegrationConfig['chatModel']) => {
-    if (testChatModelAbilityLoading) {
-      return;
-    }
-    if (!data?.lg) {
-      toast.error(t(`admin.setting.ai.chatModelTest.notConfigLgModel`));
-      return;
-    }
-    setTestChatModelAbilityLoading(true);
-    try {
-      const res = await onTestChatModelAbility?.(data);
-      setTestChatModelAbilityLoading(false);
-      return res;
-    } catch (error) {
-      setTestChatModelAbilityLoading(false);
-      throw error;
-    }
-  };
+  // Check if model has been tested
+  const isModelTested = useMemo(() => {
+    return selectedModelAbility && Object.keys(selectedModelAbility).length > 0;
+  }, [selectedModelAbility]);
 
   // Check if model has missing critical abilities
   const hasMissingAbilities = useMemo(() => {
-    if (!value?.lg || !value?.ability) return false;
-    const ability = value.ability;
-    // Model should support at least image OR pdf, AND toolCall
-    const hasVision = isAbilitySupported(ability.image) || isAbilitySupported(ability.pdf);
-    const hasToolCall = isAbilitySupported(ability.toolCall);
-    return !hasVision || !hasToolCall;
-  }, [value?.lg, value?.ability]);
+    if (!value?.lg) return false;
+    // If model is not tested, show warning
+    if (!isModelTested) return true;
+    // Model should support toolCall (critical for AI features)
+    const hasToolCall = isAbilitySupported(selectedModelAbility?.toolCall);
+    return !hasToolCall;
+  }, [value?.lg, isModelTested, selectedModelAbility]);
 
   const getMissingAbilitiesMessage = useMemo(() => {
-    if (!value?.ability) return null;
+    if (!value?.lg) return null;
     const missing: string[] = [];
-    if (!isAbilitySupported(value.ability.image) && !isAbilitySupported(value.ability.pdf)) {
+
+    // If model is not tested, show "not tested" warning
+    if (!isModelTested) {
+      missing.push(t('admin.setting.ai.chatModelAbility.notTested'));
+      return missing;
+    }
+
+    // Check for missing abilities
+    if (
+      !isAbilitySupported(selectedModelAbility?.image) &&
+      !isAbilitySupported(selectedModelAbility?.pdf)
+    ) {
       missing.push(t('admin.setting.ai.chatModelAbility.missingVision'));
     }
-    if (!isAbilitySupported(value.ability.toolCall)) {
+    if (!isAbilitySupported(selectedModelAbility?.toolCall)) {
       missing.push(t('admin.setting.ai.chatModelAbility.missingToolCall'));
     }
-    return missing;
-  }, [value?.ability, t]);
+    return missing.length > 0 ? missing : null;
+  }, [value?.lg, isModelTested, selectedModelAbility, t]);
 
   // Abilities to test and display
   const testableAbilities = chatModelAbilityType.options;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {/* Advanced chat model (lg) - with ability test inline */}
+      {/* Chat model selection - simplified to one model */}
       <div className="relative flex flex-col gap-2">
         <div className="flex shrink-0 items-center gap-2 truncate text-sm">
-          {icons.lg}
-          <span>{t('admin.setting.ai.chatModels.lg')}</span>
+          {chatModelIcon}
+          <span>{t('admin.setting.ai.chatModel')}</span>
           <div className="h-4 text-red-500">*</div>
         </div>
         <div className="text-left text-xs text-muted-foreground">
-          {t('admin.setting.ai.chatModels.lgDescription')}
+          {t('admin.setting.ai.chatModelDescription')}
         </div>
 
         <AIModelSelect
           value={value?.lg ?? ''}
-          onValueChange={handleLgModelChange}
+          onValueChange={handleModelChange}
           options={models}
           className="flex-1"
           needGroup={needGroup}
         />
 
-        {/* Model Ability Section - directly under lg model */}
+        {/* Model Ability Section - directly under model select */}
         {value?.lg && (
           <div className="mt-2 rounded-md border bg-muted/30 p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
                 {t('admin.setting.ai.chatModelAbility.lgModelAbility')}
               </span>
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={testChatModelAbilityLoading}
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  if (testChatModelAbilityLoading) return;
-                  const res = await testChatModelAbility(value);
-                  onChange({ ...value, ability: res || {} });
-                }}
-              >
-                {testChatModelAbilityLoading ? (
-                  <Loader2 className="mr-1 size-3 animate-spin" />
-                ) : null}
-                {t('admin.setting.ai.chatModelTest.text')}
-              </Button>
             </div>
 
-            {/* Ability badges */}
-            <div className="mt-3 flex flex-wrap gap-2">
+            {/* Ability badges - from pre-tested results in provider config */}
+            <div className="mt-2 flex flex-wrap gap-2">
               <TooltipProvider>
                 {testableAbilities.map((type) => {
-                  const abilityValue = value?.ability?.[type];
+                  const abilityValue = selectedModelAbility?.[type];
                   const supported = isAbilitySupported(abilityValue);
                   const supportDetails = getAbilitySupportDetails(abilityValue);
 
@@ -330,39 +250,6 @@ export const CodingModels = ({
           </div>
         )}
       </div>
-
-      {/* Medium and Small chat models */}
-      {(['md', 'sm'] as const).map((key) => (
-        <div key={key} className="relative flex flex-col gap-2">
-          <div className="flex shrink-0 items-center gap-2 truncate text-sm">
-            {icons[key]}
-            <span>{t(`admin.setting.ai.chatModels.${key}`)}</span>
-          </div>
-          <div className="text-left text-xs text-muted-foreground">
-            {t(`admin.setting.ai.chatModels.${key}Description`)}
-          </div>
-
-          <AIModelSelect
-            value={value?.[key] ?? ''}
-            onValueChange={(model) => onChange({ ...value, [key]: model })}
-            options={models}
-            className="flex-1"
-            needGroup={needGroup}
-          />
-        </div>
-      ))}
-
-      <ConfirmDialog
-        open={showTestModal}
-        onOpenChange={setShowTestModal}
-        title={t('admin.setting.ai.chatModelTest.confirmTitle')}
-        description={t('admin.setting.ai.chatModelTest.confirmDescription')}
-        confirmText={t('admin.setting.ai.chatModelTest.confirm')}
-        cancelText={t('admin.setting.ai.chatModelTest.cancel')}
-        confirmLoading={isTestingModel}
-        onConfirm={handleTestConfirm}
-        onCancel={handleTestCancel}
-      />
 
       <ConfirmDialog
         open={showEnableAIModal}

@@ -27,6 +27,8 @@ export const generateModelKeyList = (llmProviders: ISimpleLLMProvider[] | LLMPro
           isImageModel: config?.isImageModel,
           // Use configured label if available, otherwise use model ID
           label: config?.label || model,
+          // Include test results from provider config
+          capabilities: config?.ability,
           // Include metadata from modelConfigs
           modelType: config?.modelType,
           tags: config?.tags,

@@ -4,6 +4,7 @@ import { testIntegrationLLM, type IAIIntegrationConfig } from '@teable/openapi';
 import type {
   IChatModelAbility,
   IImageModelAbility,
+  ITestLLMRo,
   LLMProvider,
 } from '@teable/openapi/src/admin/setting';
 import {
@@ -58,32 +59,19 @@ export const AIConfig = (props: IAIConfigProps) => {
   const { reset } = form;
   const { t } = useTranslation('common');
 
-  // Get public setting for instance AI config
+  // Get public setting for instance AI config (includes gateway models)
   const { data: setting } = useQuery({
     queryKey: ['public-setting'],
     queryFn: () => getPublicSetting().then(({ data }) => data),
-  });
-
-  // Get admin setting to access gateway models
-  const { data: adminSetting } = useQuery({
-    queryKey: ['admin-ai-setting'],
-    queryFn: async () => {
-      const response = await fetch('/api/admin/setting');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch admin setting: ${response.status}`);
-      }
-      const data = await response.json();
-      return data.aiConfig;
-    },
   });
 
   // Generate combined model list: space models, gateway models, instance models
   const models = useMemo((): IModelOption[] => {
     const providerModels = generateModelKeyList(llmProviders);
 
-    // Get gateway models from admin settings (enabled models only)
-    const adminGatewayModels = adminSetting?.gatewayModels || [];
-    const gatewayModels = generateGatewayModelKeyList(adminGatewayModels);
+    // Get gateway models from public settings (enabled models only)
+    const publicGatewayModels = setting?.aiConfig?.gatewayModels || [];
+    const gatewayModels = generateGatewayModelKeyList(publicGatewayModels);
 
     // Separate space and instance models
     const spaceModels = providerModels.filter((m) => !m.isInstance);
@@ -91,14 +79,18 @@ export const AIConfig = (props: IAIConfigProps) => {
 
     // Combine in order: space models, gateway models, instance models
     return [...spaceModels, ...gatewayModels, ...instanceModels];
-  }, [llmProviders, adminSetting]);
+  }, [llmProviders, setting?.aiConfig?.gatewayModels]);
 
   // State for batch testing models
   const [modelTestResults, setModelTestResults] = useState<Map<string, IModelTestResult>>(
     new Map()
   );
   const [testingProviders, setTestingProviders] = useState<Set<string>>(new Set());
+  const [testingModels, setTestingModels] = useState<Set<string>>(new Set());
   const testProviderCallbackRef = useRef<((provider: LLMProvider) => void) | null>(null);
+  const testModelCallbackRef = useRef<
+    ((provider: LLMProvider, model: string, modelKey: string) => Promise<void>) | null
+  >(null);
 
   const { mutateAsync: onTestChatModelAbility } = useMutation({
     mutationFn: async (chatModel: IAIIntegrationConfig['chatModel']) => {
@@ -149,7 +141,7 @@ export const AIConfig = (props: IAIConfigProps) => {
     onSubmit(form.getValues());
   };
 
-  const onTest = async (data: Required<LLMProvider>) => testIntegrationLLM(spaceId, data);
+  const onTest = async (data: ITestLLMRo) => testIntegrationLLM(spaceId, data);
 
   // Save test result to provider config (silent save without toast)
   const onSaveTestResult = useCallback(
@@ -251,11 +243,16 @@ export const AIConfig = (props: IAIConfigProps) => {
             <BatchTestModels
               providers={llmProviders}
               disabled={!llmProviders?.length}
+              onTest={onTest}
               onResultsChange={setModelTestResults}
               onSaveResult={onSaveTestResult}
               onTestingProvidersChange={setTestingProviders}
+              onTestingModelsChange={setTestingModels}
               onTestProvider={(callback) => {
                 testProviderCallbackRef.current = callback;
+              }}
+              onTestModel={(callback) => {
+                testModelCallbackRef.current = callback;
               }}
             />
           </div>
@@ -266,8 +263,13 @@ export const AIConfig = (props: IAIConfigProps) => {
             modelTestResults={modelTestResults}
             onToggleImageModel={onToggleImageModel}
             onTestProvider={(provider) => testProviderCallbackRef.current?.(provider)}
+            onTestModel={(provider, model, modelKey) =>
+              testModelCallbackRef.current?.(provider, model, modelKey) ?? Promise.resolve()
+            }
             testingProviders={testingProviders}
+            testingModels={testingModels}
             hideModelRates
+            onSaveTestResult={onSaveTestResult}
           />
         </div>
         <div className="flex flex-col gap-y-2">

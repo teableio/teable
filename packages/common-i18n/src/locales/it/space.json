@@ -156,7 +156,7 @@
     "shareWith": "Condividi con",
     "unpublishedApps": {
       "title": "App non pubblicate rilevate",
-      "description": "Le seguenti app non sono ancora state pubblicate. Le app che non sono state verificate per la pubblicazione potrebbero non essere distribuite nel modello, impedendo l'anteprima normale. Puoi pubblicarle ora o continuare comunque.",
+      "description": "Le app non pubblicate potrebbero causare errori nell'anteprima del modello. Pubblicale ora o continua comunque.",
       "publishAll": "Pubblica tutte",
       "publish": "Pubblica",
       "published": "Pubblicata",

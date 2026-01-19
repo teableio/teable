@@ -10,6 +10,7 @@ export const tableActionKeys = z.enum([
   'taskProcessing',
   'taskCompleted',
   'taskCancelled',
+  'taskFailed',
 ]);
 
 export const viewActionKeys = z.enum([
