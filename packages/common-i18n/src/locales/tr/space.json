@@ -92,7 +92,9 @@
   },
   "template": {
     "title": "Şablon",
-    "description": "Bir şablondan hızlıca yeni bir üs (base) oluşturun"
+    "description": "Bir şablondan hızlıca yeni bir üs (base) oluşturun",
+    "noTemplatesAvailable": "Kullanılabilir şablon yok",
+    "noTemplatesDescription": "Şu anda burada hiçbir şey yok"
   },
   "recentlyBase": {
     "title": "Son ziyaret edilenler"
@@ -156,7 +158,7 @@
     "shareWith": "Şununla paylaş",
     "unpublishedApps": {
       "title": "Yayınlanmamış Uygulamalar Tespit Edildi",
-      "description": "Aşağıdaki uygulamalar henüz yayınlanmadı. Yayınlanması doğrulanmamış uygulamalar şablonda dağıtılamayabilir ve normal önizlemeyi engelleyebilir. Şimdi yayınlayabilir veya yine de devam edebilirsiniz.",
+      "description": "Yayınlanmamış uygulamalar şablon önizleme hatalarına neden olabilir. Şimdi yayınlayın veya devam edin.",
       "publishAll": "Tümünü Yayınla",
       "publish": "Yayınla",
       "published": "Yayınlandı",

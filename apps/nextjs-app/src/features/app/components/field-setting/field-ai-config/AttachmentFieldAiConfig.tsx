@@ -255,6 +255,12 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
   // Track previous model key to detect model changes
   const prevModelKeyRef = useRef<string | undefined>(modelKey);
 
+  // Use refs to access latest values in useEffect without adding them to dependencies
+  const aiConfigRef = useRef(aiConfig);
+  const onChangeRef = useRef(onChange);
+  aiConfigRef.current = aiConfig;
+  onChangeRef.current = onChange;
+
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const { data: baseAiConfig } = useQuery({
@@ -293,7 +299,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
         name: t('table:field.aiConfig.type.imageGeneration'),
       },
       {
-        id: FieldAIActionType.Customization,
+        id: FieldAIActionType.ImageCustomization,
         icon: <Pencil className="size-4" />,
         name: t('table:field.aiConfig.type.customization'),
       },
@@ -376,18 +382,24 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
     const isModelChanged = prevModelKeyRef.current !== modelKey;
     prevModelKeyRef.current = modelKey;
 
+    // Use refs to get latest values to avoid stale closure issues
+    const currentAiConfig = aiConfigRef.current;
+    const currentOnChange = onChangeRef.current;
+
     // When model changes: reset ALL settings to new model's defaults
     // On initial load: only fill in missing values
     const updates = isModelChanged
       ? getModelDefaults(modelCapabilities)
-      : getInitialLoadUpdates(modelCapabilities, aiConfig as IAttachmentFieldGenerateImageAIConfig);
+      : getInitialLoadUpdates(
+          modelCapabilities,
+          currentAiConfig as IAttachmentFieldGenerateImageAIConfig
+        );
 
     if (Object.keys(updates).length > 0) {
-      onChange?.({
-        aiConfig: { ...aiConfig, ...updates } as IAttachmentFieldAIConfig,
+      currentOnChange?.({
+        aiConfig: { ...currentAiConfig, ...updates } as IAttachmentFieldAIConfig,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelKey, type, modelCapabilities]);
 
   const imageSizeCandidates = useMemo(() => {
@@ -508,7 +520,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
             />
           </div>
 
-          {type === FieldAIActionType.Customization ? (
+          {type === FieldAIActionType.ImageCustomization ? (
             <div className="flex flex-col gap-y-2">
               <PromptEditorContainer
                 excludedFieldId={id}

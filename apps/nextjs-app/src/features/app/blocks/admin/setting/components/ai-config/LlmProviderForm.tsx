@@ -1,8 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Check, Loader2, Plus } from '@teable/icons';
-import type { ITestLLMVo, LLMProvider, IModelConfig } from '@teable/openapi/src/admin/setting';
-import { llmProviderSchema, LLMProviderType } from '@teable/openapi/src/admin/setting';
+import { AlertCircle, Check, Loader2, Plus, X, Eye, Image } from '@teable/icons';
+import type {
+  ITestLLMVo,
+  ITestLLMRo,
+  LLMProvider,
+  IModelConfig,
+  IChatModelAbility,
+  IImageModelAbility,
+} from '@teable/openapi/src/admin/setting';
+import {
+  llmProviderSchema,
+  LLMProviderType,
+  chatModelAbilityType,
+} from '@teable/openapi/src/admin/setting';
 import {
   Button,
   cn,
@@ -20,6 +31,7 @@ import {
   FormLabel,
   FormMessage,
   Input,
+  Progress,
   Select,
   SelectContent,
   SelectItem,
@@ -27,10 +39,10 @@ import {
   SelectValue,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Square } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { PropsWithChildren } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDERS } from './constant';
@@ -40,6 +52,28 @@ interface TestResult {
   message?: string;
   suggestions?: string[];
 }
+
+// Model test result interface for full capability testing
+interface IModelTestStatus {
+  model: string;
+  status: 'idle' | 'pending' | 'testing' | 'success' | 'failed';
+  error?: string;
+  ability?: IChatModelAbility;
+  imageAbility?: IImageModelAbility;
+  isImageModel?: boolean;
+}
+
+const TEXT_MODEL_TIMEOUT_MS = 30000; // 30 seconds timeout for text models
+const IMAGE_MODEL_TIMEOUT_MS = 120000; // 2 minutes timeout for image models
+const CONCURRENCY = 3; // Concurrent test count
+
+// Helper to wrap promise with timeout
+const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms)),
+  ]);
+};
 
 type ErrorPattern = {
   keywords: string[];
@@ -138,9 +172,16 @@ interface LLMProviderFormProps {
   value?: LLMProvider;
   onChange?: (value: LLMProvider) => void;
   onAdd?: (data: LLMProvider) => void;
-  onTest?: (data: Required<LLMProvider>) => Promise<ITestLLMVo>;
+  /** Test function - accepts full ITestLLMRo for capability testing */
+  onTest?: (data: ITestLLMRo) => Promise<ITestLLMVo>;
   /** Hide model rates config (for space-level settings where billing doesn't apply) */
   hideModelRates?: boolean;
+  /** Callback to save model test results */
+  onSaveTestResult?: (
+    modelKey: string,
+    ability: IChatModelAbility | undefined,
+    imageAbility: IImageModelAbility | undefined
+  ) => void;
 }
 
 export const UpdateLLMProviderForm = ({
@@ -149,6 +190,7 @@ export const UpdateLLMProviderForm = ({
   onChange,
   onTest,
   hideModelRates,
+  onSaveTestResult,
 }: PropsWithChildren<Omit<LLMProviderFormProps, 'onAdd'>>) => {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation('common');
@@ -168,6 +210,7 @@ export const UpdateLLMProviderForm = ({
           onChange={handleChange}
           onTest={onTest}
           hideModelRates={hideModelRates}
+          onSaveTestResult={onSaveTestResult}
         />
       </DialogContent>
     </Dialog>
@@ -179,6 +222,7 @@ export const NewLLMProviderForm = ({
   onAdd,
   onTest,
   hideModelRates,
+  onSaveTestResult,
 }: PropsWithChildren<Omit<LLMProviderFormProps, 'onChange'>>) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -201,7 +245,12 @@ export const NewLLMProviderForm = ({
           <DialogTitle>{t('admin.setting.ai.addProvider')}</DialogTitle>
           <DialogDescription>{t('admin.setting.ai.addProviderDescription')}</DialogDescription>
         </DialogHeader>
-        <LLMProviderForm onAdd={handleAdd} onTest={onTest} hideModelRates={hideModelRates} />
+        <LLMProviderForm
+          onAdd={handleAdd}
+          onTest={onTest}
+          hideModelRates={hideModelRates}
+          onSaveTestResult={onSaveTestResult}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -408,12 +457,16 @@ export const LLMProviderForm = ({
   onChange,
   onTest,
   hideModelRates,
+  onSaveTestResult,
 }: LLMProviderFormProps) => {
   const { t } = useTranslation();
   const isCloud = useIsCloud();
   const [isTestLoading, setIsTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testPassed, setTestPassed] = useState(false);
+  const [modelTestStatuses, setModelTestStatuses] = useState<IModelTestStatus[]>([]);
+  const [testProgress, setTestProgress] = useState({ current: 0, total: 0 });
+  const abortRef = useRef(false);
 
   const form = useForm<LLMProvider>({
     resolver: zodResolver(llmProviderSchema),
@@ -435,6 +488,8 @@ export const LLMProviderForm = ({
   useEffect(() => {
     setTestResult(null);
     setTestPassed(false);
+    setModelTestStatuses([]);
+    setTestProgress({ current: 0, total: 0 });
   }, [baseUrl, apiKey, models, formType]);
 
   function onSubmit(data: LLMProvider) {
@@ -446,12 +501,134 @@ export const LLMProviderForm = ({
     onSubmit(data);
   }
 
-  async function handleTest() {
-    if (!onTest) return;
+  // Test a single text model
+  const testTextModel = useCallback(
+    async (model: string, provider: Required<LLMProvider>): Promise<Partial<IModelTestStatus>> => {
+      if (!onTest) {
+        return { status: 'failed', error: 'Test function not provided' };
+      }
+      try {
+        const { type, name, apiKey, baseUrl, models } = provider;
+        const modelKey = `${type}@${model}@${name}`;
 
+        const result = await withTimeout(
+          onTest({
+            type,
+            name,
+            apiKey,
+            baseUrl,
+            models,
+            modelKey,
+            // Test all chat model abilities
+            ability: chatModelAbilityType.options,
+          }),
+          TEXT_MODEL_TIMEOUT_MS,
+          `Timeout after ${TEXT_MODEL_TIMEOUT_MS / 1000}s`
+        );
+
+        if (!result.success) {
+          return {
+            status: 'failed',
+            error: result.response || 'Test failed',
+          };
+        }
+
+        return {
+          status: 'success',
+          ability: result.ability,
+        };
+      } catch (error) {
+        return {
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    },
+    [onTest]
+  );
+
+  // Test a single image model
+  const testImageModel = useCallback(
+    async (model: string, provider: Required<LLMProvider>): Promise<Partial<IModelTestStatus>> => {
+      if (!onTest) {
+        return { status: 'failed', error: 'Test function not provided', isImageModel: true };
+      }
+      try {
+        const { type, name, apiKey, baseUrl, models } = provider;
+        const modelKey = `${type}@${model}@${name}`;
+
+        // Test image generation (text-to-image)
+        const generationResult = await withTimeout(
+          onTest({
+            type,
+            name,
+            apiKey,
+            baseUrl,
+            models,
+            modelKey,
+            testImageGeneration: true,
+          }),
+          IMAGE_MODEL_TIMEOUT_MS,
+          `Timeout after ${IMAGE_MODEL_TIMEOUT_MS / 1000}s`
+        );
+
+        // Test image-to-image if generation works
+        let imageToImage = false;
+        if (generationResult.success) {
+          try {
+            const i2iResult = await withTimeout(
+              onTest({
+                type,
+                name,
+                apiKey,
+                baseUrl,
+                models,
+                modelKey,
+                testImageGeneration: true,
+                testImageToImage: true,
+              }),
+              IMAGE_MODEL_TIMEOUT_MS,
+              `Timeout`
+            );
+            imageToImage = i2iResult.success;
+          } catch {
+            // Image-to-image not supported, that's ok
+          }
+        }
+
+        if (!generationResult.success) {
+          return {
+            status: 'failed',
+            error: generationResult.response || 'Image generation test failed',
+            isImageModel: true,
+          };
+        }
+
+        return {
+          status: 'success',
+          isImageModel: true,
+          imageAbility: {
+            generation: true,
+            imageToImage,
+          },
+        };
+      } catch (error) {
+        return {
+          status: 'failed',
+          isImageModel: true,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    },
+    [onTest]
+  );
+
+  // Full capability test for all models
+  const handleFullTest = useCallback(async () => {
     const formData = form.getValues();
     setTestResult(null);
 
+    // Validate required fields
     if (
       !formData.name ||
       !formData.type ||
@@ -473,9 +650,12 @@ export const LLMProviderForm = ({
       return;
     }
 
-    const firstModel = formData.models.split(',')[0]?.trim();
+    const modelList = formData.models
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean);
 
-    if (!firstModel) {
+    if (modelList.length === 0) {
       setTestResult({
         success: false,
         message: t('admin.setting.ai.noValidModel'),
@@ -483,50 +663,103 @@ export const LLMProviderForm = ({
       return;
     }
 
+    // Initialize test state
+    abortRef.current = false;
     setIsTestLoading(true);
+    setTestPassed(false);
+    setTestProgress({ current: 0, total: modelList.length });
 
-    try {
-      const result = await onTest(formData as Required<LLMProvider>);
-      const { success, response } = result;
+    // Initialize all models as pending
+    const initialStatuses: IModelTestStatus[] = modelList.map((model) => ({
+      model,
+      status: 'pending',
+      isImageModel: formData.modelConfigs?.[model]?.isImageModel,
+    }));
+    setModelTestStatuses(initialStatuses);
 
-      if (success) {
-        setTestResult(null);
-        setTestPassed(true);
-        toast.success(t('admin.setting.ai.testSuccess'));
-      } else {
-        const analysis = analyzeError(
-          response || 'Unknown error',
-          formData.baseUrl || '',
-          formData.type as LLMProviderType
-        );
-        setTestResult({
-          success: false,
-          message: analysis.message,
-          suggestions: analysis.suggestions,
-        });
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const analysis = analyzeError(
-        errorMessage,
-        formData.baseUrl || '',
-        formData.type as LLMProviderType
+    const provider = formData as Required<LLMProvider>;
+    let completedCount = 0;
+    let successCount = 0;
+    let nextIndex = 0;
+
+    const updateModelStatus = (model: string, update: Partial<IModelTestStatus>) => {
+      setModelTestStatuses((prev) =>
+        prev.map((s) => (s.model === model ? { ...s, ...update } : s))
       );
+    };
+
+    const startNextTest = async () => {
+      if (abortRef.current || nextIndex >= modelList.length) return;
+
+      const currentIndex = nextIndex++;
+      const model = modelList[currentIndex];
+      const isImageModel = formData.modelConfigs?.[model]?.isImageModel;
+
+      updateModelStatus(model, { status: 'testing' });
+
+      const result = isImageModel
+        ? await testImageModel(model, provider)
+        : await testTextModel(model, provider);
+
+      updateModelStatus(model, result);
+      completedCount++;
+      if (result.status === 'success') {
+        successCount++;
+        // Save test result to provider config
+        const modelKey = `${provider.type}@${model}@${provider.name}`;
+        onSaveTestResult?.(modelKey, result.ability, result.imageAbility);
+      }
+      setTestProgress({ current: completedCount, total: modelList.length });
+
+      // Start next test if there are more
+      if (!abortRef.current && nextIndex < modelList.length) {
+        await startNextTest();
+      }
+    };
+
+    // Start concurrent tests
+    const initialPromises: Promise<void>[] = [];
+    for (let i = 0; i < Math.min(CONCURRENCY, modelList.length); i++) {
+      initialPromises.push(startNextTest());
+    }
+
+    await Promise.all(initialPromises);
+
+    setIsTestLoading(false);
+
+    // Check results
+    if (successCount > 0) {
+      setTestPassed(true);
+      toast.success(
+        t('admin.setting.ai.testCompleteWithCount', {
+          success: successCount,
+          total: modelList.length,
+        })
+      );
+    } else {
       setTestResult({
         success: false,
-        message: analysis.message,
-        suggestions: analysis.suggestions,
+        message: t('admin.setting.ai.allTestsFailed'),
       });
-    } finally {
-      setIsTestLoading(false);
     }
-  }
+  }, [form, t, testTextModel, testImageModel, onSaveTestResult]);
+
+  const handleStopTest = useCallback(() => {
+    abortRef.current = true;
+    setIsTestLoading(false);
+  }, []);
 
   const mode = onChange ? t('actions.update') : t('actions.add');
   const type = form.watch('type');
   const currentProvider = LLM_PROVIDERS.find(
     (provider) => provider.value === type
   ) as (typeof LLM_PROVIDERS)[number] & { apiKeyPlaceholder?: string };
+
+  // Calculate test statistics
+  const successCount = modelTestStatuses.filter((s) => s.status === 'success').length;
+  const failedCount = modelTestStatuses.filter((s) => s.status === 'failed').length;
+  const progressPercent =
+    testProgress.total > 0 ? Math.round((testProgress.current / testProgress.total) * 100) : 0;
 
   return (
     <Form {...form}>
@@ -662,29 +895,62 @@ export const LLMProviderForm = ({
             </div>
           )}
 
+          {/* Test Progress Display */}
+          {modelTestStatuses.length > 0 && (
+            <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+              {/* Progress bar */}
+              {testProgress.total > 0 && (
+                <div className="flex items-center gap-3">
+                  <Progress value={progressPercent} className="h-1.5 flex-1" />
+                  <div className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
+                    {isTestLoading && <Loader2 className="size-3 animate-spin" />}
+                    <span>{progressPercent}%</span>
+                    <span className="text-green-600 dark:text-green-400">{successCount} ✓</span>
+                    <span className="text-red-600 dark:text-red-400">{failedCount} ✗</span>
+                  </div>
+                </div>
+              )}
+              {/* Model test results */}
+              <div className="flex flex-wrap gap-2">
+                {modelTestStatuses.map((status) => (
+                  <ModelTestPill key={status.model} status={status} />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex w-full flex-row gap-2">
             {onTest && (
-              <Button
-                className="flex-1"
-                onClick={handleTest}
-                disabled={isTestLoading}
-                type="button"
-                variant={testPassed ? 'outline' : 'default'}
-              >
+              <>
                 {isTestLoading ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    {t('admin.setting.ai.testing')}
-                  </>
-                ) : testPassed ? (
-                  <>
-                    <Check className="size-4 text-green-600" />
-                    {t('admin.setting.ai.testSuccess')}
-                  </>
+                  <Button
+                    className="flex-1"
+                    onClick={handleStopTest}
+                    type="button"
+                    variant="destructive"
+                  >
+                    <Square className="mr-1 size-3" />
+                    {t('admin.setting.ai.stopTest')}
+                  </Button>
                 ) : (
-                  t('admin.setting.ai.testConnection')
+                  <Button
+                    className="flex-1"
+                    onClick={handleFullTest}
+                    disabled={isTestLoading}
+                    type="button"
+                    variant={testPassed ? 'outline' : 'default'}
+                  >
+                    {testPassed ? (
+                      <>
+                        <Check className="size-4 text-green-600" />
+                        {t('admin.setting.ai.testSuccess')}
+                      </>
+                    ) : (
+                      t('admin.setting.ai.testConnection')
+                    )}
+                  </Button>
                 )}
-              </Button>
+              </>
             )}
             {testPassed && (
               <Button className="flex-1" onClick={handleSubmit}>
@@ -695,5 +961,81 @@ export const LLMProviderForm = ({
         </>
       )}
     </Form>
+  );
+};
+
+// Component for displaying individual model test status
+interface IModelTestPillProps {
+  status: IModelTestStatus;
+}
+
+const ModelTestPill = ({ status }: IModelTestPillProps) => {
+  const { model, status: testStatus, error, ability, imageAbility, isImageModel } = status;
+
+  const getStatusStyles = () => {
+    switch (testStatus) {
+      case 'idle':
+        return 'bg-primary/5 text-muted-foreground border-transparent';
+      case 'pending':
+        return 'bg-primary/5 text-foreground border-transparent';
+      case 'testing':
+        return 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
+      case 'success':
+        return 'bg-green-50 text-green-600 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20';
+      case 'failed':
+        return 'bg-red-50 text-red-600 border-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20';
+    }
+  };
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  const getImageIcon = () => {
+    if (testStatus !== 'success') return null;
+
+    // For text models: show vision support
+    if (!isImageModel && ability?.image) {
+      const { url, base64 } = ability.image as { url?: boolean; base64?: boolean };
+      if (url && base64) {
+        return <Eye className="size-3 text-green-600 dark:text-green-400" />;
+      }
+      if (url || base64) {
+        return <Eye className="size-3 text-yellow-600 dark:text-yellow-400" />;
+      }
+      return <Eye className="size-3 opacity-30" />;
+    }
+
+    // For image models: show generation support
+    if (isImageModel && imageAbility) {
+      const { generation, imageToImage } = imageAbility;
+      if (generation && imageToImage) {
+        return <Image className="size-3 text-green-600 dark:text-green-400" />;
+      }
+      if (generation || imageToImage) {
+        return <Image className="size-3 text-yellow-600 dark:text-yellow-400" />;
+      }
+      return <Image className="size-3 opacity-30" />;
+    }
+
+    return null;
+  };
+
+  return (
+    <div
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
+        getStatusStyles(),
+        isImageModel && 'ring-1 ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/20'
+      )}
+      title={error || model}
+    >
+      <span className="max-w-[100px] truncate">{model}</span>
+
+      {/* Status indicator */}
+      {testStatus === 'testing' && <Loader2 className="size-3 animate-spin" />}
+      {testStatus === 'success' && <Check className="size-3" />}
+      {testStatus === 'failed' && <X className="size-3" />}
+
+      {/* Image support indicator */}
+      {getImageIcon()}
+    </div>
   );
 };

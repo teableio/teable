@@ -1,5 +1,11 @@
 import type { IAIIntegrationConfig } from '@teable/openapi';
-import type { ITestLLMVo, LLMProvider } from '@teable/openapi/src/admin/setting';
+import type {
+  IChatModelAbility,
+  IImageModelAbility,
+  ITestLLMRo,
+  ITestLLMVo,
+  LLMProvider,
+} from '@teable/openapi/src/admin/setting';
 import {
   Card,
   CardContent,
@@ -15,13 +21,22 @@ import { LLMProviderManage } from './LlmproviderManage';
 interface IAIProviderCardProps {
   control: Control<IAIIntegrationConfig>;
   onChange?: (value: LLMProvider[]) => void;
-  onTest?: (data: Required<LLMProvider>) => Promise<ITestLLMVo>;
+  /** Test function - accepts full ITestLLMRo for capability testing */
+  onTest?: (data: ITestLLMRo) => Promise<ITestLLMVo>;
   modelTestResults?: Map<string, IModelTestResult>;
   onToggleImageModel?: (modelKey: string, isImageModel: boolean) => void;
   onTestProvider?: (provider: LLMProvider) => void;
+  onTestModel?: (provider: LLMProvider, model: string, modelKey: string) => Promise<void>;
   testingProviders?: Set<string>;
+  testingModels?: Set<string>;
   /** Hide model rates config (for space-level settings where billing doesn't apply) */
   hideModelRates?: boolean;
+  /** Callback to save model test results */
+  onSaveTestResult?: (
+    modelKey: string,
+    ability: IChatModelAbility | undefined,
+    imageAbility: IImageModelAbility | undefined
+  ) => void;
 }
 
 export const AIProviderCard = ({
@@ -31,8 +46,11 @@ export const AIProviderCard = ({
   modelTestResults,
   onToggleImageModel,
   onTestProvider,
+  onTestModel,
   testingProviders,
+  testingModels,
   hideModelRates,
+  onSaveTestResult,
 }: IAIProviderCardProps) => {
   return (
     <Card className="pt-4 shadow-sm">
@@ -50,8 +68,11 @@ export const AIProviderCard = ({
                   modelTestResults={modelTestResults}
                   onToggleImageModel={onToggleImageModel}
                   onTestProvider={onTestProvider}
+                  onTestModel={onTestModel}
                   testingProviders={testingProviders}
+                  testingModels={testingModels}
                   hideModelRates={hideModelRates}
+                  onSaveTestResult={onSaveTestResult}
                 />
               </FormControl>
               <FormMessage />

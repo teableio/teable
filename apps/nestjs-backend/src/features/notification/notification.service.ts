@@ -83,6 +83,7 @@ export class NotificationService {
       tableName: string;
       fieldName: string;
       recordIds: string[];
+      recordTitles: { id: string; title: string }[];
     };
   }): Promise<void> {
     const { fromUserId, toUserId, refRecord } = params;

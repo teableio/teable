@@ -4,9 +4,10 @@ import type { IRecord, IUserCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { has, intersection, isEmpty, keyBy } from 'lodash';
+import { has, intersection, isEmpty, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { NotificationService } from '../../features/notification/notification.service';
+import { RecordService } from '../../features/record/record.service';
 import type { IChangeRecord, IChangeValue, RecordCreateEvent, RecordUpdateEvent } from '../events';
 import { Events } from '../events';
 
@@ -20,6 +21,9 @@ type IUserField = {
   fieldOptions: string;
 };
 
+// Maximum number of record titles to fetch for notification display
+const maxRecordTitles = 10;
+
 @Injectable()
 export class CollaboratorNotificationListener {
   private readonly logger = new Logger(CollaboratorNotificationListener.name);
@@ -27,6 +31,7 @@ export class CollaboratorNotificationListener {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly notificationService: NotificationService,
+    private readonly recordService: RecordService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -78,9 +83,20 @@ export class CollaboratorNotificationListener {
 
     const notificationData = this.extractNotificationData(recordSets, userFieldIds);
 
+    // Collect record IDs that need titles (limited to maxRecordTitles per user)
+    const recordIdsNeedingTitles = uniq(
+      Object.values(notificationData).flatMap((data) => data.recordIds.slice(0, maxRecordTitles))
+    );
+    const recordTitles =
+      recordIdsNeedingTitles.length > 0
+        ? await this.recordService.getRecordsHeadWithIds(tableId, recordIdsNeedingTitles)
+        : [];
+    const recordTitlesMap = keyBy(recordTitles, 'id');
+
     for (const userId in notificationData) {
       const { fieldId, recordIds } = notificationData[userId];
       const field = userFields[fieldId];
+      const recordIdsForTitles = recordIds.slice(0, maxRecordTitles);
 
       await this.notificationService.sendCollaboratorNotify({
         fromUserId: user?.id || '',
@@ -91,6 +107,7 @@ export class CollaboratorNotificationListener {
           tableName: field.tableName,
           fieldName: field.fieldName,
           recordIds: recordIds,
+          recordTitles: recordIdsForTitles.map((id) => recordTitlesMap[id]).filter(Boolean),
         },
       });
     }

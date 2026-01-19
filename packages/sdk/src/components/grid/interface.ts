@@ -240,3 +240,10 @@ export interface IColumnLoading {
   progress: number;
   onCancel?: () => void;
 }
+
+export interface ICellError {
+  cellItem: ICellItem;
+  errorMsg: string;
+  onRetry?: () => void;
+  onDismiss?: () => void;
+}

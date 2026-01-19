@@ -77,7 +77,7 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
                   record,
                 });
               }}
-              className={cn('flex w-24 h-6', className)}
+              className={cn('flex h-6 min-w-16 max-w-32 px-2', className)}
               style={{
                 backgroundColor: button.bgColor,
                 borderColor: button.bgColor,

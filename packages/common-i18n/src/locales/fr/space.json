@@ -92,7 +92,9 @@
   },
   "template": {
     "title": "Modèle",
-    "description": "Créer rapidement une nouvelle base à partir d'un modèle"
+    "description": "Créer rapidement une nouvelle base à partir d'un modèle",
+    "noTemplatesAvailable": "Aucun modèle disponible",
+    "noTemplatesDescription": "Il n'y a rien ici pour le moment"
   },
   "recentlyBase": {
     "title": "Consulté récemment"
@@ -156,7 +158,7 @@
     "shareWith": "Partager avec",
     "unpublishedApps": {
       "title": "Applications non publiées détectées",
-      "description": "Les applications suivantes n'ont pas encore été publiées. Les applications dont la publication n'a pas été vérifiée peuvent échouer à se déployer dans le modèle, empêchant l'aperçu normal. Vous pouvez les publier maintenant ou continuer quand même.",
+      "description": "Les applications non publiées peuvent provoquer des erreurs d'aperçu du modèle. Publiez-les maintenant ou continuez.",
       "publishAll": "Tout publier",
       "publish": "Publier",
       "published": "Publiée",

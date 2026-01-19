@@ -36,6 +36,11 @@
   "notification": {
     "title": "通知"
   },
+  "aiError": {
+    "title": "AI 生成失败",
+    "retry": "重试",
+    "dismiss": "忽略"
+  },
   "noun": {
     "table": "表格",
     "view": "视图",
@@ -180,7 +185,9 @@
     "conjunction": {
       "and": "且",
       "or": "或",
-      "where": "当"
+      "where": "当",
+      "meetingAll": "满足所有条件",
+      "meetingAny": "满足任一条件"
     },
     "operator": {
       "is": "等于",
@@ -898,6 +905,7 @@
     "automationNodeParseError": "自动化节点解析错误",
     "automationNodeNeedTest": "自动化节点需要测试",
     "automationNodeTestOutdated": "自动化节点测试已过期",
+    "invalidToken": "无效的令牌",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
       "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
@@ -1368,7 +1376,10 @@
       "apiKeyNotSet": "应用构建器 API 密钥未设置",
       "cannotDeployAppBeforeInitialization": "无法在初始化前部署应用",
       "noProjectOrVersionFound": "没有找到项目或版本",
-      "noDeploymentUrlAvailable": "没有可用的部署 URL"
+      "noDeploymentUrlAvailable": "没有可用的部署 URL",
+      "noFilesInZip": "ZIP 文件中没有找到文件",
+      "zipFileTooLarge": "ZIP 文件大小超过 5MB 限制",
+      "invalidZip": "无效的 ZIP 文件"
     },
     "reward": {
       "notFound": "奖励记录不存在",

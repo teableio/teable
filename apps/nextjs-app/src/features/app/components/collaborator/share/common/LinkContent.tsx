@@ -1,13 +1,13 @@
 import type { IBaseRole, IRole } from '@teable/core';
-import { ChevronLeft, Trash, UserPlus } from '@teable/icons';
+import { ChevronLeft, UserPlus } from '@teable/icons';
 import type { ListSpaceInvitationLinkVo } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
 import { Button, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
+import { InviteLinkItem } from '../../../collaborator-manage/components/InviteLinkItem';
 import { RoleSelect } from '../../../collaborator-manage/components/RoleSelect';
 import type { IRoleStatic } from '../../../collaborator-manage/types';
-import { CopyButton } from '../../../CopyButton';
 
 interface ILinkContentProps {
   list?: ListSpaceInvitationLinkVo;
@@ -72,51 +72,24 @@ export const LinkContent = ({
           <Separator />
           <div>
             <p className="mb-2 text-sm font-medium">{t('invite.dialog.linkTitle')}</p>
-            {list?.map((item, index) => (
-              <div
-                key={item.invitationId}
-                className={`flex items-center gap-2 py-2 ${
-                  index !== list.length - 1 ? 'border-b' : ''
-                }`}
-              >
-                <div className="flex flex-1 items-center gap-2 overflow-hidden">
-                  <div className="flex flex-col gap-1 overflow-hidden">
-                    <p className="truncate text-sm" title={item.inviteUrl}>
-                      {item.inviteUrl}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(item.createdTime).toLocaleDateString()}
-                    </p>
-                  </div>
+            <div className="space-y-3">
+              {list.map((item) => (
+                <InviteLinkItem
+                  key={item.invitationId}
+                  url={item.inviteUrl}
+                  createdTime={item.createdTime}
+                  onDelete={() => onDelete(item.invitationId)}
+                  deleteDisabled={isDeleteLoading}
+                >
                   <RoleSelect
-                    className="shrink-0"
                     value={item.role}
                     options={filteredRoleStatic}
                     disabled={isUpdateLoading}
                     onChange={(role) => onUpdate(item.invitationId, role)}
                   />
-                  <div className="flex items-center gap-0">
-                    {' '}
-                    <CopyButton
-                      size="xs"
-                      variant="ghost"
-                      className="text-muted-foreground"
-                      iconClassName="size-4"
-                      text={item.inviteUrl}
-                    />
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      className="text-muted-foreground"
-                      disabled={isDeleteLoading}
-                      onClick={() => onDelete(item.invitationId)}
-                    >
-                      {isDeleteLoading ? <Spin className="size-4" /> : <Trash className="size-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                </InviteLinkItem>
+              ))}
+            </div>
           </div>
         </>
       )}
