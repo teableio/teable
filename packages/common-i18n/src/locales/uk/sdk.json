@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "і",
       "or": "або",
-      "where": "де"
+      "where": "де",
+      "meetingAll": "Відповідати всім умовам",
+      "meetingAny": "Відповідати будь-якій умові"
     },
     "operator": {
       "is": "є",
@@ -892,6 +894,7 @@
     "automationNodeParseError": "Помилка аналізу вузла автоматизації",
     "automationNodeNeedTest": "Вузол автоматизації потребує тестування",
     "automationNodeTestOutdated": "Тест вузла автоматизації застарів",
+    "invalidToken": "Недійсний токен",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає пусті значення, будь ласка, заповніть його повністю перед відправкою.",
       "fieldValueDuplicate": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає дублікатів значень, будь ласка, заповніть унікальне значення перед відправкою.",

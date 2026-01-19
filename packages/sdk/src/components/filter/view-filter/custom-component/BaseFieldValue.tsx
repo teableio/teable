@@ -357,7 +357,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           value={value as number}
           saveOnChange={true}
           onChange={onSelect as (value?: number | null) => void}
-          className="w-40 placeholder:text-xs"
+          className="w-40 placeholder:text-sm"
           placeholder={t('filter.default.placeholder')}
         />
       );
@@ -369,8 +369,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             modal={modal}
             value={value as string[]}
             onSelect={(newValue) => onSelect(newValue as IFilterItem['value'])}
-            className="min-w-28 max-w-64"
-            popoverClassName="max-w-64 min-w-28"
+            className="h-8 min-w-40 max-w-64"
+            popoverClassName="w-40"
           />
         ) : (
           <FilterSingleSelect
@@ -379,8 +379,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             value={value as string}
             onSelect={onSelect}
             operator={operator}
-            className="min-w-28 max-w-64"
-            popoverClassName="max-w-64 min-w-28"
+            className="h-8 min-w-40 max-w-64"
+            popoverClassName="min-w-40 max-w-64"
           />
         )
       );
@@ -391,8 +391,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           modal={modal}
           value={value as string[]}
           onSelect={(newValue) => onSelect(newValue as IFilterItem['value'])}
-          className="min-w-28 max-w-64"
-          popoverClassName="min-w-28 max-w-64"
+          className="h-8 min-w-40 max-w-64"
+          popoverClassName="min-w-40 max-w-64"
         />
       );
     case FieldType.Date:
@@ -409,7 +409,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       );
     case FieldType.Checkbox:
       return wrapWithReference(
-        <FilterCheckbox value={value as boolean} onChange={onSelect} className="w-10" />
+        <FilterCheckbox value={value as boolean} onChange={onSelect} className="w-40" />
       );
     case FieldType.Link: {
       const linkProps = {
@@ -434,7 +434,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           value={value as number}
           options={field.options}
           onChange={onSelect as (value?: number) => void}
-          className="h-8 rounded-md border border-input px-2 shadow-sm"
+          className="h-8 w-40 rounded-md border px-2"
           iconClassName="w-4 h-4 mr-1"
         />
       );

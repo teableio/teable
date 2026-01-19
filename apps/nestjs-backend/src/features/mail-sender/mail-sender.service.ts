@@ -238,12 +238,13 @@ export class MailSenderService {
       tableName: string;
       fieldName: string;
       recordIds: string[];
+      recordTitles: { id: string; title: string }[];
     };
   }) {
     const {
       notifyId,
       fromUserName,
-      refRecord: { baseId, tableId, fieldName, tableName, recordIds },
+      refRecord: { baseId, tableId, fieldName, tableName, recordIds, recordTitles },
     } = info;
     let subject, partialBody;
     const refLength = recordIds.length;
@@ -273,6 +274,12 @@ export class MailSenderService {
         tableName,
         fieldName,
         recordIds,
+        recordTitles: recordTitles.map((r) => {
+          return {
+            ...r,
+            title: r.title || this.i18n.t('sdk.common.unnamedRecord'),
+          };
+        }),
         viewRecordUrlPrefix,
         partialBody,
         brandName,

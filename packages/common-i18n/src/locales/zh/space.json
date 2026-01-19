@@ -96,7 +96,9 @@
   },
   "template": {
     "title": "模板中心",
-    "description": "快速从模板创建一个新数据库"
+    "description": "快速从模板创建一个新数据库",
+    "noTemplatesAvailable": "暂无模板",
+    "noTemplatesDescription": "当前没有可用的模板"
   },
   "recentlyBase": {
     "title": "最近访问"
@@ -160,7 +162,7 @@
     "shareWith": "分享到",
     "unpublishedApps": {
       "title": "检测到未发布的应用",
-      "description": "以下应用尚未发布。未验证能成功发布的应用，可能在模板中发布失败，以至于不能正常预览。您可以现在发布它们，或者忽略并继续。",
+      "description": "未发布的应用可能导致模板预览失败，建议先发布后继续。",
       "publishAll": "全部发布",
       "publish": "发布",
       "published": "已发布",

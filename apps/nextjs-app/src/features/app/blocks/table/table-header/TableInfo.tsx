@@ -80,7 +80,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
       )}
       <div
         className={cn(
-          'relative flex h-7 shrink-0 grow-0 flex-col items-start justify-center gap-1',
+          'relative flex h-8 shrink-0 grow-0 flex-col items-start justify-center gap-1',
           { 'min-w-16': isEditing }
         )}
       >

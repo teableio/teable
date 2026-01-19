@@ -22,7 +22,9 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
-  app.use(helmet());
+  // HSTS is configured at the WAF level. Disable it here to avoid sending duplicate
+  // `Strict-Transport-Security` headers with potentially different max-age values.
+  app.use(helmet({ hsts: false }));
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
 

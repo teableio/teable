@@ -8,7 +8,8 @@ import {
   updateSetting,
 } from '@teable/openapi';
 import { useIsHydrated } from '@teable/sdk/hooks';
-import { Label, Switch } from '@teable/ui-lib/shadcn';
+import { Button, Label, Switch } from '@teable/ui-lib/shadcn';
+import { RotateCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
@@ -295,10 +296,21 @@ export const SettingPage = (props: ISettingPageProps) => {
                       : t('email.customNotifyConfig')}
                   </div>
                 </div>
-                <MailConfigDialog
-                  name={SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG}
-                  emailConfig={setting.notifyMailTransportConfig ?? undefined}
-                />
+                <div className="flex gap-1">
+                  {setting.notifyMailTransportConfig && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => onValueChange(SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG, null)}
+                    >
+                      <RotateCcwIcon className="size-4" />
+                    </Button>
+                  )}
+                  <MailConfigDialog
+                    name={SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG}
+                    emailConfig={setting.notifyMailTransportConfig ?? undefined}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
@@ -310,10 +322,23 @@ export const SettingPage = (props: ISettingPageProps) => {
                       : t('email.customAutomationConfig')}
                   </div>
                 </div>
-                <MailConfigDialog
-                  name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
-                  emailConfig={setting.automationMailTransportConfig ?? undefined}
-                />
+                <div className="flex gap-1">
+                  {setting.automationMailTransportConfig && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        onValueChange(SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG, null)
+                      }
+                    >
+                      <RotateCcwIcon className="size-4" />
+                    </Button>
+                  )}
+                  <MailConfigDialog
+                    name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
+                    emailConfig={setting.automationMailTransportConfig ?? undefined}
+                  />
+                </div>
               </div>
             </div>
             {!setting.notifyMailTransportConfig && (

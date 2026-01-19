@@ -96,7 +96,9 @@
   },
   "template": {
     "title": "Template",
-    "description": "Create a new base from a template quickly"
+    "description": "Create a new base from a template quickly",
+    "noTemplatesAvailable": "No templates available",
+    "noTemplatesDescription": "There is nothing here right now"
   },
   "recentlyBase": {
     "title": "Recently visited"
@@ -160,7 +162,7 @@
     "shareWith": "Share with",
     "unpublishedApps": {
       "title": "Unpublished Apps Detected",
-      "description": "The following apps have not been published yet. Apps that have not been verified to publish successfully may fail to deploy in the template, preventing normal preview. You can publish them now or continue anyway.",
+      "description": "Unpublished apps may cause template preview failures. Publish them now or continue anyway.",
       "publishAll": "Publish All",
       "publish": "Publish",
       "published": "Published",

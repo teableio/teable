@@ -98,7 +98,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
         });
       }}
       value={value}
-      className={cn('shrink-0 w-32 h-8')}
+      className={cn('shrink-0 w-[156px] h-8 gap-0 pr-1')}
       popoverClassName="w-fit"
       optionRender={optionRender}
       defaultLabel={<DefaultErrorLabel />}

@@ -316,14 +316,9 @@ export const SearchButton = (props: ISearchButtonProps) => {
               >
                 <TooltipTrigger>
                   <div className="flex items-center gap-1">
-                    {showAlert && <AlertCircle className="size-3 shrink-0 text-destructive" />}
+                    {showAlert && <AlertCircle className="size-3 shrink-0" />}
 
-                    <span
-                      className={cn('truncate', {
-                        'text-destructive': showAlert,
-                      })}
-                      title={searchHeader}
-                    >
+                    <span className="truncate" title={searchHeader}>
                       {searchHeader}
                     </span>
                   </div>

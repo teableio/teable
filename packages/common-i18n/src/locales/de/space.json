@@ -92,7 +92,9 @@
   },
   "template": {
     "title": "Vorlage",
-    "description": "Erstellen Sie schnell eine neue Base aus einer Vorlage"
+    "description": "Erstellen Sie schnell eine neue Base aus einer Vorlage",
+    "noTemplatesAvailable": "Keine Vorlagen verfügbar",
+    "noTemplatesDescription": "Hier gibt es derzeit nichts"
   },
   "recentlyBase": {
     "title": "Zuletzt besucht"
@@ -158,7 +160,7 @@
     "shareWith": "Teilen mit",
     "unpublishedApps": {
       "title": "Unveröffentlichte Apps erkannt",
-      "description": "Die folgenden Apps wurden noch nicht veröffentlicht. Apps, deren erfolgreiche Veröffentlichung nicht verifiziert wurde, können in der Vorlage nicht bereitgestellt werden, was eine normale Vorschau verhindert. Sie können sie jetzt veröffentlichen oder trotzdem fortfahren.",
+      "description": "Unveröffentlichte Apps können Fehler bei der Vorlagenvorschau verursachen. Veröffentlichen Sie sie jetzt oder fahren Sie trotzdem fort.",
       "publishAll": "Alle veröffentlichen",
       "publish": "Veröffentlichen",
       "published": "Veröffentlicht",

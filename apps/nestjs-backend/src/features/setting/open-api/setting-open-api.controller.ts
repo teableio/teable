@@ -91,6 +91,8 @@ export class SettingOpenApiController {
           })) ?? [],
         chatModel: aiConfig?.chatModel,
         capabilities: aiConfig?.capabilities,
+        // Include gateway models for space-level AI config
+        gatewayModels: aiConfig?.gatewayModels,
       },
       appGenerationEnabled: Boolean(appConfig?.apiKey),
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),

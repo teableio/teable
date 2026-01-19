@@ -3,7 +3,7 @@ import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useRafState } from 'react-use';
-import { LoadingIndicator } from './components';
+import { LoadingIndicator, ErrorIndicator } from './components';
 import type { IGridTheme } from './configs';
 import { gridTheme, GRID_DEFAULT, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useResizeObserver } from './hooks';
@@ -27,6 +27,7 @@ import type {
   DragRegionType,
   IColumnLoading,
   IRange,
+  ICellError,
 } from './interface';
 import {
   RegionType,
@@ -160,6 +161,7 @@ export interface IGridRef {
   getCellBounds: (cell: ICellItem) => IRectangle | null;
   setCellLoading: (cells: ICellItem[]) => void;
   setColumnLoadings: (columnLoadings: IColumnLoading[]) => void;
+  setCellErrors: (cellErrors: ICellError[]) => void;
   isEditing: () => boolean | undefined;
 }
 
@@ -270,6 +272,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     setColumnLoadings: (columnLoadings: IColumnLoading[]) => {
       setColumnLoadings(columnLoadings);
     },
+    setCellErrors: (cellErrors: ICellError[]) => {
+      setCellErrors(cellErrors);
+    },
     getCellBounds: (cell: ICellItem) => {
       const [columnIndex, _rowIndex] = cell;
       const rowIndex = real2RowIndex(_rowIndex);
@@ -315,6 +320,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [cellLoadings, setCellLoadings] = useState<ICellItem[]>([]);
   const [columnLoadings, setColumnLoadings] = useState<IColumnLoading[]>([]);
+  const [cellErrors, setCellErrors] = useState<ICellError[]>([]);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
@@ -740,6 +746,13 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       <LoadingIndicator
         cellLoadings={cellLoadings}
         columnLoadings={columnLoadings}
+        coordInstance={coordInstance}
+        scrollState={scrollState}
+        real2RowIndex={real2RowIndex}
+      />
+
+      <ErrorIndicator
+        cellErrors={cellErrors}
         coordInstance={coordInstance}
         scrollState={scrollState}
       />

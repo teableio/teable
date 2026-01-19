@@ -117,12 +117,18 @@ export const UnpublishedAppsDialog = (props: IUnpublishedAppsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="size-5 text-amber-500" />
-            {t('publishBase.unpublishedApps.title')}
-          </DialogTitle>
-          <DialogDescription>{t('publishBase.unpublishedApps.description')}</DialogDescription>
+        <DialogHeader className="flex flex-row items-start gap-4 space-y-0 text-left">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+            <AlertTriangle className="size-5 text-amber-600 dark:text-amber-500" />
+          </div>
+          <div className="flex flex-col gap-1.5 pt-0.5">
+            <DialogTitle className="leading-none">
+              {t('publishBase.unpublishedApps.title')}
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-normal text-muted-foreground">
+              {t('publishBase.unpublishedApps.description')}
+            </DialogDescription>
+          </div>
         </DialogHeader>
 
         <div className="my-4 flex max-h-[400px] flex-col gap-2 overflow-auto">
@@ -211,7 +217,6 @@ export const UnpublishedAppsDialog = (props: IUnpublishedAppsDialogProps) => {
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           {canPublish && (
             <Button
-              variant="outline"
               onClick={handlePublishAllApps}
               disabled={allPublished || somePublishing || isPublishingAll}
               className="gap-1"
@@ -229,7 +234,11 @@ export const UnpublishedAppsDialog = (props: IUnpublishedAppsDialogProps) => {
             >
               {t('common:actions.cancel')}
             </Button>
-            <Button onClick={onContinue} disabled={somePublishing || isPublishingAll}>
+            <Button
+              onClick={onContinue}
+              disabled={somePublishing || isPublishingAll}
+              variant={allPublished ? 'default' : 'outline'}
+            >
               {allPublished
                 ? t('common:actions.continue')
                 : t('publishBase.unpublishedApps.ignoreAndContinue')}

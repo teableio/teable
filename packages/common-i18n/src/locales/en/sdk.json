@@ -36,6 +36,11 @@
   "notification": {
     "title": "Notification"
   },
+  "aiError": {
+    "title": "AI Generation Failed",
+    "retry": "Retry",
+    "dismiss": "Dismiss"
+  },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
     "loadFileError": "Failed to load file"
@@ -164,7 +169,9 @@
     "conjunction": {
       "and": "and",
       "or": "or",
-      "where": "where"
+      "where": "where",
+      "meetingAll": "Meeting all conditions",
+      "meetingAny": "Meeting any conditions"
     },
     "operator": {
       "is": "is",
@@ -898,6 +905,7 @@
     "automationNodeParseError": "Automation node parse error",
     "automationNodeNeedTest": "Automation node need test",
     "automationNodeTestOutdated": "Automation node test outdated",
+    "invalidToken": "Invalid token",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
@@ -1368,7 +1376,10 @@
       "apiKeyNotSet": "App builder API key is not set",
       "cannotDeployAppBeforeInitialization": "Cannot deploy app before initialization",
       "noProjectOrVersionFound": "No project or version found",
-      "noDeploymentUrlAvailable": "No deployment URL available"
+      "noDeploymentUrlAvailable": "No deployment URL available",
+      "noFilesInZip": "No files found in ZIP",
+      "zipFileTooLarge": "ZIP file size exceeds 5MB limit",
+      "invalidZip": "Invalid ZIP file"
     },
     "reward": {
       "notFound": "Reward not found",

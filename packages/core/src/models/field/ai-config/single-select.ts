@@ -22,8 +22,8 @@ export type ISingleSelectFieldCustomizeAIConfig = z.infer<
 >;
 
 export const singleSelectFieldAIConfigSchema = z.discriminatedUnion('type', [
-  singleSelectFieldClassifyAIConfigSchema.strict(),
-  singleSelectFieldCustomizeAIConfigSchema.strict(),
+  singleSelectFieldClassifyAIConfigSchema,
+  singleSelectFieldCustomizeAIConfigSchema,
 ]);
 
 export type ISingleSelectFieldAIConfig = z.infer<typeof singleSelectFieldAIConfigSchema>;

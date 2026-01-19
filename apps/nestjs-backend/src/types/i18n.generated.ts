@@ -765,6 +765,7 @@ export type I18nTranslations = {
                         "imageGeneration": string;
                         "missingVision": string;
                         "missingToolCall": string;
+                        "notTested": string;
                         "supportedFormats": string;
                     };
                     "configUpdated": string;
@@ -820,9 +821,16 @@ export type I18nTranslations = {
                             "description": string;
                         };
                     };
+                    "imageModelAbility": {
+                        "generation": string;
+                        "imageToImage": string;
+                    };
                     "moreModels": string;
                     "noModelsAvailable": string;
+                    "testCompleteWithCount": string;
+                    "allTestsFailed": string;
                     "batchTest": string;
+                    "test": string;
                     "testProvider": string;
                     "testProviderTooltip": string;
                     "batchTesting": string;
@@ -867,6 +875,8 @@ export type I18nTranslations = {
                     "imageGeneration": string;
                     "imageToImage": string;
                     "clickToToggleImageModel": string;
+                    "markAsImageModel": string;
+                    "imageGenerationModel": string;
                     "markedAsImageModel": string;
                     "markedAsTextModel": string;
                     "fetchPricing": string;
@@ -1908,6 +1918,8 @@ export type I18nTranslations = {
                 "and": string;
                 "or": string;
                 "where": string;
+                "meetingAll": string;
+                "meetingAny": string;
             };
             "operator": {
                 "is": string;
@@ -2641,6 +2653,7 @@ export type I18nTranslations = {
             "automationNodeParseError": string;
             "automationNodeNeedTest": string;
             "automationNodeTestOutdated": string;
+            "invalidToken": string;
             "custom": {
                 "fieldValueNotNull": string;
                 "fieldValueDuplicate": string;
@@ -3112,6 +3125,9 @@ export type I18nTranslations = {
                 "cannotDeployAppBeforeInitialization": string;
                 "noProjectOrVersionFound": string;
                 "noDeploymentUrlAvailable": string;
+                "noFilesInZip": string;
+                "zipFileTooLarge": string;
+                "invalidZip": string;
             };
             "reward": {
                 "notFound": string;
@@ -3135,6 +3151,11 @@ export type I18nTranslations = {
                 "linkedInAuthorNotFound": string;
                 "fetchLinkedInUserFailed": string;
             };
+        };
+        "aiError": {
+            "title": string;
+            "retry": string;
+            "dismiss": string;
         };
     };
     "setting": {
@@ -3251,6 +3272,8 @@ export type I18nTranslations = {
         "template": {
             "title": string;
             "description": string;
+            "noTemplatesAvailable": string;
+            "noTemplatesDescription": string;
         };
         "recentlyBase": {
             "title": string;
