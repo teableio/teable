@@ -48,7 +48,7 @@ const actTestPdfToken = 'actTestPDF';
 // Test file paths
 const testImagePath = 'static/test/test-image.png';
 const testPdfPath = 'static/test/test-pdf.pdf';
-// Expected letter in test files
+// Expected letter in test files - use uppercase K for stricter matching
 const expectedLetter = 'k';
 
 @Injectable()
@@ -128,8 +128,11 @@ export class SettingOpenApiService {
     data: string,
     contentType: string
   ): Promise<boolean> {
+    // Request AI to put the letter in quotes for strict validation
     const testPrompt =
-      'What letter or character do you see in this file? Please respond with just the letter.';
+      'What letter or character do you see in this image/file? ' +
+      'Please respond with ONLY the letter wrapped in double quotes, like "X". ' +
+      'Do not add any other text.';
 
     try {
       const textPart: TextPart = {
@@ -154,17 +157,58 @@ export class SettingOpenApiService {
         temperature: 0,
       });
 
-      // Check if AI response contains the expected letter (case insensitive)
-      const responseText = res.text.toLowerCase();
-      const containsExpected = responseText.includes(expectedLetter);
+      const responseText = res.text.trim();
+
+      // Log the full response for debugging
+      this.logger.log(
+        `[testAttachment] Full AI response: "${responseText}", data preview: "${data.substring(0, 100)}..."`
+      );
+
+      // Strict validation: expect exactly "K" or "k" in quotes
+      const quotedLetterMatch = responseText.match(/"([^"]+)"/);
+      const letterInQuotes = quotedLetterMatch ? quotedLetterMatch[1].toLowerCase() : null;
+      const containsExpectedInQuotes = letterInQuotes === expectedLetter;
+
+      // Fallback: also check if response is just the letter (some models might not follow format)
+      const isJustTheLetter =
+        responseText.toLowerCase() === expectedLetter ||
+        responseText.toLowerCase() === expectedLetter.toUpperCase();
+
+      // Anti-hallucination checks:
+      // 1. Response should be short (< 30 chars) - a direct answer
+      const isShortResponse = responseText.length < 30;
+
+      // 2. Response should not indicate inability to see the file
+      const cannotSeeIndicators = [
+        'cannot see',
+        "can't see",
+        'unable to',
+        'no image',
+        'no file',
+        "don't see",
+        'not visible',
+        'not able to',
+        'sorry',
+        'error',
+      ];
+      const indicatesCannotSee = cannotSeeIndicators.some((indicator) =>
+        responseText.toLowerCase().includes(indicator)
+      );
+
+      const isValid =
+        (containsExpectedInQuotes || isJustTheLetter) && isShortResponse && !indicatesCannotSee;
 
       this.logger.log(
-        `testAttachment result: response="${res.text}", expected="${expectedLetter}", contains=${containsExpected}`
+        `[testAttachment] Validation: letterInQuotes="${letterInQuotes}", ` +
+          `containsExpectedInQuotes=${containsExpectedInQuotes}, isJustTheLetter=${isJustTheLetter}, ` +
+          `isShortResponse=${isShortResponse}, indicatesCannotSee=${indicatesCannotSee}, ` +
+          `isValid=${isValid}`
       );
-      return containsExpected;
+
+      return isValid;
     } catch (error) {
       this.logger.error(
-        `testAttachment error: ${error instanceof Error ? error.message : unknownErrorMsg}`
+        `[testAttachment] Error: ${error instanceof Error ? error.message : unknownErrorMsg}`
       );
       return false;
     }

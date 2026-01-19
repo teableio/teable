@@ -73,7 +73,11 @@ export function AIConfigFormWizard({
     new Map()
   );
   const [testingProviders, setTestingProviders] = useState<Set<string>>(new Set());
+  const [testingModels, setTestingModels] = useState<Set<string>>(new Set());
   const testProviderCallbackRef = useRef<((provider: LLMProvider) => void) | null>(null);
+  const testModelCallbackRef = useRef<
+    ((provider: LLMProvider, model: string, modelKey: string) => Promise<void>) | null
+  >(null);
 
   // LLM API mode: gateway or custom
   // Auto-detect initial mode based on existing config
@@ -287,9 +291,12 @@ export function AIConfigFormWizard({
                 onModelTestResultsChange={setModelTestResults}
                 testingProviders={testingProviders}
                 onTestingProvidersChange={setTestingProviders}
+                testingModels={testingModels}
+                onTestingModelsChange={setTestingModels}
                 onSaveTestResult={onSaveTestResult}
                 onToggleImageModel={onToggleImageModel}
                 testProviderCallbackRef={testProviderCallbackRef}
+                testModelCallbackRef={testModelCallbackRef}
                 onComplete={() => setCurrentStep(1)}
                 showPricing={shouldShowPricing}
               />
