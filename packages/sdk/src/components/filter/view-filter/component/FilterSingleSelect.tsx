@@ -32,7 +32,7 @@ function FilterSingleSelect(props: ISingleSelect) {
     return (
       <div
         key={value}
-        className="truncate rounded-lg px-2"
+        className="flex h-5 items-center justify-center rounded-full px-2 text-xs"
         style={{
           backgroundColor: ColorUtils.getHexForColor(color),
           color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
@@ -48,12 +48,12 @@ function FilterSingleSelect(props: ISingleSelect) {
       options={options}
       value={value}
       onSelect={onSelect}
-      className={cn('justify-between', className)}
+      className={cn('justify-between px-2 py-0', className)}
       popoverClassName={cn(popoverClassName)}
       optionRender={optionRender}
       displayRender={optionRender}
       defaultLabel={<DefaultErrorLabel />}
-      placeholderClassName="text-xs"
+      placeholderClassName="text-sm"
       modal={modal}
     />
   );

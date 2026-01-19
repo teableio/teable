@@ -13,7 +13,7 @@ import {
 } from '@teable/ui-lib';
 
 import { debounce } from 'lodash';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
 import type { IOption, IBaseMultipleSelect } from './types';
@@ -120,10 +120,15 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
               </span>
             )}
           </div>
-          <ChevronsUpDown className="ml-2 size-3 shrink-0 opacity-50" />
+          <ChevronDown
+            className={cn(
+              'ml-2 size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+              open && 'rotate-180'
+            )}
+          />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn('p-1', popoverClassName)}>
+      <PopoverContent align="start" className={cn('p-1', popoverClassName)}>
         <Command
           className="rounded-sm"
           filter={onSearch ? undefined : commandFilter}

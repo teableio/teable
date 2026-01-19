@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "und",
       "or": "oder",
-      "where": "wo"
+      "where": "wo",
+      "meetingAll": "Alle Bedingungen erfüllen",
+      "meetingAny": "Eine Bedingung erfüllen"
     },
     "operator": {
       "is": "ist",

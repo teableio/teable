@@ -36,6 +36,11 @@
   "notification": {
     "title": "Notification"
   },
+  "aiError": {
+    "title": "AI Generation Failed",
+    "retry": "Retry",
+    "dismiss": "Dismiss"
+  },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
     "loadFileError": "Failed to load file"
@@ -164,7 +169,9 @@
     "conjunction": {
       "and": "and",
       "or": "or",
-      "where": "where"
+      "where": "where",
+      "meetingAll": "Meeting all conditions",
+      "meetingAny": "Meeting any conditions"
     },
     "operator": {
       "is": "is",

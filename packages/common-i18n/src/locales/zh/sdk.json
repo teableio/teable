@@ -36,6 +36,11 @@
   "notification": {
     "title": "通知"
   },
+  "aiError": {
+    "title": "AI 生成失败",
+    "retry": "重试",
+    "dismiss": "忽略"
+  },
   "noun": {
     "table": "表格",
     "view": "视图",
@@ -180,7 +185,9 @@
     "conjunction": {
       "and": "且",
       "or": "或",
-      "where": "当"
+      "where": "当",
+      "meetingAll": "满足所有条件",
+      "meetingAny": "满足任一条件"
     },
     "operator": {
       "is": "等于",

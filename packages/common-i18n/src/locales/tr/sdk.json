@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "ve",
       "or": "veya",
-      "where": "şu durumda"
+      "where": "şu durumda",
+      "meetingAll": "Tüm koşulları karşıla",
+      "meetingAny": "Herhangi bir koşulu karşıla"
     },
     "operator": {
       "is": "şudur",
