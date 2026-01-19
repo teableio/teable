@@ -16,14 +16,17 @@ import { useIsHydrated, useTableId } from '@teable/sdk/hooks';
 import { Table } from '@teable/sdk/model/table';
 import { ToggleGroup, ToggleGroupItem, Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { developerConfig } from '@/features/i18n/developer.config';
 import { CodeBlock } from './PreviewScript';
+import { useTransformFieldKey } from './useTransformFieldKey';
 
-export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
+export const PreviewTable = ({ query: queryRaw }: { query: IGetRecordsRo }) => {
   const { t } = useTranslation(developerConfig.i18nNamespaces);
   const theme = useGridTheme();
   const { columns, cellValue2GridDisplay } = useGridColumns(false);
+  const transformFieldKey = useTransformFieldKey();
+  const query = useMemo(() => transformFieldKey(queryRaw), [transformFieldKey, queryRaw]);
 
   const [rowCount, setRowCount] = useState<number>(0);
   const [recordRes, setRecordRes] = useState<unknown>(null);

@@ -261,20 +261,166 @@ export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
 };
 
 export const AppOperation = (props: IBaseNodeMoreProps) => {
+  const {
+    resourceId,
+    open,
+    setOpen,
+    onRename,
+    children,
+    onDelete,
+    onDuplicate,
+    variant = 'dropdown',
+  } = props;
+
   const permission = useBasePermission();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { treeItems } = useBaseNodeContext();
+  const [duplicateSetting, setDuplicateSetting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const canRename = Boolean(permission?.['app|update']);
   const canDelete = false;
   const canPermanentDelete = Boolean(permission?.['app|delete']);
   const canDuplicate = Boolean(permission?.['app|create']);
 
-  return (
-    <CommonOperation
-      {...props}
-      canRename={canRename}
-      canDelete={canDelete}
-      canPermanentDelete={canPermanentDelete}
-      canDuplicate={canDuplicate}
+  const app = useMemo(() => {
+    const node = Object.values(treeItems).find((node) => node.resourceId === resourceId);
+    return node?.resourceMeta;
+  }, [treeItems, resourceId]);
+
+  const defaultAppName = useMemo(
+    () => `${app?.name ?? t('common:noun.app')} ${t('space:baseModal.copy')}`,
+    [t, app?.name]
+  );
+
+  const { mutateAsync: duplicateAppFn, isPending: isLoading } = useMutation({
+    mutationFn: async (ro?: IDuplicateBaseNodeRo) => onDuplicate?.(ro),
+    onSuccess: () => {
+      setDuplicateSetting(false);
+    },
+  });
+
+  const handleDuplicateClick = useCallback(() => {
+    setDuplicateSetting(true);
+  }, []);
+
+  const duplicateDialog = duplicateSetting && (
+    <ConfirmDialog
+      open={duplicateSetting}
+      onOpenChange={setDuplicateSetting}
+      title={`${t('common:actions.duplicate')} ${app?.name ?? t('common:noun.app')}`}
+      cancelText={t('common:actions.cancel')}
+      confirmText={t('common:actions.duplicate')}
+      confirmLoading={isLoading}
+      content={
+        <div className="flex flex-col space-y-2 text-sm">
+          <div className="flex flex-col gap-2">
+            <Label>
+              {t('common:noun.app')} {t('common:name')}
+            </Label>
+            <Input ref={inputRef} defaultValue={defaultAppName} />
+          </div>
+        </div>
+      }
+      onCancel={() => setDuplicateSetting(false)}
+      onConfirm={async () => {
+        const name = inputRef.current?.value?.trim();
+        if (!name) {
+          toast.error(t('common:name') + ' ' + t('common:required'));
+          return;
+        }
+        await duplicateAppFn({ name });
+      }}
     />
+  );
+
+  if (!canRename && !canDelete && !canPermanentDelete && !canDuplicate) {
+    return null;
+  }
+
+  // List variant for mobile
+  if (variant === 'list') {
+    return (
+      <>
+        {canRename && (
+          <ListMenuItem
+            icon={<Pencil className="size-4" />}
+            label={t('table:table.rename')}
+            onClick={() => onRename?.()}
+          />
+        )}
+        {canDuplicate && (
+          <ListMenuItem
+            icon={<Copy className="size-4" />}
+            label={t('table:import.menu.duplicate')}
+            onClick={handleDuplicateClick}
+          />
+        )}
+        {canPermanentDelete && (
+          <ListMenuItem
+            icon={<Trash2 className="size-4" />}
+            label={t('common:actions.permanentDelete')}
+            onClick={() => onDelete?.(true)}
+            destructive
+          />
+        )}
+        {canDelete && (
+          <ListMenuItem
+            icon={<Trash2 className="size-4" />}
+            label={t('common:actions.delete')}
+            onClick={() => onDelete?.(false)}
+            destructive
+          />
+        )}
+        {duplicateDialog}
+      </>
+    );
+  }
+
+  // Dropdown variant for desktop
+  return (
+    <>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="min-w-[160px]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {canRename && (
+            <DropdownMenuItem onClick={() => onRename?.()}>
+              <Pencil className="mr-2" />
+              {t('table:table.rename')}
+            </DropdownMenuItem>
+          )}
+          {canDuplicate && (
+            <DropdownMenuItem onClick={handleDuplicateClick}>
+              <Copy className="mr-2" />
+              {t('table:import.menu.duplicate')}
+            </DropdownMenuItem>
+          )}
+          {canPermanentDelete && (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => onDelete?.(true)}
+            >
+              <Trash2 className="mr-2" />
+              {t('common:actions.permanentDelete')}
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => onDelete?.(false)}
+            >
+              <Trash2 className="mr-2" />
+              {t('common:actions.delete')}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {duplicateDialog}
+    </>
   );
 };
 

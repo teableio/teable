@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "і",
       "or": "або",
-      "where": "де"
+      "where": "де",
+      "meetingAll": "Відповідати всім умовам",
+      "meetingAny": "Відповідати будь-якій умові"
     },
     "operator": {
       "is": "є",

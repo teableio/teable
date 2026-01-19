@@ -116,7 +116,11 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn('justify-between truncate overflow-hidden px-3 font-normal', className)}
+          className={cn(
+            'justify-between truncate overflow-hidden px-3 font-normal',
+            className,
+            open && 'text-foreground'
+          )}
         >
           {value ? (
             (selectedValue && displayRender?.(selectedValue)) ?? (
@@ -127,10 +131,15 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
               {t('common.selectPlaceHolder')}
             </span>
           )}
-          <ChevronDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
+          <ChevronDown
+            className={cn(
+              'ml-2 size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+              open && 'rotate-180'
+            )}
+          />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn('p-1', popoverClassName)}>
+      <PopoverContent align="start" className={cn('p-1', popoverClassName)}>
         <Command filter={onSearch ? undefined : commandFilter} shouldFilter={!onSearch}>
           {search ? (
             <CommandInput

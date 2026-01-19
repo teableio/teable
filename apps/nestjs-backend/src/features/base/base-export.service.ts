@@ -993,7 +993,16 @@ export class BaseExportService {
         ({ type, isLookup }) =>
           isLookup || type === FieldType.Rollup || type === FieldType.ConditionalRollup
       )
-      .filter(({ lookupOptions }) => {
+      .filter((field) => {
+        const { lookupOptions, type, options } = field;
+
+        // Case 1: lookup field that is itself a cross-base link (type === 'link' && isLookup && options.baseId)
+        // This happens when you lookup a cross-base link field through a local link field
+        if (type === FieldType.Link && (options as ILinkFieldOptions)?.baseId) {
+          return true;
+        }
+
+        // Case 2: lookup/rollup field that depends on a cross-base link field
         if (!lookupOptions || !isLinkLookupOptions(lookupOptions)) {
           return false;
         }
