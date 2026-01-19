@@ -9,7 +9,7 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { createRecords, stopFillField, UploadType } from '@teable/openapi';
+import { createRecords, stopFillField, UploadType, autoFillCell } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -23,6 +23,7 @@ import type {
   IRange,
   Record,
   IButtonCell,
+  ICellError,
 } from '@teable/sdk';
 import {
   Grid,
@@ -77,6 +78,7 @@ import {
   useViewId,
   useRecordOperations,
   useButtonClickStatus,
+  useTableListener,
 } from '@teable/sdk/hooks';
 import { useConfirm } from '@teable/ui-lib';
 import { toast, toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -182,6 +184,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { setGridRef, searchCursor, setRecordMap, setFields } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
+  const [cellErrors, setCellErrors] = useState<ICellError[]>([]);
 
   const { fieldAIEnable = false } = usage?.limit ?? {};
 
@@ -1176,6 +1179,103 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     });
     gridRef.current?.setColumnLoadings(loadingColumnIndexs);
   }, [tableId, fields, taskStatusFieldMap]);
+
+  // Helper to clear cell error by recordId and fieldId
+  const clearCellError = useCallback(
+    (recordId: string, fieldId: string) => {
+      const recordId2IndexMap: { [id: string]: number } = {};
+      Object.entries(recordMap).forEach(([index, record]) => {
+        if (record == null) return;
+        recordId2IndexMap[record.id] = index as unknown as number;
+      });
+
+      const fieldId2IndexMap: { [id: string]: number } = {};
+      fields.forEach(({ id }, index) => (fieldId2IndexMap[id] = index));
+
+      const fieldIndex = fieldId2IndexMap[fieldId];
+      const recordIndex = recordId2IndexMap[recordId];
+
+      if (fieldIndex === undefined || recordIndex === undefined) return;
+
+      setCellErrors((current) =>
+        current.filter((e) => !(e.cellItem[0] === fieldIndex && e.cellItem[1] === recordIndex))
+      );
+    },
+    [fields, recordMap]
+  );
+
+  // Handle taskProcessing events - clear any existing error for this cell
+  const handleTaskProcessing = useCallback(
+    (_actionKey: string, payload?: { recordId: string; fieldId: string }) => {
+      if (!payload) return;
+      const { recordId, fieldId } = payload;
+      clearCellError(recordId, fieldId);
+    },
+    [clearCellError]
+  );
+
+  // Handle taskFailed events from AI field generation
+  const handleTaskFailed = useCallback(
+    (_actionKey: string, payload?: { recordId: string; fieldId: string; errorMsg: string }) => {
+      if (!payload) return;
+      const { recordId, fieldId, errorMsg } = payload;
+
+      // Build index maps (same as loading state)
+      const recordId2IndexMap: { [id: string]: number } = {};
+      Object.entries(recordMap).forEach(([index, record]) => {
+        if (record == null) return;
+        recordId2IndexMap[record.id] = index as unknown as number;
+      });
+
+      const fieldId2IndexMap: { [id: string]: number } = {};
+      fields.forEach(({ id }, index) => (fieldId2IndexMap[id] = index));
+
+      const fieldIndex = fieldId2IndexMap[fieldId];
+      const recordIndex = recordId2IndexMap[recordId];
+
+      // Skip if field or record not found in current view
+      if (fieldIndex === undefined || recordIndex === undefined) {
+        return;
+      }
+
+      setCellErrors((prev) => {
+        // Check if error already exists for this cell
+        const existingIndex = prev.findIndex(
+          (e) => e.cellItem[0] === fieldIndex && e.cellItem[1] === recordIndex
+        );
+
+        const newError: ICellError = {
+          cellItem: [fieldIndex, recordIndex],
+          errorMsg,
+          onRetry: () => {
+            // Clear error and trigger retry
+            clearCellError(recordId, fieldId);
+            autoFillCell(tableId, recordId, fieldId);
+          },
+          onDismiss: () => {
+            clearCellError(recordId, fieldId);
+          },
+        };
+
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = newError;
+          return updated;
+        }
+
+        return [...prev, newError];
+      });
+    },
+    [fields, recordMap, tableId, clearCellError]
+  );
+
+  useTableListener(tableId, ['taskFailed'], handleTaskFailed);
+  useTableListener(tableId, ['taskProcessing'], handleTaskProcessing);
+
+  // Update cell errors in grid
+  useEffect(() => {
+    gridRef.current?.setCellErrors(cellErrors);
+  }, [cellErrors]);
 
   const onPresortContainerInit = () => {
     if (!activeCell) return;

@@ -156,7 +156,7 @@
     "shareWith": "Partager avec",
     "unpublishedApps": {
       "title": "Applications non publiées détectées",
-      "description": "Les applications suivantes n'ont pas encore été publiées. Les applications dont la publication n'a pas été vérifiée peuvent échouer à se déployer dans le modèle, empêchant l'aperçu normal. Vous pouvez les publier maintenant ou continuer quand même.",
+      "description": "Les applications non publiées peuvent provoquer des erreurs d'aperçu du modèle. Publiez-les maintenant ou continuez.",
       "publishAll": "Tout publier",
       "publish": "Publier",
       "published": "Publiée",

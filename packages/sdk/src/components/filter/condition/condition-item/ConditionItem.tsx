@@ -1,4 +1,4 @@
-import { Trash2 } from '@teable/icons';
+import { Trash } from '@teable/icons';
 import { Button } from '@teable/ui-lib';
 import { useCrud } from '../../hooks';
 import type {
@@ -34,7 +34,7 @@ export const ConditionItem = <T extends IConditionItemProperty>(props: IConditio
           onDelete(path, index);
         }}
       >
-        <Trash2 />
+        <Trash className="size-4" />
       </Button>
     </div>
   );

@@ -8,6 +8,7 @@ import type {
   IImageModelAbility,
   IAIIntegrationConfig,
   IAttachmentTestResult,
+  ITestLLMRo,
 } from '@teable/openapi';
 import { Button, Input, Label, cn, Switch } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
@@ -37,6 +38,8 @@ interface ILLMApiConfigStepProps {
   onModelTestResultsChange: (results: Map<string, IModelTestResult>) => void;
   testingProviders: Set<string>;
   onTestingProvidersChange: (providers: Set<string>) => void;
+  testingModels: Set<string>;
+  onTestingModelsChange: (models: Set<string>) => void;
   onSaveTestResult: (
     modelKey: string,
     ability: IChatModelAbility | undefined,
@@ -44,6 +47,9 @@ interface ILLMApiConfigStepProps {
   ) => void;
   onToggleImageModel: (modelKey: string, isImageModel: boolean) => void;
   testProviderCallbackRef: React.MutableRefObject<((provider: LLMProvider) => void) | null>;
+  testModelCallbackRef: React.MutableRefObject<
+    ((provider: LLMProvider, model: string, modelKey: string) => Promise<void>) | null
+  >;
 
   // Callbacks
   onComplete?: () => void;
@@ -64,9 +70,12 @@ export function LLMApiConfigStep({
   onModelTestResultsChange,
   testingProviders,
   onTestingProvidersChange,
+  testingModels,
+  onTestingModelsChange,
   onSaveTestResult,
   onToggleImageModel,
   testProviderCallbackRef,
+  testModelCallbackRef,
   onComplete,
   showPricing = true,
 }: ILLMApiConfigStepProps) {
@@ -163,10 +172,9 @@ export function LLMApiConfigStep({
   // Determine the effective attachment test result (from current test or saved)
   const effectiveAttachmentTest = attachmentTestResult || savedAttachmentTest;
 
-  const handleTest = async (data: Required<LLMProvider>) => {
+  const handleTest = async (data: ITestLLMRo) => {
     const { testLLM } = await import('@teable/openapi/src/admin/setting');
-    const { type, name, apiKey, baseUrl, models } = data;
-    return testLLM({ type, name, apiKey, baseUrl, models });
+    return testLLM(data);
   };
 
   return (
@@ -439,8 +447,13 @@ export function LLMApiConfigStep({
             modelTestResults={modelTestResults}
             onToggleImageModel={onToggleImageModel}
             onTestProvider={(provider) => testProviderCallbackRef.current?.(provider)}
+            onTestModel={(provider, model, modelKey) =>
+              testModelCallbackRef.current?.(provider, model, modelKey) ?? Promise.resolve()
+            }
             testingProviders={testingProviders}
+            testingModels={testingModels}
             hideModelRates={!showPricing}
+            onSaveTestResult={onSaveTestResult}
           />
 
           {/* Test Model Capabilities - moved to bottom */}
@@ -453,6 +466,7 @@ export function LLMApiConfigStep({
                 <BatchTestModels
                   providers={llmProviders}
                   disabled={!llmProviders?.length}
+                  onTest={handleTest}
                   onResultsChange={(results) => {
                     onModelTestResultsChange(results);
                     // Check if any model supports URL mode for attachments
@@ -487,8 +501,12 @@ export function LLMApiConfigStep({
                   }}
                   onSaveResult={onSaveTestResult}
                   onTestingProvidersChange={onTestingProvidersChange}
+                  onTestingModelsChange={onTestingModelsChange}
                   onTestProvider={(callback) => {
                     testProviderCallbackRef.current = callback;
+                  }}
+                  onTestModel={(callback) => {
+                    testModelCallbackRef.current = callback;
                   }}
                 />
               </div>

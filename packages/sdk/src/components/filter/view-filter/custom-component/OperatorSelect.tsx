@@ -66,7 +66,7 @@ export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterCon
       value={value}
       options={operatorOption}
       popoverClassName="w-48"
-      className={cn('shrink-0 justify-between w-28 h-8')}
+      className={cn('shrink-0 justify-between w-[88px] gap-0 pr-1.5 h-8')}
       onSelect={onSelectHandler}
       disabled={shouldDisabled}
       defaultLabel={<DefaultErrorLabel />}

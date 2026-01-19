@@ -1,7 +1,6 @@
 import { isConditionGroup } from '../types';
 import type { IFilterPath, IBaseFilterItem, IBaseConditionProps } from '../types';
 import { ConditionItem, ConditionGroup } from './condition-item';
-import { Conjunction } from './Conjunction';
 
 interface IConditionProps extends IBaseConditionProps {
   path: IFilterPath;
@@ -10,20 +9,24 @@ interface IConditionProps extends IBaseConditionProps {
 }
 
 export const Condition = (props: IConditionProps) => {
-  const { index, path, value, depth, conjunction } = props;
+  const { index, path, value, depth } = props;
 
   return (
-    <div className="flex w-full items-start gap-2">
-      <Conjunction index={index} path={[...path, 'conjunction']} value={conjunction} />
+    <div className="flex w-full items-start">
       {isConditionGroup(value) ? (
-        <ConditionGroup path={[...path]} index={index} depth={depth + 1}>
-          {value.children.map((item, index) => {
+        <ConditionGroup
+          path={[...path]}
+          index={index}
+          depth={depth + 1}
+          conjunction={value.conjunction}
+        >
+          {value.children.map((item, idx) => {
             return (
               <Condition
-                key={index}
-                index={index}
+                key={idx}
+                index={idx}
                 value={item}
-                path={[...path, 'children', index]}
+                path={[...path, 'children', idx]}
                 depth={depth + 1}
                 conjunction={value.conjunction}
               />

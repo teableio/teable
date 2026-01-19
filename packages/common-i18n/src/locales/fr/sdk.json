@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "et",
       "or": "ou",
-      "where": "où"
+      "where": "où",
+      "meetingAll": "Répondre à toutes les conditions",
+      "meetingAny": "Répondre à une condition"
     },
     "operator": {
       "is": "est",
@@ -892,6 +894,7 @@
     "automationNodeParseError": "Erreur d'analyse du nœud d'automatisation",
     "automationNodeNeedTest": "Le nœud d'automatisation nécessite un test",
     "automationNodeTestOutdated": "Test du nœud d'automatisation obsolète",
+    "invalidToken": "Jeton non valide",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs vides, veuillez les remplir complètement avant de soumettre.",
       "fieldValueDuplicate": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs dupliquées, veuillez remplir une valeur unique avant de soumettre.",

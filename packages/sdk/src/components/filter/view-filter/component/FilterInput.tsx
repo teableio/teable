@@ -49,7 +49,7 @@ const FilterInput = (props: InputProps) => {
           setIsFocus(true);
         }
       }}
-      className={cn('h-8 placeholder:text-xs', className)}
+      className={cn('h-8 bg-background dark:bg-white/5', className)}
     />
   );
 };

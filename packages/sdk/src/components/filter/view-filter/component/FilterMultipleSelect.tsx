@@ -35,7 +35,9 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     return (
       <div
         key={value?.value}
-        className={cn('px-2 rounded-lg flex-1')}
+        className={cn(
+          'px-2 h-5 flex items-center justify-center rounded-full flex-1 text-xs font-normal'
+        )}
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
@@ -50,7 +52,7 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     return (
       <div
         key={value?.value}
-        className={cn('px-2 rounded-lg truncate')}
+        className={cn('px-2 h-5 flex items-center justify-center rounded-full text-xs font-normal')}
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',

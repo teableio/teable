@@ -2,9 +2,11 @@ import { Loader2, Play, Square } from '@teable/icons';
 import type {
   IChatModelAbility,
   IImageModelAbility,
+  ITestLLMRo,
+  ITestLLMVo,
   LLMProvider,
 } from '@teable/openapi/src/admin/setting';
-import { testLLM, chatModelAbilityType } from '@teable/openapi/src/admin/setting';
+import { chatModelAbilityType } from '@teable/openapi/src/admin/setting';
 import { Button, Progress } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -14,6 +16,8 @@ import { generateModelKeyList, parseModelKey } from './utils';
 interface IBatchTestModelsProps {
   providers: LLMProvider[];
   disabled?: boolean;
+  /** Test function - accepts full ITestLLMRo for capability testing */
+  onTest: (data: ITestLLMRo) => Promise<ITestLLMVo>;
   onResultsChange?: (results: Map<string, IModelTestResult>) => void;
   onSaveResult?: (
     modelKey: string,
@@ -21,7 +25,11 @@ interface IBatchTestModelsProps {
     imageAbility: IImageModelAbility | undefined
   ) => void;
   onTestingProvidersChange?: (testingProviders: Set<string>) => void;
+  onTestingModelsChange?: (testingModels: Set<string>) => void;
   onTestProvider?: (callback: (provider: LLMProvider) => void) => void;
+  onTestModel?: (
+    callback: (provider: LLMProvider, model: string, modelKey: string) => Promise<void>
+  ) => void;
 }
 
 const CONCURRENCY = 5;
@@ -39,10 +47,13 @@ const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage: string):
 export const BatchTestModels = ({
   providers,
   disabled,
+  onTest,
   onResultsChange,
   onSaveResult,
   onTestingProvidersChange,
+  onTestingModelsChange,
   onTestProvider,
+  onTestModel,
 }: IBatchTestModelsProps) => {
   const { t } = useTranslation('common');
   const [isRunning, setIsRunning] = useState(false);
@@ -52,6 +63,7 @@ export const BatchTestModels = ({
   const isRunningRef = useRef(false);
   const initializedRef = useRef(false);
   const testingProvidersRef = useRef<Set<string>>(new Set());
+  const testingModelsRef = useRef<Set<string>>(new Set());
 
   // Build model list from providers
   const modelList = generateModelKeyList(providers);
@@ -118,14 +130,15 @@ export const BatchTestModels = ({
         const { type, name, apiKey, baseUrl, models } = provider;
 
         const result = await withTimeout(
-          testLLM({
+          onTest({
             type,
             name,
             apiKey,
             baseUrl,
             models,
             modelKey,
-            ability: [chatModelAbilityType.enum.image],
+            // Test all chat model abilities
+            ability: chatModelAbilityType.options,
           }),
           TEXT_MODEL_TIMEOUT_MS,
           `Timeout after ${TEXT_MODEL_TIMEOUT_MS / 1000}s`
@@ -149,7 +162,7 @@ export const BatchTestModels = ({
         };
       }
     },
-    []
+    [onTest]
   );
 
   const testImageModel = useCallback(
@@ -162,7 +175,7 @@ export const BatchTestModels = ({
 
         // Test image generation (text-to-image)
         const generationResult = await withTimeout(
-          testLLM({
+          onTest({
             type,
             name,
             apiKey,
@@ -180,7 +193,7 @@ export const BatchTestModels = ({
         if (generationResult.success) {
           try {
             const i2iResult = await withTimeout(
-              testLLM({
+              onTest({
                 type,
                 name,
                 apiKey,
@@ -223,7 +236,7 @@ export const BatchTestModels = ({
         };
       }
     },
-    []
+    [onTest]
   );
 
   const handleBatchTest = useCallback(async () => {
@@ -374,12 +387,48 @@ export const BatchTestModels = ({
     [updateResult, onSaveResult, onTestingProvidersChange, testTextModel, testImageModel]
   );
 
+  // Test a single model
+  const testSingleModel = useCallback(
+    async (provider: LLMProvider, model: string, modelKey: string) => {
+      // Mark model as testing
+      testingModelsRef.current.add(modelKey);
+      onTestingModelsChange?.(new Set(testingModelsRef.current));
+
+      updateResult(modelKey, { status: 'testing' });
+
+      // Check if this is an image model
+      const isImageModel = provider.modelConfigs?.[model]?.isImageModel;
+      const result = isImageModel
+        ? await testImageModel(modelKey, provider as Required<LLMProvider>)
+        : await testTextModel(modelKey, provider as Required<LLMProvider>);
+
+      updateResult(modelKey, result);
+
+      // Persist successful test results
+      if (result.status === 'success') {
+        onSaveResult?.(modelKey, result.ability, result.imageAbility);
+      }
+
+      // Mark model as done
+      testingModelsRef.current.delete(modelKey);
+      onTestingModelsChange?.(new Set(testingModelsRef.current));
+    },
+    [updateResult, onSaveResult, onTestingModelsChange, testTextModel, testImageModel]
+  );
+
   // Expose the testSingleProvider function to parent via callback
   useEffect(() => {
     onTestProvider?.((provider: LLMProvider) => {
       testSingleProvider(provider);
     });
   }, [onTestProvider, testSingleProvider]);
+
+  // Expose the testSingleModel function to parent via callback
+  useEffect(() => {
+    onTestModel?.((provider: LLMProvider, model: string, modelKey: string) =>
+      testSingleModel(provider, model, modelKey)
+    );
+  }, [onTestModel, testSingleModel]);
 
   const successCount = Array.from(resultsRef.current.values()).filter(
     (r) => r.status === 'success'
