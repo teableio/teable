@@ -2035,7 +2035,8 @@ export class FieldSupplementService {
     const existingFieldIdSet = new Set(existingFieldIds.map(({ id }) => id));
     const { type } = aiConfig ?? {};
 
-    if (type === FieldAIActionType.Customization) {
+    // Both Customization and ImageCustomization use prompt with {fieldId} syntax
+    if (type === FieldAIActionType.Customization || type === FieldAIActionType.ImageCustomization) {
       const { prompt } = aiConfig as ITextFieldCustomizeAIConfig;
       const fieldIds = extractFieldReferences(prompt);
       const fieldIdsToCreate = fieldIds.filter((id) => existingFieldIdSet.has(id));
@@ -2085,7 +2086,11 @@ export class FieldSupplementService {
       const { type } = aiConfig ?? {};
       if (!type) continue;
 
-      if (type === FieldAIActionType.Customization) {
+      // Both Customization and ImageCustomization use prompt with {fieldId} syntax
+      if (
+        type === FieldAIActionType.Customization ||
+        type === FieldAIActionType.ImageCustomization
+      ) {
         const { prompt } = aiConfig as ITextFieldCustomizeAIConfig;
         const fieldIds = extractFieldReferences(prompt);
         const fieldIdsToCreate = fieldIds.filter((id) => existingFieldIdSet.has(id));

@@ -19,7 +19,9 @@ export const usePresence = (channel: string | undefined) => {
 
     if (!remotePresence.subscribed) {
       remotePresence.subscribe((err) => {
-        err && console.error(err);
+        if (err) {
+          console.error('[usePresence] Subscribe error:', err);
+        }
       });
     }
 
@@ -46,7 +48,9 @@ export const useActionListener = <T extends IActionData>(
   const relevantProps = useMemo(() => new Set(matches), [matches]);
 
   useEffect(() => {
-    if (!tableIdOrViewId || !presence) return;
+    if (!tableIdOrViewId || !presence) {
+      return;
+    }
 
     const cb = (_id: string, res: T[]) => {
       const result = res.find(({ actionKey }) => relevantProps.has(actionKey));

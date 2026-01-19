@@ -223,7 +223,7 @@ const validateOptions = (data: IValidateFieldOptionProps) => {
 const validateAIConfig = (data: IValidateFieldOptionProps) => {
   const { aiConfig, type } = data;
   const res: IFieldValidateData[] = [];
-  if (!aiConfig) {
+  if (!aiConfig || typeof aiConfig !== 'object') {
     return res;
   }
   const hasModelKey = isString(aiConfig.modelKey);
@@ -244,7 +244,7 @@ const validateAIConfig = (data: IValidateFieldOptionProps) => {
     case FieldAIActionType.Tag:
     case FieldAIActionType.ImageGeneration:
     case FieldAIActionType.Rating: {
-      if (!isString(aiConfig.sourceFieldId)) {
+      if (!isString((aiConfig as { sourceFieldId?: string }).sourceFieldId)) {
         res.push({
           path: ['aiConfig'],
           message: `sourceFieldId is required when aiConfig type is ${aiConfigType}`,
@@ -254,14 +254,14 @@ const validateAIConfig = (data: IValidateFieldOptionProps) => {
       break;
     }
     case FieldAIActionType.Translation:
-      if (!isString(aiConfig.sourceFieldId)) {
+      if (!isString((aiConfig as { sourceFieldId?: string }).sourceFieldId)) {
         res.push({
           path: ['aiConfig'],
           message: `sourceFieldId is required when aiConfig type is ${aiConfigType}`,
           i18nKey: 'sdk:editor.aiConfig.sourceFieldIdRequired',
         });
       }
-      if (!isString(aiConfig.targetLanguage)) {
+      if (!isString((aiConfig as { targetLanguage?: string }).targetLanguage)) {
         res.push({
           path: ['aiConfig'],
           message: `targetLanguage is required when aiConfig type is ${aiConfigType}`,
@@ -269,8 +269,9 @@ const validateAIConfig = (data: IValidateFieldOptionProps) => {
         });
       }
       break;
-    case FieldAIActionType.Customization: {
-      if (!isString(aiConfig.prompt)) {
+    case FieldAIActionType.Customization:
+    case FieldAIActionType.ImageCustomization: {
+      if (!isString((aiConfig as { prompt?: string }).prompt)) {
         res.push({
           path: ['aiConfig'],
           message: `prompt is required when aiConfig type is ${aiConfigType}`,

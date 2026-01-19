@@ -34,7 +34,7 @@ export const TaskStatusCollectionProvider: FC<ITaskStatusCollectionProviderProps
   }, [queryClient, tableId]);
 
   const tableMatches = useMemo<ITableActionKey[]>(
-    () => ['taskProcessing', 'taskCompleted', 'taskCancelled'],
+    () => ['taskProcessing', 'taskCompleted', 'taskCancelled', 'taskFailed'],
     []
   );
   useTableListener(tableId, tableMatches, updateTaskStatusCollectionForTable);

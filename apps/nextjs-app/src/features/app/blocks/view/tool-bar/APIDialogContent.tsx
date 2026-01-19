@@ -10,7 +10,6 @@ import {
 } from '@teable/openapi';
 import { MarkdownPreview } from '@teable/sdk';
 import { StandaloneViewProvider } from '@teable/sdk/context';
-import { useBaseId, useTableId } from '@teable/sdk/hooks';
 import {
   Button,
   Tabs,
