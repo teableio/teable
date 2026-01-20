@@ -1,5 +1,6 @@
 import type { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useEffect } from 'react';
 
 /**
@@ -12,6 +13,7 @@ import { useEffect } from 'react';
 const AutoLoginPage = () => {
   const router = useRouter();
   const { access_token, redirect } = router.query;
+  const { i18n } = useTranslation();
 
   useEffect(() => {
     if (!access_token) {
@@ -29,8 +31,23 @@ const AutoLoginPage = () => {
       },
       credentials: 'include',
     })
-      .then((response) => {
+      .then(async (response) => {
         if (response.ok) {
+          // 解析用户信息，获取用户配置的语言
+          const userData = await response.json();
+          const userLang = userData?.lang;
+
+          // 如果用户有设置语言，则设置 cookie 并切换 i18n 语言
+          if (userLang) {
+            // 设置 NEXT_LOCALE cookie
+            document.cookie = `NEXT_LOCALE=${userLang}; max-age=31536000; path=/`;
+            // 切换 i18n 语言
+            i18n.changeLanguage(userLang);
+          } else {
+            // 如果用户没有设置语言，清除 cookie（使用浏览器默认语言）
+            document.cookie = `NEXT_LOCALE=; max-age=0; path=/`;
+          }
+
           // 登录成功，跳转到指定页面
           const redirectPath = typeof redirect === 'string' ? redirect : '/space';
           router.push(redirectPath);
@@ -43,7 +60,7 @@ const AutoLoginPage = () => {
         console.error('自动登录失败:', error);
         router.push('/auth/login');
       });
-  }, [access_token, redirect, router]);
+  }, [access_token, redirect, router, i18n]);
 
   return (
     <div
