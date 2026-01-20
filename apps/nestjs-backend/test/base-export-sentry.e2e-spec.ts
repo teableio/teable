@@ -44,12 +44,9 @@ describe('Base export sentry reporting (e2e)', () => {
 
   it('captures export failures in sentry even when running asynchronously', async () => {
     const exportError = new Error('mock export failure');
-    type ExportServiceTestTarget = BaseExportService & {
-      captureExportError: (err: unknown, context: Record<string, unknown>) => void;
-      processExportBaseZip: (...args: unknown[]) => Promise<unknown>;
-      notifyExportResult: (...args: unknown[]) => Promise<unknown>;
-    };
-    const exportService = baseExportService as ExportServiceTestTarget;
+    // Cast to `any` to access private methods for testing purposes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const exportService = baseExportService as any;
 
     const captureErrorSpy = vi.spyOn(exportService, 'captureExportError');
     const processSpy = vi
