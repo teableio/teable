@@ -11,14 +11,14 @@ export interface IEditorThemeOptions {
 const createEditorThemeBase = (options?: IEditorThemeOptions) => ({
   '&': {
     height: options?.height ?? '120px',
-    maxHeight: '320px',
+    maxHeight: options?.height === '100%' ? 'unset' : '320px',
     fontSize: '14px',
     backgroundColor: 'transparent',
   },
   '.cm-scroller': {
     overflow: 'auto',
     lineHeight: '1.5',
-    maxHeight: '320px',
+    maxHeight: options?.height === '100%' ? 'unset' : '320px',
     fontFamily:
       'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace',
   },

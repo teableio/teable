@@ -1,12 +1,12 @@
 'use client';
 import { PluginPosition } from '@teable/openapi';
 import { useSearchParams } from 'next/navigation';
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { IPageParams } from '../types';
 
 export const EvnContext = React.createContext<IPageParams>(null!);
 
-export const EnvProvider = (props: { children: React.ReactNode }) => {
+const EnvProviderInner = (props: { children: React.ReactNode }) => {
   const { children } = props;
   const searchParams = useSearchParams();
 
@@ -27,5 +27,13 @@ export const EnvProvider = (props: { children: React.ReactNode }) => {
     >
       {children}
     </EvnContext.Provider>
+  );
+};
+
+export const EnvProvider = (props: { children: React.ReactNode }) => {
+  return (
+    <Suspense fallback={null}>
+      <EnvProviderInner {...props} />
+    </Suspense>
   );
 };
