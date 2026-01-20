@@ -17,8 +17,8 @@ export const ratingFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
 export type IRatingFieldCustomizeAIConfig = z.infer<typeof ratingFieldCustomizeAIConfigSchema>;
 
 export const ratingFieldAIConfigSchema = z.discriminatedUnion('type', [
-  ratingFieldRatingAIConfigSchema.strict(),
-  ratingFieldCustomizeAIConfigSchema.strict(),
+  ratingFieldRatingAIConfigSchema,
+  ratingFieldCustomizeAIConfigSchema,
 ]);
 
 export type IRatingFieldAIConfig = z.infer<typeof ratingFieldAIConfigSchema>;

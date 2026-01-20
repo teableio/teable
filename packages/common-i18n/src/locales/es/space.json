@@ -92,7 +92,9 @@
   },
   "template": {
     "title": "Plantilla",
-    "description": "Crea una nueva base rápidamente desde una plantilla"
+    "description": "Crea una nueva base rápidamente desde una plantilla",
+    "noTemplatesAvailable": "No hay plantillas disponibles",
+    "noTemplatesDescription": "No hay nada aquí en este momento"
   },
   "recentlyBase": {
     "title": "Visitado recientemente"
@@ -156,7 +158,7 @@
     "shareWith": "Compartir con",
     "unpublishedApps": {
       "title": "Apps no publicadas detectadas",
-      "description": "Las siguientes apps aún no han sido publicadas. Las apps que no han sido verificadas para publicarse correctamente pueden fallar al desplegarse en la plantilla, impidiendo la vista previa normal. Puede publicarlas ahora o continuar de todos modos.",
+      "description": "Las apps no publicadas pueden causar errores en la vista previa de la plantilla. Publícalas ahora o continúa de todos modos.",
       "publishAll": "Publicar todas",
       "publish": "Publicar",
       "published": "Publicada",

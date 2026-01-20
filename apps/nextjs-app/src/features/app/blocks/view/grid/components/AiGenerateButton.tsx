@@ -6,6 +6,7 @@ import {
   TaskStatusCollectionContext,
   useFields,
   useTableId,
+  useTableListener,
   useTablePermission,
 } from '@teable/sdk';
 import type { IActiveCell, IGridRef, IRecordIndexMap } from '@teable/sdk';
@@ -17,6 +18,7 @@ import React, {
   forwardRef,
   useImperativeHandle,
   useContext,
+  useState,
 } from 'react';
 
 interface IAIButtonProps {
@@ -34,11 +36,47 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     const taskStatusCollection = useContext(TaskStatusCollectionContext);
     const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
+    // Track local loading state - waiting for taskProcessing message
+    const [pendingCell, setPendingCell] = useState<{ recordId: string; fieldId: string } | null>(
+      null
+    );
 
-    const { mutate: mutateGenerate, isPending } = useMutation({
+    const { mutate: mutateGenerate } = useMutation({
       mutationFn: ({ recordId, fieldId }: { recordId: string; fieldId: string }) =>
         autoFillCell(tableId, recordId, fieldId),
+      onError: () => {
+        // Clear pending state if API call fails
+        setPendingCell(null);
+      },
     });
+
+    // Listen for taskProcessing to clear pending state
+    const handleTaskProcessing = useCallback(
+      (_actionKey: string, payload?: { recordId: string; fieldId: string }) => {
+        if (!payload || !pendingCell) return;
+        const { recordId, fieldId } = payload;
+        // Clear pending state when we receive taskProcessing for the same cell
+        if (pendingCell.recordId === recordId && pendingCell.fieldId === fieldId) {
+          setPendingCell(null);
+        }
+      },
+      [pendingCell]
+    );
+
+    // Also clear pending on taskFailed or taskCompleted
+    const handleTaskEnd = useCallback(
+      (_actionKey: string, payload?: { recordId: string; fieldId: string }) => {
+        if (!payload || !pendingCell) return;
+        const { recordId, fieldId } = payload;
+        if (pendingCell.recordId === recordId && pendingCell.fieldId === fieldId) {
+          setPendingCell(null);
+        }
+      },
+      [pendingCell]
+    );
+
+    useTableListener(tableId, ['taskProcessing'], handleTaskProcessing);
+    useTableListener(tableId, ['taskFailed', 'taskCompleted'], handleTaskEnd);
 
     // Check if cell is currently being processed by task queue (showing star animation)
     const isCellInTaskQueue = (cell?: IActiveCell) => {
@@ -47,6 +85,13 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
         (c) => c.recordId === cell.recordId && c.fieldId === cell.fieldId
       );
     };
+
+    // Check if this cell is in local pending state (waiting for taskProcessing)
+    const isLocalPending =
+      pendingCell &&
+      activeCell &&
+      pendingCell.recordId === activeCell.recordId &&
+      pendingCell.fieldId === activeCell.fieldId;
 
     useImperativeHandle(ref, () => ({
       onScrollHandler: () => {
@@ -107,7 +152,13 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     }, []);
 
     const onGenerate = () => {
-      if (!activeCell || isCellInTaskQueue(activeCell) || isPending) return;
+      if (!activeCell || isCellInTaskQueue(activeCell) || isLocalPending) return;
+      // Set local pending state immediately
+      setPendingCell({
+        recordId: activeCell.recordId,
+        fieldId: activeCell.fieldId,
+      });
+      // Fire the API call
       mutateGenerate({
         recordId: activeCell.recordId,
         fieldId: activeCell.fieldId,
@@ -119,8 +170,8 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
 
     return (
       <div className="absolute z-50 rounded-lg border bg-background" style={style}>
-        <Button variant="outline" size="sm" onClick={onGenerate} disabled={isPending}>
-          <RefreshCcw className={isPending ? 'size-4 animate-spin' : 'size-4'} />
+        <Button variant="outline" size="sm" onClick={onGenerate} disabled={!!isLocalPending}>
+          <RefreshCcw className={isLocalPending ? 'size-4 animate-spin' : 'size-4'} />
         </Button>
       </div>
     );

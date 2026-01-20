@@ -1,4 +1,5 @@
 import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
+import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { SINGLE_SELECT_OPERATORS } from './constant';
 import { DefaultList } from './DefaultList';
@@ -42,12 +43,20 @@ export const FilterLinkSelect = (props: FilterLinkSelectProps) => {
           <Button
             variant="outline"
             size={'sm'}
-            className={cn('w-40 justify-start overflow-auto px-2', className)}
+            className={cn('w-40 justify-between overflow-auto px-2', className)}
           >
-            <InnerTrigger {...props} />
+            <div className="flex flex-1 gap-1 overflow-hidden">
+              <InnerTrigger {...props} />
+            </div>
+            <ChevronDown
+              className={cn(
+                'ml-2 size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                open && 'rotate-180'
+              )}
+            />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="h-[350px] w-screen md:w-[480px]">
+        <PopoverContent align="start" className="h-[350px] w-screen md:w-[480px]">
           <InnerSelector {...props} onClick={onListClick} />
         </PopoverContent>
       </Popover>

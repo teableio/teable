@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { axios } from '../../axios';
+import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
 
 export enum LLMProviderType {
@@ -495,6 +496,8 @@ export const updateSettingRoSchema = z.object({
   appConfig: appConfigSchema.optional(),
   brandName: z.string().optional(),
   canaryConfig: canaryConfigSchema.optional(),
+  notifyMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
+  automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
 });
 
 export type IUpdateSettingRo = z.infer<typeof updateSettingRoSchema>;

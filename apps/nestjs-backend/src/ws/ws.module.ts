@@ -6,6 +6,11 @@ import { WsService } from './ws.service';
 
 @Module({
   imports: [ShareDbModule],
-  providers: [WsService, process.env.NODE_ENV === 'production' ? WsGateway : DevWsGateway],
+  providers: [
+    WsService,
+    process.env.NODE_ENV === 'production' || process.env.SERVER_PORT === process.env.SOCKET_PORT
+      ? WsGateway
+      : DevWsGateway,
+  ],
 })
 export class WsModule {}

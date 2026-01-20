@@ -92,7 +92,9 @@
   },
   "template": {
     "title": "テンプレート",
-    "description": "テンプレートから新しいBaseを素早く作成します"
+    "description": "テンプレートから新しいBaseを素早く作成します",
+    "noTemplatesAvailable": "テンプレートがありません",
+    "noTemplatesDescription": "現在、ここには何もありません"
   },
   "recentlyBase": {
     "title": "最近のアクセス"
@@ -156,7 +158,7 @@
     "shareWith": "共有先",
     "unpublishedApps": {
       "title": "未公開のアプリが検出されました",
-      "description": "以下のアプリはまだ公開されていません。公開が確認されていないアプリは、テンプレートでのデプロイに失敗し、正常なプレビューができない場合があります。今すぐ公開するか、そのまま続行できます。",
+      "description": "未公開のアプリはテンプレートのプレビューに失敗する可能性があります。今すぐ公開するか続行してください。",
       "publishAll": "すべて公開",
       "publish": "公開",
       "published": "公開済み",

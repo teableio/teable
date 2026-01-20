@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "und",
       "or": "oder",
-      "where": "wo"
+      "where": "wo",
+      "meetingAll": "Alle Bedingungen erfüllen",
+      "meetingAny": "Eine Bedingung erfüllen"
     },
     "operator": {
       "is": "ist",
@@ -892,6 +894,7 @@
     "automationNodeParseError": "Automatisierungsknoten-Analysefehler",
     "automationNodeNeedTest": "Automatisierungsknoten benötigt Test",
     "automationNodeTestOutdated": "Automatisierungsknoten-Test veraltet",
+    "invalidToken": "Ungültiges Token",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine leeren Werte enthalten, bitte vollständig ausfüllen bevor Sie absenden.",
       "fieldValueDuplicate": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",

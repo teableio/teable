@@ -4,9 +4,9 @@
             {{{title}}}:
         </p>
         <div style="display: inline-block; max-width: 560px; width: 100%; text-align: left;">
-            {{#each recordIds}}
+            {{#each recordTitles}}
                 <a
-                    href="{{../viewRecordUrlPrefix}}?recordId={{this}}&fromNotify={{../notifyId}}"
+                    href="{{../viewRecordUrlPrefix}}?recordId={{this.id}}&fromNotify={{../notifyId}}"
                     target="_blank"
                     style="
                         display: inline-block;
@@ -30,8 +30,8 @@
                     "
                     onmouseover="this.style.backgroundColor='#e4e4e7'"
                     onmouseout="this.style.backgroundColor='#f4f4f5'"
-                    title="{{this}}"
-                >{{this}}</a>
+                    title="{{this.title}}"
+                >{{this.title}}</a>
             {{/each}}
         </div>
     </td>

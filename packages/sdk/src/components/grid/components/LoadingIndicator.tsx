@@ -8,10 +8,11 @@ export interface ILoadingIndicatorProps {
   columnLoadings: IColumnLoading[];
   coordInstance: CoordinateManager;
   scrollState: IScrollState;
+  real2RowIndex: (index: number) => number;
 }
 
 export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
-  const { cellLoadings, columnLoadings, coordInstance, scrollState } = props;
+  const { cellLoadings, columnLoadings, coordInstance, scrollState, real2RowIndex } = props;
 
   if (!cellLoadings.length && !columnLoadings.length) return null;
 
@@ -63,7 +64,8 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
         );
       })}
 
-      {cellLoadings.map(([columnIndex, rowIndex]) => {
+      {cellLoadings.map(([columnIndex, realRowIndex]) => {
+        const rowIndex = real2RowIndex(realRowIndex);
         const rowHeight = coordInstance.getRowHeight(rowIndex);
         const rowOffset = coordInstance.getRowOffset(rowIndex);
         const columnWidth = coordInstance.getColumnWidth(columnIndex);
@@ -80,7 +82,7 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
 
         return (
           <div
-            key={`loading-${columnIndex}-${rowIndex}`}
+            key={`loading-${columnIndex}-${realRowIndex}`}
             className="absolute rounded-sm"
             style={{
               left: columnOffset,

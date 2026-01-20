@@ -1,15 +1,22 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
-import { Check, Eye, Image, Loader2, Play, X } from '@teable/icons';
+import { Check, Loader2, Play, X } from '@teable/icons';
 import type {
   IChatModelAbility,
   IImageModelAbility,
+  ITestLLMRo,
   ITestLLMVo,
   LLMProvider,
 } from '@teable/openapi/src/admin/setting';
+import { chatModelAbilityType } from '@teable/openapi/src/admin/setting';
+
+// Image model ability types
+const imageModelAbilities = ['generation', 'imageToImage'] as const;
 import {
   Button,
+  Checkbox,
   cn,
+  Label,
   toast,
   Tooltip,
   TooltipContent,
@@ -34,13 +41,22 @@ export interface IModelTestResult {
 interface ILLMProviderManageProps {
   value: LLMProvider[];
   onChange: (value: LLMProvider[]) => void;
-  onTest?: (data: Required<LLMProvider>) => Promise<ITestLLMVo>;
+  /** Test function - accepts full ITestLLMRo for capability testing */
+  onTest?: (data: ITestLLMRo) => Promise<ITestLLMVo>;
   modelTestResults?: Map<string, IModelTestResult>;
   onToggleImageModel?: (modelKey: string, isImageModel: boolean) => void;
   onTestProvider?: (provider: LLMProvider) => void;
+  onTestModel?: (provider: LLMProvider, model: string, modelKey: string) => Promise<void>;
   testingProviders?: Set<string>;
+  testingModels?: Set<string>;
   /** Hide model rates config (for space-level settings where billing doesn't apply) */
   hideModelRates?: boolean;
+  /** Callback to save model test results */
+  onSaveTestResult?: (
+    modelKey: string,
+    ability: IChatModelAbility | undefined,
+    imageAbility: IImageModelAbility | undefined
+  ) => void;
 }
 
 export const LLMProviderManage = ({
@@ -50,8 +66,11 @@ export const LLMProviderManage = ({
   modelTestResults,
   onToggleImageModel,
   onTestProvider,
+  onTestModel,
   testingProviders,
+  testingModels,
   hideModelRates,
+  onSaveTestResult,
 }: ILLMProviderManageProps) => {
   const { t } = useTranslation('common');
   const handleAdd = (data: LLMProvider) => {
@@ -70,7 +89,14 @@ export const LLMProviderManage = ({
   };
 
   if (value.length === 0) {
-    return <NewLLMProviderForm onAdd={handleAdd} onTest={onTest} hideModelRates={hideModelRates} />;
+    return (
+      <NewLLMProviderForm
+        onAdd={handleAdd}
+        onTest={onTest}
+        hideModelRates={hideModelRates}
+        onSaveTestResult={onSaveTestResult}
+      />
+    );
   }
 
   return (
@@ -139,6 +165,7 @@ export const LLMProviderManage = ({
                     onChange={handleUpdate(index)}
                     onTest={onTest}
                     hideModelRates={hideModelRates}
+                    onSaveTestResult={onSaveTestResult}
                   >
                     <Button size="xs" variant="ghost" className="w-7 p-0">
                       <SlidersHorizontalIcon className="size-4 text-muted-foreground" />
@@ -147,21 +174,26 @@ export const LLMProviderManage = ({
                 </div>
               </div>
 
-              {/* Model pills */}
+              {/* Model rows - each model on its own line with capabilities */}
               {models.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-col gap-2">
                   {models.map((model) => {
                     const modelKey = `${provider.type}@${model}@${provider.name}`;
                     const testResult = modelTestResults?.get(modelKey);
                     const isImageModel = provider.modelConfigs?.[model]?.isImageModel;
+                    const isModelTesting = testingModels?.has(modelKey);
                     return (
-                      <ModelPill
+                      <ModelRow
                         key={modelKey}
                         model={model}
                         modelKey={modelKey}
                         testResult={testResult}
                         isImageModel={isImageModel}
                         onToggleImageModel={onToggleImageModel}
+                        onTestModel={
+                          onTestModel ? () => onTestModel(provider, model, modelKey) : undefined
+                        }
+                        isTesting={isModelTesting}
                       />
                     );
                   })}
@@ -170,135 +202,70 @@ export const LLMProviderManage = ({
             </div>
           );
         })}
-        <NewLLMProviderForm onAdd={handleAdd} onTest={onTest} hideModelRates={hideModelRates} />
+        <NewLLMProviderForm
+          onAdd={handleAdd}
+          onTest={onTest}
+          hideModelRates={hideModelRates}
+          onSaveTestResult={onSaveTestResult}
+        />
       </div>
     </div>
   );
 };
 
-interface IModelPillProps {
+interface IModelRowProps {
   model: string;
   modelKey: string;
   testResult?: IModelTestResult;
   isImageModel?: boolean;
   onToggleImageModel?: (modelKey: string, isImageModel: boolean) => void;
+  onTestModel?: () => Promise<void>;
+  isTesting?: boolean;
 }
 
-const ModelPill = ({
+// Helper to check if ability is supported (handles both boolean and detailed format)
+const isAbilitySupported = (
+  ability: boolean | { url?: boolean; base64?: boolean } | undefined
+): boolean => {
+  if (typeof ability === 'boolean') return ability;
+  if (ability && typeof ability === 'object') {
+    return ability.url === true || ability.base64 === true;
+  }
+  return false;
+};
+
+// Helper to get support details for display
+const getAbilitySupportDetails = (
+  ability: boolean | { url?: boolean; base64?: boolean } | undefined
+): string | null => {
+  if (typeof ability === 'boolean') return null;
+  if (ability && typeof ability === 'object') {
+    const parts: string[] = [];
+    if (ability.url) parts.push('URL');
+    if (ability.base64) parts.push('Base64');
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  return null;
+};
+
+const ModelRow = ({
   model,
   modelKey,
   testResult,
   isImageModel,
   onToggleImageModel,
-}: IModelPillProps) => {
+  onTestModel,
+  isTesting,
+}: IModelRowProps) => {
   const { t } = useTranslation('common');
   const status = testResult?.status || 'idle';
+  const isCurrentlyTesting = isTesting || status === 'testing';
 
-  const getImageSupportStatus = () => {
-    if (!testResult?.ability?.image) return 'none';
-    const { url, base64 } = testResult.ability.image as { url?: boolean; base64?: boolean };
-    if (url && base64) return 'full';
-    if (url || base64) return 'partial';
-    return 'none';
-  };
-
-  const getImageModelStatus = () => {
-    if (!testResult?.imageAbility) return null;
-    const { generation, imageToImage } = testResult.imageAbility;
-    if (generation && imageToImage) return 'full';
-    if (generation || imageToImage) return 'partial';
-    return 'none';
-  };
-
-  const imageStatus = status === 'success' && !isImageModel ? getImageSupportStatus() : null;
-  const imageModelStatus = status === 'success' && isImageModel ? getImageModelStatus() : null;
-
-  const getStatusStyles = () => {
-    switch (status) {
-      case 'idle':
-        return 'bg-primary/5 rounded-sm font-normal text-muted-foreground border-transparent';
-      case 'pending':
-        return 'bg-primary/5 rounded-sm font-normal text-foreground border-transparent';
-      case 'testing':
-        return 'font-normal rounded-sm bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
-      case 'success':
-        return 'font-normal rounded-sm bg-green-50 text-green-600 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20';
-      case 'failed':
-        return 'font-normal rounded-sm bg-red-50 text-red-600 border-red-100 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20';
-    }
-  };
-
-  const getImageIcon = () => {
-    // For text models: show vision support
-    if (!isImageModel) {
-      if (imageStatus === 'full') {
-        return <Eye className="size-3 text-green-600 dark:text-green-400" />;
-      }
-      if (imageStatus === 'partial') {
-        return <Eye className="size-3 text-yellow-600 dark:text-yellow-400" />;
-      }
-      if (imageStatus === 'none') {
-        return <Eye className="size-3 opacity-30" />;
-      }
-    }
-    // For image models: show generation support
-    if (isImageModel) {
-      if (imageModelStatus === 'full') {
-        return <Image className="size-3 text-green-600 dark:text-green-400" />;
-      }
-      if (imageModelStatus === 'partial') {
-        return <Image className="size-3 text-yellow-600 dark:text-yellow-400" />;
-      }
-      if (imageModelStatus === 'none') {
-        return <Image className="size-3 opacity-30" />;
-      }
-      // Show image icon for image models even if not tested
-      return <Image className="size-3 text-purple-500" />;
-    }
-    return null;
-  };
-
-  // eslint-disable-next-line sonarjs/cognitive-complexity
-  const tooltipContent = () => {
-    const lines: string[] = [modelKey];
-
-    if (isImageModel) {
-      lines.push('🎨 Image Generation Model');
-    }
-
-    if (status === 'failed' && testResult?.error) {
-      lines.push(`Error: ${testResult.error}`);
-    }
-
-    if (status === 'success') {
-      if (isImageModel && testResult?.imageAbility) {
-        const { generation, imageToImage } = testResult.imageAbility;
-        lines.push(`Generation: ${generation ? '✓' : '✗'}`);
-        lines.push(`Image-to-Image: ${imageToImage ? '✓' : '✗'}`);
-      } else if (!isImageModel) {
-        const { url, base64 } =
-          (testResult?.ability?.image as { url?: boolean; base64?: boolean }) || {};
-        if (imageStatus === 'full') {
-          lines.push(`Vision: ✓ URL, ✓ Base64`);
-        } else if (imageStatus === 'partial') {
-          lines.push(`Vision: ${url ? '✓' : '✗'} URL, ${base64 ? '✓' : '✗'} Base64`);
-        } else {
-          lines.push(`Vision: Not supported`);
-        }
-      }
-    }
-
-    lines.push(t('admin.setting.ai.clickToToggleImageModel'));
-    return lines;
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newIsImageModel = !isImageModel;
-    onToggleImageModel?.(modelKey, newIsImageModel);
+  const handleCheckboxChange = (checked: boolean) => {
+    onToggleImageModel?.(modelKey, checked);
 
     // Show friendly toast notification
-    if (newIsImageModel) {
+    if (checked) {
       toast({
         title: `🎨 ${model}`,
         description: t('admin.setting.ai.markedAsImageModel'),
@@ -311,39 +278,160 @@ const ModelPill = ({
     }
   };
 
+  // Get abilities to display based on model type
+  const textAbilities = chatModelAbilityType.options;
+  const imgAbilities = imageModelAbilities;
+
+  // Get ability value from test result for text models
+  const getTextAbilityValue = (abilityType: (typeof textAbilities)[number]) => {
+    return testResult?.ability?.[abilityType];
+  };
+
+  // Get ability value from test result for image models
+  const getImageAbilityValue = (abilityType: (typeof imgAbilities)[number]) => {
+    return testResult?.imageAbility?.[abilityType];
+  };
+
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'testing':
+        return <Loader2 className="size-3.5 animate-spin text-blue-500" />;
+      case 'success':
+        return <Check className="size-3.5 text-green-500" />;
+      case 'failed':
+        return <X className="size-3.5 text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            onClick={handleClick}
-            className={cn(
-              'inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-80',
-              getStatusStyles(),
-              isImageModel && 'ring-1 ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/20'
+    <div className="rounded-md border bg-muted/30 p-3">
+      {/* Model header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Model name with status */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{model}</span>
+            {getStatusIcon()}
+            {status === 'failed' && testResult?.error && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs text-red-500">
+                      ({t('admin.setting.ai.testFailed')})
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">{testResult.error}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
+          </div>
+
+          {/* Test button for single model */}
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={() => onTestModel?.()}
+            disabled={isCurrentlyTesting}
+            className="h-5 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
           >
-            <span className="max-w-[100px] truncate">{model}</span>
+            {isCurrentlyTesting ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Play className="size-3" />
+            )}
+            {t('admin.setting.ai.testProvider')}
+          </Button>
+        </div>
 
-            {/* Status indicator */}
-            {status === 'testing' && <Loader2 className="size-3 animate-spin" />}
-            {status === 'success' && <Check className="size-3" />}
-            {status === 'failed' && <X className="size-3" />}
+        {/* Image model checkbox */}
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`image-model-${modelKey}`}
+            checked={isImageModel}
+            onCheckedChange={handleCheckboxChange}
+            className="size-4 border-muted-foreground/50 data-[state=checked]:border-purple-500 data-[state=checked]:bg-purple-500"
+          />
+          <Label
+            htmlFor={`image-model-${modelKey}`}
+            className="cursor-pointer text-xs text-muted-foreground"
+          >
+            {t('admin.setting.ai.imageGenerationModel')}
+          </Label>
+        </div>
+      </div>
 
-            {/* Image support indicator */}
-            {getImageIcon()}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-xs">
-          <div className="space-y-0.5">
-            {tooltipContent().map((line, i) => (
-              <p key={i} className="break-all text-xs">
-                {line}
-              </p>
-            ))}
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+      {/* Capability badges */}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <TooltipProvider>
+          {isImageModel
+            ? // Image model abilities
+              imgAbilities.map((abilityType) => {
+                const abilityValue = getImageAbilityValue(abilityType);
+                const supported = abilityValue === true;
+                const tested = status === 'success';
+
+                return (
+                  <div
+                    key={abilityType}
+                    className={cn(
+                      'flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors',
+                      tested && supported
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {tested && supported && <Check className="size-2.5" />}
+                    <span>{t(`admin.setting.ai.imageModelAbility.${abilityType}`)}</span>
+                  </div>
+                );
+              })
+            : // Text model abilities
+              textAbilities.map((abilityType) => {
+                const abilityValue = getTextAbilityValue(abilityType);
+                const supported = isAbilitySupported(abilityValue);
+                const supportDetails = getAbilitySupportDetails(abilityValue);
+                const tested = status === 'success';
+
+                const badge = (
+                  <div
+                    className={cn(
+                      'flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors',
+                      tested && supported
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {tested && supported && <Check className="size-2.5" />}
+                    <span>{t(`admin.setting.ai.chatModelAbility.${abilityType}`)}</span>
+                    {tested && supportDetails && (
+                      <span className="ml-0.5 opacity-70">({supportDetails})</span>
+                    )}
+                  </div>
+                );
+
+                // Show tooltip with details for image/pdf
+                if (tested && supportDetails) {
+                  return (
+                    <Tooltip key={abilityType}>
+                      <TooltipTrigger asChild>{badge}</TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {t('admin.setting.ai.chatModelAbility.supportedFormats')}:{' '}
+                          {supportDetails}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
+                return <div key={abilityType}>{badge}</div>;
+              })}
+        </TooltipProvider>
+      </div>
+    </div>
   );
 };

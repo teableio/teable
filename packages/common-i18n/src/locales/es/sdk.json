@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "y",
       "or": "o",
-      "where": "dónde"
+      "where": "dónde",
+      "meetingAll": "Cumplir todas las condiciones",
+      "meetingAny": "Cumplir cualquier condición"
     },
     "operator": {
       "is": "es",
@@ -892,6 +894,7 @@
     "automationNodeParseError": "Error de análisis del nodo de automatización",
     "automationNodeNeedTest": "El nodo de automatización necesita prueba",
     "automationNodeTestOutdated": "Prueba del nodo de automatización desactualizada",
+    "invalidToken": "Token no válido",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" campo \"{{fieldName}}\" no permite valores vacíos, por favor complete antes de enviar.",
       "fieldValueDuplicate": "\"{{tableName}}\" campo \"{{fieldName}}\" no permite valores duplicados, por favor complete un valor único antes de enviar.",

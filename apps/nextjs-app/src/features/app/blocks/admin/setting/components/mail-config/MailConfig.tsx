@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   IMailTransportConfig,
   SettingKey,
@@ -25,6 +25,7 @@ export const MailConfigDialog = (props: {
   emailConfig?: IMailTransportConfig;
 }) => {
   const { t } = useTranslation('common');
+  const queryClient = useQueryClient();
 
   const [open, setOpen] = useState(false);
   const [emailConfig, setEmailConfig] = useState<IMailTransportConfig | undefined>(
@@ -37,6 +38,9 @@ export const MailConfigDialog = (props: {
 
   const { mutateAsync: updateEmailConfig } = useMutation({
     mutationFn: (ro: ISetSettingMailTransportConfigRo) => setSettingMailTransportConfig(ro),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['setting'] });
+    },
   });
 
   const cancel = () => {

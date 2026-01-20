@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "and",
       "or": "or",
-      "where": "where"
+      "where": "where",
+      "meetingAll": "すべての条件を満たす",
+      "meetingAny": "いずれかの条件を満たす"
     },
     "operator": {
       "is": "等しい",
@@ -892,6 +894,7 @@
     "automationNodeParseError": "自動化ノード解析エラー",
     "automationNodeNeedTest": "自動化ノードはテストが必要です",
     "automationNodeTestOutdated": "自動化ノードのテストが古くなっています",
+    "invalidToken": "無効なトークン",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は空の値を許可しません。送信する前に完全に入力してください。",
       "fieldValueDuplicate": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は重複する値を許可しません。送信する前に一意の値を入力してください。",
