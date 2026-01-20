@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getLocaleDetection } from './lib/i18n/getLocale';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const locale = getLocaleDetection({
     req: request,
     i18n: {
