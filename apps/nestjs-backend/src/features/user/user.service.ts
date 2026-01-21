@@ -217,29 +217,78 @@ export class UserService {
     this.eventEmitterService.emitAsync(Events.USER_RENAME, user);
   }
 
+  // Avatar size for cropping (square)
+  private static readonly avatarSize = 128;
+  private static readonly avatarMimetype = 'image/webp';
+
   async updateAvatar(id: string, avatarFile: { path: string; mimetype: string; size: number }) {
-    const path = join(StorageAdapter.getDir(UploadType.Avatar), id);
+    const storagePath = join(StorageAdapter.getDir(UploadType.Avatar), id);
     const bucket = StorageAdapter.getBucket(UploadType.Avatar);
-    const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, avatarFile.path, {
+
+    // Crop the image to a square before uploading
+    const croppedImageBuffer = await this.cropAvatarImage(avatarFile.path);
+
+    // Upload the cropped image buffer directly
+    const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedImageBuffer, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      'Content-Type': avatarFile.mimetype,
+      'Content-Type': UserService.avatarMimetype,
     });
-    const { size, mimetype } = avatarFile;
 
     await this.mountAttachment(id, {
       hash,
-      size,
-      mimetype,
+      size: croppedImageBuffer.length,
+      mimetype: UserService.avatarMimetype,
       token: id,
-      path,
+      path: storagePath,
     });
 
     await this.prismaService.txClient().user.update({
       data: {
-        avatar: path,
+        avatar: storagePath,
       },
       where: { id, deletedTime: null },
     });
+  }
+
+  /**
+   * Crop avatar image to a square (center crop) and resize to avatarSize
+   * Output format is WebP for better compression
+   */
+  private async cropAvatarImage(filePath: string): Promise<Buffer> {
+    try {
+      const image = sharp(filePath, { failOn: 'none' });
+      const metadata = await image.metadata();
+
+      if (!metadata.width || !metadata.height) {
+        throw new CustomHttpException('Unsupported file type', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.attachment.invalidImage',
+          },
+        });
+      }
+
+      // Center crop to square
+      const size = Math.min(metadata.width, metadata.height);
+      const left = Math.floor((metadata.width - size) / 2);
+      const top = Math.floor((metadata.height - size) / 2);
+
+      return await image
+        .extract({ left, top, width: size, height: size })
+        .resize(UserService.avatarSize, UserService.avatarSize)
+        .webp({ quality: 85 })
+        .toBuffer();
+    } catch (error) {
+      // If it's already a CustomHttpException, rethrow it
+      if (error instanceof CustomHttpException) {
+        throw error;
+      }
+      // For any other errors (e.g., unsupported format, corrupted file), throw 400
+      throw new CustomHttpException('Unsupported file type', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidImage',
+        },
+      });
+    }
   }
 
   private async mountAttachment(
@@ -312,31 +361,74 @@ export class UserService {
   private async uploadAvatarByUrl(userId: string, url: string) {
     return new Promise<string>((resolve, reject) => {
       https
-        .get(url, async (stream) => {
-          const contentType = stream?.headers?.['content-type']?.split(';')?.[0];
-          const size = stream?.headers?.['content-length']?.split(';')?.[0];
-          const path = join(StorageAdapter.getDir(UploadType.Avatar), userId);
-          const bucket = StorageAdapter.getBucket(UploadType.Avatar);
-          const { hash } = await this.storageAdapter.uploadFile(bucket, path, stream, {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'Content-Type': contentType,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'Content-Length': size,
-          });
+        .get(url, async (response) => {
+          try {
+            // Collect the image data into a buffer
+            const chunks: Buffer[] = [];
+            for await (const chunk of response) {
+              chunks.push(chunk);
+            }
+            const imageBuffer = Buffer.concat(chunks);
 
-          await this.mountAttachment(userId, {
-            hash: hash,
-            size: size ? parseInt(size) : undefined,
-            mimetype: contentType,
-            token: userId,
-            path: path,
-          });
-          resolve(path);
+            // Crop the image to square and resize
+            const croppedBuffer = await this.cropAvatarBuffer(imageBuffer);
+
+            const storagePath = join(StorageAdapter.getDir(UploadType.Avatar), userId);
+            const bucket = StorageAdapter.getBucket(UploadType.Avatar);
+            const { hash } = await this.storageAdapter.uploadFile(
+              bucket,
+              storagePath,
+              croppedBuffer,
+              {
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                'Content-Type': UserService.avatarMimetype,
+              }
+            );
+
+            await this.mountAttachment(userId, {
+              hash: hash,
+              size: croppedBuffer.length,
+              mimetype: UserService.avatarMimetype,
+              token: userId,
+              path: storagePath,
+            });
+            resolve(storagePath);
+          } catch (error) {
+            reject(error);
+          }
         })
         .on('error', (error) => {
           reject(error);
         });
     });
+  }
+
+  /**
+   * Crop avatar image buffer to a square (center crop) and resize to avatarSize
+   * Output format is WebP for better compression
+   */
+  private async cropAvatarBuffer(imageBuffer: Buffer): Promise<Buffer> {
+    const image = sharp(imageBuffer, { failOn: 'none' });
+    const metadata = await image.metadata();
+
+    if (!metadata.width || !metadata.height) {
+      // If we can't get metadata, just resize without center crop
+      return image
+        .resize(UserService.avatarSize, UserService.avatarSize)
+        .webp({ quality: 85 })
+        .toBuffer();
+    }
+
+    // Center crop to square
+    const size = Math.min(metadata.width, metadata.height);
+    const left = Math.floor((metadata.width - size) / 2);
+    const top = Math.floor((metadata.height - size) / 2);
+
+    return image
+      .extract({ left, top, width: size, height: size })
+      .resize(UserService.avatarSize, UserService.avatarSize)
+      .webp({ quality: 85 })
+      .toBuffer();
   }
 
   async findOrCreateUser(
@@ -375,7 +467,11 @@ export class UserService {
         const userId = generateUserId();
         let avatar: string | undefined = undefined;
         if (avatarUrl) {
-          avatar = await this.uploadAvatarByUrl(userId, avatarUrl);
+          try {
+            avatar = await this.uploadAvatarByUrl(userId, avatarUrl);
+          } catch {
+            // Ignore avatar upload errors, don't block user login
+          }
         }
         isNewUser = true;
         onCreateNewUser?.();

@@ -11,7 +11,7 @@ import { useTranslation } from 'next-i18next';
 import React, { useCallback, useState } from 'react';
 import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceConfirm';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { SpaceInnerSettingModal, SettingTab } from '../../space-setting/SpaceInnerSettingModal';
+import { SpaceInnerSettingModal, SettingTab } from '@overridable/SpaceInnerSettingModal';
 
 interface ISpaceActionTrigger {
   space: IGetSpaceVo;

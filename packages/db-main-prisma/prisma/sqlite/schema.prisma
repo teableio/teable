@@ -79,6 +79,7 @@ model TableMeta {
 
   @@index([order])
   @@index([dbTableName])
+  @@index([baseId, deletedTime])
   @@map("table_meta")
 }
 
@@ -116,6 +117,7 @@ model Field {
   table               TableMeta @relation(fields: [tableId], references: [id])
 
   @@index([lookupLinkedFieldId])
+  @@index([tableId, deletedTime])
   @@map("field")
 }
 
@@ -144,6 +146,7 @@ model View {
   table            TableMeta @relation(fields: [tableId], references: [id])
 
   @@index([order])
+  @@index([tableId, deletedTime])
   @@map("view")
 }
 
@@ -664,6 +667,7 @@ model TaskRun {
   status           String    @map("status")
   snapshot         String    @map("snapshot")
   spent            Int?      @map("spent")
+  log              String?   @map("log")
   errorMsg         String?   @map("error_msg")
   startedTime      DateTime? @map("started_time")
   createdTime      DateTime  @default(now()) @map("created_time")

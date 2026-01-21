@@ -14,7 +14,6 @@ services:
       - .env
     environment:
       - TZ=${TIMEZONE}
-      - NEXT_ENV_IMAGES_ALL_REMOTE=true
     networks:
       - teable-standalone
     depends_on:

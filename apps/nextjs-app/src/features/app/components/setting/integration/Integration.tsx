@@ -4,7 +4,7 @@ import { Plus } from '@teable/icons';
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { IntegrationHeader } from './common/Header';
+import { SettingTabHeader, SettingTabShell } from '../SettingTabShell';
 import { ThirdPartyIntegrationsContent } from './third-party-integrations/Content';
 import { UserIntegrationContent } from './user-integration/Content';
 import { NewIntegration } from './user-integration/NewIntegration';
@@ -14,19 +14,12 @@ export const Integration = () => {
   const [tab, setTab] = useState<'user' | 'third-party'>('user');
 
   return (
-    <div className="relative flex h-full flex-col border-l">
-      <IntegrationHeader />
-      <Tabs
-        className="flex flex-1 flex-col overflow-hidden px-3"
-        value={tab}
-        onValueChange={(value) => setTab(value as 'user' | 'third-party')}
-      >
-        <TabsList className="mx-3 w-fit">
-          <TabsTrigger value="user">{t('settings.integration.userIntegration.title')}</TabsTrigger>
-          <TabsTrigger value="third-party">
-            {t('settings.integration.thirdPartyIntegrations.title')}
-          </TabsTrigger>
-          <div className="absolute right-6">
+    <SettingTabShell
+      className="relative"
+      header={
+        <SettingTabHeader
+          title={t('settings.integration.title')}
+          actions={
             <NewIntegration>
               <Button
                 variant="outline"
@@ -37,7 +30,21 @@ export const Integration = () => {
                 {t('settings.integration.userIntegration.create')}
               </Button>
             </NewIntegration>
-          </div>
+          }
+        />
+      }
+      contentClassName="px-0 py-0"
+    >
+      <Tabs
+        className="flex h-full flex-1 flex-col gap-4 overflow-hidden px-8 py-4"
+        value={tab}
+        onValueChange={(value) => setTab(value as 'user' | 'third-party')}
+      >
+        <TabsList className="w-fit">
+          <TabsTrigger value="user">{t('settings.integration.userIntegration.title')}</TabsTrigger>
+          <TabsTrigger value="third-party">
+            {t('settings.integration.thirdPartyIntegrations.title')}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent className="mt-0 flex-1 overflow-hidden" value="user">
@@ -47,6 +54,6 @@ export const Integration = () => {
           <ThirdPartyIntegrationsContent />
         </TabsContent>
       </Tabs>
-    </div>
+    </SettingTabShell>
   );
 };
