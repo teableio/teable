@@ -394,6 +394,7 @@ export type I18nTranslations = {
                 "mouseMode": string;
                 "touchMode": string;
                 "systemMode": string;
+                "buySelfHostedLicense": string;
             };
             "nav": {
                 "settings": string;
@@ -4726,6 +4727,9 @@ export type I18nTranslations = {
             "sharedBase": string;
         };
         "moreScopes": string;
+        "list": {
+            "description": string;
+        };
         "empty": {
             "list": string;
             "access": string;
@@ -4733,6 +4737,9 @@ export type I18nTranslations = {
         "deleteConfirm": {
             "title": string;
             "description": string;
+        };
+        "help": {
+            "link": string;
         };
         "noAccessConfirm": {
             "title": string;

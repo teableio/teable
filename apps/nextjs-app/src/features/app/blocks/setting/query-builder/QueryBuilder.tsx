@@ -67,9 +67,17 @@ export const QueryBuilder = () => {
   );
 
   return (
-    <SettingRight title={<SettingRightTitle title={t('developer:apiQueryBuilder')} />}>
+    <SettingRight
+      header={
+        <SettingRightTitle
+          title={t('developer:apiQueryBuilder')}
+          className="h-auto items-center gap-x-2"
+          titleClassName="text-lg font-medium"
+        />
+      }
+    >
       <StandaloneViewProvider baseId={baseId} tableId={tableId} viewId={viewId}>
-        <div className="flex w-full flex-col gap-4 pb-8 pt-4">
+        <div className="flex w-full flex-col gap-4 pb-8">
           {/* Data Source Selection */}
           <div className="text-sm">
             {t('developer:subTitle')}{' '}

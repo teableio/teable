@@ -40,7 +40,11 @@ export const ThirdPartyIntegrationsContent = () => {
           }
         )}
       >
-        <IntegrationHeader detailName={detail?.name} onBack={() => setDetail(undefined)} />
+        <IntegrationHeader
+          className="border-b px-8 py-4"
+          detailName={detail?.name}
+          onBack={() => setDetail(undefined)}
+        />
         <Detail detail={detail} onBack={() => setDetail(undefined)} />
       </div>
     </>

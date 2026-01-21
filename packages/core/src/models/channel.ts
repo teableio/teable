@@ -45,3 +45,7 @@ export function getChatChannel(chatId: string) {
 export function getBaseNodeChannel(baseId: string) {
   return `__base_node_${baseId}`;
 }
+
+export function getWorkflowTestChannel(workflowId: string) {
+  return `__workflow_test_${workflowId}`;
+}

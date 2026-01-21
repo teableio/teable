@@ -271,7 +271,8 @@
       "interactionMode": "Interaction mode",
       "mouseMode": "Cursor mode",
       "touchMode": "Touch mode",
-      "systemMode": "Follow system"
+      "systemMode": "Follow system",
+      "buySelfHostedLicense": "Buy self-hosted license"
     },
     "nav": {
       "settings": "Settings",

@@ -11,6 +11,7 @@ const getDefaultIgnorePatterns = () => {
     '.turbo',
     `**/.turbo`,
     '.out',
+    'next-env.d.ts',
   ];
 };
 

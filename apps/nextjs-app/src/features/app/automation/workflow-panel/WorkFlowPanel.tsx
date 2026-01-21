@@ -1,7 +1,7 @@
 import { forwardRef, useImperativeHandle } from 'react';
 import { AutomationPage } from '../Pages';
 
-interface WorkFlowPanelRef {
+export interface WorkFlowPanelRef {
   getWorkflow?: () => unknown | undefined;
   checkCanActive?: () => {
     canActive: boolean;
