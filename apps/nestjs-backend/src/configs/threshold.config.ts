@@ -25,6 +25,11 @@ export const thresholdConfig = registerAs('threshold', () => ({
   maxOpenapiAttachmentUploadSize: Number(
     process.env.MAX_OPENAPI_ATTACHMENT_UPLOAD_SIZE ?? Infinity
   ),
+  webhook: {
+    bodyLimitBytes: Number(process.env.WEBHOOK_BODY_LIMIT_BYTES ?? 4 * 1024 * 1024),
+    baseRateLimit: Number(process.env.WEBHOOK_BASE_RATE_LIMIT ?? 50),
+    workflowRateLimit: Number(process.env.WEBHOOK_WORKFLOW_RATE_LIMIT ?? 2),
+  },
   dbDeadlock: {
     maxRetries: Number(process.env.BACKEND_DB_DEADLOCK_MAX_RETRIES ?? 3),
     initialBackoff: Number(process.env.BACKEND_DB_DEADLOCK_INITIAL_BACKOFF ?? 100),

@@ -355,7 +355,9 @@ export const PromptEditor = ({
           handleSlashMenuUpdate(update.view, newValue, pos);
         }
       }),
-      isLightTheme ? lightTheme(themeOptions) : darkTheme(themeOptions),
+      isLightTheme
+        ? lightTheme(resizable ? { ...themeOptions, height: '100%' } : themeOptions)
+        : darkTheme(resizable ? { ...themeOptions, height: '100%' } : themeOptions),
       EditorView.lineWrapping,
       EditorState.allowMultipleSelections.of(true),
       placeholder ? cmPlaceholder(placeholder) : [],
@@ -370,6 +372,7 @@ export const PromptEditor = ({
     decorateFields,
     handleSlashMenuUpdate,
     isOptionDisabled,
+    resizable,
   ]);
 
   const createEditorView = useCallback(
@@ -422,6 +425,10 @@ export const PromptEditor = ({
     }
   }, [value, editorView, decorateFields]);
 
+  const handleContainerClick = useCallback(() => {
+    editorView?.focus();
+  }, [editorView]);
+
   const resizeStyles = resizable
     ? {
         resize: 'vertical' as const,
@@ -437,6 +444,7 @@ export const PromptEditor = ({
         ref={editorRef}
         className={cn('h-full cursor-text rounded-lg border shadow-sm', resizable && 'resize-y')}
         style={resizeStyles}
+        onClick={handleContainerClick}
       />
 
       {/* Slash command menu - rendered in portal for proper z-index */}

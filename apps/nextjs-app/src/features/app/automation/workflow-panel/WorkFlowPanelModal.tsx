@@ -17,10 +17,11 @@ import { XIcon } from 'lucide-react';
 import { forwardRef, lazy, Suspense, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
+import type { WorkFlowPanelRef } from '@overridable/WorkFlowPanel';
 import { useWorkFlowPanelStore } from './useWorkFlowPaneStore';
 
 const WorkFlowPanelLazy = lazy(() =>
-  import('./WorkFlowPanel').then((module) => ({
+  import('@overridable/WorkFlowPanel').then((module) => ({
     default: module.WorkFlowPanel,
   }))
 );
@@ -70,15 +71,6 @@ const AlertCloseWorkflowDialog = forwardRef<AlertCloseDialogRef, AlertCloseDialo
 );
 
 AlertCloseWorkflowDialog.displayName = 'AlertCloseWorkflowDialog';
-
-interface WorkFlowPanelRef {
-  getWorkflow?: () => unknown | undefined;
-  checkCanActive?: () => {
-    canActive: boolean;
-    message: string;
-  };
-  activeWorkflow?: () => Promise<void>;
-}
 
 export const WorkFlowPanelModal = () => {
   const { baseId = '', workflowId = '', closeModal, open } = useWorkFlowPanelStore();
