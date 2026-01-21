@@ -111,7 +111,7 @@ RUN set -ex; \
 
 # install gosu for a better su+exec command
 # https://github.com/tianon/gosu/blob/master/INSTALL.md
-ENV GOSU_VERSION 1.17
+ENV GOSU_VERSION 1.19
 RUN set -eux; \
 # save list of currently installed packages for later so we can clean up
         savedAptMark="$(apt-mark showmanual)"; \
