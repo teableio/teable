@@ -4,14 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import { generateQueryId } from '@teable/core';
 import type { IQueryParamsRo, IQueryParamsVo } from '@teable/openapi';
 import createServer from 'next';
-import type { NextServer } from 'next/dist/server/next';
 import { CacheService } from '../../cache/cache.service';
 import type { ICacheStore } from '../../cache/types';
 
 @Injectable()
 export class NextService implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(NextService.name);
-  public server!: NextServer;
+  public server!: ReturnType<typeof createServer>;
   constructor(
     private configService: ConfigService,
     private readonly cacheService: CacheService<ICacheStore>

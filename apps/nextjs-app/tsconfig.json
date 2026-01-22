@@ -22,6 +22,11 @@
       "@/themes/*": ["./themes/*"],
       "@/styles/*": ["./styles/*"],
       "@/api/*": ["./api/*"],
+      "@overridable/SpaceInnerSettingModal": [
+        "./features/app/blocks/space-setting/SpaceInnerSettingModal"
+      ],
+      "@overridable/WorkFlowPanel": ["./features/app/automation/workflow-panel/WorkFlowPanel"],
+      "@overridable/SettingDialog": ["./features/app/components/setting/SettingDialog"],
       "@teable/common-i18n": ["../../../packages/common-i18n/src/index"],
       "@teable/common-i18n/locales/*": ["../../../packages/common-i18n/src/locales/*"],
       "@teable/ui-lib/*": ["../../../packages/ui-lib/src/*"],

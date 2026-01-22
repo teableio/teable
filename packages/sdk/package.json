@@ -26,15 +26,19 @@
       "require": "./dist/index.js"
     },
     "./ui.config": {
-      "import": "./ui.config.js",
-      "require": "./ui.config.js",
+      "import": "./ui.config.cjs",
+      "require": "./ui.config.cjs",
       "types": "./ui.config.d.ts"
+    },
+    "./ui.config.cjs": {
+      "import": "./ui.config.cjs",
+      "require": "./ui.config.cjs"
     }
   },
   "files": [
     "dist",
-    "tailwind.config.js",
-    "ui.config.js",
+    "tailwind.config.cjs",
+    "ui.config.cjs",
     "ui.config.d.ts"
   ],
   "scripts": {
@@ -139,8 +143,8 @@
     "@testing-library/react": "14.2.2",
     "@types/lodash": "4.17.0",
     "@types/node": "22.18.0",
-    "@types/react": "18.2.69",
-    "@types/react-dom": "18.2.22",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
     "@types/react-hammerjs": "1.0.7",
     "@types/scroller": "0.1.5",
     "@types/sharedb": "3.3.10",

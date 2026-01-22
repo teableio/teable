@@ -63,7 +63,9 @@
     "login": "登录",
     "useTemplate": "使用模版",
     "backToSpace": "返回空间",
-    "switchBase": "切换数据库"
+    "switchBase": "切换数据库",
+    "collapse": "收起",
+    "viewDetails": "查看详情"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -271,7 +273,8 @@
       "interactionMode": "交互模式",
       "mouseMode": "光标模式",
       "touchMode": "触控模式",
-      "systemMode": "跟随系统"
+      "systemMode": "跟随系统",
+      "buySelfHostedLicense": "购买私有化部署许可证"
     },
     "nav": {
       "settings": "设置",
@@ -1287,5 +1290,9 @@
         "rejected": "已拒绝"
       }
     }
+  },
+  "chat": {
+    "serverError": "服务端发生错误",
+    "serverErrorHint": "请新建对话重试"
   }
 }

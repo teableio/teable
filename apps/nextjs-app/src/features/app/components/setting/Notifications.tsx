@@ -1,7 +1,8 @@
 import { updateUserNotifyMeta } from '@teable/openapi';
 import { useSession } from '@teable/sdk';
-import { Label, Separator, Switch } from '@teable/ui-lib/shadcn';
+import { Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { SettingTabHeader, SettingTabShell } from './SettingTabShell';
 
 export const Notifications: React.FC = () => {
   const { t } = useTranslation('common');
@@ -11,8 +12,7 @@ export const Notifications: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full flex-col gap-6 border-l px-8 py-4">
-      <h3 className="text-lg font-medium">{t('settings.notify.title')}</h3>
+    <SettingTabShell header={<SettingTabHeader title={t('settings.notify.title')} />}>
       <div className="flex items-center justify-between gap-4 rounded-md border bg-card px-4 py-3">
         <div className="flex flex-col gap-1">
           <p className="text-sm font-medium">{t('settings.notify.label')}</p>
@@ -24,6 +24,6 @@ export const Notifications: React.FC = () => {
           onCheckedChange={onNotifyMetaEmailSwitchChange}
         />
       </div>
-    </div>
+    </SettingTabShell>
   );
 };
