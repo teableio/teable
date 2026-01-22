@@ -30,7 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn/ui/tooltip';
-import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/shadcn/ui/tree';
+import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/shadcn/ui/tree';
 import { ChevronDownIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';

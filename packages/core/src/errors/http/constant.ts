@@ -17,6 +17,7 @@ export const ErrorCodeToStatusMap: Record<HttpErrorCode, number> = {
   [HttpErrorCode.FAILED_DEPENDENCY]: 424,
   [HttpErrorCode.USER_LIMIT_EXCEEDED]: 460,
   [HttpErrorCode.TOO_MANY_REQUESTS]: 429,
+  [HttpErrorCode.PAYLOAD_TOO_LARGE]: 413,
   [HttpErrorCode.INTERNAL_SERVER_ERROR]: 500,
   [HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE]: 503,
   [HttpErrorCode.GATEWAY_TIMEOUT]: 504,

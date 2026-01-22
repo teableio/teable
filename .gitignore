@@ -29,6 +29,9 @@ node_modules
 /build
 /dist/
 
+# Next.js auto-generated type definitions
+**/next-env.d.ts
+
 # Cache
 *.tsbuildinfo
 **/.eslintcache

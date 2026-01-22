@@ -17,6 +17,7 @@ import { AddPassword } from './account/AddPassword';
 import { ChangeEmailDialog } from './account/ChangeEmailDialog';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 import { DeleteAccountDialog } from './account/DeleteAccountDialog';
+import { SettingTabHeader, SettingTabShell } from './SettingTabShell';
 
 export const Account: React.FC = () => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
@@ -57,7 +58,7 @@ export const Account: React.FC = () => {
 
   const avatarComponent = (
     <div className="group relative flex h-fit items-center justify-center">
-      <UserAvatar className="size-14 border" width={80} height={80} user={sessionUser} />
+      <UserAvatar className="size-14 border" user={sessionUser} />
       <div className="absolute left-0 top-0 size-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
         <input
           type="file"
@@ -70,9 +71,15 @@ export const Account: React.FC = () => {
   );
 
   return (
-    <div className="flex h-full flex-col gap-6 border-l px-8 py-4">
-      <h3 className="text-lg font-medium">{t('settings.account.title')}</h3>
-      <div className="flex flex-1 flex-col gap-6">
+    <SettingTabShell
+      header={<SettingTabHeader title={t('settings.account.title')} />}
+      footer={
+        <div className="flex w-full items-center justify-center text-xs text-muted-foreground">
+          {`${t('settings.setting.version')}: ${process.env.NEXT_PUBLIC_BUILD_VERSION}`}
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-6">
         <div className="flex flex-col items-start justify-start">
           {isTouchDevice ? (
             avatarComponent
@@ -136,9 +143,6 @@ export const Account: React.FC = () => {
           <DeleteAccountDialog />
         </div>
       </div>
-      <div className="flex w-full items-center justify-center pt-4 text-xs text-muted-foreground">
-        {`${t('settings.setting.version')}: ${process.env.NEXT_PUBLIC_BUILD_VERSION}`}
-      </div>
-    </div>
+    </SettingTabShell>
   );
 };

@@ -11,7 +11,7 @@ import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
 import type { ChartType, ICell, INumberShowAs as IGridNumberShowAs } from '../../grid/renderers';
 import { CellType } from '../../grid/renderers';
-import { cellDate2String, convertNextImageUrl } from '../utils';
+import { cellDate2String } from '../utils';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 100 });
 
@@ -278,11 +278,7 @@ const useGenerateGroupCellFn = () => {
               return {
                 ...item,
                 name: title,
-                avatarUrl: convertNextImageUrl({
-                  url: avatarUrl,
-                  w: 64,
-                  q: 100,
-                }),
+                avatarUrl,
               };
             });
 

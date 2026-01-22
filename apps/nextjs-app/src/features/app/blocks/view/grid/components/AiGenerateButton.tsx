@@ -25,6 +25,7 @@ interface IAIButtonProps {
   gridRef: React.RefObject<IGridRef>;
   activeCell?: IActiveCell;
   recordMap: IRecordIndexMap;
+  onGenerate?: () => void;
 }
 
 export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIButtonProps>(
@@ -50,33 +51,19 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
       },
     });
 
-    // Listen for taskProcessing to clear pending state
-    const handleTaskProcessing = useCallback(
-      (_actionKey: string, payload?: { recordId: string; fieldId: string }) => {
-        if (!payload || !pendingCell) return;
-        const { recordId, fieldId } = payload;
-        // Clear pending state when we receive taskProcessing for the same cell
-        if (pendingCell.recordId === recordId && pendingCell.fieldId === fieldId) {
-          setPendingCell(null);
-        }
-      },
-      [pendingCell]
-    );
+    // Clear pending state when any task event is received
+    // Task events don't include cell-specific payload, so we clear pendingCell
+    // when the task enters the queue (star animation takes over) or completes
+    const handleTaskEvent = useCallback(() => {
+      if (!pendingCell) return;
+      setPendingCell(null);
+    }, [pendingCell]);
 
-    // Also clear pending on taskFailed or taskCompleted
-    const handleTaskEnd = useCallback(
-      (_actionKey: string, payload?: { recordId: string; fieldId: string }) => {
-        if (!payload || !pendingCell) return;
-        const { recordId, fieldId } = payload;
-        if (pendingCell.recordId === recordId && pendingCell.fieldId === fieldId) {
-          setPendingCell(null);
-        }
-      },
-      [pendingCell]
+    useTableListener(
+      tableId,
+      ['taskProcessing', 'taskCompleted', 'taskCancelled', 'taskFailed'],
+      handleTaskEvent
     );
-
-    useTableListener(tableId, ['taskProcessing'], handleTaskProcessing);
-    useTableListener(tableId, ['taskFailed', 'taskCompleted'], handleTaskEnd);
 
     // Check if cell is currently being processed by task queue (showing star animation)
     const isCellInTaskQueue = (cell?: IActiveCell) => {
@@ -153,6 +140,9 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
 
     const onGenerate = () => {
       if (!activeCell || isCellInTaskQueue(activeCell) || isLocalPending) return;
+
+      props.onGenerate?.();
+
       // Set local pending state immediately
       setPendingCell({
         recordId: activeCell.recordId,

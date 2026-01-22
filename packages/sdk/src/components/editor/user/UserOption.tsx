@@ -1,6 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage, cn } from '@teable/ui-lib';
 import { useMemo, isValidElement } from 'react';
-import { convertNextImageUrl } from '../../grid-enhancements';
 
 interface IUserTagProps {
   className?: string;
@@ -17,18 +16,7 @@ export const UserOption = (props: IUserTagProps) => {
     }
     return (
       <>
-        <AvatarImage
-          src={
-            avatar
-              ? convertNextImageUrl({
-                  url: avatar as string,
-                  w: 64,
-                  q: 75,
-                })
-              : undefined
-          }
-          alt={name}
-        />
+        <AvatarImage src={(avatar as string) || undefined} alt={name} />
         <AvatarFallback className="text-sm">{name.slice(0, 1)}</AvatarFallback>
       </>
     );

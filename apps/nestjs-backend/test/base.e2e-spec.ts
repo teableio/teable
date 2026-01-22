@@ -20,10 +20,13 @@ import {
   DELETE_BASE,
   DELETE_BASE_COLLABORATOR,
   DELETE_SPACE,
+  DELETE_SPACE_COLLABORATOR,
   deleteBaseCollaborator,
   deleteBaseInvitationLink,
   EMAIL_BASE_INVITATION,
+  EMAIL_SPACE_INVITATION,
   emailBaseInvitation,
+  GET_BASE_ALL,
   GET_BASE_LIST,
   getBaseAll,
   getBaseCollaboratorList,
@@ -496,6 +499,84 @@ describe('OpenAPI BaseController (e2e)', () => {
 
     expect(res.data.find((v) => v.id === baseId1)).toBeUndefined();
     expect(res.data.find((v) => v.id === baseId2)).toBeDefined();
+  });
+
+  describe('Base owner display after member removal', () => {
+    const userAEmail = 'userA-t1606@example.com';
+    const userBEmail = 'userB-t1606@example.com';
+    let userARequest: AxiosInstance;
+    let userBRequest: AxiosInstance;
+    let userAId: string;
+    let userBId: string;
+    let spaceId: string;
+    let baseId: string;
+
+    beforeAll(async () => {
+      // Create user A (space owner) and user B
+      userARequest = await createNewUserAxios({
+        email: userAEmail,
+        password: '12345678',
+      });
+      userBRequest = await createNewUserAxios({
+        email: userBEmail,
+        password: '12345678',
+      });
+
+      // Get user A's ID (space owner)
+      const userAInfo = await userARequest.get<IUserMeVo>(USER_ME);
+      userAId = userAInfo.data.id;
+
+      // Get user B's ID
+      const userBInfo = await userBRequest.get<IUserMeVo>(USER_ME);
+      userBId = userBInfo.data.id;
+
+      // User A creates a space
+      spaceId = (
+        await userARequest.post<ICreateSpaceVo>(CREATE_SPACE, { name: 'T1606 test space' })
+      ).data.id;
+
+      // User A invites user B to the space
+      await userARequest.post(urlBuilder(EMAIL_SPACE_INVITATION, { spaceId }), {
+        emails: [userBEmail],
+        role: Role.Creator,
+      });
+
+      // User B creates a base in the space
+      baseId = (
+        await userBRequest.post<ICreateBaseVo>(CREATE_BASE, {
+          name: 'T1606 test base',
+          spaceId,
+        })
+      ).data.id;
+    });
+
+    afterAll(async () => {
+      // Clean up
+      await userARequest.delete(urlBuilder(DELETE_BASE, { baseId }));
+      await userARequest.delete(urlBuilder(DELETE_SPACE, { spaceId }));
+    });
+
+    it('should fallback to space owner when creator is removed from space', async () => {
+      // Verify user B is the creator before removal (via getBaseAll)
+      const beforeRemoval = await userARequest.get(GET_BASE_ALL);
+      const baseBefore = beforeRemoval.data.find((b: { id: string }) => b.id === baseId);
+      expect(baseBefore).toBeDefined();
+      expect(baseBefore.createdUser).toBeDefined();
+      expect(baseBefore.createdUser.id).toBe(userBId);
+
+      // User A removes user B from the space
+      await userARequest.delete(urlBuilder(DELETE_SPACE_COLLABORATOR, { spaceId }), {
+        params: { principalId: userBId, principalType: PrincipalType.User },
+      });
+
+      // Verify createdUser is now the space owner (user A) after removal
+      const afterRemoval = await userARequest.get(GET_BASE_ALL);
+      const baseAfter = afterRemoval.data.find((b: { id: string }) => b.id === baseId);
+      expect(baseAfter).toBeDefined();
+      // The createdUser should fallback to space owner (user A) since user B is no longer in the space
+      expect(baseAfter.createdUser).toBeDefined();
+      expect(baseAfter.createdUser.id).toBe(userAId);
+    });
   });
 
   describe('Base ERD', () => {

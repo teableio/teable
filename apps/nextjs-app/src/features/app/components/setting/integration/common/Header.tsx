@@ -3,11 +3,15 @@
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 
-export const IntegrationHeader = (props: { detailName?: string; onBack?: () => void }) => {
-  const { detailName, onBack } = props;
+export const IntegrationHeader = (props: {
+  detailName?: string;
+  onBack?: () => void;
+  className?: string;
+}) => {
+  const { detailName, onBack, className } = props;
   const { t } = useTranslation('common');
   return (
-    <div className="flex items-center p-4 text-lg font-medium">
+    <div className={cn('flex items-center text-lg font-medium', className)}>
       <h3
         className={cn('text-lg font-medium', {
           'hover:underline hover:text-foreground cursor-pointer text-muted-foreground': detailName,

@@ -11,7 +11,6 @@ import type { IFieldInstance } from '@teable/sdk/model';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { tableConfig } from '@/features/i18n/table.config';
 import { darkTheme, FieldVariable, FieldVariableNavigation, lightTheme } from './extensions';
 import type { IEditorThemeOptions } from './extensions/theme';
@@ -93,16 +92,23 @@ export const PromptEditor = ({
 
   // Close slash menu when clicking outside
   useEffect(() => {
+    if (!slashMenuOpen) return;
+
     const handleClickOutside = (event: MouseEvent) => {
-      if (slashMenuRef.current && !slashMenuRef.current.contains(event.target as Node)) {
-        setSlashMenuOpen(false);
-        setSearchQuery('');
+      // Check if click is inside the menu
+      if (slashMenuRef.current?.contains(event.target as Node)) {
+        return; // Don't close if clicking inside menu
       }
+      // Check if click is inside the editor
+      if (editorRef.current?.contains(event.target as Node)) {
+        return; // Don't close if clicking inside editor (let doc change handler manage it)
+      }
+      setSlashMenuOpen(false);
+      setSearchQuery('');
     };
 
-    if (slashMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    // Use mousedown to capture before focus changes
+    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [slashMenuOpen]);
 
@@ -113,14 +119,26 @@ export const PromptEditor = ({
       if (!view || slashStartPosRef.current === null) return;
 
       const formatValue = `{${fieldId}}`;
-      const currentPos = view.state.selection.main.head;
-      // Replace from slash position to current position (including any search text)
+      const slashPos = slashStartPosRef.current;
+      const cursorPos = view.state.selection.main.head;
+      const docLength = view.state.doc.length;
+
+      // Validate positions are within document bounds
+      const safeSlashPos = Math.min(Math.max(0, slashPos), docLength);
+      const safeCursorPos = Math.min(Math.max(0, cursorPos), docLength);
+      const safeFrom = Math.min(safeSlashPos, safeCursorPos);
+      const safeTo = Math.max(safeSlashPos, safeCursorPos);
+
+      // Replace "/" and any text typed after it with the field reference
       view.dispatch({
-        changes: { from: slashStartPosRef.current, to: currentPos, insert: formatValue },
-        selection: { anchor: slashStartPosRef.current + formatValue.length },
+        changes: { from: safeFrom, to: safeTo, insert: formatValue },
+        selection: { anchor: safeFrom + formatValue.length },
       });
       view.focus();
 
+      // Update refs immediately
+      slashMenuOpenRef.current = false;
+      slashStartPosRef.current = null;
       setSlashMenuOpen(false);
       setSearchQuery('');
       setSlashStartPos(null);
@@ -134,27 +152,78 @@ export const PromptEditor = ({
     handleSlashFieldSelectRef.current = handleSlashFieldSelect;
   }, [handleSlashFieldSelect]);
 
-  // Get cursor position for slash menu placement (viewport coordinates for portal)
-  const getCursorCoords = useCallback((view: EditorView) => {
-    const pos = view.state.selection.main.head;
-    const coords = view.coordsAtPos(pos);
-    if (!coords) return null;
-
-    // Return viewport coordinates for fixed positioning in portal
-    return {
-      top: coords.bottom,
-      left: coords.left,
-    };
+  // Find the nearest ancestor with a CSS transform (which changes fixed positioning context)
+  const findTransformedAncestor = useCallback((element: HTMLElement | null): HTMLElement | null => {
+    let current = element?.parentElement;
+    while (current) {
+      const style = window.getComputedStyle(current);
+      const transform = style.transform || style.webkitTransform;
+      if (transform && transform !== 'none') {
+        return current;
+      }
+      current = current.parentElement;
+    }
+    return null;
   }, []);
+
+  // Get cursor position for slash menu placement
+  const getCursorCoords = useCallback(
+    (view: EditorView) => {
+      const pos = view.state.selection.main.head;
+      const coords = view.coordsAtPos(pos);
+      if (!coords) return null;
+
+      const menuWidth = 220; // minWidth of the menu
+      const menuPadding = 8; // padding from edge
+
+      // Check if we're inside a transformed container (like a dialog)
+      // If so, we need to adjust coordinates because position:fixed becomes relative to that container
+      const transformedAncestor = findTransformedAncestor(view.dom);
+      if (transformedAncestor) {
+        const ancestorRect = transformedAncestor.getBoundingClientRect();
+        let left = coords.left - ancestorRect.left;
+        const top = coords.bottom - ancestorRect.top;
+
+        // Constrain left position to prevent overflow
+        const maxLeft = ancestorRect.width - menuWidth - menuPadding;
+        if (left > maxLeft) {
+          left = Math.max(menuPadding, maxLeft);
+        }
+
+        return { top, left };
+      }
+
+      // No transform, use viewport coordinates directly
+      let left = coords.left;
+      const maxLeft = window.innerWidth - menuWidth - menuPadding;
+      if (left > maxLeft) {
+        left = Math.max(menuPadding, maxLeft);
+      }
+
+      return {
+        top: coords.bottom,
+        left,
+      };
+    },
+    [findTransformedAncestor]
+  );
 
   const onVariableDelete = useCallback(
     (from: number, to: number) => {
       if (!actualEditorViewRef.current) return;
 
       const view = actualEditorViewRef.current;
+      const docLength = view.state.doc.length;
+
+      // Validate positions are within document bounds
+      const safeFrom = Math.min(Math.max(0, from), docLength);
+      const safeTo = Math.min(Math.max(0, to), docLength);
+
+      if (safeFrom >= safeTo) return; // Nothing to delete
+
       view.dispatch({
-        changes: { from, to, insert: '' },
-        selection: { anchor: from },
+        changes: { from: safeFrom, to: safeTo, insert: '' },
+        selection: { anchor: safeFrom },
       });
       view.focus();
     },
@@ -228,10 +297,9 @@ export const PromptEditor = ({
   const selectedIndexRef = useRef(selectedIndex);
   const filteredFieldsRef = useRef(filteredFields);
 
-  useEffect(() => {
-    slashMenuOpenRef.current = slashMenuOpen;
-    slashStartPosRef.current = slashStartPos;
-  }, [slashMenuOpen, slashStartPos]);
+  // Keep refs in sync with state - update synchronously for immediate access
+  slashMenuOpenRef.current = slashMenuOpen;
+  slashStartPosRef.current = slashStartPos;
 
   useEffect(() => {
     selectedIndexRef.current = selectedIndex;
@@ -258,17 +326,25 @@ export const PromptEditor = ({
       const slashPos = findSlashPosition(text, cursorPos);
 
       if (slashPos >= 0) {
+        // Extract search query from text after "/"
         const query = text.slice(slashPos + 1, cursorPos);
+
         if (!slashMenuOpenRef.current) {
           const coords = getCursorCoords(view);
           if (coords) {
+            // Update refs immediately before state changes
+            slashMenuOpenRef.current = true;
+            slashStartPosRef.current = slashPos;
             setSlashMenuPosition(coords);
             setSlashMenuOpen(true);
             setSlashStartPos(slashPos);
           }
         }
+        // Update search query from text typed after "/"
         setSearchQuery(query);
       } else if (slashMenuOpenRef.current) {
+        slashMenuOpenRef.current = false;
+        slashStartPosRef.current = null;
         setSlashMenuOpen(false);
         setSearchQuery('');
         setSlashStartPos(null);
@@ -355,7 +431,9 @@ export const PromptEditor = ({
           handleSlashMenuUpdate(update.view, newValue, pos);
         }
       }),
-      isLightTheme ? lightTheme(themeOptions) : darkTheme(themeOptions),
+      isLightTheme
+        ? lightTheme(resizable ? { ...themeOptions, height: '100%' } : themeOptions)
+        : darkTheme(resizable ? { ...themeOptions, height: '100%' } : themeOptions),
       EditorView.lineWrapping,
       EditorState.allowMultipleSelections.of(true),
       placeholder ? cmPlaceholder(placeholder) : [],
@@ -370,6 +448,7 @@ export const PromptEditor = ({
     decorateFields,
     handleSlashMenuUpdate,
     isOptionDisabled,
+    resizable,
   ]);
 
   const createEditorView = useCallback(
@@ -409,10 +488,16 @@ export const PromptEditor = ({
 
     const currentDoc = editorView.state.doc.toString();
     if (currentDoc !== value) {
-      const selection = editorView.state.selection;
+      const newDocLength = value.length;
+      const currentSelection = editorView.state.selection.main;
+
+      // Clamp selection to new document bounds to prevent "Selection points outside of document" error
+      const safeAnchor = Math.min(Math.max(0, currentSelection.anchor), newDocLength);
+      const safeHead = Math.min(Math.max(0, currentSelection.head), newDocLength);
+
       editorView.dispatch({
         changes: { from: 0, to: currentDoc.length, insert: value },
-        selection,
+        selection: { anchor: safeAnchor, head: safeHead },
       });
       lastValueRef.current = value;
 
@@ -422,81 +507,93 @@ export const PromptEditor = ({
     }
   }, [value, editorView, decorateFields]);
 
+  const handleContainerClick = useCallback(() => {
+    editorView?.focus();
+  }, [editorView]);
+
+  const isFullHeight = themeOptions?.height === '100%';
+
   const resizeStyles = resizable
     ? {
         resize: 'vertical' as const,
-        overflow: 'auto',
+        overflow: 'hidden',
         minHeight,
         maxHeight,
+        height: minHeight,
       }
-    : undefined;
+    : isFullHeight
+      ? {
+          height: '100%',
+        }
+      : {
+          height: minHeight,
+        };
 
   return (
-    <div className={cn('h-full', className)}>
+    <div className={cn('flex h-full min-h-0 flex-1 flex-col', className)}>
       <div
         ref={editorRef}
-        className={cn('h-full cursor-text rounded-lg border shadow-sm', resizable && 'resize-y')}
+        className={cn(
+          'cursor-text rounded-lg border shadow-sm',
+          resizable ? 'resize-y' : 'min-h-0 flex-1'
+        )}
         style={resizeStyles}
+        onClick={handleContainerClick}
       />
 
-      {/* Slash command menu - rendered in portal for proper z-index */}
-      {slashMenuOpen &&
-        createPortal(
-          <div
-            ref={slashMenuRef}
-            className="fixed z-[9999] overflow-hidden rounded-lg border bg-popover p-1 shadow-md"
-            style={{
-              top: slashMenuPosition.top + 4,
-              left: slashMenuPosition.left,
-              minWidth: 200,
-            }}
-          >
-            <div className="max-h-[200px] overflow-y-auto">
-              {filteredFields.length === 0 ? (
-                <div className="py-4 text-center text-sm text-muted-foreground">
-                  {t('sdk:common.search.empty')}
-                </div>
-              ) : (
-                filteredFields.map((field, index) => {
-                  const { Icon } = fieldStaticGetter(field.type, {
-                    isLookup: field.isLookup,
-                    isConditionalLookup: field.isConditionalLookup,
-                    hasAiConfig: Boolean(field.aiConfig),
-                    deniedReadRecord: !field.canReadFieldRecord,
-                  });
-                  const disabled = isOptionDisabled?.(field) ?? false;
-                  const isSelected = index === selectedIndex;
+      {/* Slash command menu - use fixed positioning to escape overflow:hidden */}
+      {slashMenuOpen && (
+        <div
+          ref={slashMenuRef}
+          className="fixed z-[9999] overflow-hidden rounded-lg border bg-popover p-1 shadow-md"
+          style={{
+            top: slashMenuPosition.top + 4,
+            left: slashMenuPosition.left,
+            minWidth: 220,
+            maxWidth: 320,
+          }}
+        >
+          <div className="max-h-[200px] overflow-y-auto">
+            {filteredFields.length === 0 ? (
+              <div className="py-4 text-center text-sm text-muted-foreground">
+                {t('sdk:common.search.empty')}
+              </div>
+            ) : (
+              filteredFields.map((field, index) => {
+                const { Icon } = fieldStaticGetter(field.type, {
+                  isLookup: field.isLookup,
+                  isConditionalLookup: field.isConditionalLookup,
+                  hasAiConfig: Boolean(field.aiConfig),
+                  deniedReadRecord: !field.canReadFieldRecord,
+                });
+                const disabled = isOptionDisabled?.(field) ?? false;
+                const isSelected = index === selectedIndex;
 
-                  return (
-                    <div
-                      key={field.id}
-                      ref={
-                        isSelected ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined
+                return (
+                  <div
+                    key={field.id}
+                    ref={isSelected ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+                    onClick={() => {
+                      if (!disabled) {
+                        handleSlashFieldSelect(field.id);
                       }
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (!disabled) {
-                          handleSlashFieldSelect(field.id);
-                        }
-                      }}
-                      onMouseEnter={() => setSelectedIndex(index)}
-                      className={cn(
-                        'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
-                        isSelected && 'bg-accent',
-                        disabled && 'cursor-not-allowed opacity-50'
-                      )}
-                    >
-                      <Icon className="size-4 shrink-0" />
-                      <span className="truncate">{field.name}</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>,
-          document.body
-        )}
+                    }}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
+                      isSelected && 'bg-accent',
+                      disabled && 'cursor-not-allowed opacity-50'
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    <span className="truncate">{field.name}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

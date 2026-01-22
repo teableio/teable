@@ -1,3 +1,5 @@
+import { Plus } from '@teable/icons';
+import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
@@ -60,9 +62,32 @@ export const PluginPage = () => {
 
   return (
     <SettingRight
-      title={<SettingRightTitle title={title} onBack={formType ? onBack : undefined} />}
+      header={
+        <SettingRightTitle
+          title={title}
+          onBack={formType ? onBack : undefined}
+          className="h-auto items-center gap-x-2"
+          titleClassName="text-lg font-medium"
+        />
+      }
+      actions={
+        !formType ? (
+          <Button
+            size="xs"
+            onClick={() =>
+              router.push({
+                pathname: router.pathname,
+                query: { form: 'new' },
+              })
+            }
+          >
+            <Plus />
+            {t('plugin:add')}
+          </Button>
+        ) : undefined
+      }
     >
-      <div className="my-3 space-y-1">{FormPage}</div>
+      <div className="space-y-1">{FormPage}</div>
     </SettingRight>
   );
 };

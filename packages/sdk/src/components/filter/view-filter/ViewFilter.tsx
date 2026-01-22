@@ -1,8 +1,8 @@
 import { FieldType, type IFilter } from '@teable/core';
 import { Popover, PopoverTrigger, PopoverContent, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
-import { useState } from 'react';
-import { useDebounce, useLatest, useUpdateEffect } from 'react-use';
+import { useRef, useState } from 'react';
+import { useDebounce, useUpdateEffect } from 'react-use';
 import { useFields, useTableId, useViewId } from '../../../hooks';
 import { ReadOnlyTip } from '../../ReadOnlyTip';
 import type { IFilterBaseComponent } from '../types';
@@ -24,15 +24,21 @@ export const ViewFilter = (props: IViewFilterProps) => {
   const defaultFields = useFields({ withHidden: true, withDenied: true });
   const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
   const { text, isActive, hasWarning } = useFilterNode(filters, fields);
-  const latestValue = useLatest(filters);
-  const [filter, setFilter] = useState(latestValue.current);
+  const [filter, setFilter] = useState(filters);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
+  // Track local edit version to prevent stale server responses from overwriting local state
+  // This solves the race condition where: user adds item A -> user adds item B -> server responds with A only -> UI flickers
+  const localEditVersionRef = useRef(0);
+  const lastSyncedVersionRef = useRef(0);
+
   useUpdateEffect(() => {
-    if (!isEqual(latestValue.current, filter)) {
-      setFilter(latestValue.current);
+    // Only accept server updates if no local edits are pending
+    // This prevents stale server responses from overwriting optimistic updates
+    if (localEditVersionRef.current === lastSyncedVersionRef.current && !isEqual(filters, filter)) {
+      setFilter(filters);
     }
-  }, [latestValue.current]);
+  }, [filters]);
 
   const viewId = useViewId();
   const tableId = useTableId();
@@ -42,13 +48,20 @@ export const ViewFilter = (props: IViewFilterProps) => {
   const finalViewFilterLinkContext = props.viewFilterLinkContext || viewFilterLinkContext;
 
   const onChangeHandler = (value: IFilter) => {
+    // Increment local edit version on every user change
+    localEditVersionRef.current += 1;
     setFilter(value);
   };
 
   useDebounce(
     () => {
-      if (!isEqual(filter, latestValue.current)) {
+      if (!isEqual(filter, filters)) {
+        // Capture current version before sending to server
+        const currentVersion = localEditVersionRef.current;
         onChange(filter);
+        // Mark this version as synced after onChange is called
+        // This allows subsequent server responses to be accepted
+        lastSyncedVersionRef.current = currentVersion;
       }
     },
     300,
