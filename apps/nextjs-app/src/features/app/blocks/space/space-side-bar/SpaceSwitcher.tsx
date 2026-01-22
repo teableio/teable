@@ -35,10 +35,12 @@ import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { spaceConfig } from '@/features/i18n/space.config';
+import {
+  SpaceInnerSettingModal as SpaceInnerSettingModalComponent,
+  SettingTab,
+} from '@overridable/SpaceInnerSettingModal';
 import { Level } from '../../../components/billing/Level';
 import { SpaceAvatar } from '../../../components/space/SpaceAvatar';
-import { SpaceInnerSettingModal as SpaceInnerSettingModalComponent } from '../../space-setting';
-import { SettingTab } from '../../space-setting/SpaceInnerSettingModal';
 import { useSpaceList } from '../hooks';
 import { usePinMap } from '../usePinMap';
 import { StarButton } from './StarButton';

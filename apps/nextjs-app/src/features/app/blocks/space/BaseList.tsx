@@ -124,7 +124,7 @@ export const BaseList = (props: IBaseListProps) => {
       />
       <CollapsibleContent>
         <AnchorContext.Provider value={{ baseId: base.id }}>
-          <BaseNodeProvider>
+          <BaseNodeProvider isRestrictedAuthority={base.restrictedAuthority}>
             <div className="bg-muted">
               <BaseNodeTree
                 mode="view"

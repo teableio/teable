@@ -52,7 +52,7 @@ export class FallbackQueueService implements OnModuleInit {
     });
   }
 
-  private handleListener(
+  private async handleListener(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     wrapper: InstanceWrapper,
     job: Job<unknown>
@@ -63,6 +63,10 @@ export class FallbackQueueService implements OnModuleInit {
       this.logger.warn(`${instance.constructor.name} has no method ${methodName}`);
       return;
     }
-    instance[methodName].call(instance, job);
+    try {
+      await instance[methodName].call(instance, job);
+    } catch (error) {
+      this.logger.error(`Error processing job ${job.name}:`, error);
+    }
   }
 }

@@ -19,7 +19,6 @@ on:
 
 jobs:
   build-push:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         target: [app, db-migrate]
@@ -31,6 +30,11 @@ jobs:
           - target: db-migrate
             file: Dockerfile.db-migrate
             image: teable-db-migrate-community
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout code
@@ -73,9 +77,6 @@ jobs:
           tags: |
             type=sha,format=long
             type=raw,value=latest
-
-      - name: ⚙️ Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: 📦 Build and push
         run: |

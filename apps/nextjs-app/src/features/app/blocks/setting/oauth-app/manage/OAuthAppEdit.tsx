@@ -6,7 +6,6 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Badge, Button, Separator, cn } from '@teable/ui-lib/shadcn';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
@@ -17,16 +16,15 @@ import { OAuthAppForm } from './OAuthAppForm';
 
 interface IOAuthAppEditProps {
   onBack: () => void;
+  clientId: string;
 }
 
 export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
-  const { onBack } = props;
-  const router = useRouter();
+  const { onBack, clientId } = props;
   const formRef = useRef<IOAuthAppFormRef>(null);
   const { t } = useTranslation(oauthAppConfig.i18nNamespaces);
   const dayjs = useLanDayjs();
   const queryClient = useQueryClient();
-  const clientId = router.query.id as string;
   const [updatedForm, setUpdatedForm] = useState<OAuthUpdateRo>();
   const [newSecret, setNewSecret] = useState<GenerateOAuthSecretVo>();
 

@@ -23,22 +23,30 @@
   "type": "module",
   "files": [
     "dist",
-    "tailwind.config.js",
-    "tailwind.shadcnui.config.js",
-    "ui.config.js",
+    "tailwind.config.cjs",
+    "tailwind.shadcnui.config.cjs",
+    "ui.config.cjs",
     "ui.config.d.ts"
   ],
-  "export": {
+  "exports": {
     ".": {
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
     "./ui.config": {
-      "import": "./ui.config.js",
-      "require": "./ui.config.js",
+      "import": "./ui.config.cjs",
+      "require": "./ui.config.cjs",
       "types": "./ui.config.d.ts"
     },
-    "global.shadcn.css": {
+    "./ui.config.cjs": {
+      "import": "./ui.config.cjs",
+      "require": "./ui.config.cjs"
+    },
+    "./global.shadcn.css": {
+      "import": "./dist/global.shadcn.css",
+      "require": "./dist/global.shadcn.css"
+    },
+    "./dist/global.shadcn.css": {
       "import": "./dist/global.shadcn.css",
       "require": "./dist/global.shadcn.css"
     }
@@ -60,8 +68,8 @@
     "update-shadcn-ui": "node  ./scripts/update-shadcn-ui.mjs"
   },
   "peerDependencies": {
-    "@types/react": "^18.2.11",
-    "@types/react-dom": "^18.2.4",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -88,8 +96,8 @@
     "@teable/eslint-config-bases": "workspace:^",
     "@testing-library/react": "14.2.2",
     "@types/node": "22.18.0",
-    "@types/react": "18.2.69",
-    "@types/react-dom": "18.2.22",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
     "autoprefixer": "10.4.19",
     "core-js": "3.36.1",
     "cross-env": "7.0.3",

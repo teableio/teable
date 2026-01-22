@@ -43,6 +43,8 @@ export enum HttpErrorCode {
   USER_LIMIT_EXCEEDED = 'user_limit_exceeded',
   // 429 - The user has reached the limit of the number of requests that can be made in the current instance.
   TOO_MANY_REQUESTS = 'too_many_requests',
+  // 413 - The request payload is too large.
+  PAYLOAD_TOO_LARGE = 'payload_too_large',
   // 500 - An unexpected error occurred.
   INTERNAL_SERVER_ERROR = 'internal_server_error',
   // 503 - database is unavailable or is not in a state that can be queried. Please try again later.
