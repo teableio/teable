@@ -1,8 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 
-// Path to the server.js file
-const serverJsPath = path.join(process.cwd(), '.next/standalone/plugins/server.js');
+// Path to the server.js file - try multiple possible locations for different Next.js versions
+const possiblePaths = [
+  path.join(process.cwd(), '.next/standalone/plugins/server.js'),
+  path.join(process.cwd(), '.next/standalone/community/plugins/server.js'),
+];
+
+const serverJsPath = possiblePaths.find((p) => fs.existsSync(p));
+
+if (!serverJsPath) {
+  console.error('server.js not found in any of the expected locations:', possiblePaths);
+  process.exit(1);
+}
+
+console.log('Found server.js at:', serverJsPath);
 
 // Read the file content
 let serverJs = fs.readFileSync(serverJsPath, 'utf8');
@@ -17,9 +29,10 @@ serverJs = serverJs
 fs.writeFileSync(serverJsPath, serverJs, 'utf8');
 
 // Move the static directory
-// Path for moving the static directory
+// Path for moving the static directory - determine based on which server.js path was found
+const standaloneBase = path.dirname(serverJsPath);
 const staticSrc = path.join(process.cwd(), '.next/static');
-const staticDest = path.join(process.cwd(), '.next/standalone/plugins/.next/static');
+const staticDest = path.join(standaloneBase, '.next/static');
 
 try {
   // Check if the source directory exists
@@ -39,6 +52,5 @@ try {
 } catch (error) {
   console.error('Error moving directory:', error);
 }
-
 
 console.log('File modifications complete.');

@@ -1409,6 +1409,34 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const isJsonHost = hostDbType === DbFieldType.Json;
     const isJsonForeign = foreignDbType === DbFieldType.Json;
 
+    const isUserOrLinkField = (field: FieldCore) =>
+      [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy, FieldType.Link].includes(
+        field.type
+      );
+
+    if (
+      isJsonHost &&
+      isJsonForeign &&
+      isUserOrLinkField(hostField) &&
+      isUserOrLinkField(foreignField)
+    ) {
+      if (hostField.isMultipleCellValue || foreignField.isMultipleCellValue) {
+        return null;
+      }
+      if (this.dbProvider.driver === DriverClient.Pg) {
+        return {
+          hostExpr: `jsonb_extract_path_text(${hostRef}::jsonb, 'id')`,
+          foreignExpr: `jsonb_extract_path_text(${foreignRef}::jsonb, 'id')`,
+        };
+      }
+      if (this.dbProvider.driver === DriverClient.Sqlite) {
+        return {
+          hostExpr: `json_extract(${hostRef}, '$.id')`,
+          foreignExpr: `json_extract(${foreignRef}, '$.id')`,
+        };
+      }
+    }
+
     // Exact type match (e.g., text-text, integer-integer)
     if (hostDbType === foreignDbType) {
       if (isTextHost && isTextForeign) {

@@ -27,6 +27,14 @@ export class JsonCellValueFilterAdapter extends CellValueFilterSqlite {
           this.field.type
         )
       ) {
+        const referenceField = this.getComparableReferenceField(value);
+        if (referenceField.isMultipleCellValue) {
+          const refColumn = "json_extract(json_each.value, '$.id')";
+          builderClient.whereRaw(
+            `exists (select 1 from json_each(${ref}) where lower(${refColumn}) = lower(${jsonColumn}))`
+          );
+          return builderClient;
+        }
         const refColumn = `json_extract(${ref}, '$.id')`;
         builderClient.whereRaw(`lower(${jsonColumn}) = lower(${refColumn})`);
         return builderClient;
@@ -56,6 +64,14 @@ export class JsonCellValueFilterAdapter extends CellValueFilterSqlite {
           this.field.type
         )
       ) {
+        const referenceField = this.getComparableReferenceField(value);
+        if (referenceField.isMultipleCellValue) {
+          const refColumn = "json_extract(json_each.value, '$.id')";
+          builderClient.whereRaw(
+            `not exists (select 1 from json_each(${ref}) where lower(${refColumn}) = lower(${jsonColumn}))`
+          );
+          return builderClient;
+        }
         const refColumn = `json_extract(${ref}, '$.id')`;
         builderClient.whereRaw(`lower(ifnull(${jsonColumn}, '')) != lower(${refColumn})`);
         return builderClient;

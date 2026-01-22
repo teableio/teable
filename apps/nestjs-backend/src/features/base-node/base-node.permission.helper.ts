@@ -1,7 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import type { TableAction, AppAction, AutomationAction } from '@teable/core';
 import { HttpErrorCode } from '@teable/core';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
+import type { IBaseNodePermissionContext } from './types';
 import { BaseNodeAction } from './types';
 
 const map: Record<BaseNodeResourceType, Record<BaseNodeAction, string>> = {
@@ -40,17 +42,21 @@ const map: Record<BaseNodeResourceType, Record<BaseNodeAction, string>> = {
 export const checkBaseNodePermission = (
   node: { resourceType: BaseNodeResourceType; resourceId: string },
   action: BaseNodeAction,
-  permissionContext: {
-    tablePermissionMap?: Record<string, string[]>;
-    permissionSet: Set<string>;
-  }
+  permissionContext: IBaseNodePermissionContext
 ): boolean => {
   const { resourceType } = node;
   const { resourceId } = node;
-  const { tablePermissionMap, permissionSet } = permissionContext;
+  const { tablePermissionMap, permissionSet, appPermissionMap, workflowPermissionMap } =
+    permissionContext;
   const checkAction = map[resourceType][action];
   if (resourceType === BaseNodeResourceType.Table && tablePermissionMap) {
-    return tablePermissionMap[resourceId]?.includes(checkAction) ?? false;
+    return tablePermissionMap[resourceId]?.includes(checkAction as TableAction) ?? false;
+  }
+  if (resourceType === BaseNodeResourceType.App && appPermissionMap) {
+    return appPermissionMap[resourceId]?.includes(checkAction as AppAction) ?? false;
+  }
+  if (resourceType === BaseNodeResourceType.Workflow && workflowPermissionMap) {
+    return workflowPermissionMap[resourceId]?.includes(checkAction as AutomationAction) ?? false;
   }
   return permissionSet.has(checkAction);
 };
@@ -58,10 +64,7 @@ export const checkBaseNodePermission = (
 export const checkBaseNodePermissionCreate = (
   node: { resourceType: BaseNodeResourceType; resourceId: string },
   baseNodePermissions: BaseNodeAction[],
-  permissionContext: {
-    tablePermissionMap?: Record<string, string[]>;
-    permissionSet: Set<string>;
-  }
+  permissionContext: IBaseNodePermissionContext
 ): boolean => {
   const checkCreate = baseNodePermissions.includes(BaseNodeAction.Create);
   if (!checkCreate) {

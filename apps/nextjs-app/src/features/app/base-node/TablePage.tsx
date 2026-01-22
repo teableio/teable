@@ -65,7 +65,7 @@ export const getTableServerSideProps = async (
     if (defaultTableId && defaultViewId) {
       return redirect(`/base/${baseId}/table/${defaultTableId}/${defaultViewId}`);
     }
-    return { notFound: true };
+    return redirect(`/base/${baseId}`);
   }
 
   // check table exists first
@@ -97,11 +97,13 @@ export const getTableServerSideProps = async (
     return { notFound: true };
   }
 
-  // Table exists, get permission
-  await queryClient.fetchQuery({
-    queryKey: ReactQueryKeys.getTablePermission(baseId, tableId),
-    queryFn: () => ssrApi.getTablePermission(baseId, tableId),
-  });
+  const tableIds = tableList.map((t) => t.id);
+  if (tableIds.length === 0) {
+    return redirect(`/base/${baseId}`);
+  }
+  if (!tableIds.includes(tableId)) {
+    return redirect(`/base/${baseId}/table/${tableIds[0]}`);
+  }
 
   // check view exists
   const viewList = await queryClient.fetchQuery({
@@ -125,6 +127,10 @@ export const getTableServerSideProps = async (
   const serverData = await getViewPageServerData(ssrApi, baseId, tableId, viewId);
   if (!serverData) return { notFound: true };
 
+  await queryClient.fetchQuery({
+    queryKey: ReactQueryKeys.getTablePermission(baseId, tableId),
+    queryFn: () => ssrApi.getTablePermission(baseId, tableId),
+  });
   return {
     props: {
       ...serverData,

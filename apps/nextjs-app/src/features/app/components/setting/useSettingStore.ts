@@ -1,15 +1,26 @@
 import { create } from 'zustand';
 
+export enum SettingTab {
+  Profile = 'profile',
+  System = 'system',
+  Notifications = 'notifications',
+  Integration = 'integration',
+  PersonalAccessToken = 'personal-access-token',
+  OAuthApp = 'oauth-app',
+  License = 'license',
+  LicensePlan = 'license-plan',
+}
+
 interface ISettingState {
-  tab?: 'profile' | 'system' | 'notifications' | 'integration';
-  setTab: (tab: 'profile' | 'system' | 'notifications' | 'integration') => void;
+  tab?: SettingTab;
+  setTab: (tab: SettingTab) => void;
   open: boolean;
-  setOpen: (open: boolean, tab?: 'profile' | 'system' | 'notifications' | 'integration') => void;
+  setOpen: (open: boolean, tab?: SettingTab) => void;
 }
 
 export const useSettingStore = create<ISettingState>((set) => ({
   open: false,
-  setOpen: (open: boolean, tab?: 'profile' | 'system' | 'notifications' | 'integration') => {
+  setOpen: (open: boolean, tab?: SettingTab) => {
     set((state) => {
       return {
         ...state,
@@ -18,7 +29,7 @@ export const useSettingStore = create<ISettingState>((set) => ({
       };
     });
   },
-  setTab: (tab: 'profile' | 'system' | 'notifications' | 'integration') => {
+  setTab: (tab: SettingTab) => {
     set((state) => {
       return {
         ...state,

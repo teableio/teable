@@ -13,17 +13,18 @@ import { AccessTokenForm } from './form/AccessTokenForm';
 import { AccessTokenFormEdit } from './form/AccessTokenFormEdit';
 
 interface IAccessTokenFormProps {
+  formType?: IFormType;
+  accessTokenId: string;
   onSubmit?: (data: CreateAccessTokenVo | UpdateAccessTokenVo) => void;
   onRefresh?: (token: string) => void;
   onCancel?: () => void;
 }
 
 export const PersonAccessTokenForm = (props: IAccessTokenFormProps) => {
-  const { onSubmit, onCancel, onRefresh } = props;
+  const { formType: propFormType, accessTokenId, onSubmit, onCancel, onRefresh } = props;
   const queryClient = useQueryClient();
   const router = useRouter();
-  const type = router.query.form as IFormType;
-  const accessTokenId = router.query.id as string;
+  const type = propFormType ?? (router.query.form as IFormType);
 
   const { mutate: createAccessTokenMutate, isPending: createAccessTokenLoading } = useMutation({
     mutationFn: createAccessToken,
@@ -57,6 +58,7 @@ export const PersonAccessTokenForm = (props: IAccessTokenFormProps) => {
   if (type === 'edit') {
     return (
       <AccessTokenFormEdit
+        accessTokenId={accessTokenId}
         type="edit"
         onSubmit={updateAccessTokenMutate}
         isLoading={updateAccessTokenLoading}

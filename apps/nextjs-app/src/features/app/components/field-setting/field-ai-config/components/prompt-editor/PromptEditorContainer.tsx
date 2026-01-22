@@ -38,10 +38,16 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
     const view = isDialogVisible ? dialogEditorViewRef.current : mainEditorViewRef.current;
 
     if (view) {
-      const { from, to } = view.state.selection.main;
+      const docLength = view.state.doc.length;
+      const selection = view.state.selection.main;
+
+      // Clamp selection positions to document bounds
+      const safeFrom = Math.min(Math.max(0, selection.from), docLength);
+      const safeTo = Math.min(Math.max(0, selection.to), docLength);
+
       view.dispatch({
-        changes: { from, to, insert: formatValue },
-        selection: { anchor: from + formatValue.length },
+        changes: { from: safeFrom, to: safeTo, insert: formatValue },
+        selection: { anchor: safeFrom + formatValue.length },
       });
       view.focus();
     }
@@ -95,15 +101,15 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
       </div>
 
       <Dialog open={isDialogVisible} onOpenChange={setDialogVisible}>
-        <DialogContent className="flex max-w-3xl flex-col" closeable={false}>
+        <DialogContent className="flex max-w-3xl flex-col overflow-hidden" closeable={false}>
           <DialogHeader className="flex-none flex-row items-center justify-between">
             <DialogTitle>{label}</DialogTitle>
             {fieldSelector}
           </DialogHeader>
-          <div className="flex-1">
+          <div className="flex h-[50vh] max-h-[80vh] min-h-[400px] flex-col overflow-hidden">
             <PromptEditor
               {...props}
-              themeOptions={{ height: '280px' }}
+              themeOptions={{ height: '100%' }}
               editorViewRef={dialogEditorViewRef}
             />
           </div>
