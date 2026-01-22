@@ -61,7 +61,7 @@ RUN set -ex; \
 # Stage 3: Post Builder                                          #
 ##################################################################
 
-FROM builder as post-builder
+FROM builder AS post-builder
 
 ENV NODE_ENV=production
 
@@ -89,6 +89,8 @@ RUN set -ex; \
 # Stage 4: Extract a minimal image from the build                #
 ##################################################################
 
+FROM tianon/gosu:1.19 AS gosu
+
 FROM node:${NODE_VERSION}-bookworm-slim AS runner
 
 ENV TZ=UTC \
@@ -104,40 +106,16 @@ RUN set -ex; \
         apt-get update; \
         apt-get install -y --no-install-recommends \
                 curl \
+                ca-certificates \
                 openssl \
+                netcat-traditional \
+                wget \
     	; \
-    	rm -rf /var/lib/apt/lists/*
+    	rm -rf /var/lib/apt/lists/*; \
+        ln -s /usr/local/lib/node_modules /node_modules
 
-# install gosu for a better su+exec command
-# https://github.com/tianon/gosu/blob/master/INSTALL.md
-ENV GOSU_VERSION 1.17
-RUN set -eux; \
-# save list of currently installed packages for later so we can clean up
-        savedAptMark="$(apt-mark showmanual)"; \
-        apt-get update; \
-        apt-get install -y --no-install-recommends ca-certificates gnupg wget; \
-        rm -rf /var/lib/apt/lists/*; \
-        \
-        dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"; \
-        wget -nv -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"; \
-        wget -nv -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc"; \
-        \
-# verify the signature
-        export GNUPGHOME="$(mktemp -d)"; \
-        gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4; \
-        gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu; \
-        gpgconf --kill all; \
-        rm -rf "$GNUPGHOME" /usr/local/bin/gosu.asc; \
-        \
-# clean up fetch dependencies
-        apt-mark auto '.*' > /dev/null; \
-        [ -z "$savedAptMark" ] || apt-mark manual $savedAptMark; \
-        apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-        \
-        chmod +x /usr/local/bin/gosu; \
-# verify that the binary works
-        gosu --version; \
-        gosu nobody true
+# gosu for better su+exec command (multi-stage copy from official image)
+COPY --from=gosu /gosu /usr/local/bin/gosu
 
 WORKDIR /app
 
@@ -178,19 +156,6 @@ COPY --chown=nodejs:nodejs scripts/db-migrate.mjs ./scripts/db-migrate.mjs
 COPY --chown=nodejs:nodejs scripts/wait-for ./scripts/wait-for
 
 ENV BUILD_VERSION=$BUILD_VERSION
-
-RUN set -ex; \
-        npm install -g zx; \
-        apt-get update; \
-        apt-get install -y --no-install-recommends \
-                curl \
-                ca-certificates \
-                openssl \
-                netcat-traditional \
-                wget \
-    	; \
-    	rm -rf /var/lib/apt/lists/*; \
-        ln -s /usr/local/lib/node_modules /node_modules
 
 EXPOSE ${PORT}
 
