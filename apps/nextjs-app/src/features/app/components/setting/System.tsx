@@ -5,6 +5,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { LanguagePicker } from '../LanguagePicker';
 import { InteractionSelect } from './InteractionSelect';
+import { SettingTabHeader, SettingTabShell } from './SettingTabShell';
 
 export const System: React.FC = () => {
   const { t } = useTranslation('common');
@@ -22,94 +23,93 @@ export const System: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-full flex-col gap-6 border-l px-8 py-4">
-      <div>
-        <h3 className="text-lg font-medium">{t('settings.setting.title')}</h3>
-      </div>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-medium text-foreground">{t('settings.setting.theme')}</h3>
-          <p className="text-xs text-muted-foreground">{t('settings.setting.themeDesc')}</p>
+    <SettingTabShell header={<SettingTabHeader title={t('settings.setting.title')} />}>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-sm font-medium text-foreground">{t('settings.setting.theme')}</h3>
+            <p className="text-xs text-muted-foreground">{t('settings.setting.themeDesc')}</p>
+          </div>
+          <RadioGroup
+            className="grid max-w-screen-md grid-cols-3 gap-4 sm:gap-8"
+            defaultValue={theme}
+            onValueChange={(value) => {
+              setTheme(value);
+            }}
+          >
+            <div>
+              <RadioGroupItem value="light" id="light" className="peer sr-only" />
+              <Label
+                htmlFor="light"
+                className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+              >
+                <Image
+                  className="overflow-hidden rounded-md border"
+                  src={'/images/theme/theme-light.png'}
+                  alt=""
+                  width={198}
+                  height={132}
+                />
+              </Label>
+              <span className="mt-1 block w-full text-center text-sm font-normal">
+                {t('settings.setting.light')}
+              </span>
+            </div>
+            <div>
+              <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
+              <Label
+                htmlFor="dark"
+                className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+              >
+                <Image
+                  className="overflow-hidden rounded-md border"
+                  src={'/images/theme/theme-dark.png'}
+                  alt=""
+                  width={198}
+                  height={132}
+                />
+              </Label>
+              <span className="mt-1 block w-full text-center text-sm font-normal">
+                {t('settings.setting.dark')}
+              </span>
+            </div>
+            <div>
+              <RadioGroupItem value="system" id="system" className="peer sr-only" />
+              <Label
+                htmlFor="system"
+                className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+              >
+                <Image
+                  className="overflow-hidden rounded-md border"
+                  src={'/images/theme/theme-system.png'}
+                  alt=""
+                  width={198}
+                  height={132}
+                />
+              </Label>
+              <span className="mt-1 block w-full text-center text-sm font-normal">
+                {t('settings.setting.system')}
+              </span>
+            </div>
+          </RadioGroup>
         </div>
-        <RadioGroup
-          className="grid max-w-screen-md grid-cols-3 gap-4 sm:gap-8"
-          defaultValue={theme}
-          onValueChange={(value) => {
-            setTheme(value);
-          }}
-        >
-          <div>
-            <RadioGroupItem value="light" id="light" className="peer sr-only" />
-            <Label
-              htmlFor="light"
-              className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
-            >
-              <Image
-                className="overflow-hidden rounded-md border"
-                src={'/images/theme/theme-light.png'}
-                alt=""
-                width={198}
-                height={132}
-              />
-            </Label>
-            <span className="mt-1 block w-full text-center text-sm font-normal">
-              {t('settings.setting.light')}
-            </span>
-          </div>
-          <div>
-            <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
-            <Label
-              htmlFor="dark"
-              className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
-            >
-              <Image
-                className="overflow-hidden rounded-md border"
-                src={'/images/theme/theme-dark.png'}
-                alt=""
-                width={198}
-                height={132}
-              />
-            </Label>
-            <span className="mt-1 block w-full text-center text-sm font-normal">
-              {t('settings.setting.dark')}
-            </span>
-          </div>
-          <div>
-            <RadioGroupItem value="system" id="system" className="peer sr-only" />
-            <Label
-              htmlFor="system"
-              className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
-            >
-              <Image
-                className="overflow-hidden rounded-md border"
-                src={'/images/theme/theme-system.png'}
-                alt=""
-                width={198}
-                height={132}
-              />
-            </Label>
-            <span className="mt-1 block w-full text-center text-sm font-normal">
-              {t('settings.setting.system')}
-            </span>
-          </div>
-        </RadioGroup>
-      </div>
-      <div>
-        <h3 className="text-sm font-medium text-foreground">{t('settings.setting.language')}</h3>
-        <div className="pt-2">
-          <LanguagePicker />
-        </div>
-      </div>
-      {isSupportsMultiplePointers && (
         <div>
-          <h3 className="text-sm font-medium text-foreground">
-            {t('settings.setting.interactionMode')}
-          </h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.setting.language')}</h3>
           <div className="pt-2">
-            <InteractionSelect />
+            <LanguagePicker />
           </div>
         </div>
-      )}
-    </div>
+        {isSupportsMultiplePointers && (
+          <div>
+            <h3 className="text-sm font-medium text-foreground">
+              {t('settings.setting.interactionMode')}
+            </h3>
+            <div className="pt-2">
+              <InteractionSelect />
+            </div>
+          </div>
+        )}
+      </div>
+    </SettingTabShell>
   );
 };

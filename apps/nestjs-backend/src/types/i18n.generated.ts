@@ -252,6 +252,8 @@ export type I18nTranslations = {
             "backToSpace": string;
             "switchBase": string;
             "retry": string;
+            "collapse": string;
+            "viewDetails": string;
         };
         "quickAction": {
             "title": string;
@@ -394,6 +396,7 @@ export type I18nTranslations = {
                 "mouseMode": string;
                 "touchMode": string;
                 "systemMode": string;
+                "buySelfHostedLicense": string;
             };
             "nav": {
                 "settings": string;
@@ -1505,6 +1508,10 @@ export type I18nTranslations = {
                     "rejected": string;
                 };
             };
+        };
+        "chat": {
+            "serverError": string;
+            "serverErrorHint": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -4726,6 +4733,9 @@ export type I18nTranslations = {
             "sharedBase": string;
         };
         "moreScopes": string;
+        "list": {
+            "description": string;
+        };
         "empty": {
             "list": string;
             "access": string;
@@ -4733,6 +4743,9 @@ export type I18nTranslations = {
         "deleteConfirm": {
             "title": string;
             "description": string;
+        };
+        "help": {
+            "link": string;
         };
         "noAccessConfirm": {
             "title": string;

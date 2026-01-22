@@ -1,5 +1,10 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createSecureHeaders } from 'next-secure-headers';
-import { UniverPlugin } from '@univerjs/webpack-plugin'
+import { UniverPlugin } from '@univerjs/webpack-plugin';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const workspaceRoot = path.resolve(__dirname, '..', '..');
 
 const isProd = process.env.NODE_ENV === 'production';
 const basePath = '/plugin';
@@ -8,13 +13,17 @@ const basePath = '/plugin';
 const nextConfig = {
   basePath,
   output: 'standalone',
-  plugins: [
-   new UniverPlugin()
-  ],
+  turbopack: {
+    root: workspaceRoot,
+  },
+  // Webpack configuration (use --webpack flag to enable)
+  webpack: (config) => {
+    config.plugins.push(new UniverPlugin());
+    return config;
+  },
   async headers() {
     return [
       {
-        // All page routes, not the api ones
         source: '/:path((?!api).*)*',
         headers: [
           ...createSecureHeaders({

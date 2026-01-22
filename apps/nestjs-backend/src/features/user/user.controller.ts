@@ -35,13 +35,25 @@ export class UserController {
     return this.userService.updateUserName(userId, updateUserNameRo.name);
   }
 
+  // Supported avatar image types (gif not supported for cropping)
+  private static readonly avatarAllowedMimetypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/jpg',
+  ];
+
   @UseInterceptors(
     FileInterceptor('file', {
       fileFilter: (_req, file, callback) => {
-        if (file.mimetype.startsWith('image/')) {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+        if (allowedTypes.includes(file.mimetype)) {
           callback(null, true);
         } else {
-          callback(new BadRequestException('Invalid file type'), false);
+          callback(
+            new BadRequestException('Unsupported file type. Only JPEG, PNG, and WebP are allowed.'),
+            false
+          );
         }
       },
       limits: {

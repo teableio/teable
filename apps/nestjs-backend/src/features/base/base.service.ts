@@ -26,8 +26,9 @@ import {
   BaseNodeResourceType,
   BaseDuplicateMode,
   UploadType,
+  PrincipalType,
 } from '@teable/openapi';
-import { keyBy, isNumber, pick } from 'lodash';
+import { keyBy, isNumber, pick, uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -153,43 +154,55 @@ export class BaseService {
       },
       where: {
         deletedTime: null,
-        OR: [
-          {
-            id: {
-              in: baseIds,
-            },
-          },
-          {
-            spaceId: {
-              in: spaceIds,
-            },
-            space: {
-              deletedTime: null,
-            },
-          },
-        ],
+        OR: [{ id: { in: baseIds } }, { spaceId: { in: spaceIds }, space: { deletedTime: null } }],
       },
       orderBy: [{ spaceId: 'asc' }, { order: 'asc' }],
     });
 
-    const createdUserList = await this.prismaService.user.findMany({
-      where: { id: { in: baseList.map((base) => base.createdBy) } },
+    if (!baseList.length) {
+      return [];
+    }
+
+    const baseSpaceIds = uniq(baseList.map((base) => base.spaceId));
+    const spaceCollaborators = await this.prismaService.collaborator.findMany({
+      where: {
+        resourceType: CollaboratorType.Space,
+        resourceId: { in: baseSpaceIds },
+        principalType: PrincipalType.User,
+      },
+      select: { resourceId: true, principalId: true, roleName: true },
+    });
+
+    const validCreatorSet = new Set(
+      spaceCollaborators.map((c) => `${c.resourceId}:${c.principalId}`)
+    );
+    const spaceOwnerMap = new Map(
+      spaceCollaborators
+        .filter((c) => c.roleName === Role.Owner)
+        .map((c) => [c.resourceId, c.principalId])
+    );
+    const allUserIds = uniq([...baseList.map((base) => base.createdBy), ...spaceOwnerMap.values()]);
+
+    const userList = await this.prismaService.user.findMany({
+      where: { id: { in: allUserIds } },
       select: { id: true, name: true, avatar: true },
     });
-    const createdUserMap = keyBy(createdUserList, 'id');
+    const userMap = keyBy(userList, 'id');
 
     return baseList.map((base) => {
-      const role = roleMap[base.id] || roleMap[base.spaceId];
-      const createdUser = createdUserMap[base.createdBy];
+      const isCreatorInSpace = validCreatorSet.has(`${base.spaceId}:${base.createdBy}`);
+      const displayUserId = isCreatorInSpace ? base.createdBy : spaceOwnerMap.get(base.spaceId);
+      const displayUser = displayUserId ? userMap[displayUserId] : undefined;
+
       return {
         ...base,
-        role,
+        role: roleMap[base.id] || roleMap[base.spaceId],
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
-        createdUser: createdUser
+        createdUser: displayUser
           ? {
-              ...createdUser,
-              avatar: createdUser.avatar && getPublicFullStorageUrl(createdUser.avatar),
+              ...displayUser,
+              avatar: displayUser.avatar && getPublicFullStorageUrl(displayUser.avatar),
             }
           : undefined,
       };

@@ -179,8 +179,6 @@ spec:
             - name: BACKEND_CACHE_REDIS_URI
               value: >-
                 redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST).ns-__NAMESPACE__.svc:$(REDIS_PORT)/1
-            - name: NEXT_ENV_IMAGES_ALL_REMOTE
-              value: 'true'
           resources:
             requests:
               cpu: 200m
