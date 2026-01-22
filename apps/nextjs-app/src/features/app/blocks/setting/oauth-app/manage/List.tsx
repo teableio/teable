@@ -1,20 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Settings, Trash2 } from '@teable/icons';
+import { Settings, Trash2 } from '@teable/icons';
 import type { OAuthGetListVo } from '@teable/openapi';
 import { oauthGetList, oauthDelete } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { Trans, useTranslation } from 'next-i18next';
+import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
 
-export const OAuthAppList = () => {
-  const router = useRouter();
+interface IOAuthAppListProps {
+  onEdit: (clientId: string) => void;
+}
+
+export const OAuthAppList = (props: IOAuthAppListProps) => {
+  const { onEdit } = props;
   const { t } = useTranslation(oauthAppConfig.i18nNamespaces);
   const queryClient = useQueryClient();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -45,33 +47,7 @@ export const OAuthAppList = () => {
 
   return (
     <div>
-      <div className="flex justify-between">
-        <div className="text-sm font-normal text-muted-foreground">
-          <Trans
-            ns="oauth"
-            i18nKey="title.description"
-            components={{
-              a: (
-                <Link
-                  href={t('oauth:help.link')}
-                  className="text-violet-500 underline underline-offset-4"
-                  target="_blank"
-                />
-              ),
-            }}
-          />
-        </div>
-        <Button
-          size={'xs'}
-          onClick={() => {
-            router.push({ pathname: router.pathname, query: { form: 'new' } });
-          }}
-        >
-          <Plus />
-          {t('oauth:add')}
-        </Button>
-      </div>
-      <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3">
         {oauthApps?.map((app) => (
           <Card key={app.clientId} className="group shadow-none hover:shadow-md">
             <CardContent className="relative flex size-full items-center gap-5 px-2 py-3">
@@ -110,10 +86,7 @@ export const OAuthAppList = () => {
                   className="h-5 p-0.5"
                   variant={'ghost'}
                   onClick={() => {
-                    router.push({
-                      pathname: router.pathname,
-                      query: { form: 'edit', id: app.clientId },
-                    });
+                    onEdit(app.clientId);
                   }}
                 >
                   <Settings />

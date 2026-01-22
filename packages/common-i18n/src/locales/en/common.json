@@ -63,7 +63,9 @@
     "login": "Login",
     "useTemplate": "Use template",
     "backToSpace": "Back to space",
-    "switchBase": "Switch base"
+    "switchBase": "Switch base",
+    "collapse": "Collapse",
+    "viewDetails": "View details"
   },
   "quickAction": {
     "title": "Quick actions...",
@@ -271,7 +273,8 @@
       "interactionMode": "Interaction mode",
       "mouseMode": "Cursor mode",
       "touchMode": "Touch mode",
-      "systemMode": "Follow system"
+      "systemMode": "Follow system",
+      "buySelfHostedLicense": "Buy self-hosted license"
     },
     "nav": {
       "settings": "Settings",
@@ -1291,5 +1294,9 @@
         "rejected": "Rejected"
       }
     }
+  },
+  "chat": {
+    "serverError": "Server error occurred",
+    "serverErrorHint": "Please start a new conversation and try again."
   }
 }

@@ -316,3 +316,49 @@ export const findAdjacentNonFolderNode = (
 
   return null;
 };
+
+export const hasChildrenNode = (parentId: string, nodes: IBaseNodeVo[]): boolean => {
+  const parentNode = nodes.find((node) => node.id === parentId);
+  if (!parentNode) return false;
+
+  // Check if parent has any children
+  if (!parentNode.children || parentNode.children.length === 0) {
+    return false;
+  }
+
+  // Check each child node
+  for (const child of parentNode.children) {
+    const childNode = nodes.find((node) => node.id === child.id);
+    if (!childNode) continue;
+
+    // If child is not a folder, we found a non-folder node
+    if (childNode.resourceType !== BaseNodeResourceType.Folder) {
+      return true;
+    }
+
+    // If child is a folder, recursively check if it has non-folder children
+    if (hasChildrenNode(childNode.id, nodes)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+export const getChildrenNodes = (parentId: string, nodes: IBaseNodeVo[]): IBaseNodeVo[] => {
+  const parentNode = nodes.find((node) => node.id === parentId);
+  if (!parentNode) return [];
+  const children = [];
+  for (const child of parentNode.children ?? []) {
+    const childNode = nodes.find((node) => node.id === child.id);
+    if (!childNode) continue;
+    if (childNode.children && childNode.children.length > 0) {
+      children.push(...getChildrenNodes(childNode.id, nodes));
+    }
+    if (childNode.resourceType === BaseNodeResourceType.Folder) {
+      continue;
+    }
+    children.push(childNode);
+  }
+  return children;
+};

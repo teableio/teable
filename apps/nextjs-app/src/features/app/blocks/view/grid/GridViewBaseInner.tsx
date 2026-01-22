@@ -1369,6 +1369,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           gridRef={gridRef}
           activeCell={activeCell}
           recordMap={recordMap}
+          onGenerate={() => {
+            if (activeCell) {
+              clearCellError(activeCell.recordId, activeCell.fieldId);
+            }
+          }}
         />
       )}
       {activeCell && (
