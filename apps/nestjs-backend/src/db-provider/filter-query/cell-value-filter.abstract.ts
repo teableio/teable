@@ -387,7 +387,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
     const { mode, numberOfDays, exactDate } = filterValueByDate;
     const {
-      formatting: { timeZone, date: dateFormat, time: timeFormat },
+      formatting: { timeZone, date: dateFormat },
     } = dateFieldOptions;
 
     const dateUtil = new DateUtil(timeZone);
@@ -434,12 +434,6 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       }
 
       const parsedDate = dateUtil.date(exactDate);
-
-      // When timeFormat is set (not 'None'), preserve the exact time precision
-      // This fixes the bug where minute-level filtering doesn't work
-      if (timeFormat && timeFormat !== 'None') {
-        return [parsedDate, parsedDate];
-      }
 
       switch (dateFormat) {
         case DateFormattingPreset.Y:

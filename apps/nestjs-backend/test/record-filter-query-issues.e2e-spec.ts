@@ -2,17 +2,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFilter } from '@teable/core';
-import {
-  and,
-  DateFormattingPreset,
-  exactFormatDate,
-  FieldKeyType,
-  FieldType,
-  isAfter,
-  TimeFormatting,
-} from '@teable/core';
+import { and, FieldKeyType, FieldType, is } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { getRecords as apiGetRecords } from '@teable/openapi';
+import { createField, getRecords as apiGetRecords } from '@teable/openapi';
 import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Record-Filter-Query Issues (e2e)', () => {
@@ -37,68 +29,131 @@ describe('OpenAPI Record-Filter-Query Issues (e2e)', () => {
     ).data;
   }
 
-  describe('filter date field with minute precision', () => {
-    let table: ITableFullVo;
-    const tz = 'Asia/Singapore';
-    const dateFieldName = 'dateFieldWithTime';
+  // T1613: Boolean field filter not working correctly for formula fields
+  describe('T1613: filter boolean field with is operator', () => {
+    describe('boolean formula field', () => {
+      let table: ITableFullVo;
+      const numberFieldName = 'Number';
 
-    beforeAll(async () => {
-      table = await createTable(baseId, {
-        name: 'date_minute_precision',
-        fields: [
-          {
-            name: dateFieldName,
-            type: FieldType.Date,
-            options: {
-              formatting: {
-                date: DateFormattingPreset.ISO,
-                time: TimeFormatting.Hour24,
-                timeZone: tz,
-              },
+      beforeAll(async () => {
+        table = await createTable(baseId, {
+          name: 'boolean_formula_filter_test',
+          fields: [
+            {
+              name: numberFieldName,
+              type: FieldType.Number,
+              options: { formatting: { type: 'decimal', precision: 0 } },
             },
-          },
-        ],
-        records: [
-          // Record with time 23:37:00 (stored as UTC: 15:37:00 for Asia/Singapore +8)
-          { fields: { [dateFieldName]: '2026-01-08T15:37:00.000Z' } },
-          // Record with time 23:35:00
-          { fields: { [dateFieldName]: '2026-01-08T15:35:00.000Z' } },
-          // Record with time 23:38:00
-          { fields: { [dateFieldName]: '2026-01-08T15:38:00.000Z' } },
-        ],
+          ],
+          records: [
+            { fields: { [numberFieldName]: 5 } }, // formula = true
+            { fields: { [numberFieldName]: 10 } }, // formula = true
+            { fields: { [numberFieldName]: 1 } }, // formula = false
+            { fields: { [numberFieldName]: 2 } }, // formula = false
+            { fields: { [numberFieldName]: null } }, // formula = null
+            { fields: {} }, // formula = null
+          ],
+        });
+
+        const numberFieldId = table.fields.find((f) => f.name === numberFieldName)!.id;
+        const formulaFieldRes = await createField(table.id, {
+          name: 'BooleanFormula',
+          type: FieldType.Formula,
+          options: { expression: `{${numberFieldId}} > 3` },
+        });
+        table.fields.push(formulaFieldRes.data);
+      });
+
+      afterAll(async () => {
+        await permanentDeleteTable(baseId, table.id);
+      });
+
+      it('should filter is: true correctly', async () => {
+        const formulaFieldId = table.fields.find((f) => f.name === 'BooleanFormula')!.id;
+        const filter: IFilter = {
+          filterSet: [{ fieldId: formulaFieldId, operator: is.value, value: true }],
+          conjunction: and.value,
+        };
+
+        const { records } = await getFilterRecord(table.id, table.views[0].id, filter);
+
+        expect(records.length).toBe(2);
+        for (const record of records) {
+          expect(record.fields[formulaFieldId]).toBe(true);
+        }
+      });
+
+      it('should filter is: false correctly (including null)', async () => {
+        const formulaFieldId = table.fields.find((f) => f.name === 'BooleanFormula')!.id;
+        const filter: IFilter = {
+          filterSet: [{ fieldId: formulaFieldId, operator: is.value, value: null }],
+          conjunction: and.value,
+        };
+
+        const { records } = await getFilterRecord(table.id, table.views[0].id, filter);
+
+        expect(records.length).toBe(4);
+        for (const record of records) {
+          const value = record.fields[formulaFieldId];
+          expect(value === false || value === undefined || value === null).toBe(true);
+        }
       });
     });
 
-    afterAll(async () => {
-      await permanentDeleteTable(baseId, table.id);
-    });
+    describe('checkbox field (regression)', () => {
+      let table: ITableFullVo;
+      const checkboxFieldName = 'Checkbox';
 
-    it('should filter records with isAfter operator using minute precision (exactFormatDate)', async () => {
-      const tableId = table.id;
-      const viewId = table.views[0].id;
-      const fieldId = table.fields[0].id;
+      beforeAll(async () => {
+        table = await createTable(baseId, {
+          name: 'checkbox_filter_test',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            { name: checkboxFieldName, type: FieldType.Checkbox },
+          ],
+          records: [
+            { fields: { Title: 'A', [checkboxFieldName]: true } },
+            { fields: { Title: 'B', [checkboxFieldName]: true } },
+            { fields: { Title: 'C', [checkboxFieldName]: null } },
+            { fields: { Title: 'D' } },
+          ],
+        });
+      });
 
-      // Filter: isAfter 2026-01-08 23:36 (in Asia/Singapore timezone)
-      // Expected: should return records with time 23:37 and 23:38, but NOT 23:35
-      const filter: IFilter = {
-        filterSet: [
-          {
-            fieldId: fieldId,
-            operator: isAfter.value,
-            value: {
-              mode: exactFormatDate.value,
-              // 23:36:00 in Asia/Singapore = 15:36:00 UTC
-              exactDate: '2026-01-08T15:36:00.000Z',
-              timeZone: tz,
-            },
-          },
-        ],
-        conjunction: and.value,
-      };
+      afterAll(async () => {
+        await permanentDeleteTable(baseId, table.id);
+      });
 
-      const { records } = await getFilterRecord(tableId, viewId!, filter);
-      // Should find 2 records: 23:37 and 23:38
-      expect(records.length).toBe(2);
+      it('should filter is: true correctly', async () => {
+        const checkboxFieldId = table.fields.find((f) => f.name === checkboxFieldName)!.id;
+        const filter: IFilter = {
+          filterSet: [{ fieldId: checkboxFieldId, operator: is.value, value: true }],
+          conjunction: and.value,
+        };
+
+        const { records } = await getFilterRecord(table.id, table.views[0].id, filter);
+
+        expect(records.length).toBe(2);
+        for (const record of records) {
+          expect(record.fields[checkboxFieldId]).toBe(true);
+        }
+      });
+
+      it('should filter is: false correctly', async () => {
+        const checkboxFieldId = table.fields.find((f) => f.name === checkboxFieldName)!.id;
+        const filter: IFilter = {
+          filterSet: [{ fieldId: checkboxFieldId, operator: is.value, value: null }],
+          conjunction: and.value,
+        };
+
+        const { records } = await getFilterRecord(table.id, table.views[0].id, filter);
+
+        expect(records.length).toBe(2);
+        for (const record of records) {
+          const value = record.fields[checkboxFieldId];
+          expect(value === null || value === undefined).toBe(true);
+        }
+      });
     });
   });
 });
