@@ -4,6 +4,7 @@ import type { IFieldRo, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core
 import {
   DriverClient,
   FieldAIActionType,
+  FieldKeyType,
   FieldType,
   Relationship,
   Role,
@@ -20,6 +21,7 @@ import {
   createPluginPanel,
   createSpace,
   deleteBase,
+  deleteRecords,
   deleteSpace,
   duplicateBase,
   EMAIL_SPACE_INVITATION,
@@ -735,7 +737,14 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
   it('should duplicate base with bidirectional link field', async () => {
     const table1 = await createTable(base.id, { name: 'table1' });
     const table2 = await createTable(base.id, { name: 'table2' });
-
+    await deleteRecords(
+      table1.id,
+      table1.records.map((r) => r.id)
+    );
+    await deleteRecords(
+      table2.id,
+      table2.records.map((r) => r.id)
+    );
     // Create bidirectional link field with dbFieldName 'link'
     const linkFieldRo: IFieldRo = {
       name: 'link field',
@@ -758,34 +767,31 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       ...linkFieldRo,
       notNull: true,
     });
-
+    await createRecords(table2.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [{ fields: {} }, { fields: {} }, { fields: {} }],
+    });
     // Get records
-    const table1Records = await getRecords(table1.id);
     const table2Records = await getRecords(table2.id);
-
-    // Fill all link relationships
-    await updateRecord(table1.id, table1Records.records[0].id, {
-      record: {
-        fields: {
-          [linkField.name]: [{ id: table2Records.records[0].id }],
+    await createRecords(table1.id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [
+        {
+          fields: {
+            [linkField.name]: [{ id: table2Records.records[0].id }],
+          },
         },
-      },
-    });
-
-    await updateRecord(table1.id, table1Records.records[1].id, {
-      record: {
-        fields: {
-          [linkField.name]: [{ id: table2Records.records[1].id }],
+        {
+          fields: {
+            [linkField.name]: [{ id: table2Records.records[1].id }],
+          },
         },
-      },
-    });
-
-    await updateRecord(table1.id, table1Records.records[2].id, {
-      record: {
-        fields: {
-          [linkField.name]: [{ id: table2Records.records[2].id }],
+        {
+          fields: {
+            [linkField.name]: [{ id: table2Records.records[2].id }],
+          },
         },
-      },
+      ],
     });
 
     // Duplicate base with records
