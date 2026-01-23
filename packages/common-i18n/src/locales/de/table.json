@@ -706,7 +706,8 @@
       "timeCostUnit": "s",
       "timeCostDescription": "Generierungszeit: {{timeCost}}s",
       "creditDescription": "{{credits}} Credits verbraucht",
-      "tokenDescription": "Tokens verwendet: {{tokens}}"
+      "tokenDescription": "Tokens verwendet: {{tokens}}",
+      "taskCompleted": "Aufgabe abgeschlossen"
     }
   }
 }

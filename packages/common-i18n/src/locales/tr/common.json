@@ -62,7 +62,8 @@
     "switchBase": "Veritabanı Değiştir",
     "continue": "Devam Et",
     "export": "Dışa Aktar",
-    "import": "İçe Aktar"
+    "import": "İçe Aktar",
+    "getMore": "Daha fazla al"
   },
   "quickAction": {
     "title": "Hızlı İşlemler...",

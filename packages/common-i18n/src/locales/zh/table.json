@@ -1218,7 +1218,8 @@
       "tokenDetails": "Token 详情",
       "cachedInput": "缓存输入 (节省90%)",
       "cacheWrite": "缓存写入",
-      "reasoning": "推理 (思考)"
+      "reasoning": "推理 (思考)",
+      "taskCompleted": "任务完成"
     },
     "dataVisualization": {
       "error": "数据可视化失败"

@@ -684,7 +684,8 @@
       "timeCostUnit": "s",
       "timeCostDescription": "生成時間: {{timeCost}}s",
       "creditDescription": "{{credits}} クレジット使用済み",
-      "tokenDescription": "トークン使用数: {{tokens}}"
+      "tokenDescription": "トークン使用数: {{tokens}}",
+      "taskCompleted": "タスク完了"
     }
   }
 }

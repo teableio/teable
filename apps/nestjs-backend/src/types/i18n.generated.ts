@@ -251,6 +251,7 @@ export type I18nTranslations = {
             "useTemplate": string;
             "backToSpace": string;
             "switchBase": string;
+            "getMore": string;
             "retry": string;
             "collapse": string;
             "viewDetails": string;
@@ -681,6 +682,7 @@ export type I18nTranslations = {
                 "paused": string;
                 "seatLimitExceeded": string;
             };
+            "contactAdminToUpgrade": string;
         };
         "admin": {
             "setting": {
@@ -4345,6 +4347,7 @@ export type I18nTranslations = {
                 "timeCostDescription": string;
                 "creditDescription": string;
                 "tokenDescription": string;
+                "taskCompleted": string;
                 "input": string;
                 "output": string;
                 "tokens": string;

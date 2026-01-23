@@ -710,7 +710,8 @@
       "timeCostUnit": "s",
       "timeCostDescription": "Tempo di generazione: {{timeCost}}s",
       "creditDescription": "{{credits}} crediti consumati",
-      "tokenDescription": "Tokens usati: {{tokens}}"
+      "tokenDescription": "Tokens usati: {{tokens}}",
+      "taskCompleted": "Attività completata"
     }
   }
 }

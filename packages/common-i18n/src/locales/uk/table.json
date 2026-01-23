@@ -704,7 +704,8 @@
       "timeCostUnit": "s",
       "timeCostDescription": "Час генерації: {{timeCost}}s",
       "creditDescription": "{{credits}} кредитів використано",
-      "tokenDescription": "Токенів використано: {{tokens}}"
+      "tokenDescription": "Токенів використано: {{tokens}}",
+      "taskCompleted": "Завдання виконано"
     }
   }
 }

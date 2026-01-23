@@ -62,7 +62,8 @@
     "login": "Anmelden",
     "useTemplate": "Vorlage verwenden",
     "backToSpace": "Zurück zum Space",
-    "switchBase": "Base wechseln"
+    "switchBase": "Base wechseln",
+    "getMore": "Mehr erhalten"
   },
   "quickAction": {
     "title": "Schnelle Aktionen...",

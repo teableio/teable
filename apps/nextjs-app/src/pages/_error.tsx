@@ -8,6 +8,12 @@ import type { NextPage, NextPageContext } from 'next';
 import NextErrorComponent from 'next/error';
 import type { ErrorProps } from 'next/error';
 import { ErrorPage } from '@/features/system/pages';
+import {
+  systemLocaleLoaders,
+  loadSystemTranslations,
+  getLocaleFromCookie,
+  getLocaleFromAcceptLanguage,
+} from '@/lib/i18n/staticPageLocale';
 
 const sentryIgnoredStatusCodes: number[] = [404, 410];
 
@@ -57,30 +63,6 @@ const sentryFlushServerSide = async (flushAfter: number) => {
   }
 };
 
-type LocaleLoader = () => Promise<{ default: Record<string, unknown> }>;
-
-const localeLoaders: Record<string, LocaleLoader> = {
-  en: () => import('@teable/common-i18n/src/locales/en/system.json'),
-  it: () => import('@teable/common-i18n/src/locales/it/system.json'),
-  zh: () => import('@teable/common-i18n/src/locales/zh/system.json'),
-  fr: () => import('@teable/common-i18n/src/locales/fr/system.json'),
-  ja: () => import('@teable/common-i18n/src/locales/ja/system.json'),
-  ru: () => import('@teable/common-i18n/src/locales/ru/system.json'),
-  de: () => import('@teable/common-i18n/src/locales/de/system.json'),
-  uk: () => import('@teable/common-i18n/src/locales/uk/system.json'),
-  tr: () => import('@teable/common-i18n/src/locales/tr/system.json'),
-  es: () => import('@teable/common-i18n/src/locales/es/system.json'),
-};
-
-const loadSystemTranslations = async (locale: string) => {
-  try {
-    const loader = localeLoaders[locale] ?? localeLoaders.en;
-    return (await loader()).default;
-  } catch {
-    return (await localeLoaders.en()).default;
-  }
-};
-
 const CustomError: NextPage<CustomErrorProps> = (props) => {
   const { statusCode, err, hasGetInitialPropsRun, sentryErrorId, message } = props;
 
@@ -103,8 +85,17 @@ const CustomError: NextPage<CustomErrorProps> = (props) => {
 };
 
 CustomError.getInitialProps = async (context: AugmentedNextPageContext) => {
-  const { res, err, asPath } = context;
-  const locale = localeLoaders[context.locale ?? ''] ? (context.locale as string) : 'en';
+  const { res, err, asPath, req } = context;
+
+  const supportedLocales = Object.keys(systemLocaleLoaders);
+  // Detect locale: prefer context.locale, fallback to cookie, then Accept-Language header, default to 'en'
+  const cookieLocale = getLocaleFromCookie(req?.headers?.cookie ?? '');
+  const acceptLangLocale = getLocaleFromAcceptLanguage(
+    req?.headers?.['accept-language'],
+    supportedLocales
+  );
+  const detectedLocale = context.locale || cookieLocale || acceptLangLocale || 'en';
+  const locale = systemLocaleLoaders[detectedLocale] ? detectedLocale : 'en';
 
   const errorInitialProps = (await NextErrorComponent.getInitialProps({
     res,

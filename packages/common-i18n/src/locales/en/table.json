@@ -1218,7 +1218,8 @@
       "tokenDetails": "Token Details",
       "cachedInput": "Cached Input (90% off)",
       "cacheWrite": "Cache Write",
-      "reasoning": "Reasoning (Thinking)"
+      "reasoning": "Reasoning (Thinking)",
+      "taskCompleted": "Task completed"
     },
     "dataVisualization": {
       "error": "Data visualization failed"

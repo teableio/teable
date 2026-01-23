@@ -65,7 +65,8 @@
     "backToSpace": "返回空间",
     "switchBase": "切换数据库",
     "collapse": "收起",
-    "viewDetails": "查看详情"
+    "viewDetails": "查看详情",
+    "getMore": "获取更多"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -467,6 +468,7 @@
       "title": "升级空间站的订阅计划",
       "description": "您只能升级具有「可管理」权限的空间站"
     },
+    "contactAdminToUpgrade": "请联系空间站所有者升级订阅计划。",
     "status": {
       "active": "已激活",
       "canceled": "已取消",

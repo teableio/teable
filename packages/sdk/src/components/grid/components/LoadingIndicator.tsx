@@ -1,5 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { MagicAi, Square } from '@teable/icons';
+import { useMemo } from 'react';
 import type { ICellItem, IColumnLoading, IScrollState } from '../interface';
 import type { CoordinateManager } from '../managers';
 
@@ -14,7 +15,19 @@ export interface ILoadingIndicatorProps {
 export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
   const { cellLoadings, columnLoadings, coordInstance, scrollState, real2RowIndex } = props;
 
-  if (!cellLoadings.length && !columnLoadings.length) return null;
+  // Deduplicate cellLoadings to prevent duplicate React keys
+  // This can happen when backend returns duplicate {recordId, fieldId} entries
+  const uniqueCellLoadings = useMemo(() => {
+    const seen = new Set<string>();
+    return cellLoadings.filter(([columnIndex, realRowIndex]) => {
+      const key = `${columnIndex}-${realRowIndex}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [cellLoadings]);
+
+  if (!uniqueCellLoadings.length && !columnLoadings.length) return null;
 
   const { scrollLeft, scrollTop } = scrollState;
   const { rowInitSize, freezeColumnCount, freezeRegionWidth, containerWidth, containerHeight } =
@@ -64,7 +77,7 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
         );
       })}
 
-      {cellLoadings.map(([columnIndex, realRowIndex]) => {
+      {uniqueCellLoadings.map(([columnIndex, realRowIndex]) => {
         const rowIndex = real2RowIndex(realRowIndex);
         const rowHeight = coordInstance.getRowHeight(rowIndex);
         const rowOffset = coordInstance.getRowOffset(rowIndex);

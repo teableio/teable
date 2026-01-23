@@ -62,7 +62,8 @@
     "switchBase": "Changer de base",
     "continue": "Continuer",
     "export": "Exporter",
-    "import": "Importer"
+    "import": "Importer",
+    "getMore": "Obtenir plus"
   },
   "quickAction": {
     "title": "Actions rapides...",

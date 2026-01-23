@@ -65,7 +65,8 @@
     "backToSpace": "Back to space",
     "switchBase": "Switch base",
     "collapse": "Collapse",
-    "viewDetails": "View details"
+    "viewDetails": "View details",
+    "getMore": "Get more"
   },
   "quickAction": {
     "title": "Quick actions...",
@@ -471,6 +472,7 @@
       "title": "Upgrade space's subscription plan",
       "description": "You can only upgrade spaces where you are an owner"
     },
+    "contactAdminToUpgrade": "Please contact the space owner to upgrade the subscription plan.",
     "status": {
       "active": "Active",
       "canceled": "Canceled",

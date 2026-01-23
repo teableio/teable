@@ -685,7 +685,8 @@
       "timeCostUnit": "s",
       "timeCostDescription": "Время генерации: {{timeCost}}s",
       "creditDescription": "{{credits}} кредитов использовано",
-      "tokenDescription": "Токенов использовано: {{tokens}}"
+      "tokenDescription": "Токенов использовано: {{tokens}}",
+      "taskCompleted": "Задача выполнена"
     }
   }
 }

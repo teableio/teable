@@ -62,7 +62,8 @@
     "switchBase": "ベースを切り替え",
     "continue": "続行",
     "export": "エクスポート",
-    "import": "インポート"
+    "import": "インポート",
+    "getMore": "もっと取得"
   },
   "quickAction": {
     "title": "クイックアクション...",

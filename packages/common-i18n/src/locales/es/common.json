@@ -62,7 +62,8 @@
     "continue": "Continuar",
     "export": "Exportar",
     "import": "Importar",
-    "expand": "Expandir"
+    "expand": "Expandir",
+    "getMore": "Obtener más"
   },
   "quickAction": {
     "title": "Acciones Rápidas...",
