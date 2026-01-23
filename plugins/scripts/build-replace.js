@@ -10,7 +10,7 @@ const possiblePaths = [
 const serverJsPath = possiblePaths.find((p) => fs.existsSync(p));
 
 if (!serverJsPath) {
-  console.error('server.js not found in any of the expected locations:', possiblePaths);
+  console.error('server.js not found at:', possiblePaths);
   process.exit(1);
 }
 

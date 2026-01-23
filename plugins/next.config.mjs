@@ -1,10 +1,32 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSecureHeaders } from 'next-secure-headers';
 import { UniverPlugin } from '@univerjs/webpack-plugin';
 
+const trueEnv = ['true', '1', 'yes'];
+
+const NEXT_BUILD_ENV_TSCONFIG = process.env?.NEXT_BUILD_ENV_TSCONFIG ?? 'tsconfig.json';
+const NEXT_BUILD_ENV_TYPECHECK = trueEnv.includes(process.env?.NEXT_BUILD_ENV_TYPECHECK ?? 'true');
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workspaceRoot = path.resolve(__dirname, '..', '..');
+
+// Find the topmost workspace root by looking for pnpm-workspace.yaml
+function findWorkspaceRoot(startDir) {
+  let dir = startDir;
+  let found = null;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))) {
+      found = dir; // Keep looking for a higher one
+    }
+    dir = path.dirname(dir);
+  }
+  return found ?? startDir;
+}
+
+const workspaceRoot = findWorkspaceRoot(__dirname);
+console.log('[plugins/next.config.mjs] __dirname:', __dirname);
+console.log('[plugins/next.config.mjs] workspaceRoot:', workspaceRoot);
 
 const isProd = process.env.NODE_ENV === 'production';
 const basePath = '/plugin';
@@ -46,6 +68,10 @@ const nextConfig = {
         ],
       },
     ];
+  },
+  typescript: {
+    ignoreBuildErrors: !NEXT_BUILD_ENV_TYPECHECK,
+    tsconfigPath: NEXT_BUILD_ENV_TSCONFIG,
   },
   async rewrites() {
     const socketProxy = {
