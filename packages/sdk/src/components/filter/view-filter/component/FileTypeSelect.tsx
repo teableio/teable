@@ -13,12 +13,7 @@ const typeOptions = [
 function FileTypeSelect(props: IFileTypeSelectProps) {
   const { value, onSelect } = props;
   return (
-    <BaseSingleSelect
-      value={value}
-      onSelect={onSelect}
-      options={typeOptions}
-      className="w-40"
-    />
+    <BaseSingleSelect value={value} onSelect={onSelect} options={typeOptions} className="w-40" />
   );
 }
 

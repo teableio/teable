@@ -9,8 +9,10 @@ import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core'
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
+import { SentrySpanProcessor } from '@sentry/opentelemetry';
 
 const parseOtelHeaders = (headerStr?: string) => {
   if (!headerStr) return {};
@@ -96,8 +98,15 @@ const sampler =
     : new ParentBasedSampler({
         root: new TraceIdRatioBasedSampler(samplerRatio),
       });
+
+// Span processors: export traces to multiple backends
+const spanProcessors = [
+  ...(process.env.BACKEND_SENTRY_DSN ? [new SentrySpanProcessor()] : []),
+  ...(traceExporter ? [new BatchSpanProcessor(traceExporter)] : []),
+];
+
 const otelSDK = new opentelemetry.NodeSDK({
-  traceExporter,
+  spanProcessors,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
   sampler,
   metricReader: metricsExporter

@@ -1,11 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFilter } from '@teable/core';
-import { and, FieldKeyType, FieldType, is } from '@teable/core';
+import type { IFieldRo, IFilter, ILookupOptionsRo } from '@teable/core';
+import { and, FieldKeyType, FieldType, is, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { createField, getRecords as apiGetRecords } from '@teable/openapi';
-import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
+import { getRecords as apiGetRecords, getAggregation, StatisticsFunc } from '@teable/openapi';
+import {
+  createField,
+  createTable,
+  permanentDeleteTable,
+  initApp,
+  updateRecordByApi,
+} from './utils/init-app';
 
 describe('OpenAPI Record-Filter-Query Issues (e2e)', () => {
   let app: INestApplication;
@@ -20,140 +26,179 @@ describe('OpenAPI Record-Filter-Query Issues (e2e)', () => {
     await app.close();
   });
 
-  async function getFilterRecord(tableId: string, viewId: string, filter: IFilter) {
-    return (
-      await apiGetRecords(tableId, {
-        fieldKeyType: FieldKeyType.Id,
-        filter: filter,
-      })
-    ).data;
-  }
+  // T1613: Boolean formula field filter and aggregation not working correctly
+  describe('T1613: boolean field filter and aggregation', () => {
+    let formulaTable: ITableFullVo;
+    let formulaFieldId: string;
+    let checkboxTable: ITableFullVo;
+    let checkboxFieldId: string;
+    let lookupSourceTable: ITableFullVo;
+    let lookupMainTable: ITableFullVo;
+    let lookupFieldId: string;
 
-  // T1613: Boolean field filter not working correctly for formula fields
-  describe('T1613: filter boolean field with is operator', () => {
-    describe('boolean formula field', () => {
-      let table: ITableFullVo;
-      const numberFieldName = 'Number';
-
-      beforeAll(async () => {
-        table = await createTable(baseId, {
-          name: 'boolean_formula_filter_test',
-          fields: [
-            {
-              name: numberFieldName,
-              type: FieldType.Number,
-              options: { formatting: { type: 'decimal', precision: 0 } },
-            },
-          ],
-          records: [
-            { fields: { [numberFieldName]: 5 } }, // formula = true
-            { fields: { [numberFieldName]: 10 } }, // formula = true
-            { fields: { [numberFieldName]: 1 } }, // formula = false
-            { fields: { [numberFieldName]: 2 } }, // formula = false
-            { fields: { [numberFieldName]: null } }, // formula = null
-            { fields: {} }, // formula = null
-          ],
-        });
-
-        const numberFieldId = table.fields.find((f) => f.name === numberFieldName)!.id;
-        const formulaFieldRes = await createField(table.id, {
-          name: 'BooleanFormula',
-          type: FieldType.Formula,
-          options: { expression: `{${numberFieldId}} > 3` },
-        });
-        table.fields.push(formulaFieldRes.data);
+    beforeAll(async () => {
+      // Setup formula table (2 true, 2 false, 2 null)
+      formulaTable = await createTable(baseId, {
+        name: 'boolean_formula_test',
+        fields: [{ name: 'Num', type: FieldType.Number }],
+        records: [
+          { fields: { Num: 5 } },
+          { fields: { Num: 10 } },
+          { fields: { Num: 1 } },
+          { fields: { Num: 2 } },
+          { fields: { Num: null } },
+          { fields: {} },
+        ],
       });
-
-      afterAll(async () => {
-        await permanentDeleteTable(baseId, table.id);
+      const numFieldId = formulaTable.fields.find((f) => f.name === 'Num')!.id;
+      const formulaField = await createField(formulaTable.id, {
+        name: 'Formula',
+        type: FieldType.Formula,
+        options: { expression: `{${numFieldId}} > 3` },
       });
+      formulaFieldId = formulaField.id;
 
-      it('should filter is: true correctly', async () => {
-        const formulaFieldId = table.fields.find((f) => f.name === 'BooleanFormula')!.id;
-        const filter: IFilter = {
-          filterSet: [{ fieldId: formulaFieldId, operator: is.value, value: true }],
-          conjunction: and.value,
-        };
-
-        const { records } = await getFilterRecord(table.id, table.views[0].id, filter);
-
-        expect(records.length).toBe(2);
-        for (const record of records) {
-          expect(record.fields[formulaFieldId]).toBe(true);
-        }
+      // Setup checkbox table (2 true, 2 null)
+      checkboxTable = await createTable(baseId, {
+        name: 'checkbox_test',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Check', type: FieldType.Checkbox },
+        ],
+        records: [
+          { fields: { Check: true } },
+          { fields: { Check: true } },
+          { fields: { Check: null } },
+          { fields: {} },
+        ],
       });
+      checkboxFieldId = checkboxTable.fields.find((f) => f.name === 'Check')!.id;
 
-      it('should filter is: false correctly (including null)', async () => {
-        const formulaFieldId = table.fields.find((f) => f.name === 'BooleanFormula')!.id;
-        const filter: IFilter = {
-          filterSet: [{ fieldId: formulaFieldId, operator: is.value, value: null }],
-          conjunction: and.value,
-        };
-
-        const { records } = await getFilterRecord(table.id, table.views[0].id, filter);
-
-        expect(records.length).toBe(4);
-        for (const record of records) {
-          const value = record.fields[formulaFieldId];
-          expect(value === false || value === undefined || value === null).toBe(true);
-        }
+      // Setup lookup tables
+      lookupSourceTable = await createTable(baseId, {
+        name: 'lookup_source',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Check', type: FieldType.Checkbox },
+        ],
+        records: [
+          { fields: { Check: true } },
+          { fields: { Check: true } },
+          { fields: { Check: null } },
+          { fields: {} },
+        ],
       });
+      lookupMainTable = await createTable(baseId, {
+        name: 'lookup_main',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [{ fields: {} }, { fields: {} }, { fields: {} }, { fields: {} }],
+      });
+      const linkField = await createField(lookupMainTable.id, {
+        name: 'Link',
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyMany, foreignTableId: lookupSourceTable.id },
+      } as IFieldRo);
+      const checkFieldId = lookupSourceTable.fields.find((f) => f.name === 'Check')!.id;
+      const lookupField = await createField(lookupMainTable.id, {
+        name: 'LookupCheck',
+        type: FieldType.Checkbox,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: lookupSourceTable.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: checkFieldId,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+      lookupFieldId = lookupField.id;
+
+      // Link: [0]->A,B(true,true), [1]->C,D(null,null), [2]->A,C(true,null), [3]->none
+      await updateRecordByApi(lookupMainTable.id, lookupMainTable.records[0].id, linkField.id, [
+        { id: lookupSourceTable.records[0].id },
+        { id: lookupSourceTable.records[1].id },
+      ]);
+      await updateRecordByApi(lookupMainTable.id, lookupMainTable.records[1].id, linkField.id, [
+        { id: lookupSourceTable.records[2].id },
+        { id: lookupSourceTable.records[3].id },
+      ]);
+      await updateRecordByApi(lookupMainTable.id, lookupMainTable.records[2].id, linkField.id, [
+        { id: lookupSourceTable.records[0].id },
+        { id: lookupSourceTable.records[2].id },
+      ]);
     });
 
-    describe('checkbox field (regression)', () => {
-      let table: ITableFullVo;
-      const checkboxFieldName = 'Checkbox';
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, formulaTable.id);
+      await permanentDeleteTable(baseId, checkboxTable.id);
+      await permanentDeleteTable(baseId, lookupMainTable.id);
+      await permanentDeleteTable(baseId, lookupSourceTable.id);
+    });
 
-      beforeAll(async () => {
-        table = await createTable(baseId, {
-          name: 'checkbox_filter_test',
-          fields: [
-            { name: 'Title', type: FieldType.SingleLineText },
-            { name: checkboxFieldName, type: FieldType.Checkbox },
-          ],
-          records: [
-            { fields: { Title: 'A', [checkboxFieldName]: true } },
-            { fields: { Title: 'B', [checkboxFieldName]: true } },
-            { fields: { Title: 'C', [checkboxFieldName]: null } },
-            { fields: { Title: 'D' } },
-          ],
-        });
-      });
+    // Helper functions
+    async function getFilteredRecords(tableId: string, filter: IFilter) {
+      return (await apiGetRecords(tableId, { fieldKeyType: FieldKeyType.Id, filter })).data;
+    }
 
-      afterAll(async () => {
-        await permanentDeleteTable(baseId, table.id);
-      });
+    async function getAggregationValue(tableId: string, fieldId: string, func: StatisticsFunc) {
+      const { data } = await getAggregation(tableId, { field: { [func]: [fieldId] } });
+      return data.aggregations?.find((a) => a.fieldId === fieldId)?.total;
+    }
 
-      it('should filter is: true correctly', async () => {
-        const checkboxFieldId = table.fields.find((f) => f.name === checkboxFieldName)!.id;
-        const filter: IFilter = {
-          filterSet: [{ fieldId: checkboxFieldId, operator: is.value, value: true }],
-          conjunction: and.value,
-        };
+    // Boolean formula field tests
+    it.each([
+      { value: true, expected: 2 },
+      { value: null, expected: 4 },
+    ])('formula field: filter is $value -> $expected records', async ({ value, expected }) => {
+      const filter: IFilter = {
+        filterSet: [{ fieldId: formulaFieldId, operator: is.value, value }],
+        conjunction: and.value,
+      };
+      const { records } = await getFilteredRecords(formulaTable.id, filter);
+      expect(records.length).toBe(expected);
+    });
 
-        const { records } = await getFilterRecord(table.id, table.views[0].id, filter);
+    it.each([
+      { func: StatisticsFunc.Checked, expected: 2, isPercent: false },
+      { func: StatisticsFunc.UnChecked, expected: 4, isPercent: false },
+      { func: StatisticsFunc.PercentChecked, expected: 33.33, isPercent: true },
+      { func: StatisticsFunc.PercentUnChecked, expected: 66.67, isPercent: true },
+    ])('formula field: $func -> $expected', async ({ func, expected, isPercent }) => {
+      const result = await getAggregationValue(formulaTable.id, formulaFieldId, func);
+      expect(result?.aggFunc).toBe(func);
+      isPercent
+        ? expect(Number(result?.value)).toBeCloseTo(expected, 1)
+        : expect(Number(result?.value)).toBe(expected);
+    });
 
-        expect(records.length).toBe(2);
-        for (const record of records) {
-          expect(record.fields[checkboxFieldId]).toBe(true);
-        }
-      });
+    // Checkbox field regression tests
+    it.each([
+      { value: true, expected: 2 },
+      { value: null, expected: 2 },
+    ])('checkbox field: filter is $value -> $expected records', async ({ value, expected }) => {
+      const filter: IFilter = {
+        filterSet: [{ fieldId: checkboxFieldId, operator: is.value, value }],
+        conjunction: and.value,
+      };
+      const { records } = await getFilteredRecords(checkboxTable.id, filter);
+      expect(records.length).toBe(expected);
+    });
 
-      it('should filter is: false correctly', async () => {
-        const checkboxFieldId = table.fields.find((f) => f.name === checkboxFieldName)!.id;
-        const filter: IFilter = {
-          filterSet: [{ fieldId: checkboxFieldId, operator: is.value, value: null }],
-          conjunction: and.value,
-        };
+    it.each([
+      { func: StatisticsFunc.PercentChecked, expected: 50 },
+      { func: StatisticsFunc.PercentUnChecked, expected: 50 },
+    ])('checkbox field: $func -> $expected%', async ({ func, expected }) => {
+      const result = await getAggregationValue(checkboxTable.id, checkboxFieldId, func);
+      expect(result?.aggFunc).toBe(func);
+      expect(Number(result?.value)).toBeCloseTo(expected, 1);
+    });
 
-        const { records } = await getFilterRecord(table.id, table.views[0].id, filter);
-
-        expect(records.length).toBe(2);
-        for (const record of records) {
-          const value = record.fields[checkboxFieldId];
-          expect(value === null || value === undefined).toBe(true);
-        }
-      });
+    // Lookup checkbox (multiple value) tests
+    it.each([
+      { func: StatisticsFunc.PercentChecked, expected: 50 },
+      { func: StatisticsFunc.PercentUnChecked, expected: 50 },
+    ])('lookup checkbox: $func -> $expected%', async ({ func, expected }) => {
+      const result = await getAggregationValue(lookupMainTable.id, lookupFieldId, func);
+      expect(result?.aggFunc).toBe(func);
+      expect(Number(result?.value)).toBeCloseTo(expected, 1);
     });
   });
 });

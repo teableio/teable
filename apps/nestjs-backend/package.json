@@ -166,6 +166,7 @@
     "@prisma/client": "6.2.1",
     "@prisma/instrumentation": "6.2.1",
     "@sentry/nestjs": "10.22.0",
+    "@sentry/opentelemetry": "10.22.0",
     "@sentry/profiling-node": "10.22.0",
     "@smithy/node-http-handler": "^3.1.1",
     "@teable/common-i18n": "workspace:^",
