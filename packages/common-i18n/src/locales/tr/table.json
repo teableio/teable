@@ -206,7 +206,7 @@
       "reset": "Sıfırla",
       "fieldUpdated": "Alan güncellendi",
       "fieldCreated": "Alan oluşturuldu",
-      "previewDependenciesGraph": "Bağımlılık Grafiğini Önizle",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Bunu gerçekleştirmek istediğinizden emin misiniz?",
       "addDescription": "Açıklama Ekle",
       "description": "Açıklama",

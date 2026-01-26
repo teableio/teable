@@ -43,6 +43,8 @@ import {
   IRecordInsertOrderRo,
   recordGetCollaboratorsRoSchema,
   IRecordGetCollaboratorsRo,
+  formSubmitRoSchema,
+  IFormSubmitRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
@@ -186,6 +188,15 @@ export class RecordOpenApiController {
       undefined,
       isAiInternal
     );
+  }
+
+  @Permissions('record|create')
+  @Post('form-submit')
+  async formSubmit(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(formSubmitRoSchema)) formSubmitRo: IFormSubmitRo
+  ): Promise<IRecord> {
+    return await this.recordOpenApiService.formSubmit(tableId, formSubmitRo);
   }
 
   @Permissions('record|create', 'record|read')

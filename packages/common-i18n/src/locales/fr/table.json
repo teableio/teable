@@ -202,7 +202,7 @@
       "graph": "Graphique",
       "fieldUpdated": "Champ mis à jour",
       "fieldCreated": "Champ créé",
-      "previewDependenciesGraph": "Aperçu du graphique des dépendances",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Êtes-vous sûr de vouloir effectuer cette action ?",
       "addDescription": "Ajouter une description",
       "dbFieldName": "Nom du champ physique",

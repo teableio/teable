@@ -241,7 +241,7 @@
       "reset": "Reset",
       "fieldUpdated": "Field has been updated",
       "fieldCreated": "Field has been created",
-      "previewDependenciesGraph": "Preview dependencies graph",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Are you sure you want to perform it?",
       "addDescription": "Add description",
       "dbFieldName": "DB field name",
@@ -327,7 +327,17 @@
       "filter": "Filter records",
       "hideFields": "Hide fields",
       "moreOptions": "More options",
-      "allowNewOptionsWhenEditing": "Allow new options when editing"
+      "allowNewOptionsWhenEditing": "Allow new options when editing",
+      "deleteField": {
+        "title": "Delete Field",
+        "simpleConfirm": "Are you sure you want to delete the field <b>{{fieldName}}</b>?",
+        "withDependencies": "Deleting the field <b>{{fieldName}}</b> will affect the following fields:",
+        "affectedFields": "Affected fields:",
+        "fieldsToDelete": "Fields to delete ({{count}})",
+        "unviewedHint": "{{count}} field(s) not reviewed",
+        "deleteCount": "Delete {{count}} fields",
+        "noAffectedFields": "This field is not referenced by other fields."
+      }
     },
     "subTitle": {
       "link": "Link to records in the table you choose",

@@ -206,7 +206,7 @@
       "reset": "Скинути",
       "fieldUpdated": "Поле оновлено",
       "fieldCreated": "Поле створено",
-      "previewDependenciesGraph": "Попередній перегляд графіка залежностей",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Ви впевнені, що хочете це виконати?",
       "addDescription": "Додати опис",
       "dbFieldName": "Назва поля БД",

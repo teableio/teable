@@ -206,7 +206,7 @@
       "reset": "Zurücksetzen",
       "fieldUpdated": "Feld wurde aktualisiert",
       "fieldCreated": "Feld wurde erstellt",
-      "previewDependenciesGraph": "Vorschaugraph der Abhängigkeiten",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Sind Sie sicher, dass Sie das durchführen wollen?",
       "addDescription": "Beschreibung hinzufügen",
       "dbFieldName": "DB Feld Name",

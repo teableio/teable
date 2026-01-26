@@ -202,7 +202,7 @@
       "graph": "График",
       "fieldUpdated": "Поле обновлено",
       "fieldCreated": "Поле создано",
-      "previewDependenciesGraph": "Предпросмотр графика зависимостей",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Вы уверены, что хотите выполнить это?",
       "addDescription": "Добавить описание",
       "dbFieldName": "Физическое имя поля",

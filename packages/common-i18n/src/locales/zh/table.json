@@ -241,7 +241,7 @@
       "reset": "清空",
       "fieldUpdated": "字段已更新",
       "fieldCreated": "字段已创建",
-      "previewDependenciesGraph": "预览依赖关系图",
+      "confirmFieldChange": "确认字段变更",
       "areYouSurePerformIt": "确定要执行此操作吗？",
       "addDescription": "添加描述",
       "dbFieldName": "物理字段名",
@@ -327,7 +327,17 @@
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
       "moreOptions": "更多配置",
-      "allowNewOptionsWhenEditing": "允许填写时添加选项"
+      "allowNewOptionsWhenEditing": "允许填写时添加选项",
+      "deleteField": {
+        "title": "删除字段",
+        "simpleConfirm": "确定要删除字段 <b>{{fieldName}}</b> 吗？",
+        "withDependencies": "删除字段 <b>{{fieldName}}</b> 将会影响以下字段：",
+        "affectedFields": "受影响的字段：",
+        "fieldsToDelete": "待删除字段 ({{count}})",
+        "unviewedHint": "还有 {{count}} 个字段未查看",
+        "deleteCount": "删除 {{count}} 个字段",
+        "noAffectedFields": "此字段没有被其他字段引用。"
+      }
     },
     "subTitle": {
       "link": "在表之间创建关联关系",

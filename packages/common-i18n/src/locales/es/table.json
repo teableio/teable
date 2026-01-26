@@ -205,7 +205,7 @@
       "reset": "Reiniciar",
       "fieldUpdated": "El campo se ha actualizado",
       "fieldCreated": "Se ha creado el campo",
-      "previewDependenciesGraph": "Gráfico de dependencias de vista previa",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "¿Estás seguro de que quieres realizarlo?",
       "addDescription": "Agregar descripción",
       "dbFieldName": "Nombre de campo de DB",

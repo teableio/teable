@@ -202,7 +202,7 @@
       "graph": "グラフ",
       "fieldUpdated": "フィールドが更新されました",
       "fieldCreated": "フィールドが作成されました",
-      "previewDependenciesGraph": "依存関係グラフのプレビュー",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "本当に実行しますか？",
       "addDescription": "説明を追加",
       "dbFieldName": "物理フィールド名",

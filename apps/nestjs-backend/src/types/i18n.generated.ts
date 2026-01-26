@@ -3632,7 +3632,7 @@ export type I18nTranslations = {
                 "reset": string;
                 "fieldUpdated": string;
                 "fieldCreated": string;
-                "previewDependenciesGraph": string;
+                "confirmFieldChange": string;
                 "areYouSurePerformIt": string;
                 "addDescription": string;
                 "dbFieldName": string;
@@ -3718,6 +3718,16 @@ export type I18nTranslations = {
                     "fieldMapping": string;
                     "selectBaseField": string;
                     "noMappings": string;
+                };
+                "deleteField": {
+                    "title": string;
+                    "simpleConfirm": string;
+                    "withDependencies": string;
+                    "affectedFields": string;
+                    "fieldsToDelete": string;
+                    "unviewedHint": string;
+                    "deleteCount": string;
+                    "noAffectedFields": string;
                 };
             };
             "subTitle": {

@@ -16,17 +16,9 @@ import {
   isLinkLookupOptions,
   StatisticsFunc,
 } from '@teable/core';
-import { Share2 } from '@teable/icons';
 import { type IPlanFieldConvertVo, getAggregation } from '@teable/openapi';
-import { useTable, useTableId, useView, useFieldOperations, useRowCount } from '@teable/sdk/hooks';
+import { useTableId, useView, useFieldOperations, useRowCount } from '@teable/sdk/hooks';
 import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogTrigger,
-} from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable/ui-lib/shadcn/ui/sheet';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -300,7 +292,6 @@ export const FieldSetting = (props: IFieldSetting) => {
       setGraphVisible(true);
       return;
     }
-
     await performAction(fieldRo);
   };
 
@@ -316,7 +307,6 @@ export const FieldSetting = (props: IFieldSetting) => {
       setGraphVisible(true);
       return;
     }
-
     await performAction(fieldRo);
   };
 
@@ -324,8 +314,7 @@ export const FieldSetting = (props: IFieldSetting) => {
     <>
       <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />
       <ConfirmDialog
-        contentClassName="max-w-6xl"
-        title={t('table:field.editor.previewDependenciesGraph')}
+        title={t('table:field.editor.confirmFieldChange')}
         open={graphVisible}
         onOpenChange={setGraphVisible}
         content={
@@ -385,7 +374,6 @@ export const FieldSetting = (props: IFieldSetting) => {
 const FieldSettingBase = (props: IFieldSettingBase) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const table = useTable();
   const [field, setField] = useState<IFieldEditorRo>(
     originField
       ? {
@@ -399,35 +387,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   );
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
-  const [showGraphButton, setShowGraphButton] = useState<boolean>(operator === FieldOperator.Edit);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-
-  const isCreatingSimpleField = useCallback(
-    (field: IFieldEditorRo) => {
-      return (
-        !field.lookupOptions &&
-        field.type !== FieldType.Link &&
-        field.type !== FieldType.Formula &&
-        operator !== FieldOperator.Edit
-      );
-    },
-    [operator]
-  );
-
-  const checkFieldReady = useCallback(
-    (field: IFieldEditorRo) => {
-      const result = convertFieldRoSchema.safeParse(field);
-      if (!result.success) {
-        return false;
-      }
-      const data = result.data;
-      if (isCreatingSimpleField(data)) {
-        return false;
-      }
-      return true;
-    },
-    [isCreatingSimpleField]
-  );
 
   const onOpenChange = (open?: boolean) => {
     if (open) {
@@ -436,21 +396,17 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
     onCancelInner();
   };
 
-  const onFieldEditorChange = useCallback(
-    (nextField: IFieldEditorRo) => {
-      const sanitizedLookupOptions = sanitizeLookupOptions(nextField.lookupOptions);
-      const normalizedField: IFieldEditorRo = {
-        ...nextField,
-        lookupOptions:
-          sanitizedLookupOptions ??
-          (nextField.isConditionalLookup ? nextField.lookupOptions : undefined),
-      };
-      setField(normalizedField);
-      setUpdateCount(1);
-      setShowGraphButton(checkFieldReady(normalizedField));
-    },
-    [checkFieldReady]
-  );
+  const onFieldEditorChange = useCallback((nextField: IFieldEditorRo) => {
+    const sanitizedLookupOptions = sanitizeLookupOptions(nextField.lookupOptions);
+    const normalizedField: IFieldEditorRo = {
+      ...nextField,
+      lookupOptions:
+        sanitizedLookupOptions ??
+        (nextField.isConditionalLookup ? nextField.lookupOptions : undefined),
+    };
+    setField(normalizedField);
+    setUpdateCount(1);
+  }, []);
 
   const onCancelInner = () => {
     if (updateCount > 0) {
@@ -548,40 +504,13 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
               />
             }
             {/* Footer */}
-            <div className="flex w-full shrink-0 justify-between p-4">
-              <div>
-                {showGraphButton && (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size={'sm'} variant={'outline'}>
-                        <Share2 className="size-4" /> {t('table:field.editor.graph')}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-6xl">
-                      <DynamicFieldGraph
-                        tableId={table?.id as string}
-                        fieldId={props.field?.id}
-                        fieldRo={updateCount ? (field as IFieldRo) : undefined}
-                      />
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button type="button" variant="secondary">
-                            {t('common:actions.close')}
-                          </Button>
-                        </DialogClose>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button size={'sm'} variant={'ghost'} onClick={onCancel} disabled={isSaving}>
-                  {t('common:actions.cancel')}
-                </Button>
-                <Button size={'sm'} onClick={onSave} disabled={isSaving}>
-                  {isSaving ? <Spin className="size-4" /> : t('common:actions.save')}
-                </Button>
-              </div>
+            <div className="flex w-full shrink-0 justify-end gap-2 border-t p-4">
+              <Button size={'sm'} variant={'ghost'} onClick={onCancel} disabled={isSaving}>
+                {t('common:actions.cancel')}
+              </Button>
+              <Button size={'sm'} onClick={onSave} disabled={isSaving}>
+                {isSaving ? <Spin className="size-4" /> : t('common:actions.save')}
+              </Button>
             </div>
           </div>
         </SheetContent>
