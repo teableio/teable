@@ -7,7 +7,7 @@ import type {
   IButtonFieldOptions,
   IMakeOptional,
 } from '@teable/core';
-import { FieldKeyType, FieldType, HttpErrorCode } from '@teable/core';
+import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CreateRecordAction,
@@ -18,20 +18,24 @@ import {
 import type {
   IRecordHistoryItemVo,
   ICreateRecordsVo,
+  IFormSubmitRo,
   IGetRecordHistoryQuery,
   IRecord,
   IRecordHistoryVo,
   IRecordInsertOrderRo,
   IUpdateRecordRo,
 } from '@teable/openapi';
-import { keyBy, pick } from 'lodash';
+import { isEmpty, keyBy, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
+import { FieldService } from '../../field/field.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { TableDomainQueryService } from '../../table-domain';
 import { RecordModifyService } from '../record-modify/record-modify.service';
@@ -50,7 +54,9 @@ export class RecordOpenApiService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly recordModifySharedService: RecordModifySharedService,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly fieldService: FieldService,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly eventEmitterService: EventEmitterService
   ) {}
 
   @retryOnDeadlock()
@@ -534,5 +540,93 @@ export class RecordOpenApiService {
       typecast,
       ignoreMissingFields
     );
+  }
+
+  async formSubmit(
+    tableId: string,
+    formSubmitRo: IFormSubmitRo,
+    options?: { includeHiddenField?: boolean }
+  ): Promise<IRecord> {
+    const { viewId, fields, typecast } = formSubmitRo;
+    const { includeHiddenField = false } = options ?? {};
+
+    // 1. Validate view exists and is Form type
+    await this.prismaService.view
+      .findFirstOrThrow({
+        where: { id: viewId, tableId, deletedTime: null, type: ViewType.Form },
+      })
+      .catch(() => {
+        throw new CustomHttpException('View is not a form', HttpErrorCode.RESTRICTED_RESOURCE, {
+          localization: {
+            i18nKey: 'httpErrors.share.viewTypeNotAllowed',
+          },
+        });
+      });
+
+    // 2. Check field visibility - only allow submission of visible fields
+    const visibleFields = await this.fieldService.getFieldsByQuery(tableId, {
+      viewId,
+      filterHidden: !includeHiddenField,
+    });
+    const visibleFieldIdSet = new Set(visibleFields.map(({ id }) => id));
+
+    if (
+      (!visibleFields.length && !isEmpty(fields)) ||
+      Object.keys(fields).some((fieldId) => !visibleFieldIdSet.has(fieldId))
+    ) {
+      throw new CustomHttpException(
+        'The form contains hidden fields, submission not allowed.',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.hiddenFieldsSubmissionNotAllowed',
+          },
+        }
+      );
+    }
+
+    // 3. Create record with form entry context
+    const { records } = await this.prismaService.$tx(async () => {
+      this.cls.set('entry', { type: 'form', id: viewId });
+      this.cls.set('skipRecordAuditLog', true);
+      return this.createRecords(tableId, {
+        records: [{ fields }],
+        fieldKeyType: FieldKeyType.Id,
+        typecast,
+      });
+    });
+
+    // 4. Emit form audit log
+    await this.emitFormAuditLog(tableId, records.length);
+
+    // 5. Validate record creation
+    if (records.length === 0) {
+      throw new CustomHttpException(
+        'The number of successful submit records is 0',
+        HttpErrorCode.INTERNAL_SERVER_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.submitRecordsError',
+          },
+        }
+      );
+    }
+
+    return records[0];
+  }
+
+  private async emitFormAuditLog(tableId: string, length: number) {
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+
+    await this.cls.run(async () => {
+      this.cls.set('user.id', userId);
+      this.cls.set('origin', origin!);
+      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action: CreateRecordAction.FormSubmit,
+        resourceId: tableId,
+        recordCount: length,
+      });
+    });
   }
 }
