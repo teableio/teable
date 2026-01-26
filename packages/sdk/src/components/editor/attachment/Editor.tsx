@@ -2,7 +2,7 @@ import type { IAttachmentCellValue } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import { noop } from 'lodash';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { useIsTouchDevice } from '../../../hooks';
 import type { ICellEditor } from '../type';
@@ -20,18 +20,7 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
   const { t } = useTranslation();
   const uploadAttachmentRef = useRef<IUploadAttachmentRef>(null);
   const isTouchDevice = useIsTouchDevice();
-  const [uploadingCount, setUploadingCount] = useState(0);
   const attachmentManager = useRef(new AttachmentManager(2));
-
-  useEffect(() => {
-    attachmentManager.current.onUploadingTaskChange = (uploadingTasks, pendingTasks) => {
-      setUploadingCount(uploadingTasks.length + pendingTasks.length);
-    };
-    return () => {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      attachmentManager.current.onUploadingTaskChange = undefined;
-    };
-  }, []);
 
   const hasAttachments = value && value.length > 0;
 
@@ -44,31 +33,20 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
             disabled={readonly}
           />
         ) : (
-          <Popover
-            modal
-            onOpenChange={(value) => {
-              if (!value) {
-                setUploadingCount(0);
-              }
-            }}
-          >
+          <Popover modal>
             <PopoverTrigger asChild>
               <Button variant="outline" size={'sm'} disabled={readonly}>
                 <Plus fontSize={16} />
                 {t('editor.attachment.upload')}
               </Button>
             </PopoverTrigger>
-            <PopoverContent
-              className={cn('max-h-[320px] w-[462px] p-0 overflow-hidden', {
-                'h-[320px]': (value?.length || 0) + uploadingCount > 4,
-              })}
-              align="start"
-            >
+            <PopoverContent align="start" className="w-[462px]">
               <UploadAttachment
                 attachments={value || []}
                 onChange={onChange}
                 readonly={readonly}
                 attachmentManager={attachmentManager.current}
+                className={cn('max-h-[320px] p-0 overflow-hidden')}
               />
             </PopoverContent>
           </Popover>
@@ -86,18 +64,16 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
         )}
       </div>
 
-      <div className="max-h-[320px] overflow-auto pt-2">
-        <div>
-          <UploadAttachment
-            attachmentManager={attachmentManager.current}
-            ref={uploadAttachmentRef}
-            className={cn('p-0', className)}
-            attachments={value || []}
-            onChange={onChange}
-            readonly={readonly}
-            disabled
-          />
-        </div>
+      <div className="overflow-auto pt-2">
+        <UploadAttachment
+          attachmentManager={attachmentManager.current}
+          ref={uploadAttachmentRef}
+          className={cn('p-0 max-h-[320px]', className)}
+          attachments={value || []}
+          onChange={onChange}
+          readonly={readonly}
+          disabled
+        />
       </div>
     </div>
   );

@@ -163,6 +163,10 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
                   uploadList.findIndex((item) => item.id === b.id)
               ),
             ]);
+            const uploadedIds = batchResult.completed.map((item) => item.id);
+            requestAnimationFrame(() => {
+              setUploadingFiles((prev) => prev.filter((item) => !uploadedIds.includes(item.id)));
+            });
             batchResult.completed = [];
           }
         };
@@ -177,10 +181,6 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 
           batchResult.completed.push(newAttachment);
           batchResult.pending--;
-
-          // Remove from uploading list
-          setUploadingFiles((prev) => prev.filter((item) => item.id !== id));
-
           if (batchResult.pending === 0) {
             commitBatch();
           }
@@ -188,10 +188,6 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 
         const handleError = (file: IFile, error?: string, code?: number) => {
           batchResult.pending--;
-
-          // Remove from uploading list on error
-          setUploadingFiles((prev) => prev.filter((item) => item.id !== file.id));
-
           if (code === 402) {
             useUsageLimitModalStore.setState({
               modalType: UsageLimitModalType.Upgrade,
@@ -200,11 +196,13 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
           } else {
             toast.error(error ?? t('common.uploadFailed'));
           }
-
           // Commit when all files are processed (even if some failed)
           if (batchResult.pending === 0) {
             commitBatch();
           }
+          requestAnimationFrame(() => {
+            setUploadingFiles((prev) => prev.filter((item) => item.id !== file.id));
+          });
         };
 
         attachmentManager.upload(
@@ -299,7 +297,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
             </Button>
           </div>
         )}
-        <div className="relative flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
           <FileZone
             action={['drop', 'paste']}
             disabled={disabled || readonly}
@@ -307,7 +305,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
             zoneClassName={cn('h-12 cursor-default', {
               'h-[120px]': totalCount === 0,
             })}
-            className="min-h-[auto]"
+            className="size-auto min-h-0 flex-1"
             defaultText={
               <div className="flex items-center justify-center">
                 <p className="text-sm">
