@@ -363,7 +363,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       );
     case FieldType.SingleSelect:
       return wrapWithReference(
-        ARRAY_OPERATORS.includes(operator) ? (
+        ARRAY_OPERATORS.includes(operator) || field?.isMultipleCellValue ? (
           <FilterMultipleSelect
             field={field}
             modal={modal}
