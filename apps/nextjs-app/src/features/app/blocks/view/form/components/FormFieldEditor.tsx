@@ -120,7 +120,9 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
           )}
         </div>
       </div>
-      {description && <div className="mb-2 text-xs text-slate-400">{description}</div>}
+      {description && (
+        <div className="mb-2 whitespace-pre-line text-xs text-slate-400">{description}</div>
+      )}
       <CellEditor field={field} wrapClassName="pointer-events-none" />
       {required && <span className="absolute left-[22px] top-5 text-red-500">*</span>}
       <DraggableHandle className="absolute left-1 top-6" />
