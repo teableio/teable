@@ -47,6 +47,7 @@ import dayjs from 'dayjs';
 import type { Knex } from 'knex';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IDbProvider } from '../db.provider.interface';
+import { escapeLikeWildcards } from '../../utils/sql-like-escape';
 import type { ICellValueFilterInterface } from './cell-value-filter.interface';
 
 export class FieldReferenceCompatibilityException extends BadRequestException {
@@ -204,7 +205,8 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, contains.value);
-    builderClient.whereRaw(`${this.tableColumnRef} LIKE ?`, [`%${value}%`]);
+    const escapedValue = escapeLikeWildcards(String(value));
+    builderClient.whereRaw(`${this.tableColumnRef} LIKE ? ESCAPE '\\'`, [`%${escapedValue}%`]);
     return builderClient;
   }
 

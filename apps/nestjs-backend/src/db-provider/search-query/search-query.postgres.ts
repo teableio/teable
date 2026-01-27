@@ -7,6 +7,7 @@ import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import { escapePostgresRegex } from '../../utils/postgres-regex-escape';
+import { escapeLikeWildcards } from '../../utils/sql-like-escape';
 import { SearchQueryAbstract } from './abstract';
 import { FieldFormatter } from './search-index-builder.postgres';
 import type { ISearchCellValueType } from './types';
@@ -53,9 +54,11 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const isSearchAllFields = !search[1];
     if (isSearchAllFields) {
       const searchValue = search[0];
-      const escapedSearchValue = escapePostgresRegex(searchValue);
+      const escapedSearchValue = escapeLikeWildcards(searchValue);
       const expression = FieldFormatter.getSearchableExpression(field, isMultipleCellValue);
-      return expression ? knex.raw(`(${expression}) ILIKE ?`, [`%${escapedSearchValue}%`]) : null;
+      return expression
+        ? knex.raw(`(${expression}) ILIKE ? ESCAPE '\\'`, [`%${escapedSearchValue}%`])
+        : null;
     } else {
       return isMultipleCellValue ? this.getMultipleCellTypeQuery() : this.getSingleCellTypeQuery();
     }
@@ -108,26 +111,27 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   protected text() {
     const { search, knex } = this;
     const searchValue = search[0];
-    const escapedSearchValue = escapePostgresRegex(searchValue);
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
 
     if (this.field.type === FieldType.LongText) {
       return knex.raw(
         // chr(13) is carriage return, chr(10) is line feed, chr(9) is tab
-        `REPLACE(REPLACE(REPLACE(${this.fieldName}, CHR(13), ' '::text), CHR(10), ' '::text), CHR(9), ' '::text) ILIKE ?`,
+        `REPLACE(REPLACE(REPLACE(${this.fieldName}, CHR(13), ' '::text), CHR(10), ' '::text), CHR(9), ' '::text) ILIKE ? ESCAPE '\\'`,
         [`%${escapedSearchValue}%`]
       );
     } else {
-      return knex.raw(`${this.fieldName} ILIKE ?`, [`%${escapedSearchValue}%`]);
+      return knex.raw(`${this.fieldName} ILIKE ? ESCAPE '\\'`, [`%${escapedSearchValue}%`]);
     }
   }
 
   protected number() {
     const { search, knex } = this;
     const searchValue = search[0];
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knex.raw(`ROUND(${this.fieldName}::numeric, ?::int)::text ILIKE ?`, [
+    return knex.raw(`ROUND(${this.fieldName}::numeric, ?::int)::text ILIKE ? ESCAPE '\\'`, [
       precision,
-      `%${searchValue}%`,
+      `%${escapedSearchValue}%`,
     ]);
   }
 
@@ -138,17 +142,21 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
       field: { options },
     } = this;
     const searchValue = search[0];
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     const timeZone = (options as IDateFieldOptions).formatting.timeZone;
-    return knex.raw(`TO_CHAR(TIMEZONE(?, ${this.fieldName}), 'YYYY-MM-DD HH24:MI') ILIKE ?`, [
-      timeZone,
-      `%${searchValue}%`,
-    ]);
+    return knex.raw(
+      `TO_CHAR(TIMEZONE(?, ${this.fieldName}), 'YYYY-MM-DD HH24:MI') ILIKE ? ESCAPE '\\'`,
+      [timeZone, `%${escapedSearchValue}%`]
+    );
   }
 
   protected json() {
     const { search, knex } = this;
     const searchValue = search[0];
-    return knex.raw(`(${this.fieldName})::jsonb #>> '{title}' ILIKE ?`, [`%${searchValue}%`]);
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
+    return knex.raw(`(${this.fieldName})::jsonb #>> '{title}' ILIKE ? ESCAPE '\\'`, [
+      `%${escapedSearchValue}%`,
+    ]);
   }
 
   protected multipleText() {
@@ -173,6 +181,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   protected multipleNumber() {
     const { search, knex } = this;
     const searchValue = search[0];
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
     return knex.raw(
       `
@@ -181,16 +190,17 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
           SELECT string_agg(ROUND(elem::numeric, ?::int)::text, ', ') as aggregated
           FROM jsonb_array_elements_text(${this.fieldName}::jsonb) as elem
         ) as sub
-        WHERE sub.aggregated ILIKE ?
+        WHERE sub.aggregated ILIKE ? ESCAPE '\\'
       )
       `,
-      [precision, `%${searchValue}%`]
+      [precision, `%${escapedSearchValue}%`]
     );
   }
 
   protected multipleDate() {
     const { search, knex } = this;
     const searchValue = search[0];
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
     return knex.raw(
       `
@@ -199,10 +209,10 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
           SELECT string_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), 'YYYY-MM-DD HH24:MI'), ', ') as aggregated
           FROM jsonb_array_elements_text(${this.fieldName}::jsonb) as elem
         ) as sub
-        WHERE sub.aggregated ILIKE ?
+        WHERE sub.aggregated ILIKE ? ESCAPE '\\'
       )
       `,
-      [timeZone, `%${searchValue}%`]
+      [timeZone, `%${escapedSearchValue}%`]
     );
   }
 

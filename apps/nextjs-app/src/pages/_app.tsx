@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { Guide } from '@/components/Guide';
 import { GoogleAnalytics, MicrosoftClarity, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
+import { SideBarScript } from '@/features/app/components/sidebar/SideBarScript';
 import type { IServerEnv } from '@/lib/server-env';
 import type { NextPageWithLayout } from '@/lib/type';
 import { colors } from '@/themes/colors';
@@ -68,6 +69,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         <MicrosoftClarity clarityId={env.microsoftClarityId} user={user} />
         <Umami umamiWebSiteId={env.umamiWebSiteId} umamiUrl={env.umamiUrl} user={user} />
         <GoogleAnalytics gaId={env.gaId} user={user} />
+        <SideBarScript />
         <script
           dangerouslySetInnerHTML={{
             __html: `

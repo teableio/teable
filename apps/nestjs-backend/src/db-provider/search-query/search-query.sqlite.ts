@@ -4,6 +4,7 @@ import type { Knex } from 'knex';
 import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
+import { escapeLikeWildcards } from '../../utils/sql-like-escape';
 import { SearchQueryAbstract } from './abstract';
 import { getOffset } from './get-offset';
 import type { ISearchCellValueType } from './types';
@@ -90,38 +91,48 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   protected text() {
     const { search, knex } = this;
     const [searchValue] = search;
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     return knex.raw(
-      `REPLACE(REPLACE(REPLACE(${this.fieldName} CHAR(13), ' '), CHAR(10), ' '), CHAR(9), ' ') LIKE ?`,
-      [`%${searchValue}%`]
+      `REPLACE(REPLACE(REPLACE(${this.fieldName}, CHAR(13), ' '), CHAR(10), ' '), CHAR(9), ' ') LIKE ? ESCAPE '\\'`,
+      [`%${escapedSearchValue}%`]
     );
   }
 
   protected json() {
     const { search, knex } = this;
     const [searchValue] = search;
-    return knex.raw(`json_extract(${this.fieldName}, '$.title') LIKE ?`, [`%${searchValue}%`]);
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
+    return knex.raw(`json_extract(${this.fieldName}, '$.title') LIKE ? ESCAPE '\\'`, [
+      `%${escapedSearchValue}%`,
+    ]);
   }
 
   protected date() {
     const { search, knex } = this;
     const [searchValue] = search;
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return knex.raw(`DATETIME(${this.fieldName}, ?) LIKE ?`, [
+    return knex.raw(`DATETIME(${this.fieldName}, ?) LIKE ? ESCAPE '\\'`, [
       `${getOffset(timeZone)} hour`,
-      `%${searchValue}%`,
+      `%${escapedSearchValue}%`,
     ]);
   }
 
   protected number() {
     const { search, knex } = this;
     const [searchValue] = search;
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knex.raw(`ROUND(${this.fieldName}, ?) LIKE ?`, [precision, `%${searchValue}%`]);
+    return knex.raw(`ROUND(${this.fieldName}, ?) LIKE ? ESCAPE '\\'`, [
+      precision,
+      `%${escapedSearchValue}%`,
+    ]);
   }
 
   protected multipleText() {
     const { search, knex } = this;
     const [searchValue] = search;
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     return knex.raw(
       `
       EXISTS (
@@ -130,16 +141,17 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
           FROM json_each(${this.fieldName}) as je
           WHERE je.key != 'title'
         )
-        WHERE aggregated LIKE ?
+        WHERE aggregated LIKE ? ESCAPE '\\'
       )
       `,
-      [`%${searchValue}%`]
+      [`%${escapedSearchValue}%`]
     );
   }
 
   protected multipleJson() {
     const { search, knex } = this;
     const [searchValue] = search;
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     return knex.raw(
       `
       EXISTS (
@@ -147,16 +159,17 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
           SELECT group_concat(json_extract(je.value, '$.title'), ', ') as aggregated
           FROM json_each(${this.fieldName}) as je
         )
-        WHERE aggregated LIKE ?
+        WHERE aggregated LIKE ? ESCAPE '\\'
       )
       `,
-      [`%${searchValue}%`]
+      [`%${escapedSearchValue}%`]
     );
   }
 
   protected multipleNumber() {
     const { search, knex } = this;
     const [searchValue] = search;
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
     return knex.raw(
       `
@@ -165,16 +178,17 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
           SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
           FROM json_each(${this.fieldName}) as je
         )
-        WHERE aggregated LIKE ?
+        WHERE aggregated LIKE ? ESCAPE '\\'
       )
       `,
-      [precision, `%${searchValue}%`]
+      [precision, `%${escapedSearchValue}%`]
     );
   }
 
   protected multipleDate() {
     const { search, knex } = this;
     const [searchValue] = search;
+    const escapedSearchValue = escapeLikeWildcards(searchValue);
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
     return knex.raw(
       `
@@ -183,10 +197,10 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
           SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
           FROM json_each(${this.fieldName}) as je
         )
-        WHERE aggregated LIKE ?
+        WHERE aggregated LIKE ? ESCAPE '\\'
       )
       `,
-      [`${getOffset(timeZone)} hour`, `%${searchValue}%`]
+      [`${getOffset(timeZone)} hour`, `%${escapedSearchValue}%`]
     );
   }
 }

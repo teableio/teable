@@ -65,6 +65,20 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
     [headerLeft, children, toggleSidebar]
   );
 
+  // During SSR/hydration, render consistent layout to avoid mismatch
+  if (!isHydrated) {
+    return (
+      <div
+        className="h-full shrink-0 border-r"
+        style={{ width: `var(--sidebar-width` }}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        <div className={sidebarClassName}>{sidebarContent}</div>
+      </div>
+    );
+  }
+
+  // After hydration, safe to check client-only values
   if (isMobile) {
     return (
       <SheetWrapper>
@@ -97,18 +111,6 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
           </div>
         </HoverWrapper.content>
       </HoverWrapper>
-    );
-  }
-
-  if (!isHydrated) {
-    return (
-      <div
-        className="h-full shrink-0 border-r"
-        style={{ width }}
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        <div className={sidebarClassName}>{sidebarContent}</div>
-      </div>
     );
   }
 
