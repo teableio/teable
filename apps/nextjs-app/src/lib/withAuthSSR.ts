@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ParsedUrlQuery } from 'querystring';
-import type { IHttpError } from '@teable/core';
+import { HttpError, type IHttpError } from '@teable/core';
+import { isUndefined, omitBy } from 'lodash';
 import type {
   GetServerSidePropsContext,
   GetServerSidePropsResult,
@@ -8,19 +9,34 @@ import type {
   GetServerSideProps as NextGetServerSideProps,
 } from 'next';
 import { SsrApi } from '@/backend/api/rest/ssr-api';
+import { systemConfig } from '@/features/i18n/system.config';
+import { getTranslationsProps } from '@/lib/i18n';
+
+export type SSRHttpError = { httpError: IHttpError };
+
+export class ForbiddenError extends HttpError {
+  constructor(message = 'Forbidden') {
+    super(message, 403);
+  }
+}
 
 export type GetServerSideProps<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   P extends { [key: string]: any } = { [key: string]: any },
   Q extends ParsedUrlQuery = ParsedUrlQuery,
   D extends PreviewData = PreviewData,
   T extends SsrApi = SsrApi,
-> = (context: GetServerSidePropsContext<Q, D>, ssrApi: T) => Promise<GetServerSidePropsResult<P>>;
+> = (
+  context: GetServerSidePropsContext<Q, D>,
+  ssrApi: T
+) => Promise<GetServerSidePropsResult<P | SSRHttpError>>;
 
-export default function withAuthSSR<P extends { [key: string]: any }, T extends SsrApi = SsrApi>(
+export default function withAuthSSR<
+  P extends { [key: string]: any } = { [key: string]: any },
+  T extends SsrApi = SsrApi,
+>(
   handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData, T>,
   ssrClass: new () => T = SsrApi as new () => T
-): NextGetServerSideProps<P> {
+): NextGetServerSideProps<P | SSRHttpError> {
   return async (context: GetServerSidePropsContext) => {
     const req = context.req;
     try {
@@ -38,19 +54,20 @@ export default function withAuthSSR<P extends { [key: string]: any }, T extends 
           },
         };
       }
-      if (error.status === 402) {
+      if (error.status === 402 || error.status === 403) {
+        context.res.statusCode = error.status;
         return {
-          redirect: {
-            destination: `/402`,
-            permanent: false,
-          },
-        };
-      }
-      if (error.status === 403) {
-        return {
-          redirect: {
-            destination: `/403`,
-            permanent: false,
+          props: {
+            httpError: omitBy(
+              {
+                message: error.message,
+                status: error.status,
+                code: error.code,
+                data: error.data,
+              },
+              isUndefined
+            ) as IHttpError,
+            ...(await getTranslationsProps(context, systemConfig.i18nNamespaces)),
           },
         };
       }

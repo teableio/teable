@@ -1049,6 +1049,7 @@
       "previewEnvironment": "准备预览环境",
       "analyzingAttachment": "分析附件中...",
       "locateResource": "定位",
+      "goTo": "前往",
       "operationSuccess": "操作成功完成",
       "operationFailed": "操作失败"
     },
@@ -1193,6 +1194,9 @@
     },
     "newChat": "新对话",
     "clearChat": "清除对话",
+    "expand": "展开",
+    "history": "历史记录",
+    "close": "收起",
     "clearChatConfirmTitle": "确认清除对话",
     "clearChatConfirmDesc": "当前对话内容将不会被保存，确定要清除吗？",
     "dontShowAgain": "不再提醒",

@@ -193,9 +193,9 @@ export const CodingModels = ({
                   const badge = (
                     <div
                       className={cn(
-                        'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                        'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-colors',
                         supported
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-500'
                           : 'bg-muted text-muted-foreground'
                       )}
                     >

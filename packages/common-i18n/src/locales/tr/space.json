@@ -110,6 +110,7 @@
   "baseList": {
     "allBases": "Tüm üsler",
     "owner": "Sahibi",
+    "createdTime": "Oluşturulma",
     "lastOpened": "Son açılan",
     "enter": "Giriş",
     "noTables": "Tablo yok",
