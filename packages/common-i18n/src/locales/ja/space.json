@@ -110,6 +110,7 @@
   "baseList": {
     "allBases": "すべてのBase",
     "owner": "所有者",
+    "createdTime": "作成日時",
     "lastOpened": "最終閲覧",
     "enter": "入る",
     "noTables": "テーブルなし",

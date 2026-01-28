@@ -110,6 +110,7 @@
   "baseList": {
     "allBases": "Alle Bases",
     "owner": "Eigentümer",
+    "createdTime": "Erstellt",
     "lastOpened": "Zuletzt geöffnet",
     "enter": "Eintreten",
     "noTables": "Keine Tabellen",

@@ -114,10 +114,14 @@
   "baseList": {
     "allBases": "所有数据库",
     "owner": "所有者",
+    "createdTime": "创建时间",
     "lastOpened": "最近打开",
     "enter": "进入",
     "noTables": "暂无表",
-    "empty": "暂无数据库"
+    "empty": "暂无数据库",
+    "recent": "最近访问",
+    "manual": "手动排序",
+    "noBasesFound": "未找到数据库"
   },
   "publishBase": {
     "title": "发布数据库到社区",

@@ -3298,10 +3298,14 @@ export type I18nTranslations = {
         "baseList": {
             "allBases": string;
             "owner": string;
+            "createdTime": string;
             "lastOpened": string;
             "enter": string;
             "noTables": string;
             "empty": string;
+            "recent": string;
+            "manual": string;
+            "noBasesFound": string;
         };
         "publishBase": {
             "title": string;

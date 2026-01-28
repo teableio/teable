@@ -110,6 +110,7 @@
   "baseList": {
     "allBases": "Усі бази",
     "owner": "Власник",
+    "createdTime": "Створено",
     "lastOpened": "Останнє відкриття",
     "enter": "Увійти",
     "noTables": "Немає таблиць",
