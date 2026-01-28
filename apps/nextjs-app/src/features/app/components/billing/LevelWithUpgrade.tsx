@@ -21,16 +21,21 @@ interface ILevelWithUpgradeProps {
     id: string;
     name: string;
   };
+  onUpgradeClick?: () => void;
 }
 
 export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
-  const { level, spaceId, withUpgrade, status, organization } = props;
+  const { level, spaceId, withUpgrade, status, organization, onUpgradeClick } = props;
   const isEnterprise = level === BillingProductLevel.Enterprise;
   const { t } = useTranslation('common');
   const { description } = useBillingLevelConfig(level);
   const router = useRouter();
 
   const onClick = () => {
+    if (onUpgradeClick) {
+      onUpgradeClick();
+      return;
+    }
     if (spaceId == null) return;
 
     router.push({

@@ -3302,6 +3302,9 @@ export type I18nTranslations = {
             "enter": string;
             "noTables": string;
             "empty": string;
+            "recent": string;
+            "manual": string;
+            "noBasesFound": string;
         };
         "publishBase": {
             "title": string;

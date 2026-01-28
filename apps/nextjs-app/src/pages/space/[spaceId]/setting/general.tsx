@@ -9,7 +9,7 @@ import { spaceConfig } from '@/features/i18n/space.config';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
 import { spaceRoleChecker } from '@/lib/space-role-checker';
-import type { NextPageWithLayout } from '@/lib/type';
+import type { NextPageWithLayout, IBasePageProps } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
 
@@ -17,7 +17,7 @@ const General: NextPageWithLayout = () => <GeneralPage />;
 
 export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
-    withAuthSSR(async (context, ssrApi) => {
+    withAuthSSR<IBasePageProps>(async (context, ssrApi) => {
       const { spaceId } = context.query;
       const queryClient = new QueryClient();
 

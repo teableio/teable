@@ -117,7 +117,10 @@
     "lastOpened": "Last opened",
     "enter": "Enter",
     "noTables": "No tables",
-    "empty": "No bases yet"
+    "empty": "No bases yet",
+    "recent": "Recent",
+    "manual": "Manual order",
+    "noBasesFound": "No bases found"
   },
   "publishBase": {
     "title": "Publish Base to community",
