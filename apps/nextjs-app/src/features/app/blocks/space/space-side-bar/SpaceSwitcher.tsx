@@ -155,6 +155,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
 
   const handleSelectSpace = (space: IGetSpaceVo) => {
     setOpen(false);
+    if (space.id === currentSpaceId) return;
     router.push({
       pathname: '/space/[spaceId]',
       query: {

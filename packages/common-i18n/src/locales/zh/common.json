@@ -108,6 +108,10 @@
     "useTemplateDialog": {
       "title": "选择空间",
       "description": "请选择一个空间来应用模版"
+    },
+    "non": {
+      "share": "分享",
+      "copy": "已复制"
     }
   },
   "settings": {

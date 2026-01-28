@@ -15,7 +15,7 @@ export const getPublicFullStorageUrl = (
   },
   path: string
 ) => {
-  const { prefix, provider, publicUrl, publicBucket } = storage;
+  const { prefix = '', provider, publicUrl, publicBucket } = storage;
   const bucket = publicBucket || '';
 
   if (publicUrl) {
