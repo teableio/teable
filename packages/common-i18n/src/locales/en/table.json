@@ -1049,6 +1049,7 @@
       "generateScriptAndDependencies": "Generate script and dependencies",
       "analyzingAttachment": "Analyzing attachment...",
       "locateResource": "Locate",
+      "goTo": "Go to",
       "operationSuccess": "Operation completed successfully",
       "operationFailed": "Operation failed"
     },
@@ -1193,6 +1194,9 @@
     },
     "newChat": "New Chat",
     "clearChat": "Clear Chat",
+    "expand": "Expand",
+    "history": "History",
+    "close": "Collapse",
     "clearChatConfirmTitle": "Confirm Clear Chat",
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
     "dontShowAgain": "Don't show again",

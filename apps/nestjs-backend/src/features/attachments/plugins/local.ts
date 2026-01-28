@@ -257,15 +257,6 @@ export class LocalStorage implements StorageAdapter {
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ): Promise<string> {
-    return this.getPreviewUrlInner(bucket, path, expiresIn, respHeaders);
-  }
-
-  async getPreviewUrlInner(
-    bucket: string,
-    path: string,
-    expiresIn: number,
-    respHeaders?: IRespHeaders
-  ) {
     const url = this.getUrl(bucket, path, {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
       respHeaders,

@@ -1,7 +1,13 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { hasPermission } from '@teable/core';
-import { ChevronDown, ChevronRight, Database, MoreHorizontal } from '@teable/icons';
+import {
+  ChevronDown,
+  ChevronRight,
+  Database,
+  DraggableHandle,
+  MoreHorizontal,
+} from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
 import { useLanDayjs } from '@teable/sdk/hooks';
@@ -23,6 +29,8 @@ export interface IBaseItemProps {
   lastVisitTime?: string;
   className?: string;
   isExpanded?: boolean;
+  showDragHandle?: boolean;
+  dragHandleListeners?: Record<string, unknown>;
   onToggleExpand?: () => void;
   onEnterBase?: () => void;
   onUpdate?: (data: { name?: string; icon?: string }) => void;
@@ -35,6 +43,8 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
     lastVisitTime,
     className,
     isExpanded = false,
+    showDragHandle = false,
+    dragHandleListeners,
     onToggleExpand,
     onEnterBase,
     onUpdate,
@@ -87,6 +97,15 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       )}
       onClick={() => onToggleExpand?.()}
     >
+      {showDragHandle && (
+        <div
+          className="flex w-6 shrink-0 cursor-grab items-center justify-center active:cursor-grabbing"
+          onClick={stopPropagation}
+          {...dragHandleListeners}
+        >
+          <DraggableHandle className="size-3.5 text-muted-foreground opacity-0 group-hover:opacity-100" />
+        </div>
+      )}
       <Button
         variant="ghost"
         size="xs"
@@ -181,6 +200,11 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
         <span className="hidden truncate text-xs sm:block" title={base.createdUser?.name}>
           {base.createdUser?.name}
         </span>
+      </div>
+
+      {/* Created Time Column */}
+      <div className="hidden w-32 shrink-0 truncate px-2 text-xs sm:flex">
+        {base.createdTime ? dayjs(base.createdTime).fromNow() : '-'}
       </div>
 
       {/* Last Opened Column */}

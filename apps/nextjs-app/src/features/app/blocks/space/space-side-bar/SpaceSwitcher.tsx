@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
-import { Check, ChevronDown, Database, Plus, Settings, ShieldUser, Trash2 } from '@teable/icons';
+import { Check, ChevronDown, Database, Plus, ShieldUser, Trash2 } from '@teable/icons';
 import {
   createSpace,
   getSubscriptionSummaryList,
@@ -155,6 +155,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
 
   const handleSelectSpace = (space: IGetSpaceVo) => {
     setOpen(false);
+    if (space.id === currentSpaceId) return;
     router.push({
       pathname: '/space/[spaceId]',
       query: {
@@ -234,7 +235,12 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
                               'opacity-100 w-auto': spaceIsPinned,
                             })}
                           />
-                          {isCloud && <Level level={subscription?.level} />}
+                          {isCloud && (
+                            <Level
+                              level={subscription?.level}
+                              appSumoTier={subscription?.appSumoTier}
+                            />
+                          )}
                         </div>
 
                         <div className="flex shrink-0 items-center gap-2">

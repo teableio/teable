@@ -18,8 +18,9 @@ import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { SpaceInnerSettingModal, SettingTab } from '@overridable/SpaceInnerSettingModal';
 import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
@@ -45,6 +46,7 @@ export const SpaceInnerPage: React.FC = () => {
 
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
+  const [settingModalOpen, setSettingModalOpen] = useState(false);
 
   const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
@@ -127,6 +129,12 @@ export const SpaceInnerPage: React.FC = () => {
     setRenaming(false);
   };
 
+  const handleOpenUpgrade = useCallback(() => {
+    if (space?.role === Role.Owner) {
+      setSettingModalOpen(true);
+    }
+  }, [space?.role]);
+
   const renderSubscription = () => {
     if (space && isCloud) {
       return (
@@ -136,6 +144,8 @@ export const SpaceInnerPage: React.FC = () => {
           spaceId={space.id}
           withUpgrade={space.role === Role.Owner}
           organization={space.organization}
+          onUpgradeClick={handleOpenUpgrade}
+          appSumoTier={subscriptionSummary?.appSumoTier}
         />
       );
     }
@@ -204,7 +214,12 @@ export const SpaceInnerPage: React.FC = () => {
         <div className="flex min-h-0 flex-1 gap-8 px-4 pt-4 sm:px-8">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {basesInSpace?.length ? (
-              <BaseList baseIds={basesInSpace.map((base) => base.id)} />
+              <BaseList
+                key={spaceId}
+                baseIds={basesInSpace.map((base) => base.id)}
+                spaceId={spaceId}
+                showToolbar={true}
+              />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
                 <Image
@@ -241,6 +256,14 @@ export const SpaceInnerPage: React.FC = () => {
             </ScrollArea>
           </div>
         </div>
+
+        <SpaceInnerSettingModal
+          open={settingModalOpen}
+          setOpen={setSettingModalOpen}
+          defaultTab={SettingTab.Plan}
+        >
+          <span className="hidden" />
+        </SpaceInnerSettingModal>
       </div>
     )
   );

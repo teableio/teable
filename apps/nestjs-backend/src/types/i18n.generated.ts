@@ -3298,10 +3298,14 @@ export type I18nTranslations = {
         "baseList": {
             "allBases": string;
             "owner": string;
+            "createdTime": string;
             "lastOpened": string;
             "enter": string;
             "noTables": string;
             "empty": string;
+            "recent": string;
+            "manual": string;
+            "noBasesFound": string;
         };
         "publishBase": {
             "title": string;
@@ -4458,6 +4462,7 @@ export type I18nTranslations = {
                 "generateScriptAndDependencies": string;
                 "analyzingAttachment": string;
                 "locateResource": string;
+                "goTo": string;
                 "operationSuccess": string;
                 "operationFailed": string;
             };
@@ -4594,6 +4599,9 @@ export type I18nTranslations = {
                 "waitedSeconds": string;
                 "waitFailed": string;
             };
+            "expand": string;
+            "history": string;
+            "close": string;
             "dataVisualization": {
                 "error": string;
             };

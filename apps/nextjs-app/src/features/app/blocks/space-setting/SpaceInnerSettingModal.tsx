@@ -24,6 +24,7 @@ interface ISpaceInnerSettingModalProps {
 export enum SettingTab {
   General = 'general',
   Collaborator = 'collaborator',
+  Plan = 'plan',
 }
 
 export const SpaceInnerSettingModal = (props: ISpaceInnerSettingModalProps) => {
