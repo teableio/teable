@@ -82,6 +82,9 @@ export class AttachmentsStorageService {
     expiresIn: number = this.urlExpireIn,
     respHeaders?: IRespHeaders
   ) {
+    // Use 50% of URL expiration time for cache TTL to ensure URLs are refreshed
+    // before they expire, preventing stale URLs after deployments
+    const cacheTtl = Math.floor(expiresIn * 0.5);
     const previewCache = await this.cacheService.get(`attachment:preview:${token}`);
     let url = previewCache?.url;
     if (!url) {
@@ -92,7 +95,7 @@ export class AttachmentsStorageService {
           url,
           expiresIn,
         },
-        expiresIn
+        cacheTtl
       );
     }
     return url;

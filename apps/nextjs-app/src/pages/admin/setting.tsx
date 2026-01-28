@@ -6,7 +6,7 @@ import { AdminLayout } from '@/features/app/layouts/AdminLayout';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
-import withAuthSSR from '@/lib/withAuthSSR';
+import withAuthSSR, { ForbiddenError } from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
 
 const Setting: NextPageWithLayout<ISettingPageProps> = ({ settingServerData }) => (
@@ -15,16 +15,11 @@ const Setting: NextPageWithLayout<ISettingPageProps> = ({ settingServerData }) =
 
 export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
-    withAuthSSR(async (context, ssrApi) => {
+    withAuthSSR<ISettingPageProps>(async (context, ssrApi) => {
       const userMe = await ssrApi.getUserMe();
 
       if (!userMe?.isAdmin) {
-        return {
-          redirect: {
-            destination: '/403',
-            permanent: false,
-          },
-        };
+        throw new ForbiddenError();
       }
 
       const setting = await ssrApi.getSetting();
