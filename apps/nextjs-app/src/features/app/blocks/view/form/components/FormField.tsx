@@ -42,7 +42,9 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
         <h3 className="ml-1">{name}</h3>
       </div>
 
-      {description && <div className="mb-2 text-xs text-slate-400">{description}</div>}
+      {description && (
+        <div className="mb-2 whitespace-pre-line text-xs text-slate-400">{description}</div>
+      )}
 
       <FormCellEditor
         cellValue={value}
