@@ -437,6 +437,33 @@
           "lg": "Gelişmiş sohbet modeli",
           "lgDescription": "Planlama, kodlama ve diğer karmaşık görev senaryoları için. Önerilen: claude-sonnet-4.5"
         },
+        "actions": {
+          "title": "AI Yetenekleri",
+          "aiBasicCapability": {
+            "title": "Temel AI Yeteneği",
+            "description": "Tablo sorguları, SQL çalıştırma, script oluşturma ve veri görselleştirme için temel AI yeteneği"
+          },
+          "buildBase": {
+            "title": "Veritabanı oluştur",
+            "description": "Sıfırdan veritabanı oluştur"
+          },
+          "buildApp": {
+            "title": "Uygulama oluştur",
+            "description": "Veritabanına dayalı uygulama oluştur"
+          },
+          "buildAutomation": {
+            "title": "Otomasyon oluştur",
+            "description": "Sıfırdan otomasyon oluştur"
+          },
+          "baseResource": {
+            "title": "Veritabanı kaynak işlemleri",
+            "description": "AI aracılığıyla tablo, görünüm, alan ve kayıtları oluşturma, değiştirme ve silme"
+          },
+          "suggestion": {
+            "title": "Öneri",
+            "description": "Mevcut veritabanı verilerine ve konuşma içeriğine göre öneriler sunma"
+          }
+        },
         "chatModelTest": {
           "text": "Test modeli",
           "description": "Modelin resim, PDF işleme kabiliyetini test et",

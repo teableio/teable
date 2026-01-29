@@ -546,6 +546,7 @@
           "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5"
         },
         "actions": {
+          "title": "AI Capabilities",
           "aiBasicCapability": {
             "title": "AI basic capability",
             "description": "AI basic capability for table queries, SQL execution, script generation, and data visualization"

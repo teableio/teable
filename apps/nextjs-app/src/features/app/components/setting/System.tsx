@@ -31,13 +31,13 @@ export const System: React.FC = () => {
             <p className="text-xs text-muted-foreground">{t('settings.setting.themeDesc')}</p>
           </div>
           <RadioGroup
-            className="grid max-w-screen-md grid-cols-3 gap-4 sm:gap-8"
+            className="flex w-full justify-evenly"
             defaultValue={theme}
             onValueChange={(value) => {
               setTheme(value);
             }}
           >
-            <div>
+            <div className="w-[206px]">
               <RadioGroupItem value="light" id="light" className="peer sr-only" />
               <Label
                 htmlFor="light"
@@ -55,7 +55,7 @@ export const System: React.FC = () => {
                 {t('settings.setting.light')}
               </span>
             </div>
-            <div>
+            <div className="w-[206px]">
               <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
               <Label
                 htmlFor="dark"
@@ -73,7 +73,7 @@ export const System: React.FC = () => {
                 {t('settings.setting.dark')}
               </span>
             </div>
-            <div>
+            <div className="w-[206px]">
               <RadioGroupItem value="system" id="system" className="peer sr-only" />
               <Label
                 htmlFor="system"
