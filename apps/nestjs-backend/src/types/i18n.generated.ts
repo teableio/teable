@@ -744,6 +744,33 @@ export type I18nTranslations = {
                         "lg": string;
                         "lgDescription": string;
                     };
+                    "actions": {
+                        "title": string;
+                        "aiBasicCapability": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "buildBase": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "buildApp": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "buildAutomation": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "baseResource": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "suggestion": {
+                            "title": string;
+                            "description": string;
+                        };
+                    };
                     "chatModelTest": {
                         "text": string;
                         "description": string;
@@ -800,32 +827,6 @@ export type I18nTranslations = {
                     "customModelDescription": string;
                     "aiAbilitySettings": string;
                     "aiAbilitySettingsDescription": string;
-                    "actions": {
-                        "aiBasicCapability": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildBase": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildApp": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildAutomation": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "baseResource": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "suggestion": {
-                            "title": string;
-                            "description": string;
-                        };
-                    };
                     "imageModelAbility": {
                         "generation": string;
                         "imageToImage": string;

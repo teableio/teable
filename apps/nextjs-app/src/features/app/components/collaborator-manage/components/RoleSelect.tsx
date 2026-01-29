@@ -36,7 +36,7 @@ export const RoleSelect = (props: IRoleSelect) => {
       onValueChange={(value) => onChange?.(value as IRole)}
       disabled={disabled}
     >
-      <SelectTrigger className={cn('h-8 w-32 bg-background', className)}>
+      <SelectTrigger className={cn('h-8 w-32 bg-background focus:ring-0', className)}>
         <SelectValue>{showSelectedRoleValue}</SelectValue>
       </SelectTrigger>
       <SelectContent className=" w-72">

@@ -228,7 +228,7 @@ export const AIConfig = (props: IAIConfigProps) => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
         <AIControlCard
           disableActions={config?.capabilities?.disableActions || instanceAIDisableActions}
           onChange={(value: { disableActions: string[] }) => {
@@ -237,9 +237,22 @@ export const AIConfig = (props: IAIConfigProps) => {
           }}
         />
         {children}
-        <div>
-          <div className="flex items-center justify-between pb-2">
-            <div className="text-lg font-medium">{t('admin.setting.ai.provider')}</div>
+        <AIProviderCard
+          control={form.control}
+          onChange={onProvidersUpdate}
+          onTest={onTest}
+          modelTestResults={modelTestResults}
+          onToggleImageModel={onToggleImageModel}
+          onTestProvider={(provider) => testProviderCallbackRef.current?.(provider)}
+          onTestModel={(provider, model, modelKey) =>
+            testModelCallbackRef.current?.(provider, model, modelKey) ?? Promise.resolve()
+          }
+          testingProviders={testingProviders}
+          testingModels={testingModels}
+          hideModelRates
+          onSaveTestResult={onSaveTestResult}
+          title={t('admin.setting.ai.provider')}
+          headerActions={
             <BatchTestModels
               providers={llmProviders}
               disabled={!llmProviders?.length}
@@ -255,36 +268,18 @@ export const AIConfig = (props: IAIConfigProps) => {
                 testModelCallbackRef.current = callback;
               }}
             />
-          </div>
-          <AIProviderCard
-            control={form.control}
-            onChange={onProvidersUpdate}
-            onTest={onTest}
-            modelTestResults={modelTestResults}
-            onToggleImageModel={onToggleImageModel}
-            onTestProvider={(provider) => testProviderCallbackRef.current?.(provider)}
-            onTestModel={(provider, model, modelKey) =>
-              testModelCallbackRef.current?.(provider, model, modelKey) ?? Promise.resolve()
-            }
-            testingProviders={testingProviders}
-            testingModels={testingModels}
-            hideModelRates
-            onSaveTestResult={onSaveTestResult}
-          />
-        </div>
-        <div className="flex flex-col gap-y-2">
-          <div className="text-lg font-medium">{t('admin.setting.ai.modelPreferences')}</div>
-          <div className="text-base font-medium">{t(`admin.setting.ai.chatModel`)}</div>
-          <AIModelPreferencesCard
-            control={form.control}
-            models={models}
-            onChange={() => onSubmit(form.getValues())}
-            onTestChatModelAbility={onTestChatModelAbility}
-            onEnableAI={onEnableAI}
-            needGroup={true}
-            hideEmbeddingModel
-          />
-        </div>
+          }
+        />
+        <AIModelPreferencesCard
+          control={form.control}
+          models={models}
+          onChange={() => onSubmit(form.getValues())}
+          onTestChatModelAbility={onTestChatModelAbility}
+          onEnableAI={onEnableAI}
+          needGroup={true}
+          hideEmbeddingModel
+          title={t('admin.setting.ai.modelPreferences')}
+        />
       </form>
     </Form>
   );
