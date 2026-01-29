@@ -17,6 +17,25 @@ import { chartConfig } from './config/chart';
 import { sheetFormConfig } from './config/sheet-form-view';
 import type { IOfficialPluginConfig } from './config/types';
 
+interface IUploadResult {
+  id: string;
+  path: string;
+  url: string;
+  size: number;
+  width?: number;
+  height?: number;
+  hash: string;
+  mimetype: string;
+}
+
+interface IPreparedPlugin {
+  config: IOfficialPluginConfig & { secret: string; url: string };
+  logo: IUploadResult;
+  avatar?: IUploadResult;
+  hashedSecret: string;
+  maskedSecret: string;
+}
+
 @Injectable()
 export class OfficialPluginInitService implements OnModuleInit {
   private logger = new Logger(OfficialPluginInitService.name);
@@ -30,7 +49,6 @@ export class OfficialPluginInitService implements OnModuleInit {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  // init official plugins
   async onModuleInit() {
     const officialPlugins = [
       {
@@ -48,10 +66,18 @@ export class OfficialPluginInitService implements OnModuleInit {
     ];
 
     try {
+      // Phase 1: Upload files to storage (outside transaction)
+      const preparedPlugins: IPreparedPlugin[] = [];
+      for (const plugin of officialPlugins) {
+        this.logger.log(`Creating official plugin: ${plugin.name}`);
+        const prepared = await this.preparePlugin(plugin);
+        preparedPlugins.push(prepared);
+      }
+
+      // Phase 2: Database operations (inside transaction)
       await this.prismaService.$tx(async () => {
-        for (const plugin of officialPlugins) {
-          this.logger.log(`Creating official plugin: ${plugin.name}`);
-          await this.createOfficialPlugin(plugin);
+        for (const prepared of preparedPlugins) {
+          await this.savePlugin(prepared);
         }
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,21 +89,33 @@ export class OfficialPluginInitService implements OnModuleInit {
     this.logger.log('Official plugins initialized');
   }
 
-  async uploadStatic(id: string, filePath: string, type: UploadType) {
+  private async uploadToStorage(
+    id: string,
+    filePath: string,
+    type: UploadType
+  ): Promise<IUploadResult> {
+    const path = join(StorageAdapter.getDir(type), id);
+
     if (process.env.NODE_ENV === 'test') {
-      return `/${join(StorageAdapter.getDir(type), id)}`;
+      return { id, path, url: `/${path}`, size: 0, hash: '', mimetype: 'image/png' };
     }
+
     const fileStream = createReadStream(resolve(process.cwd(), filePath));
     const metaReader = sharp();
     const sharpReader = fileStream.pipe(metaReader);
     const { width, height, format = 'png', size = 0 } = await sharpReader.metadata();
-    const path = join(StorageAdapter.getDir(type), id);
     const bucket = StorageAdapter.getBucket(type);
     const mimetype = `image/${format}`;
     const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, filePath, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': mimetype,
     });
+
+    return { id, path, url: `/${path}`, size, width, height, hash, mimetype };
+  }
+
+  private async saveAttachment(upload: IUploadResult): Promise<void> {
+    const { id, path, size, width, height, hash, mimetype } = upload;
     await this.prismaService.txClient().attachments.upsert({
       create: {
         token: id,
@@ -102,106 +140,91 @@ export class OfficialPluginInitService implements OnModuleInit {
         deletedTime: null,
       },
     });
-    return `/${path}`;
   }
 
-  async createOfficialPlugin(
+  private async preparePlugin(
     pluginConfig: IOfficialPluginConfig & { secret: string; url: string }
-  ) {
+  ): Promise<IPreparedPlugin> {
+    const { id: pluginId, logoPath, avatarPath, pluginUserId, secret } = pluginConfig;
+
+    const logo = await this.uploadToStorage(pluginId, logoPath, UploadType.Plugin);
+    const { hashedSecret, maskedSecret } = await generateSecret(secret);
+
+    let avatar: IUploadResult | undefined;
+    if (pluginUserId && avatarPath) {
+      avatar = await this.uploadToStorage(pluginUserId, avatarPath, UploadType.Avatar);
+    }
+
+    return { config: pluginConfig, logo, avatar, hashedSecret, maskedSecret };
+  }
+
+  private async savePlugin(prepared: IPreparedPlugin): Promise<void> {
+    const { config, logo, avatar, hashedSecret, maskedSecret } = prepared;
     const {
       id: pluginId,
       name,
       description,
       detailDesc,
-      logoPath,
       i18n,
       positions,
       helpUrl,
-      secret,
       url,
       pluginUserId,
-      avatarPath,
-    } = pluginConfig;
+    } = config;
 
-    const rows = await this.prismaService.txClient().plugin.count({ where: { id: pluginId } });
-    // upload logo
-    const logo = await this.uploadStatic(pluginId, logoPath, UploadType.Plugin);
-    const { hashedSecret, maskedSecret } = await generateSecret(secret);
+    // Save attachments
+    await this.saveAttachment(logo);
+    if (avatar) {
+      await this.saveAttachment(avatar);
+    }
+
+    // Create plugin user if needed
     let userId: string | undefined;
     if (pluginUserId) {
       const userEmail = getPluginEmail(pluginId);
-      // create plugin user
       const user = await this.prismaService
         .txClient()
         .user.findFirst({ where: { id: pluginUserId, email: userEmail } });
-      let avatar: string | undefined;
-      if (avatarPath) {
-        // upload user avatar
-        avatar = await this.uploadStatic(pluginUserId, avatarPath, UploadType.Avatar);
-      }
+
       if (!user) {
         await this.userService.createSystemUser({
           id: pluginUserId,
           name,
-          avatar,
+          avatar: avatar?.url,
           email: userEmail,
         });
       }
       userId = pluginUserId;
     }
-    if (rows > 0) {
-      return this.prismaService.txClient().plugin.update({
-        where: {
-          id: pluginId,
-        },
-        data: {
-          name,
-          description,
-          detailDesc,
-          positions: JSON.stringify(positions),
-          helpUrl,
-          url,
-          logo,
-          status: PluginStatus.Published,
-          i18n: JSON.stringify(i18n),
-          secret: hashedSecret,
-          maskedSecret,
-          pluginUser: userId || pluginUserId,
-          createdBy: 'system',
-        },
+
+    // Create or update plugin
+    const pluginData = {
+      name,
+      description,
+      detailDesc,
+      positions: JSON.stringify(positions),
+      helpUrl,
+      url,
+      logo: logo.url,
+      status: PluginStatus.Published,
+      i18n: JSON.stringify(i18n),
+      secret: hashedSecret,
+      maskedSecret,
+      pluginUser: userId || pluginUserId,
+      createdBy: 'system',
+    };
+
+    const exists = await this.prismaService.txClient().plugin.count({ where: { id: pluginId } });
+
+    if (exists > 0) {
+      await this.prismaService.txClient().plugin.update({
+        where: { id: pluginId },
+        data: pluginData,
+      });
+    } else {
+      await this.prismaService.txClient().plugin.create({
+        data: { id: pluginId, ...pluginData },
       });
     }
-    return this.prismaService.txClient().plugin.create({
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        detailDesc: true,
-        positions: true,
-        helpUrl: true,
-        logo: true,
-        url: true,
-        status: true,
-        i18n: true,
-        secret: true,
-        createdTime: true,
-      },
-      data: {
-        id: pluginId,
-        name,
-        description,
-        detailDesc,
-        positions: JSON.stringify(positions),
-        helpUrl,
-        url,
-        logo,
-        status: PluginStatus.Published,
-        i18n: JSON.stringify(i18n),
-        secret: hashedSecret,
-        maskedSecret,
-        pluginUser: userId || pluginUserId,
-        createdBy: 'system',
-      },
-    });
   }
 }

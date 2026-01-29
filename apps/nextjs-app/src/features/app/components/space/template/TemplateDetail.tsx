@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   createBaseFromTemplate,
-  getPublishedTemplateCategoryList,
+  getTemplateCategoryList,
   getTemplateDetail,
 } from '@teable/openapi';
 import { MarkdownPreview } from '@teable/sdk';
@@ -40,7 +40,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
 
   const { data: categoryList } = useQuery({
     queryKey: ReactQueryKeys.publishedTemplateCategoryList(),
-    queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
+    queryFn: () => getTemplateCategoryList().then((data) => data.data),
   });
 
   const categoryNames = useMemo(() => {

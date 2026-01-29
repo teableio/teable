@@ -1,5 +1,3 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions */
-/* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { canManageRole, hasPermission, Role, type IBaseRole, type IRole } from '@teable/core';
 import type { CollaboratorItem, IAddCollaborator } from '@teable/openapi';
@@ -18,13 +16,11 @@ import {
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
-import { Badge, Button, Separator } from '@teable/ui-lib/shadcn';
+import { Badge } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { ChevronRight, Send } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
-import { BaseShare } from '../../../blocks/table/table-header/BaseShare';
 import { useFilteredRoleStatic } from '../../collaborator-manage/base/useFilteredRoleStatic';
 import { CollaboratorsDialog } from './CollaboratorsDialog';
 import { AuthorityTips } from './common/AuthorityTips';
@@ -46,14 +42,12 @@ export const ShareBaseContent = ({
   role: userRole,
   enabledAuthority,
   onClose,
-  onPublishBase,
 }: {
   baseId: string;
   baseName: string;
   role: IRole;
   enabledAuthority?: boolean;
   onClose: () => void;
-  onPublishBase?: () => void;
 }) => {
   const router = useRouter();
   const { user } = useSession();
@@ -358,26 +352,6 @@ export const ShareBaseContent = ({
           </CollaboratorsDialog>
         </div>
       </div>
-
-      <Separator />
-
-      {onPublishBase ? (
-        <Button
-          variant="outline"
-          className="flex h-10 w-full items-center gap-2 bg-muted px-3 py-[10px]"
-          onClick={() => {
-            onPublishBase();
-          }}
-        >
-          <div className="flex-start flex flex-1 items-center gap-2">
-            <Send className="size-4" />
-            {t('publishBase.publishToCommunity', { ns: 'space' })}
-          </div>
-          <ChevronRight className="size-4 shrink-0" />
-        </Button>
-      ) : (
-        <BaseShare onClose={onClose} />
-      )}
     </div>
   );
 };

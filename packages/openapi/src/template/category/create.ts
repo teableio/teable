@@ -6,6 +6,8 @@ import type { ITemplateCategoryListVo } from './get';
 
 export const CREATE_TEMPLATE_CATEGORY = '/template/category/create';
 
+export const MAX_TEMPLATE_CATEGORY_COUNT = 50;
+
 export const createTemplateCategoryRoSchema = z.object({
   name: z.string(),
 });
