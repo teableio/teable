@@ -1341,10 +1341,12 @@
       "invalidResourceType": "Ungültiger Ressourcentyp"
     },
     "template": {
+      "categoryNotFound": "Vorlagenkategorie nicht gefunden",
       "snapshotRequired": "Diese Vorlage konnte nicht veröffentlicht werden, da ein Snapshot fehlt",
       "sourceTemplateNotFound": "Quellvorlage nicht gefunden",
       "noMinOrderFound": "Keine Minimalreihenfolge gefunden",
-      "takeCountTooLarge": "Die Anzahl der angeforderten Vorlagen überschreitet das Maximum"
+      "takeCountTooLarge": "Die Anzahl der angeforderten Vorlagen überschreitet das Maximum",
+      "categoryLimitReached": "Vorlagenkategorie-Limit erreicht (maximal {{maxCount}})"
     },
     "department": {
       "parentNotFound": "Übergeordnete Abteilung nicht gefunden",

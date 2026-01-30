@@ -1327,10 +1327,12 @@
       "invalidResourceType": "Недійсний тип ресурсу"
     },
     "template": {
+      "categoryNotFound": "Категорія шаблону не знайдена",
       "snapshotRequired": "Цей шаблон не можна опублікувати через відсутність знімка",
       "sourceTemplateNotFound": "Вихідний шаблон не знайдено",
       "noMinOrderFound": "Мінімальний порядок не знайдено",
-      "takeCountTooLarge": "Кількість запитуваних шаблонів перевищує максимальний ліміт"
+      "takeCountTooLarge": "Кількість запитуваних шаблонів перевищує максимальний ліміт",
+      "categoryLimitReached": "Досягнуто ліміт категорій шаблонів (максимум {{maxCount}})"
     },
     "domainVerification": {
       "notFound": "Код підтвердження домену не знайдено",

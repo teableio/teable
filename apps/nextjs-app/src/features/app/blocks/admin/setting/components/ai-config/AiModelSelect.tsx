@@ -242,7 +242,7 @@ export function AIModelSelect({
                   <Plus className="size-4" />
                   {t('admin.setting.ai.moreModels')}
                   {!isLoadingGateway && pickerModels.length > 0 && (
-                    <span className="text-xs text-yellow-500 dark:text-yellow-600">
+                    <span className="text-xs text-muted-foreground">
                       ({pickerModels.length})
                     </span>
                   )}

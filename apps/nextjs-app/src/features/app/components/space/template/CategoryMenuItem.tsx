@@ -3,8 +3,8 @@ import { Button, cn } from '@teable/ui-lib/shadcn';
 interface CategoryMenuItemProps {
   category: string;
   currentCategoryId: string | null;
-  id: string;
-  onClickHandler: (id: string) => void;
+  id: string | null;
+  onClickHandler: (id: string | null) => void;
 }
 
 export const CategoryMenuItem = (props: CategoryMenuItemProps) => {

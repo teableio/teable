@@ -79,7 +79,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
   const { data: subscriptionSummary } = useQuery({
     queryKey: ReactQueryKeys.subscriptionSummary(spaceId as string),
     queryFn: () => getSubscriptionSummary(spaceId as string).then((res) => res.data),
-    enabled: isCloud && Boolean(spaceId),
+    enabled: isCloud && Boolean(spaceId) && Boolean(!baseId),
   });
 
   const appSumoTier = subscriptionSummary?.appSumoTier;

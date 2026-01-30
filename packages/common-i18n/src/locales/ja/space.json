@@ -155,6 +155,10 @@
     },
     "urlCopied": "URLをクリップボードにコピーしました！",
     "urlCopiedForDiscord": "URLをクリップボードにコピーしました！Discordに貼り付けることができます。",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "公式Featuredに選出されました。より多くの露出と推奨を受けられます。",
+    "unfeaturedTip": "まだ公式Featuredに選出されていません。改善を続けて、推奨される機会を得ましょう。より多くの人にあなたの作品を見てもらいましょう。",
     "publishSuccessDescription": "あなたの作品を世界に共有しましょう",
     "shareWith": "共有先",
     "unpublishedApps": {

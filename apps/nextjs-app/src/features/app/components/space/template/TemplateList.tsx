@@ -12,7 +12,7 @@ import type { ITemplateBaseProps } from './TemplateMain';
 
 const TemplateCardSkeleton = () => (
   <div className="flex w-full shrink-0 flex-col">
-    <Skeleton className="h-[180px] w-full rounded-lg" />
+    <Skeleton className="aspect-[16/9] w-full rounded-lg" />
     <div className="flex flex-col gap-1 px-1 pt-2">
       <div className="flex items-center justify-between gap-3">
         <Skeleton className="h-5 w-2/3" />
