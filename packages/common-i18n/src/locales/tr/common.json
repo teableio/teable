@@ -66,7 +66,7 @@
     "getMore": "Daha fazla al"
   },
   "quickAction": {
-    "title": "Hızlı İşlemler...",
+    "title": "Hızlı İşlemler",
     "placeHolder": "Bir komut yazın veya arayın..."
   },
   "password": {
@@ -111,6 +111,77 @@
     "title": "Örnek Ayarları",
     "personal": {
       "title": "Kişisel ayarlar"
+    },
+    "templateAdmin": {
+      "title": "Şablon yönetimi",
+      "noData": "Veri yok",
+      "importing": "İçe aktarılıyor...",
+      "usageCount": "Kullanım sayısı: {{count}}",
+      "useTemplate": "Bu şablonu kullan",
+      "createdBy": "{{user}} tarafından",
+      "backToTemplateList": "Şablon listesine dön",
+      "tips": {
+        "errorCategoryName": "Kategori mevcut değil veya silindi",
+        "needSnapshot": "Yayınlamadan önce bir anlık görüntü oluşturun, şablon adı ve açıklaması boş olamaz",
+        "needPublish": "Öne çıkan olarak ayarlamadan önce şablonu yayınlayın",
+        "needBaseSource": "Anlık görüntü oluşturmadan önce bir kaynak veritabanı seçin",
+        "forbiddenUpdateSystemTemplate": "Sistem şablonu değiştirilemez",
+        "addCategoryTips": "Lütfen önce arama kutusuna bir kategori adı girin.",
+        "categoryNamePlaceholder": "Kategori adını girin",
+        "duplicateCategoryName": "Kategori adı zaten mevcut"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Başlayın",
+          "recommended": "Önerilen",
+          "all": "Tümü",
+          "browseByCategory": "Kategoriye göre gözat"
+        }
+      },
+      "header": {
+        "cover": "Kapak",
+        "name": "Ad",
+        "description": "Açıklama",
+        "markdownDescription": "Markdown açıklaması",
+        "category": "Kategori",
+        "isSystem": "Sistem",
+        "source": "Kaynak",
+        "status": "Yayınlandı",
+        "publishSnapshot": "Anlık görüntü yayınla",
+        "snapshotTime": "Anlık görüntü zamanı",
+        "actions": "Eylemler",
+        "featured": "Öne çıkan",
+        "createdBy": "Oluşturan",
+        "userNonExistent": "Kullanıcı mevcut değil",
+        "preview": "Önizleme",
+        "usage": "Kullanım",
+        "visit": "Ziyaret"
+      },
+      "actions": {
+        "title": "Eylemler",
+        "publish": "Yayınla",
+        "delete": "Sil",
+        "duplicate": "Çoğalt",
+        "preview": "Önizleme",
+        "use": "Kullan",
+        "pinTop": "Üste sabitle",
+        "addCategory": "Kategori ekle",
+        "selectCategory": "Kategori seç",
+        "viewTemplate": "Şablonu görüntüle",
+        "manageCategory": "Kategorileri yönet"
+      },
+      "relatedTemplates": "İlgili Şablonlar",
+      "noImage": "Resim yok",
+      "baseSelectPanel": {
+        "title": "Şablon kaynağını seçin",
+        "description": "Şablon olarak bir veritabanı seçin",
+        "confirm": "Onayla",
+        "search": "Ara...",
+        "cancel": "İptal",
+        "selectBase": "Veritabanı seç",
+        "createTemplate": "Şablon oluştur",
+        "abnormalBase": "Veritabanı mevcut değil veya silindi"
+      }
     },
     "back": "Ana sayfaya dön",
     "account": {
@@ -222,26 +293,6 @@
       "revokeDesc": "{{name}} artık Teable API'sine erişemeyecek. Bu işlem geri alınamaz.",
       "scopeTitle": "İzinler",
       "scopeDesc": "Bu uygulama aşağıdaki kapsamlara erişebilecek:"
-    },
-    "templateAdmin": {
-      "header": {
-        "cover": "Kapak",
-        "name": "Ad",
-        "description": "Açıklama",
-        "markdownDescription": "Markdown Açıklama",
-        "category": "Kategori",
-        "isSystem": "Sistem",
-        "source": "Kaynak",
-        "status": "Yayınlandı",
-        "publishSnapshot": "Anlık görüntü yayınla",
-        "snapshotTime": "Anlık görüntü zamanı",
-        "actions": "İşlemler",
-        "featured": "Öne çıkan",
-        "createdBy": "Oluşturan",
-        "userNonExistent": "Kullanıcı mevcut değil",
-        "usage": "Kullanım",
-        "visit": "Ziyaret"
-      }
     }
   },
   "noun": {
@@ -436,6 +487,33 @@
           "mdDescription": "AI formül oluşturma için kullanılır. Yapılandırılmamışsa lg kullanılır. Önerilen: claude-haiku-4.5",
           "lg": "Gelişmiş sohbet modeli",
           "lgDescription": "Planlama, kodlama ve diğer karmaşık görev senaryoları için. Önerilen: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "AI Yetenekleri",
+          "aiBasicCapability": {
+            "title": "Temel AI Yeteneği",
+            "description": "Tablo sorguları, SQL çalıştırma, script oluşturma ve veri görselleştirme için temel AI yeteneği"
+          },
+          "buildBase": {
+            "title": "Veritabanı oluştur",
+            "description": "Sıfırdan veritabanı oluştur"
+          },
+          "buildApp": {
+            "title": "Uygulama oluştur",
+            "description": "Veritabanına dayalı uygulama oluştur"
+          },
+          "buildAutomation": {
+            "title": "Otomasyon oluştur",
+            "description": "Sıfırdan otomasyon oluştur"
+          },
+          "baseResource": {
+            "title": "Veritabanı kaynak işlemleri",
+            "description": "AI aracılığıyla tablo, görünüm, alan ve kayıtları oluşturma, değiştirme ve silme"
+          },
+          "suggestion": {
+            "title": "Öneri",
+            "description": "Mevcut veritabanı verilerine ve konuşma içeriğine göre öneriler sunma"
+          }
         },
         "chatModelTest": {
           "text": "Test modeli",

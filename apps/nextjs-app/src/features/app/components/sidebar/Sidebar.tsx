@@ -17,6 +17,7 @@ import { useSidebarStore } from './useSidebarStore';
 
 interface ISidebarProps {
   headerLeft: ReactNode;
+  headerRight?: ReactNode;
   className?: string;
 }
 
@@ -39,16 +40,14 @@ const useSidebar = () => {
 };
 
 export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
-  const { headerLeft, children, className } = props;
+  const { headerLeft, headerRight, children, className } = props;
   const isMobile = useIsMobile();
   const { isVisible, setVisible, setWidth, width } = useSidebar();
   const isHydrated = useIsHydrated();
-
   const toggleSidebar = useCallback(() => {
     setVisible(!isVisible);
   }, [isVisible, setVisible]);
-
-  useHotkeys('meta+b', toggleSidebar, [toggleSidebar]);
+  useHotkeys(`mod+b`, toggleSidebar);
 
   const sidebarClassName = cn(
     'group/sidebar flex size-full flex-col overflow-hidden bg-background',
@@ -58,11 +57,11 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
   const sidebarContent = useMemo(
     () => (
       <>
-        <SidebarHeader headerLeft={headerLeft} onExpand={toggleSidebar} />
+        <SidebarHeader headerLeft={headerLeft} headerRight={headerRight} onExpand={toggleSidebar} />
         {children}
       </>
     ),
-    [headerLeft, children, toggleSidebar]
+    [headerLeft, headerRight, children, toggleSidebar]
   );
 
   // During SSR/hydration, render consistent layout to avoid mismatch
@@ -83,7 +82,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
     return (
       <SheetWrapper>
         <div className={sidebarClassName}>
-          <SidebarHeader headerLeft={headerLeft} />
+          <SidebarHeader headerLeft={headerLeft} headerRight={headerRight} />
           {children}
         </div>
       </SheetWrapper>
@@ -106,7 +105,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
         </HoverWrapper.Trigger>
         <HoverWrapper.content>
           <div className={sidebarClassName} onContextMenu={(e) => e.preventDefault()}>
-            <SidebarHeader headerLeft={headerLeft} />
+            <SidebarHeader headerLeft={headerLeft} headerRight={headerRight} />
             {children}
           </div>
         </HoverWrapper.content>

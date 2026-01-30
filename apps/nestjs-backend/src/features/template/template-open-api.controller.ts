@@ -99,12 +99,6 @@ export class TemplateOpenApiController {
     return this.templateOpenApiService.getTemplateCategoryList();
   }
 
-  @Public()
-  @Get('/category/list/published')
-  async getPublishedTemplateCategoryList() {
-    return this.templateOpenApiService.getPublishedTemplateCategoryList();
-  }
-
   @Delete('/category/:templateCategoryId')
   @Permissions('instance|update')
   async deleteTemplateCategory(@Param('templateCategoryId') templateCategoryId: string) {
@@ -121,6 +115,18 @@ export class TemplateOpenApiController {
     return this.templateOpenApiService.updateTemplateCategory(
       templateCategoryId,
       updateTemplateCategoryRo
+    );
+  }
+
+  @Put('/category/:templateCategoryId/order')
+  @Permissions('instance|update')
+  async updateTemplateCategoryOrder(
+    @Param('templateCategoryId') templateCategoryId: string,
+    @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo
+  ) {
+    return await this.templateOpenApiService.updateTemplateCategoryOrder(
+      templateCategoryId,
+      updateOrderRo
     );
   }
 

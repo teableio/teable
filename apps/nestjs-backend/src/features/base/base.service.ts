@@ -26,9 +26,8 @@ import {
   BaseNodeResourceType,
   BaseDuplicateMode,
   UploadType,
-  PrincipalType,
 } from '@teable/openapi';
-import { keyBy, isNumber, pick, uniq } from 'lodash';
+import { isNumber, keyBy, pick, uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -164,29 +163,15 @@ export class BaseService {
     }
 
     const baseSpaceIds = uniq(baseList.map((base) => base.spaceId));
-    const spaceCollaborators = await this.prismaService.collaborator.findMany({
-      where: {
-        resourceType: CollaboratorType.Space,
-        resourceId: { in: baseSpaceIds },
-        principalType: PrincipalType.User,
-      },
-      select: { resourceId: true, principalId: true, roleName: true },
-    });
+    const { validCreatorSet, spaceOwnerMap } =
+      await this.collaboratorService.buildSpaceOwnerContext(baseSpaceIds);
 
-    const validCreatorSet = new Set(
-      spaceCollaborators.map((c) => `${c.resourceId}:${c.principalId}`)
-    );
-    const spaceOwnerMap = new Map(
-      spaceCollaborators
-        .filter((c) => c.roleName === Role.Owner)
-        .map((c) => [c.resourceId, c.principalId])
-    );
     const allUserIds = uniq([...baseList.map((base) => base.createdBy), ...spaceOwnerMap.values()]);
-
     const userList = await this.prismaService.user.findMany({
       where: { id: { in: allUserIds } },
       select: { id: true, name: true, avatar: true },
     });
+
     const userMap = keyBy(userList, 'id');
 
     return baseList.map((base) => {

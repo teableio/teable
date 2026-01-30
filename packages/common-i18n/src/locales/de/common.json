@@ -66,7 +66,7 @@
     "getMore": "Mehr erhalten"
   },
   "quickAction": {
-    "title": "Schnelle Aktionen...",
+    "title": "Schnelle Aktionen",
     "placeHolder": "Geben Sie einen Befehl ein oder suchen Sie..."
   },
   "password": {
@@ -300,7 +300,8 @@
         "pinTop": "Oben anheften",
         "addCategory": "Kategorie hinzufügen",
         "selectCategory": "Kategorie auswählen",
-        "viewTemplate": "Vorlage anzeigen"
+        "viewTemplate": "Vorlage anzeigen",
+        "manageCategory": "Kategorien verwalten"
       },
       "relatedTemplates": "Verwandte Vorlagen",
       "noImage": "Kein Bild",
@@ -518,6 +519,33 @@
           "mdDescription": "Für AI-Formelgenerierung. Falls nicht konfiguriert, wird lg verwendet. Empfohlen: claude-haiku-4.5",
           "lg": "Erweiteres Chat-Modell",
           "lgDescription": "Für Planung, Programmierung und andere komplexe Aufgabenszenarien. Empfohlen: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "KI-Fähigkeiten",
+          "aiBasicCapability": {
+            "title": "KI-Grundfähigkeit",
+            "description": "KI-Grundfähigkeit für Tabellenabfragen, SQL-Ausführung, Skriptgenerierung und Datenvisualisierung"
+          },
+          "buildBase": {
+            "title": "Datenbank erstellen",
+            "description": "Datenbank von Grund auf erstellen"
+          },
+          "buildApp": {
+            "title": "App erstellen",
+            "description": "App basierend auf Datenbank erstellen"
+          },
+          "buildAutomation": {
+            "title": "Automatisierung erstellen",
+            "description": "Automatisierung von Grund auf erstellen"
+          },
+          "baseResource": {
+            "title": "Datenbank-Ressourcenoperation",
+            "description": "Tabellen, Ansichten, Felder und Datensätze über KI erstellen, ändern und löschen"
+          },
+          "suggestion": {
+            "title": "Vorschlag",
+            "description": "Vorschläge basierend auf den aktuellen Datenbankdaten und Gesprächsinhalten geben"
+          }
         },
         "chatModelTest": {
           "text": "Modell testen",
