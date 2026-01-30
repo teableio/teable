@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPublishedTemplateList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
+import { useIsMobile } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -17,6 +18,7 @@ interface IRecommendTemplateProps extends Pick<ITemplateBaseProps, 'onClickTempl
 export const RecommendTemplate = (props: IRecommendTemplateProps) => {
   const { onClickTemplateCardHandler, className, filterTemplateIds } = props;
   const { t } = useTranslation('common');
+  const isMobile = useIsMobile();
 
   const { data: templates, isLoading } = useQuery({
     queryKey: [...ReactQueryKeys.publishedTemplateList(null, '', true), 'recommend'],
@@ -44,7 +46,11 @@ export const RecommendTemplate = (props: IRecommendTemplateProps) => {
       <p className="text-base font-semibold text-foreground">
         {t('settings.templateAdmin.relatedTemplates')}
       </p>
-      <div className="grid w-full grid-cols-3 gap-5">
+      <div
+        className={cn('grid w-full grid-cols-3 gap-5', {
+          'grid-cols-1': isMobile,
+        })}
+      >
         {filteredTemplates?.map((template) => (
           <TemplateCard
             key={template.id}

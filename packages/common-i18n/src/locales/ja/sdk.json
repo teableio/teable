@@ -1335,10 +1335,12 @@
       "invalidResourceType": "無効なリソースタイプ"
     },
     "template": {
+      "categoryNotFound": "テンプレートカテゴリが見つかりません",
       "snapshotRequired": "スナップショットがないため、このテンプレートを公開できませんでした",
       "sourceTemplateNotFound": "ソーステンプレートが見つかりません",
       "noMinOrderFound": "最小順序が見つかりません",
-      "takeCountTooLarge": "リクエストされたテンプレートの数が最大制限を超えています"
+      "takeCountTooLarge": "リクエストされたテンプレートの数が最大制限を超えています",
+      "categoryLimitReached": "テンプレートカテゴリの上限に達しました（最大 {{maxCount}} 件）"
     },
     "department": {
       "parentNotFound": "親部門が見つかりません",

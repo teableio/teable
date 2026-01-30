@@ -234,7 +234,7 @@ export const NewLLMProviderForm = ({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children ?? (
-          <Button size="sm" variant="outline" className="gap-2">
+          <Button size="sm" variant="outline" className="w-fit gap-2">
             <Plus className="size-4" />
             {t('admin.setting.ai.addProvider')}
           </Button>
@@ -874,7 +874,7 @@ export const LLMProviderForm = ({
 
           {/* Test Error Display */}
           {testResult && !testResult.success && (
-            <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+            <div className="space-y-2 rounded-md border bg-muted p-3 text-sm">
               <div className="flex items-start gap-2">
                 <AlertCircle className="mt-0.5 size-4 shrink-0" />
                 <p className="break-all font-medium">{testResult.message}</p>
@@ -897,7 +897,7 @@ export const LLMProviderForm = ({
 
           {/* Test Progress Display */}
           {modelTestStatuses.length > 0 && (
-            <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+            <div className="space-y-3 rounded-md border bg-muted p-3">
               {/* Progress bar */}
               {testProgress.total > 0 && (
                 <div className="flex items-center gap-3">

@@ -157,6 +157,10 @@
     },
     "urlCopied": "URL in die Zwischenablage kopiert!",
     "urlCopiedForDiscord": "URL in die Zwischenablage kopiert! Sie können sie in Discord einfügen.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Offiziell als Featured ausgewählt. Ihre Vorlage wird mehr Aufmerksamkeit erhalten.",
+    "unfeaturedTip": "Noch nicht als Featured ausgewählt. Verbessern Sie weiter, um eine Chance auf Empfehlung zu haben. Lassen Sie mehr Menschen Ihre Arbeit sehen.",
     "publishSuccessDescription": "Teilen Sie Ihre Arbeit mit der Welt",
     "shareWith": "Teilen mit",
     "unpublishedApps": {

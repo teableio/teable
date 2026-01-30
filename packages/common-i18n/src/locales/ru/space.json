@@ -155,6 +155,10 @@
     },
     "urlCopied": "URL скопирован в буфер обмена!",
     "urlCopiedForDiscord": "URL скопирован в буфер обмена! Вы можете вставить его в Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Официально выбран как избранный. Ваш шаблон получит больше внимания.",
+    "unfeaturedTip": "Пока не избран. Продолжайте улучшать, чтобы получить шанс на рекомендацию. Пусть больше людей увидят вашу работу.",
     "publishSuccessDescription": "Поделитесь своей работой с миром",
     "shareWith": "Поделиться с",
     "unpublishedApps": {

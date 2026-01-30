@@ -1,11 +1,12 @@
+import { ResourceType } from '../types';
 import { z } from '../zod';
 
 export enum BaseNodeResourceType {
-  Table = 'table',
-  Dashboard = 'dashboard',
-  Workflow = 'workflow',
-  App = 'app',
-  Folder = 'folder',
+  Table = ResourceType.Table,
+  Dashboard = ResourceType.Dashboard,
+  Workflow = ResourceType.Workflow,
+  App = ResourceType.App,
+  Folder = ResourceType.Folder,
 }
 
 const defaultResourceMetaSchema = z.object({

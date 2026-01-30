@@ -155,6 +155,10 @@
     },
     "urlCopied": "URL copiée dans le presse-papiers !",
     "urlCopiedForDiscord": "URL copiée dans le presse-papiers ! Vous pouvez la coller dans Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Officiellement sélectionné comme vedette. Votre modèle recevra plus de visibilité.",
+    "unfeaturedTip": "Pas encore mis en vedette. Continuez à améliorer pour avoir une chance d'être recommandé. Laissez plus de gens voir votre travail.",
     "publishSuccessDescription": "Partagez votre travail avec le monde",
     "shareWith": "Partager avec",
     "unpublishedApps": {

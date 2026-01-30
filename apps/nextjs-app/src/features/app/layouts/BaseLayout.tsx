@@ -10,6 +10,7 @@ import { WorkFlowPanelModal } from '../automation/workflow-panel/WorkFlowPanelMo
 import { BaseNodeProvider } from '../blocks/base/base-node/BaseNodeProvider';
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
+import { QuickAction } from '../blocks/base/base-side-bar/QuickAction';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
 import { UsageLimitModal } from '../components/billing/UsageLimitModal';
 import { Sidebar } from '../components/sidebar/Sidebar';
@@ -54,7 +55,10 @@ export const BaseLayout: React.FC<{
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         <div className="flex h-screen w-full">
-                          <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
+                          <Sidebar
+                            headerLeft={<BaseSidebarHeaderLeft />}
+                            headerRight={<QuickAction />}
+                          >
                             <Fragment>
                               <div className="flex h-full flex-col gap-2 divide-y divide-solid overflow-auto py-2">
                                 <BaseSideBar />

@@ -1015,4 +1015,38 @@ export class CollaboratorService {
       avatar: item.avatar ? getPublicFullStorageUrl(item.avatar) : null,
     }));
   }
+
+  /**
+   * Build space owner context for determining display user
+   * When the creator is no longer in the space, falls back to space owner
+   */
+  async buildSpaceOwnerContext(spaceIds: string[]): Promise<{
+    validCreatorSet: Set<string>;
+    spaceOwnerMap: Map<string, string>;
+  }> {
+    if (!spaceIds.length) {
+      return { validCreatorSet: new Set(), spaceOwnerMap: new Map() };
+    }
+
+    const spaceCollaborators = await this.prismaService.collaborator.findMany({
+      where: {
+        resourceType: CollaboratorType.Space,
+        resourceId: { in: spaceIds },
+        principalType: PrincipalType.User,
+      },
+      select: { resourceId: true, principalId: true, roleName: true },
+    });
+
+    const validCreatorSet = new Set(
+      spaceCollaborators.map((c) => `${c.resourceId}:${c.principalId}`)
+    );
+
+    const spaceOwnerMap = new Map(
+      spaceCollaborators
+        .filter((c) => c.roleName === Role.Owner)
+        .map((c) => [c.resourceId, c.principalId])
+    );
+
+    return { validCreatorSet, spaceOwnerMap };
+  }
 }

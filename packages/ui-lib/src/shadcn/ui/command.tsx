@@ -25,14 +25,20 @@ Command.displayName = CommandPrimitive.displayName;
 
 type CommandDialogProps = DialogProps & {
   commandProps?: Omit<React.ComponentPropsWithoutRef<typeof CommandPrimitive>, 'children'>;
+  closeable?: boolean;
 };
 
-const CommandDialog = ({ children, commandProps, ...props }: CommandDialogProps) => {
+const CommandDialog = ({
+  children,
+  commandProps,
+  closeable = true,
+  ...props
+}: CommandDialogProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0">
+      <DialogContent className="overflow-hidden p-0" closeable={closeable}>
         <Command
-          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:size-4 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-2"
           {...commandProps}
         >
           {children}
@@ -49,7 +55,7 @@ const CommandInput = React.forwardRef<
   }
 >(({ className, containerClassName, ...props }, ref) => (
   <div
-    className={cn('flex h-9 items-center gap-2 border-b py-2 px-4', containerClassName)}
+    className={cn('flex h-[44px] items-center gap-2 border-b py-3 px-4', containerClassName)}
     // eslint-disable-next-line react/no-unknown-property
     cmdk-input-wrapper=""
   >

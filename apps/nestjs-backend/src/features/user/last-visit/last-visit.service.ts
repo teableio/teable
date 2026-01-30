@@ -54,7 +54,7 @@ export class LastVisitService {
           in: [
             LastVisitResourceType.Table,
             LastVisitResourceType.Dashboard,
-            LastVisitResourceType.Automation,
+            LastVisitResourceType.Workflow,
             LastVisitResourceType.App,
           ],
         },
@@ -321,7 +321,7 @@ export class LastVisitService {
     }
   }
 
-  async automationVisit(userId: string, parentResourceId: string) {
+  async workflowVisit(userId: string, parentResourceId: string) {
     const query = this.knex
       .select({
         resourceId: 'ulv.resource_id',
@@ -331,7 +331,7 @@ export class LastVisitService {
         this.on('v.id', '=', 'ulv.resource_id').andOnNull('v.deleted_time');
       })
       .where('ulv.user_id', userId)
-      .where('ulv.resource_type', LastVisitResourceType.Automation)
+      .where('ulv.resource_type', LastVisitResourceType.Workflow)
       .where('ulv.parent_resource_id', parentResourceId)
       .whereNotNull('v.id')
       .limit(1)
@@ -343,7 +343,7 @@ export class LastVisitService {
     if (lastVisit) {
       return {
         resourceId: lastVisit.resourceId,
-        resourceType: LastVisitResourceType.Automation,
+        resourceType: LastVisitResourceType.Workflow,
       };
     }
 
@@ -364,7 +364,7 @@ export class LastVisitService {
     if (workflow) {
       return {
         resourceId: workflow.id,
-        resourceType: LastVisitResourceType.Automation,
+        resourceType: LastVisitResourceType.Workflow,
       };
     }
   }
@@ -501,8 +501,8 @@ export class LastVisitService {
         return this.viewVisit(userId, params.parentResourceId);
       case LastVisitResourceType.Dashboard:
         return this.dashboardVisit(userId, params.parentResourceId);
-      case LastVisitResourceType.Automation:
-        return this.automationVisit(userId, params.parentResourceId);
+      case LastVisitResourceType.Workflow:
+        return this.workflowVisit(userId, params.parentResourceId);
       case LastVisitResourceType.App:
         return this.appVisit(userId, params.parentResourceId);
       default:
@@ -764,7 +764,7 @@ export class LastVisitService {
         await this.prismaService.userLastVisit.deleteMany({
           where: {
             resourceId: listenerEvent.payload.workflowId,
-            resourceType: LastVisitResourceType.Automation,
+            resourceType: LastVisitResourceType.Workflow,
           },
         });
         break;

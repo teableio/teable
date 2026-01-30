@@ -66,7 +66,7 @@
     "getMore": "もっと取得"
   },
   "quickAction": {
-    "title": "クイックアクション...",
+    "title": "クイックアクション",
     "placeHolder": "コマンドまたは検索の入力..."
   },
   "password": {
@@ -111,6 +111,77 @@
     "title": "インスタンス設定",
     "personal": {
       "title": "個人設定"
+    },
+    "templateAdmin": {
+      "title": "テンプレート管理",
+      "noData": "データなし",
+      "importing": "インポート中...",
+      "usageCount": "使用回数: {{count}}",
+      "useTemplate": "このテンプレートを使用",
+      "createdBy": "作成者: {{user}}",
+      "backToTemplateList": "テンプレート一覧に戻る",
+      "tips": {
+        "errorCategoryName": "カテゴリが存在しないか削除されています",
+        "needSnapshot": "公開前にスナップショットを作成してください。テンプレート名と説明は空にできません",
+        "needPublish": "おすすめに設定する前にテンプレートを公開してください",
+        "needBaseSource": "スナップショットを作成する前にベースソースを選択してください",
+        "forbiddenUpdateSystemTemplate": "システムテンプレートは変更できません",
+        "addCategoryTips": "検索入力欄にカテゴリ名を先に入力してください",
+        "categoryNamePlaceholder": "カテゴリ名を入力",
+        "duplicateCategoryName": "カテゴリ名は既に存在します"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "はじめに",
+          "recommended": "おすすめ",
+          "all": "すべて",
+          "browseByCategory": "カテゴリで閲覧"
+        }
+      },
+      "header": {
+        "cover": "カバー",
+        "name": "名前",
+        "description": "説明",
+        "markdownDescription": "Markdown説明",
+        "category": "カテゴリ",
+        "isSystem": "システム",
+        "source": "ソース",
+        "status": "公開済み",
+        "publishSnapshot": "スナップショットを公開",
+        "snapshotTime": "スナップショット時間",
+        "actions": "アクション",
+        "featured": "おすすめ",
+        "createdBy": "作成者",
+        "userNonExistent": "ユーザーが存在しません",
+        "preview": "プレビュー",
+        "usage": "使用回数",
+        "visit": "訪問回数"
+      },
+      "actions": {
+        "title": "アクション",
+        "publish": "公開",
+        "delete": "削除",
+        "duplicate": "複製",
+        "preview": "プレビュー",
+        "use": "使用",
+        "pinTop": "上部に固定",
+        "addCategory": "カテゴリを追加",
+        "selectCategory": "カテゴリを選択",
+        "viewTemplate": "テンプレートを表示",
+        "manageCategory": "カテゴリ管理"
+      },
+      "relatedTemplates": "関連テンプレート",
+      "noImage": "画像なし",
+      "baseSelectPanel": {
+        "title": "テンプレートソースを選択",
+        "description": "テンプレートとしてベースを選択",
+        "confirm": "確認",
+        "search": "検索...",
+        "cancel": "キャンセル",
+        "selectBase": "ベースを選択",
+        "createTemplate": "テンプレートを作成",
+        "abnormalBase": "ベースが存在しないか削除されています"
+      }
     },
     "back": "ホームに戻る",
     "account": {
@@ -247,26 +318,6 @@
           "title": "認証に成功しました",
           "desc": "このウィンドウを閉じることができます。"
         }
-      }
-    },
-    "templateAdmin": {
-      "header": {
-        "cover": "カバー",
-        "name": "名前",
-        "description": "説明",
-        "markdownDescription": "マークダウン説明",
-        "category": "カテゴリ",
-        "isSystem": "システム",
-        "source": "ソース",
-        "status": "公開済み",
-        "publishSnapshot": "スナップショットを公開",
-        "snapshotTime": "スナップショット時刻",
-        "actions": "アクション",
-        "featured": "おすすめ",
-        "createdBy": "作成者",
-        "userNonExistent": "ユーザーが存在しません",
-        "usage": "使用回数",
-        "visit": "閲覧回数"
       }
     }
   },
@@ -475,6 +526,33 @@
           "mdDescription": "AI数式生成に使用。未設定の場合はlgにフォールバック。推奨: claude-haiku-4.5",
           "lg": "高度なチャットモデル",
           "lgDescription": "計画、コーディング、その他の複雑なタスクシナリオに使用。推奨: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "AI機能",
+          "aiBasicCapability": {
+            "title": "AI基本機能",
+            "description": "テーブルクエリ、SQL実行、スクリプト生成、データ可視化のためのAI基本機能"
+          },
+          "buildBase": {
+            "title": "ベースを作成",
+            "description": "ゼロからベースを作成"
+          },
+          "buildApp": {
+            "title": "アプリを作成",
+            "description": "ベースに基づいてアプリを作成"
+          },
+          "buildAutomation": {
+            "title": "自動化を作成",
+            "description": "ゼロから自動化を作成"
+          },
+          "baseResource": {
+            "title": "ベースリソース操作",
+            "description": "AIを通じてテーブル、ビュー、フィールド、レコードを作成、変更、削除"
+          },
+          "suggestion": {
+            "title": "提案",
+            "description": "現在のデータベースデータと会話内容に基づいて提案を行う"
+          }
         },
         "chatModelTest": {
           "text": "モデルをテスト",

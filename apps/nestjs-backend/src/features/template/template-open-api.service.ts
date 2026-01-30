@@ -3,7 +3,6 @@ import { generateTemplateCategoryId, generateTemplateId, HttpErrorCode } from '@
 import { PrismaService } from '@teable/db-main-prisma';
 
 import {
-  type ITemplateCategoryListVo,
   type ICreateTemplateCategoryRo,
   type ICreateTemplateRo,
   type ITemplateListQueryRo,
@@ -12,6 +11,7 @@ import {
   type ITemplateQueryRoSchema,
   type IUpdateOrderRo,
   BaseDuplicateMode,
+  MAX_TEMPLATE_CATEGORY_COUNT,
 } from '@teable/openapi';
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -318,6 +318,24 @@ export class TemplateOpenApiService {
   async createTemplateCategory(createTemplateCategoryRo: ICreateTemplateCategoryRo) {
     const prisma = this.prismaService.txClient();
     const userId = this.cls.get('user.id');
+
+    // Check if category limit reached (max 50)
+    const categoryCount = await prisma.templateCategory.count();
+    if (categoryCount >= MAX_TEMPLATE_CATEGORY_COUNT) {
+      throw new CustomHttpException(
+        `Template category limit reached (max ${MAX_TEMPLATE_CATEGORY_COUNT})`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.template.categoryLimitReached',
+            context: {
+              maxCount: MAX_TEMPLATE_CATEGORY_COUNT,
+            },
+          },
+        }
+      );
+    }
+
     const categoryId = generateTemplateCategoryId();
     const maxOrder = await prisma.templateCategory.aggregate({
       _max: {
@@ -339,49 +357,18 @@ export class TemplateOpenApiService {
     });
   }
 
-  async getTemplateCategoryList() {
-    return await this.prismaService.txClient().templateCategory.findMany({
-      orderBy: {
-        order: 'asc',
-      },
-    });
-  }
-
   @PerformanceCache({
     ttl: 60 * 60 * 24,
     keyGenerator: generateTemplateCategoryCacheKey,
     statsType: 'template',
   })
-  async getPublishedTemplateCategoryList() {
-    const prisma = this.prismaService.txClient();
-    const publishedTemplateCategoryIdsRaw = await prisma.template.findMany({
-      where: {
-        isPublished: true,
-      },
-      select: {
-        categoryId: true,
-      },
-    });
-
-    const publishedTemplateCategoryIds = Array.from(
-      new Set(
-        publishedTemplateCategoryIdsRaw.flatMap((item) => item.categoryId ?? []).filter((id) => id)
-      )
-    );
-
-    if (!publishedTemplateCategoryIds.length) {
-      return [] as ITemplateCategoryListVo[];
-    }
-
-    return await prisma.templateCategory.findMany({
-      where: {
-        id: {
-          in: publishedTemplateCategoryIds,
-        },
-      },
+  async getTemplateCategoryList() {
+    return await this.prismaService.txClient().templateCategory.findMany({
       orderBy: {
         order: 'asc',
       },
+      // limit 50
+      take: MAX_TEMPLATE_CATEGORY_COUNT,
     });
   }
 
@@ -429,6 +416,104 @@ export class TemplateOpenApiService {
     await this.prismaService.txClient().templateCategory.update({
       where: { id: categoryId },
       data: { ...updateTemplateCategoryRo },
+    });
+  }
+
+  async shuffleCategories() {
+    const categories = await this.prismaService.txClient().templateCategory.findMany({
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+
+    this.logger.log(`category shuffle!`, 'shuffleCategories');
+
+    await this.prismaService.$tx(async (prisma) => {
+      for (let i = 0; i < categories.length; i++) {
+        const category = categories[i];
+        await prisma.templateCategory.update({
+          where: { id: category.id },
+          data: { order: i + 1 },
+        });
+      }
+    });
+  }
+
+  async updateTemplateCategoryOrder(categoryId: string, orderRo: IUpdateOrderRo) {
+    const { anchorId, position } = orderRo;
+    const prisma = this.prismaService.txClient();
+
+    // Check if there are duplicate orders, if so, shuffle first
+    const categoriesOrder = await prisma.templateCategory.findMany({
+      select: {
+        order: true,
+      },
+    });
+
+    const uniqOrder = [...new Set(categoriesOrder.map((c) => c.order))];
+
+    // if the category order has the same order, should shuffle
+    const shouldShuffle = uniqOrder.length !== categoriesOrder.length;
+
+    if (shouldShuffle) {
+      await this.shuffleCategories();
+    }
+
+    const category = await prisma.templateCategory
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { id: categoryId },
+      })
+      .catch(() => {
+        throw new CustomHttpException('Template category not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.template.categoryNotFound',
+          },
+        });
+      });
+
+    const anchorCategory = await prisma.templateCategory
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { id: anchorId },
+      })
+      .catch(() => {
+        throw new CustomHttpException(
+          'Anchor template category not found',
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.table.anchorNotFound',
+              context: {
+                anchorId,
+              },
+            },
+          }
+        );
+      });
+
+    await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
+
+    await updateOrder({
+      query: null,
+      position,
+      item: category,
+      anchorItem: anchorCategory,
+      getNextItem: async (whereOrder, align) => {
+        return prisma.templateCategory.findFirst({
+          select: { order: true, id: true },
+          where: {
+            order: whereOrder,
+          },
+          orderBy: { order: align },
+        });
+      },
+      update: async (_, id, data) => {
+        await prisma.templateCategory.update({
+          data: { order: data.newOrder },
+          where: { id },
+        });
+      },
+      shuffle: this.shuffleCategories.bind(this),
     });
   }
 
