@@ -464,6 +464,8 @@ export type I18nTranslations = {
                     "needBaseSource": string;
                     "forbiddenUpdateSystemTemplate": string;
                     "addCategoryTips": string;
+                    "categoryNamePlaceholder": string;
+                    "duplicateCategoryName": string;
                 };
                 "category": {
                     "menu": {
@@ -503,6 +505,7 @@ export type I18nTranslations = {
                     "addCategory": string;
                     "selectCategory": string;
                     "viewTemplate": string;
+                    "manageCategory": string;
                 };
                 "relatedTemplates": string;
                 "noImage": string;
@@ -744,6 +747,33 @@ export type I18nTranslations = {
                         "lg": string;
                         "lgDescription": string;
                     };
+                    "actions": {
+                        "title": string;
+                        "aiBasicCapability": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "buildBase": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "buildApp": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "buildAutomation": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "baseResource": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "suggestion": {
+                            "title": string;
+                            "description": string;
+                        };
+                    };
                     "chatModelTest": {
                         "text": string;
                         "description": string;
@@ -800,32 +830,6 @@ export type I18nTranslations = {
                     "customModelDescription": string;
                     "aiAbilitySettings": string;
                     "aiAbilitySettingsDescription": string;
-                    "actions": {
-                        "aiBasicCapability": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildBase": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildApp": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildAutomation": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "baseResource": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "suggestion": {
-                            "title": string;
-                            "description": string;
-                        };
-                    };
                     "imageModelAbility": {
                         "generation": string;
                         "imageToImage": string;
@@ -3111,10 +3115,12 @@ export type I18nTranslations = {
                 "invalidResourceType": string;
             };
             "template": {
+                "categoryNotFound": string;
                 "snapshotRequired": string;
                 "sourceTemplateNotFound": string;
                 "noMinOrderFound": string;
                 "takeCountTooLarge": string;
+                "categoryLimitReached": string;
             };
             "department": {
                 "parentNotFound": string;
@@ -3348,6 +3354,10 @@ export type I18nTranslations = {
             };
             "urlCopied": string;
             "urlCopiedForDiscord": string;
+            "featuredLabel": string;
+            "unfeaturedLabel": string;
+            "featuredTip": string;
+            "unfeaturedTip": string;
             "publishSuccessDescription": string;
             "shareWith": string;
             "unpublishedApps": {

@@ -162,6 +162,10 @@
     },
     "urlCopied": "URL copied to clipboard!",
     "urlCopiedForDiscord": "URL copied to clipboard! You can paste it in Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Officially featured. Your template will receive more exposure.",
+    "unfeaturedTip": "Not featured yet. Keep improving for a chance to be highlighted. Let more people see your work.",
     "publishSuccessDescription": "Share your work to the world",
     "shareWith": "Share with",
     "unpublishedApps": {

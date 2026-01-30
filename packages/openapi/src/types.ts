@@ -14,9 +14,10 @@ export enum ResourceType {
   View = 'view',
   Field = 'field',
   Record = 'record',
-  Automation = 'automation',
+  Workflow = 'workflow',
   App = 'app',
   Dashboard = 'dashboard',
+  Folder = 'folder',
 }
 
 export const IS_TEMPLATE_HEADER = 'X-Tea-Template';

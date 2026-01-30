@@ -155,6 +155,10 @@
     },
     "urlCopied": "¡URL copiada al portapapeles!",
     "urlCopiedForDiscord": "¡URL copiada al portapapeles! Puedes pegarla en Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Seleccionado oficialmente como destacado. Tu plantilla recibirá más exposición.",
+    "unfeaturedTip": "Aún no destacado. Sigue mejorando para tener la oportunidad de ser recomendado. Deja que más personas vean tu trabajo.",
     "publishSuccessDescription": "Comparte tu trabajo con el mundo",
     "shareWith": "Compartir con",
     "unpublishedApps": {

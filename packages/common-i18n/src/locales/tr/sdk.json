@@ -1327,10 +1327,12 @@
       "invalidResourceType": "Geçersiz kaynak türü"
     },
     "template": {
+      "categoryNotFound": "Şablon kategorisi bulunamadı",
       "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
       "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
       "noMinOrderFound": "Minimum sıra bulunamadı",
-      "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor"
+      "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor",
+      "categoryLimitReached": "Şablon kategori sınırına ulaşıldı (maksimum {{maxCount}})"
     },
     "domainVerification": {
       "notFound": "Domain doğrulama kodu bulunamadı",

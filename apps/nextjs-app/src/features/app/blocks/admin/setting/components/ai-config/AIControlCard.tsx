@@ -127,7 +127,7 @@ const SwitchList = (props: SwitchListProps) => {
           {name}
         </Label>
         <TooltipWrap description={description}>
-          <CircleHelp className="size-4 cursor-pointer text-gray-400" />
+          <CircleHelp className="size-4 cursor-pointer text-muted-foreground" />
         </TooltipWrap>
       </div>
       <Switch
@@ -149,10 +149,13 @@ export const AIControlCard = ({
   disableActions: string[];
   onChange: (value: { disableActions: string[] }) => void;
 }) => {
+  const { t } = useTranslation('common');
+
   return (
-    <Card className="pt-6 shadow-sm">
-      <CardContent>
-        <div className="space-y-2">
+    <Card className="p-5 shadow-none">
+      <CardContent className="flex flex-col gap-4 p-0">
+        <p className="font-medium">{t('admin.setting.ai.actions.title')}</p>
+        <div className="flex flex-col gap-3">
           <SwitchList onChange={onChange} disableActions={disableActions} />
         </div>
       </CardContent>

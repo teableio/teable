@@ -175,7 +175,7 @@ export const CodingModels = ({
 
         {/* Model Ability Section - directly under model select */}
         {value?.lg && (
-          <div className="mt-2 rounded-md border bg-muted/30 p-3">
+          <div className="mt-2 rounded-md border bg-muted p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
                 {t('admin.setting.ai.chatModelAbility.lgModelAbility')}

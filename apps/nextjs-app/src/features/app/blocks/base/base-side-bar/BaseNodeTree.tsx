@@ -395,7 +395,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     const node = nodes.find(
       (node) => node.resourceType === resourceType && node.resourceId === currentResourceId
     );
-    if (!node) return;
+    if (!node) {
+      setSelectedItems([]);
+      return;
+    }
 
     const parentIds = getAllParentIds(node.id);
     if (parentIds.length > 0) {

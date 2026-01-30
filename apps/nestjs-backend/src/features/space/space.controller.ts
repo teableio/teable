@@ -12,6 +12,7 @@ import type {
   ListSpaceCollaboratorVo,
   IGetBaseAllVo,
   ITestLLMVo,
+  ISpaceSearchVo,
 } from '@teable/openapi';
 import {
   createSpaceRoSchema,
@@ -39,6 +40,8 @@ import {
   IUpdateIntegrationRo,
   testLLMRoSchema,
   ITestLLMRo,
+  spaceSearchRoSchema,
+  ISpaceSearchRo,
 } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
@@ -128,6 +131,15 @@ export class SpaceController {
   @Get(':spaceId/base')
   async getBaseList(@Param('spaceId') spaceId: string): Promise<IGetBaseAllVo> {
     return await this.spaceService.getBaseListBySpaceId(spaceId);
+  }
+
+  @Permissions('space|read')
+  @Get(':spaceId/search')
+  async search(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(spaceSearchRoSchema)) query: ISpaceSearchRo
+  ): Promise<ISpaceSearchVo> {
+    return await this.spaceService.search(spaceId, query);
   }
 
   @Permissions('space|invite_link')
