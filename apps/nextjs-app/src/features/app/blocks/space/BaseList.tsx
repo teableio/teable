@@ -1,7 +1,9 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { hasPermission } from '@teable/core';
 import { ChevronDown, Clock4, LayoutList } from '@teable/icons';
 import {
   deleteBase,
+  getSpaceById,
   permanentDeleteBase,
   updateBase,
   updateBaseOrder,
@@ -79,6 +81,13 @@ export const BaseList = (props: IBaseListProps) => {
 
   const allBaseList = useBaseList();
   const { map: lastVisitBaseMap = {} } = useLastVisitBase();
+
+  const { data: space } = useQuery({
+    queryKey: ReactQueryKeys.space(spaceId!),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: !!spaceId,
+  });
+  const canReorder = space && hasPermission(space.role, 'base|update');
 
   const { mutate: updateOrder } = useMutation({
     mutationFn: updateBaseOrder,
@@ -234,54 +243,58 @@ export const BaseList = (props: IBaseListProps) => {
       isDragging?: boolean;
       listeners?: Record<string, unknown>;
     }
-  ) => (
-    <Collapsible
-      key={base.id}
-      open={expandedBases.has(base.id)}
-      onOpenChange={() => toggleExpanded(base.id)}
-    >
-      <BaseItem
-        base={base}
-        lastVisitTime={lastVisitBaseMap[base.id]?.lastVisitTime}
-        isExpanded={expandedBases.has(base.id)}
-        showDragHandle={options?.showDragHandle}
-        dragHandleListeners={options?.listeners}
-        onToggleExpand={() => toggleExpanded(base.id)}
-        onEnterBase={() => intoBase(base.id)}
-        onUpdate={(data) => updateBaseMutator({ baseId: base.id, updateBaseRo: data })}
-        onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
-      />
-      <CollapsibleContent>
-        <AnchorContext.Provider value={{ baseId: base.id }}>
-          <BaseNodeProvider isRestrictedAuthority={base.restrictedAuthority}>
-            <div className={cn('bg-muted', isManual ? 'px-8' : 'px-2')}>
-              <BaseNodeTree
-                mode="view"
-                emptyText={t('space:baseList.noTables')}
-                skeleton={
-                  <div className="flex w-full flex-col items-center justify-center gap-2 p-2">
-                    <Spin className="size-4" />
-                  </div>
-                }
-                onPrimaryAction={(item) => {
-                  const node = item.getItemData();
-                  const { resourceType, resourceId } = node;
-                  const url = getNodeUrl({
-                    baseId: base.id,
-                    resourceType,
-                    resourceId,
-                  });
-                  if (url) {
-                    router.push(url);
+  ) => {
+    const showDragHandle = options?.showDragHandle && canReorder;
+
+    return (
+      <Collapsible
+        key={base.id}
+        open={expandedBases.has(base.id)}
+        onOpenChange={() => toggleExpanded(base.id)}
+      >
+        <BaseItem
+          base={base}
+          lastVisitTime={lastVisitBaseMap[base.id]?.lastVisitTime}
+          isExpanded={expandedBases.has(base.id)}
+          showDragHandle={showDragHandle}
+          dragHandleListeners={showDragHandle ? options?.listeners : undefined}
+          onToggleExpand={() => toggleExpanded(base.id)}
+          onEnterBase={() => intoBase(base.id)}
+          onUpdate={(data) => updateBaseMutator({ baseId: base.id, updateBaseRo: data })}
+          onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
+        />
+        <CollapsibleContent>
+          <AnchorContext.Provider value={{ baseId: base.id }}>
+            <BaseNodeProvider isRestrictedAuthority={base.restrictedAuthority}>
+              <div className={cn('bg-muted', isManual ? 'px-8' : 'px-2')}>
+                <BaseNodeTree
+                  mode="view"
+                  emptyText={t('space:baseList.noTables')}
+                  skeleton={
+                    <div className="flex w-full flex-col items-center justify-center gap-2 p-2">
+                      <Spin className="size-4" />
+                    </div>
                   }
-                }}
-              />
-            </div>
-          </BaseNodeProvider>
-        </AnchorContext.Provider>
-      </CollapsibleContent>
-    </Collapsible>
-  );
+                  onPrimaryAction={(item) => {
+                    const node = item.getItemData();
+                    const { resourceType, resourceId } = node;
+                    const url = getNodeUrl({
+                      baseId: base.id,
+                      resourceType,
+                      resourceId,
+                    });
+                    if (url) {
+                      router.push(url);
+                    }
+                  }}
+                />
+              </div>
+            </BaseNodeProvider>
+          </AnchorContext.Provider>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
   return (
     <ScrollArea className="h-full !border-none bg-background [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-h-0 [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
       {/* Toolbar: View Mode Select */}
@@ -333,8 +346,8 @@ export const BaseList = (props: IBaseListProps) => {
         )}
       >
         <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
-        <div className="hidden shrink-0 px-2 sm:block sm:w-40">{t('space:baseList.owner')}</div>
-        <div className="hidden w-32 shrink-0 px-2 sm:block">{t('space:baseList.createdTime')}</div>
+        <div className="hidden shrink-0 px-2 sm:block sm:w-24">{t('space:baseList.owner')}</div>
+        <div className="hidden w-24 shrink-0 px-2 sm:block">{t('space:baseList.createdTime')}</div>
         <div className="hidden w-32 shrink-0 px-2 sm:block">{t('space:baseList.lastOpened')}</div>
       </div>
 

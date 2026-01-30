@@ -1,4 +1,4 @@
-import { HelpCircle, MoreHorizontal, UserPlus, Share2 } from '@teable/icons';
+import { HelpCircle, MoreHorizontal, UserPlus } from '@teable/icons';
 import { BaseNodeResourceType } from '@teable/openapi';
 import {
   useBase,
@@ -174,10 +174,8 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
             }}
           >
             <Button variant="default" className="mr-1 px-2 @md/view-header:px-3" size="sm">
-              <Share2 className="size-4" />
-              <span className="hidden @md/view-header:inline">
-                {t('table:toolbar.others.share.label')}
-              </span>
+              <UserPlus className="size-4" />
+              <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
             </Button>
           </ShareBasePopover>
           <Button asChild variant="ghost" className="w-7 p-0" size="xs">

@@ -242,7 +242,7 @@ export const SelectFieldType = (props: {
             id: 'conditionalLookup',
             name: t('sdk:field.title.conditionalLookup'),
             description: t('sdk:field.description.conditionalLookup'),
-            icon: <SearchIcon className="size-4" />,
+            icon: <ConditionalLookupIcon className="size-4" />,
           }
         );
   }, [getFieldStatic, t, isPrimary]);

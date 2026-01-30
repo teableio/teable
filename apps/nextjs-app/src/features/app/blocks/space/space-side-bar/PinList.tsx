@@ -2,33 +2,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DraggableHandle, Star } from '@teable/icons';
 import type { IGetPinListVo } from '@teable/openapi';
 import { getPinList, updatePinOrder } from '@teable/openapi';
-import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import type { DragEndEvent } from '@teable/ui-lib/base';
 import { DndKitContext, Draggable, Droppable } from '@teable/ui-lib/base';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-  cn,
-  ScrollArea,
-} from '@teable/ui-lib/shadcn';
+import { cn, ScrollArea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { PinItem } from './PinItem';
 import { StarButton } from './StarButton';
 
 export const PinList = (props: { className?: string }) => {
   const { className } = props;
-  const isHydrated = useIsHydrated();
-  const [pinListExpanded, setPinListExpanded] = useLocalStorage<boolean>(
-    LocalStorageKeys.PinListExpanded
-  );
-  const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-
+  const queryClient = useQueryClient();
+  const isHydrated = useIsHydrated();
   const { data: pinListData } = useQuery({
     queryKey: ReactQueryKeys.pinList(),
     queryFn: () => getPinList().then((data) => data.data),
@@ -43,8 +31,6 @@ export const PinList = (props: { className?: string }) => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });
     },
   });
-
-  const finalPinListExpanded = isHydrated ? pinListExpanded : false;
 
   const onDragEndHandler = async (event: DragEndEvent) => {
     const { over, active } = event;
@@ -78,95 +64,80 @@ export const PinList = (props: { className?: string }) => {
     });
   };
 
+  if (!isHydrated) {
+    return null;
+  }
+
   return (
-    <Accordion
-      type="single"
-      collapsible
-      className={cn('flex min-h-0 w-full flex-1 flex-col', className)}
-      value={finalPinListExpanded ? 'pin-list' : ''}
-      onValueChange={(value) => {
-        setPinListExpanded(value === 'pin-list');
-      }}
-    >
-      <AccordionItem className="flex min-h-0 flex-1 flex-col border-0" value="pin-list">
-        <AccordionTrigger className="h-10 shrink-0 px-3 hover:no-underline">
-          <div className="flex items-center gap-2">
-            <Star className="size-4 fill-yellow-400 text-yellow-400" />
-            {t('space:pin.pin')}
-          </div>
-        </AccordionTrigger>
-        <AccordionContent
-          className="flex min-h-0 flex-1 flex-col"
-          innerClassName="flex min-h-0 flex-1 flex-col"
-        >
-          <ScrollArea className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-              {pinListData?.length === 0 && (
-                <div className="text-center text-xs text-muted-foreground">
-                  {t('space:pin.empty')}
-                </div>
-              )}
-              <DndKitContext onDragEnd={onDragEndHandler}>
-                <Droppable
-                  items={pinListData?.map(({ id }) => id) ?? []}
-                  overlayRender={(active) => {
-                    const activePin = pinListData?.find((pin) => pin.id === active?.id);
-                    if (!activePin) {
-                      return <div />;
-                    }
-                    return (
-                      <div className="flex items-center gap-2 border bg-background">
+    <div className={cn('flex min-h-0 w-full flex-1 flex-col', className)}>
+      <div className="flex h-10 items-center gap-2 px-3 text-sm ">
+        <Star className="size-4 fill-yellow-400 text-yellow-400" />
+        {t('space:pin.pin')}
+      </div>
+      <ScrollArea className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          {pinListData?.length === 0 && (
+            <div className="text-center text-xs text-muted-foreground">{t('space:pin.empty')}</div>
+          )}
+          <DndKitContext onDragEnd={onDragEndHandler}>
+            <Droppable
+              items={pinListData?.map(({ id }) => id) ?? []}
+              overlayRender={(active) => {
+                const activePin = pinListData?.find((pin) => pin.id === active?.id);
+                if (!activePin) {
+                  return <div />;
+                }
+                return (
+                  <div className="flex items-center gap-2 border bg-background">
+                    <PinItem
+                      className="group"
+                      pin={activePin}
+                      right={
+                        <>
+                          <StarButton
+                            className="opacity-0 group-hover:opacity-100"
+                            id={activePin.id}
+                            type={activePin.type}
+                          />
+                          <DraggableHandle className="opacity-0 group-hover:opacity-100" />
+                        </>
+                      }
+                    />
+                  </div>
+                );
+              }}
+            >
+              {pinListData?.map((pin) => (
+                <Draggable key={pin.id} id={pin.id}>
+                  {({ setNodeRef, attributes, listeners, style }) => (
+                    <div ref={setNodeRef} {...attributes} style={style}>
+                      <div className="flex items-center gap-2">
                         <PinItem
                           className="group"
-                          pin={activePin}
+                          pin={pin}
                           right={
                             <>
                               <StarButton
                                 className="opacity-0 group-hover:opacity-100"
-                                id={activePin.id}
-                                type={activePin.type}
+                                id={pin.id}
+                                type={pin.type}
                               />
-                              <DraggableHandle className="opacity-0 group-hover:opacity-100" />
+                              <DraggableHandle
+                                {...listeners}
+                                className="opacity-0 group-hover:opacity-100"
+                              />
                             </>
                           }
                         />
                       </div>
-                    );
-                  }}
-                >
-                  {pinListData?.map((pin) => (
-                    <Draggable key={pin.id} id={pin.id}>
-                      {({ setNodeRef, attributes, listeners, style }) => (
-                        <div ref={setNodeRef} {...attributes} style={style}>
-                          <div className="flex items-center gap-2">
-                            <PinItem
-                              className="group"
-                              pin={pin}
-                              right={
-                                <>
-                                  <StarButton
-                                    className="opacity-0 group-hover:opacity-100"
-                                    id={pin.id}
-                                    type={pin.type}
-                                  />
-                                  <DraggableHandle
-                                    {...listeners}
-                                    className="opacity-0 group-hover:opacity-100"
-                                  />
-                                </>
-                              }
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                </Droppable>
-              </DndKitContext>
-            </div>
-          </ScrollArea>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+            </Droppable>
+          </DndKitContext>
+        </div>
+      </ScrollArea>
+    </div>
   );
 };

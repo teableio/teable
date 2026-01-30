@@ -162,6 +162,10 @@
     },
     "urlCopied": "链接已复制到剪贴板！",
     "urlCopiedForDiscord": "链接已复制到剪贴板！你可以在 Discord 中粘贴。",
+    "featuredLabel": "精选",
+    "unfeaturedLabel": "未精选",
+    "featuredTip": "已入选官方精选，将获得更多曝光与推荐。",
+    "unfeaturedTip": "暂未入选官方精选，持续打磨与更新，有机会获得推荐，让更多人看到你的作品。",
     "publishSuccessDescription": "分享你的作品到世界",
     "shareWith": "分享到",
     "unpublishedApps": {

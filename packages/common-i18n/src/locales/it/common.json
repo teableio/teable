@@ -66,7 +66,7 @@
     "getMore": "Ottieni di più"
   },
   "quickAction": {
-    "title": "Azioni rapide...",
+    "title": "Azioni rapide",
     "placeHolder": "Digita un comando o cerca..."
   },
   "password": {
@@ -111,6 +111,77 @@
     "title": "Impostazioni dell'istanza",
     "personal": {
       "title": "Impostazioni personali"
+    },
+    "templateAdmin": {
+      "title": "Gestione modelli",
+      "noData": "Nessun dato",
+      "importing": "Importazione...",
+      "usageCount": "Conteggio utilizzo: {{count}}",
+      "useTemplate": "Usa questo modello",
+      "createdBy": "da {{user}}",
+      "backToTemplateList": "Torna all'elenco modelli",
+      "tips": {
+        "errorCategoryName": "La categoria non esiste o è stata eliminata",
+        "needSnapshot": "Prima di pubblicare, crea uno snapshot, il nome e la descrizione del modello non possono essere vuoti",
+        "needPublish": "Pubblica il modello prima di impostarlo come in evidenza",
+        "needBaseSource": "Seleziona una base sorgente prima di creare uno snapshot",
+        "forbiddenUpdateSystemTemplate": "Il modello di sistema non può essere modificato",
+        "addCategoryTips": "Inserisci prima un nome categoria nell'input di ricerca.",
+        "categoryNamePlaceholder": "Inserisci nome categoria",
+        "duplicateCategoryName": "Il nome della categoria esiste già"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Inizia",
+          "recommended": "Consigliati",
+          "all": "Tutti",
+          "browseByCategory": "Sfoglia per categoria"
+        }
+      },
+      "header": {
+        "cover": "Copertina",
+        "name": "Nome",
+        "description": "Descrizione",
+        "markdownDescription": "Descrizione markdown",
+        "category": "Categoria",
+        "isSystem": "Sistema",
+        "source": "Fonte",
+        "status": "Pubblicato",
+        "publishSnapshot": "Pubblica snapshot",
+        "snapshotTime": "Ora snapshot",
+        "actions": "Azioni",
+        "featured": "In evidenza",
+        "createdBy": "Creato da",
+        "userNonExistent": "Utente non esistente",
+        "preview": "Anteprima",
+        "usage": "Utilizzo",
+        "visit": "Visite"
+      },
+      "actions": {
+        "title": "Azioni",
+        "publish": "Pubblica",
+        "delete": "Elimina",
+        "duplicate": "Duplica",
+        "preview": "Anteprima",
+        "use": "Usa",
+        "pinTop": "Fissa in alto",
+        "addCategory": "Aggiungi categoria",
+        "selectCategory": "Seleziona categoria",
+        "viewTemplate": "Visualizza modello",
+        "manageCategory": "Gestisci categorie"
+      },
+      "relatedTemplates": "Modelli correlati",
+      "noImage": "Nessuna immagine",
+      "baseSelectPanel": {
+        "title": "Seleziona fonte modello",
+        "description": "Seleziona una base come modello",
+        "confirm": "Conferma",
+        "search": "Cerca...",
+        "cancel": "Annulla",
+        "selectBase": "Seleziona base",
+        "createTemplate": "Crea modello",
+        "abnormalBase": "La base non esiste o è stata eliminata"
+      }
     },
     "back": "Torna alla home",
     "account": {
@@ -245,26 +316,6 @@
           "title": "Autorizzazione riuscita",
           "desc": "Puoi chiudere questa finestra ora."
         }
-      }
-    },
-    "templateAdmin": {
-      "header": {
-        "cover": "Copertina",
-        "name": "Nome",
-        "description": "Descrizione",
-        "markdownDescription": "Descrizione Markdown",
-        "category": "Categoria",
-        "isSystem": "Sistema",
-        "source": "Fonte",
-        "status": "Pubblicato",
-        "publishSnapshot": "Pubblica istantanea",
-        "snapshotTime": "Orario istantanea",
-        "actions": "Azioni",
-        "featured": "In evidenza",
-        "createdBy": "Creato da",
-        "userNonExistent": "Utente inesistente",
-        "usage": "Utilizzo",
-        "visit": "Visite"
       }
     }
   },
@@ -473,6 +524,33 @@
           "mdDescription": "Utilizzato per la generazione di formule AI. Usa lg se non configurato. Consigliato: claude-haiku-4.5",
           "lg": "Modello di chat avanzato",
           "lgDescription": "Per pianificazione, programmazione e altri scenari di attività complesse. Consigliato: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "Capacità IA",
+          "aiBasicCapability": {
+            "title": "Capacità IA di base",
+            "description": "Capacità IA di base per query tabelle, esecuzione SQL, generazione script e visualizzazione dati"
+          },
+          "buildBase": {
+            "title": "Crea base dati",
+            "description": "Crea base dati da zero"
+          },
+          "buildApp": {
+            "title": "Crea applicazione",
+            "description": "Crea applicazione basata su base dati"
+          },
+          "buildAutomation": {
+            "title": "Crea automazione",
+            "description": "Crea automazione da zero"
+          },
+          "baseResource": {
+            "title": "Operazione risorse base dati",
+            "description": "Crea, modifica ed elimina tabelle, viste, campi e record tramite IA"
+          },
+          "suggestion": {
+            "title": "Suggerimento",
+            "description": "Fornisci suggerimenti basati sui dati attuali della base dati e sul contenuto della conversazione"
+          }
         },
         "chatModelTest": {
           "text": "Testa modello",

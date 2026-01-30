@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
-import { Home, Plus, Settings, Trash2, LayoutTemplate } from '@teable/icons';
+import { Plus, Settings, Trash2, LayoutTemplate } from '@teable/icons';
 import { createBase, getSpaceById } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -11,7 +11,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn/ui/tooltip';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -59,19 +58,6 @@ export const SpaceInnerSideBar = (props: {
   const canCreateBase = space && hasPermission(space?.role, 'base|create');
   const canUpdateSpace = space && hasPermission(space.role, 'space|update');
 
-  const pageRoutes: {
-    href: string;
-    text: string;
-    Icon: React.FC<{ className?: string }>;
-    hidden?: boolean;
-  }[] = [
-    {
-      href: `/space/${spaceId}`,
-      text: t('space:baseList.allBases'),
-      Icon: Home,
-    },
-  ];
-
   return (
     <>
       <div className="flex flex-col justify-center px-2">
@@ -101,27 +87,6 @@ export const SpaceInnerSideBar = (props: {
           </div>
         )}
         <ul className="py-1">
-          {pageRoutes.map(({ href, text, Icon, hidden }) => {
-            if (hidden) return null;
-            return (
-              <li key={href}>
-                <Button
-                  variant="ghost"
-                  size={'xs'}
-                  asChild
-                  className={cn(
-                    'w-full justify-start h-8 text-sm ',
-                    href === router.pathname && 'bg-accent'
-                  )}
-                >
-                  <Link href={href} className="font-normal">
-                    <Icon className="size-4 shrink-0" />
-                    <p className="truncate">{text}</p>
-                  </Link>
-                </Button>
-              </li>
-            );
-          })}
           {canUpdateSpace && renderSettingModal && (
             <li key="settings">
               {renderSettingModal(

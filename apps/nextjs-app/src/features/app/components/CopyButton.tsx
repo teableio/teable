@@ -28,7 +28,7 @@ export const CopyButton = (props: ICopyButtonProps) => {
       {isCopied ? (
         <Check
           className={cn(
-            'text-green-400 dark:text-green-600 animate-bounce duration-500 repeat-1',
+            'text-emerald-600 dark:text-emerald-500 animate-bounce duration-500 repeat-1',
             iconClassName
           )}
         />

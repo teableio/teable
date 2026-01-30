@@ -14,15 +14,21 @@ import type {
   ICreateIntegrationRo,
   ICreateSpaceRo,
   IIntegrationItemVo,
+  ISpaceSearchRo,
+  ISpaceSearchVo,
   ITestLLMRo,
   IUpdateIntegrationRo,
   IUpdateSpaceRo,
 } from '@teable/openapi';
 import { ResourceType, CollaboratorType, PrincipalType, IntegrationType } from '@teable/openapi';
-import { keyBy, map } from 'lodash';
+import { Knex } from 'knex';
+import { keyBy, map, uniq } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
@@ -35,15 +41,17 @@ import { SettingService } from '../setting/setting.service';
 @Injectable()
 export class SpaceService {
   constructor(
-    private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>,
-    private readonly baseService: BaseService,
-    private readonly collaboratorService: CollaboratorService,
-    private readonly permissionService: PermissionService,
-    private readonly settingService: SettingService,
-    private readonly settingOpenApiService: SettingOpenApiService,
-    private readonly performanceCacheService: PerformanceCacheService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    protected readonly prismaService: PrismaService,
+    protected readonly cls: ClsService<IClsStore>,
+    protected readonly baseService: BaseService,
+    protected readonly collaboratorService: CollaboratorService,
+    protected readonly permissionService: PermissionService,
+    protected readonly settingService: SettingService,
+    protected readonly settingOpenApiService: SettingOpenApiService,
+    protected readonly performanceCacheService: PerformanceCacheService,
+    @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
+    @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex,
+    @InjectDbProvider() protected readonly dbProvider: IDbProvider
   ) {}
 
   async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
@@ -280,26 +288,225 @@ export class SpaceService {
       },
     });
 
-    const createdUserList = await this.prismaService.user.findMany({
+    const userList = await this.prismaService.user.findMany({
       where: { id: { in: baseList.map((base) => base.createdBy) } },
       select: { id: true, name: true, avatar: true },
     });
-    const createdUserMap = keyBy(createdUserList, 'id');
+    const userMap = keyBy(userList, 'id');
 
     return baseList.map((base) => {
       const role = roleMap[base.id] || roleMap[base.spaceId];
-      const createdUser = createdUserMap[base.createdBy];
+      const createdUser = userMap[base.createdBy];
       return {
         ...base,
         role,
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
-        createdUser: {
-          ...createdUser,
-          avatar: createdUser?.avatar && getPublicFullStorageUrl(createdUser.avatar),
-        },
+        createdUser: createdUser
+          ? {
+              ...createdUser,
+              avatar: createdUser.avatar ? getPublicFullStorageUrl(createdUser.avatar) : null,
+            }
+          : undefined,
       };
     });
+  }
+
+  protected getSearchableTypes(): ResourceType[] {
+    return [ResourceType.Base, ResourceType.Table, ResourceType.Dashboard];
+  }
+
+  protected getTableMapping(): Record<
+    string,
+    { table: string; hasDeletedTime: boolean; hasIcon?: boolean }
+  > {
+    return {
+      [ResourceType.Base]: { table: 'base', hasDeletedTime: true, hasIcon: true },
+      [ResourceType.Table]: { table: 'table_meta', hasDeletedTime: true, hasIcon: true },
+      [ResourceType.Dashboard]: { table: 'dashboard', hasDeletedTime: false, hasIcon: false },
+    };
+  }
+
+  /**
+   * Parse cursor in format: {iso_timestamp}_{id}
+   */
+  private parseCursor(cursor?: string): { timeStr: string; id: string } | null {
+    if (!cursor) return null;
+    // Find the last underscore to handle IDs that might contain underscores
+    const lastUnderscoreIndex = cursor.lastIndexOf('_');
+    if (lastUnderscoreIndex === -1) return null;
+    const timeStr = cursor.substring(0, lastUnderscoreIndex);
+    const id = cursor.substring(lastUnderscoreIndex + 1);
+    return { timeStr, id };
+  }
+
+  /**
+   * Generate cursor from createdTime ISO string and id
+   */
+  private generateCursor(createdTimeStr: string, id: string): string {
+    return `${createdTimeStr}_${id}`;
+  }
+
+  async search(spaceId: string, query: ISpaceSearchRo): Promise<ISpaceSearchVo> {
+    const { search, pageSize = 10, cursor, type: filterType } = query;
+
+    const bases = await this.prismaService.base.findMany({
+      where: { spaceId, deletedTime: null },
+      select: { id: true, name: true, createdBy: true, spaceId: true },
+    });
+    const baseMap = keyBy(bases, 'id');
+    const baseIds = bases.map((base) => base.id);
+    if (baseIds.length === 0) {
+      return { list: [], total: 0, nextCursor: null };
+    }
+
+    const searchableTypes = this.getSearchableTypes();
+    const typesToSearch = filterType ? [filterType] : searchableTypes;
+    const tableMapping = this.getTableMapping();
+
+    const cursorData = this.parseCursor(cursor);
+
+    const buildSubQuery = (resourceType: ResourceType) => {
+      const mapping = tableMapping[resourceType];
+      if (!mapping) return null;
+
+      const { table, hasDeletedTime, hasIcon } = mapping;
+      const isBase = resourceType === ResourceType.Base;
+
+      let subQuery = this.knex(table).select(
+        'id',
+        'name',
+        this.knex.raw('? as type', [resourceType]),
+        hasIcon ? this.knex.raw('COALESCE(icon, NULL) as icon') : this.knex.raw('NULL as icon'),
+        isBase ? this.knex.raw('id as base_id') : 'base_id',
+        'created_by',
+        'created_time'
+      );
+
+      subQuery = this.dbProvider.searchBuilder(subQuery, [['name', search]]);
+
+      if (isBase) {
+        subQuery = subQuery.whereIn('id', baseIds);
+      } else {
+        subQuery = subQuery.whereIn('base_id', baseIds);
+      }
+
+      if (hasDeletedTime) {
+        subQuery = subQuery.whereNull('deleted_time');
+      }
+
+      return subQuery;
+    };
+
+    const validQueries = typesToSearch
+      .map((t) => buildSubQuery(t))
+      .filter((q): q is Knex.QueryBuilder => q !== null);
+
+    if (validQueries.length === 0) {
+      return { list: [], total: 0, nextCursor: null };
+    }
+
+    let unionQuery = validQueries[0];
+    for (let i = 1; i < validQueries.length; i++) {
+      unionQuery = unionQuery.unionAll(validQueries[i]);
+    }
+
+    const isFirstPage = !cursorData;
+
+    const totalCountExpr = isFirstPage
+      ? this.knex.raw('COUNT(*) OVER() as total_count')
+      : this.knex.raw('0 as total_count');
+
+    let dataQuery = this.knex
+      .from(unionQuery.as('combined'))
+      .select('*', totalCountExpr)
+      .orderBy('created_time', 'desc')
+      .orderBy('id', 'desc')
+      .limit(pageSize + 1);
+
+    if (cursorData) {
+      dataQuery = dataQuery.whereRaw('(created_time, id) < (?, ?)', [
+        cursorData.timeStr,
+        cursorData.id,
+      ]);
+    }
+
+    interface ISearchResultRow {
+      id: string;
+      name: string;
+      type: ResourceType;
+      icon: string | null;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      base_id: string;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      created_by: string;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      created_time: Date;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      total_count: bigint | number;
+    }
+
+    const rows = await this.prismaService.$queryRawUnsafe<ISearchResultRow[]>(dataQuery.toQuery());
+
+    const total = isFirstPage && rows.length > 0 ? Number(rows[0].total_count) : 0;
+    const hasMore = rows.length > pageSize;
+    const resultsToReturn = hasMore ? rows.slice(0, pageSize) : rows;
+
+    const userIds = resultsToReturn
+      .map((row) => row.created_by)
+      .filter((id): id is string => id !== null);
+
+    const spaceIdsForBases = uniq(
+      resultsToReturn
+        .filter((row) => row.type === ResourceType.Base)
+        .map((row) => baseMap[row.base_id].spaceId)
+    );
+    const { validCreatorSet, spaceOwnerMap } =
+      await this.collaboratorService.buildSpaceOwnerContext(spaceIdsForBases);
+
+    const allUserIds = uniq([...userIds, ...spaceOwnerMap.values()]);
+    const userList = await this.prismaService.user.findMany({
+      where: { id: { in: allUserIds } },
+      select: { id: true, name: true, avatar: true },
+    });
+    const userMap = keyBy(userList, 'id');
+
+    const list = resultsToReturn.map((row) => {
+      const base = baseMap[row.base_id];
+      const isCreatorInSpace = validCreatorSet.has(`${base?.spaceId}:${row.created_by}`);
+      const displayUserId =
+        row.type === ResourceType.Base
+          ? isCreatorInSpace
+            ? row.created_by
+            : spaceOwnerMap.get(base.spaceId)
+          : row.created_by;
+      const displayUser = displayUserId ? userMap[displayUserId] : undefined;
+      return {
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        icon: row.icon,
+        baseId: row.base_id,
+        baseName: base?.name ?? '',
+        createdTime: row.created_time.toISOString(),
+        createdUser: displayUser
+          ? {
+              ...displayUser,
+              avatar: displayUser.avatar && getPublicFullStorageUrl(displayUser.avatar),
+            }
+          : undefined,
+      };
+    });
+
+    const nextCursor =
+      hasMore && resultsToReturn.length > 0
+        ? this.generateCursor(
+            resultsToReturn[resultsToReturn.length - 1].created_time.toISOString(),
+            resultsToReturn[resultsToReturn.length - 1].id
+          )
+        : null;
+
+    return { list, total, nextCursor };
   }
 
   async permanentDeleteSpace(spaceId: string) {

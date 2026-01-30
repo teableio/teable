@@ -155,6 +155,10 @@
     },
     "urlCopied": "URL copiato negli appunti!",
     "urlCopiedForDiscord": "URL copiato negli appunti! Puoi incollarlo su Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Ufficialmente selezionato come in evidenza. Il tuo modello riceverà più visibilità.",
+    "unfeaturedTip": "Non ancora in evidenza. Continua a migliorare per avere la possibilità di essere raccomandato. Lascia che più persone vedano il tuo lavoro.",
     "publishSuccessDescription": "Condividi il tuo lavoro con il mondo",
     "shareWith": "Condividi con",
     "unpublishedApps": {

@@ -69,7 +69,7 @@
     "getMore": "Get more"
   },
   "quickAction": {
-    "title": "Quick actions...",
+    "title": "Quick actions",
     "placeHolder": "Type a command or search..."
   },
   "password": {
@@ -129,7 +129,9 @@
         "needPublish": "Please publish the template before set featured",
         "needBaseSource": "Please select a base source before creating a snapshot",
         "forbiddenUpdateSystemTemplate": "System template cannot be modified",
-        "addCategoryTips": "Please enter a category name in search input first."
+        "addCategoryTips": "Please enter a category name in search input first.",
+        "categoryNamePlaceholder": "Enter category name",
+        "duplicateCategoryName": "Category name already exists"
       },
       "category": {
         "menu": {
@@ -168,7 +170,8 @@
         "pinTop": "Pin top",
         "addCategory": "Add category",
         "selectCategory": "Select category",
-        "viewTemplate": "View template"
+        "viewTemplate": "View template",
+        "manageCategory": "Manage categories"
       },
       "relatedTemplates": "Related Templates",
       "noImage": "No image",
@@ -546,6 +549,7 @@
           "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5"
         },
         "actions": {
+          "title": "AI Capabilities",
           "aiBasicCapability": {
             "title": "AI basic capability",
             "description": "AI basic capability for table queries, SQL execution, script generation, and data visualization"

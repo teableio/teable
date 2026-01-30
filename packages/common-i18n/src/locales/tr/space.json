@@ -155,6 +155,10 @@
     },
     "urlCopied": "URL panoya kopyalandı!",
     "urlCopiedForDiscord": "URL panoya kopyalandı! Discord'a yapıştırabilirsiniz.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Resmi olarak öne çıkan olarak seçildi. Şablonunuz daha fazla görünürlük kazanacak.",
+    "unfeaturedTip": "Henüz öne çıkarılmadı. Tavsiye edilme şansı için geliştirmeye devam edin. Daha fazla kişinin çalışmanızı görmesine izin verin.",
     "publishSuccessDescription": "Çalışmanızı dünyayla paylaşın",
     "shareWith": "Şununla paylaş",
     "unpublishedApps": {

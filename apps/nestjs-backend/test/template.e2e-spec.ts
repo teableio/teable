@@ -23,6 +23,7 @@ import {
   pinTopTemplate,
   updateTemplate,
   updateTemplateCategory,
+  updateTemplateCategoryOrder,
   updateTemplateOrder,
 } from '@teable/openapi';
 import { omit } from 'lodash';
@@ -631,6 +632,219 @@ describe('Template Open API Controller (e2e)', () => {
       const res2 = await getTemplateCategoryList();
       expect(res2.status).toBe(200);
       expect(res2.data.length).toBe(0);
+    });
+
+    describe('Template Category Order', () => {
+      it('should update template category order - move to before anchor', async () => {
+        // Create 3 categories
+        const cat1 = await createTemplateCategory({ name: 'category1' });
+        const cat2 = await createTemplateCategory({ name: 'category2' });
+        const cat3 = await createTemplateCategory({ name: 'category3' });
+
+        // Initial order: [cat1, cat2, cat3]
+        const initialList = await getTemplateCategoryList();
+        expect(initialList.data.map(({ id }) => id)).toEqual([
+          cat1.data.id,
+          cat2.data.id,
+          cat3.data.id,
+        ]);
+
+        // Move cat3 before cat1
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat3.data.id,
+          anchorId: cat1.data.id,
+          position: 'before',
+        });
+
+        // Expected order: [cat3, cat1, cat2]
+        const updatedList = await getTemplateCategoryList();
+        expect(updatedList.data.map(({ id }) => id)).toEqual([
+          cat3.data.id,
+          cat1.data.id,
+          cat2.data.id,
+        ]);
+      });
+
+      it('should update template category order - move to after anchor', async () => {
+        // Create 3 categories
+        const cat1 = await createTemplateCategory({ name: 'category1' });
+        const cat2 = await createTemplateCategory({ name: 'category2' });
+        const cat3 = await createTemplateCategory({ name: 'category3' });
+
+        // Initial order: [cat1, cat2, cat3]
+        const initialList = await getTemplateCategoryList();
+        expect(initialList.data.map(({ id }) => id)).toEqual([
+          cat1.data.id,
+          cat2.data.id,
+          cat3.data.id,
+        ]);
+
+        // Move cat1 after cat3
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat1.data.id,
+          anchorId: cat3.data.id,
+          position: 'after',
+        });
+
+        // Expected order: [cat2, cat3, cat1]
+        const updatedList = await getTemplateCategoryList();
+        expect(updatedList.data.map(({ id }) => id)).toEqual([
+          cat2.data.id,
+          cat3.data.id,
+          cat1.data.id,
+        ]);
+      });
+
+      it('should update template category order - move middle item before first', async () => {
+        // Create 3 categories
+        const cat1 = await createTemplateCategory({ name: 'category1' });
+        const cat2 = await createTemplateCategory({ name: 'category2' });
+        const cat3 = await createTemplateCategory({ name: 'category3' });
+
+        // Initial order: [cat1, cat2, cat3]
+        // Move cat2 before cat1
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat2.data.id,
+          anchorId: cat1.data.id,
+          position: 'before',
+        });
+
+        // Expected order: [cat2, cat1, cat3]
+        const updatedList = await getTemplateCategoryList();
+        expect(updatedList.data.map(({ id }) => id)).toEqual([
+          cat2.data.id,
+          cat1.data.id,
+          cat3.data.id,
+        ]);
+      });
+
+      it('should update template category order - complex reordering', async () => {
+        // Create 5 categories
+        const cat1 = await createTemplateCategory({ name: 'category1' });
+        const cat2 = await createTemplateCategory({ name: 'category2' });
+        const cat3 = await createTemplateCategory({ name: 'category3' });
+        const cat4 = await createTemplateCategory({ name: 'category4' });
+        const cat5 = await createTemplateCategory({ name: 'category5' });
+
+        // Initial order: [cat1, cat2, cat3, cat4, cat5]
+        const initialList = await getTemplateCategoryList();
+        expect(initialList.data.map(({ id }) => id)).toEqual([
+          cat1.data.id,
+          cat2.data.id,
+          cat3.data.id,
+          cat4.data.id,
+          cat5.data.id,
+        ]);
+
+        // Move cat5 before cat2
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat5.data.id,
+          anchorId: cat2.data.id,
+          position: 'before',
+        });
+
+        // Expected order: [cat1, cat5, cat2, cat3, cat4]
+        let updatedList = await getTemplateCategoryList();
+        expect(updatedList.data.map(({ id }) => id)).toEqual([
+          cat1.data.id,
+          cat5.data.id,
+          cat2.data.id,
+          cat3.data.id,
+          cat4.data.id,
+        ]);
+
+        // Move cat1 after cat4
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat1.data.id,
+          anchorId: cat4.data.id,
+          position: 'after',
+        });
+
+        // Expected order: [cat5, cat2, cat3, cat4, cat1]
+        updatedList = await getTemplateCategoryList();
+        expect(updatedList.data.map(({ id }) => id)).toEqual([
+          cat5.data.id,
+          cat2.data.id,
+          cat3.data.id,
+          cat4.data.id,
+          cat1.data.id,
+        ]);
+      });
+
+      it('should handle adjacent category reordering', async () => {
+        // Create 3 categories
+        const cat1 = await createTemplateCategory({ name: 'category1' });
+        const cat2 = await createTemplateCategory({ name: 'category2' });
+        const cat3 = await createTemplateCategory({ name: 'category3' });
+
+        // Move cat2 after cat1 (already in this position, but should work)
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat2.data.id,
+          anchorId: cat1.data.id,
+          position: 'after',
+        });
+
+        // Order should remain: [cat1, cat2, cat3]
+        let updatedList = await getTemplateCategoryList();
+        expect(updatedList.data.map(({ id }) => id)).toEqual([
+          cat1.data.id,
+          cat2.data.id,
+          cat3.data.id,
+        ]);
+
+        // Swap cat1 and cat2 by moving cat1 after cat2
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat1.data.id,
+          anchorId: cat2.data.id,
+          position: 'after',
+        });
+
+        // Expected order: [cat2, cat1, cat3]
+        updatedList = await getTemplateCategoryList();
+        expect(updatedList.data.map(({ id }) => id)).toEqual([
+          cat2.data.id,
+          cat1.data.id,
+          cat3.data.id,
+        ]);
+      });
+
+      it('should maintain order consistency after multiple operations', async () => {
+        // Create 4 categories
+        const cat1 = await createTemplateCategory({ name: 'category1' });
+        const cat2 = await createTemplateCategory({ name: 'category2' });
+        const cat3 = await createTemplateCategory({ name: 'category3' });
+        const cat4 = await createTemplateCategory({ name: 'category4' });
+
+        // Perform multiple reordering operations
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat4.data.id,
+          anchorId: cat1.data.id,
+          position: 'before',
+        });
+        // Order: [cat4, cat1, cat2, cat3]
+
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat2.data.id,
+          anchorId: cat4.data.id,
+          position: 'before',
+        });
+        // Order: [cat2, cat4, cat1, cat3]
+
+        await updateTemplateCategoryOrder({
+          templateCategoryId: cat3.data.id,
+          anchorId: cat2.data.id,
+          position: 'after',
+        });
+        // Order: [cat2, cat3, cat4, cat1]
+
+        const finalList = await getTemplateCategoryList();
+        expect(finalList.data.map(({ id }) => id)).toEqual([
+          cat2.data.id,
+          cat3.data.id,
+          cat4.data.id,
+          cat1.data.id,
+        ]);
+      });
     });
   });
 
