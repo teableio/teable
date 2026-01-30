@@ -26,6 +26,8 @@ export type IFormColumnMeta = z.infer<typeof formColumnMetaSchema>;
 
 export type IPluginColumnMeta = z.infer<typeof pluginColumnMetaSchema>;
 
+export type IEditorColumnMeta = z.infer<typeof editorColumnMetaSchema>;
+
 export type IColumn = z.infer<typeof columnSchema>;
 
 export type IGridColumn = z.infer<typeof gridColumnSchema>;
@@ -91,12 +93,19 @@ export const pluginColumnSchema = columnSchemaBase.extend({
   }),
 });
 
+export const editorColumnSchema = columnSchemaBase.extend({
+  hidden: z.boolean().optional().meta({
+    description: 'If column hidden in the view.',
+  }),
+});
+
 export const columnSchema = z.union([
   gridColumnSchema.strict(),
   kanbanColumnSchema.strict(),
   galleryColumnSchema.strict(),
   formColumnSchema.strict(),
   pluginColumnSchema.strict(),
+  editorColumnSchema.strict(),
 ]);
 
 export const columnMetaSchema = z.record(z.string().startsWith(IdPrefix.Field), columnSchema);
@@ -131,6 +140,11 @@ export const pluginColumnMetaSchema = z.record(
   pluginColumnSchema
 );
 
+export const editorColumnMetaSchema = z.record(
+  z.string().startsWith(IdPrefix.Field),
+  editorColumnSchema
+);
+
 export const columnMetaRoSchema = z
   .object({
     fieldId: z
@@ -143,6 +157,7 @@ export const columnMetaRoSchema = z
       kanbanColumnSchema.partial().strict(),
       formColumnSchema.partial().strict(),
       pluginColumnSchema.partial().strict(),
+      editorColumnSchema.partial().strict(),
     ]),
   })
   .array();

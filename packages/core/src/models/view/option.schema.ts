@@ -1,6 +1,7 @@
 import { z } from '../../zod';
 import { ViewType } from './constant';
 import { calendarViewOptionSchema } from './derivate/calendar-view-option.schema';
+import { editorViewOptionSchema } from './derivate/editor-view-option.schema';
 import { formViewOptionSchema } from './derivate/form-view-option.schema';
 import { galleryViewOptionSchema } from './derivate/gallery-view-option.schema';
 import { gridViewOptionSchema } from './derivate/grid-view-option.schema';
@@ -14,6 +15,7 @@ export const viewOptionsSchema = z.union([
   calendarViewOptionSchema,
   formViewOptionSchema,
   pluginViewOptionSchema,
+  editorViewOptionSchema,
 ]);
 
 export type IViewOptions = z.infer<typeof viewOptionsSchema>;
@@ -39,6 +41,9 @@ export const validateOptionsType = (type: ViewType, optionsString: IViewOptions)
       break;
     case ViewType.Plugin:
       pluginViewOptionSchema.parse(optionsString);
+      break;
+    case ViewType.Editor:
+      editorViewOptionSchema.parse(optionsString);
       break;
     default:
       throw new Error(`Unsupported view type: ${type}`);

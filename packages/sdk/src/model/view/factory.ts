@@ -3,6 +3,7 @@ import { assertNever, ViewType } from '@teable/core';
 import { plainToInstance } from 'class-transformer';
 import type { Doc } from 'sharedb/lib/client';
 import { CalendarView } from './calendar.view';
+import { EditorView } from './editor.view';
 import { FormView } from './form.view';
 import { GalleryView } from './gallery.view';
 import { GridView } from './grid.view';
@@ -24,6 +25,8 @@ export function createViewInstance(view: IViewVo, doc?: Doc<IViewVo>) {
         return plainToInstance(PluginView, view);
       case ViewType.Calendar:
         return plainToInstance(CalendarView, view);
+      case ViewType.Editor:
+        return plainToInstance(EditorView, view);
       default:
         assertNever(view.type);
     }

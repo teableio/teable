@@ -1,5 +1,5 @@
 import { ViewType } from '@teable/core';
-import { Sheet, ClipboardList as Form, Kanban, Component, Calendar } from '@teable/icons';
+import { Sheet, ClipboardList as Form, Kanban, Component, Calendar, Edit } from '@teable/icons';
 
 export const VIEW_ICON_MAP: Record<ViewType, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
   [ViewType.Grid]: Sheet,
@@ -8,4 +8,5 @@ export const VIEW_ICON_MAP: Record<ViewType, React.ComponentType<React.SVGProps<
   [ViewType.Calendar]: Calendar,
   [ViewType.Form]: Form,
   [ViewType.Plugin]: Component,
+  [ViewType.Editor]: Edit,
 };

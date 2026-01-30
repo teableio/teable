@@ -13,4 +13,5 @@ export enum ViewType {
   Form = 'form',
   Gallery = 'gallery',
   Plugin = 'plugin',
+  Editor = 'editor',
 }

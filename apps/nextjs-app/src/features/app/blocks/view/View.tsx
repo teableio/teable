@@ -12,6 +12,7 @@ import { useEffect } from 'react';
 import type { Query } from 'sharedb';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarView } from './calendar/CalendarView';
+import { EditorView } from './editor/EditorView';
 import { FormView } from './form/FormView';
 import { GalleryView } from './gallery/GalleryView';
 import { GridView } from './grid/GridView';
@@ -70,6 +71,8 @@ export const View = (props: IViewBaseProps) => {
         return <CalendarView />;
       case ViewType.Plugin:
         return <PluginView />;
+      case ViewType.Editor:
+        return <EditorView />;
       default:
         return null;
     }

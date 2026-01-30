@@ -725,6 +725,41 @@
     },
     "moreLinkText": "Show all {{count}} records"
   },
+  "editor": {
+    "selectField": {
+      "title": "Select a Long Text Field",
+      "description": "Choose a long text field to edit with the markdown editor."
+    },
+    "toolbar": {
+      "settings": "Settings",
+      "editorField": "Editor field",
+      "selectField": "Select a field",
+      "noLongTextFields": "No long text fields available. Create a Long Text field first.",
+      "bold": "Bold",
+      "italic": "Italic",
+      "heading1": "Heading 1",
+      "heading2": "Heading 2",
+      "bulletList": "Bullet list",
+      "numberedList": "Numbered list",
+      "link": "Link",
+      "image": "Image"
+    },
+    "recordList": {
+      "title": "Records",
+      "empty": "No records found",
+      "untitled": "Untitled"
+    },
+    "noRecordSelected": {
+      "title": "No Record Selected",
+      "description": "Select a record from the list to start editing."
+    },
+    "tabs": {
+      "write": "Write",
+      "preview": "Preview"
+    },
+    "placeholder": "Start writing your content here...\n\nYou can use Markdown syntax:\n- **bold** for bold text\n- *italic* for italic text\n- # Heading for headings\n- - item for lists\n- [text](url) for links\n- ![alt](url) for images",
+    "untitledRecord": "Untitled Record"
+  },
   "menu": {
     "insertRecordAbove": "Insert <input /> record above",
     "insertRecordBelow": "Insert <input /> record below",
@@ -776,7 +811,8 @@
       "form": "Form view",
       "kanban": "Kanban view",
       "gallery": "Gallery view",
-      "calendar": "Calendar view"
+      "calendar": "Calendar view",
+      "editor": "Editor view"
     },
     "crash": {
       "title": "Crash!",

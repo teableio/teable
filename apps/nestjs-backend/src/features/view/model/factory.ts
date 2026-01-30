@@ -3,6 +3,7 @@ import { assertNever, ViewType } from '@teable/core';
 import type { View } from '@teable/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { CalendarViewDto } from './calendar-view.dto';
+import { EditorViewDto } from './editor-view.dto';
 import { FormViewDto } from './form-view.dto';
 import { GalleryViewDto } from './gallery-view.dto';
 import { GridViewDto } from './grid-view.dto';
@@ -25,6 +26,8 @@ export function createViewInstanceByRaw(viewRaw: View) {
       return plainToInstance(FormViewDto, viewVo);
     case ViewType.Plugin:
       return plainToInstance(PluginViewDto, viewVo);
+    case ViewType.Editor:
+      return plainToInstance(EditorViewDto, viewVo);
     default:
       assertNever(viewVo.type);
   }
