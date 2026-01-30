@@ -1,14 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { getPublishedTemplateCategoryList } from '@teable/openapi';
+import { getTemplateCategoryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsMobile } from '@teable/sdk/hooks';
-import { cn, Toggle } from '@teable/ui-lib/shadcn';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useMemo } from 'react';
 import { CategoryMenuItem } from './CategoryMenuItem';
-
-const CategoryGroupLabel = ({ label }: { label: string }) => {
-  return <span className="mb-1 px-2 text-sm font-medium text-muted-foreground">{label}</span>;
-};
 
 interface ICategoryMenuProps {
   currentCategoryId: string | null;
@@ -21,22 +18,26 @@ interface ICategoryMenuProps {
 }
 
 export const CategoryMenu = (props: ICategoryMenuProps) => {
-  const {
-    currentCategoryId,
-    onCategoryChange,
-    className,
-    categoryHeaderRender,
-    onFeaturedChange,
-    isFeatured,
-    disabledFeaturedToggle,
-  } = props;
+  const { currentCategoryId, onCategoryChange, className } = props;
   const { t } = useTranslation('common');
-  const { data: categoryList } = useQuery({
+  const { data: categoryListFromServer } = useQuery({
     queryKey: ReactQueryKeys.publishedTemplateCategoryList(),
-    queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
+    queryFn: () => getTemplateCategoryList().then((data) => data.data),
   });
 
   const isMobile = useIsMobile();
+
+  const categoryList = useMemo(() => {
+    return [
+      {
+        id: null,
+        name: t('settings.templateAdmin.category.menu.recommended'),
+        order: -Infinity,
+      },
+      // Widen type so concat is valid (recommended + categories)
+      ...(categoryListFromServer ?? []),
+    ];
+  }, [categoryListFromServer, t]);
 
   return (
     <div
@@ -44,42 +45,14 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
         'flex-row w-full': isMobile,
       })}
     >
-      {isMobile && categoryHeaderRender && categoryHeaderRender()}
-      <div className="flex flex-col gap-1">
-        {!isMobile && categoryHeaderRender && categoryHeaderRender()}
-        {!isMobile && (
-          <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.getStarted')} />
-        )}
-        <Toggle
-          className="flex items-center justify-start"
-          pressed={!!isFeatured}
-          onPressedChange={(pressed) => {
-            if (pressed) {
-              onFeaturedChange(true);
-            } else {
-              onFeaturedChange(undefined);
-            }
-          }}
-          disabled={disabledFeaturedToggle}
-        >
-          <span>{t('settings.templateAdmin.category.menu.recommended')}</span>
-        </Toggle>
-      </div>
-
       {categoryList && categoryList.length > 0 && (
         <div
           className={cn('flex flex-1 flex-col overflow-hidden', {
             'flex-row overflow-x-auto': isMobile,
           })}
         >
-          {!isMobile && (
-            <CategoryGroupLabel
-              label={t('settings.templateAdmin.category.menu.browseByCategory')}
-            />
-          )}
-
           <div
-            className={cn('flex flex-1 flex-col overflow-auto', {
+            className={cn('flex flex-1 flex-col overflow-auto gap-0.5', {
               'flex-row gap-x-0.5': isMobile,
             })}
           >
@@ -90,11 +63,7 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
                 id={id}
                 currentCategoryId={currentCategoryId}
                 onClickHandler={() => {
-                  if (currentCategoryId === id) {
-                    onCategoryChange(null);
-                  } else {
-                    onCategoryChange(id);
-                  }
+                  onCategoryChange(id);
                 }}
               />
             ))}

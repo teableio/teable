@@ -1354,10 +1354,12 @@
       "invalidResourceType": "无效的资源类型"
     },
     "template": {
+      "categoryNotFound": "模板分类不存在",
       "snapshotRequired": "此模板无法发布，因为缺少快照",
       "sourceTemplateNotFound": "源模板不存在",
       "noMinOrderFound": "未找到最小排序值",
-      "takeCountTooLarge": "请求的模板数量超过最大限制"
+      "takeCountTooLarge": "请求的模板数量超过最大限制",
+      "categoryLimitReached": "模板分类数量已达上限（最多 {{maxCount}} 个）"
     },
     "department": {
       "parentNotFound": "父部门未找到",

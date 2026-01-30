@@ -1,7 +1,7 @@
 import type { UrlObject } from 'url';
 import { Table2 } from '@teable/icons';
 import type { IBaseNodeResourceMeta, IBaseNodeVo } from '@teable/openapi';
-import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
+import { BaseNodeResourceType, LastVisitResourceType, ResourceType } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { AppWindowMacIcon, BotIcon, CircleGaugeIcon, FolderClosedIcon } from 'lucide-react';
 import type { TreeItemData } from './useBaseNode';
@@ -27,7 +27,7 @@ export const BaseNodeResourceIconMap = {
 export const BaseNodeResourceLastVisitMap = {
   [BaseNodeResourceType.Table]: LastVisitResourceType.Table,
   [BaseNodeResourceType.Dashboard]: LastVisitResourceType.Dashboard,
-  [BaseNodeResourceType.Workflow]: LastVisitResourceType.Automation,
+  [BaseNodeResourceType.Workflow]: LastVisitResourceType.Workflow,
   [BaseNodeResourceType.App]: LastVisitResourceType.App,
 };
 
@@ -43,13 +43,13 @@ export const getNodeIcon = (node: {
 
 export const getNodeUrl = (props: {
   baseId: string;
-  resourceType: BaseNodeResourceType;
+  resourceType: string;
   resourceId: string;
   viewId?: string | null;
 }): UrlObject | null => {
   const { baseId, resourceId, resourceType, viewId } = props;
   switch (resourceType) {
-    case BaseNodeResourceType.Table:
+    case ResourceType.Table:
       if (viewId) {
         return {
           pathname: `/base/${baseId}/table/${resourceId}/${viewId}`,
@@ -58,20 +58,22 @@ export const getNodeUrl = (props: {
       return {
         pathname: `/base/${baseId}/table/${resourceId}`,
       };
-    case BaseNodeResourceType.Dashboard:
+    case ResourceType.Dashboard:
       return {
         pathname: `/base/${baseId}/dashboard/${resourceId}`,
       };
-    case BaseNodeResourceType.Workflow:
+    case ResourceType.Workflow:
       return {
         pathname: `/base/${baseId}/automation/${resourceId}`,
       };
-    case BaseNodeResourceType.App:
+    case ResourceType.App:
       return {
         pathname: `/base/${baseId}/app/${resourceId}`,
       };
-    case BaseNodeResourceType.Folder:
-      return null;
+    case ResourceType.Base:
+      return {
+        pathname: `/base/${resourceId}`,
+      };
     default:
       return null;
   }

@@ -77,14 +77,14 @@ export const Collaborator = (props: ICollaboratorProps) => {
       )}
     >
       {item.type === PrincipalType.User && (
-        <UserAvatar user={{ name: item.name, avatar: item.avatar }} />
+        <UserAvatar className="border" user={{ name: item.name, avatar: item.avatar }} />
       )}
       {item.type === PrincipalType.Department && (
         <div className=" flex size-7 items-center justify-center rounded-full bg-accent">
           <Building2 className="size-4" />
         </div>
       )}
-      <div className="ml-2 flex flex-1 flex-col space-y-1 overflow-hidden">
+      <div className="ml-3 flex flex-1 flex-col space-y-1 overflow-hidden">
         <div className="text-sm font-medium">
           <div className="flex items-center gap-2">
             <span className="truncate">{item.name}</span>

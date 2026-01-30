@@ -1,9 +1,11 @@
+import { ResourceType } from '../types';
+
 export enum PinType {
-  Space = 'space',
-  Base = 'base',
-  Table = 'table',
-  View = 'view',
-  Dashboard = 'dashboard',
-  Workflow = 'workflow',
-  App = 'app',
+  Space = ResourceType.Space,
+  Base = ResourceType.Base,
+  Table = ResourceType.Table,
+  View = ResourceType.View,
+  Dashboard = ResourceType.Dashboard,
+  Workflow = ResourceType.Workflow,
+  App = ResourceType.App,
 }

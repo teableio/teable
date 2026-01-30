@@ -1327,10 +1327,12 @@
       "invalidResourceType": "Type de ressource non valide"
     },
     "template": {
+      "categoryNotFound": "Catégorie de modèle non trouvée",
       "snapshotRequired": "Ce modèle n'a pas pu être publié en raison d'un instantané manquant",
       "sourceTemplateNotFound": "Modèle source introuvable",
       "noMinOrderFound": "Aucun ordre minimum trouvé",
-      "takeCountTooLarge": "Le nombre de modèles demandés dépasse la limite maximale"
+      "takeCountTooLarge": "Le nombre de modèles demandés dépasse la limite maximale",
+      "categoryLimitReached": "Limite de catégories de modèles atteinte (maximum {{maxCount}})"
     },
     "domainVerification": {
       "notFound": "Aucun code de vérification de domaine trouvé",

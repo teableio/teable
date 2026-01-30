@@ -348,7 +348,7 @@ export function LLMApiConfigStep({
 
             {/* Attachment Transfer Mode Test Results */}
             {effectiveAttachmentTest && !originChanged && (
-              <div className="mt-3 rounded-md border bg-muted/30 p-3">
+              <div className="mt-3 rounded-md border bg-muted p-3">
                 <div className="mb-2 text-sm font-medium">
                   {t('admin.setting.ai.wizard.attachmentTest.title')}
                 </div>

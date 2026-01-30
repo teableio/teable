@@ -306,7 +306,7 @@ const ModelRow = ({
   };
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3">
+    <div className="rounded-md border bg-muted p-3">
       {/* Model header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

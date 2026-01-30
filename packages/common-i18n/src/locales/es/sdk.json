@@ -1327,10 +1327,12 @@
       "invalidResourceType": "Tipo de recurso no válido"
     },
     "template": {
+      "categoryNotFound": "Categoría de plantilla no encontrada",
       "snapshotRequired": "Esta plantilla no se pudo publicar debido a la falta de instantánea",
       "sourceTemplateNotFound": "Plantilla de origen no encontrada",
       "noMinOrderFound": "No se encontró el orden mínimo",
-      "takeCountTooLarge": "La cantidad de plantillas solicitadas excede el límite máximo"
+      "takeCountTooLarge": "La cantidad de plantillas solicitadas excede el límite máximo",
+      "categoryLimitReached": "Límite de categorías de plantilla alcanzado (máximo {{maxCount}})"
     },
     "domainVerification": {
       "notFound": "No se encontró código de verificación de dominio",

@@ -39,6 +39,7 @@ import {
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState, useEffect } from 'react';
+import { CategorySettingDialog } from './CategorySettingDialog';
 import { MarkdownPreviewButton } from './MarkdownPreviewButton';
 import { TemplateCategorySelect } from './TemplateCategorySelect';
 import { TemplateCover } from './TemplateCover';
@@ -52,8 +53,6 @@ export const TemplateTable = () => {
   const { t } = useTranslation(['common']);
 
   const isHydrated = useIsHydrated();
-
-  // const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ReactQueryKeys.templateList(),
@@ -89,14 +88,6 @@ export const TemplateTable = () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
-
-  // const { mutateAsync: createTemplateSnapshotFn, isLoading } = useMutation({
-  //   mutationFn: (templateId: string) => createTemplateSnapshot(templateId),
-  //   onSuccess: () => {
-  //     queryClient.invalidateQueries(ReactQueryKeys.templateList());
-  //     setCurrentTemplateId(null);
-  //   },
-  // });
 
   const { mutateAsync: updateTemplateFn } = useMutation({
     mutationFn: ({ templateId, updateRo }: { templateId: string; updateRo: IUpdateTemplateRo }) =>
@@ -236,13 +227,6 @@ export const TemplateTable = () => {
             onChange={(ids) => onChangeTemplateCategory(row.id, ids)}
           />
         </TableCell>
-        {/* <TableCell className="text-center align-middle">
-          <Checkbox
-            id="terms"
-            defaultChecked={Boolean(row.isSystem)}
-            disabled={edition !== 'CLOUD'}
-          />
-        </TableCell> */}
         <TableCell className="text-center align-middle">
           <TemplateTooltips
             content={t('settings.templateAdmin.tips.needPublish')}
@@ -277,26 +261,6 @@ export const TemplateTable = () => {
             </div>
           </TemplateTooltips>
         </TableCell>
-        {/* <TableCell>
-          <TemplateTooltips
-            content={t('settings.templateAdmin.tips.needBaseSource')}
-            disabled={!row.baseId || (edition !== 'CLOUD' && row.isSystem)}
-          >
-            <Button
-              variant="outline"
-              size={'xs'}
-              disabled={!row?.baseId}
-              onClick={() => {
-                setCurrentTemplateId(row.id);
-                createTemplateSnapshotFn(row.id);
-              }}
-            >
-              {t('settings.templateAdmin.header.publishSnapshot')}
-
-              {currentTemplateId === row.id && isLoading && <Spin className="size-4" />}
-            </Button>
-          </TemplateTooltips>
-        </TableCell> */}
         <TableCell>
           {row.snapshot?.snapshotTime ? (
             dayjs(row.snapshot.snapshotTime).format('YYYY-MM-DD HH:mm:ss')
@@ -436,19 +400,18 @@ export const TemplateTable = () => {
             <TableHead className="w-32 shrink-0">
               {t('settings.templateAdmin.header.markdownDescription')}
             </TableHead>
-            <TableHead>{t('settings.templateAdmin.header.category')}</TableHead>
-            {/* <TableHead className="min-w-24 text-center">
-              {t('settings.templateAdmin.header.isSystem')}
-            </TableHead> */}
+            <TableHead className="min-w-32">
+              <div className="flex items-center justify-between">
+                {t('settings.templateAdmin.header.category')}
+                <CategorySettingDialog />
+              </div>
+            </TableHead>
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.featured')}
             </TableHead>
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.status')}
             </TableHead>
-            {/* <TableHead className="w-32">
-              {t('settings.templateAdmin.header.publishSnapshot')}
-            </TableHead> */}
             <TableHead className="min-w-48">
               {t('settings.templateAdmin.header.snapshotTime')}
             </TableHead>

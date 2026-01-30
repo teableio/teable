@@ -1354,10 +1354,12 @@
       "invalidResourceType": "Invalid resource type"
     },
     "template": {
+      "categoryNotFound": "Template category not found",
       "snapshotRequired": "This template could not be published due to missing snapshot",
       "sourceTemplateNotFound": "Source template not found",
       "noMinOrderFound": "No minimum order found",
-      "takeCountTooLarge": "The number of templates requested exceeds the maximum limit"
+      "takeCountTooLarge": "The number of templates requested exceeds the maximum limit",
+      "categoryLimitReached": "Template category limit reached (max {{maxCount}})"
     },
     "department": {
       "parentNotFound": "Parent department not found",
