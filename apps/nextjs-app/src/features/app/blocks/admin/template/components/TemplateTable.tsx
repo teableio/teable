@@ -1,13 +1,10 @@
 import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle, Link } from '@teable/icons';
 import type { ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
 import {
-  createTemplateSnapshot,
   deleteTemplate,
-  getBaseAll,
-  getSpaceList,
   getTemplateList,
   pinTopTemplate,
   updateTemplate,
@@ -42,8 +39,6 @@ import {
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState, useEffect } from 'react';
-import { useEnv } from '@/features/app/hooks/useEnv';
-import { BaseSelectPanel } from './BaseSelectPanel';
 import { MarkdownPreviewButton } from './MarkdownPreviewButton';
 import { TemplateCategorySelect } from './TemplateCategorySelect';
 import { TemplateCover } from './TemplateCover';
@@ -51,26 +46,23 @@ import { TemplateTooltips } from './TemplateTooltips';
 import { TextEditor } from './TextEditor';
 import { TextEditorDialog } from './TextEditorDialog';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export const TemplateTable = () => {
   const { t } = useTranslation(['common']);
 
-  const env = useEnv();
-
-  const { edition } = env;
-
   const isHydrated = useIsHydrated();
 
-  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
+  // const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ReactQueryKeys.templateList(),
     queryFn: ({ pageParam }) =>
       getTemplateList({
-        skip: pageParam ?? 0,
+        skip: pageParam,
         take: PAGE_SIZE,
       }).then((res) => res.data),
+    initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < PAGE_SIZE) {
         return undefined;
@@ -89,38 +81,28 @@ export const TemplateTable = () => {
     setInnerTemplates(displayedData);
   }, [displayedData]);
 
-  const { data: baseList } = useQuery({
-    queryKey: ReactQueryKeys.baseAll(),
-    queryFn: () => getBaseAll().then((data) => data.data),
-  });
-
-  const { data: spaceList } = useQuery({
-    queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList().then((data) => data.data),
-  });
-
   const queryClient = useQueryClient();
 
   const { mutateAsync: deleteTemplateFn } = useMutation({
     mutationFn: (templateId: string) => deleteTemplate(templateId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 
-  const { mutateAsync: createTemplateSnapshotFn, isLoading } = useMutation({
-    mutationFn: (templateId: string) => createTemplateSnapshot(templateId),
-    onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
-      setCurrentTemplateId(null);
-    },
-  });
+  // const { mutateAsync: createTemplateSnapshotFn, isLoading } = useMutation({
+  //   mutationFn: (templateId: string) => createTemplateSnapshot(templateId),
+  //   onSuccess: () => {
+  //     queryClient.invalidateQueries(ReactQueryKeys.templateList());
+  //     setCurrentTemplateId(null);
+  //   },
+  // });
 
   const { mutateAsync: updateTemplateFn } = useMutation({
     mutationFn: ({ templateId, updateRo }: { templateId: string; updateRo: IUpdateTemplateRo }) =>
       updateTemplate(templateId, { ...updateRo }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 
@@ -155,7 +137,7 @@ export const TemplateTable = () => {
   const { mutateAsync: pinTopTemplateFn } = useMutation({
     mutationFn: (templateId: string) => pinTopTemplate(templateId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 
@@ -170,7 +152,7 @@ export const TemplateTable = () => {
       position: 'before' | 'after';
     }) => updateTemplateOrder({ templateId, anchorId, position }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 
@@ -295,7 +277,7 @@ export const TemplateTable = () => {
             </div>
           </TemplateTooltips>
         </TableCell>
-        <TableCell>
+        {/* <TableCell>
           <TemplateTooltips
             content={t('settings.templateAdmin.tips.needBaseSource')}
             disabled={!row.baseId || (edition !== 'CLOUD' && row.isSystem)}
@@ -314,27 +296,13 @@ export const TemplateTable = () => {
               {currentTemplateId === row.id && isLoading && <Spin className="size-4" />}
             </Button>
           </TemplateTooltips>
-        </TableCell>
+        </TableCell> */}
         <TableCell>
           {row.snapshot?.snapshotTime ? (
             dayjs(row.snapshot.snapshotTime).format('YYYY-MM-DD HH:mm:ss')
           ) : (
             <span className="text-gray-500">{t('settings.templateAdmin.noData')}</span>
           )}
-        </TableCell>
-        <TableCell className="text-center">
-          <TemplateTooltips
-            content={t('settings.templateAdmin.tips.forbiddenUpdateSystemTemplate')}
-            disabled={(edition !== 'CLOUD' || !edition) && row.isSystem}
-          >
-            <BaseSelectPanel
-              disabled={(edition !== 'CLOUD' || !edition) && row.isSystem}
-              baseList={baseList || []}
-              templateId={row.id}
-              baseId={row?.baseId}
-              spaceList={spaceList || []}
-            />
-          </TemplateTooltips>
         </TableCell>
         <TableCell>
           {row.createdBy && row.createdBy.name ? (
@@ -366,8 +334,16 @@ export const TemplateTable = () => {
             </span>
           )}
         </TableCell>
-        <TableCell className="text-center">{row.usageCount ?? 0}</TableCell>
-        <TableCell className="text-center">
+        <TableCell
+          className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
+          style={{ zIndex: 2, right: 144, width: 100, minWidth: 100, maxWidth: 100 }}
+        >
+          {row.usageCount ?? 0}/{row.visitCount ?? 0}
+        </TableCell>
+        <TableCell
+          className="sticky bg-background text-center"
+          style={{ zIndex: 2, right: 72, width: 72, minWidth: 72, maxWidth: 72 }}
+        >
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -395,7 +371,10 @@ export const TemplateTable = () => {
             </Tooltip>
           </TooltipProvider>
         </TableCell>
-        <TableCell>
+        <TableCell
+          className="sticky bg-background"
+          style={{ zIndex: 2, right: 0, width: 72, minWidth: 72, maxWidth: 72 }}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size={'xs'}>
@@ -432,7 +411,7 @@ export const TemplateTable = () => {
 
   return (
     <div className="h-full overflow-auto">
-      <Table className="relative size-full scroll-smooth rounded-sm">
+      <Table className="relative w-max min-w-full scroll-smooth rounded-sm">
         <TableHeader className="sticky top-0 z-20 bg-background after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-['']">
           <TableRow className="h-16 bg-background" style={{ zIndex: 2 }}>
             <TableHead
@@ -467,25 +446,33 @@ export const TemplateTable = () => {
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.status')}
             </TableHead>
-            <TableHead className="w-32">
+            {/* <TableHead className="w-32">
               {t('settings.templateAdmin.header.publishSnapshot')}
-            </TableHead>
+            </TableHead> */}
             <TableHead className="min-w-48">
               {t('settings.templateAdmin.header.snapshotTime')}
-            </TableHead>
-            <TableHead className="text-center">
-              {t('settings.templateAdmin.header.source')}
             </TableHead>
             <TableHead className="min-w-32">
               {t('settings.templateAdmin.header.createdBy')}
             </TableHead>
-            <TableHead className="text-center">
-              {t('settings.templateAdmin.header.usage')}
+            <TableHead
+              className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
+              style={{ zIndex: 3, right: 144, width: 100, minWidth: 100, maxWidth: 100 }}
+            >
+              {t('settings.templateAdmin.header.usage')}/{t('settings.templateAdmin.header.visit')}
             </TableHead>
-            <TableHead className="text-center">
+            <TableHead
+              className="sticky bg-background text-center"
+              style={{ zIndex: 3, right: 72, width: 72, minWidth: 72, maxWidth: 72 }}
+            >
               {t('settings.templateAdmin.header.preview')}
             </TableHead>
-            <TableHead>{t('settings.templateAdmin.header.actions')}</TableHead>
+            <TableHead
+              className="sticky bg-background"
+              style={{ zIndex: 3, right: 0, width: 72, minWidth: 72, maxWidth: 72 }}
+            >
+              {t('settings.templateAdmin.header.actions')}
+            </TableHead>
           </TableRow>
         </TableHeader>
 

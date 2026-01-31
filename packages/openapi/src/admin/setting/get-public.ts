@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
 import { settingVoSchema } from './get';
-import { chatModelSchema, llmProviderSchema } from './update';
+import { chatModelSchema, gatewayModelSchema, llmProviderSchema } from './update';
 
 export const simpleLLMProviderSchema = llmProviderSchema.pick({
   type: true,
@@ -23,6 +23,8 @@ const publicAiConfigSchema = z.object({
       disableActions: z.array(z.string()).optional(),
     })
     .optional(),
+  // Gateway models enabled by admin (for space-level AI config)
+  gatewayModels: z.array(gatewayModelSchema).optional(),
 });
 
 export const publicSettingVoSchema = settingVoSchema
@@ -40,12 +42,12 @@ export const publicSettingVoSchema = settingVoSchema
   })
   .extend({
     aiConfig: publicAiConfigSchema.nullable(),
-    webSearchEnabled: z.boolean().optional(),
     appGenerationEnabled: z.boolean().optional(),
     turnstileSiteKey: z.string().nullable().optional(),
     changeEmailSendCodeMailRate: z.number().optional(),
     resetPasswordSendMailRate: z.number().optional(),
     signupVerificationSendCodeMailRate: z.number().optional(),
+    enableCreditReward: z.boolean().optional(),
   });
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;
 

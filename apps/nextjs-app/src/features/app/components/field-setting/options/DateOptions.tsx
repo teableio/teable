@@ -21,7 +21,7 @@ export const DateOptions = (props: {
 
   const onDefaultValueChange = (checked: boolean) => {
     onChange?.({
-      defaultValue: checked ? 'now' : undefined,
+      defaultValue: checked ? 'now' : null,
     });
   };
 

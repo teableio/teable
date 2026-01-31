@@ -8,7 +8,8 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useBillingLevelConfig } from '../../hooks/useBillingLevelConfig';
+import type { AppSumoTier } from '../../hooks/useBillingLevelConfig';
+import { useAppSumoTierConfig, useBillingLevelConfig } from '../../hooks/useBillingLevelConfig';
 import { Level } from './Level';
 import { Status } from './Status';
 
@@ -21,16 +22,27 @@ interface ILevelWithUpgradeProps {
     id: string;
     name: string;
   };
+  appSumoTier?: AppSumoTier;
+  onUpgradeClick?: () => void;
 }
 
 export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
-  const { level, spaceId, withUpgrade, status, organization } = props;
+  const { level, spaceId, withUpgrade, status, organization, appSumoTier, onUpgradeClick } = props;
   const isEnterprise = level === BillingProductLevel.Enterprise;
+  const isAppSumo = appSumoTier != null;
   const { t } = useTranslation('common');
-  const { description } = useBillingLevelConfig(level);
+  const levelConfig = useBillingLevelConfig(level);
+  const appSumoConfig = useAppSumoTierConfig(appSumoTier);
   const router = useRouter();
 
+  // Use AppSumo description if applicable, otherwise use level description
+  const description = appSumoConfig?.description ?? levelConfig.description;
+
   const onClick = () => {
+    if (onUpgradeClick) {
+      onUpgradeClick();
+      return;
+    }
     if (spaceId == null) return;
 
     router.push({
@@ -44,7 +56,7 @@ export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger>
-            <Level level={level} />
+            <Level level={level} appSumoTier={appSumoTier} />
           </TooltipTrigger>
           <TooltipContent hideWhenDetached={true} sideOffset={8}>
             <p>{description}</p>
@@ -55,7 +67,7 @@ export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
         <span className="text-xs text-muted-foreground">{organization.name}</span>
       )}
       <Status status={status} />
-      {withUpgrade && !isEnterprise && (
+      {withUpgrade && !isEnterprise && !isAppSumo && (
         <Button
           size="xs"
           variant="ghost"

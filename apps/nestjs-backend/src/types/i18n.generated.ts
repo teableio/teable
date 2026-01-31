@@ -194,6 +194,7 @@ export type I18nTranslations = {
             "doNotSave": string;
             "submit": string;
             "confirm": string;
+            "continue": string;
             "close": string;
             "edit": string;
             "fill": string;
@@ -218,8 +219,11 @@ export type I18nTranslations = {
             "yesDelete": string;
             "rename": string;
             "duplicate": string;
+            "export": string;
+            "import": string;
             "change": string;
             "upgrade": string;
+            "upgradeToLevel": string;
             "search": string;
             "loadMore": string;
             "collapseSidebar": string;
@@ -231,23 +235,26 @@ export type I18nTranslations = {
             "showAllRow": string;
             "hideNotMatchRow": string;
             "more": string;
+            "expand": string;
+            "view": string;
+            "preview": string;
+            "viewAndEdit": string;
+            "deleteTip": string;
             "move": string;
             "turnOn": string;
             "exit": string;
             "next": string;
             "previous": string;
             "select": string;
-            "view": string;
-            "preview": string;
-            "viewAndEdit": string;
-            "continue": string;
-            "export": string;
-            "import": string;
-            "expand": string;
-            "deleteTip": string;
             "refresh": string;
             "login": string;
             "useTemplate": string;
+            "backToSpace": string;
+            "switchBase": string;
+            "getMore": string;
+            "retry": string;
+            "collapse": string;
+            "viewDetails": string;
         };
         "quickAction": {
             "title": string;
@@ -256,12 +263,13 @@ export type I18nTranslations = {
         "password": {
             "setInvalid": string;
         };
-        "non": {
-            "share": string;
-            "copy": string;
-        };
         "template": {
+            "non": {
+                "share": string;
+                "copy": string;
+            };
             "aiTitle": string;
+            "aiGreeting": string;
             "aiSubTitle": string;
             "guideTitle": string;
             "watchVideo": string;
@@ -285,11 +293,6 @@ export type I18nTranslations = {
                     "guide7": string;
                 };
             };
-            "non": {
-                "share": string;
-                "copy": string;
-            };
-            "aiGreeting": string;
             "useTemplateDialog": {
                 "title": string;
                 "description": string;
@@ -341,6 +344,20 @@ export type I18nTranslations = {
                 "addPasswordSuccess": {
                     "title": string;
                 };
+                "deleteAccount": {
+                    "title": string;
+                    "desc": string;
+                    "error": {
+                        "title": string;
+                        "desc": string;
+                        "spacesError": string;
+                    };
+                    "confirm": {
+                        "title": string;
+                        "placeholder": string;
+                    };
+                    "loading": string;
+                };
                 "changeEmail": {
                     "title": string;
                     "desc": string;
@@ -361,20 +378,6 @@ export type I18nTranslations = {
                         "sendSuccess": string;
                     };
                 };
-                "deleteAccount": {
-                    "title": string;
-                    "desc": string;
-                    "error": {
-                        "title": string;
-                        "desc": string;
-                        "spacesError": string;
-                    };
-                    "confirm": {
-                        "title": string;
-                        "placeholder": string;
-                    };
-                    "loading": string;
-                };
             };
             "notify": {
                 "title": string;
@@ -394,6 +397,7 @@ export type I18nTranslations = {
                 "mouseMode": string;
                 "touchMode": string;
                 "systemMode": string;
+                "buySelfHostedLicense": string;
             };
             "nav": {
                 "settings": string;
@@ -402,14 +406,6 @@ export type I18nTranslations = {
             };
             "integration": {
                 "title": string;
-                "description": string;
-                "lastUsed": string;
-                "revoke": string;
-                "owner": string;
-                "revokeTitle": string;
-                "revokeDesc": string;
-                "scopeTitle": string;
-                "scopeDesc": string;
                 "thirdPartyIntegrations": {
                     "title": string;
                     "description": string;
@@ -444,26 +440,16 @@ export type I18nTranslations = {
                         "desc": string;
                     };
                 };
+                "description": string;
+                "lastUsed": string;
+                "revoke": string;
+                "owner": string;
+                "revokeTitle": string;
+                "revokeDesc": string;
+                "scopeTitle": string;
+                "scopeDesc": string;
             };
             "templateAdmin": {
-                "header": {
-                    "cover": string;
-                    "name": string;
-                    "description": string;
-                    "markdownDescription": string;
-                    "category": string;
-                    "isSystem": string;
-                    "source": string;
-                    "status": string;
-                    "publishSnapshot": string;
-                    "snapshotTime": string;
-                    "actions": string;
-                    "featured": string;
-                    "createdBy": string;
-                    "userNonExistent": string;
-                    "usage": string;
-                    "preview": string;
-                };
                 "title": string;
                 "noData": string;
                 "importing": string;
@@ -486,6 +472,25 @@ export type I18nTranslations = {
                         "all": string;
                         "browseByCategory": string;
                     };
+                };
+                "header": {
+                    "cover": string;
+                    "name": string;
+                    "description": string;
+                    "markdownDescription": string;
+                    "category": string;
+                    "isSystem": string;
+                    "source": string;
+                    "status": string;
+                    "publishSnapshot": string;
+                    "snapshotTime": string;
+                    "actions": string;
+                    "featured": string;
+                    "createdBy": string;
+                    "userNonExistent": string;
+                    "preview": string;
+                    "usage": string;
+                    "visit": string;
                 };
                 "actions": {
                     "title": string;
@@ -550,10 +555,12 @@ export type I18nTranslations = {
             "free": string;
             "plus": string;
             "pro": string;
-            "enterprise": string;
             "business": string;
+            "enterprise": string;
         };
         "noResult": string;
+        "allNodes": string;
+        "noDescription": string;
         "untitled": string;
         "name": string;
         "description": string;
@@ -640,9 +647,9 @@ export type I18nTranslations = {
         };
         "help": {
             "title": string;
-            "apiLink": string;
             "appLink": string;
             "mainLink": string;
+            "apiLink": string;
         };
         "pagePermissionChangeTip": string;
         "listEmptyTips": string;
@@ -653,6 +660,10 @@ export type I18nTranslations = {
             "unavailableInPlanTips": string;
             "unavailableConnectionTips": string;
             "levelTips": string;
+            "enterpriseFeature": string;
+            "automationRequiresUpgrade": string;
+            "authorityMatrixRequiresUpgrade": string;
+            "viewPricing": string;
             "billable": string;
             "billableByAuthorityMatrix": string;
             "licenseExpiredGracePeriod": string;
@@ -671,13 +682,11 @@ export type I18nTranslations = {
                 "paused": string;
                 "seatLimitExceeded": string;
             };
-            "enterpriseFeature": string;
-            "automationRequiresUpgrade": string;
-            "authorityMatrixRequiresUpgrade": string;
-            "viewPricing": string;
+            "contactAdminToUpgrade": string;
         };
         "admin": {
             "setting": {
+                "instanceTitle": string;
                 "description": string;
                 "allowSignUp": string;
                 "allowSignUpDescription": string;
@@ -694,11 +703,11 @@ export type I18nTranslations = {
                 "brandingSettings": {
                     "title": string;
                     "description": string;
+                    "brandName": string;
                     "logo": string;
                     "logoDescription": string;
                     "logoUpload": string;
                     "logoUploadDescription": string;
-                    "brandName": string;
                 };
                 "ai": {
                     "name": string;
@@ -757,8 +766,11 @@ export type I18nTranslations = {
                         "disabledWebSearch": string;
                         "lgModelAbility": string;
                         "toolCall": string;
+                        "reasoning": string;
+                        "imageGeneration": string;
                         "missingVision": string;
                         "missingToolCall": string;
+                        "notTested": string;
                         "supportedFormats": string;
                     };
                     "configUpdated": string;
@@ -814,6 +826,74 @@ export type I18nTranslations = {
                             "description": string;
                         };
                     };
+                    "imageModelAbility": {
+                        "generation": string;
+                        "imageToImage": string;
+                    };
+                    "moreModels": string;
+                    "noModelsAvailable": string;
+                    "testCompleteWithCount": string;
+                    "allTestsFailed": string;
+                    "batchTest": string;
+                    "test": string;
+                    "testProvider": string;
+                    "testProviderTooltip": string;
+                    "batchTesting": string;
+                    "batchTestComplete": string;
+                    "batchTestResults": string;
+                    "batchTestResultsSummary": string;
+                    "batchTestNoModels": string;
+                    "modelStatus": string;
+                    "imageSupport": string;
+                    "basicGeneration": string;
+                    "supported": string;
+                    "notSupported": string;
+                    "partialSupport": string;
+                    "urlSupport": string;
+                    "base64Support": string;
+                    "closeResults": string;
+                    "retryFailed": string;
+                    "stopTest": string;
+                    "pending": string;
+                    "configuredModels": string;
+                    "modelRates": string;
+                    "model": string;
+                    "inputRate": string;
+                    "outputRate": string;
+                    "inputRateTip": string;
+                    "outputRateTip": string;
+                    "rateExplanationTitle": string;
+                    "rateExplanationFormula": string;
+                    "rateExplanationExample": string;
+                    "ratesDescription": string;
+                    "advancedRates": string;
+                    "advancedRatesDescription": string;
+                    "cacheRead": string;
+                    "cacheWrite": string;
+                    "reasoning": string;
+                    "perImage": string;
+                    "cacheReadRateTip": string;
+                    "cacheWriteRateTip": string;
+                    "reasoningRateTip": string;
+                    "imageRateTip": string;
+                    "imageModel": string;
+                    "imageGeneration": string;
+                    "imageToImage": string;
+                    "clickToToggleImageModel": string;
+                    "markAsImageModel": string;
+                    "imageGenerationModel": string;
+                    "markedAsImageModel": string;
+                    "markedAsTextModel": string;
+                    "fetchPricing": string;
+                    "fetchPricingTip": string;
+                    "fetchPricingError": string;
+                    "pricingPreview": string;
+                    "pricingPreviewDesc": string;
+                    "openRouterId": string;
+                    "notFound": string;
+                    "applyPricing": string;
+                    "pricingApplied": string;
+                    "pricingAppliedCount": string;
                     "hint": {
                         "title": string;
                         "missingV1Suffix": string;
@@ -826,6 +906,133 @@ export type I18nTranslations = {
                         "ollamaRunning": string;
                         "sslCertificate": string;
                         "checkConfiguration": string;
+                    };
+                    "recommended": string;
+                    "gatewayModels": string;
+                    "gatewayModelsDescription": string;
+                    "gatewayDescription": string;
+                    "noGatewayModels": string;
+                    "addModel": string;
+                    "addGatewayModel": string;
+                    "popularModels": string;
+                    "modelId": string;
+                    "modelIdHint": string;
+                    "searchModelPlaceholder": string;
+                    "noMatchingModels": string;
+                    "useCustomId": string;
+                    "typeToSearch": string;
+                    "modelNotFound": string;
+                    "testModel": string;
+                    "testModelSuccess": string;
+                    "testModelImageSuccess": string;
+                    "testModelNotFound": string;
+                    "displayLabel": string;
+                    "isImageModel": string;
+                    "capabilities": string;
+                    "setAsDefault": string;
+                    "quickAdd": string;
+                    "guide": {
+                        "configStatus": string;
+                        "ready": string;
+                        "needsAttention": string;
+                        "incomplete": string;
+                        "aiEnabled": string;
+                        "aiEnabledDesc": string;
+                        "aiDisabledDesc": string;
+                        "gatewayKey": string;
+                        "gatewayKeyConfigured": string;
+                        "gatewayKeyMissing": string;
+                        "gatewayKeyRequired": string;
+                        "gatewayModels": string;
+                        "gatewayModelsConfigured": string;
+                        "gatewayModelsEmpty": string;
+                        "providers": string;
+                        "providersConfigured": string;
+                        "providersEmpty": string;
+                        "chatModel": string;
+                        "chatModelGateway": string;
+                        "chatModelProvider": string;
+                        "chatModelMissing": string;
+                    };
+                    "enableCard": {
+                        "title": string;
+                        "ready": string;
+                        "needsConfig": string;
+                        "disabled": string;
+                        "missingConfig": string;
+                        "allConfigured": string;
+                    };
+                    "wizard": {
+                        "setupProgress": string;
+                        "checklist": string;
+                        "allComplete": string;
+                        "nextStep": string;
+                        "configureAI": string;
+                        "optional": string;
+                        "gatewayHelp": string;
+                        "gatewayByok": string;
+                        "getApiKey": string;
+                        "keyInvalid": string;
+                        "gatewayErrorUnauthorized": string;
+                        "gatewayErrorNeedCreditCard": string;
+                        "gatewayErrorInsufficientQuota": string;
+                        "gatewayErrorForbidden": string;
+                        "gatewayErrorNetwork": string;
+                        "pleaseTest": string;
+                        "test": string;
+                        "testing": string;
+                        "attachmentTest": {
+                            "title": string;
+                            "urlMode": string;
+                            "base64Mode": string;
+                            "accessible": string;
+                            "inaccessible": string;
+                            "urlNotAccessibleWarning": string;
+                            "useBase64Mode": string;
+                            "base64ModeDescription": string;
+                            "originChanged": string;
+                            "originChangedDesc": string;
+                        };
+                        "saveAndContinue": string;
+                        "completeStep1First": string;
+                        "completeStep2First": string;
+                        "addCustom": string;
+                        "enabledModels": string;
+                        "chatDefault": string;
+                        "noModelsAvailable": string;
+                        "quickSetup": string;
+                        "useRecommended": string;
+                        "useRecommendedDesc": string;
+                        "chatModels": string;
+                        "chatModelTip": string;
+                        "selectChatModel": string;
+                        "lgDesc": string;
+                        "mdDesc": string;
+                        "smDesc": string;
+                        "readyToUse": string;
+                        "customProviderHelp": string;
+                        "testModelCapabilities": string;
+                        "customModelsAutoImported": string;
+                        "modelsCount": string;
+                        "customModelsHint": string;
+                        "gatewayOption": {
+                            "title": string;
+                            "desc": string;
+                        };
+                        "customOption": {
+                            "title": string;
+                            "desc": string;
+                        };
+                        "step": {
+                            "llmApi": string;
+                            "llmApiDesc": string;
+                            "modelPool": string;
+                            "modelPoolDesc": string;
+                            "chatModel": string;
+                            "chatModelDesc": string;
+                            "providers": string;
+                            "providersDesc": string;
+                        };
                     };
                 };
                 "webSearch": {
@@ -845,8 +1052,9 @@ export type I18nTranslations = {
                     "aiGateway": string;
                     "aiGatewayDescription": string;
                     "aiGatewayApiKey": string;
+                    "aiGatewayKeyConfigured": string;
+                    "aiGatewayBaseUrl": string;
                 };
-                "instanceTitle": string;
             };
             "action": {
                 "enterApiKey": string;
@@ -895,7 +1103,58 @@ export type I18nTranslations = {
                         "description": string;
                         "errorTips": string;
                     };
+                    "aiEnable": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "aiLlmApi": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "aiModelPool": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "aiChatModel": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "appBuilderV0": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "appBuilderDomain": {
+                        "title": string;
+                        "description": string;
+                    };
+                    "appBuilderApiProxy": {
+                        "title": string;
+                        "description": string;
+                    };
                 };
+                "progressTitle": string;
+                "allComplete": string;
+                "incomplete": string;
+                "optional": string;
+                "completed": string;
+                "group": {
+                    "system": string;
+                    "ai": string;
+                    "appBuilder": string;
+                };
+            };
+            "canary": {
+                "title": string;
+                "enable": string;
+                "enableDescription": string;
+                "spaces": string;
+                "spacesDescription": string;
+                "configure": string;
+                "spaceIds": string;
+                "spaceIdsDescription": string;
+                "spaceIdsPlaceholder": string;
+                "preview": string;
+                "noSpaceIds": string;
             };
         };
         "notification": {
@@ -982,6 +1241,8 @@ export type I18nTranslations = {
             "unsubscribe": string;
             "unsubscribeList": string;
             "unsubscribeTime": string;
+            "source": string;
+            "sourceAutomationDeleted": string;
             "processing": string;
             "unsubscribeH1": string;
             "unsubscribeH2": string;
@@ -1088,7 +1349,25 @@ export type I18nTranslations = {
                                 "title": string;
                                 "message": string;
                             };
+                            "cancelled": {
+                                "title": string;
+                                "rateLimit": string;
+                                "creditExhausted": string;
+                                "authFailed": string;
+                                "serviceUnavailable": string;
+                                "unknown": string;
+                            };
                         };
+                    };
+                    "rewardRejected": {
+                        "title": string;
+                        "message": string;
+                        "buttonText": string;
+                    };
+                    "rewardApproved": {
+                        "title": string;
+                        "message": string;
+                        "buttonText": string;
                     };
                 };
             };
@@ -1124,15 +1403,152 @@ export type I18nTranslations = {
         };
         "base": {
             "deleteTip": string;
+            "createResource": string;
+            "noPermissionToCreateResource": string;
         };
-        "allNodes": string;
-        "noDescription": string;
         "noPermissionToCreateBase": string;
         "app": {
             "title": string;
             "description": string;
             "previewAppError": string;
             "sendErrorToAI": string;
+        };
+        "credit": {
+            "title": string;
+            "leftAmount": string;
+            "winFreeCredits": string;
+            "getCredits": string;
+            "winCredit": {
+                "title": string;
+                "freeCredits": string;
+                "guidelinesTitle": string;
+                "tagTeableio": string;
+                "minCharacters": string;
+                "minFollowers": string;
+                "limitPerWeek": string;
+                "postOnX": string;
+                "postOnLinkedIn": string;
+                "preFilledDraft": string;
+                "claimTitle": string;
+                "userEmail": string;
+                "postUrlLabel": string;
+                "postUrlPlaceholder": string;
+                "invalidUrl": string;
+                "claiming": string;
+                "claimCredits": string;
+                "congratulations": string;
+                "claimSuccess": string;
+                "verifying": string;
+                "verifyingDescription": string;
+                "verifyFailed": string;
+                "tryAgain": string;
+            };
+            "error": {
+                "verificationFailed": string;
+            };
+        };
+        "reward": {
+            "title": string;
+            "rewardCredits": string;
+            "minCharCount": string;
+            "minFollowerCount": string;
+            "mustMention": string;
+            "fetchSnapshotFailed": string;
+            "alreadyClaimedThisWeek": string;
+            "manage": {
+                "title": string;
+                "description": string;
+                "overview": string;
+                "records": string;
+                "searchSpace": string;
+                "searchRecords": string;
+                "dateRange": string;
+                "from": string;
+                "to": string;
+                "totalSpaces": string;
+                "totalRecords": string;
+                "space": string;
+                "allSpaces": string;
+                "user": string;
+                "creator": string;
+                "platform": string;
+                "allStatuses": string;
+                "allPlatforms": string;
+                "pendingCount": string;
+                "approvedCount": string;
+                "rejectedCount": string;
+                "approvedAmount": string;
+                "consumedAmount": string;
+                "availableAmount": string;
+                "expiringSoonAmount": string;
+                "amount": string;
+                "remainingAmount": string;
+                "createdTime": string;
+                "rewardTime": string;
+                "expiredTime": string;
+                "lastModified": string;
+                "viewDetails": string;
+                "details": string;
+                "basicInfo": string;
+                "amountInfo": string;
+                "timeInfo": string;
+                "socialInfo": string;
+                "verifyResult": string;
+                "uniqueKey": string;
+                "verify": string;
+                "valid": string;
+                "invalid": string;
+                "errors": string;
+                "copied": string;
+                "openPost": string;
+                "noData": string;
+                "page": string;
+                "status": {
+                    "label": string;
+                    "pending": string;
+                    "approved": string;
+                    "rejected": string;
+                };
+            };
+        };
+        "chat": {
+            "serverError": string;
+            "serverErrorHint": string;
+        };
+        "clickToCopyTooltip": string;
+        "copiedTooltip": string;
+        "hiddenFieldCount_one": string;
+        "hiddenFieldCount_other": string;
+        "invalidFieldMapping": string;
+        "sourceFieldNotFoundMapping": string;
+        "targetFieldNotFoundMapping": string;
+        "fieldTypeNotSupportedMapping": string;
+        "fieldSettingsNotMatchMapping": string;
+        "fieldSettingsLookupNotMatch": string;
+        "fieldSettingsLinkTableNotMatch": string;
+        "fieldSettingsLinkViewNotMatch": string;
+        "fieldTypeDifferentMapping": string;
+        "fieldMappingSourceTip": string;
+        "fieldMappingTargetTip": string;
+        "reset": string;
+        "checkAll": string;
+        "uncheckAll": string;
+        "duplicateOptionsMapping": string;
+        "lookupFieldInvalidMapping": string;
+        "noMatchedOptions": string;
+        "needManualSelectionMapping": string;
+        "targetFieldIsComputed": string;
+        "targetFieldIsComputedTips": string;
+        "emptyOption": string;
+        "showEmptyTip": string;
+        "hideEmptyTip": string;
+        "hideText": string;
+        "showText": string;
+        "sourceTable": string;
+        "sourceView": string;
+        "non": {
+            "share": string;
+            "copy": string;
         };
     };
     "dashboard": {
@@ -1405,6 +1821,12 @@ export type I18nTranslations = {
                 "uploadBaseText": string;
                 "uploadDragDefault": string;
                 "upload": string;
+                "downloadAll": string;
+                "downloading": string;
+                "downloadSuccess": string;
+                "downloadFailed": string;
+                "downloadCancelled": string;
+                "requireHttps": string;
             };
             "date": {
                 "placeholder": string;
@@ -1505,6 +1927,8 @@ export type I18nTranslations = {
                 "and": string;
                 "or": string;
                 "where": string;
+                "meetingAll": string;
+                "meetingAny": string;
             };
             "operator": {
                 "is": string;
@@ -1774,6 +2198,7 @@ export type I18nTranslations = {
             "you": string;
             "instance": string;
             "enterprise": string;
+            "history": string;
         };
         "formula": {
             "SUM": {
@@ -2231,11 +2656,13 @@ export type I18nTranslations = {
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
             "unknownErrorCode": string;
+            "networkError": string;
             "requestTimeout": string;
             "failedDependency": string;
             "automationNodeParseError": string;
             "automationNodeNeedTest": string;
             "automationNodeTestOutdated": string;
+            "invalidToken": string;
             "custom": {
                 "fieldValueNotNull": string;
                 "fieldValueDuplicate": string;
@@ -2495,6 +2922,7 @@ export type I18nTranslations = {
                 "lookupFieldIdInvalid": string;
                 "formulaExpressionParseError": string;
                 "formulaReferenceNotFound": string;
+                "formulaReferenceNotFieldId": string;
                 "rollupExpressionParseError": string;
                 "choiceNameAlreadyExists": string;
                 "symmetricFieldIdRequired": string;
@@ -2518,14 +2946,16 @@ export type I18nTranslations = {
                     "clickCountReachedMaxCount": string;
                     "notSupportReset": string;
                 };
-                "formulaReferenceNotFieldId": string;
             };
             "view": {
                 "notFound": string;
+                "cannotDeleteLastView": string;
                 "defaultViewNotFound": string;
                 "propertyParseError": string;
                 "primaryFieldCannotBeHidden": string;
                 "filterUnsupportedFieldType": string;
+                "filterInvalidOperator": string;
+                "filterInvalidOperatorMode": string;
                 "sortUnsupportedFieldType": string;
                 "groupUnsupportedFieldType": string;
                 "anchorNotFound": string;
@@ -2533,7 +2963,6 @@ export type I18nTranslations = {
                 "shareNotEnabled": string;
                 "shareAlreadyEnabled": string;
                 "shareAlreadyDisabled": string;
-                "cannotDeleteLastView": string;
             };
             "billing": {
                 "insufficientCredit": string;
@@ -2568,6 +2997,8 @@ export type I18nTranslations = {
                 "validateActionFailed": string;
                 "generateFailed": string;
                 "unsupportedActionType": string;
+                "gatewayApiKeyNotSet": string;
+                "geminiImageNotSupportedViaGateway": string;
             };
             "role": {
                 "notFound": string;
@@ -2703,7 +3134,37 @@ export type I18nTranslations = {
                 "cannotDeployAppBeforeInitialization": string;
                 "noProjectOrVersionFound": string;
                 "noDeploymentUrlAvailable": string;
+                "noFilesInZip": string;
+                "zipFileTooLarge": string;
+                "invalidZip": string;
             };
+            "reward": {
+                "notFound": string;
+                "unsupportedSourceType": string;
+                "maxClaimsReached": string;
+                "verificationFailed": string;
+                "alreadyClaimedThisWeek": string;
+                "invalidPostUrl": string;
+                "postAlreadyUsed": string;
+                "unsupportedPlatformUrl": string;
+                "unsupportedPlatform": string;
+                "minCharCount": string;
+                "minFollowerCount": string;
+                "mustMention": string;
+                "fetchTweetFailed": string;
+                "tweetNotFound": string;
+                "fetchUserFailed": string;
+                "xUserNotFound": string;
+                "fetchLinkedInPostFailed": string;
+                "linkedInPostNotFound": string;
+                "linkedInAuthorNotFound": string;
+                "fetchLinkedInUserFailed": string;
+            };
+        };
+        "aiError": {
+            "title": string;
+            "retry": string;
+            "dismiss": string;
         };
     };
     "setting": {
@@ -2768,6 +3229,9 @@ export type I18nTranslations = {
             "pin": string;
             "empty": string;
         };
+        "tooltip": {
+            "noPermissionToCreateBase": string;
+        };
         "tip": {
             "delete": string;
             "title": string;
@@ -2817,6 +3281,8 @@ export type I18nTranslations = {
         "template": {
             "title": string;
             "description": string;
+            "noTemplatesAvailable": string;
+            "noTemplatesDescription": string;
         };
         "recentlyBase": {
             "title": string;
@@ -2832,10 +3298,14 @@ export type I18nTranslations = {
         "baseList": {
             "allBases": string;
             "owner": string;
+            "createdTime": string;
             "lastOpened": string;
             "enter": string;
             "noTables": string;
             "empty": string;
+            "recent": string;
+            "manual": string;
+            "noBasesFound": string;
         };
         "publishBase": {
             "title": string;
@@ -2880,6 +3350,22 @@ export type I18nTranslations = {
             "urlCopiedForDiscord": string;
             "publishSuccessDescription": string;
             "shareWith": string;
+            "unpublishedApps": {
+                "title": string;
+                "description": string;
+                "publishAll": string;
+                "publish": string;
+                "published": string;
+                "publishing": string;
+                "publishFailed": string;
+                "publishFailedTip1": string;
+                "publishFailedTip2": string;
+                "notPublished": string;
+                "ignoreAndContinue": string;
+                "goToFix": string;
+                "redeploy": string;
+                "unnamedApp": string;
+            };
         };
         "collaborators": string;
         "more": string;
@@ -2887,6 +3373,7 @@ export type I18nTranslations = {
     "system": {
         "notFound": {
             "title": string;
+            "description": string;
         };
         "links": {
             "backToHome": string;
@@ -2896,6 +3383,10 @@ export type I18nTranslations = {
             "description": string;
         };
         "paymentRequired": {
+            "title": string;
+            "description": string;
+        };
+        "error": {
             "title": string;
             "description": string;
         };
@@ -2958,8 +3449,15 @@ export type I18nTranslations = {
                     "tokenCreatedSuccess": string;
                     "copied": string;
                     "copy": string;
+                    "copyAIDoc": string;
+                    "aiDocPreview": string;
+                    "manageToken": string;
+                    "openInNewTab": string;
                     "advancedDesc": string;
                     "openAdvanced": string;
+                    "queryBuilderTitle": string;
+                    "queryBuilderDesc": string;
+                    "viewApiDocs": string;
                 };
                 "personalView": {
                     "personal": string;
@@ -3138,7 +3636,7 @@ export type I18nTranslations = {
                 "reset": string;
                 "fieldUpdated": string;
                 "fieldCreated": string;
-                "previewDependenciesGraph": string;
+                "confirmFieldChange": string;
                 "areYouSurePerformIt": string;
                 "addDescription": string;
                 "dbFieldName": string;
@@ -3225,6 +3723,16 @@ export type I18nTranslations = {
                     "selectBaseField": string;
                     "noMappings": string;
                 };
+                "deleteField": {
+                    "title": string;
+                    "simpleConfirm": string;
+                    "withDependencies": string;
+                    "affectedFields": string;
+                    "fieldsToDelete": string;
+                    "unviewedHint": string;
+                    "deleteCount": string;
+                    "noAffectedFields": string;
+                };
             };
             "subTitle": {
                 "link": string;
@@ -3281,6 +3789,9 @@ export type I18nTranslations = {
                     "imageSize": string;
                     "imageQuality": string;
                     "imageCount": string;
+                    "aspectRatio": string;
+                    "resolution": string;
+                    "advancedSettings": string;
                 };
                 "placeholder": {
                     "summarize": string;
@@ -3298,6 +3809,8 @@ export type I18nTranslations = {
                     "imageQuality": string;
                     "attachPromptForImageGeneration": string;
                     "attachPromptForRating": string;
+                    "aspectRatio": string;
+                    "resolution": string;
                 };
                 "imageQuality": {
                     "low": string;
@@ -3318,9 +3831,32 @@ export type I18nTranslations = {
                     "saveConfigOnly": string;
                     "generate": string;
                     "generateFailed": string;
+                    "generateMode": string;
+                    "emptyOnlyMode": string;
+                    "emptyOnlyModeDesc": string;
+                    "allMode": string;
+                    "allModeDesc": string;
+                    "saveOnlyMode": string;
+                    "saveOnlyModeDesc": string;
+                    "fillEmptyCells": string;
+                    "generateAll": string;
+                    "recommended": string;
+                    "taskLimited": string;
+                    "limitWarning": string;
                 };
                 "action": {
                     "addAttachment": string;
+                };
+                "hint": {
+                    "imageInputSupported": string;
+                    "attachmentNotSupported": string;
+                    "singleImageOnly": string;
+                };
+                "auto": string;
+                "resolution": {
+                    "1K": string;
+                    "2K": string;
+                    "4K": string;
                 };
             };
         };
@@ -3443,14 +3979,19 @@ export type I18nTranslations = {
                 "addFromOtherSource": string;
                 "excelFile": string;
                 "csvFile": string;
+                "importCsvData": string;
+                "importExcelData": string;
                 "cancel": string;
                 "leave": string;
                 "downAsCsv": string;
                 "importData": string;
                 "duplicate": string;
+                "duplicating": string;
+                "duplicateSuccess": string;
+                "duplicateFailed": string;
+                "importing": string;
                 "includeRecords": string;
                 "autoFill": string;
-                "importing": string;
             };
             "tips": {
                 "importWayTip": string;
@@ -3602,6 +4143,7 @@ export type I18nTranslations = {
             "expandAllGroups": string;
             "collapseAllGroups": string;
             "duplicateField": string;
+            "downloadAllAttachments": string;
         };
         "connection": {
             "title": string;
@@ -3792,6 +4334,10 @@ export type I18nTranslations = {
                 "preview": string;
             };
             "newChat": string;
+            "clearChat": string;
+            "clearChatConfirmTitle": string;
+            "clearChatConfirmDesc": string;
+            "dontShowAgain": string;
             "noModel": string;
             "noHistory": string;
             "noFoundHistory": string;
@@ -3815,11 +4361,17 @@ export type I18nTranslations = {
                 "timeCostDescription": string;
                 "creditDescription": string;
                 "tokenDescription": string;
+                "taskCompleted": string;
                 "input": string;
                 "output": string;
                 "tokens": string;
                 "totalTimeCost": string;
                 "totalCreditCost": string;
+                "customModel": string;
+                "tokenDetails": string;
+                "cachedInput": string;
+                "cacheWrite": string;
+                "reasoning": string;
             };
             "tools": {
                 "getTeableApi": string;
@@ -3910,6 +4462,7 @@ export type I18nTranslations = {
                 "generateScriptAndDependencies": string;
                 "analyzingAttachment": string;
                 "locateResource": string;
+                "goTo": string;
                 "operationSuccess": string;
                 "operationFailed": string;
             };
@@ -3924,6 +4477,7 @@ export type I18nTranslations = {
                 "sqlQuery": string;
                 "querying": string;
                 "queryFailed": string;
+                "aborted": string;
                 "noData": string;
                 "dataFormatError": string;
                 "unsupportedQueryType": string;
@@ -4045,6 +4599,9 @@ export type I18nTranslations = {
                 "waitedSeconds": string;
                 "waitFailed": string;
             };
+            "expand": string;
+            "history": string;
+            "close": string;
             "dataVisualization": {
                 "error": string;
             };
@@ -4087,6 +4644,29 @@ export type I18nTranslations = {
                 "codeProject": {
                     "defaultTitle": string;
                 };
+            };
+        };
+        "download": {
+            "allAttachments": {
+                "title": string;
+                "loading": string;
+                "rowsWithAttachments": string;
+                "totalAttachments": string;
+                "totalSize": string;
+                "startDownload": string;
+                "confirmTitle": string;
+                "confirmDescription": string;
+                "confirm": string;
+                "cancel": string;
+                "downloading": string;
+                "downloadingFile": string;
+                "progress": string;
+                "completed": string;
+                "cancelled": string;
+                "noAttachments": string;
+                "error": string;
+                "errorPartial": string;
+                "requireHttps": string;
             };
         };
         "plugin": {
@@ -4174,6 +4754,9 @@ export type I18nTranslations = {
             "sharedBase": string;
         };
         "moreScopes": string;
+        "list": {
+            "description": string;
+        };
         "empty": {
             "list": string;
             "access": string;
@@ -4181,6 +4764,9 @@ export type I18nTranslations = {
         "deleteConfirm": {
             "title": string;
             "description": string;
+        };
+        "help": {
+            "link": string;
         };
         "noAccessConfirm": {
             "title": string;

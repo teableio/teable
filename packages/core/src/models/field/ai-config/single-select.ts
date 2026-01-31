@@ -14,7 +14,6 @@ export type ISingleSelectFieldClassifyAIConfig = z.infer<
 export const singleSelectFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
   type: z.literal(FieldAIActionType.Customization),
   prompt: z.string(),
-  attachmentFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
   onlyAllowConfiguredOptions: z.boolean().optional(),
 });
 
@@ -23,8 +22,8 @@ export type ISingleSelectFieldCustomizeAIConfig = z.infer<
 >;
 
 export const singleSelectFieldAIConfigSchema = z.discriminatedUnion('type', [
-  singleSelectFieldClassifyAIConfigSchema.strict(),
-  singleSelectFieldCustomizeAIConfigSchema.strict(),
+  singleSelectFieldClassifyAIConfigSchema,
+  singleSelectFieldCustomizeAIConfigSchema,
 ]);
 
 export type ISingleSelectFieldAIConfig = z.infer<typeof singleSelectFieldAIConfigSchema>;

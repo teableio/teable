@@ -8,6 +8,12 @@ import type { NextPage, NextPageContext } from 'next';
 import NextErrorComponent from 'next/error';
 import type { ErrorProps } from 'next/error';
 import { ErrorPage } from '@/features/system/pages';
+import {
+  systemLocaleLoaders,
+  loadSystemTranslations,
+  getLocaleFromCookie,
+  getLocaleFromAcceptLanguage,
+} from '@/lib/i18n/staticPageLocale';
 
 const sentryIgnoredStatusCodes: number[] = [404, 410];
 
@@ -78,11 +84,37 @@ const CustomError: NextPage<CustomErrorProps> = (props) => {
   );
 };
 
-CustomError.getInitialProps = async ({ res, err, asPath }: AugmentedNextPageContext) => {
+CustomError.getInitialProps = async (context: AugmentedNextPageContext) => {
+  const { res, err, asPath, req } = context;
+
+  const supportedLocales = Object.keys(systemLocaleLoaders);
+  // Detect locale: prefer context.locale, fallback to cookie, then Accept-Language header, default to 'en'
+  const cookieLocale = getLocaleFromCookie(req?.headers?.cookie ?? '');
+  const acceptLangLocale = getLocaleFromAcceptLanguage(
+    req?.headers?.['accept-language'],
+    supportedLocales
+  );
+  const detectedLocale = context.locale || cookieLocale || acceptLangLocale || 'en';
+  const locale = systemLocaleLoaders[detectedLocale] ? detectedLocale : 'en';
+
   const errorInitialProps = (await NextErrorComponent.getInitialProps({
     res,
     err,
   } as NextPageContext)) as CustomErrorProps;
+
+  const resources = await loadSystemTranslations(locale);
+  Object.assign(errorInitialProps, {
+    _nextI18Next: {
+      initialI18nStore: {
+        [locale]: {
+          system: resources,
+        },
+      },
+      initialLocale: locale,
+      ns: ['system'],
+      userConfig: null,
+    },
+  });
 
   // Workaround for https://github.com/vercel/next.js/issues/8592, mark when
   // getInitialProps has run

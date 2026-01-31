@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Role } from '@teable/core';
-import { BillingProductLevel, getSpaceById } from '@teable/openapi';
+import { BillingProductLevel, getSpaceById, getSubscriptionSummary } from '@teable/openapi';
 import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
@@ -9,7 +9,7 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useCallback, type ReactElement, cloneElement } from 'react';
 import { useBillingLevel } from '../../hooks/useBillingLevel';
-import { useBillingLevelConfig } from '../../hooks/useBillingLevelConfig';
+import { useAppSumoTierConfig, useBillingLevelConfig } from '../../hooks/useBillingLevelConfig';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
 import { useIsEE } from '../../hooks/useIsEE';
@@ -75,6 +75,31 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
     enabled: Boolean(!baseId) && Boolean(spaceId),
   });
 
+  // Check if user is AppSumo
+  const { data: subscriptionSummary } = useQuery({
+    queryKey: ReactQueryKeys.subscriptionSummary(spaceId as string),
+    queryFn: () => getSubscriptionSummary(spaceId as string).then((res) => res.data),
+    enabled: isCloud && Boolean(spaceId),
+  });
+
+  const appSumoTier = subscriptionSummary?.appSumoTier;
+  const isAppSumo = Boolean(appSumoTier);
+
+  // Get the target tier for AppSumo users based on target billing level
+  const targetAppSumoTier = useMemo(() => {
+    if (targetBillingLevel === BillingProductLevel.Business) {
+      return 3; // Tier 3 is the minimum for Business level
+    }
+    if (targetBillingLevel === BillingProductLevel.Pro) {
+      return 1; // Tier 1 is Pro level
+    }
+    return undefined;
+  }, [targetBillingLevel]);
+
+  const targetAppSumoTierConfig = useAppSumoTierConfig(
+    targetAppSumoTier as 1 | 2 | 3 | 4 | undefined
+  );
+
   const isLevelSufficientMemo = useMemo(() => {
     return isLevelSufficient(currentLevel, targetBillingLevel);
   }, [currentLevel, targetBillingLevel]);
@@ -95,6 +120,12 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
       return;
     }
 
+    // For AppSumo users, redirect to AppSumo account
+    if (isAppSumo) {
+      window.open('https://appsumo.com/account/products/', '_blank');
+      return;
+    }
+
     if (isCloud) {
       if (!spaceId) {
         toast.error('Base ID is required for billing upgrade');
@@ -110,7 +141,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
     } else {
       window.open('https://app.teable.ai/public/pricing?host=self-hosted', '_blank');
     }
-  }, [isCloud, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
+  }, [isCloud, isAppSumo, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
 
   const billingConfig = useBillingLevelConfig(targetBillingLevel);
 
@@ -119,9 +150,16 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
       return null;
     }
 
+    const badgeName =
+      isAppSumo && targetAppSumoTierConfig ? targetAppSumoTierConfig.name : billingConfig.name;
+    const badgeCls =
+      isAppSumo && targetAppSumoTierConfig
+        ? targetAppSumoTierConfig.tagCls
+        : billingConfig.upgradeTagCls;
+
     return (
       <span
-        className={`cursor-pointer rounded px-1 text-[10px] leading-[16px] ${billingConfig.upgradeTagCls}`}
+        className={`cursor-pointer rounded px-1 text-[10px] leading-[16px] ${badgeCls}`}
         onClick={handleUpgradeClick}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -131,12 +169,12 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
         }}
         tabIndex={0}
         role="button"
-        aria-label={`Upgrade to ${billingConfig.name}`}
+        aria-label={`Upgrade to ${badgeName}`}
       >
-        {billingConfig.name}
+        {badgeName}
       </span>
     );
-  }, [needsUpgrade, billingConfig, handleUpgradeClick]);
+  }, [needsUpgrade, isAppSumo, targetAppSumoTierConfig, billingConfig, handleUpgradeClick]);
 
   if (typeof children === 'function') {
     const element = children({

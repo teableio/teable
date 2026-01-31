@@ -11,7 +11,7 @@ export interface ITablePageProps {
   viewServerData?: IViewVo[];
   recordsServerData?: { records: IRecord[] };
   recordServerData?: IRecord;
-  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | undefined };
+  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | null };
 }
 
 export type IBaseNodePageProps = IBasePageProps & Partial<ITablePageProps>;

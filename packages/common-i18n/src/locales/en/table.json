@@ -41,7 +41,7 @@
         "aiContextTitle": "AI-Friendly API Documentation",
         "aiContextDescriptionNoToken": "Copy this documentation to your AI assistant (ChatGPT, Claude, etc.). Click 'Generate Token' to create an API token that will be automatically filled in.",
         "aiContextDescriptionWithToken": "Copy this documentation to your AI assistant (ChatGPT, Claude, etc.). A permission-restricted API token has been generated and filled in.",
-        "generateToken": "Generate API Token",
+        "generateToken": "Generate Token",
         "confirmTitle": "Create API Token",
         "confirmDescription": "This will create a new API token with the following permissions for this base:",
         "scopeTableRead": "Read table info",
@@ -56,8 +56,15 @@
         "tokenCreatedSuccess": "Token created successfully! Click copy to use it with your AI assistant.",
         "copied": "Copied!",
         "copy": "Copy",
+        "copyAIDoc": "Copy AI Doc",
+        "aiDocPreview": "AI Doc Preview",
+        "manageToken": "Manage Token",
+        "openInNewTab": "Open in New Tab",
         "advancedDesc": "Open the advanced API query builder for more customization options.",
-        "openAdvanced": "Open Query Builder"
+        "openAdvanced": "Open Query Builder",
+        "queryBuilderTitle": "API Query Builder",
+        "queryBuilderDesc": "Visually configure filters, sorting, and other parameters to generate ready-to-run API request code.",
+        "viewApiDocs": "View Full API Docs"
       },
       "personalView": {
         "personal": "Personal",
@@ -234,7 +241,7 @@
       "reset": "Reset",
       "fieldUpdated": "Field has been updated",
       "fieldCreated": "Field has been created",
-      "previewDependenciesGraph": "Preview dependencies graph",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Are you sure you want to perform it?",
       "addDescription": "Add description",
       "dbFieldName": "DB field name",
@@ -320,13 +327,23 @@
       "filter": "Filter records",
       "hideFields": "Hide fields",
       "moreOptions": "More options",
-      "allowNewOptionsWhenEditing": "Allow new options when editing"
+      "allowNewOptionsWhenEditing": "Allow new options when editing",
+      "deleteField": {
+        "title": "Delete Field",
+        "simpleConfirm": "Are you sure you want to delete the field <b>{{fieldName}}</b>?",
+        "withDependencies": "Deleting the field <b>{{fieldName}}</b> will affect the following fields:",
+        "affectedFields": "Affected fields:",
+        "fieldsToDelete": "Fields to delete ({{count}})",
+        "unviewedHint": "{{count}} field(s) not reviewed",
+        "deleteCount": "Delete {{count}} fields",
+        "noAffectedFields": "This field is not referenced by other fields."
+      }
     },
     "subTitle": {
       "link": "Link to records in the table you choose",
       "singleLineText": "Enter text, or prefill each new cell with a default value.",
       "longText": "Enter multiple lines of text.",
-      "attachment": "Add images, documents, or other files to be viewed or downloaded.",
+      "attachment": "Add or AI generate images, or upload documents or other files to be viewed or downloaded.",
       "checkbox": "Check or uncheck to indicate status.",
       "multipleSelect": "Select one or more predefined options in a list.",
       "singleSelect": "Select one predefined option from a list, or prefill each new cell with a default option.",
@@ -376,7 +393,10 @@
         "sourceFieldForAttachment": "Source field for attachment",
         "imageSize": "Image size",
         "imageQuality": "Image quality",
-        "imageCount": "Image count"
+        "imageCount": "Image count",
+        "aspectRatio": "Aspect ratio",
+        "resolution": "Resolution",
+        "advancedSettings": "Advanced settings"
       },
       "placeholder": {
         "summarize": "Summary of the content",
@@ -387,11 +407,13 @@
         "attachPromptForTag": "Not allowed to exceed three tags",
         "attachPromptForClassify": "Classify \"In Progress\" as \"No Risk\"",
         "attachPrompt": "Please enter additional requirements",
-        "prompt": "Please enter a custom prompt",
+        "prompt": "Enter / select the referenced field",
         "type": "Select AI action",
         "targetLanguage": "English, Chinese, French...",
         "imageSize": "Please enter the image size",
         "imageQuality": "Please enter the image quality",
+        "aspectRatio": "Select aspect ratio",
+        "resolution": "Select resolution",
         "attachPromptForImageGeneration": "The image should be vivid and natural",
         "attachPromptForRating": "Rate the image quality"
       },
@@ -400,20 +422,43 @@
         "medium": "Medium",
         "high": "High"
       },
+      "hint": {
+        "imageInputSupported": "💡 This model supports image input. You can select an attachment field to use images as reference for generation.",
+        "attachmentNotSupported": "💡 This model does not support attachment input. Only Gemini models support image-to-image generation.",
+        "singleImageOnly": "This model can only generate one image at a time"
+      },
+      "auto": "Auto",
+      "resolution": {
+        "1K": "1K (Standard)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
+      },
       "autoFill": {
         "title": "Auto update",
         "tip": "After enabling, the current field will be updated synchronously with the content changes of the AI configuration"
       },
       "autoFillFieldDialog": {
-        "title": "Update all records",
-        "description": "All records in the current view will be updated, including all the related data generated by the field"
+        "title": "Regenerate AI Field",
+        "description": "Will generate for {{count}} rows in the current view. Task will run in the background."
       },
       "autoFillConfirm": {
-        "title": "Generate the entire column?",
-        "description": "This will update {{rowCount}} rows. This operation may consume a large amount of AI credits.",
+        "title": "Apply AI Field Configuration",
+        "description": "Will generate for {{count}} rows in the current view. Task will run in the background.",
+        "generateMode": "Generation mode",
+        "emptyOnlyMode": "Fill empty cells only",
+        "emptyOnlyModeDesc": "Only generate for empty cells, existing content will not be overwritten",
+        "allMode": "Generate entire column",
+        "allModeDesc": "Generate for all rows, will overwrite existing content",
+        "saveOnlyMode": "Save configuration only",
+        "saveOnlyModeDesc": "Only save field configuration, no cells will be written",
         "saveConfigOnly": "Save configuration only",
         "generate": "Generate",
-        "generateFailed": "Generate failed"
+        "fillEmptyCells": "Fill empty cells",
+        "generateAll": "Generate all",
+        "recommended": "Recommended",
+        "generateFailed": "Generate failed",
+        "taskLimited": "Due to row limit, only the first {{processedCount}} rows were processed ({{rowCount}} rows matched)",
+        "limitWarning": "Due to the 1,000 row limit per task, only the first 1,000 rows will be processed. You can run the task again to process remaining rows."
       },
       "action": {
         "addAttachment": "Add attachment"
@@ -535,12 +580,17 @@
     "menu": {
       "addFromOtherSource": "Add from other sources",
       "excelFile": "Microsoft Excel",
-      "csvFile": "Csv file",
+      "csvFile": "CSV file",
+      "importCsvData": "Import CSV data",
+      "importExcelData": "Import Microsoft Excel data",
       "cancel": "Cancel",
       "leave": "Leave",
       "downAsCsv": "Download CSV",
       "importData": "Import data",
       "duplicate": "Duplicate",
+      "duplicating": "Duplicating...",
+      "duplicateSuccess": "Duplicated successfully",
+      "duplicateFailed": "Failed to duplicate",
       "includeRecords": "Include records"
     },
     "tips": {
@@ -580,6 +630,29 @@
   "export": {
     "menu": {
       "exportCsv": "Download Csv"
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Download All Attachments",
+      "loading": "Loading preview...",
+      "rowsWithAttachments": "{{count}} rows with attachments",
+      "totalAttachments": "{{count}} attachments",
+      "totalSize": "Total size: {{size}}",
+      "startDownload": "Start Download",
+      "confirmTitle": "Download {{count}} files",
+      "confirmDescription": "Total size: {{size}}. The files will be compressed into a zip file.",
+      "confirm": "Download",
+      "cancel": "Cancel",
+      "downloading": "Downloading...",
+      "downloadingFile": "Downloading: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Download completed",
+      "cancelled": "Download cancelled",
+      "noAttachments": "No attachments to download",
+      "error": "Download failed",
+      "errorPartial": "{{failedCount}} files failed to download",
+      "requireHttps": "Batch download requires HTTPS. Please access via HTTPS or localhost."
     }
   },
   "grid": {
@@ -669,7 +742,8 @@
     "filterField": "Filter by this field",
     "sortField": "Sort by this field",
     "groupField": "Group by this field",
-    "autoFill": "Update all records",
+    "downloadAllAttachments": "Download all files",
+    "autoFill": "Regenerate",
     "groupMenuTitle": "Group menu",
     "expandGroup": "Expand this group and its sub-groups",
     "collapseGroup": "Collapse this group and its sub-groups",
@@ -975,6 +1049,7 @@
       "generateScriptAndDependencies": "Generate script and dependencies",
       "analyzingAttachment": "Analyzing attachment...",
       "locateResource": "Locate",
+      "goTo": "Go to",
       "operationSuccess": "Operation completed successfully",
       "operationFailed": "Operation failed"
     },
@@ -989,6 +1064,7 @@
       "sqlQuery": "SQL query",
       "querying": "Querying...",
       "queryFailed": "Query failed",
+      "aborted": "Aborted",
       "noData": "No data returned",
       "dataFormatError": "Data format error",
       "unsupportedQueryType": "Unsupported query type: {{toolName}}",
@@ -1117,6 +1193,13 @@
       "waitFailed": "Wait failed"
     },
     "newChat": "New Chat",
+    "clearChat": "Clear Chat",
+    "expand": "Expand",
+    "history": "History",
+    "close": "Collapse",
+    "clearChatConfirmTitle": "Confirm Clear Chat",
+    "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
+    "dontShowAgain": "Don't show again",
     "noModel": "No available models",
     "noHistory": "No chat history",
     "noFoundHistory": "No chat history found, please start a new conversation",
@@ -1144,7 +1227,13 @@
       "output": "Output",
       "tokens": "Tokens",
       "totalTimeCost": "Total time cost",
-      "totalCreditCost": "Total credit cost"
+      "totalCreditCost": "Total credit cost",
+      "customModel": "Custom model",
+      "tokenDetails": "Token Details",
+      "cachedInput": "Cached Input (90% off)",
+      "cacheWrite": "Cache Write",
+      "reasoning": "Reasoning (Thinking)",
+      "taskCompleted": "Task completed"
     },
     "dataVisualization": {
       "error": "Data visualization failed"

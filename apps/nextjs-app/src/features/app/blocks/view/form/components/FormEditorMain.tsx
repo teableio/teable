@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { generateAttachmentId } from '@teable/core';
-import { Pencil, Plus } from '@teable/icons';
+import { Pencil, Plus, Undo2 } from '@teable/icons';
 import type { INotifyVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import type { IFile } from '@teable/sdk/components';
@@ -17,7 +17,6 @@ import {
   Textarea,
   cn,
 } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';
@@ -110,6 +109,16 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
     e.target.value = '';
   };
 
+  const onCoverReset = async () => {
+    setCoverUrl('');
+    await view.updateOption({ coverUrl: '' });
+  };
+
+  const onLogoReset = async () => {
+    setLogoUrl('');
+    await view.updateOption({ logoUrl: '' });
+  };
+
   const onSubmitTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSubmitLabel(value);
@@ -141,20 +150,19 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           )}
         >
           {coverUrl && (
-            <Image
+            <img
               src={previewUrl(coverUrl)}
               alt="card cover"
-              fill
-              sizes="100%"
-              style={{
-                objectFit: 'cover',
-              }}
+              className="absolute inset-0 size-full object-cover"
             />
           )}
           <Button
             variant={'ghost'}
             size={'icon'}
-            className="absolute left-2 top-2 m-1 bg-accent font-normal"
+            className={cn(
+              'absolute right-2 top-2 m-1 bg-accent font-normal',
+              coverUrl && 'right-12'
+            )}
             onClick={() => coverInput.current?.click()}
           >
             <input
@@ -166,17 +174,25 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
             />
             <Pencil />
           </Button>
+          {coverUrl && (
+            <Button
+              variant={'ghost'}
+              size={'icon'}
+              className="absolute right-2 top-2 m-1 bg-accent font-normal"
+              onClick={onCoverReset}
+            >
+              <Undo2 />
+            </Button>
+          )}
         </div>
 
         <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20 rounded-lg bg-muted">
           {logoUrl ? (
             <>
-              <Image
-                className="rounded-lg  object-cover shadow-sm"
+              <img
+                className="absolute inset-0 size-full rounded-lg object-cover shadow-sm"
                 src={previewUrl(logoUrl)}
                 alt="card cover"
-                fill
-                sizes="100%"
               />
               <Button
                 variant={'ghost'}
@@ -185,6 +201,14 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
                 onClick={() => logoInput.current?.click()}
               >
                 <Pencil className="size-6" />
+              </Button>
+              <Button
+                variant={'ghost'}
+                size={'xs'}
+                className="absolute -right-1 -top-1 size-6 bg-accent font-normal opacity-0 group-hover:opacity-100 "
+                onClick={onLogoReset}
+              >
+                <Undo2 className="size-3" />
               </Button>
             </>
           ) : (

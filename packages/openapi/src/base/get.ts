@@ -32,6 +32,7 @@ export const getBaseItemSchema = z.object({
       avatar: z.string().nullable().optional(),
     })
     .optional(),
+  isCanary: z.boolean().optional(),
 });
 
 export const getBaseVoSchema = getBaseItemSchema;

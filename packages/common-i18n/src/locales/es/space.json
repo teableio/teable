@@ -41,6 +41,9 @@
     "pin": "Fijar",
     "empty": "Tus bases y espacios fijados aparecerán aquí"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "No tienes permiso para crear una base"
+  },
   "tip": {
     "delete": "¿Estás seguro de que quieres eliminar <0/>?",
     "title": "Consejos",
@@ -65,7 +68,7 @@
     "empty": "Aún no hay bases compartidas"
   },
   "trash": {
-    "spaceDescription": "Todos los espacios eliminados en esta instancia",
+    "spaceDescription": "Todos los espacios",
     "baseDescription": "Todas las bases eliminadas en este espacio"
   },
   "integration": {
@@ -89,7 +92,9 @@
   },
   "template": {
     "title": "Plantilla",
-    "description": "Crea una nueva base rápidamente desde una plantilla"
+    "description": "Crea una nueva base rápidamente desde una plantilla",
+    "noTemplatesAvailable": "No hay plantillas disponibles",
+    "noTemplatesDescription": "No hay nada aquí en este momento"
   },
   "recentlyBase": {
     "title": "Visitado recientemente"
@@ -105,6 +110,7 @@
   "baseList": {
     "allBases": "Todas las bases",
     "owner": "Propietario",
+    "createdTime": "Creado",
     "lastOpened": "Abierto por última vez",
     "enter": "Entrar",
     "noTables": "Sin tablas",
@@ -150,6 +156,22 @@
     "urlCopied": "¡URL copiada al portapapeles!",
     "urlCopiedForDiscord": "¡URL copiada al portapapeles! Puedes pegarla en Discord.",
     "publishSuccessDescription": "Comparte tu trabajo con el mundo",
-    "shareWith": "Compartir con"
+    "shareWith": "Compartir con",
+    "unpublishedApps": {
+      "title": "Apps no publicadas detectadas",
+      "description": "Las apps no publicadas pueden causar errores en la vista previa de la plantilla. Publícalas ahora o continúa de todos modos.",
+      "publishAll": "Publicar todas",
+      "publish": "Publicar",
+      "published": "Publicada",
+      "publishing": "Publicando...",
+      "publishFailed": "Error al publicar",
+      "publishFailedTip1": "Verifique si la app de origen se puede publicar correctamente",
+      "publishFailedTip2": "Intente volver a publicar esta plantilla",
+      "notPublished": "No publicada",
+      "ignoreAndContinue": "Ignorar y continuar",
+      "goToFix": "Ir a corregir",
+      "redeploy": "Redesplegar",
+      "unnamedApp": "Aplicación sin nombre"
+    }
   }
 }

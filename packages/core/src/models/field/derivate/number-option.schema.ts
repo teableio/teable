@@ -5,7 +5,7 @@ import { numberShowAsSchema } from '../show-as';
 export const numberFieldOptionsSchema = z.object({
   formatting: numberFormattingSchema,
   showAs: numberShowAsSchema.optional(),
-  defaultValue: z.number().optional(),
+  defaultValue: z.number().optional().nullable(),
 });
 
 export const numberFieldOptionsRoSchema = numberFieldOptionsSchema.partial({

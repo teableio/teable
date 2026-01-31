@@ -7,11 +7,15 @@ import { chatModelAbilitySchema, chatModelAbilityType, llmProviderSchema } from 
 export const testLLMRoSchema = llmProviderSchema
   .omit({
     isInstance: true,
+    modelConfigs: true,
   })
   .required()
   .extend({
     modelKey: z.string().optional(),
     ability: z.array(chatModelAbilityType).optional(),
+    // For image generation model testing
+    testImageGeneration: z.boolean().optional(),
+    testImageToImage: z.boolean().optional(),
   });
 
 export type ITestLLMRo = z.infer<typeof testLLMRoSchema>;

@@ -34,7 +34,8 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
 
   const queryClient = useQueryClient();
   useEffect(() => {
-    return () => queryClient.removeQueries(ReactQueryKeys.commentList(tableId, recordId));
+    return () =>
+      queryClient.removeQueries({ queryKey: ReactQueryKeys.commentList(tableId, recordId) });
   }, [queryClient, recordId, tableId]);
 
   const scrollToBottom = useCallback(() => {
@@ -70,29 +71,34 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
         getCommentList(tableId!, recordId!, {
           cursor: pageParam?.cursor,
           take: 20,
-          direction: pageParam?.direction || 'forward',
+          direction: pageParam?.direction,
         }).then((res) => res.data),
+      initialPageParam: undefined as
+        | { cursor: string; direction: 'forward' | 'backward' }
+        | undefined,
+      getNextPageParam: () => undefined,
       getPreviousPageParam: (firstPage) =>
         firstPage.nextCursor
           ? {
               cursor: firstPage.nextCursor,
-              direction: 'forward',
+              direction: 'forward' as const,
             }
           : undefined,
-      onSuccess: (data) => {
-        // first come move to bottom
-        if (data.pages.length === 1 && listRef.current) {
-          const scrollToBottom = () => {
-            if (listRef.current) {
-              const scrollHeight = listRef.current.scrollHeight;
-              listRef.current.scrollTop = scrollHeight;
-            }
-          };
-          setTimeout(scrollToBottom, 100);
-        }
-      },
       enabled: !!tableId && !!recordId,
     });
+
+  // Handle scrolling to bottom when first page loads (v5 migration: moved from onSuccess)
+  useEffect(() => {
+    if (data?.pages.length === 1 && listRef.current) {
+      const scrollToBottom = () => {
+        if (listRef.current) {
+          const scrollHeight = listRef.current.scrollHeight;
+          listRef.current.scrollTop = scrollHeight;
+        }
+      };
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [data?.pages.length]);
 
   useEffect(() => {
     let result = [...commentList];

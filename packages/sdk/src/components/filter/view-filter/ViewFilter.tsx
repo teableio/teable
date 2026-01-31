@@ -1,9 +1,8 @@
 import { FieldType, type IFilter } from '@teable/core';
 import { Popover, PopoverTrigger, PopoverContent, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
-import { useState } from 'react';
-import { useDebounce, useLatest, useUpdateEffect } from 'react-use';
-import { useTranslation } from '../../../context/app/i18n';
+import { useRef, useState } from 'react';
+import { useDebounce, useUpdateEffect } from 'react-use';
 import { useFields, useTableId, useViewId } from '../../../hooks';
 import { ReadOnlyTip } from '../../ReadOnlyTip';
 import type { IFilterBaseComponent } from '../types';
@@ -16,26 +15,30 @@ export interface IViewFilterProps {
   contentHeader?: React.ReactNode;
   onChange: (value: IFilter) => void;
   viewFilterLinkContext?: IViewFilterLinkContext;
-  children?: (text: string, isActive?: boolean) => React.ReactNode;
+  children?: (text: string, isActive?: boolean, hasWarning?: boolean) => React.ReactNode;
   customValueComponent?: IFilterBaseComponent<IViewFilterConditionItem>;
 }
 
 export const ViewFilter = (props: IViewFilterProps) => {
   const { contentHeader, filters, children, onChange } = props;
-  const { t } = useTranslation();
-  const title = t('filter.tips.scope');
-  const emptyText = t('filter.default.empty');
   const defaultFields = useFields({ withHidden: true, withDenied: true });
   const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
-  const { text, isActive } = useFilterNode(filters, fields);
-  const latestValue = useLatest(filters);
-  const [filter, setFilter] = useState(latestValue.current);
+  const { text, isActive, hasWarning } = useFilterNode(filters, fields);
+  const [filter, setFilter] = useState(filters);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  // Track local edit version to prevent stale server responses from overwriting local state
+  // This solves the race condition where: user adds item A -> user adds item B -> server responds with A only -> UI flickers
+  const localEditVersionRef = useRef(0);
+  const lastSyncedVersionRef = useRef(0);
 
   useUpdateEffect(() => {
-    if (!isEqual(latestValue.current, filter)) {
-      setFilter(latestValue.current);
+    // Only accept server updates if no local edits are pending
+    // This prevents stale server responses from overwriting optimistic updates
+    if (localEditVersionRef.current === lastSyncedVersionRef.current && !isEqual(filters, filter)) {
+      setFilter(filters);
     }
-  }, [latestValue.current]);
+  }, [filters]);
 
   const viewId = useViewId();
   const tableId = useTableId();
@@ -45,13 +48,20 @@ export const ViewFilter = (props: IViewFilterProps) => {
   const finalViewFilterLinkContext = props.viewFilterLinkContext || viewFilterLinkContext;
 
   const onChangeHandler = (value: IFilter) => {
+    // Increment local edit version on every user change
+    localEditVersionRef.current += 1;
     setFilter(value);
   };
 
   useDebounce(
     () => {
-      if (!isEqual(filter, latestValue.current)) {
+      if (!isEqual(filter, filters)) {
+        // Capture current version before sending to server
+        const currentVersion = localEditVersionRef.current;
         onChange(filter);
+        // Mark this version as synced after onChange is called
+        // This allows subsequent server responses to be accepted
+        lastSyncedVersionRef.current = currentVersion;
       }
     },
     300,
@@ -59,24 +69,19 @@ export const ViewFilter = (props: IViewFilterProps) => {
   );
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>{children?.(text, isActive)}</PopoverTrigger>
+    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+      <PopoverTrigger asChild>
+        {children?.(text, isActive || popoverOpen, hasWarning)}
+      </PopoverTrigger>
       <PopoverContent
         side="bottom"
         align="start"
         className={cn(
-          'flex max-h-96 w-min min-w-[544px] max-w-screen-md flex-col overflow-hidden rounded-lg p-4 relative'
+          'flex max-h-96 w-min min-w-[498px] max-w-screen-md flex-col overflow-hidden rounded-lg p-4 pr-2 relative'
         )}
       >
         <ReadOnlyTip />
         {contentHeader}
-        <div className="mb-2 text-[13px]">
-          {filters?.filterSet?.length ? (
-            <div>{title}</div>
-          ) : (
-            <div className="text-muted-foreground">{emptyText}</div>
-          )}
-        </div>
         <BaseViewFilter<IViewFilterConditionItem>
           fields={fields}
           value={filter}

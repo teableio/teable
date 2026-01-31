@@ -10,11 +10,11 @@ export const RevokeButton = (props: { name: string; clientId: string; onSuccess?
   const [revokeConfirm, setRevokeConfirm] = useState(false);
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
-  const { mutate: revokeTokenMutate, isLoading: revokeTokenLoading } = useMutation({
+  const { mutate: revokeTokenMutate, isPending: revokeTokenLoading } = useMutation({
     mutationFn: revokeToken,
     onSuccess: () => {
       setRevokeConfirm(false);
-      queryClient.invalidateQueries(['integration']);
+      queryClient.invalidateQueries({ queryKey: ['integration'] });
       onSuccess?.();
     },
   });

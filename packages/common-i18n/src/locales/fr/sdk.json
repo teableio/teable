@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "et",
       "or": "ou",
-      "where": "où"
+      "where": "où",
+      "meetingAll": "Répondre à toutes les conditions",
+      "meetingAny": "Répondre à une condition"
     },
     "operator": {
       "is": "est",
@@ -329,7 +331,7 @@
       "date": "Enregistrez des dates ou des heures.",
       "createdTime": "Affiche quand l'enregistrement a été créé.",
       "lastModifiedTime": "Affiche la dernière mise à jour.",
-      "attachment": "Téléversez des fichiers ou des images.",
+      "attachment": "Téléverser des fichiers ou générer des images par IA, prend en charge des modèles comme 🍌 Nano banana pro",
       "checkbox": "Basculez un simple oui ou non.",
       "rollup": "Résumez les enregistrements liés avec des formules.",
       "conditionalRollup": "Résumez les données selon des conditions.",
@@ -425,9 +427,10 @@
     "app": "Application",
     "user": "Utilisateur",
     "recordHistory": "Historique des enregistrements",
-    "you": "You",
+    "you": "Vous",
     "instance": "Instance",
-    "enterprise": "Enterprise"
+    "enterprise": "Entreprise",
+    "history": "Historique"
   },
   "formula": {
     "SUM": {
@@ -891,6 +894,7 @@
     "automationNodeParseError": "Erreur d'analyse du nœud d'automatisation",
     "automationNodeNeedTest": "Le nœud d'automatisation nécessite un test",
     "automationNodeTestOutdated": "Test du nœud d'automatisation obsolète",
+    "invalidToken": "Jeton non valide",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs vides, veuillez les remplir complètement avant de soumettre.",
       "fieldValueDuplicate": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs dupliquées, veuillez remplir une valeur unique avant de soumettre.",
@@ -1354,6 +1358,28 @@
       "cannotDeployAppBeforeInitialization": "Impossible de déployer l'application avant l'initialisation",
       "noProjectOrVersionFound": "Aucun projet ou version trouvé",
       "noDeploymentUrlAvailable": "Aucune URL de déploiement disponible"
+    },
+    "reward": {
+      "notFound": "Récompense non trouvée",
+      "unsupportedSourceType": "Type de source de récompense non pris en charge",
+      "maxClaimsReached": "Vous avez atteint le maximum de réclamations de récompenses (2) pour cette semaine",
+      "verificationFailed": "Vérification échouée : {{errors}}",
+      "alreadyClaimedThisWeek": "Vous avez déjà réclamé une récompense pour ce compte cette semaine",
+      "invalidPostUrl": "Format d'URL de publication invalide",
+      "postAlreadyUsed": "Cette publication a déjà été utilisée pour réclamer une récompense",
+      "unsupportedPlatformUrl": "URL de plateforme sociale non prise en charge",
+      "unsupportedPlatform": "Plateforme non prise en charge : {{platform}}",
+      "minCharCount": "La publication doit contenir au moins {{count}} caractères",
+      "minFollowerCount": "Le compte doit avoir au moins {{count}} abonnés",
+      "mustMention": "La publication doit mentionner {{mention}}",
+      "fetchTweetFailed": "Échec de la récupération du tweet X : {{error}}",
+      "tweetNotFound": "Tweet X non trouvé : {{postId}}",
+      "fetchUserFailed": "Échec de la récupération de l'utilisateur X : {{error}}",
+      "xUserNotFound": "Utilisateur X non trouvé : {{username}}",
+      "fetchLinkedInPostFailed": "Échec de la récupération de la publication LinkedIn : {{error}}",
+      "linkedInPostNotFound": "Publication LinkedIn non trouvée : {{postId}}",
+      "linkedInAuthorNotFound": "Auteur LinkedIn non trouvé : {{postId}}",
+      "fetchLinkedInUserFailed": "Échec de la récupération de l'utilisateur LinkedIn : {{error}}"
     }
   }
 }

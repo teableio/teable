@@ -45,13 +45,13 @@ const CategoryCommandItem = (props: ICategoryCommandItemProps) => {
   const { mutate: deleteTemplateCategoryFn } = useMutation({
     mutationFn: (id: string) => deleteTemplateCategory(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateCategoryList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateCategoryList() });
     },
   });
   const { mutate: updateTemplateCategoryFn } = useMutation({
     mutationFn: (id: string) => updateTemplateCategory(id, { name }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateCategoryList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateCategoryList() });
       setIsEditing(false);
     },
   });
@@ -141,14 +141,14 @@ export const TemplateCategorySelect = (props: ITemplateCategorySelectProps) => {
     mutationFn: ({ templateId, updateRo }: { templateId: string; updateRo: IUpdateTemplateRo }) =>
       updateTemplate(templateId, { ...updateRo }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateList() });
     },
   });
 
   const { mutate: createTemplateCategoryFn } = useMutation({
     mutationFn: (name: string) => createTemplateCategory({ name }),
     onSuccess: (res) => {
-      queryClient.invalidateQueries(ReactQueryKeys.templateCategoryList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.templateCategoryList() });
       setSearchValue('');
       const newCategoryId = [...value, res.data.id];
       updateTemplateFn({ templateId, updateRo: { categoryId: newCategoryId } });

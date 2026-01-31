@@ -62,7 +62,7 @@
     "@teable/eslint-config-bases": "workspace:^",
     "@types/lodash": "4.17.0",
     "@types/node": "22.18.0",
-    "@vitest/coverage-v8": "2.1.5",
+    "@vitest/coverage-v8": "4.0.17",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",
     "es-check": "7.1.1",
@@ -73,6 +73,6 @@
     "size-limit": "11.1.2",
     "typescript": "5.4.3",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "2.1.5"
+    "vitest": "4.0.17"
   }
 }

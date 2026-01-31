@@ -45,6 +45,9 @@
     "pin": "Pin",
     "empty": "Your pined bases and space will appear here"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "You don't have permission to create base"
+  },
   "tip": {
     "delete": "Are you sure you want to delete <0/>?",
     "title": "Tips",
@@ -69,7 +72,7 @@
     "empty": "No bases shared with me yet"
   },
   "trash": {
-    "spaceDescription": "All deleted spaces under this instance",
+    "spaceDescription": "All deleted spaces",
     "baseDescription": "All deleted bases under this space"
   },
   "integration": {
@@ -93,7 +96,9 @@
   },
   "template": {
     "title": "Template",
-    "description": "Create a new base from a template quickly"
+    "description": "Create a new base from a template quickly",
+    "noTemplatesAvailable": "No templates available",
+    "noTemplatesDescription": "There is nothing here right now"
   },
   "recentlyBase": {
     "title": "Recently visited"
@@ -109,10 +114,14 @@
   "baseList": {
     "allBases": "All bases",
     "owner": "Owner",
+    "createdTime": "Created",
     "lastOpened": "Last opened",
     "enter": "Enter",
     "noTables": "No tables",
-    "empty": "No bases yet"
+    "empty": "No bases yet",
+    "recent": "Recent",
+    "manual": "Manual order",
+    "noBasesFound": "No bases found"
   },
   "publishBase": {
     "title": "Publish Base to community",
@@ -154,6 +163,22 @@
     "urlCopied": "URL copied to clipboard!",
     "urlCopiedForDiscord": "URL copied to clipboard! You can paste it in Discord.",
     "publishSuccessDescription": "Share your work to the world",
-    "shareWith": "Share with"
+    "shareWith": "Share with",
+    "unpublishedApps": {
+      "title": "Unpublished Apps Detected",
+      "description": "Unpublished apps may cause template preview failures. Publish them now or continue anyway.",
+      "publishAll": "Publish All",
+      "publish": "Publish",
+      "published": "Published",
+      "publishing": "Publishing",
+      "notPublished": "Not Published",
+      "publishFailed": "Publish failed",
+      "publishFailedTip1": "Check if the source app can be published successfully",
+      "publishFailedTip2": "Try republishing this template",
+      "ignoreAndContinue": "Ignore & Continue",
+      "goToFix": "Go to Fix",
+      "redeploy": "Redeploy",
+      "unnamedApp": "Unnamed App"
+    }
   }
 }

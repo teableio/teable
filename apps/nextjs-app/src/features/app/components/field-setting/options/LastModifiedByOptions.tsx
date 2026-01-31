@@ -77,6 +77,7 @@ export const LastModifiedByOptions = ({ options = {}, onChange }: IProps) => {
       {!trackAll && (
         <div className="space-y-3">
           <FieldSelector
+            modal
             fields={editableFields}
             excludedIds={trackedFieldIds}
             onSelect={addField}

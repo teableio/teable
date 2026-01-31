@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAnonymous } from '@teable/core';
 import { updateUserLang, userMe } from '@teable/openapi';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../app/i18n';
 import type { IUser } from './SessionContext';
 import { SessionContext } from './SessionContext';
@@ -33,12 +33,15 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
     queryKey: ['user-me'],
     queryFn: () => userMe().then((res) => res.data),
     enabled: !disabledApi,
-    onSuccess: (data) => {
-      if (!data.lang && lang && !isAnonymous(data.id)) {
-        updateLang({ lang });
-      }
-    },
   });
+
+  // Handle onSuccess logic after data is fetched (v5 migration)
+  useEffect(() => {
+    if (userQuery && !userQuery.lang && lang && !isAnonymous(userQuery.id)) {
+      updateLang({ lang });
+    }
+  }, [userQuery, lang, updateLang]);
+
   const { mutateAsync: getUser } = useMutation({ mutationFn: userMe });
 
   const refresh = useCallback(async () => {

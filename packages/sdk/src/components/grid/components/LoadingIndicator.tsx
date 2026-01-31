@@ -1,5 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { MagicAi, Square } from '@teable/icons';
+import { useMemo } from 'react';
 import type { ICellItem, IColumnLoading, IScrollState } from '../interface';
 import type { CoordinateManager } from '../managers';
 
@@ -8,12 +9,25 @@ export interface ILoadingIndicatorProps {
   columnLoadings: IColumnLoading[];
   coordInstance: CoordinateManager;
   scrollState: IScrollState;
+  real2RowIndex: (index: number) => number;
 }
 
 export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
-  const { cellLoadings, columnLoadings, coordInstance, scrollState } = props;
+  const { cellLoadings, columnLoadings, coordInstance, scrollState, real2RowIndex } = props;
 
-  if (!cellLoadings.length && !columnLoadings.length) return null;
+  // Deduplicate cellLoadings to prevent duplicate React keys
+  // This can happen when backend returns duplicate {recordId, fieldId} entries
+  const uniqueCellLoadings = useMemo(() => {
+    const seen = new Set<string>();
+    return cellLoadings.filter(([columnIndex, realRowIndex]) => {
+      const key = `${columnIndex}-${realRowIndex}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [cellLoadings]);
+
+  if (!uniqueCellLoadings.length && !columnLoadings.length) return null;
 
   const { scrollLeft, scrollTop } = scrollState;
   const { rowInitSize, freezeColumnCount, freezeRegionWidth, containerWidth, containerHeight } =
@@ -63,7 +77,8 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
         );
       })}
 
-      {cellLoadings.map(([columnIndex, rowIndex]) => {
+      {uniqueCellLoadings.map(([columnIndex, realRowIndex]) => {
+        const rowIndex = real2RowIndex(realRowIndex);
         const rowHeight = coordInstance.getRowHeight(rowIndex);
         const rowOffset = coordInstance.getRowOffset(rowIndex);
         const columnWidth = coordInstance.getColumnWidth(columnIndex);
@@ -80,7 +95,7 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
 
         return (
           <div
-            key={`loading-${columnIndex}-${rowIndex}`}
+            key={`loading-${columnIndex}-${realRowIndex}`}
             className="absolute rounded-sm"
             style={{
               left: columnOffset,

@@ -11,15 +11,14 @@ export type IDateFieldExtractionAIConfig = z.infer<typeof dateFieldExtractionAIC
 
 export const dateFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
   type: z.literal(FieldAIActionType.Customization),
-  attachmentFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
   prompt: z.string(),
 });
 
 export type IDateFieldCustomizeAIConfig = z.infer<typeof dateFieldCustomizeAIConfigSchema>;
 
 export const dateFieldAIConfigSchema = z.discriminatedUnion('type', [
-  dateFieldExtractionAIConfigSchema.strict(),
-  dateFieldCustomizeAIConfigSchema.strict(),
+  dateFieldExtractionAIConfigSchema,
+  dateFieldCustomizeAIConfigSchema,
 ]);
 
 export type IDateFieldAIConfig = z.infer<typeof dateFieldAIConfigSchema>;

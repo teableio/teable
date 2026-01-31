@@ -13,13 +13,20 @@ export type ISelectFieldChoice = z.infer<typeof selectFieldChoiceSchema>;
 
 export const selectFieldOptionsSchema = z.object({
   choices: z.array(selectFieldChoiceSchema),
-  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
+  defaultValue: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .nullable(),
   preventAutoNewOptions: z.boolean().optional(),
 });
 
 export const selectFieldOptionsRoSchema = z.object({
   choices: z.array(selectFieldChoiceRoSchema),
-  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
+  // null is used to explicitly clear the default value (since undefined is stripped during JSON serialization)
+  defaultValue: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .nullable(),
   preventAutoNewOptions: z.boolean().optional(),
 });
 

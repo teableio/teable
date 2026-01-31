@@ -22,7 +22,8 @@ export function useUpdateConditionalLookupOptions(
       const nextField: IFieldEditorRo = {
         ...field,
         lookupOptions: nextLookupOptions,
-        isMultipleCellValue: lookupField?.isMultipleCellValue ?? field.isMultipleCellValue,
+        // Conditional lookups always return multiple values (filtered set of records).
+        isMultipleCellValue: true,
       };
 
       if (lookupField) {

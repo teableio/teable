@@ -27,9 +27,9 @@ export const NumberOptions = (props: {
     });
   };
 
-  const onDefaultValueChange = (defaultValue: number | undefined) => {
+  const onDefaultValueChange = (defaultValue: number | null | undefined) => {
     onChange?.({
-      defaultValue,
+      defaultValue: defaultValue ?? null,
     });
   };
 
@@ -38,13 +38,13 @@ export const NumberOptions = (props: {
       <NumberFormatting formatting={options?.formatting} onChange={onFormattingChange} />
       <hr />
       {!isLookup && (
-        <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
+        <DefaultValue onReset={() => onDefaultValueChange(null)}>
           <Input
             type="number"
-            value={options?.defaultValue !== undefined ? options.defaultValue : ''}
+            value={options?.defaultValue ? options.defaultValue : ''}
             onChange={(e) => {
               const value = e.target.value;
-              onDefaultValueChange(value === '' ? undefined : Number(value));
+              onDefaultValueChange(value === '' ? null : Number(value));
             }}
           />
         </DefaultValue>

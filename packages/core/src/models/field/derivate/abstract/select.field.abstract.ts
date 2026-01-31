@@ -25,7 +25,10 @@ export const selectFieldOptionsSchema = z.object({
 export const selectFieldOptionsRoSchema = z
   .object({
     choices: z.array(selectFieldChoiceRoSchema),
-    defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
+    defaultValue: z
+      .union([z.string(), z.array(z.string())])
+      .optional()
+      .nullable(),
     preventAutoNewOptions: z.boolean().optional(),
   })
   .describe('options for both single and multiple select fields');

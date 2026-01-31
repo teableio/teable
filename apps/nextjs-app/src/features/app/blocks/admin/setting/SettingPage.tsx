@@ -8,7 +8,8 @@ import {
   updateSetting,
 } from '@teable/openapi';
 import { useIsHydrated } from '@teable/sdk/hooks';
-import { Label, Switch } from '@teable/ui-lib/shadcn';
+import { Button, Label, Switch } from '@teable/ui-lib/shadcn';
+import { RotateCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
@@ -17,6 +18,7 @@ import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
 import { Branding } from './components/Branding';
+import { CanarySettings } from './components/canary';
 import type { IList } from './components/ConfigurationList';
 import { ConfigurationList } from './components/ConfigurationList';
 import { MailConfigDialog } from './components/mail-config/MailConfig';
@@ -26,10 +28,11 @@ import { scrollToTarget } from './utils';
 
 export interface ISettingPageProps {
   settingServerData?: ISettingVo;
+  rewardManage?: React.ReactNode;
 }
 
 export const SettingPage = (props: ISettingPageProps) => {
-  const { settingServerData } = props;
+  const { settingServerData, rewardManage } = props;
   const queryClient = useQueryClient();
   const { t } = useTranslation('common');
 
@@ -41,7 +44,7 @@ export const SettingPage = (props: ISettingPageProps) => {
   const { mutateAsync: mutateUpdateSetting } = useMutation({
     mutationFn: (props: IUpdateSettingRo) => updateSetting(props),
     onSuccess: () => {
-      queryClient.invalidateQueries(['setting']);
+      queryClient.invalidateQueries({ queryKey: ['setting'] });
     },
   });
 
@@ -72,44 +75,60 @@ export const SettingPage = (props: ISettingPageProps) => {
           envPublicOrigin: publicOrigin,
           currentPublicOrigin: isHydrated ? location?.origin : '',
         },
-        shouldShow: isHydrated ? location?.origin !== publicOrigin : false,
+        isRequired: true,
+        isComplete: isHydrated ? location?.origin === publicOrigin : false,
+        group: 'system' as const,
         path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.https.title'),
         key: 'https' as const,
-        shouldShow: isHydrated ? location?.protocol !== 'https:' : false,
+        isRequired: true,
+        isComplete: isHydrated ? location?.protocol === 'https:' : false,
+        group: 'system' as const,
         path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.databaseProxy.title'),
         key: 'databaseProxy' as const,
-        shouldShow: !publicDatabaseProxy,
+        isRequired: true,
+        isComplete: Boolean(publicDatabaseProxy),
+        group: 'system' as const,
         path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.llmApi.title'),
         key: 'llmApi' as const,
-        shouldShow: !setting?.aiConfig?.enable || setting?.aiConfig?.llmProviders.length === 0,
+        isRequired: true,
+        isComplete: (() => {
+          const aiConfig = setting?.aiConfig;
+          const enabled = Boolean(aiConfig?.enable);
+          const hasLlmApi =
+            Boolean(aiConfig?.aiGatewayApiKey) || (aiConfig?.llmProviders?.length ?? 0) > 0;
+          const hasModelPool = aiConfig?.aiGatewayApiKey
+            ? (aiConfig?.gatewayModels ?? []).some((m) => m.enabled)
+            : (aiConfig?.llmProviders?.length ?? 0) > 0;
+          const hasChatModel = Boolean(aiConfig?.chatModel?.lg);
+          return enabled && hasLlmApi && hasModelPool && hasChatModel;
+        })(),
+        group: 'ai' as const,
         path: '/admin/ai-setting?anchor=llm',
       },
       {
         title: t('admin.configuration.list.app.title'),
         key: 'app' as const,
-        shouldShow: !setting?.appConfig?.apiKey,
+        isRequired: true,
+        isComplete: Boolean(setting?.appConfig?.apiKey),
+        group: 'appBuilder' as const,
         path: '/admin/ai-setting?anchor=app',
-      },
-      {
-        title: t('admin.configuration.list.webSearch.title'),
-        key: 'webSearch' as const,
-        shouldShow: !setting?.webSearchConfig?.apiKey,
-        path: '/admin/ai-setting?anchor=webSearch',
       },
       {
         title: t('admin.configuration.list.email.title'),
         key: 'email' as const,
         anchor: emailRef,
-        shouldShow: !setting?.notifyMailTransportConfig,
+        isRequired: true,
+        isComplete: Boolean(setting?.notifyMailTransportConfig),
+        group: 'system' as const,
         path: '/admin/setting?anchor=email',
       },
     ],
@@ -117,10 +136,8 @@ export const SettingPage = (props: ISettingPageProps) => {
       isHydrated,
       publicDatabaseProxy,
       publicOrigin,
-      setting?.aiConfig?.enable,
-      setting?.aiConfig?.llmProviders.length,
-      setting?.appConfig?.apiKey,
-      setting?.webSearchConfig?.apiKey,
+      setting?.aiConfig,
+      setting?.appConfig,
       setting?.notifyMailTransportConfig,
       t,
     ]
@@ -137,9 +154,7 @@ export const SettingPage = (props: ISettingPageProps) => {
     }
   }, [router.query]);
 
-  const finalList = useMemo(() => {
-    return todoLists.filter((item) => item.shouldShow);
-  }, [todoLists]);
+  const finalList = todoLists;
 
   if (!setting || !isHydrated) return null;
 
@@ -264,6 +279,10 @@ export const SettingPage = (props: ISettingPageProps) => {
             </div>
           )}
 
+          {rewardManage}
+
+          <CanarySettings setting={setting} />
+
           {/* email config */}
           <div className="pb-6" ref={emailRef}>
             <h2 className="mb-4 text-lg font-medium">{t('email.config')}</h2>
@@ -277,10 +296,21 @@ export const SettingPage = (props: ISettingPageProps) => {
                       : t('email.customNotifyConfig')}
                   </div>
                 </div>
-                <MailConfigDialog
-                  name={SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG}
-                  emailConfig={setting.notifyMailTransportConfig ?? undefined}
-                />
+                <div className="flex gap-1">
+                  {setting.notifyMailTransportConfig && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => onValueChange(SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG, null)}
+                    >
+                      <RotateCcwIcon className="size-4" />
+                    </Button>
+                  )}
+                  <MailConfigDialog
+                    name={SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG}
+                    emailConfig={setting.notifyMailTransportConfig ?? undefined}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
@@ -292,10 +322,23 @@ export const SettingPage = (props: ISettingPageProps) => {
                       : t('email.customAutomationConfig')}
                   </div>
                 </div>
-                <MailConfigDialog
-                  name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
-                  emailConfig={setting.automationMailTransportConfig ?? undefined}
-                />
+                <div className="flex gap-1">
+                  {setting.automationMailTransportConfig && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        onValueChange(SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG, null)
+                      }
+                    >
+                      <RotateCcwIcon className="size-4" />
+                    </Button>
+                  )}
+                  <MailConfigDialog
+                    name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
+                    emailConfig={setting.automationMailTransportConfig ?? undefined}
+                  />
+                </div>
               </div>
             </div>
             {!setting.notifyMailTransportConfig && (

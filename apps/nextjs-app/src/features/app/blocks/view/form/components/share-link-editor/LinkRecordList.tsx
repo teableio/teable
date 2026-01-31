@@ -1,4 +1,3 @@
-import type { QueryFunctionContext } from '@tanstack/react-query';
 import type { ILinkCellValue } from '@teable/core';
 import { getShareViewLinkRecords } from '@teable/openapi';
 import { ApiRecordList } from '@teable/sdk/components';
@@ -23,15 +22,18 @@ export const LinkRecordList = (props: ILinkRecordListProps) => {
     [fieldId, searchParam, shareId]
   );
 
-  const queryFn = useCallback(async ({ pageParam = 0, queryKey }: QueryFunctionContext) => {
-    const res = await getShareViewLinkRecords(queryKey[1] as string, {
-      fieldId: queryKey[2] as string,
-      skip: pageParam * pageSize,
-      take: pageSize,
-      search: queryKey[3] as string,
-    });
-    return res.data;
-  }, []);
+  const queryFn = useCallback(
+    async ({ pageParam, queryKey }: { pageParam?: number; queryKey: readonly unknown[] }) => {
+      const res = await getShareViewLinkRecords(queryKey[1] as string, {
+        fieldId: queryKey[2] as string,
+        skip: (pageParam ?? 0) * pageSize,
+        take: pageSize,
+        search: queryKey[3] as string,
+      });
+      return res.data;
+    },
+    []
+  );
 
   return (
     <ApiRecordList

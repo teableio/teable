@@ -36,12 +36,12 @@
         "databaseConnection": "数据库连接",
         "title": "API 访问",
         "aiContext": "复制给 AI",
-        "advanced": "高级配置",
+        "advanced": "高级",
         "generatingToken": "生成中...",
         "aiContextTitle": "AI 友好的 API 文档",
         "aiContextDescriptionNoToken": "将此文档复制给你的 AI 助手（ChatGPT、Claude 等）。点击「生成 API Token」创建一个自动填入文档的 Token。",
         "aiContextDescriptionWithToken": "将此文档复制给你的 AI 助手（ChatGPT、Claude 等）。已生成权限受限的 API Token 并填入文档中。",
-        "generateToken": "生成 API Token",
+        "generateToken": "生成 Token",
         "confirmTitle": "创建 API Token",
         "confirmDescription": "这将为此数据库创建一个具有以下权限的新 API Token：",
         "scopeTableRead": "读取表信息",
@@ -56,8 +56,15 @@
         "tokenCreatedSuccess": "Token 创建成功！点击复制即可使用。",
         "copied": "已复制！",
         "copy": "复制",
+        "copyAIDoc": "复制 AI 文档",
+        "aiDocPreview": "AI 文档预览",
+        "manageToken": "管理 Token",
+        "openInNewTab": "在新标签页打开",
         "advancedDesc": "打开高级 API 查询构建器，获取更多自定义选项。",
-        "openAdvanced": "打开查询构建器"
+        "openAdvanced": "打开查询构建器",
+        "queryBuilderTitle": "API 查询构建器",
+        "queryBuilderDesc": "可视化配置筛选、排序等参数，生成可直接运行的 API 请求代码。",
+        "viewApiDocs": "查看完整 API 文档"
       },
       "personalView": {
         "personal": "个人",
@@ -86,13 +93,13 @@
     "hide": "隐藏",
     "default": {
       "singleLineText": {
-        "title": "标题"
+        "title": "单行文本"
       },
       "longText": {
-        "title": "描述"
+        "title": "长文本"
       },
       "number": {
-        "title": "计数",
+        "title": "数字",
         "formatType": "格式类型",
         "currencySymbol": "货币符号",
         "defaultSymbol": "￥",
@@ -102,7 +109,7 @@
         "percentExample": "百分比 (20%)"
       },
       "singleSelect": {
-        "title": "状态",
+        "title": "单选",
         "options": {
           "todo": "待开始",
           "inProgress": "进行中",
@@ -110,7 +117,7 @@
         }
       },
       "multipleSelect": {
-        "title": "标签"
+        "title": "多选"
       },
       "attachment": {
         "title": "附件"
@@ -139,7 +146,7 @@
         "noDisplay": "不显示"
       },
       "autoNumber": {
-        "title": "自动编号"
+        "title": "自增数字"
       },
       "createdTime": {
         "title": "创建时间"
@@ -234,7 +241,7 @@
       "reset": "清空",
       "fieldUpdated": "字段已更新",
       "fieldCreated": "字段已创建",
-      "previewDependenciesGraph": "预览依赖关系图",
+      "confirmFieldChange": "确认字段变更",
       "areYouSurePerformIt": "确定要执行此操作吗？",
       "addDescription": "添加描述",
       "dbFieldName": "物理字段名",
@@ -320,13 +327,23 @@
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
       "moreOptions": "更多配置",
-      "allowNewOptionsWhenEditing": "允许填写时添加选项"
+      "allowNewOptionsWhenEditing": "允许填写时添加选项",
+      "deleteField": {
+        "title": "删除字段",
+        "simpleConfirm": "确定要删除字段 <b>{{fieldName}}</b> 吗？",
+        "withDependencies": "删除字段 <b>{{fieldName}}</b> 将会影响以下字段：",
+        "affectedFields": "受影响的字段：",
+        "fieldsToDelete": "待删除字段 ({{count}})",
+        "unviewedHint": "还有 {{count}} 个字段未查看",
+        "deleteCount": "删除 {{count}} 个字段",
+        "noAffectedFields": "此字段没有被其他字段引用。"
+      }
     },
     "subTitle": {
       "link": "在表之间创建关联关系",
       "singleLineText": "可输入单行文本，或为每个新单元格预填充一个默认值。",
       "longText": "输入多行文本，允许进行换行。",
-      "attachment": "添加图片、文档或其他文件以供查看或下载。",
+      "attachment": "添加或 AI 生成图片，或上传文档或其他文件以供查看或下载。",
       "checkbox": "勾选或取消勾选以表示状态。",
       "multipleSelect": "在列表中选择一个或多个预定义选项。",
       "singleSelect": "从列表中选择一个预定义选项，或为每个新单元格预填充一个默认选项。",
@@ -376,7 +393,10 @@
         "sourceFieldForAttachment": "提示词来源字段",
         "imageSize": "图片尺寸",
         "imageQuality": "图片质量",
-        "imageCount": "图片数量"
+        "imageCount": "图片数量",
+        "aspectRatio": "宽高比",
+        "resolution": "分辨率",
+        "advancedSettings": "高级设置"
       },
       "placeholder": {
         "summarize": "总结内容的关键点",
@@ -387,11 +407,13 @@
         "attachPromptForTag": "不允许超过三个标签",
         "attachPromptForClassify": "将\"正在进行中\"的分类为\"无风险\"",
         "attachPrompt": "请输入附加要求",
-        "prompt": "请输入自定义的提示",
+        "prompt": "输入 / 选择引用的字段",
         "type": "选择 AI 动作",
         "targetLanguage": "英文，中文，法语...",
         "imageSize": "请输入图片尺寸",
         "imageQuality": "请输入图片质量",
+        "aspectRatio": "选择宽高比",
+        "resolution": "选择分辨率",
         "attachPromptForImageGeneration": "画风生动自然",
         "attachPromptForRating": "对图像质量进行评分"
       },
@@ -400,20 +422,43 @@
         "medium": "中",
         "high": "高"
       },
+      "hint": {
+        "imageInputSupported": "💡 该模型支持图片输入，可以选择附件字段作为参考图片进行生成",
+        "attachmentNotSupported": "💡 当前模型不支持传入附件，仅 Gemini 模型支持图生图",
+        "singleImageOnly": "该模型每次只能生成一张图片"
+      },
+      "auto": "自动",
+      "resolution": {
+        "1K": "1K (标准)",
+        "2K": "2K (高清)",
+        "4K": "4K (超高清)"
+      },
       "autoFill": {
         "title": "自动更新",
         "tip": "开启后，当前字段将跟随 AI 配置的内容变化而同步更新"
       },
       "autoFillFieldDialog": {
-        "title": "更新整列记录",
-        "description": "当前视图的所有记录将会更新，包括该字段生成的所有相关数据"
+        "title": "重新生成 AI 字段",
+        "description": "将对当前视图的 {{count}} 行执行生成，任务将在后台运行。"
       },
       "autoFillConfirm": {
-        "title": "是否生成整列？",
-        "description": "生成整列将更新 {{rowCount}} 行内容。本次操作可能消耗大量 AI 资源",
+        "title": "应用 AI 字段配置",
+        "description": "将对当前视图的 {{count}} 行执行生成，任务将在后台运行。",
+        "generateMode": "生成方式",
+        "emptyOnlyMode": "仅填充空单元格",
+        "emptyOnlyModeDesc": "只对空值生成，不会覆盖已有内容",
+        "allMode": "整列生成",
+        "allModeDesc": "对所有行生成，将覆盖已有内容",
+        "saveOnlyMode": "仅保存配置",
+        "saveOnlyModeDesc": "只保存字段配置，不写入任何单元格",
         "saveConfigOnly": "仅保存配置",
         "generate": "生成",
-        "generateFailed": "生成失败"
+        "fillEmptyCells": "填充空单元格",
+        "generateAll": "生成整列",
+        "recommended": "推荐",
+        "generateFailed": "生成失败",
+        "taskLimited": "由于行数限制，仅处理了前 {{processedCount}} 行（共 {{rowCount}} 行匹配）",
+        "limitWarning": "由于每次任务最多处理 1,000 行，仅会处理前 1,000 行。你可以再次运行任务来处理剩余的行。"
       },
       "action": {
         "addAttachment": "添加附件"
@@ -535,12 +580,17 @@
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
       "excelFile": "Microsoft Excel",
-      "csvFile": "Csv 文件",
+      "csvFile": "CSV 文件",
+      "importCsvData": "导入 CSV 数据",
+      "importExcelData": "导入 Microsoft Excel 数据",
       "cancel": "取消",
       "leave": "取消",
       "downAsCsv": "下载 CSV",
       "importData": "导入数据",
       "duplicate": "复制",
+      "duplicating": "复制中...",
+      "duplicateSuccess": "复制成功",
+      "duplicateFailed": "复制失败",
       "importing": "导入中",
       "includeRecords": "包含记录"
     },
@@ -581,6 +631,29 @@
   "export": {
     "menu": {
       "exportCsv": "下载 Csv文件"
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "下载所有附件",
+      "loading": "正在加载预览...",
+      "rowsWithAttachments": "{{count}} 行包含附件",
+      "totalAttachments": "共 {{count}} 个附件",
+      "totalSize": "总大小：{{size}}",
+      "startDownload": "开始下载",
+      "confirmTitle": "下载 {{count}} 个文件",
+      "confirmDescription": "总大小：{{size}}。文件将压缩成一个 zip 文件。",
+      "confirm": "下载",
+      "cancel": "取消",
+      "downloading": "下载中...",
+      "downloadingFile": "正在下载：{{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "下载完成",
+      "cancelled": "下载已取消",
+      "noAttachments": "没有可下载的附件",
+      "error": "下载失败",
+      "errorPartial": "{{failedCount}} 个文件下载失败",
+      "requireHttps": "批量下载需要 HTTPS 环境，请通过 HTTPS 或 localhost 访问"
     }
   },
   "grid": {
@@ -670,7 +743,8 @@
     "filterField": "按此字段筛选",
     "sortField": "按此字段排序",
     "groupField": "按此字段分组",
-    "autoFill": "更新整列记录",
+    "downloadAllAttachments": "下载所有文件",
+    "autoFill": "重新生成",
     "groupMenuTitle": "分组菜单",
     "expandGroup": "展开该组及子分组",
     "collapseGroup": "收起该组及子分组",
@@ -975,6 +1049,7 @@
       "previewEnvironment": "准备预览环境",
       "analyzingAttachment": "分析附件中...",
       "locateResource": "定位",
+      "goTo": "前往",
       "operationSuccess": "操作成功完成",
       "operationFailed": "操作失败"
     },
@@ -989,6 +1064,7 @@
       "sqlQuery": "SQL 查询",
       "querying": "查询中...",
       "queryFailed": "查询失败",
+      "aborted": "已中止",
       "noData": "无返回数据",
       "dataFormatError": "数据格式错误",
       "unsupportedQueryType": "不支持的查询类型: {{toolName}}",
@@ -1117,6 +1193,13 @@
       "waitFailed": "等待失败"
     },
     "newChat": "新对话",
+    "clearChat": "清除对话",
+    "expand": "展开",
+    "history": "历史记录",
+    "close": "收起",
+    "clearChatConfirmTitle": "确认清除对话",
+    "clearChatConfirmDesc": "当前对话内容将不会被保存，确定要清除吗？",
+    "dontShowAgain": "不再提醒",
     "noModel": "暂无可用模型",
     "noHistory": "暂无聊天记录",
     "noFoundHistory": "没有找到匹配的聊天记录，请开始新的对话",
@@ -1144,7 +1227,13 @@
       "output": "输出",
       "tokens": "Tokens",
       "totalTimeCost": "总耗时",
-      "totalCreditCost": "总计"
+      "totalCreditCost": "总计",
+      "customModel": "自定义模型",
+      "tokenDetails": "Token 详情",
+      "cachedInput": "缓存输入 (节省90%)",
+      "cacheWrite": "缓存写入",
+      "reasoning": "推理 (思考)",
+      "taskCompleted": "任务完成"
     },
     "dataVisualization": {
       "error": "数据可视化失败"

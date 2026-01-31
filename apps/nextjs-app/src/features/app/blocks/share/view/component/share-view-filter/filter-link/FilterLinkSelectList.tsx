@@ -1,4 +1,3 @@
-import type { QueryFunctionContext } from '@tanstack/react-query';
 import { getShareViewLinkRecords } from '@teable/openapi';
 import { ApiRecordList } from '@teable/sdk/components';
 import type { IFilterLinkSelectListProps } from '@teable/sdk/components/filter/view-filter/component/filter-link/types';
@@ -15,15 +14,18 @@ export const FilterLinkSelectList = (props: IFilterLinkSelectListProps) => {
 
   const [search, setSearch] = useState<string>();
 
-  const queryFn = useCallback(async ({ pageParam = 0, queryKey }: QueryFunctionContext) => {
-    const res = await getShareViewLinkRecords(queryKey[1] as string, {
-      fieldId: queryKey[2] as string,
-      skip: pageParam * pageSize,
-      take: pageSize,
-      search: queryKey[3] as string,
-    });
-    return res.data;
-  }, []);
+  const queryFn = useCallback(
+    async ({ pageParam, queryKey }: { pageParam?: number; queryKey: readonly unknown[] }) => {
+      const res = await getShareViewLinkRecords(queryKey[1] as string, {
+        fieldId: queryKey[2] as string,
+        skip: (pageParam ?? 0) * pageSize,
+        take: pageSize,
+        search: queryKey[3] as string,
+      });
+      return res.data;
+    },
+    []
+  );
 
   const selectedRecordIds = typeof value === 'string' ? [value] : value || undefined;
 

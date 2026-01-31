@@ -43,7 +43,7 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
     setError('');
   }, [currentPassword, newEmail, code]);
 
-  const { mutate: sendChangeEmailCodeMutation, isLoading: sendChangeEmailCodeLoading } =
+  const { mutate: sendChangeEmailCodeMutation, isPending: sendChangeEmailCodeLoading } =
     useMutation({
       mutationFn: (ro: ISendChangeEmailCodeRo) => {
         if (ro.email === user.email) {
@@ -90,7 +90,7 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
 
   const {
     mutate: changeEmailMutation,
-    isLoading: changeEmailLoading,
+    isPending: changeEmailLoading,
     isSuccess,
   } = useMutation({
     mutationFn: changeEmail,

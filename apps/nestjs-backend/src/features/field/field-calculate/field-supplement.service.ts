@@ -800,7 +800,42 @@ export class FieldSupplementService {
       return { ...oldFieldVo, ...fieldRo };
     }
 
-    return this.prepareFormulaField(fieldRo);
+    // For formula field updates, we need to handle a Zod validation edge case:
+    // When the request only specifies partial options (e.g., {timeZone: 'America/New_York'}),
+    // Zod's union schema may incorrectly match to lastModifiedTimeFieldOptionsRoSchema
+    // and add a default expression like 'LAST_MODIFIED_TIME()'.
+    //
+    // To fix this, we preserve the old expression when the new one is a known Zod default.
+    const oldOptions = (oldFieldVo.options ?? {}) as IFormulaFieldOptions;
+    const newOptions = (fieldRo.options ?? {}) as IFormulaFieldOptions;
+
+    // Known Zod default expressions that should not override user's actual expression
+    const zodDefaultExpressions = ['LAST_MODIFIED_TIME()', 'CREATED_TIME()'];
+    const isZodDefault = zodDefaultExpressions.includes(newOptions.expression);
+
+    // Determine which expression to use:
+    // - If new expression is a Zod default and old expression exists, preserve old
+    // - Otherwise use new expression (user explicitly set it)
+    const expression =
+      isZodDefault && oldOptions.expression ? oldOptions.expression : newOptions.expression;
+
+    // Only preserve timeZone from old options. Do NOT preserve formatting/showAs because:
+    // - The expression might change the cellValueType (e.g., Number -> String)
+    // - Old formatting may be incompatible with the new cellValueType
+    // - prepareFormulaField will generate appropriate default formatting based on new cellValueType
+    const mergedOptions: IFormulaFieldOptions = {
+      ...newOptions,
+      expression,
+      // Preserve timeZone if not explicitly set in newOptions
+      timeZone: newOptions.timeZone ?? oldOptions.timeZone,
+    };
+
+    const mergedFieldRo: IFieldRo = {
+      ...fieldRo,
+      options: mergedOptions,
+    };
+
+    return this.prepareFormulaField(mergedFieldRo);
   }
 
   private async prepareRollupField(field: IFieldRo, batchFieldVos?: IFieldVo[]) {
@@ -1037,6 +1072,8 @@ export class FieldSupplementService {
       isComputed: true,
       cellValueType,
       dbFieldType: this.getDbFieldType(field.type, cellValueType, true),
+      // Clear hasError since we validated all required fields exist
+      hasError: undefined,
     };
   }
 
@@ -2033,11 +2070,11 @@ export class FieldSupplementService {
     const existingFieldIdSet = new Set(existingFieldIds.map(({ id }) => id));
     const { type } = aiConfig ?? {};
 
-    if (type === FieldAIActionType.Customization) {
-      const { prompt, attachmentFieldIds = [] } = aiConfig as ITextFieldCustomizeAIConfig;
+    // Both Customization and ImageCustomization use prompt with {fieldId} syntax
+    if (type === FieldAIActionType.Customization || type === FieldAIActionType.ImageCustomization) {
+      const { prompt } = aiConfig as ITextFieldCustomizeAIConfig;
       const fieldIds = extractFieldReferences(prompt);
-      const allFieldIds = Array.from(new Set([...fieldIds, ...attachmentFieldIds]));
-      const fieldIdsToCreate = allFieldIds.filter((id) => existingFieldIdSet.has(id));
+      const fieldIdsToCreate = fieldIds.filter((id) => existingFieldIdSet.has(id));
 
       return await this.prismaService.txClient().taskReference.createMany({
         data: fieldIdsToCreate.map((id) => ({
@@ -2084,11 +2121,14 @@ export class FieldSupplementService {
       const { type } = aiConfig ?? {};
       if (!type) continue;
 
-      if (type === FieldAIActionType.Customization) {
-        const { prompt, attachmentFieldIds = [] } = aiConfig as ITextFieldCustomizeAIConfig;
+      // Both Customization and ImageCustomization use prompt with {fieldId} syntax
+      if (
+        type === FieldAIActionType.Customization ||
+        type === FieldAIActionType.ImageCustomization
+      ) {
+        const { prompt } = aiConfig as ITextFieldCustomizeAIConfig;
         const fieldIds = extractFieldReferences(prompt);
-        const allFieldIds = Array.from(new Set([...fieldIds, ...attachmentFieldIds]));
-        const fieldIdsToCreate = allFieldIds.filter((id) => existingFieldIdSet.has(id));
+        const fieldIdsToCreate = fieldIds.filter((id) => existingFieldIdSet.has(id));
         fieldIdsToCreate.forEach((fromFieldId) => rows.push({ fromFieldId, toFieldId }));
         continue;
       }

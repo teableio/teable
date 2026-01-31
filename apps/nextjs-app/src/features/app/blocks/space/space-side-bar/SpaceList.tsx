@@ -49,7 +49,7 @@ export const SpaceList: FC = () => {
     queryFn: () => getSpaceList().then((data) => data.data),
   });
 
-  const { mutate: addSpace, isLoading } = useMutation({
+  const { mutate: addSpace, isPending: isLoading } = useMutation({
     mutationFn: createSpace,
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
@@ -64,7 +64,7 @@ export const SpaceList: FC = () => {
     },
   });
 
-  const { mutate: addBase, isLoading: isLoadingBase } = useMutation({
+  const { mutate: addBase, isPending: isLoadingBase } = useMutation({
     mutationFn: createBase,
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });

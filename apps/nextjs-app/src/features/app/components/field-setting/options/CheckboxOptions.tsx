@@ -10,7 +10,7 @@ export const CheckboxOptions = (props: {
   const { isLookup, options, onChange } = props;
   const onDefaultValueChange = (defaultValue: boolean | undefined) => {
     onChange?.({
-      defaultValue: defaultValue || undefined,
+      defaultValue: defaultValue || null,
     });
   };
 

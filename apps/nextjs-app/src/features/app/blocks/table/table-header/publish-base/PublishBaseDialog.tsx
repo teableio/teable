@@ -37,14 +37,17 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import confetti from 'canvas-confetti';
-import { Camera, Send, Copy } from 'lucide-react';
+import { Camera, Send, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { ROOT_ID } from '../../../base/base-node/hooks';
 import { useBaseNodeContext } from '../../../base/base-node/hooks/useBaseNodeContext';
+import { useAppPublishContext } from './AppPublishContext';
 import { NodeSelect } from './NodeSelect';
 import { NodeTreeSelect } from './NodeTreeSelect';
+import type { IUnpublishedApp } from './UnpublishedAppsDialog';
+import { UnpublishedAppsDialog, getUnpublishedAppNodes } from './UnpublishedAppsDialog';
 
 const attachmentManager = new AttachmentManager(1);
 
@@ -73,6 +76,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const baseId = base?.id;
   const { treeItems } = useBaseNodeContext();
   const isCloud = useIsCloud();
+  const appPublishContext = useAppPublishContext();
 
   const queryClient = useQueryClient();
 
@@ -87,6 +91,28 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   }, [treeItems]);
 
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(base?.name || '');
+  const [description, setDescription] = useState<string | undefined>('');
+  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>();
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedCover, setUploadedCover] = useState<
+    | (INotifyVo & {
+        id: string;
+        name: string;
+      })
+    | null
+  >(null);
+  const [includeData, setIncludeData] = useState(true);
+  const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [unpublishedAppsDialogOpen, setUnpublishedAppsDialogOpen] = useState(false);
+  const [unpublishedApps, setUnpublishedApps] = useState<IUnpublishedApp[]>([]);
+  const [externalApps, setExternalApps] = useState<IUnpublishedApp[] | undefined>(undefined);
 
   const { data: templateDetail } = useQuery({
     queryKey: ['template-by-base', baseId],
@@ -94,45 +120,53 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     refetchOnWindowFocus: false,
     queryFn: () => getTemplateByBaseId(baseId!).then((res) => res.data),
     enabled: !!baseId,
-    onSuccess: (data) => {
-      setTitle(data?.name || base?.name || '');
-      setDescription(data?.description);
-      // only update with server data when no manual upload of image
-      if (!uploadedCover) {
-        setScreenshotUrl(data?.cover?.presignedUrl || undefined);
-      }
-
-      const savedNodes = data?.publishInfo?.nodes;
-      const nodesToSelect = savedNodes && savedNodes.length > 0 ? savedNodes : allNodeIds;
-      if (nodesToSelect.length > 0) {
-        setSelectedNodeIds(nodesToSelect);
-
-        // Set default active node: use saved data if available and it's in selected nodes
-        const savedDefaultNodeId = data?.publishInfo?.defaultActiveNodeId;
-        if (savedDefaultNodeId && nodesToSelect.includes(savedDefaultNodeId)) {
-          setDefaultActiveNodeId(savedDefaultNodeId);
-        } else {
-          // Find first non-folder node in selected nodes
-          const firstNonFolderNode = nodesToSelect.find((id) => {
-            const node = treeItems[id];
-            return node && node.resourceType !== BaseNodeResourceType.Folder;
-          });
-          setDefaultActiveNodeId(firstNonFolderNode || null);
-        }
-
-        // Only mark as loaded when nodes are actually set
-        setHasLoadedTemplate(true);
-      }
-      setIncludeData(data?.publishInfo?.includeData ?? true);
-      // Use permalink for stable share URL
-      const permalink = data?.id ? `/t/${data.id}` : undefined;
-      setShareUrl(
-        generateShareUrl(permalink, data?.publishInfo?.defaultUrl, data?.snapshot?.baseId)
-      );
-    },
   });
 
-  const { mutateAsync: unpublishTemplateMutate, isLoading: unpublishTemplateLoading } = useMutation(
+  // Handle template data changes (replaces onSuccess callback removed in React Query v5)
+  useEffect(() => {
+    if (!templateDetail) return;
+
+    setTitle(templateDetail?.name || base?.name || '');
+    setDescription(templateDetail?.description);
+    // only update with server data when no manual upload of image
+    if (!uploadedCover) {
+      setScreenshotUrl(templateDetail?.cover?.presignedUrl || undefined);
+    }
+
+    const savedNodes = templateDetail?.publishInfo?.nodes;
+    const nodesToSelect = savedNodes && savedNodes.length > 0 ? savedNodes : allNodeIds;
+    if (nodesToSelect.length > 0) {
+      setSelectedNodeIds(nodesToSelect);
+
+      // Set default active node: use saved data if available and it's in selected nodes
+      const savedDefaultNodeId = templateDetail?.publishInfo?.defaultActiveNodeId;
+      if (savedDefaultNodeId && nodesToSelect.includes(savedDefaultNodeId)) {
+        setDefaultActiveNodeId(savedDefaultNodeId);
+      } else {
+        // Find first non-folder node in selected nodes
+        const firstNonFolderNode = nodesToSelect.find((id: string) => {
+          const node = treeItems[id];
+          return node && node.resourceType !== BaseNodeResourceType.Folder;
+        });
+        setDefaultActiveNodeId(firstNonFolderNode || null);
+      }
+
+      // Only mark as loaded when nodes are actually set
+      setHasLoadedTemplate(true);
+    }
+    setIncludeData(templateDetail?.publishInfo?.includeData ?? true);
+    // Use permalink for stable share URL
+    const permalink = templateDetail?.id ? `/t/${templateDetail.id}` : undefined;
+    setShareUrl(
+      generateShareUrl(
+        permalink,
+        templateDetail?.publishInfo?.defaultUrl,
+        templateDetail?.snapshot?.baseId
+      )
+    );
+  }, [templateDetail, base?.name, allNodeIds, treeItems, uploadedCover]);
+
+  const { mutateAsync: unpublishTemplateMutate, isPending: unpublishTemplateLoading } = useMutation(
     {
       mutationFn: () => unpublishTemplate(templateDetail?.id as string).then((res) => res.data),
       onSuccess: () => {
@@ -146,7 +180,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     }
   );
 
-  const { mutateAsync: publishBaseMutate, isLoading: publishBaseLoading } = useMutation({
+  const { mutateAsync: publishBaseMutate, isPending: publishBaseLoading } = useMutation({
     mutationFn: async ({ title, description }: { title: string; description: string }) => {
       // if user manually uploaded a new image, use the new cover; otherwise use the existing cover
       const cover: ITemplateCoverRo | null = uploadedCover
@@ -190,26 +224,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       }
     },
   });
-
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState(base?.name || '');
-  const [description, setDescription] = useState<string | undefined>('');
-  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>();
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadedCover, setUploadedCover] = useState<
-    | (INotifyVo & {
-        id: string;
-        name: string;
-      })
-    | null
-  >(null);
-  const [includeData, setIncludeData] = useState(true);
-  const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
-  const uploadRef = useRef<HTMLInputElement>(null);
-  const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [shareUrl, setShareUrl] = useState('');
 
   // Initialize selected nodes on first load
   useEffect(() => {
@@ -348,6 +362,35 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     });
   };
 
+  const handlePublishClick = useCallback(() => {
+    if (!title || !description) {
+      toast.error(t('publishBase.tips.publishValidation'));
+      return;
+    }
+
+    if (selectedNodeIds.length === 0) {
+      toast.error(t('publishBase.tips.atLeastOneNode'));
+      return;
+    }
+
+    // Check for unpublished app nodes
+    const unpublishedAppNodes = getUnpublishedAppNodes(selectedNodeIds, treeItems);
+    if (unpublishedAppNodes.length > 0) {
+      setUnpublishedApps(unpublishedAppNodes);
+      setExternalApps(undefined); // Reset external apps state
+      setUnpublishedAppsDialogOpen(true);
+      return;
+    }
+
+    // No unpublished apps, proceed with publishing
+    publishBaseMutate({ title, description: description || '' });
+  }, [title, description, selectedNodeIds, treeItems, publishBaseMutate, t]);
+
+  const handleContinuePublish = useCallback(() => {
+    setUnpublishedAppsDialogOpen(false);
+    publishBaseMutate({ title, description: description || '' });
+  }, [title, description, publishBaseMutate]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -457,19 +500,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 )}
                 <Button
                   className="flex w-full items-center gap-2"
-                  onClick={() => {
-                    if (!title || !description) {
-                      toast.error(t('publishBase.tips.publishValidation'));
-                      return;
-                    }
-
-                    if (selectedNodeIds.length === 0) {
-                      toast.error(t('publishBase.tips.atLeastOneNode'));
-                      return;
-                    }
-
-                    publishBaseMutate({ title, description: description || '' });
-                  }}
+                  onClick={handlePublishClick}
                   disabled={publishBaseLoading}
                 >
                   <Send className="size-4" />
@@ -481,21 +512,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             </div>
 
             <div className="relative h-[520px] w-[512px] shrink-0 overflow-hidden rounded-lg border bg-muted">
-              {templateDetail?.isPublished && (
-                <div className="absolute bottom-6 left-1/2 z-50 flex h-9 max-w-[432px] -translate-x-1/2 items-center gap-2 overflow-hidden rounded-md border bg-background pl-3">
-                  <Link className="size-4 shrink-0" />
-                  <div className="truncate text-sm text-muted-foreground">{shareUrl}</div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-9 shrink-0 rounded-none border-l p-0"
-                    onClick={handleCopyUrl}
-                  >
-                    <Copy className="size-4" />
-                  </Button>
-                </div>
-              )}
-
               <input
                 ref={uploadRef}
                 type="file"
@@ -579,6 +595,28 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     </span>
                   </div>
                 </div>
+                {templateDetail?.isPublished && (
+                  <div className="z-50 flex h-9 w-[432px] items-center gap-2 overflow-hidden rounded-md border bg-background pl-3">
+                    <Link className="size-4 shrink-0" />
+                    <div className="grow truncate text-sm text-muted-foreground">{shareUrl}</div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-9 shrink-0 rounded-none border-l p-0"
+                      onClick={handleCopyUrl}
+                    >
+                      <Copy className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-9 shrink-0 rounded-none border-l p-0"
+                      onClick={() => window.open(shareUrl, '_blank')}
+                    >
+                      <ExternalLink className="size-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -610,10 +648,18 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             <div className="flex w-full items-center gap-2 py-2">
               <div className="flex h-9 flex-1 items-center gap-2 truncate rounded-md border px-3 text-sm">
                 <Link className="size-4 shrink-0" />
-                <div className="flex-1 overflow-auto">{shareUrl}</div>
+                <div className="flex-1 truncate">{shareUrl}</div>
               </div>
               <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleCopyUrl}>
                 <Copy className="size-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="size-9 p-0"
+                onClick={() => window.open(shareUrl, '_blank')}
+              >
+                <ExternalLink className="size-4" />
               </Button>
             </div>
 
@@ -651,6 +697,16 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <UnpublishedAppsDialog
+        open={unpublishedAppsDialogOpen}
+        onOpenChange={setUnpublishedAppsDialogOpen}
+        unpublishedApps={unpublishedApps}
+        treeItems={treeItems}
+        onContinue={handleContinuePublish}
+        onPublishApp={appPublishContext.publishApp}
+        externalApps={externalApps}
+      />
     </>
   );
 };

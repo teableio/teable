@@ -38,7 +38,7 @@ export const CreatePluginPanelDialog = forwardRef<
   const [error, setError] = useState<string>();
   const queryClient = useQueryClient();
   const { touchActivePanel } = usePluginPanelStorage(tableId);
-  const { mutate: createPluginPanelMutate, isLoading } = useMutation({
+  const { mutate: createPluginPanelMutate, isPending: isLoading } = useMutation({
     mutationFn: (name: string) => createPluginPanel(tableId, { name }),
     onSuccess: ({ data }) => {
       queryClient.invalidateQueries({

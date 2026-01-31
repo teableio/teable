@@ -22,7 +22,7 @@ export const ResetPasswordPage = () => {
 
   const {
     mutate: resetPasswordMutate,
-    isLoading,
+    isPending: isLoading,
     isSuccess,
   } = useMutation({
     mutationFn: resetPassword,

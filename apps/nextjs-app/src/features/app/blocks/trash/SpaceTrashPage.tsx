@@ -56,14 +56,15 @@ export const SpaceTrashPage = () => {
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
+    initialPageParam: undefined as string | undefined,
     getNextPageParam: () => nextCursor,
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
     mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.spaceList());
-      queryClient.invalidateQueries(ReactQueryKeys.getSpaceTrash(resourceType));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getSpaceTrash(resourceType) });
       toast.success(t('actions.restoreSucceed'));
     },
   });
@@ -71,7 +72,7 @@ export const SpaceTrashPage = () => {
   const { mutateAsync: mutatePermanentDeleteSpace } = useMutation({
     mutationFn: (props: { spaceId: string }) => permanentDeleteSpace(props.spaceId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getSpaceTrash(resourceType));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getSpaceTrash(resourceType) });
       toast.success(t('actions.deleteSucceed'));
     },
   });

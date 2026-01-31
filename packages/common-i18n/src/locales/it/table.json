@@ -206,7 +206,7 @@
       "reset": "Reimposta",
       "fieldUpdated": "Il campo è stato aggiornato",
       "fieldCreated": "Il campo è stato creato",
-      "previewDependenciesGraph": "Anteprima Grafico Dipendenze",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Sei sicuro di voler eseguire questa operazione?",
       "addDescription": "Aggiungi Descrizione",
       "dbFieldName": "Nome campo DB",
@@ -287,7 +287,7 @@
       "link": "Collega ai record nella tabella che scegli",
       "singleLineText": "Inserisci testo, o precompila ogni nuova cella con un valore predefinito.",
       "longText": "Inserisci più righe di testo.",
-      "attachment": "Aggiungi immagini, documenti o altri file da visualizzare o scaricare.",
+      "attachment": "Aggiungi o genera con IA immagini, oppure carica documenti o altri file da visualizzare o scaricare.",
       "checkbox": "Seleziona o deseleziona per indicare lo stato.",
       "multipleSelect": "Seleziona una o più opzioni predefinite in un elenco.",
       "singleSelect": "Seleziona un'opzione predefinita da un elenco, o precompila ogni nuova cella con un'opzione predefinita.",
@@ -464,10 +464,18 @@
       "addFromOtherSource": "Aggiungi da altre fonti",
       "excelFile": "Microsoft Excel",
       "csvFile": "File Csv",
+      "importCsvData": "Importa dati CSV",
+      "importExcelData": "Importa dati Microsoft Excel",
       "cancel": "Annulla",
       "leave": "Lascia",
-      "downAsCsv": "Scarica CSV",
-      "importData": "Importa Dati"
+      "downAsCsv": "Scarica csv",
+      "importData": "Importa Dati",
+      "duplicate": "Duplica",
+      "duplicating": "Duplicazione in corso...",
+      "duplicateSuccess": "Duplicato con successo",
+      "duplicateFailed": "Duplicazione fallita",
+      "importing": "Importazione",
+      "includeRecords": "Includi record"
     },
     "tips": {
       "importWayTip": "Clicca o trascina il file in quest'area per caricare",
@@ -676,6 +684,10 @@
       "preview": "Anteprima"
     },
     "newChat": "Nuovo Chat",
+    "clearChat": "Cancella chat",
+    "clearChatConfirmTitle": "Conferma cancellazione chat",
+    "clearChatConfirmDesc": "Il contenuto attuale della chat non verrà salvato. Sei sicuro di volerlo cancellare?",
+    "dontShowAgain": "Non mostrare più",
     "noModel": "Nessun modello disponibile",
     "noHistory": "Nessun chat history",
     "noFoundHistory": "Nessun chat history trovato, per favore inizia una nuova conversazione",
@@ -698,7 +710,8 @@
       "timeCostUnit": "s",
       "timeCostDescription": "Tempo di generazione: {{timeCost}}s",
       "creditDescription": "{{credits}} crediti consumati",
-      "tokenDescription": "Tokens usati: {{tokens}}"
+      "tokenDescription": "Tokens usati: {{tokens}}",
+      "taskCompleted": "Attività completata"
     }
   }
 }

@@ -18,11 +18,11 @@ export class StringCellValueFilterAdapter extends CellValueFilterSqlite {
   ): Knex.QueryBuilder {
     if (isFieldReferenceValue(value)) {
       const ref = this.resolveFieldReference(value);
-      builderClient.whereRaw(`LOWER(${this.tableColumnRef}) = LOWER(${ref})`);
+      builderClient.whereRaw(`${this.tableColumnRef} = ${ref}`);
       return builderClient;
     }
     const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`LOWER(${this.tableColumnRef}) = LOWER(?)`, [parseValue]);
+    builderClient.whereRaw(`${this.tableColumnRef} = ?`, [parseValue]);
     return builderClient;
   }
 
@@ -35,11 +35,11 @@ export class StringCellValueFilterAdapter extends CellValueFilterSqlite {
     const { cellValueType } = this.field;
     if (isFieldReferenceValue(value)) {
       const ref = this.resolveFieldReference(value);
-      builderClient.whereRaw(`LOWER(ifnull(${this.tableColumnRef}, '')) != LOWER(${ref})`);
+      builderClient.whereRaw(`${this.tableColumnRef} != ${ref}`);
       return builderClient;
     }
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`LOWER(ifnull(${this.tableColumnRef}, '')) != LOWER(?)`, [parseValue]);
+    builderClient.whereRaw(`${this.tableColumnRef} != ?`, [parseValue]);
     return builderClient;
   }
 

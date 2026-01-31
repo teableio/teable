@@ -32,6 +32,7 @@ export const subscriptionSummaryVoSchema = z.object({
   spaceId: z.string(),
   status: z.enum(SubscriptionStatus),
   level: z.enum(BillingProductLevel),
+  appSumoTier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
 });
 
 export type ISubscriptionSummaryVo = z.infer<typeof subscriptionSummaryVoSchema>;

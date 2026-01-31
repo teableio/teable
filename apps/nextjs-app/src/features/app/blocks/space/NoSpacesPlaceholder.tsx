@@ -21,7 +21,7 @@ export const NoSpacesPlaceholder = () => {
   const [spaceName, setSpaceName] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const { mutate: createSpaceMutator, isLoading: createSpaceLoading } = useMutation({
+  const { mutate: createSpaceMutator, isPending: createSpaceLoading } = useMutation({
     mutationFn: createSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });

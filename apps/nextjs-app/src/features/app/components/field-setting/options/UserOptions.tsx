@@ -46,8 +46,9 @@ export const UserOptions = (props: {
   };
 
   const onDefaultValueChange = (defaultValue: IUserCellValue | IUserCellValue[] | undefined) => {
+    const value = Array.isArray(defaultValue) ? defaultValue.map((v) => v.id) : defaultValue?.id;
     onChange?.({
-      defaultValue: Array.isArray(defaultValue) ? defaultValue.map((v) => v.id) : defaultValue?.id,
+      defaultValue: value ?? null,
     });
   };
 

@@ -41,6 +41,9 @@
     "pin": "Sabitle",
     "empty": "Sabitlediğiniz veritabanları ve alanlar burada görünecek"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "Veritabanı oluşturma izniniz yok"
+  },
   "tip": {
     "delete": "<0/> silmek istediğinizden emin misiniz?",
     "title": "İpuçları",
@@ -89,7 +92,9 @@
   },
   "template": {
     "title": "Şablon",
-    "description": "Bir şablondan hızlıca yeni bir üs (base) oluşturun"
+    "description": "Bir şablondan hızlıca yeni bir üs (base) oluşturun",
+    "noTemplatesAvailable": "Kullanılabilir şablon yok",
+    "noTemplatesDescription": "Şu anda burada hiçbir şey yok"
   },
   "recentlyBase": {
     "title": "Son ziyaret edilenler"
@@ -105,6 +110,7 @@
   "baseList": {
     "allBases": "Tüm üsler",
     "owner": "Sahibi",
+    "createdTime": "Oluşturulma",
     "lastOpened": "Son açılan",
     "enter": "Giriş",
     "noTables": "Tablo yok",
@@ -150,6 +156,22 @@
     "urlCopied": "URL panoya kopyalandı!",
     "urlCopiedForDiscord": "URL panoya kopyalandı! Discord'a yapıştırabilirsiniz.",
     "publishSuccessDescription": "Çalışmanızı dünyayla paylaşın",
-    "shareWith": "Şununla paylaş"
+    "shareWith": "Şununla paylaş",
+    "unpublishedApps": {
+      "title": "Yayınlanmamış Uygulamalar Tespit Edildi",
+      "description": "Yayınlanmamış uygulamalar şablon önizleme hatalarına neden olabilir. Şimdi yayınlayın veya devam edin.",
+      "publishAll": "Tümünü Yayınla",
+      "publish": "Yayınla",
+      "published": "Yayınlandı",
+      "publishing": "Yayınlanıyor...",
+      "publishFailed": "Yayınlama başarısız",
+      "publishFailedTip1": "Kaynak uygulamanın başarıyla yayınlanıp yayınlanamayacağını kontrol edin",
+      "publishFailedTip2": "Bu şablonu yeniden yayınlamayı deneyin",
+      "notPublished": "Yayınlanmadı",
+      "ignoreAndContinue": "Yoksay ve Devam Et",
+      "goToFix": "Düzeltmeye Git",
+      "redeploy": "Yeniden Dağıt",
+      "unnamedApp": "Adsız Uygulama"
+    }
   }
 }

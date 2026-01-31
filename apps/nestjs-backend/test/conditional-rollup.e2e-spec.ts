@@ -10,6 +10,7 @@ import type {
   IConditionalRollupFieldOptions,
   IFilter,
   IFilterItem,
+  IUserFieldOptions,
 } from '@teable/core';
 import {
   CellValueType,
@@ -3483,6 +3484,83 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
 
       const emptyRecord = await getRecord(host.id, emptyRecordId);
       expect((emptyRecord.fields[rollupField.id] as number | null | undefined) ?? 0).toBe(0);
+    });
+
+    it('should match single users against multi-user host references in conditional rollup filters', async () => {
+      const { userId, userName, email } = globalThis.testConfig;
+      const userCell = { id: userId, title: userName, email };
+      let multiHost: ITableFullVo | undefined;
+      let multiForeign: ITableFullVo | undefined;
+
+      try {
+        multiForeign = await createTable(baseId, {
+          name: 'ConditionalRollup_User_Multi_Foreign',
+          fields: [
+            { name: 'Task', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Owner', type: FieldType.User } as IFieldRo,
+            { name: 'Hours', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            { fields: { Task: 'Task Alpha', Owner: userCell, Hours: 3 } },
+            { fields: { Task: 'Task Beta', Owner: userCell, Hours: 2 } },
+            { fields: { Task: 'Task Gamma', Hours: 4 } },
+          ],
+        });
+
+        const multiHoursId = multiForeign.fields.find((field) => field.name === 'Hours')!.id;
+        const multiOwnerId = multiForeign.fields.find((field) => field.name === 'Owner')!.id;
+
+        multiHost = await createTable(baseId, {
+          name: 'ConditionalRollup_User_Multi_Host',
+          fields: [
+            {
+              name: 'Assignees',
+              type: FieldType.User,
+              options: { isMultiple: true } as IUserFieldOptions,
+            } as IFieldRo,
+          ],
+          records: [{ fields: { Assignees: [userCell] } }, { fields: {} }],
+        });
+
+        const assigneesFieldId = multiHost.fields.find((field) => field.name === 'Assignees')!.id;
+
+        const ownerMatchFilter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: multiOwnerId,
+              operator: 'is',
+              value: { type: 'field', fieldId: assigneesFieldId },
+            },
+          ],
+        };
+
+        const multiRollupField = await createField(multiHost.id, {
+          name: 'Assigned Hours',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: multiForeign.id,
+            lookupFieldId: multiHoursId,
+            expression: 'sum({values})',
+            filter: ownerMatchFilter,
+          } as IConditionalRollupFieldOptions,
+        } as IFieldRo);
+
+        const assignedRecord = await getRecord(multiHost.id, multiHost.records[0].id);
+        expect((assignedRecord.fields[multiRollupField.id] as number | null | undefined) ?? 0).toBe(
+          5
+        );
+
+        const emptyRecord = await getRecord(multiHost.id, multiHost.records[1].id);
+        expect((emptyRecord.fields[multiRollupField.id] as number | null | undefined) ?? 0).toBe(0);
+      } finally {
+        if (multiHost) {
+          await permanentDeleteTable(baseId, multiHost.id);
+        }
+        if (multiForeign) {
+          await permanentDeleteTable(baseId, multiForeign.id);
+        }
+      }
     });
 
     it('should delete conditional rollup filtered by matching text and user fields on the host table', async () => {

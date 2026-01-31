@@ -10,6 +10,7 @@ import {
   Relationship,
   contains,
   is,
+  isNot,
   isGreaterEqual,
   SortFunc,
   StatisticsFunc,
@@ -1231,6 +1232,74 @@ describe('OpenAPI AggregationController (e2e)', () => {
         const sortedTitles = [...headerTitles].sort((a, b) => a.localeCompare(b, 'en'));
 
         expect(headerTitles).toEqual(sortedTitles);
+      } finally {
+        await permanentDeleteTable(baseId, groupedTable.id);
+      }
+    });
+
+    it('should filter single select values case-sensitively (TM3D vs TM3d)', async () => {
+      const categoryFieldDef = {
+        name: 'Category',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choTM3D', name: 'TM3D', color: Colors.CyanBright },
+            { id: 'choTM3d', name: 'TM3d', color: Colors.BlueBright },
+          ],
+        },
+      } as IFieldRo;
+
+      const groupedTable = await createTable(baseId, {
+        name: 'agg_group_collapse_case_sensitive',
+        fields: [categoryFieldDef],
+        records: [
+          { fields: { [categoryFieldDef.name!]: 'TM3D' } },
+          { fields: { [categoryFieldDef.name!]: 'TM3D' } },
+          { fields: { [categoryFieldDef.name!]: 'TM3d' } },
+        ],
+      });
+
+      try {
+        const categoryFieldId = groupedTable.fields.find(
+          (field) => field.name === categoryFieldDef.name
+        )!.id;
+
+        const rowCountIs = (
+          await getRowCount(groupedTable.id, {
+            viewId: groupedTable.views[0].id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: categoryFieldId,
+                  operator: is.value,
+                  value: 'TM3D',
+                },
+              ],
+            } as IFilter,
+          })
+        ).data.rowCount;
+
+        expect(rowCountIs).toBe(2);
+
+        const rowCountIsNot = (
+          await getRowCount(groupedTable.id, {
+            viewId: groupedTable.views[0].id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: categoryFieldId,
+                  operator: isNot.value,
+                  value: 'TM3D',
+                },
+              ],
+            } as IFilter,
+          })
+        ).data.rowCount;
+
+        // Only TM3d should remain.
+        expect(rowCountIsNot).toBe(1);
       } finally {
         await permanentDeleteTable(baseId, groupedTable.id);
       }

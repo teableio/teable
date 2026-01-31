@@ -1,5 +1,5 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import { Component, Trash2 } from '@teable/icons';
+import { Trash2 } from '@teable/icons';
 import type { IUser } from '@teable/sdk';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import { AppProvider } from '@teable/sdk/context';
@@ -52,7 +52,7 @@ export const SpaceTrashLayout: React.FC<{
                 headerLeft={
                   <SidebarHeaderLeft
                     title={t('common:trash.spaceTrash')}
-                    icon={<Component className="size-5 shrink-0" />}
+                    icon={<Trash2 className="size-5 shrink-0" />}
                     onBack={onBack}
                   />
                 }

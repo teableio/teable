@@ -1,4 +1,3 @@
-import type { ITemplateCategoryListVo, ITemplateVo } from '@teable/openapi';
 import { useIsMobile } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';

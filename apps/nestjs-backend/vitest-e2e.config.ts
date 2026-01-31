@@ -30,11 +30,12 @@ export default defineConfig({
     testTimeout: timeout,
     hookTimeout: timeout,
     passWithNoTests: true,
+    pool: 'threads',
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage/e2e',
-      extension: ['.js', '.ts'],
-      include: ['src/**/*'],
+      include: ['src/**/*.{js,ts}'],
     },
     sequence: {
       hooks: 'stack',

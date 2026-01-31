@@ -10,6 +10,7 @@ import {
 } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../db.provider.interface';
+import { escapeLikeWildcards } from '../../../../utils/sql-like-escape';
 import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
 
 export class CellValueFilterSqlite extends AbstractCellValueFilter {
@@ -38,7 +39,10 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, doesNotContain.value);
-    builderClient.whereRaw(`ifnull(${this.tableColumnRef}, '') not like ?`, [`%${value}%`]);
+    const escapedValue = escapeLikeWildcards(String(value));
+    builderClient.whereRaw(`ifnull(${this.tableColumnRef}, '') not like ? ESCAPE '\\'`, [
+      `%${escapedValue}%`,
+    ]);
     return builderClient;
   }
 

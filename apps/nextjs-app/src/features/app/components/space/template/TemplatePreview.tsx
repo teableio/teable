@@ -56,7 +56,7 @@ export const TemplatePreview = (props: {
       )}
       {(isLoading || !url) && (
         <div
-          className="absolute inset-0 flex items-center justify-center rounded-lg border bg-muted text-sm text-muted-foreground"
+          className="absolute inset-0 flex items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground"
           style={{ height: isFull ? '100%' : `${height}px` }}
         >
           {t('common:actions.loading')}

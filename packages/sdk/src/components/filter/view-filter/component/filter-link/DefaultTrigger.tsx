@@ -31,6 +31,8 @@ export const DefaultTrigger = (props: IFilterLinkProps) => {
       />
     ))
   ) : (
-    t('common.selectPlaceHolder')
+    <span className="text-sm font-normal text-muted-foreground">
+      {t('common.selectPlaceHolder')}
+    </span>
   );
 };

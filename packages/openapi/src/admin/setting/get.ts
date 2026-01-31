@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
-import { aiConfigVoSchema, appConfigSchema, webSearchConfigSchema } from './update';
+import { aiConfigVoSchema, appConfigSchema, canaryConfigSchema } from './update';
 
 export const settingVoSchema = z.object({
   instanceId: z.string(),
@@ -15,11 +15,12 @@ export const settingVoSchema = z.object({
   disallowDashboard: z.boolean().nullable().optional(),
   enableEmailVerification: z.boolean().nullable().optional(),
   enableWaitlist: z.boolean().nullable().optional(),
+  enableCreditReward: z.boolean().nullable().optional(),
   aiConfig: aiConfigVoSchema.nullable().optional(),
   notifyMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   appConfig: appConfigSchema.nullable().optional(),
-  webSearchConfig: webSearchConfigSchema.nullable().optional(),
+  canaryConfig: canaryConfigSchema.nullable().optional(),
   createdTime: z.string().optional(),
 });
 

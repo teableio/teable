@@ -160,20 +160,24 @@ describe('DateFieldCore', () => {
   it('should valid cellValue', () => {
     const date = new Date();
     const cellValue = date.toISOString();
+    const cellValueWithoutMs = '2026-01-06T00:00:00+00:00';
     const lookupFieldOne = plainToInstance(DateFieldCore, {
       ...json,
       lookupJson,
       isMultipleCellValue: false,
     });
     expect(field.validateCellValue(cellValue).success).toBe(true);
+    expect(field.validateCellValue(cellValueWithoutMs).success).toBe(true);
     expect(field.validateCellValue(date.getTime()).success).toBe(false);
     expect(field.validateCellValue('xxx').success).toBe(false);
 
     expect(lookupField.validateCellValue([cellValue]).success).toBe(true);
+    expect(lookupField.validateCellValue([cellValueWithoutMs]).success).toBe(true);
     expect(lookupField.validateCellValue(cellValue).success).toBe(false);
     expect(lookupField.validateCellValue([{ id: 'actxxx' }]).success).toBe(false);
 
     expect(lookupFieldOne.validateCellValue(cellValue).success).toBe(true);
+    expect(lookupFieldOne.validateCellValue(cellValueWithoutMs).success).toBe(true);
   });
 
   describe('validateOptions', () => {

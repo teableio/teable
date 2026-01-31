@@ -78,4 +78,34 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
       )
       .toQuery();
   }
+
+  checked(): string {
+    return this.knex
+      .raw(`SUM(CASE WHEN ${this.tableColumnRef} @> '[true]'::jsonb THEN 1 ELSE 0 END)`)
+      .toQuery();
+  }
+
+  unChecked(): string {
+    return this.knex
+      .raw(
+        `SUM(CASE WHEN ${this.tableColumnRef} IS NULL OR NOT (${this.tableColumnRef} @> '[true]'::jsonb) THEN 1 ELSE 0 END)`
+      )
+      .toQuery();
+  }
+
+  percentChecked(): string {
+    return this.knex
+      .raw(
+        `(SUM(CASE WHEN ${this.tableColumnRef} @> '[true]'::jsonb THEN 1 ELSE 0 END) * 1.0 / GREATEST(COUNT(*), 1)) * 100`
+      )
+      .toQuery();
+  }
+
+  percentUnChecked(): string {
+    return this.knex
+      .raw(
+        `(SUM(CASE WHEN ${this.tableColumnRef} IS NULL OR NOT (${this.tableColumnRef} @> '[true]'::jsonb) THEN 1 ELSE 0 END) * 1.0 / GREATEST(COUNT(*), 1)) * 100`
+      )
+      .toQuery();
+  }
 }

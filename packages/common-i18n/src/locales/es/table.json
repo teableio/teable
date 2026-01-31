@@ -205,7 +205,7 @@
       "reset": "Reiniciar",
       "fieldUpdated": "El campo se ha actualizado",
       "fieldCreated": "Se ha creado el campo",
-      "previewDependenciesGraph": "Gráfico de dependencias de vista previa",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "¿Estás seguro de que quieres realizarlo?",
       "addDescription": "Agregar descripción",
       "dbFieldName": "Nombre de campo de DB",
@@ -284,7 +284,7 @@
       "link": "Enlace a los registros en la tabla que elija",
       "singleLineText": "Ingrese el texto o prefiera cada nueva celda con un valor predeterminado.",
       "longText": "Ingrese múltiples líneas de texto.",
-      "attachment": "Agregue imágenes, documentos u otros archivos para verse o descargar.",
+      "attachment": "Agregue o genere con IA imágenes, o cargue documentos u otros archivos para verse o descargar.",
       "checkbox": "Verifique o desmarque para indicar el estado.",
       "multipleSelect": "Seleccione una o más opciones predefinidas en una lista.",
       "singleSelect": "Seleccione una opción predefinida de una lista, o prefire cada celda nueva con una opción predeterminada.",
@@ -458,10 +458,18 @@
       "addFromOtherSource": "Agregar de otras fuentes",
       "excelFile": "Microsoft Excel",
       "csvFile": "Archivo CSV",
+      "importCsvData": "Importar datos CSV",
+      "importExcelData": "Importar datos de Microsoft Excel",
       "cancel": "Cancelar",
       "leave": "Dejar",
-      "downAsCsv": "Descargar CSV",
-      "importData": "Importar datos"
+      "downAsCsv": "Descargar csv",
+      "importData": "Importar datos",
+      "duplicate": "Duplicar",
+      "duplicating": "Duplicando...",
+      "duplicateSuccess": "Duplicado con éxito",
+      "duplicateFailed": "Error al duplicar",
+      "importing": "Importando",
+      "includeRecords": "Incluir registros"
     },
     "tips": {
       "importWayTip": "Haga clic o arrastre el archivo a esta área para cargar",
@@ -664,6 +672,10 @@
       "preview": "Vista previa"
     },
     "newChat": "Nuevo chat",
+    "clearChat": "Borrar chat",
+    "clearChatConfirmTitle": "Confirmar borrar chat",
+    "clearChatConfirmDesc": "El contenido actual del chat no se guardará. ¿Está seguro de que desea borrarlo?",
+    "dontShowAgain": "No mostrar de nuevo",
     "noModel": "No hay modelos disponibles",
     "noHistory": "No hay historial de chat",
     "noFoundHistory": "No se encontró historial de chat coincidente, comience una nueva conversación",
@@ -686,7 +698,8 @@
       "timeCostUnit": "s",
       "timeCostDescription": "Tiempo de generación: {{timeCost}}s",
       "creditDescription": "{{credits}} créditos utilizados",
-      "tokenDescription": "Tokens utilizados: {{tokens}}"
+      "tokenDescription": "Tokens utilizados: {{tokens}}",
+      "taskCompleted": "Tarea completada"
     }
   }
 }

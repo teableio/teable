@@ -41,6 +41,9 @@
     "pin": "ピン",
     "empty": "ピン留めしたベースとスペースがここに表示されます"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "ベースを作成する権限がありません"
+  },
   "tip": {
     "delete": "<0/> を削除してもよろしいですか?",
     "title": "ヒント",
@@ -89,7 +92,9 @@
   },
   "template": {
     "title": "テンプレート",
-    "description": "テンプレートから新しいBaseを素早く作成します"
+    "description": "テンプレートから新しいBaseを素早く作成します",
+    "noTemplatesAvailable": "テンプレートがありません",
+    "noTemplatesDescription": "現在、ここには何もありません"
   },
   "recentlyBase": {
     "title": "最近のアクセス"
@@ -105,6 +110,7 @@
   "baseList": {
     "allBases": "すべてのBase",
     "owner": "所有者",
+    "createdTime": "作成日時",
     "lastOpened": "最終閲覧",
     "enter": "入る",
     "noTables": "テーブルなし",
@@ -150,6 +156,22 @@
     "urlCopied": "URLをクリップボードにコピーしました！",
     "urlCopiedForDiscord": "URLをクリップボードにコピーしました！Discordに貼り付けることができます。",
     "publishSuccessDescription": "あなたの作品を世界に共有しましょう",
-    "shareWith": "共有先"
+    "shareWith": "共有先",
+    "unpublishedApps": {
+      "title": "未公開のアプリが検出されました",
+      "description": "未公開のアプリはテンプレートのプレビューに失敗する可能性があります。今すぐ公開するか続行してください。",
+      "publishAll": "すべて公開",
+      "publish": "公開",
+      "published": "公開済み",
+      "publishing": "公開中...",
+      "publishFailed": "公開に失敗しました",
+      "publishFailedTip1": "ソースアプリが正常に公開できるか確認してください",
+      "publishFailedTip2": "このテンプレートを再公開してみてください",
+      "notPublished": "未公開",
+      "ignoreAndContinue": "無視して続行",
+      "goToFix": "修正へ移動",
+      "redeploy": "再デプロイ",
+      "unnamedApp": "無名のアプリ"
+    }
   }
 }

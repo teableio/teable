@@ -31,7 +31,7 @@ export const DashboardGrid = (props: { dashboardId: string }) => {
   const { mutate: updateLayoutDashboardMutate } = useMutation({
     mutationFn: (layout: IDashboardLayout) => updateLayoutDashboard(baseId, dashboardId, layout),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(dashboardId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(dashboardId) });
     },
   });
 

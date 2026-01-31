@@ -28,14 +28,14 @@ export const StarButton = (props: IStarButtonProps) => {
 
   const isPin = pinMap?.[id];
 
-  const { mutate: addPinMutation, isLoading: addPinLoading } = useMutation({
+  const { mutate: addPinMutation, isPending: addPinLoading } = useMutation({
     mutationFn: addPin,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });
     },
   });
 
-  const { mutate: deletePinMutation, isLoading: deletePinLoading } = useMutation({
+  const { mutate: deletePinMutation, isPending: deletePinLoading } = useMutation({
     mutationFn: deletePin,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });

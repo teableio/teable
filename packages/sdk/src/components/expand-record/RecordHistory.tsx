@@ -21,6 +21,7 @@ import { InfiniteTable } from '../table';
 import { CopyButton } from './components';
 
 interface IRecordHistoryProps {
+  tableId?: string;
   recordId?: string;
   onRecordClick?: (recordId: string) => void;
 }
@@ -29,7 +30,8 @@ const SUPPORTED_COPY_FIELD_TYPES = [FieldType.SingleLineText, FieldType.LongText
 
 export const RecordHistory = (props: IRecordHistoryProps) => {
   const { recordId, onRecordClick } = props;
-  const tableId = useTableId() as string;
+  const anchorTableId = useTableId() as string;
+  const tableId = props.tableId || anchorTableId;
   const { t } = useTranslation();
   const isHydrated = useIsHydrated();
   const getFieldStatic = useFieldStaticGetter();
@@ -37,7 +39,10 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
 
-  const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
+  const queryFn = async ({
+    queryKey,
+    pageParam,
+  }: QueryFunctionContext<readonly (string | undefined)[], string | undefined>) => {
     const recordId = queryKey[2] as string | undefined;
     const res = recordId
       ? await getRecordHistory(queryKey[1] as string, recordId, {
@@ -56,7 +61,8 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
-    getNextPageParam: () => nextCursor,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: () => nextCursor ?? undefined,
   });
 
   const allRows = useMemo(() => (data ? data.pages.flatMap((d) => d) : []), [data]);

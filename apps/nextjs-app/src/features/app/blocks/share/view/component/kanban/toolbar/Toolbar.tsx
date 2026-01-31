@@ -1,4 +1,4 @@
-import { ArrowUpDown, Filter as FilterIcon, Layers } from '@teable/icons';
+import { ArrowUpDown, Filter as FilterIcon, Layers, AlertTriangle } from '@teable/icons';
 import type { KanbanView } from '@teable/sdk';
 import { useFields } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
@@ -39,7 +39,7 @@ export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
         <Layers className="size-4 text-sm" />
       </ToolBarButton>
       <ShareViewFilter filters={view?.filter || null} onChange={onFilterChange}>
-        {(text, isActive) => (
+        {(text, isActive, hasWarning) => (
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
@@ -47,11 +47,15 @@ export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
             className={cn(
               'max-w-xs',
               isActive &&
-                'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30'
+                'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
+              hasWarning && 'border-yellow-500'
             )}
             textClassName="@2xl/toolbar:inline"
           >
-            <FilterIcon className="size-4 text-sm" />
+            <>
+              <FilterIcon className="size-4 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 text-yellow-500" />}
+            </>
           </ToolBarButton>
         )}
       </ShareViewFilter>

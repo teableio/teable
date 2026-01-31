@@ -46,7 +46,7 @@ export const SelectOptions = (props: {
   };
 
   const onDefaultValueChange = (defaultValue: string | string[] | undefined) => {
-    onChange?.({ defaultValue });
+    onChange?.({ defaultValue: defaultValue ?? null } as Partial<ISelectFieldOptions>);
   };
 
   const onPreventAutoNewOptionsChange = (checked: boolean) => {

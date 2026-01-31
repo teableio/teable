@@ -15,3 +15,4 @@ export * from './button-click';
 export * from './button-reset';
 export * from './constant';
 export * from './get-collaborators';
+export * from './form-submit';

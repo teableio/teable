@@ -7,6 +7,7 @@ import {
 } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../../db.provider.interface';
+import { escapeLikeWildcards } from '../../../../../utils/sql-like-escape';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
@@ -18,11 +19,11 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     if (isFieldReferenceValue(value)) {
       const ref = this.resolveFieldReference(value);
-      builderClient.whereRaw(`LOWER(${this.tableColumnRef}) = LOWER(${ref})`);
+      builderClient.whereRaw(`${this.tableColumnRef} = ${ref}`);
       return builderClient;
     }
     const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`LOWER(${this.tableColumnRef}) = LOWER(?)`, [parseValue]);
+    builderClient.whereRaw(`${this.tableColumnRef} = ?`, [parseValue]);
     return builderClient;
   }
 
@@ -35,11 +36,11 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     const { cellValueType } = this.field;
     if (isFieldReferenceValue(value)) {
       const ref = this.resolveFieldReference(value);
-      builderClient.whereRaw(`LOWER(${this.tableColumnRef}) IS DISTINCT FROM LOWER(${ref})`);
+      builderClient.whereRaw(`${this.tableColumnRef} IS DISTINCT FROM ${ref}`);
       return builderClient;
     }
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`LOWER(${this.tableColumnRef}) IS DISTINCT FROM LOWER(?)`, [parseValue]);
+    builderClient.whereRaw(`${this.tableColumnRef} IS DISTINCT FROM ?`, [parseValue]);
     return builderClient;
   }
 
@@ -50,7 +51,8 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, _operator);
-    builderClient.whereRaw(`${this.tableColumnRef} iLIKE ?`, [`%${value}%`]);
+    const escapedValue = escapeLikeWildcards(String(value));
+    builderClient.whereRaw(`${this.tableColumnRef} iLIKE ? ESCAPE '\\'`, [`%${escapedValue}%`]);
     return builderClient;
   }
 
@@ -61,9 +63,11 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, _operator);
-    builderClient.whereRaw(`LOWER(COALESCE(${this.tableColumnRef}, '')) NOT LIKE LOWER(?)`, [
-      `%${value}%`,
-    ]);
+    const escapedValue = escapeLikeWildcards(String(value));
+    builderClient.whereRaw(
+      `LOWER(COALESCE(${this.tableColumnRef}, '')) NOT LIKE LOWER(?) ESCAPE '\\'`,
+      [`%${escapedValue}%`]
+    );
     return builderClient;
   }
 }

@@ -40,11 +40,11 @@
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
-    "@vitest/coverage-v8": "2.1.5",
+    "@vitest/coverage-v8": "4.0.17",
     "eslint": "8.57.0",
     "rimraf": "5.0.5",
     "typescript": "5.4.3",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "2.1.5"
+    "vitest": "4.0.17"
   }
 }

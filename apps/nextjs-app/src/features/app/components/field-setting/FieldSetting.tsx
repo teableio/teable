@@ -14,18 +14,11 @@ import {
   getOptionsSchema,
   isConditionalLookupOptions,
   isLinkLookupOptions,
+  StatisticsFunc,
 } from '@teable/core';
-import { Share2 } from '@teable/icons';
-import { type IPlanFieldConvertVo } from '@teable/openapi';
-import { useTable, useTableId, useView, useFieldOperations, useRowCount } from '@teable/sdk/hooks';
+import { type IPlanFieldConvertVo, getAggregation } from '@teable/openapi';
+import { useTableId, useView, useFieldOperations, useRowCount } from '@teable/sdk/hooks';
 import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogTrigger,
-} from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable/ui-lib/shadcn/ui/sheet';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -35,6 +28,7 @@ import { fromZodError } from 'zod-validation-error';
 import { tableConfig } from '@/features/i18n/table.config';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { ProgressBar } from '../../blocks/graph/ProgressBar';
+import type { AiAutoFillMode } from './dialog/AiAutoFillDialog';
 import { AiAutoFillDialog } from './dialog/AiAutoFillDialog';
 import { DynamicFieldEditor } from './DynamicFieldEditor';
 import { useDefaultFieldName } from './hooks/useDefaultFieldName';
@@ -126,25 +120,77 @@ export const FieldSetting = (props: IFieldSetting) => {
   const [plan, setPlan] = useState<IPlanFieldConvertVo>();
   const [fieldRo, setFieldRo] = useState<IFieldRo>();
   const [aiConfirmVisible, setAiConfirmVisible] = useState(false);
-  const autoFillAfterSaveRef = useRef<boolean>(false);
+  const [aiFieldStats, setAiFieldStats] = useState<{
+    emptyCount?: number;
+    filledCount?: number;
+    isLoading: boolean;
+  }>({ isLoading: false });
+  const autoFillModeRef = useRef<AiAutoFillMode | null>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
+  // Fetch field stats (empty/filled count) for AI field dialog
+  const fetchFieldStats = async (fieldId: string) => {
+    if (!tableId) return;
+
+    setAiFieldStats({ isLoading: true });
+    try {
+      const query = view?.id ? { viewId: view.id } : {};
+      const result = await getAggregation(tableId, {
+        ...query,
+        field: {
+          [StatisticsFunc.Empty]: [fieldId],
+          [StatisticsFunc.Filled]: [fieldId],
+        },
+      });
+
+      const aggregations = result.data.aggregations;
+      if (aggregations && aggregations.length > 0) {
+        const parseValue = (value: string | number | null | undefined): number | undefined => {
+          if (value == null) return undefined;
+          return typeof value === 'string' ? parseInt(value, 10) : value;
+        };
+
+        // Find empty and filled stats from aggregations
+        const emptyAgg = aggregations.find(
+          (agg) => agg.fieldId === fieldId && agg.total?.aggFunc === StatisticsFunc.Empty
+        );
+        const filledAgg = aggregations.find(
+          (agg) => agg.fieldId === fieldId && agg.total?.aggFunc === StatisticsFunc.Filled
+        );
+
+        setAiFieldStats({
+          emptyCount: parseValue(emptyAgg?.total?.value),
+          filledCount: parseValue(filledAgg?.total?.value),
+          isLoading: false,
+        });
+      } else {
+        setAiFieldStats({ isLoading: false });
+      }
+    } catch (e) {
+      console.error('Failed to fetch field stats', e);
+      setAiFieldStats({ isLoading: false });
+    }
+  };
+
   const runAutoFillIfNeeded = async (result?: IFieldVo) => {
-    if (!result || !autoFillAfterSaveRef.current) {
-      autoFillAfterSaveRef.current = false;
+    const mode = autoFillModeRef.current;
+    if (!result || !mode || mode === 'saveOnly') {
+      autoFillModeRef.current = null;
       return;
     }
 
     try {
       if (tableId && result.id) {
-        const query = view?.id ? { viewId: view.id } : {};
+        // mode is either 'emptyOnly' or 'all' at this point (saveOnly already returned above)
+        const apiMode = mode as 'emptyOnly' | 'all';
+        const query = view?.id ? { viewId: view.id, mode: apiMode } : { mode: apiMode };
         await autoFillField({ tableId, fieldId: result.id, query });
       }
     } catch (e) {
       toast.error(t('table:field.aiConfig.autoFillConfirm.generateFailed'));
       console.error('autoFillField error', e);
     } finally {
-      autoFillAfterSaveRef.current = false;
+      autoFillModeRef.current = null;
     }
   };
 
@@ -227,6 +273,13 @@ export const FieldSetting = (props: IFieldSetting) => {
     ) {
       setFieldRo(fieldRo);
       setAiConfirmVisible(true);
+      // Fetch field stats for edit mode (existing field)
+      if (operator === FieldOperator.Edit && props.field?.id) {
+        fetchFieldStats(props.field.id);
+      } else {
+        // For new fields, all cells are empty
+        setAiFieldStats({ emptyCount: rowCount ?? 0, filledCount: 0, isLoading: false });
+      }
       return;
     }
 
@@ -239,13 +292,12 @@ export const FieldSetting = (props: IFieldSetting) => {
       setGraphVisible(true);
       return;
     }
-
     await performAction(fieldRo);
   };
 
-  const handleConfirmWithAutoFill = async (autoFill: boolean) => {
+  const handleConfirmWithAutoFill = async (mode: AiAutoFillMode) => {
     if (!fieldRo) return;
-    autoFillAfterSaveRef.current = autoFill;
+    autoFillModeRef.current = mode;
 
     const plan = await getPlan(fieldRo);
     setPlan(plan);
@@ -255,7 +307,6 @@ export const FieldSetting = (props: IFieldSetting) => {
       setGraphVisible(true);
       return;
     }
-
     await performAction(fieldRo);
   };
 
@@ -263,8 +314,7 @@ export const FieldSetting = (props: IFieldSetting) => {
     <>
       <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />
       <ConfirmDialog
-        contentClassName="max-w-6xl"
-        title={t('table:field.editor.previewDependenciesGraph')}
+        title={t('table:field.editor.confirmFieldChange')}
         open={graphVisible}
         onOpenChange={setGraphVisible}
         content={
@@ -281,20 +331,32 @@ export const FieldSetting = (props: IFieldSetting) => {
       <AiAutoFillDialog
         open={aiConfirmVisible}
         title={t('table:field.aiConfig.autoFillConfirm.title')}
-        description={t('table:field.aiConfig.autoFillConfirm.description', {
-          rowCount: rowCount ?? 0,
-        })}
+        rowCount={rowCount ?? 0}
+        emptyCount={aiFieldStats.emptyCount}
+        filledCount={aiFieldStats.filledCount}
+        isLoadingStats={aiFieldStats.isLoading}
         cancelText={t('common:actions.cancel')}
-        saveText={t('table:field.aiConfig.autoFillConfirm.saveConfigOnly')}
-        updateText={t('table:field.aiConfig.autoFillConfirm.generate')}
-        onClose={() => setAiConfirmVisible(false)}
-        onSave={async () => {
-          setAiConfirmVisible(false);
-          await handleConfirmWithAutoFill(false);
+        hideEmptyOnly={operator !== FieldOperator.Edit}
+        labels={{
+          description: t('table:field.aiConfig.autoFillConfirm.description'),
+          emptyOnly: t('table:field.aiConfig.autoFillConfirm.emptyOnlyMode'),
+          emptyOnlyDesc: t('table:field.aiConfig.autoFillConfirm.emptyOnlyModeDesc'),
+          all: t('table:field.aiConfig.autoFillConfirm.allMode'),
+          allDesc: t('table:field.aiConfig.autoFillConfirm.allModeDesc'),
+          saveOnly: t('table:field.aiConfig.autoFillConfirm.saveOnlyMode'),
+          saveOnlyDesc: t('table:field.aiConfig.autoFillConfirm.saveOnlyModeDesc'),
+          recommended: t('table:field.aiConfig.autoFillConfirm.recommended'),
+          limitWarning: t('table:field.aiConfig.autoFillConfirm.limitWarning'),
         }}
-        onUpdate={async () => {
+        confirmLabels={{
+          emptyOnly: t('table:field.aiConfig.autoFillConfirm.fillEmptyCells'),
+          all: t('table:field.aiConfig.autoFillConfirm.generateAll'),
+          saveOnly: t('table:field.aiConfig.autoFillConfirm.saveConfigOnly'),
+        }}
+        onClose={() => setAiConfirmVisible(false)}
+        onConfirm={async (mode) => {
           setAiConfirmVisible(false);
-          await handleConfirmWithAutoFill(true);
+          await handleConfirmWithAutoFill(mode);
         }}
       />
       <ConfirmDialog
@@ -312,7 +374,6 @@ export const FieldSetting = (props: IFieldSetting) => {
 const FieldSettingBase = (props: IFieldSettingBase) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const table = useTable();
   const [field, setField] = useState<IFieldEditorRo>(
     originField
       ? {
@@ -326,35 +387,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   );
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
-  const [showGraphButton, setShowGraphButton] = useState<boolean>(operator === FieldOperator.Edit);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-
-  const isCreatingSimpleField = useCallback(
-    (field: IFieldEditorRo) => {
-      return (
-        !field.lookupOptions &&
-        field.type !== FieldType.Link &&
-        field.type !== FieldType.Formula &&
-        operator !== FieldOperator.Edit
-      );
-    },
-    [operator]
-  );
-
-  const checkFieldReady = useCallback(
-    (field: IFieldEditorRo) => {
-      const result = convertFieldRoSchema.safeParse(field);
-      if (!result.success) {
-        return false;
-      }
-      const data = result.data;
-      if (isCreatingSimpleField(data)) {
-        return false;
-      }
-      return true;
-    },
-    [isCreatingSimpleField]
-  );
 
   const onOpenChange = (open?: boolean) => {
     if (open) {
@@ -363,21 +396,17 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
     onCancelInner();
   };
 
-  const onFieldEditorChange = useCallback(
-    (nextField: IFieldEditorRo) => {
-      const sanitizedLookupOptions = sanitizeLookupOptions(nextField.lookupOptions);
-      const normalizedField: IFieldEditorRo = {
-        ...nextField,
-        lookupOptions:
-          sanitizedLookupOptions ??
-          (nextField.isConditionalLookup ? nextField.lookupOptions : undefined),
-      };
-      setField(normalizedField);
-      setUpdateCount(1);
-      setShowGraphButton(checkFieldReady(normalizedField));
-    },
-    [checkFieldReady]
-  );
+  const onFieldEditorChange = useCallback((nextField: IFieldEditorRo) => {
+    const sanitizedLookupOptions = sanitizeLookupOptions(nextField.lookupOptions);
+    const normalizedField: IFieldEditorRo = {
+      ...nextField,
+      lookupOptions:
+        sanitizedLookupOptions ??
+        (nextField.isConditionalLookup ? nextField.lookupOptions : undefined),
+    };
+    setField(normalizedField);
+    setUpdateCount(1);
+  }, []);
 
   const onCancelInner = () => {
     if (updateCount > 0) {
@@ -475,40 +504,13 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
               />
             }
             {/* Footer */}
-            <div className="flex w-full shrink-0 justify-between p-4">
-              <div>
-                {showGraphButton && (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size={'sm'} variant={'outline'}>
-                        <Share2 className="size-4" /> {t('table:field.editor.graph')}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-6xl">
-                      <DynamicFieldGraph
-                        tableId={table?.id as string}
-                        fieldId={props.field?.id}
-                        fieldRo={updateCount ? (field as IFieldRo) : undefined}
-                      />
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button type="button" variant="secondary">
-                            {t('common:actions.close')}
-                          </Button>
-                        </DialogClose>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button size={'sm'} variant={'ghost'} onClick={onCancel} disabled={isSaving}>
-                  {t('common:actions.cancel')}
-                </Button>
-                <Button size={'sm'} onClick={onSave} disabled={isSaving}>
-                  {isSaving ? <Spin className="size-4" /> : t('common:actions.save')}
-                </Button>
-              </div>
+            <div className="flex w-full shrink-0 justify-end gap-2 border-t p-4">
+              <Button size={'sm'} variant={'ghost'} onClick={onCancel} disabled={isSaving}>
+                {t('common:actions.cancel')}
+              </Button>
+              <Button size={'sm'} onClick={onSave} disabled={isSaving}>
+                {isSaving ? <Spin className="size-4" /> : t('common:actions.save')}
+              </Button>
             </div>
           </div>
         </SheetContent>

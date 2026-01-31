@@ -41,6 +41,9 @@
     "pin": "Épingler",
     "empty": "Vos bases et espaces favoris apparaîtront ici"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "Vous n'avez pas la permission de créer une base"
+  },
   "tip": {
     "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?",
     "title": "Conseils",
@@ -65,7 +68,7 @@
     "empty": "Aucune base partagée avec moi pour le moment"
   },
   "trash": {
-    "spaceDescription": "Tous les espaces supprimés dans cette instance",
+    "spaceDescription": "Tous les espaces supprimés",
     "baseDescription": "Toutes les bases supprimées dans cet espace"
   },
   "integration": {
@@ -89,7 +92,9 @@
   },
   "template": {
     "title": "Modèle",
-    "description": "Créer rapidement une nouvelle base à partir d'un modèle"
+    "description": "Créer rapidement une nouvelle base à partir d'un modèle",
+    "noTemplatesAvailable": "Aucun modèle disponible",
+    "noTemplatesDescription": "Il n'y a rien ici pour le moment"
   },
   "recentlyBase": {
     "title": "Consulté récemment"
@@ -105,6 +110,7 @@
   "baseList": {
     "allBases": "Toutes les bases",
     "owner": "Propriétaire",
+    "createdTime": "Créé",
     "lastOpened": "Dernière ouverture",
     "enter": "Entrer",
     "noTables": "Aucun tableau",
@@ -150,6 +156,22 @@
     "urlCopied": "URL copiée dans le presse-papiers !",
     "urlCopiedForDiscord": "URL copiée dans le presse-papiers ! Vous pouvez la coller dans Discord.",
     "publishSuccessDescription": "Partagez votre travail avec le monde",
-    "shareWith": "Partager avec"
+    "shareWith": "Partager avec",
+    "unpublishedApps": {
+      "title": "Applications non publiées détectées",
+      "description": "Les applications non publiées peuvent provoquer des erreurs d'aperçu du modèle. Publiez-les maintenant ou continuez.",
+      "publishAll": "Tout publier",
+      "publish": "Publier",
+      "published": "Publiée",
+      "publishing": "Publication...",
+      "publishFailed": "Échec de la publication",
+      "publishFailedTip1": "Vérifiez si l'application source peut être publiée avec succès",
+      "publishFailedTip2": "Essayez de republier ce modèle",
+      "notPublished": "Non publiée",
+      "ignoreAndContinue": "Ignorer et continuer",
+      "goToFix": "Aller corriger",
+      "redeploy": "Redéployer",
+      "unnamedApp": "Application sans nom"
+    }
   }
 }

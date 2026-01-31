@@ -44,8 +44,8 @@ function addQueryParamsToWebSocketUrl(url: string, params: Record<string, string
 }
 
 function getWsPath() {
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${wsProtocol}//${window.location.host}/socket`;
+  // SockJS uses HTTP/HTTPS protocol for initial handshake
+  return `${window.location.origin}/socket`;
 }
 
 interface IPageProps {

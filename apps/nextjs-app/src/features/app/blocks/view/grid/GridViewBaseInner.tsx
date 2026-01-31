@@ -9,7 +9,7 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { createRecords, stopFillField, UploadType } from '@teable/openapi';
+import { createRecords, stopFillField, UploadType, autoFillCell } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -23,6 +23,7 @@ import type {
   IRange,
   Record,
   IButtonCell,
+  ICellError,
 } from '@teable/sdk';
 import {
   Grid,
@@ -77,9 +78,9 @@ import {
   useViewId,
   useRecordOperations,
   useButtonClickStatus,
-  useFieldOperations,
+  useTableListener,
 } from '@teable/sdk/hooks';
-import { ConfirmDialog, useConfirm } from '@teable/ui-lib';
+import { useConfirm } from '@teable/ui-lib';
 import { toast, toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
@@ -96,7 +97,13 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { useContextMenu } from '../hooks/useContextMenu';
-import { AiGenerateButton, PrefillingRowContainer, PresortRowContainer } from './components';
+import type { IAiAutoFillDialogContainerRef } from './components';
+import {
+  AiAutoFillDialogContainer,
+  AiGenerateButton,
+  PrefillingRowContainer,
+  PresortRowContainer,
+} from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
 import { ResetClickCountButton } from './components/ResetClickCountButton';
@@ -109,7 +116,7 @@ import { getEffectRows, generateSeriesForColumn, isEmptyValue } from './utils';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 
 interface IGridViewBaseInnerProps {
-  groupPointsServerData?: IGroupPointsVo;
+  groupPointsServerData?: IGroupPointsVo | null;
   onRowExpand?: (recordId: string) => void;
 }
 
@@ -121,7 +128,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { groupPointsServerData, onRowExpand } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { updateRecord, duplicateRecord } = useRecordOperations();
-  const { autoFillField } = useFieldOperations();
   const router = useRouter();
   const baseId = useBaseId();
   const tableId = useTableId() as string;
@@ -178,9 +184,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { setGridRef, searchCursor, setRecordMap, setFields } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
-  const [autoFillFieldId, setAutoFillFieldId] = useState<string | undefined>();
+  const [cellErrors, setCellErrors] = useState<ICellError[]>([]);
 
   const { fieldAIEnable = false } = usage?.limit ?? {};
+
+  const aiAutoFillDialogRef = useRef<IAiAutoFillDialogContainerRef>(null);
 
   const aiGenerateButtonRef = useRef<{
     onScrollHandler: () => void;
@@ -212,7 +220,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     recordsQuery,
     searchHitIndex,
     allGroupHeaderRefs,
-  } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
+  } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData ?? undefined);
 
   const isSelectionLoaded = useIsSelectionLoaded();
 
@@ -303,7 +311,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     onCellDrop: inPrefilling ? onPrefillingCellDrop : onCellDrop,
   });
 
-  const { mutate: mutateCreateRecord, isLoading: isCreatingRecord } = useMutation({
+  const { mutate: mutateCreateRecord, isPending: isCreatingRecord } = useMutation({
     mutationFn: (records: ICreateRecordsRo['records']) =>
       createRecords(tableId!, {
         records,
@@ -415,6 +423,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const { confirm } = useConfirm();
 
+  // Handle auto-fill click from menu
+  const handleAutoFillClick = (fieldId: string) => {
+    aiAutoFillDialogRef.current?.open(fieldId);
+  };
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onContextMenu = (selection: CombinedSelection, position: IPosition) => {
     const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
@@ -517,7 +530,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const selectColumns = extract(start, end, columns);
       const indexedColumns = keyBy(selectColumns, 'id');
       const selectFields = fields.filter((field) => indexedColumns[field.id]);
-      const onAutoFill = (fieldId: string) => setAutoFillFieldId(fieldId);
+      const onAutoFill = (fieldId: string) => handleAutoFillClick(fieldId);
       const onSelectionClear = () => gridRef.current?.setSelection(emptySelection);
       openHeaderMenu({
         position,
@@ -542,7 +555,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
       const selectedFields = fields.filter((field) => field.id === fieldId);
-      const onAutoFill = (fieldId: string) => setAutoFillFieldId(fieldId);
+      const onAutoFill = (fieldId: string) => handleAutoFillClick(fieldId);
       openHeaderMenu({
         fields: selectedFields,
         position: { x, y: height },
@@ -550,6 +563,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onAutoFill,
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [columns, fields, fieldAIEnable, openHeaderMenu]
   );
 
@@ -1166,6 +1180,103 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     gridRef.current?.setColumnLoadings(loadingColumnIndexs);
   }, [tableId, fields, taskStatusFieldMap]);
 
+  // Helper to clear cell error by recordId and fieldId
+  const clearCellError = useCallback(
+    (recordId: string, fieldId: string) => {
+      const recordId2IndexMap: { [id: string]: number } = {};
+      Object.entries(recordMap).forEach(([index, record]) => {
+        if (record == null) return;
+        recordId2IndexMap[record.id] = index as unknown as number;
+      });
+
+      const fieldId2IndexMap: { [id: string]: number } = {};
+      fields.forEach(({ id }, index) => (fieldId2IndexMap[id] = index));
+
+      const fieldIndex = fieldId2IndexMap[fieldId];
+      const recordIndex = recordId2IndexMap[recordId];
+
+      if (fieldIndex === undefined || recordIndex === undefined) return;
+
+      setCellErrors((current) =>
+        current.filter((e) => !(e.cellItem[0] === fieldIndex && e.cellItem[1] === recordIndex))
+      );
+    },
+    [fields, recordMap]
+  );
+
+  // Handle taskProcessing events - clear any existing error for this cell
+  const handleTaskProcessing = useCallback(
+    (_actionKey: string, payload?: { recordId: string; fieldId: string }) => {
+      if (!payload) return;
+      const { recordId, fieldId } = payload;
+      clearCellError(recordId, fieldId);
+    },
+    [clearCellError]
+  );
+
+  // Handle taskFailed events from AI field generation
+  const handleTaskFailed = useCallback(
+    (_actionKey: string, payload?: { recordId: string; fieldId: string; errorMsg: string }) => {
+      if (!payload) return;
+      const { recordId, fieldId, errorMsg } = payload;
+
+      // Build index maps (same as loading state)
+      const recordId2IndexMap: { [id: string]: number } = {};
+      Object.entries(recordMap).forEach(([index, record]) => {
+        if (record == null) return;
+        recordId2IndexMap[record.id] = index as unknown as number;
+      });
+
+      const fieldId2IndexMap: { [id: string]: number } = {};
+      fields.forEach(({ id }, index) => (fieldId2IndexMap[id] = index));
+
+      const fieldIndex = fieldId2IndexMap[fieldId];
+      const recordIndex = recordId2IndexMap[recordId];
+
+      // Skip if field or record not found in current view
+      if (fieldIndex === undefined || recordIndex === undefined) {
+        return;
+      }
+
+      setCellErrors((prev) => {
+        // Check if error already exists for this cell
+        const existingIndex = prev.findIndex(
+          (e) => e.cellItem[0] === fieldIndex && e.cellItem[1] === recordIndex
+        );
+
+        const newError: ICellError = {
+          cellItem: [fieldIndex, recordIndex],
+          errorMsg,
+          onRetry: () => {
+            // Clear error and trigger retry
+            clearCellError(recordId, fieldId);
+            autoFillCell(tableId, recordId, fieldId);
+          },
+          onDismiss: () => {
+            clearCellError(recordId, fieldId);
+          },
+        };
+
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = newError;
+          return updated;
+        }
+
+        return [...prev, newError];
+      });
+    },
+    [fields, recordMap, tableId, clearCellError]
+  );
+
+  useTableListener(tableId, ['taskFailed'], handleTaskFailed);
+  useTableListener(tableId, ['taskProcessing'], handleTaskProcessing);
+
+  // Update cell errors in grid
+  useEffect(() => {
+    gridRef.current?.setCellErrors(cellErrors);
+  }, [cellErrors]);
+
   const onPresortContainerInit = () => {
     if (!activeCell) return;
 
@@ -1258,6 +1369,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           gridRef={gridRef}
           activeCell={activeCell}
           recordMap={recordMap}
+          onGenerate={() => {
+            if (activeCell) {
+              clearCellError(activeCell.recordId, activeCell.fieldId);
+            }
+          }}
         />
       )}
       {activeCell && (
@@ -1370,34 +1486,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         }}
         onConfirm={() => newRecords && mutateCreateRecord(newRecords)}
       />
-      <ConfirmDialog
-        open={Boolean(autoFillFieldId)}
-        onOpenChange={(val) => {
-          if (!val) setAutoFillFieldId(undefined);
-        }}
-        closeable={false}
-        title={t('table:field.aiConfig.autoFillFieldDialog.title')}
-        description={t('table:field.aiConfig.autoFillFieldDialog.description')}
-        onCancel={() => setAutoFillFieldId(undefined)}
-        cancelText={t('common:actions.cancel')}
-        confirmText={t('common:actions.update')}
-        onConfirm={() => {
-          if (!tableId || !view || !autoFillFieldId) return;
-          const query = personalViewCommonQuery
-            ? {
-                filter: personalViewCommonQuery.filter,
-                orderBy: personalViewCommonQuery.orderBy,
-                groupBy: personalViewCommonQuery.groupBy,
-                ignoreViewQuery: true,
-              }
-            : {
-                viewId: view.id,
-                groupBy: group,
-              };
-
-          autoFillField({ tableId, fieldId: autoFillFieldId, query });
-          setAutoFillFieldId(undefined);
-        }}
+      <AiAutoFillDialogContainer
+        ref={aiAutoFillDialogRef}
+        group={group}
+        personalViewCommonQuery={personalViewCommonQuery}
       />
     </div>
   );

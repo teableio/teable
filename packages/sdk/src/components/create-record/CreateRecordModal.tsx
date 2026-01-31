@@ -33,7 +33,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const filter = view?.filter;
   const userId = user.id;
 
-  const { mutate: createRecord, isLoading } = useMutation({
+  const { mutate: createRecord, isPending } = useMutation({
     mutationFn: (fields: { [fieldId: string]: unknown }) =>
       createRecords(tableId!, {
         records: [{ fields }],
@@ -170,23 +170,19 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
             onChange={onChange}
           />
         </div>
-        <div className="flex justify-end gap-4 border-t px-10 py-3">
+        <div className="flex justify-end gap-4 border-t p-3">
           <Button variant={'outline'} size={'sm'} onClick={() => setOpen(false)}>
             {t('common.cancel')}
           </Button>
           <Button
             className="relative overflow-hidden"
             size={'sm'}
-            disabled={!tableId || isLoading}
+            disabled={!tableId || isPending}
             onClick={() => {
               createRecord(record?.fields ?? {});
             }}
           >
-            {isLoading && (
-              <div className="absolute flex size-full items-center justify-center">
-                <Spin className="mr-2" />
-              </div>
-            )}
+            {isPending && <Spin className="size-4" />}
             {t('common.create')}
           </Button>
         </div>

@@ -22,6 +22,10 @@ import Head from 'next/head';
 import { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
+import {
+  CellDownloadHandler,
+  DownloadAllAttachmentsDialog,
+} from '../../components/download-attachments';
 import { PluginContextMenu } from '../../components/plugin-context-menu/PluginContextMenu';
 import { PluginPanel } from '../../components/plugin-panel/PluginPanel';
 import type { IBaseResourceTable } from '../../hooks/useBaseResource';
@@ -37,7 +41,7 @@ export interface ITableProps {
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
   recordServerData?: IRecord;
-  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | undefined };
+  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | null };
 }
 
 export const Table: React.FC<ITableProps> = ({
@@ -70,7 +74,7 @@ export const Table: React.FC<ITableProps> = ({
       parentResourceId: baseId,
       resourceType: LastVisitResourceType.Table,
     }).then(() => {
-      queryClient.invalidateQueries(ReactQueryKeys.userLastVisitMap(baseId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.userLastVisitMap(baseId) });
     });
   }, [tableId, viewId, baseId, queryClient, isTemplate]);
 
@@ -96,34 +100,36 @@ export const Table: React.FC<ITableProps> = ({
       <TablePermissionProvider baseId={baseId}>
         <ViewProvider serverData={viewServerData}>
           <PersonalViewProxy serverData={viewServerData}>
-            <div className="flex h-full grow basis-[500px]">
-              <div
-                className="flex flex-1 flex-col overflow-hidden"
-                data-screenshot-target="base-view"
-              >
-                <TableHeader />
-                <FieldProvider serverSideData={fieldServerData}>
-                  <ErrorBoundary
-                    fallback={
-                      <div className="flex size-full items-center justify-center">
-                        <FailAlert />
-                      </div>
-                    }
+            <FieldProvider serverSideData={fieldServerData}>
+              <PersonalViewProvider>
+                <div className="flex h-full grow basis-[500px]">
+                  <div
+                    className="flex flex-1 flex-col overflow-hidden"
+                    data-screenshot-target="base-view"
                   >
-                    <PersonalViewProvider>
+                    <TableHeader />
+                    <ErrorBoundary
+                      fallback={
+                        <div className="flex size-full items-center justify-center">
+                          <FailAlert />
+                        </div>
+                      }
+                    >
                       <View
                         recordServerData={recordServerData}
                         recordsServerData={recordsServerData}
                         groupPointsServerDataMap={groupPointsServerDataMap}
                       />
-                    </PersonalViewProvider>
-                  </ErrorBoundary>
-                </FieldProvider>
-              </div>
-              <PluginPanel tableId={tableId} />
-              <PluginContextMenu tableId={tableId} baseId={baseId} />
-              {/* <ChatPanel /> */}
-            </div>
+                    </ErrorBoundary>
+                  </div>
+                  <PluginPanel tableId={tableId} />
+                  <PluginContextMenu tableId={tableId} baseId={baseId} />
+                  <DownloadAllAttachmentsDialog />
+                  <CellDownloadHandler />
+                  {/* <ChatPanel /> */}
+                </div>
+              </PersonalViewProvider>
+            </FieldProvider>
           </PersonalViewProxy>
         </ViewProvider>
       </TablePermissionProvider>

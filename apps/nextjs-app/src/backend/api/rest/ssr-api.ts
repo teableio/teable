@@ -38,6 +38,8 @@ import type {
   ITemplatePermalinkVo,
 } from '@teable/openapi';
 import {
+  IS_TEMPLATE_HEADER,
+  X_CANARY_HEADER,
   ACCEPT_INVITATION_LINK,
   CREATE_BASE,
   GET_BASE,
@@ -86,6 +88,27 @@ export class SsrApi {
     this.axios = getAxios();
   }
 
+  /**
+   * Configure axios interceptors for base-specific headers (template, canary, etc.)
+   */
+  configureBaseHeaders(base: IGetBaseVo | undefined) {
+    const templateHeader = base?.template?.headers;
+    if (templateHeader) {
+      this.disableLastVisit = true;
+      this.axios.interceptors.request.use((config) => {
+        config.headers[IS_TEMPLATE_HEADER] = templateHeader;
+        return config;
+      });
+    }
+
+    if (base?.isCanary) {
+      this.axios.interceptors.request.use((config) => {
+        config.headers[X_CANARY_HEADER] = 'true';
+        return config;
+      });
+    }
+  }
+
   async getTable(
     baseId: string,
     tableId: string,
@@ -106,15 +129,27 @@ export class SsrApi {
       .then(({ data }) => data);
 
     const currentView = views.find((view) => view.id === viewId);
-    const { records, extra } = await this.axios
-      .get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { baseId, tableId }), {
-        params: {
-          viewId,
-          fieldKeyType: FieldKeyType.Id,
-          groupBy: currentView?.group ? JSON.stringify(currentView.group) : undefined,
-        },
-      })
-      .then(({ data }) => data);
+
+    // Gracefully handle records fetch errors (e.g., invalid filter in view)
+    // This prevents SSR crash when view has corrupted filter data
+    let records: IRecord[] = [];
+    let extra: IRecordsVo['extra'] = undefined;
+    try {
+      const recordsResult = await this.axios
+        .get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { baseId, tableId }), {
+          params: {
+            viewId,
+            fieldKeyType: FieldKeyType.Id,
+            groupBy: currentView?.group ? JSON.stringify(currentView.group) : undefined,
+          },
+        })
+        .then(({ data }) => data);
+      records = recordsResult.records;
+      extra = recordsResult.extra;
+    } catch (error) {
+      // Log error but continue - client-side will show appropriate error toast
+      console.error('[SSR] Failed to fetch records, view may have invalid filter:', error);
+    }
 
     return {
       ...table,

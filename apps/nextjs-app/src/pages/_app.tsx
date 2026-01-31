@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import type { IHttpError } from '@teable/core';
 import type { IUser } from '@teable/sdk';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -11,6 +12,8 @@ import { useEffect } from 'react';
 import { Guide } from '@/components/Guide';
 import { GoogleAnalytics, MicrosoftClarity, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
+import { SideBarScript } from '@/features/app/components/sidebar/SideBarScript';
+import { HttpErrorPage } from '@/features/system/pages';
 import type { IServerEnv } from '@/lib/server-env';
 import type { NextPageWithLayout } from '@/lib/type';
 import { colors } from '@/themes/colors';
@@ -39,7 +42,12 @@ export type AppProps<T> = NextAppProps<T> & {
   err?: Error;
 };
 
-type AppPropsWithLayout = AppProps<{ user?: IUser; env?: IServerEnv; err?: Error }> & {
+type AppPropsWithLayout = AppProps<{
+  user?: IUser;
+  env?: IServerEnv;
+  err?: Error;
+  httpError?: IHttpError;
+}> & {
   Component: NextPageWithLayout;
 };
 
@@ -47,8 +55,8 @@ type AppPropsWithLayout = AppProps<{ user?: IUser; env?: IServerEnv; err?: Error
  * @link https://nextjs.org/docs/advanced-features/custom-app
  */
 const MyApp = (appProps: AppPropsWithLayout) => {
-  const { Component, err, pageProps } = appProps;
-  const { user, env = {}, err: pageErr } = pageProps;
+  const { Component, err: nextJsError, pageProps } = appProps;
+  const { user, env = {}, err: pageError, httpError } = pageProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
   useEffect(() => {
@@ -68,6 +76,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         <MicrosoftClarity clarityId={env.microsoftClarityId} user={user} />
         <Umami umamiWebSiteId={env.umamiWebSiteId} umamiUrl={env.umamiUrl} user={user} />
         <GoogleAnalytics gaId={env.gaId} user={user} />
+        <SideBarScript />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -77,7 +86,13 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           }}
         />
         {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
-        {getLayout(<Component {...pageProps} err={err || pageErr} />, { ...pageProps })}
+        {httpError && [402, 403].includes(httpError.status) ? (
+          <HttpErrorPage httpError={httpError} />
+        ) : (
+          getLayout(<Component {...pageProps} err={nextJsError || pageError} />, {
+            ...pageProps,
+          })
+        )}
       </AppProviders>
       {user && <Guide user={user} />}
       <RouterProgressBar />

@@ -36,6 +36,8 @@ export interface IClsStore extends ClsStore {
   };
   shareViewId?: string;
   permissions: Action[];
+  // this is used to check if the user is in the space when the user operate in a space
+  spaceId?: string;
   // for share db adapter
   cookie?: string;
   oldField?: IFieldVo;
@@ -53,4 +55,5 @@ export interface IClsStore extends ClsStore {
   appId?: string; // for app internal call
   dataLoaderCache?: IDataLoaderCache;
   clearCacheKeys?: (keyof IPerformanceCacheStore)[];
+  canaryHeader?: string; // x-canary header value for canary release override
 }

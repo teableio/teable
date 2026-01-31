@@ -63,7 +63,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     queryFn: () => getSpaceList().then((data) => data.data),
   });
 
-  const { mutateAsync: moveBaseFn, isLoading: moveBaseLoading } = useMutation({
+  const { mutateAsync: moveBaseFn, isPending: moveBaseLoading } = useMutation({
     mutationFn: (baseId: string) => moveBase(baseId, spaceId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId!) });

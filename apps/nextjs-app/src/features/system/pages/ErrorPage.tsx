@@ -1,5 +1,7 @@
-import Head from 'next/head';
+import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
+import { systemConfig } from '@/features/i18n/system.config';
+import { IllustrationPage } from './IllustrationPage';
 
 type Props = {
   statusCode?: number | null;
@@ -11,26 +13,36 @@ type Props = {
 
 export const ErrorPage: FC<Props> = (props) => {
   const { error, errorId, message, statusCode } = props;
+  const { t } = useTranslation(systemConfig.i18nNamespaces);
 
   return (
-    <>
-      <Head>
-        <title>Error {statusCode}</title>
-      </Head>
-      <div className="container bg-white text-2xl md:text-xl">
-        <div className="size-screen flex flex-col items-center justify-center">
-          <h1 className="m-5 text-5xl text-black md:text-4xl">Woops !</h1>
-          <p className="text-2xl text-black md:text-2xl">
-            Something went wrong. Please try again later.
-          </p>
+    <div className="relative">
+      <IllustrationPage
+        imageLightSrc="/images/layout/error-light.png"
+        imageDarkSrc="/images/layout/error-dark.png"
+        imageAlt="Error"
+        title={t('system:error.title')}
+        description={t('system:error.description')}
+        button={{ label: t('system:links.backToHome'), href: '/' }}
+      />
+      <div className="absolute bottom-0 right-0 m-5 flex flex-col gap-1 rounded-lg border bg-background p-4 text-left text-sm">
+        <div className="flex gap-2" data-testid="error-status-code">
+          <span className="text-muted-foreground">Code: </span>
+          <span className="text-foreground">{statusCode}</span>
         </div>
-        <div className="absolute bottom-0 right-0 m-5 rounded-lg border-2 border-solid border-indigo-400 p-5 text-left text-sm text-gray-700">
-          <p data-testid="error-status-code">Code: {statusCode}</p>
-          <p>Message: {message}</p>
-          <p>Error id: {errorId}</p>
-          <p>ErrorMessage: {error?.message}</p>
+        <div className="flex gap-2">
+          <span className="text-muted-foreground">Message: </span>
+          <span className="text-foreground">{message}</span>
+        </div>
+        <div className="flex gap-2">
+          <span className="text-muted-foreground">Error id: </span>
+          <span className="text-foreground">{errorId}</span>
+        </div>
+        <div className="flex gap-2">
+          <span className="text-muted-foreground">ErrorMessage: </span>
+          <span className="text-foreground">{error?.message}</span>
         </div>
       </div>
-    </>
+    </div>
   );
 };

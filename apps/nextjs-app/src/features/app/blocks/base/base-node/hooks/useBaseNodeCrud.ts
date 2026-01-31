@@ -60,6 +60,7 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IDuplicateBaseNodeRo }) =>
       duplicateBaseNode(baseId, nodeId, ro).then((res) => res.data),
     onSuccess: (node) => {
+      invalidateMenu();
       props?.onDuplicateSuccess?.(node);
     },
   });
@@ -81,6 +82,7 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
       permanent ? permanentDeleteBaseNode(baseId, nodeId) : deleteBaseNode(baseId, nodeId),
     onSuccess: (_, { nodeId }) => {
       props?.onDeleteSuccess?.(nodeId);
+      invalidateMenu();
     },
   });
 

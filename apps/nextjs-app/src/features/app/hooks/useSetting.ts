@@ -15,9 +15,9 @@ export const useSetting = () => {
     disallowSpaceCreation = false,
     disallowSpaceInvitation = false,
     disallowDashboard = false,
-    webSearchEnabled = false,
     appGenerationEnabled = false,
     createdTime,
+    enableCreditReward = false,
   } = setting ?? {};
 
   return {
@@ -25,9 +25,9 @@ export const useSetting = () => {
     disallowSpaceCreation: !user.isAdmin && (isLoading || disallowSpaceCreation),
     disallowSpaceInvitation: !user.isAdmin && (isLoading || disallowSpaceInvitation),
     disallowDashboard,
-    webSearchEnabled,
     appGenerationEnabled,
     createdTime,
+    enableCreditReward,
   };
 };
 

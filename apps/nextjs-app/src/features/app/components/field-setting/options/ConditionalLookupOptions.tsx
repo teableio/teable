@@ -50,6 +50,9 @@ export const ConditionalLookupOptions = ({
     },
     [onOptionsChange]
   );
+  const handleSortLimitDisable = useCallback(() => {
+    onOptionsChange({ sort: undefined, limit: undefined });
+  }, [onOptionsChange]);
 
   const foreignTableId = effectiveOptions.foreignTableId;
   const effectiveBaseId = effectiveOptions.baseId ?? baseId;
@@ -75,6 +78,7 @@ export const ConditionalLookupOptions = ({
             onFilterChange={(filter) => onOptionsChange({ filter: filter ?? undefined })}
             onSortChange={(sort) => onOptionsChange({ sort })}
             onLimitChange={(limit) => onOptionsChange({ limit })}
+            onSortLimitDisable={handleSortLimitDisable}
             sourceTableId={sourceTableId}
           />
         </StandaloneViewProvider>
@@ -94,6 +98,7 @@ interface IConditionalLookupForeignSectionProps {
   onFilterChange: (filter: IConditionalLookupOptions['filter']) => void;
   onSortChange: (sort?: IConditionalLookupOptions['sort']) => void;
   onLimitChange: (limit?: number) => void;
+  onSortLimitDisable: () => void;
   sourceTableId?: string;
 }
 
@@ -108,13 +113,10 @@ const ConditionalLookupForeignSection = ({
   onFilterChange,
   onSortChange,
   onLimitChange,
+  onSortLimitDisable,
   sourceTableId,
 }: IConditionalLookupForeignSectionProps) => {
   const table = useTable();
-  const handleSortLimitDisable = useCallback(() => {
-    onSortChange(undefined);
-    onLimitChange(undefined);
-  }, [onLimitChange, onSortChange]);
 
   return (
     <div className="space-y-3">
@@ -149,7 +151,7 @@ const ConditionalLookupForeignSection = ({
         onLimitChange={onLimitChange}
         defaultLimit={CONDITIONAL_QUERY_DEFAULT_LIMIT}
         toggleTestId="conditional-lookup-sort-limit-toggle"
-        onDisable={handleSortLimitDisable}
+        onDisable={onSortLimitDisable}
       />
     </div>
   );

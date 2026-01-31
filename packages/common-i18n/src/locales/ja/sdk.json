@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "and",
       "or": "or",
-      "where": "where"
+      "where": "where",
+      "meetingAll": "すべての条件を満たす",
+      "meetingAny": "いずれかの条件を満たす"
     },
     "operator": {
       "is": "等しい",
@@ -329,7 +331,7 @@
       "date": "日付や時間を記録します。",
       "createdTime": "レコードが作成された日時を表示します。",
       "lastModifiedTime": "最新の更新日時を表示します。",
-      "attachment": "ファイルや画像をアップロードします。",
+      "attachment": "ファイルのアップロードやAI画像生成が可能、🍌 Nano banana pro などのモデルに対応",
       "checkbox": "シンプルなオン／オフを切り替えます。",
       "rollup": "関連レコードを数式で集計します。",
       "conditionalRollup": "条件に基づいてデータを集計します。",
@@ -425,9 +427,10 @@
     "app": "アプリ",
     "user": "ユーザー",
     "recordHistory": "レコード履歴",
-    "you": "You",
+    "you": "あなた",
     "instance": "インスタンス",
-    "enterprise": "Enterprise"
+    "enterprise": "エンタープライズ",
+    "history": "履歴"
   },
   "formula": {
     "SUM": {
@@ -891,6 +894,7 @@
     "automationNodeParseError": "自動化ノード解析エラー",
     "automationNodeNeedTest": "自動化ノードはテストが必要です",
     "automationNodeTestOutdated": "自動化ノードのテストが古くなっています",
+    "invalidToken": "無効なトークン",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は空の値を許可しません。送信する前に完全に入力してください。",
       "fieldValueDuplicate": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は重複する値を許可しません。送信する前に一意の値を入力してください。",
@@ -1354,6 +1358,28 @@
       "cannotDeployAppBeforeInitialization": "初期化前にアプリをデプロイできません",
       "noProjectOrVersionFound": "プロジェクトまたはバージョンが見つかりません",
       "noDeploymentUrlAvailable": "デプロイURLが利用できません"
+    },
+    "reward": {
+      "notFound": "リワードが見つかりません",
+      "unsupportedSourceType": "サポートされていないリワードソースタイプです",
+      "maxClaimsReached": "今週のリワード請求上限（2回）に達しました",
+      "verificationFailed": "検証に失敗しました: {{errors}}",
+      "alreadyClaimedThisWeek": "今週すでにこのアカウントのリワードを請求しています",
+      "invalidPostUrl": "投稿URLの形式が無効です",
+      "postAlreadyUsed": "この投稿はすでにリワードの請求に使用されています",
+      "unsupportedPlatformUrl": "サポートされていないソーシャルプラットフォームのURLです",
+      "unsupportedPlatform": "サポートされていないプラットフォーム: {{platform}}",
+      "minCharCount": "投稿は少なくとも{{count}}文字必要です",
+      "minFollowerCount": "アカウントには少なくとも{{count}}人のフォロワーが必要です",
+      "mustMention": "投稿には{{mention}}へのメンションが必要です",
+      "fetchTweetFailed": "Xツイートの取得に失敗しました: {{error}}",
+      "tweetNotFound": "Xツイートが見つかりません: {{postId}}",
+      "fetchUserFailed": "Xユーザーの取得に失敗しました: {{error}}",
+      "xUserNotFound": "Xユーザーが見つかりません: {{username}}",
+      "fetchLinkedInPostFailed": "LinkedIn投稿の取得に失敗しました: {{error}}",
+      "linkedInPostNotFound": "LinkedIn投稿が見つかりません: {{postId}}",
+      "linkedInAuthorNotFound": "LinkedIn投稿者が見つかりません: {{postId}}",
+      "fetchLinkedInUserFailed": "LinkedInユーザーの取得に失敗しました: {{error}}"
     }
   }
 }

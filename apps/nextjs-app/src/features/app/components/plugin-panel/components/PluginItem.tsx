@@ -40,7 +40,9 @@ export const PluginItem = (props: {
   const { mutate: removePluginMutate } = useMutation({
     mutationFn: () => removePluginPanelPlugin(tableId, pluginPanelId, pluginInstallId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getPluginPanel(tableId, pluginPanelId));
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.getPluginPanel(tableId, pluginPanelId),
+      });
     },
   });
 
@@ -48,7 +50,9 @@ export const PluginItem = (props: {
     mutationFn: (name: string) =>
       renamePluginPanelPlugin(tableId, pluginPanelId, pluginInstallId, name),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getPluginPanel(tableId, pluginPanelId));
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.getPluginPanel(tableId, pluginPanelId),
+      });
     },
   });
 
@@ -56,7 +60,9 @@ export const PluginItem = (props: {
     mutationFn: (name: string) =>
       duplicatePluginPanelInstalledPlugin(tableId, pluginPanelId, pluginInstallId, { name }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getPluginPanel(tableId, pluginPanelId));
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.getPluginPanel(tableId, pluginPanelId),
+      });
     },
   });
 

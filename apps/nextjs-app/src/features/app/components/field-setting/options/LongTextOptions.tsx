@@ -11,7 +11,7 @@ export const LongTextOptions = (props: {
 
   const onDefaultValueChange = (defaultValue: string | undefined) => {
     onChange?.({
-      defaultValue,
+      defaultValue: defaultValue ?? null,
     });
   };
 

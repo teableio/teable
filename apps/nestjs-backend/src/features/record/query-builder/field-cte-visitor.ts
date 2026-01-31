@@ -40,6 +40,7 @@ import {
   type FieldCore,
   type IRollupFieldOptions,
   DbFieldType,
+  CellValueType,
   extractFieldIdsFromFilter,
   SortFunc,
   isFieldReferenceValue,
@@ -424,6 +425,13 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     if (field.isConditionalLookup) {
       const cteName = this.fieldCteMap.get(field.id);
       if (!cteName) {
+        // Log warning when conditional lookup CTE is missing
+        const fieldCteMapKeys = Array.from(this.fieldCteMap.keys());
+        console.warn(
+          `[ConditionalLookup] CTE not found for field ${field.id} (${field.name}). ` +
+            `Available CTEs: [${fieldCteMapKeys.join(', ')}]. ` +
+            `Returning NULL::${field.dbFieldType}`
+        );
         return this.dialect.typedNullFor(field.dbFieldType);
       }
       return `"${cteName}"."conditional_lookup_${field.id}"`;
@@ -1401,6 +1409,34 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const isJsonHost = hostDbType === DbFieldType.Json;
     const isJsonForeign = foreignDbType === DbFieldType.Json;
 
+    const isUserOrLinkField = (field: FieldCore) =>
+      [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy, FieldType.Link].includes(
+        field.type
+      );
+
+    if (
+      isJsonHost &&
+      isJsonForeign &&
+      isUserOrLinkField(hostField) &&
+      isUserOrLinkField(foreignField)
+    ) {
+      if (hostField.isMultipleCellValue || foreignField.isMultipleCellValue) {
+        return null;
+      }
+      if (this.dbProvider.driver === DriverClient.Pg) {
+        return {
+          hostExpr: `jsonb_extract_path_text(${hostRef}::jsonb, 'id')`,
+          foreignExpr: `jsonb_extract_path_text(${foreignRef}::jsonb, 'id')`,
+        };
+      }
+      if (this.dbProvider.driver === DriverClient.Sqlite) {
+        return {
+          hostExpr: `json_extract(${hostRef}, '$.id')`,
+          foreignExpr: `json_extract(${foreignRef}, '$.id')`,
+        };
+      }
+    }
+
     // Exact type match (e.g., text-text, integer-integer)
     if (hostDbType === foreignDbType) {
       if (isTextHost && isTextForeign) {
@@ -1487,6 +1523,32 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     return this.unwrapSelectName(targetSelect);
   }
 
+  private coerceConditionalLookupTargetExpression(
+    expression: string,
+    targetField: FieldCore
+  ): string {
+    if (targetField.isConditionalLookup || targetField.isMultipleCellValue) {
+      return expression;
+    }
+    if (targetField.cellValueType === CellValueType.Number) {
+      if (this.dbProvider.driver === DriverClient.Pg) {
+        return `(${expression})::double precision`;
+      }
+      if (this.dbProvider.driver === DriverClient.Sqlite) {
+        return `CAST(${expression} AS NUMERIC)`;
+      }
+    }
+    if (targetField.cellValueType === CellValueType.Boolean) {
+      if (this.dbProvider.driver === DriverClient.Pg) {
+        return `(${expression})::boolean`;
+      }
+      if (this.dbProvider.driver === DriverClient.Sqlite) {
+        return `CAST(${expression} AS NUMERIC)`;
+      }
+    }
+    return expression;
+  }
+
   private generateConditionalRollupFieldCte(field: ConditionalRollupFieldCore): void {
     this.generateConditionalRollupFieldCteForScope(this.table, field);
   }
@@ -1542,6 +1604,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         foreignTable,
         foreignAliasUsed,
         selectVisitor
+      );
+      const normalizedExpression = this.coerceConditionalLookupTargetExpression(
+        rawExpression,
+        targetField
       );
       const formattingVisitor = new FieldFormattingVisitor(rawExpression, this.dialect);
       const formattedExpression = targetField.accept(formattingVisitor);
@@ -1774,7 +1840,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     field: FieldCore,
     options: IConditionalLookupOptions
   ): void {
-    if (field.hasError) return;
+    if (field.hasError) {
+      this.logger.warn(
+        `[ConditionalLookup] Skipping CTE generation for field ${field.id} (${field.name}): field.hasError=true`
+      );
+      return;
+    }
     if (this.state.getFieldCteMap().has(field.id)) return;
     if (this.conditionalLookupGenerationStack.has(field.id)) return;
 
@@ -1782,16 +1853,28 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     try {
       const { foreignTableId, lookupFieldId, filter, sort, limit } = options;
       if (!foreignTableId || !lookupFieldId) {
+        this.logger.warn(
+          `[ConditionalLookup] Skipping CTE generation for field ${field.id} (${field.name}): ` +
+            `foreignTableId=${foreignTableId}, lookupFieldId=${lookupFieldId}`
+        );
         return;
       }
 
       const foreignTable = this.tables.getTable(foreignTableId);
       if (!foreignTable) {
+        this.logger.warn(
+          `[ConditionalLookup] Skipping CTE generation for field ${field.id} (${field.name}): ` +
+            `foreignTable not found for foreignTableId=${foreignTableId}`
+        );
         return;
       }
 
       const targetField = foreignTable.getField(lookupFieldId);
       if (!targetField) {
+        this.logger.warn(
+          `[ConditionalLookup] Skipping CTE generation for field ${field.id} (${field.name}): ` +
+            `targetField not found for lookupFieldId=${lookupFieldId} in foreignTable=${foreignTableId}`
+        );
         return;
       }
 
@@ -1852,8 +1935,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
       joinLinkDependencies(aggregateBase);
 
+      const normalizedExpression = this.coerceConditionalLookupTargetExpression(
+        rawExpression,
+        targetField
+      );
       const targetValueAlias = `__cl_target_${field.id}`;
-      aggregateBase.select(this.qb.client.raw(`${rawExpression} as "${targetValueAlias}"`));
+      aggregateBase.select(this.qb.client.raw(`${normalizedExpression} as "${targetValueAlias}"`));
       const projectedTargetExpr = `"${foreignAliasUsed}"."${targetValueAlias}"`;
 
       let orderByClause: string | undefined;
@@ -2100,6 +2187,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const options = field.getConditionalLookupOptions?.();
         if (options) {
           this.generateConditionalLookupFieldCte(field, options);
+        } else {
+          this.logger.warn(
+            `[ConditionalLookup] getConditionalLookupOptions returned undefined for field ${field.id} (${field.name}). ` +
+              `isConditionalLookup=${field.isConditionalLookup}, lookupOptions=${JSON.stringify(field.lookupOptions)}`
+          );
         }
       }
     }

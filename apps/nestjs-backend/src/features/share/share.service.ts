@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ShareViewLinkRecordsType, PluginPosition, CreateRecordAction } from '@teable/openapi';
+import { ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
 import type {
   IShareViewCalendarDailyCollectionRo,
   ShareViewFormSubmitRo,
@@ -22,14 +22,11 @@ import type {
   ISearchIndexByQueryRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
-import { isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import { EventEmitterService } from '../../event-emitter/event-emitter.service';
-import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
@@ -64,8 +61,7 @@ export class ShareService {
     private readonly shareSocketService: ShareSocketService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly eventEmitterService: EventEmitterService
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   async getShareView(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
@@ -232,53 +228,11 @@ export class ShareService {
       });
     }
 
-    const viewId = view.id;
-
-    // check field hidden
-    const visibleFields = await this.fieldService.getFieldsByQuery(tableId, {
-      viewId,
-      filterHidden: !view.shareMeta?.includeHiddenField,
-    });
-    const visibleFieldIds = visibleFields.map(({ id }) => id);
-    const visibleFieldIdSet = new Set(visibleFieldIds);
-
-    if (
-      (!visibleFields.length && !isEmpty(fields)) ||
-      Object.keys(fields).some((fieldId) => !visibleFieldIdSet.has(fieldId))
-    ) {
-      throw new CustomHttpException(
-        'The form contains hidden fields, submission not allowed.',
-        HttpErrorCode.RESTRICTED_RESOURCE,
-        {
-          localization: {
-            i18nKey: 'httpErrors.share.hiddenFieldsSubmissionNotAllowed',
-          },
-        }
-      );
-    }
-
-    const { records } = await this.prismaService.$tx(async () => {
-      this.cls.set('entry', { type: 'form', id: viewId });
-      this.cls.set('skipRecordAuditLog', true);
-      return this.recordOpenApiService.createRecords(tableId, {
-        records: [{ fields }],
-        fieldKeyType: FieldKeyType.Id,
-        typecast,
-      });
-    });
-    await this.emitFormAuditLog(tableId, records.length);
-    if (records.length === 0) {
-      throw new CustomHttpException(
-        'The number of successful submit records is 0',
-        HttpErrorCode.INTERNAL_SERVER_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.share.submitRecordsError',
-          },
-        }
-      );
-    }
-    return records[0];
+    return this.recordOpenApiService.formSubmit(
+      tableId,
+      { viewId: view.id, fields, typecast },
+      { includeHiddenField: view.shareMeta?.includeHiddenField }
+    );
   }
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {
@@ -611,20 +565,5 @@ export class ShareService {
     await this.shareSocketService.validFieldSnapshotPermission(shareInfo, [fieldId]);
     await this.shareSocketService.validRecordSnapshotPermission(shareInfo, [recordId]);
     return this.recordOpenApiService.buttonClick(shareInfo.tableId, recordId, fieldId);
-  }
-
-  async emitFormAuditLog(tableId: string, length: number) {
-    const userId = this.cls.get('user.id');
-    const origin = this.cls.get('origin');
-
-    await this.cls.run(async () => {
-      this.cls.set('user.id', userId);
-      this.cls.set('origin', origin!);
-      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
-        action: CreateRecordAction.FormSubmit,
-        resourceId: tableId,
-        recordCount: length,
-      });
-    });
   }
 }

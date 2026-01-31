@@ -27,6 +27,15 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
       const ref = this.resolveFieldReference(value);
 
       if (isUserOrLink(type)) {
+        const referenceField = this.getComparableReferenceField(value);
+        if (referenceField.isMultipleCellValue) {
+          const leftIdExpr = `jsonb_extract_path_text(${this.tableColumnRef}::jsonb, 'id')`;
+          const refArrayExpr = `jsonb_path_query_array(COALESCE(${ref}, '[]'::jsonb), '$[*].id')`;
+          builderClient.whereRaw(
+            `EXISTS (SELECT 1 FROM jsonb_array_elements_text(${refArrayExpr}) AS ref_id WHERE ref_id = ${leftIdExpr})`
+          );
+          return builderClient;
+        }
         builderClient.whereRaw(
           `jsonb_extract_path_text(${this.tableColumnRef}::jsonb, 'id') = jsonb_extract_path_text(${ref}::jsonb, 'id')`
         );
@@ -61,6 +70,15 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
       const ref = this.resolveFieldReference(value);
 
       if (isUserOrLink(type)) {
+        const referenceField = this.getComparableReferenceField(value);
+        if (referenceField.isMultipleCellValue) {
+          const leftIdExpr = `jsonb_extract_path_text(${this.tableColumnRef}::jsonb, 'id')`;
+          const refArrayExpr = `jsonb_path_query_array(COALESCE(${ref}, '[]'::jsonb), '$[*].id')`;
+          builderClient.whereRaw(
+            `NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text(${refArrayExpr}) AS ref_id WHERE ref_id = ${leftIdExpr})`
+          );
+          return builderClient;
+        }
         builderClient.whereRaw(
           `jsonb_extract_path_text(${this.tableColumnRef}::jsonb, 'id') IS DISTINCT FROM jsonb_extract_path_text(${ref}::jsonb, 'id')`
         );

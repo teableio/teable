@@ -2,13 +2,33 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { unsubscribeEmailLinkMetaDataVoSchema, UnsubscribeSourceType } from './types';
 
 export const GET_UNSUBSCRIBE_LIST = '/unsubscribe/list/{baseId}';
 
-export const unsubscribeItemVoSchema = z.object({
+const unsubscribeItemBaseVoSchema = z.object({
   email: z.string(),
   createdTime: z.string(),
 });
+
+export const unsubscribeItemVoSchema = z.discriminatedUnion('sourceType', [
+  unsubscribeItemBaseVoSchema.extend({
+    sourceType: z.literal(UnsubscribeSourceType.Empty),
+    sourceMetaData: z.null(),
+  }),
+  unsubscribeItemBaseVoSchema.extend({
+    sourceType: z.literal(UnsubscribeSourceType.Legacy),
+    sourceMetaData: z.null(),
+  }),
+  unsubscribeItemBaseVoSchema.extend({
+    sourceType: z.literal(UnsubscribeSourceType.Import),
+    sourceMetaData: z.null(),
+  }),
+  unsubscribeItemBaseVoSchema.extend({
+    sourceType: z.literal(UnsubscribeSourceType.EmailLink),
+    sourceMetaData: unsubscribeEmailLinkMetaDataVoSchema,
+  }),
+]);
 
 export type IUnsubscribeItemVo = z.infer<typeof unsubscribeItemVoSchema>;
 

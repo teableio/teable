@@ -81,7 +81,7 @@ export const PluginEdit = (props: { secret?: string }) => {
     },
   });
 
-  const { mutate: submitApproved, isLoading: submitApprovedLoading } = useMutation({
+  const { mutate: submitApproved, isPending: submitApprovedLoading } = useMutation({
     mutationFn: submitPlugin,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plugin', pluginId] });

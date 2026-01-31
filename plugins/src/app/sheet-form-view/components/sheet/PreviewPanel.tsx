@@ -261,7 +261,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
     }, 100);
   };
 
-  const { mutateAsync: submitFormFn, isLoading: submitFormLoading } = useMutation({
+  const { mutateAsync: submitFormFn, isPending: submitFormLoading } = useMutation({
     mutationFn: ({
       shareId,
       fields,

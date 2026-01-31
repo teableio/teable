@@ -19,6 +19,7 @@
     "back": "返回",
     "remove": "移除",
     "removeConfig": "清空配置",
+    "retry": "重试",
     "saveSucceed": "保存成功！",
     "submitSucceed": "提交成功！",
     "editSucceed": "编辑成功！",
@@ -35,6 +36,7 @@
     "import": "导入",
     "change": "变更",
     "upgrade": "升级",
+    "upgradeToLevel": "升级到{{level}}",
     "search": "搜索",
     "loadMore": "加载更多",
     "collapseSidebar": "折叠侧边栏",
@@ -59,7 +61,12 @@
     "select": "选择",
     "refresh": "刷新",
     "login": "登录",
-    "useTemplate": "使用模版"
+    "useTemplate": "使用模版",
+    "backToSpace": "返回空间",
+    "switchBase": "切换数据库",
+    "collapse": "收起",
+    "viewDetails": "查看详情",
+    "getMore": "获取更多"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -101,6 +108,10 @@
     "useTemplateDialog": {
       "title": "选择空间",
       "description": "请选择一个空间来应用模版"
+    },
+    "non": {
+      "share": "分享",
+      "copy": "已复制"
     }
   },
   "settings": {
@@ -148,7 +159,8 @@
         "createdBy": "创建者",
         "userNonExistent": "用户不存在",
         "preview": "预览",
-        "usage": "应用次数"
+        "usage": "应用次数",
+        "visit": "访问次数"
       },
       "actions": {
         "title": "操作",
@@ -266,7 +278,8 @@
       "interactionMode": "交互模式",
       "mouseMode": "光标模式",
       "touchMode": "触控模式",
-      "systemMode": "跟随系统"
+      "systemMode": "跟随系统",
+      "buySelfHostedLicense": "购买私有化部署许可证"
     },
     "nav": {
       "settings": "设置",
@@ -322,13 +335,13 @@
     "automation": "自动化",
     "authorityMatrix": "权限矩阵",
     "design": "设计",
-    "adminPanel": "管理面板",
+    "adminPanel": "系统管理",
     "license": "私有化部署许可证",
     "instanceId": "实例 ID",
     "beta": "测试版",
     "trash": "回收站",
     "global": "全局",
-    "organizationPanel": "组织管理面板",
+    "organizationPanel": "组织设置",
     "unknownError": "未知错误",
     "pluginPanel": "面板",
     "pluginContextMenu": "菜单",
@@ -337,7 +350,6 @@
     "credits": "算力",
     "aiChat": "AI 对话",
     "app": "应用",
-    "webSearch": "网络搜索",
     "folder": "文件夹",
     "newAutomation": "新自动化",
     "newApp": "新应用",
@@ -460,6 +472,7 @@
       "title": "升级空间站的订阅计划",
       "description": "您只能升级具有「可管理」权限的空间站"
     },
+    "contactAdminToUpgrade": "请联系空间站所有者升级订阅计划。",
     "status": {
       "active": "已激活",
       "canceled": "已取消",
@@ -500,7 +513,7 @@
         "name": "名称",
         "nameDescription": "名称可自定义，用于区分不同的模型提供商",
         "customModel": "自定义模型",
-        "customModelDescription": "AI 能力将使用您的自定义模型并消耗您自己的 Token",
+        "customModelDescription": "配置的自定义模型可以用在 AI 字段、AI 自动化以及 AI 聊天界面，生图模型需要勾选后进行测试",
         "updateLLMProvider": "更新模型提供商",
         "addProvider": "添加模型提供商",
         "addProviderDescription": "添加一个新的模型提供商到列表",
@@ -516,7 +529,6 @@
         "provider": "模型提供商",
         "aiAbilitySettings": "AI 能力设置",
         "aiAbilitySettingsDescription": "配置 AI 能力",
-        "providerDescription": "要使用的模型提供商",
         "modelPreferences": "模型偏好",
         "modelPreferencesDescription": "模型提供商的模型偏好",
         "embeddingModel": "嵌入模型",
@@ -524,7 +536,7 @@
         "translationModel": "翻译模型",
         "translationModelDescription": "要使用的翻译模型",
         "chatModel": "对话模型",
-        "chatModelDescription": "要使用的对话模型，提示：中型编码模型默认用于 AI 公式生成和相关功能",
+        "chatModelDescription": "要使用的对话模型，提示：工具调用是 Teable AI 功能所必需的",
         "chatModels": {
           "sm": "小型对话模型",
           "smDescription": "用于自动生成聊天标题和 Base 名称。推荐使用 claude-haiku-4.5",
@@ -569,9 +581,9 @@
           "cancel": "取消",
           "missingCapabilitiesWarning": "此模型不支持图片或PDF处理，可能会导致部分功能不可用。",
           "modelNotSuitable": "此模型可能不适合高级 AI 功能：",
-          "enableAITitle": "启用AI",
-          "enableAIDescription": "模型测试已完成。AI功能当前未启用。是否启用AI来使用这些模型能力？",
-          "enableAI": "启用AI",
+          "enableAITitle": "启用自定义模型",
+          "enableAIDescription": "模型测试已完成。自定义模型功能当前未启用。是否启用自定义模型来使用这些模型能力？",
+          "enableAI": "启用自定义模型",
           "skipTest": "跳过"
         },
         "chatModelAbility": {
@@ -579,16 +591,25 @@
           "pdf": "PDF",
           "webSearch": "网络搜索",
           "toolCall": "工具调用",
+          "reasoning": "深度推理",
+          "imageGeneration": "图像生成",
           "disabledWebSearch": "禁用网络搜索",
           "lgModelAbility": "模型能力",
           "missingVision": "不支持图片或 PDF 处理",
           "missingToolCall": "不支持工具/函数调用",
+          "notTested": "模型能力尚未测试，请先在提供商设置中测试该模型",
           "supportedFormats": "支持的格式"
+        },
+        "imageModelAbility": {
+          "generation": "文生图",
+          "imageToImage": "图生图"
         },
         "configUpdated": "AI 配置已更新",
         "noModelFound": "未找到模型",
         "searchModel": "搜索模型...",
         "selectModel": "选择模型...",
+        "moreModels": "更多模型",
+        "noModelsAvailable": "暂无可用模型",
         "input": "输入 {{ratio}}",
         "output": "输出 {{ratio}}",
         "inputOrOutputTip": "比例表示算力与 Token 的兑换关系，如 “1:1000” 表示 1 算力 ≈ 1000 Token。<br></br>注意：每次使用至少扣 1 算力，即使实际不足 1 个算力",
@@ -602,12 +623,74 @@
         "testConnection": "测试",
         "testing": "测试中...",
         "testSuccess": "测试成功",
+        "testCompleteWithCount": "测试完成：{{success}}/{{total}} 个模型通过",
+        "allTestsFailed": "所有模型测试失败",
         "testFailed": "测试失败",
+        "batchTest": "测试模型能力",
+        "test": "测试",
+        "testProvider": "测试",
+        "testProviderTooltip": "测试此提供商下的 {{count}} 个模型",
+        "batchTesting": "正在测试所有模型...",
+        "batchTestComplete": "批量测试完成",
+        "batchTestResults": "批量测试结果",
+        "batchTestResultsSummary": "已测试 {{tested}}/{{total}} 个模型：{{success}} 个通过，{{failed}} 个失败",
+        "batchTestNoModels": "没有配置可测试的模型",
+        "modelStatus": "模型状态",
+        "imageSupport": "图片支持",
+        "basicGeneration": "基础生成",
+        "supported": "支持",
+        "notSupported": "不支持",
+        "partialSupport": "部分支持",
+        "urlSupport": "URL",
+        "base64Support": "Base64",
+        "closeResults": "关闭",
+        "retryFailed": "重试失败项",
+        "stopTest": "停止",
+        "pending": "等待中",
+        "configuredModels": "已配置的模型",
         "fillRequiredFields": "请填写所有必填字段",
         "modelsRequired": "请填写至少一个模型",
         "noValidModel": "未找到有效模型",
         "addCustomModel": "添加自定义模型",
         "isOpenRouter": "OpenRouter",
+        "modelRates": "模型费率",
+        "model": "模型",
+        "inputRate": "输入",
+        "outputRate": "输出",
+        "inputRateTip": "每 100 万输入 tokens 的积分",
+        "outputRateTip": "每 100 万输出 tokens 的积分",
+        "rateExplanationTitle": "费率说明 (1 美元 = 100 积分)",
+        "rateExplanationFormula": "积分 = Tokens × 费率 ÷ 1,000,000",
+        "rateExplanationExample": "例如：10,000 tokens，费率 300 = 10000 × 300 ÷ 1M = 3 积分",
+        "ratesDescription": "每 100 万 tokens 的费率（点击「获取定价」可从 OpenRouter 自动填充）",
+        "advancedRates": "高级费率（缓存、推理、图片）",
+        "advancedRatesDescription": "留空自动计算。缓存读取 ≈ 输入的 10%，缓存写入 ≈ 输入的 125%，推理 = 输出费率",
+        "cacheRead": "缓存↓",
+        "cacheWrite": "缓存↑",
+        "reasoning": "推理",
+        "perImage": "图片",
+        "cacheReadRateTip": "缓存命中的输入 token 费率（通常是输入费率的 10-50%，或免费为 0）",
+        "cacheWriteRateTip": "缓存写入的 token 费率（通常与输入相同或多 25%）",
+        "reasoningRateTip": "推理 token 费率，如 o1 的思考（通常与输出费率相同）",
+        "imageRateTip": "每张生成图片的积分",
+        "imageModel": "生图模型",
+        "imageGeneration": "图片生成",
+        "imageToImage": "图生图",
+        "clickToToggleImageModel": "💡 点击标记为生图模型",
+        "markAsImageModel": "标记为生图模型",
+        "imageGenerationModel": "生图模型",
+        "markedAsImageModel": "已标记为生图模型，将测试文生图和图生图能力",
+        "markedAsTextModel": "已标记为文本模型，将测试图片输入（视觉）能力",
+        "fetchPricing": "获取定价",
+        "fetchPricingTip": "从 OpenRouter API 获取模型定价并自动填充费率",
+        "fetchPricingError": "获取定价失败",
+        "pricingPreview": "定价预览",
+        "pricingPreviewDesc": "已匹配 {{total}} 个模型中的 {{matched}} 个",
+        "openRouterId": "OpenRouter ID",
+        "notFound": "未找到",
+        "applyPricing": "应用 ({{count}})",
+        "pricingApplied": "定价已应用",
+        "pricingAppliedCount": "已更新 {{count}} 个模型的定价",
         "hint": {
           "title": "建议",
           "missingV1Suffix": "Base URL 可能缺少 \"/v1\" 后缀。大多数 OpenAI 兼容的 API 需要以 \"/v1\" 结尾的 URL（例如：https://api.openai.com/v1）",
@@ -620,10 +703,135 @@
           "ollamaRunning": "请确保 Ollama 正在本地运行，可以通过 'ollama serve' 命令启动",
           "sslCertificate": "存在 SSL 证书问题，如果使用自签名证书，可能需要额外配置",
           "checkConfiguration": "请检查您的配置，确保 Base URL、API Key 和模型名称都正确"
+        },
+        "recommended": "推荐",
+        "gatewayModels": "AI Gateway 模型",
+        "gatewayModelsDescription": "通过 Vercel AI Gateway 配置推荐模型，获得最佳 AI SDK 支持",
+        "gatewayDescription": "使用 AI Gateway 获得最佳兼容性和可靠性。请在下方 App 配置区域配置 API 密钥。",
+        "providerDescription": "高级选项：为特定用例或自托管模型配置自定义 AI 服务商。",
+        "noGatewayModels": "未配置 Gateway 模型。添加模型以开始使用。",
+        "addModel": "添加模型",
+        "addGatewayModel": "添加 Gateway 模型",
+        "popularModels": "常用模型",
+        "modelId": "模型 ID",
+        "modelIdHint": "AI Gateway 使用的模型标识符（例如：anthropic/claude-sonnet-4）",
+        "searchModelPlaceholder": "输入模型名称搜索...",
+        "noMatchingModels": "未找到匹配的模型",
+        "useCustomId": "使用自定义 ID: {{id}}",
+        "typeToSearch": "输入关键词搜索可用模型",
+        "modelNotFound": "此模型 ID 在可用列表中未找到，请确认拼写正确",
+        "testModel": "测试模型",
+        "testModelSuccess": "模型测试成功！API 响应正常",
+        "testModelImageSuccess": "图像模型已确认存在于 API 中",
+        "testModelNotFound": "模型在 API 列表中未找到",
+        "displayLabel": "显示名称",
+        "isImageModel": "这是图像生成模型",
+        "capabilities": "模型能力",
+        "setAsDefault": "设为默认聊天模型",
+        "quickAdd": "快速添加常用模型：",
+        "guide": {
+          "configStatus": "配置状态",
+          "ready": "就绪",
+          "needsAttention": "需要注意",
+          "incomplete": "未完成",
+          "aiEnabled": "AI 已启用",
+          "aiEnabledDesc": "此实例已启用自定义模型",
+          "aiDisabledDesc": "启用以使用自定义 AI 模型",
+          "gatewayKey": "Gateway API 密钥",
+          "gatewayKeyConfigured": "AI Gateway 密钥已配置",
+          "gatewayKeyMissing": "配置 AI Gateway API 密钥以获得推荐设置",
+          "gatewayKeyRequired": "请先在下方 App 配置区域配置 AI Gateway API 密钥",
+          "gatewayModels": "Gateway 模型",
+          "gatewayModelsConfigured": "已启用 {{count}} 个模型",
+          "gatewayModelsEmpty": "添加 Gateway 模型供用户选择",
+          "providers": "自定义服务商",
+          "providersConfigured": "已配置 {{count}} 个服务商",
+          "providersEmpty": "未配置自定义服务商",
+          "chatModel": "默认聊天模型",
+          "chatModelGateway": "使用 Gateway 模型",
+          "chatModelProvider": "使用自定义服务商模型",
+          "chatModelMissing": "请选择默认聊天模型"
+        },
+        "enableCard": {
+          "title": "AI 服务",
+          "ready": "已配置完成，AI 功能可正常使用",
+          "needsConfig": "已启用，但需要完成以下配置",
+          "disabled": "AI 功能当前未启用",
+          "missingConfig": "待完成配置：",
+          "allConfigured": "所有配置已完成"
+        },
+        "wizard": {
+          "setupProgress": "配置进度",
+          "checklist": "配置清单",
+          "allComplete": "所有必需配置已完成！AI 功能已就绪。",
+          "nextStep": "下一步：{{step}}",
+          "configureAI": "完成以下步骤以启用 AI 功能",
+          "optional": "可选",
+          "gatewayHelp": "AI Gateway：一个 API Key 访问数百模型；首次使用需在 Vercel 绑定信用卡启用免费额度；支持",
+          "gatewayByok": "（自带 Provider Key）",
+          "getApiKey": "获取 API 密钥",
+          "keyInvalid": "API 密钥无效，请检查后重试",
+          "gatewayErrorUnauthorized": "API 密钥无效，请检查是否正确复制",
+          "gatewayErrorNeedCreditCard": "需要绑定信用卡才能使用 AI Gateway，请前往 Vercel 控制台添加",
+          "gatewayErrorInsufficientQuota": "账户余额不足，请充值后再试",
+          "gatewayErrorForbidden": "访问被拒绝，请在 Vercel 控制台检查账户状态",
+          "gatewayErrorNetwork": "网络错误，请检查网络连接或代理配置",
+          "pleaseTest": "请点击测试验证 API 密钥是否有效",
+          "test": "测试",
+          "testing": "测试中...",
+          "attachmentTest": {
+            "title": "附件传输模式",
+            "urlMode": "URL 模式",
+            "base64Mode": "Base64 模式",
+            "accessible": "可用",
+            "inaccessible": "不可用",
+            "urlNotAccessibleWarning": "AI 服务无法访问附件 URL，这在内网部署时很常见。已自动启用 Base64 模式。",
+            "useBase64Mode": "使用 Base64 模式",
+            "base64ModeDescription": "发送前将附件转换为 Base64（Teable 无法被公网访问时使用）",
+            "originChanged": "服务器地址已变更",
+            "originChangedDesc": "自上次测试以来服务器地址已变更，请重新测试以验证附件可访问性。"
+          },
+          "saveAndContinue": "保存并继续",
+          "completeStep1First": "请先完成步骤 1：配置 LLM API",
+          "completeStep2First": "请先完成步骤 2：添加至少一个模型",
+          "addCustom": "自定义...",
+          "enabledModels": "已启用模型",
+          "chatDefault": "聊天默认",
+          "noModelsAvailable": "暂无可用模型，请先在步骤 2 添加模型",
+          "quickSetup": "快速设置",
+          "useRecommended": "使用推荐配置",
+          "useRecommendedDesc": "一键将 {{model}} 设为所有聊天场景的默认模型",
+          "chatModels": "聊天模型",
+          "chatModelTip": "此模型用于侧边栏 AI 聊天功能，由管理员指定，用户无法更改",
+          "selectChatModel": "选择聊天模型...",
+          "lgDesc": "复杂任务、深度分析",
+          "mdDesc": "日常对话、一般任务",
+          "smDesc": "简单查询、快速响应",
+          "readyToUse": "AI 已配置完成，可以开始使用了！",
+          "customProviderHelp": "添加您自己的 AI 服务商（如 OpenAI、Anthropic、Azure 等），配置 API 密钥和模型。",
+          "testModelCapabilities": "测试模型能力",
+          "customModelsAutoImported": "您配置的服务商模型已自动导入到可选模型池。",
+          "modelsCount": "共 {{count}} 个可选模型",
+          "customModelsHint": "如需调整模型配置，请返回步骤 1 修改服务商设置。",
+          "gatewayOption": {
+            "title": "AI Gateway（推荐）",
+            "desc": "通过 Vercel AI Gateway 访问数百种模型，最佳兼容性和可靠性"
+          },
+          "customOption": {
+            "title": "自定义服务商",
+            "desc": "接入自建/私有模型，支持多服务商配置"
+          },
+          "step": {
+            "llmApi": "配置 LLM API",
+            "llmApiDesc": "选择 AI Gateway 或配置自定义服务商",
+            "modelPool": "配置推荐模型",
+            "modelPoolDesc": "用户在 AI 字段和自动化中的推荐模型列表",
+            "chatModel": "设置聊天模型",
+            "chatModelDesc": "侧边栏 AI 聊天使用的模型（从推荐模型列表选择）",
+            "providers": "配置服务商",
+            "providersDesc": "添加和管理 AI 服务商"
+          }
         }
-      },
-      "webSearch": {
-        "description": "配置 Firecrawl API 密钥以启用网络搜索功能，访问 <a>Firecrawl 设置</a> 获取 API 密钥"
       },
       "app": {
         "domain": "域名",
@@ -636,9 +844,11 @@
         "apiProxyDescription": "配置 v0 和 Vercel API 的反向代理地址（如 Cloudflare Workers）。留空则使用默认地址。",
         "v0BaseUrl": "v0 API 代理地址",
         "vercelBaseUrl": "Vercel API 代理地址",
-        "aiGateway": "Vercel AI Gateway (可选)",
+        "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "配置 Vercel AI Gateway 以通过单一端点访问数百种模型。访问 <a>AI Gateway 设置</a> 获取 API 密钥",
-        "aiGatewayApiKey": "AI Gateway API 密钥"
+        "aiGatewayApiKey": "AI Gateway API 密钥",
+        "aiGatewayKeyConfigured": "API 密钥已配置",
+        "aiGatewayBaseUrl": "自定义网关地址"
       }
     },
     "action": {
@@ -653,6 +863,16 @@
     "configuration": {
       "title": "待配置项",
       "description": "完成这些配置以获得完整功能",
+      "progressTitle": "配置进度",
+      "allComplete": "所有配置已完成",
+      "incomplete": "还有配置未完成",
+      "optional": "可选",
+      "completed": "已完成",
+      "group": {
+        "system": "基础配置",
+        "ai": "AI 服务",
+        "appBuilder": "应用构建器"
+      },
       "copyInstance": "复制 ID",
       "list": {
         "publicOrigin": {
@@ -673,15 +893,38 @@
           "description": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用，<anchor>前往设置</anchor>",
           "errorTips": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用"
         },
+        "aiEnable": {
+          "title": "AI 服务（聊天 / AI 字段）",
+          "description": "开启后可使用 AI Chat、AI 字段与自动化能力，<anchor>前往设置</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "AI：配置 LLM API",
+          "description": "选择 AI Gateway 或配置自定义 Provider，<anchor>前往设置</anchor>"
+        },
+        "aiModelPool": {
+          "title": "AI：配置可选模型",
+          "description": "添加/启用至少一个模型供 AI 字段与自动化选择，<anchor>前往设置</anchor>"
+        },
+        "aiChatModel": {
+          "title": "AI：设置聊天模型",
+          "description": "为侧边栏 AI Chat 选择一个默认模型，<anchor>前往设置</anchor>"
+        },
         "app": {
           "title": "应用构建器",
           "description": "您尚未配置 v0 API，应用构建器功能将无法使用，<anchor>前往设置</anchor>",
           "errorTips": "您尚未配置 v0 API，应用构建器功能将无法使用"
         },
-        "webSearch": {
-          "title": "网络搜索",
-          "description": "您尚未配置网络搜索 API，网络搜索功能将无法使用，<anchor>前往设置</anchor>",
-          "errorTips": "您尚未配置网络搜索 API，网络搜索功能将无法使用"
+        "appBuilderV0": {
+          "title": "应用构建器：启用 v0",
+          "description": "配置 v0 API Key 后即可使用应用构建器，<anchor>前往设置</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "应用构建器：自定义域名",
+          "description": "如需使用自定义域名发布应用，请配置域名与 Vercel Token，<anchor>前往设置</anchor>"
+        },
+        "appBuilderApiProxy": {
+          "title": "应用构建器：API 代理",
+          "description": "如需通过代理访问 v0/Vercel API，请配置代理地址，<anchor>前往设置</anchor>"
         },
         "email": {
           "title": "邮箱",
@@ -689,6 +932,19 @@
           "errorTips": "未配置邮箱，自助密码恢复、邮箱验证/通知功能将不可用"
         }
       }
+    },
+    "canary": {
+      "title": "灰度发布",
+      "enable": "启用灰度",
+      "enableDescription": "启用后，所选空间站将激活灰度功能",
+      "spaces": "灰度空间站",
+      "spacesDescription": "已配置 {{count}} 个空间站",
+      "configure": "配置",
+      "spaceIds": "空间站 ID",
+      "spaceIdsDescription": "输入空间站 ID，每行一个或用逗号/空格分隔",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "预览 ({{count}} 个)",
+      "noSpaceIds": "未输入空间站 ID"
     }
   },
   "notification": {
@@ -776,6 +1032,8 @@
     "unsubscribe": "取消订阅",
     "unsubscribeList": "取消订阅列表",
     "unsubscribeTime": "取消订阅时间",
+    "source": "来源",
+    "sourceAutomationDeleted": "自动化或节点已删除",
     "processing": "处理中...",
     "unsubscribeH1": "确认取消订阅",
     "unsubscribeH2": "您即将取消订阅 Teable 未来的促销和产品更新信息。您确定要取消订阅吗？",
@@ -880,9 +1138,27 @@
           "ai": {
             "failed": {
               "title": "AI 任务失败，表 {{tableName}}",
-              "message": "AI 任务在表 {{tableName}} 的字段 {{fieldName}} 中失败。\n\n{{errorMsg}}\n\n点击下面的按钮查看详细信息。"
+              "message": "AI 任务失败 - 表 \"{{tableName}}\" 字段 \"{{fieldName}}\"：{{errorMsg}}"
+            },
+            "cancelled": {
+              "title": "AI 任务已取消",
+              "rateLimit": "表 \"{{tableName}}\" 的 AI 任务因请求频率超限（429）已取消。请稍后重试。",
+              "creditExhausted": "表 \"{{tableName}}\" 的 AI 任务因算力额度已用尽已取消。请升级订阅或等待额度刷新。",
+              "authFailed": "表 \"{{tableName}}\" 的 AI 任务因认证失败已取消。请检查 API Key 配置。",
+              "serviceUnavailable": "表 \"{{tableName}}\" 的 AI 任务因 AI 服务暂时不可用已取消。请稍后重试。",
+              "unknown": "表 \"{{tableName}}\" 的 AI 任务已取消。错误：{{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "奖励领取被拒绝",
+          "message": "您的 <a href=\"{{spaceUrl}}\">{{spaceName}}</a> 奖励申请因以下原因被拒绝：{{errorMessages}}，请检查后重新提交。",
+          "buttonText": "查看空间"
+        },
+        "rewardApproved": {
+          "title": "奖励领取成功",
+          "message": "恭喜！您的 <a href=\"{{spaceUrl}}\">{{spaceName}}</a> 奖励申请已通过。{{amount}} 算力已添加，有效期 {{expiredDays}} 天。",
+          "buttonText": "查看空间"
         }
       }
     }
@@ -913,12 +1189,116 @@
   },
   "noPermissionToCreateBase": "没有权限在任何空间中创建数据库",
   "base": {
-    "deleteTip": "确定要删除 \"{{name}}\" 数据库吗？"
+    "deleteTip": "确定要删除 \"{{name}}\" 数据库吗？",
+    "createResource": "创建",
+    "noPermissionToCreateResource": "您没有权限创建，请联系管理员"
   },
   "app": {
     "title": "应用构建器",
     "description": "配置 v0 API 密钥以启用应用构建器功能，访问 <a>v0 设置</a> 获取 API 密钥",
     "previewAppError": "应用运行报错",
     "sendErrorToAI": "将错误发送给 AI"
+  },
+  "credit": {
+    "title": "算力",
+    "leftAmount": "剩余算力",
+    "winFreeCredits": "获取免费算力",
+    "getCredits": "获取 1000 算力",
+    "winCredit": {
+      "title": "分享正面评价即可获得",
+      "freeCredits": "1000 免费算力",
+      "guidelinesTitle": "分享要求",
+      "tagTeableio": "标记 <bold>@teableio</bold>",
+      "minCharacters": "撰写 <bold>100+</bold> 字符的评价",
+      "minFollowers": "拥有 <bold>10+</bold> 粉丝数",
+      "limitPerWeek": "每个帖子 500 算力，每周最多 2 次（X + LinkedIn）",
+      "postOnX": "发布到 X",
+      "postOnLinkedIn": "发布到 LinkedIn",
+      "preFilledDraft": "🌟 已为您准备好预填草稿！",
+      "claimTitle": "粘贴帖子链接领取算力",
+      "userEmail": "用户邮箱",
+      "postUrlLabel": "帖子链接 (X 或 LinkedIn)",
+      "postUrlPlaceholder": "在此粘贴您的帖子链接",
+      "invalidUrl": "请输入有效的 X 或 LinkedIn 帖子链接",
+      "claiming": "领取中...",
+      "claimCredits": "领取算力",
+      "congratulations": "恭喜！",
+      "claimSuccess": "您已成功领取 500 算力！",
+      "verifying": "正在验证您的帖子...",
+      "verifyingDescription": "我们正在检查您的帖子内容，通常需要几秒钟",
+      "verifyFailed": "验证失败",
+      "tryAgain": "重试"
+    },
+    "error": {
+      "verificationFailed": "验证失败"
+    }
+  },
+  "reward": {
+    "title": "奖励",
+    "rewardCredits": "算力奖励",
+    "minCharCount": "帖子内容至少需要 {{count}} 个字符",
+    "minFollowerCount": "账户至少需要 {{count}} 位粉丝",
+    "mustMention": "帖子必须提及 {{mention}}",
+    "fetchSnapshotFailed": "获取帖子快照失败",
+    "alreadyClaimedThisWeek": "您本周已为此账户领取过奖励",
+    "manage": {
+      "title": "奖励管理",
+      "description": "查看和管理所有空间的奖励记录",
+      "overview": "概览",
+      "records": "记录",
+      "searchSpace": "搜索空间...",
+      "searchRecords": "搜索帖子链接/用户ID...",
+      "dateRange": "选择日期范围",
+      "from": "从",
+      "to": "至",
+      "totalSpaces": "共 {{count}} 个空间",
+      "totalRecords": "共 {{count}} 条记录",
+      "space": "空间",
+      "allSpaces": "全部空间",
+      "user": "用户",
+      "creator": "创建者",
+      "platform": "平台",
+      "allStatuses": "全部状态",
+      "allPlatforms": "全部平台",
+      "pendingCount": "待处理个数",
+      "approvedCount": "通过个数",
+      "rejectedCount": "拒绝个数",
+      "approvedAmount": "通过数量",
+      "consumedAmount": "已消耗数量",
+      "availableAmount": "可用数量",
+      "expiringSoonAmount": "即将过期数量 (7天)",
+      "amount": "数量",
+      "remainingAmount": "剩余数量",
+      "createdTime": "创建时间",
+      "rewardTime": "奖励时间",
+      "expiredTime": "过期时间",
+      "lastModified": "最后修改",
+      "viewDetails": "查看详情",
+      "details": "奖励详情",
+      "basicInfo": "基本信息",
+      "amountInfo": "金额信息",
+      "timeInfo": "时间信息",
+      "socialInfo": "社交信息",
+      "verifyResult": "验证结果",
+      "uniqueKey": "唯一标识",
+      "verify": "验证",
+      "valid": "有效",
+      "invalid": "无效",
+      "errors": "错误",
+      "copied": "{{label}} 已复制",
+      "openPost": "打开帖子",
+      "noData": "暂无数据",
+      "page": "第 {{current}} / {{total}} 页",
+      "status": {
+        "label": "状态",
+        "pending": "待处理",
+        "approved": "已通过",
+        "rejected": "已拒绝"
+      }
+    }
+  },
+  "chat": {
+    "serverError": "服务端发生错误",
+    "serverErrorHint": "请新建对话重试"
   }
 }

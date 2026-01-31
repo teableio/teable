@@ -36,9 +36,10 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
 
   const {
     mutate: changePasswordMutate,
-    isLoading,
+    isPending: isLoading,
     isSuccess,
-  } = useMutation(changePassword, {
+  } = useMutation({
+    mutationFn: changePassword,
     onSuccess: () => {
       toast.success(t('settings.account.changePasswordSuccess.title'), {
         description: t('settings.account.changePasswordSuccess.desc'),

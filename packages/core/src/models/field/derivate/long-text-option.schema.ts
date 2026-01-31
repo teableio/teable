@@ -6,7 +6,8 @@ export const longTextFieldOptionsSchema = z
       .string()
       .optional()
       .transform((value) => (typeof value === 'string' ? value.trim() : value))
-      .optional(),
+      .optional()
+      .nullable(),
   })
   .strict();
 

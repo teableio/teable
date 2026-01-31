@@ -73,12 +73,13 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     }),
     staleTime: 1000,
     refetchOnWindowFocus: false,
-    queryFn: ({ queryKey, pageParam = 0 }) =>
+    queryFn: ({ queryKey, pageParam }) =>
       getSpaceCollaboratorList(queryKey[1], {
         ...queryKey[2],
         skip: pageParam * MEMBERS_PER_PAGE,
         take: MEMBERS_PER_PAGE,
       }).then((res) => res.data),
+    initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => {
       const allCollaborators = pages.flatMap((page) => page.collaborators);
       return allCollaborators.length >= lastPage.total ? undefined : pages.length;
@@ -97,7 +98,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     enabled: hasInviteLinkPermission,
   });
 
-  const { mutate: emailInvitation, isLoading: emailInvitationLoading } = useMutation({
+  const { mutate: emailInvitation, isPending: emailInvitationLoading } = useMutation({
     mutationFn: emailSpaceInvitation,
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -108,28 +109,28 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     },
   });
 
-  const { mutate: createInviteLinkRequest, isLoading: createInviteLinkLoading } = useMutation({
+  const { mutate: createInviteLinkRequest, isPending: createInviteLinkLoading } = useMutation({
     mutationFn: createSpaceInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
     },
   });
 
-  const { mutate: updateInviteLink, isLoading: updateInviteLinkLoading } = useMutation({
+  const { mutate: updateInviteLink, isPending: updateInviteLinkLoading } = useMutation({
     mutationFn: updateSpaceInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
     },
   });
 
-  const { mutate: deleteInviteLink, isLoading: deleteInviteLinkLoading } = useMutation({
+  const { mutate: deleteInviteLink, isPending: deleteInviteLinkLoading } = useMutation({
     mutationFn: deleteSpaceInvitationLink,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
     },
   });
 
-  const { mutate: deleteCollaborator, isLoading: deleteCollaboratorLoading } = useMutation({
+  const { mutate: deleteCollaborator, isPending: deleteCollaboratorLoading } = useMutation({
     mutationFn: ({
       resourceId,
       principalId,
@@ -155,7 +156,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     },
   });
 
-  const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
+  const { mutate: updateCollaborator, isPending: updateCollaboratorLoading } = useMutation({
     mutationFn: ({
       resourceId,
       isBase,
@@ -179,7 +180,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     },
   });
 
-  const { mutate: addCollaborators, isLoading: addCollaboratorsLoading } = useMutation({
+  const { mutate: addCollaborators, isPending: addCollaboratorsLoading } = useMutation({
     mutationFn: async ({
       role,
       collaborators,

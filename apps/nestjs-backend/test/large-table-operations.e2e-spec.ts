@@ -381,144 +381,126 @@ describe('Large table operations timing (e2e)', () => {
     }
   });
 
-  test(
-    'convert dependent columns (timed)',
-    async () => {
-      const activeContext = context;
-      if (!activeContext) {
-        throw new Error(CONTEXT_NOT_INITIALIZED_MESSAGE);
-      }
-
-      const timings: Record<string, number> = {};
-      const memoryStats: Record<string, number> = {};
-
-      const captureMemory = (label: string) => {
-        const stats = process.memoryUsage();
-        const rssMB = stats.rss / 1024 / 1024;
-        memoryStats[label] = Number(rssMB.toFixed(2));
-      };
-
-      const measure = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
-        const start = performance.now();
-        captureMemory(`${label}:start`);
-        try {
-          return await fn();
-        } finally {
-          timings[label] = performance.now() - start;
-          captureMemory(`${label}:end`);
-        }
-      };
-
-      const stringField = await measure('convertToText', () =>
-        convertField(activeContext.mainTable.id, numberField.id, {
-          type: FieldType.SingleLineText,
-        })
-      );
-      expect(stringField.type).toBe(FieldType.SingleLineText);
-
-      const numberAgain = await measure('convertToNumber', () =>
-        convertField(activeContext.mainTable.id, numberField.id, {
-          type: FieldType.Number,
-          options: { formatting: { type: NumberFormattingType.Decimal, precision: 0 } },
-        })
-      );
-      expect(numberAgain.type).toBe(FieldType.Number);
-
-      const finalRecord = await measure('fetchRecord', () =>
-        getRecordApi(activeContext.mainTable.id, activeContext.sampleRecordId, {
-          fieldKeyType: FieldKeyType.Id,
-        }).then((res) => res.data)
-      );
-
-      const finalFields = finalRecord.fields ?? {};
-      const requiredFieldIds = [activeContext.lookupFieldId, activeContext.rollupFieldId];
-
-      for (const fieldId of requiredFieldIds) {
-        expect(finalFields[fieldId]).toBeDefined();
-      }
-
-      const total = Object.values(timings).reduce((sum, current) => sum + current, 0);
-      console.info('[large-table] timings (ms):', {
-        ...Object.fromEntries(
-          Object.entries(timings).map(([label, value]) => [label, Number(value.toFixed(2))])
-        ),
-        total: Number(total.toFixed(2)),
-      });
-
-      console.info('[large-table] memory (MB):', memoryStats);
-    },
-    {
-      timeout: 300_000,
+  test('convert dependent columns (timed)', { timeout: 300_000 }, async () => {
+    const activeContext = context;
+    if (!activeContext) {
+      throw new Error(CONTEXT_NOT_INITIALIZED_MESSAGE);
     }
-  );
 
-  test(
-    'create formula column (timed)',
-    async () => {
-      const activeContext = context;
-      if (!activeContext) {
-        throw new Error(CONTEXT_NOT_INITIALIZED_MESSAGE);
-      }
+    const timings: Record<string, number> = {};
+    const memoryStats: Record<string, number> = {};
 
+    const captureMemory = (label: string) => {
+      const stats = process.memoryUsage();
+      const rssMB = stats.rss / 1024 / 1024;
+      memoryStats[label] = Number(rssMB.toFixed(2));
+    };
+
+    const measure = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
       const start = performance.now();
-      const dynamicFormula = await createField(activeContext.mainTable.id, {
-        id: generateFieldId(),
-        name: `Timed Formula ${Date.now()}`,
-        type: FieldType.Formula,
-        options: {
-          expression: `({${numberField.id}}) + ({${numberFieldB.id}})`,
+      captureMemory(`${label}:start`);
+      try {
+        return await fn();
+      } finally {
+        timings[label] = performance.now() - start;
+        captureMemory(`${label}:end`);
+      }
+    };
+
+    const stringField = await measure('convertToText', () =>
+      convertField(activeContext.mainTable.id, numberField.id, {
+        type: FieldType.SingleLineText,
+      })
+    );
+    expect(stringField.type).toBe(FieldType.SingleLineText);
+
+    const numberAgain = await measure('convertToNumber', () =>
+      convertField(activeContext.mainTable.id, numberField.id, {
+        type: FieldType.Number,
+        options: { formatting: { type: NumberFormattingType.Decimal, precision: 0 } },
+      })
+    );
+    expect(numberAgain.type).toBe(FieldType.Number);
+
+    const finalRecord = await measure('fetchRecord', () =>
+      getRecordApi(activeContext.mainTable.id, activeContext.sampleRecordId, {
+        fieldKeyType: FieldKeyType.Id,
+      }).then((res) => res.data)
+    );
+
+    const finalFields = finalRecord.fields ?? {};
+    const requiredFieldIds = [activeContext.lookupFieldId, activeContext.rollupFieldId];
+
+    for (const fieldId of requiredFieldIds) {
+      expect(finalFields[fieldId]).toBeDefined();
+    }
+
+    const total = Object.values(timings).reduce((sum, current) => sum + current, 0);
+    console.info('[large-table] timings (ms):', {
+      ...Object.fromEntries(
+        Object.entries(timings).map(([label, value]) => [label, Number(value.toFixed(2))])
+      ),
+      total: Number(total.toFixed(2)),
+    });
+
+    console.info('[large-table] memory (MB):', memoryStats);
+  });
+
+  test('create formula column (timed)', { timeout: 300_000 }, async () => {
+    const activeContext = context;
+    if (!activeContext) {
+      throw new Error(CONTEXT_NOT_INITIALIZED_MESSAGE);
+    }
+
+    const start = performance.now();
+    const dynamicFormula = await createField(activeContext.mainTable.id, {
+      id: generateFieldId(),
+      name: `Timed Formula ${Date.now()}`,
+      type: FieldType.Formula,
+      options: {
+        expression: `({${numberField.id}}) + ({${numberFieldB.id}})`,
+      },
+    });
+
+    const elapsed = performance.now() - start;
+    console.info('[large-table] create formula field timing (ms):', Number(elapsed.toFixed(2)));
+
+    expect(dynamicFormula.type).toBe(FieldType.Formula);
+
+    await deleteField(activeContext.mainTable.id, dynamicFormula.id);
+  });
+
+  test(`create ${INSERT_BATCH_SIZE} records batch (timed)`, { timeout: 300_000 }, async () => {
+    if (!context) {
+      throw new Error(CONTEXT_NOT_INITIALIZED_MESSAGE);
+    }
+
+    const linkPool = context.linkedRecordIds.length
+      ? context.linkedRecordIds
+      : context.linkedTable.records.map((record) => record.id);
+
+    if (!linkPool.length) {
+      throw new Error('No linked records available for benchmark insert payload');
+    }
+
+    const now = Date.now();
+    const recordsPayload = Array.from({ length: INSERT_BATCH_SIZE }, (_, index) => {
+      const linkId = linkPool[index % linkPool.length] ?? null;
+      return {
+        fields: {
+          [textField.id]: `Bench row ${now}-${index}`,
+          [numberField.id]: index,
+          ...(linkId ? { [context!.linkFieldId]: [{ id: linkId }] } : {}),
         },
-      });
+      };
+    });
 
-      const elapsed = performance.now() - start;
-      console.info('[large-table] create formula field timing (ms):', Number(elapsed.toFixed(2)));
+    const created = await getTimedRecordsCreation(context.mainTable.id, recordsPayload);
+    expect(created.records.length).toBe(INSERT_BATCH_SIZE);
 
-      expect(dynamicFormula.type).toBe(FieldType.Formula);
-
-      await deleteField(activeContext.mainTable.id, dynamicFormula.id);
-    },
-    {
-      timeout: 300_000,
-    }
-  );
-
-  test(
-    `create ${INSERT_BATCH_SIZE} records batch (timed)`,
-    async () => {
-      if (!context) {
-        throw new Error(CONTEXT_NOT_INITIALIZED_MESSAGE);
-      }
-
-      const linkPool = context.linkedRecordIds.length
-        ? context.linkedRecordIds
-        : context.linkedTable.records.map((record) => record.id);
-
-      if (!linkPool.length) {
-        throw new Error('No linked records available for benchmark insert payload');
-      }
-
-      const now = Date.now();
-      const recordsPayload = Array.from({ length: INSERT_BATCH_SIZE }, (_, index) => {
-        const linkId = linkPool[index % linkPool.length] ?? null;
-        return {
-          fields: {
-            [textField.id]: `Bench row ${now}-${index}`,
-            [numberField.id]: index,
-            ...(linkId ? { [context!.linkFieldId]: [{ id: linkId }] } : {}),
-          },
-        };
-      });
-
-      const created = await getTimedRecordsCreation(context.mainTable.id, recordsPayload);
-      expect(created.records.length).toBe(INSERT_BATCH_SIZE);
-
-      const createdIds = created.records.map((record) => record.id);
-      await deleteRecords(context.mainTable.id, createdIds);
-    },
-    {
-      timeout: 300_000,
-    }
-  );
+    const createdIds = created.records.map((record) => record.id);
+    await deleteRecords(context.mainTable.id, createdIds);
+  });
 });
 
 async function getTimedRecordsCreation(

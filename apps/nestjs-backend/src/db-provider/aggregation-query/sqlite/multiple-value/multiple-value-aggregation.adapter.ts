@@ -72,4 +72,36 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionSqlite {
       )
       .toQuery();
   }
+
+  checked(): string {
+    return this.knex
+      .raw(
+        `SUM(CASE WHEN EXISTS (SELECT 1 FROM json_each(${this.tableColumnRef}) WHERE json_each.value = 1) THEN 1 ELSE 0 END)`
+      )
+      .toQuery();
+  }
+
+  unChecked(): string {
+    return this.knex
+      .raw(
+        `SUM(CASE WHEN ${this.tableColumnRef} IS NULL OR NOT EXISTS (SELECT 1 FROM json_each(${this.tableColumnRef}) WHERE json_each.value = 1) THEN 1 ELSE 0 END)`
+      )
+      .toQuery();
+  }
+
+  percentChecked(): string {
+    return this.knex
+      .raw(
+        `(SUM(CASE WHEN EXISTS (SELECT 1 FROM json_each(${this.tableColumnRef}) WHERE json_each.value = 1) THEN 1 ELSE 0 END) * 1.0 / MAX(COUNT(*), 1)) * 100`
+      )
+      .toQuery();
+  }
+
+  percentUnChecked(): string {
+    return this.knex
+      .raw(
+        `(SUM(CASE WHEN ${this.tableColumnRef} IS NULL OR NOT EXISTS (SELECT 1 FROM json_each(${this.tableColumnRef}) WHERE json_each.value = 1) THEN 1 ELSE 0 END) * 1.0 / MAX(COUNT(*), 1)) * 100`
+      )
+      .toQuery();
+  }
 }

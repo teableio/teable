@@ -1,6 +1,6 @@
 import type { IFilter } from '@teable/core';
 import { FieldType } from '@teable/core';
-import type { ComponentProps } from 'react';
+import { useCallback, useMemo, type ComponentProps } from 'react';
 import type { IFieldInstance } from '../../../model';
 import type { IViewFilterLinkContext } from '../view-filter';
 import { BaseViewFilter, FieldValue } from '../view-filter';
@@ -47,19 +47,26 @@ const FilterLink = (props: IFilterLinkProps) => {
 export const FilterWithTable = (props: IFilterWithTableProps) => {
   const { fields, value, context, onChange, referenceSource } = props;
 
-  const CustomValueComponent = (valueProps: ICustomerValueComponentProps) => {
-    const components = {
+  const components = useMemo(
+    () => ({
       [FieldType.Link]: FilterLink,
-    };
-    return (
-      <FieldValue
-        {...valueProps}
-        components={components}
-        modal={true}
-        referenceSource={referenceSource}
-      />
-    );
-  };
+    }),
+    []
+  );
+
+  const CustomValueComponent = useCallback(
+    (valueProps: ICustomerValueComponentProps) => {
+      return (
+        <FieldValue
+          {...valueProps}
+          components={components}
+          modal={true}
+          referenceSource={referenceSource}
+        />
+      );
+    },
+    [components, referenceSource]
+  );
 
   return (
     <BaseViewFilter

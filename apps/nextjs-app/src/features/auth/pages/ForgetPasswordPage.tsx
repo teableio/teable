@@ -22,7 +22,7 @@ export const ForgetPasswordPage = () => {
   const { data: setting } = usePublicSettingQuery();
   const { resetPasswordSendMailRate } = setting ?? {};
 
-  const { mutate: sendResetPasswordEmailMutate, isLoading } = useMutation({
+  const { mutate: sendResetPasswordEmailMutate, isPending: isLoading } = useMutation({
     mutationFn: sendResetPasswordEmail,
     onSuccess: () => {
       toast.success(t('auth:forgetPassword.success.title'), {

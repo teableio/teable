@@ -1,4 +1,4 @@
-import { NumberFieldCore } from '@teable/core';
+import { NumberFieldCore, parseStringToNumber } from '@teable/core';
 import type { FieldBase } from '../field-base';
 
 export class NumberFieldDto extends NumberFieldCore implements FieldBase {
@@ -15,8 +15,21 @@ export class NumberFieldDto extends NumberFieldCore implements FieldBase {
 
   convertDBValue2CellValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
+      const parsed =
+        value == null || typeof value === 'object' ? value : JSON.parse(value as string);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => this.coerceNumber(item));
+      }
+      return parsed;
     }
-    return value;
+    return this.coerceNumber(value);
+  }
+
+  private coerceNumber(value: unknown): unknown {
+    if (typeof value !== 'string') {
+      return value;
+    }
+    const parsed = parseStringToNumber(value, this.options.formatting);
+    return parsed ?? value;
   }
 }

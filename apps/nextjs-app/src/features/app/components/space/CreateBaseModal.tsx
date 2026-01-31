@@ -29,7 +29,7 @@ export const CreateBaseModalTrigger = ({
   const router = useRouter();
   const allBases = useBaseList();
   const bases = allBases?.filter((base) => base.spaceId === spaceId);
-  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
+  const { mutate: createBaseMutator, isPending: createBaseLoading } = useMutation({
     mutationFn: createBase,
     onSuccess: ({ data }) => {
       router.push({

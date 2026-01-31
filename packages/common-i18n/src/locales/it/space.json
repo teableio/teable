@@ -41,6 +41,9 @@
     "pin": "Preferiti",
     "empty": "Le tue basi e spazi preferiti appariranno qui"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "Non hai il permesso di creare una base"
+  },
   "tip": {
     "delete": "Sei sicuro di voler eliminare <0/>?",
     "title": "Suggerimenti",
@@ -65,7 +68,7 @@
     "empty": "Nessuna base condivisa ancora"
   },
   "trash": {
-    "spaceDescription": "Tutti gli spazi eliminati in questa istanza",
+    "spaceDescription": "Tutti gli spazi eliminati",
     "baseDescription": "Tutte le basi eliminate in questo spazio"
   },
   "integration": {
@@ -89,7 +92,9 @@
   },
   "template": {
     "title": "Modello",
-    "description": "Crea rapidamente una nuova base da un modello"
+    "description": "Crea rapidamente una nuova base da un modello",
+    "noTemplatesAvailable": "Nessun modello disponibile",
+    "noTemplatesDescription": "Non c'è nulla qui al momento"
   },
   "recentlyBase": {
     "title": "Visitati di recente"
@@ -105,6 +110,7 @@
   "baseList": {
     "allBases": "Tutte le basi",
     "owner": "Proprietario",
+    "createdTime": "Creato",
     "lastOpened": "Ultima apertura",
     "enter": "Entra",
     "noTables": "Nessuna tabella",
@@ -150,6 +156,22 @@
     "urlCopied": "URL copiato negli appunti!",
     "urlCopiedForDiscord": "URL copiato negli appunti! Puoi incollarlo su Discord.",
     "publishSuccessDescription": "Condividi il tuo lavoro con il mondo",
-    "shareWith": "Condividi con"
+    "shareWith": "Condividi con",
+    "unpublishedApps": {
+      "title": "App non pubblicate rilevate",
+      "description": "Le app non pubblicate potrebbero causare errori nell'anteprima del modello. Pubblicale ora o continua comunque.",
+      "publishAll": "Pubblica tutte",
+      "publish": "Pubblica",
+      "published": "Pubblicata",
+      "publishing": "Pubblicazione...",
+      "publishFailed": "Pubblicazione fallita",
+      "publishFailedTip1": "Verifica se l'app di origine può essere pubblicata correttamente",
+      "publishFailedTip2": "Prova a ripubblicare questo modello",
+      "notPublished": "Non pubblicata",
+      "ignoreAndContinue": "Ignora e continua",
+      "goToFix": "Vai a correggere",
+      "redeploy": "Ridistribuisci",
+      "unnamedApp": "App senza nome"
+    }
   }
 }

@@ -12,5 +12,7 @@ export const getServerSideTranslations = async (
   configOverride?: UserConfig | null,
   extraLocales?: string[] | false
 ): Promise<SSRConfig> => {
+  // Let serverSideTranslations auto-detect the nearest next-i18next.config.js
+  // This allows EE apps to use their own config without explicitly passing it
   return serverSideTranslations(locale, namespacesRequired, configOverride, extraLocales);
 };

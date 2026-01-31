@@ -112,6 +112,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
                 spaceId={space.id}
                 withUpgrade={space.role === Role.Owner}
                 organization={space?.organization}
+                appSumoTier={subscription?.appSumoTier}
               />
             )}
             {!isCloud && space?.organization && (

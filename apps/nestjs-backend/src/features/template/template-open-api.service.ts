@@ -67,13 +67,7 @@ export class TemplateOpenApiService {
     const { skip = 0, take = 300 } = query ?? {};
     const prisma = this.prismaService.txClient();
 
-    if (take && take > 1000) {
-      throw new CustomHttpException('Take count is too large', HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.template.takeCountTooLarge',
-        },
-      });
-    }
+    this.validateTakeCount(take);
 
     const res = await prisma.template.findMany({
       orderBy: {
@@ -100,34 +94,7 @@ export class TemplateOpenApiService {
       },
     });
 
-    const previewUrlMap: Record<string, string> = {};
-    const userIds = res.map((item) => item.createdBy).filter((id) => !!id);
-    const userMap = await this.getSpecifiedUserInfoByUserId(userIds);
-    for (const item of res) {
-      const cover = item.cover ? JSON.parse(item.cover) : undefined;
-      if (!cover) {
-        continue;
-      }
-
-      const { path } = cover;
-      // Template cover is stored in publicBucket, no need for signed URL
-      previewUrlMap[item.id] = getPublicFullStorageUrl(path);
-    }
-
-    return res.map((item) => {
-      const creator = userMap?.[item.createdBy];
-      return {
-        ...item,
-        cover: item.cover
-          ? {
-              ...JSON.parse(item.cover),
-              presignedUrl: previewUrlMap[item.id],
-            }
-          : undefined,
-        snapshot: item.snapshot ? JSON.parse(item.snapshot) : undefined,
-        createdBy: creator ?? null,
-      };
-    });
+    return this.transformTemplateListResult(res);
   }
 
   async getPublishedTemplateList(templateQuery?: ITemplateQueryRoSchema) {
@@ -137,13 +104,7 @@ export class TemplateOpenApiService {
     const categoryId = templateQuery?.categoryId;
     const search = templateQuery?.search;
 
-    if (take && take > 1000) {
-      throw new CustomHttpException('Take count is too large', HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.template.takeCountTooLarge',
-        },
-      });
-    }
+    this.validateTakeCount(take);
 
     const res = await prisma.template.findMany({
       where: {
@@ -163,21 +124,40 @@ export class TemplateOpenApiService {
       take,
     });
 
+    return this.transformTemplateListResult(res);
+  }
+
+  private validateTakeCount(take: number) {
+    if (take && take > 1000) {
+      throw new CustomHttpException('Take count is too large', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.template.takeCountTooLarge',
+        },
+      });
+    }
+  }
+
+  private async transformTemplateListResult<
+    T extends { id: string; cover: string | null; snapshot: string | null; createdBy: string },
+  >(templates: T[]) {
     const previewUrlMap: Record<string, string> = {};
-    const userIds = res.map((item) => item.createdBy).filter((id) => !!id);
+    const userIds = templates.map((item) => item.createdBy).filter((id) => !!id);
     const userMap = await this.getSpecifiedUserInfoByUserId(userIds);
-    for (const item of res) {
+
+    for (const item of templates) {
       const cover = item.cover ? JSON.parse(item.cover) : undefined;
       if (!cover) {
         continue;
       }
 
-      const { path } = cover;
+      const { path, thumbnailPath } = cover;
+      // Use thumbnail path if the image is larger than thumbnail size
+      const finalThumbnailPath = thumbnailPath?.lg ?? path;
       // Template cover is stored in publicBucket, no need for signed URL
-      previewUrlMap[item.id] = getPublicFullStorageUrl(path);
+      previewUrlMap[item.id] = getPublicFullStorageUrl(finalThumbnailPath);
     }
 
-    return res.map((item) => {
+    return templates.map((item) => {
       const creator = userMap?.[item.createdBy];
       return {
         ...item,

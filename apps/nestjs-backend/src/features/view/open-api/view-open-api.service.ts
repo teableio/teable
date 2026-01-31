@@ -28,6 +28,7 @@ import {
   generatePluginInstallId,
   generateOperationId,
   extractFieldIdsFromFilter,
+  validateFilterOperatorModeCompatibility,
   HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -286,10 +287,13 @@ export class ViewOpenApiService {
   async validateFilter(tableId: string, filter: IFilter) {
     const fieldIds = extractFieldIdsFromFilter(filter);
     if (fieldIds.length > 0) {
-      const unsupportedFields = await this.prismaService.field.findMany({
-        where: { tableId, id: { in: fieldIds }, type: FieldType.Button },
-        select: { id: true },
+      const fields = await this.prismaService.field.findMany({
+        where: { tableId, id: { in: fieldIds } },
+        select: { id: true, type: true },
       });
+
+      // Check for unsupported Button type fields
+      const unsupportedFields = fields.filter((f) => f.type === FieldType.Button);
       if (unsupportedFields.length > 0) {
         throw new CustomHttpException(
           `Filter fields ${unsupportedFields.map((f) => f.id).join(', ')} are unsupported ${FieldType.Button} type fields`,
@@ -300,6 +304,23 @@ export class ViewOpenApiService {
             },
           }
         );
+      }
+
+      // Validate operator + mode compatibility for date fields
+      const fieldTypeMap = fields.reduce(
+        (acc, f) => {
+          acc[f.id] = f.type as FieldType;
+          return acc;
+        },
+        {} as Record<string, FieldType>
+      );
+      const validationErrors = validateFilterOperatorModeCompatibility(filter, fieldTypeMap);
+      if (validationErrors.length > 0) {
+        throw new CustomHttpException(validationErrors[0].message, HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.view.filterInvalidOperatorMode',
+          },
+        });
       }
     }
   }

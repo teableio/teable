@@ -14,7 +14,10 @@ extend(timezone);
 extend(customParseFormat);
 extend(utc);
 
-export const dataFieldCellValueSchema = z.string().datetime({ precision: 3, offset: true });
+// Stored date/time values can come from client-side `Date.toISOString()` (millisecond precision)
+// or from database JSON aggregation (which may omit fractional seconds when zero).
+// Accept both, while still requiring an explicit timezone offset (e.g. `Z`, `+00:00`).
+export const dataFieldCellValueSchema = z.string().datetime({ offset: true });
 
 export type IDateCellValue = z.infer<typeof dataFieldCellValueSchema>;
 

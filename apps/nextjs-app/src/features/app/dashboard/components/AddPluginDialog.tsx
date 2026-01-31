@@ -13,7 +13,7 @@ export const AddPluginDialog = (props: { children?: React.ReactNode; dashboardId
   const { mutate: installPluginMutate } = useMutation({
     mutationFn: (ro: IDashboardInstallPluginRo) => installPlugin(baseId, dashboardId, ro),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(dashboardId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboard(dashboardId) });
     },
   });
 

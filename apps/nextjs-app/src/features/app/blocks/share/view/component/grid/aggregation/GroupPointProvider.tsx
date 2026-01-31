@@ -53,7 +53,10 @@ export const GroupPointProvider = ({ children }: GroupPointProviderProps) => {
   });
 
   const updateGroupPoints = useCallback(
-    () => queryClient.invalidateQueries(ReactQueryKeys.shareViewGroupPoints(shareId, query)),
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.shareViewGroupPoints(shareId, query),
+      }),
     [query, queryClient, shareId]
   );
 

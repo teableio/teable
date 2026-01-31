@@ -2753,6 +2753,8 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       it('retrieves filtered values and mirrors formatting', async () => {
         const hostRecord = await getRecord(host.id, host.records[0].id);
         expect(hostRecord.fields[conditionalLookupMirrorField.id]).toEqual([5, 4]);
+        const lookupValues = hostRecord.fields[conditionalLookupMirrorField.id] as unknown[];
+        expect(lookupValues.every((value) => typeof value === 'number')).toBe(true);
 
         const hostFieldDetail = await getField(host.id, conditionalLookupMirrorField.id);
         const foreignFieldDetail = await getField(products.id, supplierRatingConditionalLookup.id);

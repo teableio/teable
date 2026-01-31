@@ -129,7 +129,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
           className="my-0 h-9 w-full max-w-none"
         />
       </div>
-      <div className="flex flex-col gap-1 rounded-md border px-3 pt-2">
+      <div className="flex flex-col gap-1 rounded-md border px-3 py-2">
         <div className="flex items-center justify-between">
           <span>{t('table:field.editor.filter')}</span>
           <Dialog>

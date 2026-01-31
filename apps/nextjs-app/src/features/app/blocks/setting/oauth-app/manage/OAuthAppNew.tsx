@@ -20,7 +20,7 @@ export const OAuthAppNew = (props: IOAuthAppNewProps) => {
     redirectUris: [],
   });
 
-  const { mutate, isLoading } = useMutation({
+  const { mutate, isPending: isLoading } = useMutation({
     mutationFn: oauthCreate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.oauthAppList() });

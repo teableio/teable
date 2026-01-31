@@ -1,5 +1,10 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import { dehydrate, Hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  dehydrate,
+  HydrationBoundary,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { createQueryClient } from '@teable/sdk/context';
 import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
@@ -24,9 +29,9 @@ export default function LoginRoute(
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Hydrate state={props.dehydratedState}>
+      <HydrationBoundary state={props.dehydratedState}>
         <LoginPage />
-      </Hydrate>
+      </HydrationBoundary>
     </QueryClientProvider>
   );
 }

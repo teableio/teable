@@ -1408,13 +1408,9 @@ export class FieldDuplicateService {
     }
 
     if ('prompt' in aiConfig) {
-      const { attachmentFieldIds = [] } = aiConfig;
       Object.entries(sourceToTargetFieldMap).forEach(([key, value]) => {
         aiConfig.prompt = aiConfig.prompt.replaceAll(key, value);
       });
-      aiConfig.attachmentFieldIds = attachmentFieldIds?.map(
-        (fieldId) => sourceToTargetFieldMap[fieldId]
-      );
     }
 
     const newField = await this.fieldOpenApiService.createField(targetTableId, {
@@ -1523,10 +1519,10 @@ export class FieldDuplicateService {
       }
 
       if ('prompt' in aiConfig) {
-        const { prompt, attachmentFieldIds = [] } = aiConfig;
+        const { prompt } = aiConfig;
         const fieldIds = extractFieldReferences(prompt);
         const keys = Object.keys(fieldMap);
-        return [...fieldIds, ...attachmentFieldIds].every((field) => keys.includes(field));
+        return fieldIds.every((field) => keys.includes(field));
       }
     }
 

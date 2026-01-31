@@ -14,11 +14,21 @@ export class BooleanCellValueFilterAdapter extends CellValueFilterPostgres {
     if (isFieldReferenceValue(value)) {
       return super.isOperatorHandler(builderClient, operator, value, dbProvider);
     }
-    return (value ? super.isNotEmptyOperatorHandler : super.isEmptyOperatorHandler).bind(this)(
-      builderClient,
-      operator,
-      value,
-      dbProvider
-    );
+
+    const tableColumnRef = this.tableColumnRef;
+
+    if (value) {
+      // Filter for checked/true: match exactly true values
+      builderClient.whereRaw(`${tableColumnRef} = true`);
+    } else {
+      // Filter for unchecked/false: match false values OR null values
+      // This handles both formula fields (which return false) and checkbox fields (which store null)
+      builderClient.where(function () {
+        this.whereRaw(`${tableColumnRef} = false`);
+        this.orWhereRaw(`${tableColumnRef} is null`);
+      });
+    }
+
+    return builderClient;
   }
 }

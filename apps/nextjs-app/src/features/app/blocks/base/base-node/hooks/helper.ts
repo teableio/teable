@@ -181,3 +181,184 @@ export const buildTreeItems = (nodes: IBaseNodeVo[]): Record<string, TreeItemDat
   }
   return result as Record<string, TreeItemData>;
 };
+
+/**
+ * Find adjacent non-folder node after deletion using alternating below/above traversal.
+ * This matches the exact behavior of BaseNodeTree's deleteSuccefulyCallback.
+ *
+ * Uses depth-first traversal order (visual tree order):
+ * - getItemBelow: first child > next sibling > parent's next sibling
+ * - getItemAbove: previous sibling's last descendant > parent
+ *
+ * Note: Assumes treeItems is already validated by buildTreeItems/cleanNodes.
+ */
+export const findAdjacentNonFolderNode = (
+  treeItems: Record<string, TreeItemData>,
+  currentNodeId: string
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+): TreeItemData | null => {
+  const isFolder = (nodeId: string) =>
+    treeItems[nodeId]?.resourceType === BaseNodeResourceType.Folder;
+
+  /**
+   * Get the next node in depth-first (visual) order
+   * Order: first child > next sibling > parent's next sibling (recursive)
+   */
+  const getItemBelow = (nodeId: string): string | null => {
+    const node = treeItems[nodeId];
+    if (!node) return null;
+
+    // 1. If has children, return first child
+    if (node.children.length > 0) {
+      return node.children[0];
+    }
+
+    // 2. Find next sibling or ancestor's next sibling
+    let currentId: string | null = nodeId;
+    let levels = 0;
+
+    while (currentId && levels < 100) {
+      const current: TreeItemData | undefined = treeItems[currentId];
+      if (!current) return null;
+
+      const parentId: string = current.parentId ?? ROOT_ID;
+      const parent: TreeItemData | undefined = treeItems[parentId];
+      if (!parent) return null;
+
+      const currentIndex = parent.children.indexOf(currentId);
+
+      // If has next sibling, return it
+      if (currentIndex >= 0 && currentIndex < parent.children.length - 1) {
+        return parent.children[currentIndex + 1];
+      }
+
+      // Go up to parent and continue searching
+      if (parentId === ROOT_ID) return null;
+      currentId = parentId;
+      levels++;
+    }
+
+    return null;
+  };
+
+  /**
+   * Get the previous node in depth-first (visual) order
+   * Order: previous sibling's last descendant > parent
+   */
+  const getItemAbove = (nodeId: string): string | null => {
+    const node = treeItems[nodeId];
+    if (!node) return null;
+
+    const parentId = node.parentId ?? ROOT_ID;
+    const parent = treeItems[parentId];
+    if (!parent) return null;
+
+    const currentIndex = parent.children.indexOf(nodeId);
+
+    // 1. If has previous sibling, return its last descendant
+    if (currentIndex > 0) {
+      const prevSiblingId = parent.children[currentIndex - 1];
+      return getLastDescendant(prevSiblingId);
+    }
+
+    // 2. Return parent (if not root)
+    if (parentId === ROOT_ID) return null;
+    return parentId;
+  };
+
+  /**
+   * Get the last descendant of a node (depth-first, rightmost)
+   */
+  const getLastDescendant = (nodeId: string, depth = 0): string => {
+    // Depth limit as safety net (tree shouldn't be deeper than reasonable limit)
+    if (depth > 100) return nodeId;
+
+    const node = treeItems[nodeId];
+    if (!node || node.children.length === 0) return nodeId;
+
+    const lastChildId = node.children[node.children.length - 1];
+    return getLastDescendant(lastChildId, depth + 1);
+  };
+
+  // Alternating search: below first, then above, repeat
+  // visited set prevents revisiting nodes in case of data anomalies
+  const visited = new Set<string>([currentNodeId]);
+  let belowId: string | null = currentNodeId;
+  let aboveId: string | null = currentNodeId;
+
+  while (belowId || aboveId) {
+    // Try below first
+    if (belowId) {
+      belowId = getItemBelow(belowId);
+      if (belowId && !visited.has(belowId)) {
+        visited.add(belowId);
+        if (!isFolder(belowId)) {
+          return treeItems[belowId];
+        }
+      } else {
+        belowId = null; // Stop this direction
+      }
+    }
+
+    // Then try above
+    if (aboveId) {
+      aboveId = getItemAbove(aboveId);
+      if (aboveId && !visited.has(aboveId)) {
+        visited.add(aboveId);
+        if (!isFolder(aboveId)) {
+          return treeItems[aboveId];
+        }
+      } else {
+        aboveId = null; // Stop this direction
+      }
+    }
+  }
+
+  return null;
+};
+
+export const hasChildrenNode = (parentId: string, nodes: IBaseNodeVo[]): boolean => {
+  const parentNode = nodes.find((node) => node.id === parentId);
+  if (!parentNode) return false;
+
+  // Check if parent has any children
+  if (!parentNode.children || parentNode.children.length === 0) {
+    return false;
+  }
+
+  // Check each child node
+  for (const child of parentNode.children) {
+    const childNode = nodes.find((node) => node.id === child.id);
+    if (!childNode) continue;
+
+    // If child is not a folder, we found a non-folder node
+    if (childNode.resourceType !== BaseNodeResourceType.Folder) {
+      return true;
+    }
+
+    // If child is a folder, recursively check if it has non-folder children
+    if (hasChildrenNode(childNode.id, nodes)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+export const getChildrenNodes = (parentId: string, nodes: IBaseNodeVo[]): IBaseNodeVo[] => {
+  const parentNode = nodes.find((node) => node.id === parentId);
+  if (!parentNode) return [];
+  const children = [];
+  for (const child of parentNode.children ?? []) {
+    const childNode = nodes.find((node) => node.id === child.id);
+    if (!childNode) continue;
+    if (childNode.children && childNode.children.length > 0) {
+      children.push(...getChildrenNodes(childNode.id, nodes));
+    }
+    if (childNode.resourceType === BaseNodeResourceType.Folder) {
+      continue;
+    }
+    children.push(childNode);
+  }
+  return children;
+};

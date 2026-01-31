@@ -1,4 +1,4 @@
-import type { IRecord } from '@teable/core';
+import type { IAttachmentCellValue, IRecord } from '@teable/core';
 import { deleteRecord } from '@teable/openapi';
 import { sonner } from '@teable/ui-lib';
 import { useEffect, useState, type FC, type PropsWithChildren } from 'react';
@@ -41,6 +41,7 @@ interface IExpandRecorderProps {
   buttonClickStatusHook?: IButtonClickStatusHook;
   showHistory?: boolean;
   showComment?: boolean;
+  onAttachmentDownload?: (attachments: IAttachmentCellValue) => void;
 }
 
 export const ExpandRecorder = (props: IExpandRecorderProps) => {
@@ -57,6 +58,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     buttonClickStatusHook,
     showHistory,
     showComment,
+    onAttachmentDownload,
   } = props;
   const { t } = useTranslation();
   const permission = useTablePermission();
@@ -156,6 +158,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
             if (canDelete) await deleteRecord(tableId, recordId);
           }}
           buttonClickStatusHook={buttonClickStatusHook}
+          onAttachmentDownload={onAttachmentDownload}
         />
       </Wrap>
     </div>

@@ -1,16 +1,21 @@
 {
   "notFound": {
-    "title": "404 - Page non trouvée"
+    "title": "Page non trouvée",
+    "description": "Le lien que vous avez suivi est peut-être rompu ou la page a été déplacée."
   },
   "links": {
     "backToHome": "Retour à l'accueil"
   },
   "forbidden": {
-    "title": "403 - Accès interdit",
-    "description": "Vous n'avez pas la permission d'accéder à cette page."
+    "title": "Accès restreint",
+    "description": "Vous avez besoin d'une autorisation pour accéder à cette ressource.\nVeuillez contacter votre administrateur."
   },
   "paymentRequired": {
-    "title": "402 - Mise à niveau de l'abonnement requise",
-    "description": "Votre abonnement actuel ne permet pas d'accéder à cette fonctionnalité. <br></br>Veuillez mettre à niveau votre abonnement pour continuer."
+    "title": "Débloquer la fonctionnalité Premium",
+    "description": "Cette fonctionnalité est disponible dans les forfaits avancés.\nPassez à un forfait supérieur pour étendre vos capacités."
+  },
+  "error": {
+    "title": "Une erreur s'est produite",
+    "description": "Une erreur inattendue s'est produite. Veuillez réessayer plus tard."
   }
 }

@@ -15,6 +15,10 @@ const NETWORK_ERROR_TOAST_ID = 'network-error-toast';
 const NETWORK_ERROR_COOLDOWN_MS = 10 * 1000; // 10 seconds cooldown
 let lastNetworkErrorTime = 0;
 
+// Validation error deduplication - same message won't show within cooldown period
+const VALIDATION_ERROR_COOLDOWN_MS = 5 * 1000; // 5 seconds cooldown
+const lastValidationErrorTimes = new Map<string, number>();
+
 export function toCamelCaseErrorCode(errorCode: string): string {
   return errorCode
     .split('_')
@@ -38,6 +42,7 @@ export const getHttpErrorMessage = (error: unknown, t: ILocaleFunction, prefix?:
   return localization ? getLocalizationMessage(localization, t, prefix) : message;
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export const errorRequestHandler = (error: unknown, t?: ILocaleFunction) => {
   const { code, message, status } = error as IHttpError;
 
@@ -57,6 +62,26 @@ export const errorRequestHandler = (error: unknown, t?: ILocaleFunction) => {
       duration: 3000,
     });
     return;
+  }
+
+  // Validation errors - deduplicate by message to avoid spam when multiple APIs fail with same filter issue
+  if (code === HttpErrorCode.VALIDATION_ERROR && message) {
+    const now = Date.now();
+    const lastTime = lastValidationErrorTimes.get(message);
+    if (lastTime && now - lastTime < VALIDATION_ERROR_COOLDOWN_MS) {
+      return;
+    }
+    lastValidationErrorTimes.set(message, now);
+
+    // Clean up old entries to prevent memory leak
+    if (lastValidationErrorTimes.size > 20) {
+      const threshold = now - VALIDATION_ERROR_COOLDOWN_MS;
+      for (const [key, time] of lastValidationErrorTimes) {
+        if (time < threshold) {
+          lastValidationErrorTimes.delete(key);
+        }
+      }
+    }
   }
 
   // no authentication

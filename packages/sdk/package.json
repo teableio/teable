@@ -26,15 +26,19 @@
       "require": "./dist/index.js"
     },
     "./ui.config": {
-      "import": "./ui.config.js",
-      "require": "./ui.config.js",
+      "import": "./ui.config.cjs",
+      "require": "./ui.config.cjs",
       "types": "./ui.config.d.ts"
+    },
+    "./ui.config.cjs": {
+      "import": "./ui.config.cjs",
+      "require": "./ui.config.cjs"
     }
   },
   "files": [
     "dist",
-    "tailwind.config.js",
-    "ui.config.js",
+    "tailwind.config.cjs",
+    "ui.config.cjs",
     "ui.config.d.ts"
   ],
   "scripts": {
@@ -68,7 +72,7 @@
     "@radix-ui/react-slot": "1.0.2",
     "@radix-ui/react-toolbar": "1.1.0",
     "@radix-ui/react-tooltip": "1.0.7",
-    "@tanstack/react-query": "4.36.1",
+    "@tanstack/react-query": "5.90.16",
     "@tanstack/react-table": "8.11.7",
     "@tanstack/react-virtual": "3.2.0",
     "@teable/common-i18n": "workspace:*",
@@ -114,7 +118,6 @@
     "react-markdown": "9.0.1",
     "react-textarea-autosize": "8.5.3",
     "react-use": "17.5.1",
-    "reconnecting-websocket": "4.4.0",
     "rehype-raw": "7.0.0",
     "remark-gfm": "4.0.0",
     "scroller": "0.0.3",
@@ -123,6 +126,7 @@
     "slate-history": "0.113.1",
     "slate-hyperscript": "0.100.0",
     "slate-react": "0.114.2",
+    "sockjs-client": "1.6.1",
     "ts-key-enum": "2.0.12",
     "ts-keycode-enum": "1.0.6",
     "ts-mixer": "6.0.4",
@@ -139,13 +143,14 @@
     "@testing-library/react": "14.2.2",
     "@types/lodash": "4.17.0",
     "@types/node": "22.18.0",
-    "@types/react": "18.2.69",
-    "@types/react-dom": "18.2.22",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
     "@types/react-hammerjs": "1.0.7",
     "@types/scroller": "0.1.5",
     "@types/sharedb": "3.3.10",
+    "@types/sockjs-client": "1.5.4",
     "@vitejs/plugin-react-swc": "3.6.0",
-    "@vitest/coverage-v8": "2.1.5",
+    "@vitest/coverage-v8": "4.0.17",
     "cross-env": "7.0.3",
     "eslint": "8.57.0",
     "get-tsconfig": "4.7.3",
@@ -160,6 +165,6 @@
     "typescript": "5.4.3",
     "vite-plugin-svgr": "4.2.0",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "2.1.5"
+    "vitest": "4.0.17"
   }
 }

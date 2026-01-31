@@ -132,7 +132,8 @@ describe('OAuthServerService', () => {
 
     it('should handle errors from getOAuthApp', async () => {
       const error = new Error('Database error');
-      vitest.spyOn(service as any, 'getOAuthApp').mockRejectedValue(error);
+      vitest.restoreAllMocks();
+      vitest.spyOn(service as any, 'getOAuthApp').mockRejectedValueOnce(error);
       await service['authorizeValidate']('clientId', '', ['read'], done);
       expect(done).toHaveBeenCalledWith(error);
     });

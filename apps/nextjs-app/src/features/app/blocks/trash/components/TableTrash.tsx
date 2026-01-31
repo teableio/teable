@@ -11,12 +11,7 @@ import { getTrashItems, ResourceType, restoreTrash } from '@teable/openapi';
 import { CollaboratorWithHoverCard, InfiniteTable } from '@teable/sdk/components';
 import { VIEW_ICON_MAP } from '@teable/sdk/components/view/constant';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import {
-  useBasePermission,
-  useFieldStaticGetter,
-  useIsHydrated,
-  useTableId,
-} from '@teable/sdk/hooks';
+import { useBasePermission, useFieldStaticGetter, useIsHydrated } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
@@ -24,8 +19,12 @@ import { useTranslation } from 'next-i18next';
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 
-export const TableTrash = () => {
-  const tableId = useTableId() as string;
+interface ITableTrashProps {
+  tableId: string;
+}
+
+export const TableTrash = (props: ITableTrashProps) => {
+  const { tableId } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const isHydrated = useIsHydrated();
   const queryClient = useQueryClient();
@@ -38,7 +37,10 @@ export const TableTrash = () => {
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
 
-  const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
+  const queryFn = async ({
+    queryKey,
+    pageParam,
+  }: QueryFunctionContext<readonly ['trash-items', string], string | undefined>) => {
     const res = await getTrashItems({
       resourceType: ResourceType.Table,
       resourceId: queryKey[1] as string,
@@ -56,13 +58,14 @@ export const TableTrash = () => {
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
+    initialPageParam: undefined as string | undefined,
     getNextPageParam: () => nextCursor,
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
     mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(tableId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(tableId) });
       toast.success(t('actions.restoreSucceed'));
     },
   });

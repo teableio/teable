@@ -28,7 +28,9 @@ export const PluginLayout = ({ tableId }: { tableId: string }) => {
     mutationFn: (layout: IPluginPanelUpdateLayoutRo) =>
       updatePluginPanelLayout(tableId, activePluginPanelId, layout),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getPluginPanel(tableId, activePluginPanelId));
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.getPluginPanel(tableId, activePluginPanelId),
+      });
     },
   });
 

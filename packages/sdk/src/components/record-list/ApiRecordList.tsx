@@ -11,7 +11,7 @@ import { RecordSearch } from './RecordSearch';
 
 interface IApiRecordListProps {
   queryKey: QueryKey;
-  queryFn: QueryFunction<{ id: string; title?: string }[]>;
+  queryFn: QueryFunction<{ id: string; title?: string }[], QueryKey, number>;
   selectedRecordIds?: string[];
   pageSize: number;
   onSearch?: (search?: string) => void;
@@ -42,6 +42,7 @@ export const ApiRecordList = (props: IApiRecordListProps) => {
     queryFn,
     staleTime: 1000,
     refetchOnWindowFocus: false,
+    initialPageParam: 0,
     getNextPageParam: (lastPage, allPage) =>
       lastPage.length < pageSize ? undefined : allPage.length,
   });
@@ -75,7 +76,7 @@ export const ApiRecordList = (props: IApiRecordListProps) => {
         return <RecordItem title={record.title} active={isActive} />;
       }}
       rowCount={rowCount}
-      isLoading={status === 'loading'}
+      isLoading={status === 'pending'}
       onVisibleChange={(range) => {
         const [, endIndex] = range;
         if (rowCount - 1 <= endIndex && hasNextPage) {

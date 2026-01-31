@@ -42,7 +42,7 @@ const TemplateBase = ({
     enabled: !fixedSpaceId,
   });
 
-  const { mutateAsync: templateCreateBaseMutator, isLoading } = useMutation({
+  const { mutateAsync: templateCreateBaseMutator, isPending: isLoading } = useMutation({
     mutationFn: createBaseFromTemplate,
     onSuccess: ({ data }) => {
       closeModal();

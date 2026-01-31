@@ -48,6 +48,13 @@ export const NotificationsManage: React.FC = () => {
     if (notification?.notification == null) return;
     if (notification.notification.isRead) return;
 
+    // Use a stable toast id for credit-related notifications to prevent stacking
+    // Covers both AI task (creditExhausted) and automation (insufficientCredit) notifications
+    const isCreditNotification =
+      notification.notification.messageI18n?.includes('creditExhausted') ||
+      notification.notification.messageI18n?.includes('insufficientCredit');
+    const toastId = isCreditNotification ? 'credit-exhausted-notification' : undefined;
+
     toast.info(
       <div className="flex  items-center">
         <NotificationIcon
@@ -60,6 +67,7 @@ export const NotificationsManage: React.FC = () => {
         />
       </div>,
       {
+        id: toastId,
         position: 'top-center',
         duration: 1000 * 3,
         closeButton: true,
@@ -78,6 +86,7 @@ export const NotificationsManage: React.FC = () => {
       getNotificationList({ notifyStates: notifyStatus, cursor: pageParam }).then(
         ({ data }) => data
       ),
+    initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: isOpen,
     staleTime: 0,
@@ -92,8 +101,11 @@ export const NotificationsManage: React.FC = () => {
 
   const refresh = () => {
     setNewUnreadCount(undefined);
-    queryClient.invalidateQueries(ReactQueryKeys.notifyUnreadCount());
-    queryClient.resetQueries(ReactQueryKeys.notifyList({ status: notifyStatus }), { exact: true });
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
+    queryClient.resetQueries({
+      queryKey: ReactQueryKeys.notifyList({ status: notifyStatus }),
+      exact: true,
+    });
   };
 
   const renderNewButton = () => {
@@ -111,7 +123,7 @@ export const NotificationsManage: React.FC = () => {
             refresh();
           }}
         >
-          <RefreshCcw />
+          <RefreshCcw className="size-4 shrink-0" />
           <p>{t('notification.new', { count: num })}</p>
         </Button>
       </div>

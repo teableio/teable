@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
-import { Admin, Check, ChevronDown, Database, Plus, Settings, Trash2 } from '@teable/icons';
+import { Check, ChevronDown, Database, Plus, ShieldUser, Trash2 } from '@teable/icons';
 import {
-  BillingProductLevel,
   createSpace,
   getSubscriptionSummaryList,
   PinType,
@@ -13,7 +12,6 @@ import { ReactQueryKeys } from '@teable/sdk';
 import { useSession } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
-  Badge,
   Button,
   cn,
   Command,
@@ -28,62 +26,63 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
+import { Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { spaceConfig } from '@/features/i18n/space.config';
+import {
+  SpaceInnerSettingModal as SpaceInnerSettingModalComponent,
+  SettingTab,
+} from '@overridable/SpaceInnerSettingModal';
+import { Level } from '../../../components/billing/Level';
 import { SpaceAvatar } from '../../../components/space/SpaceAvatar';
 import { useSpaceList } from '../hooks';
 import { usePinMap } from '../usePinMap';
 import { StarButton } from './StarButton';
 
-interface ISubscriptionBadgeProps {
-  level?: BillingProductLevel;
+interface ISpaceSwitcherProps {
+  open?: boolean;
+  setOpen?: (open: boolean) => void;
+  upgradeTip?: ReactNode;
+  creditUsage?: ReactNode;
+  spaceInnerSettingModal?: ReactNode;
 }
 
-const SubscriptionBadge = ({ level }: ISubscriptionBadgeProps) => {
-  if (!level) return null;
-
-  const badgeConfig: Record<BillingProductLevel, { className: string; label: string }> = {
-    [BillingProductLevel.Free]: {
-      className: 'bg-zinc-100 text-zinc-700 hover:bg-zinc-100',
-      label: 'Free',
-    },
-    [BillingProductLevel.Pro]: {
-      className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
-      label: 'Pro',
-    },
-    [BillingProductLevel.Business]: {
-      className: 'bg-blue-100 text-blue-700 hover:bg-blue-100',
-      label: 'Business',
-    },
-    [BillingProductLevel.Enterprise]: {
-      className: 'bg-zinc-900 text-neutral-50 hover:bg-zinc-900',
-      label: 'Enterprise',
-    },
-  };
-
-  const config = badgeConfig[level];
-  if (!config) return null;
-
-  return (
-    <Badge variant="secondary" className={cn('shrink-0 border-transparent', config.className)}>
-      {config.label}
-    </Badge>
-  );
-};
-
-export const SpaceSwitcher = () => {
+export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
+  const {
+    open: controlledOpen,
+    setOpen: controlledSetOpen,
+    upgradeTip,
+    creditUsage,
+    spaceInnerSettingModal,
+  } = props;
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { user } = useSession();
   const isCloud = useIsCloud();
   const queryClient = useQueryClient();
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = useCallback(
+    (value: boolean) => {
+      if (controlledSetOpen) {
+        controlledSetOpen(value);
+      }
+      if (!isControlled) {
+        setInternalOpen(value);
+      }
+    },
+    [controlledSetOpen, isControlled, setInternalOpen]
+  );
+
+  const [settingModalOpen, setSettingModalOpen] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [spaceName, setSpaceName] = useState('');
   const [highlightedValue, setHighlightedValue] = useState<string | undefined>();
@@ -110,9 +109,16 @@ export const SpaceSwitcher = () => {
     return spaceList?.find((space) => space.id === currentSpaceId);
   }, [spaceList, currentSpaceId]);
 
+  const sortedSpaceList = useMemo(() => {
+    if (!spaceList || !currentSpaceId) return spaceList;
+    const currentSpaceItem = spaceList.find((s) => s.id === currentSpaceId);
+    if (!currentSpaceItem) return spaceList;
+    return [currentSpaceItem, ...spaceList.filter((s) => s.id !== currentSpaceId)];
+  }, [spaceList, currentSpaceId]);
+
   const organization = user?.organization;
 
-  const { mutate: addSpace, isLoading } = useMutation({
+  const { mutate: addSpace, isPending: isLoading } = useMutation({
     mutationFn: createSpace,
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
@@ -149,6 +155,7 @@ export const SpaceSwitcher = () => {
 
   const handleSelectSpace = (space: IGetSpaceVo) => {
     setOpen(false);
+    if (space.id === currentSpaceId) return;
     router.push({
       pathname: '/space/[spaceId]',
       query: {
@@ -170,7 +177,11 @@ export const SpaceSwitcher = () => {
           </Button>
         </PopoverTrigger>
 
-        <PopoverContent className="min-w-[360px] p-0" align="start">
+        <PopoverContent
+          className="w-[360px] p-0"
+          align="start"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <Command
             value={highlightedValue}
             onValueChange={setHighlightedValue}
@@ -182,65 +193,75 @@ export const SpaceSwitcher = () => {
               return 0;
             }}
           >
-            <div className="px-4 pb-2 pt-4">
-              <p className="pb-2 text-sm font-semibold ">
-                {t('space:allSpaces')} ({spaceList?.length || 0})
-              </p>
-              <CommandInput
-                placeholder={searchPlaceholder}
-                className="h-8"
-                containerClassName="border rounded-md"
-              />
-            </div>
+            {isCloud && (upgradeTip || creditUsage) && (
+              <div className="flex flex-col gap-2 border-b p-4">
+                {upgradeTip}
+                {creditUsage}
+              </div>
+            )}
 
-            <CommandList className="max-h-[300px]">
-              <CommandEmpty>{t('common:noResult')}</CommandEmpty>
+            <div>
+              <div className="px-4 pb-2 pt-4">
+                <CommandInput
+                  placeholder={searchPlaceholder}
+                  containerClassName="h-8 px-2 border rounded-md"
+                />
+              </div>
 
-              <CommandGroup className="px-2 py-0">
-                {spaceList?.map((space) => {
-                  const isSelected = space.id === currentSpaceId;
-                  const subscription = subscriptionMap.get(space.id);
-                  const isPinned = pinMap?.[space.id];
+              <CommandList className="max-h-[200px]">
+                <CommandEmpty>{t('common:noResult')}</CommandEmpty>
 
-                  return (
-                    <CommandItem
-                      key={space.id}
-                      value={space.id}
-                      keywords={[space.name]}
-                      onSelect={() => handleSelectSpace(space)}
-                      className={cn('group flex items-center gap-2 rounded-md h-10')}
-                    >
-                      <div className="flex min-w-0 grow items-center gap-2">
-                        <SpaceAvatar name={space.name} className="size-6" />
-                        <span className="truncate text-sm ">{space.name}</span>
-                        {isCloud && <SubscriptionBadge level={subscription?.level} />}
-                        <StarButton
-                          id={space.id}
-                          type={PinType.Space}
-                          className={cn('w-0 shrink-0 group-hover:w-auto', {
-                            'opacity-100 w-auto': isPinned,
-                          })}
-                        />
-                      </div>
+                <CommandGroup className="px-2 py-0">
+                  {sortedSpaceList?.map((space) => {
+                    const isSelected = space.id === currentSpaceId;
+                    const subscription = subscriptionMap.get(space.id);
+                    const spaceIsPinned = pinMap?.[space.id];
 
-                      <div className="flex shrink-0 items-center gap-2">
-                        {isSelected && <Check className="size-5 " />}
-                      </div>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
+                    return (
+                      <CommandItem
+                        key={space.id}
+                        value={space.id}
+                        keywords={[space.name]}
+                        onSelect={() => handleSelectSpace(space)}
+                        className={cn('group flex items-center gap-2 rounded-md h-10')}
+                      >
+                        <div className="flex min-w-0 grow items-center gap-2">
+                          <SpaceAvatar name={space.name} className="size-6" />
+                          <span className="truncate text-sm">{space.name}</span>
+                          <StarButton
+                            id={space.id}
+                            type={PinType.Space}
+                            className={cn('w-0 shrink-0 group-hover:w-auto', {
+                              'opacity-100 w-auto': spaceIsPinned,
+                            })}
+                          />
+                          {isCloud && (
+                            <Level
+                              level={subscription?.level}
+                              appSumoTier={subscription?.appSumoTier}
+                            />
+                          )}
+                        </div>
 
-            <div className="w-full px-2 py-1">
-              <Button
-                onClick={handleOpenCreateDialog}
-                variant="ghost"
-                className="flex h-8 w-full items-center justify-start rounded-md p-2 text-blue-600 hover:text-blue-600"
-              >
-                <Plus className="size-4 shrink-0 " />
-                {t('space:action.createSpace')}
-              </Button>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {isSelected && <Check className="size-5" />}
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </CommandList>
+
+              <div className="w-full px-2 py-1">
+                <Button
+                  onClick={handleOpenCreateDialog}
+                  variant="ghost"
+                  className="hover:text-blue-700dark:hover:text-blue-400 flex h-8 w-full items-center justify-start rounded-md p-2 text-blue-500"
+                >
+                  <Plus className="size-4 shrink-0" />
+                  {t('space:action.createSpace')}
+                </Button>
+              </div>
             </div>
 
             <CommandSeparator />
@@ -251,21 +272,22 @@ export const SpaceSwitcher = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setOpen(false)}
-                className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
+                className="flex h-8 items-center gap-2 rounded-md px-2 hover:bg-accent"
               >
                 <Database className="size-4 shrink-0" />
-                <span className="text-sm ">{t('space:sharedBase.title')}</span>
+                <span className="text-sm">{t('space:sharedBase.title')}</span>
               </Link>
+
               {user?.isAdmin && (
                 <Link
                   href="/admin/setting"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setOpen(false)}
-                  className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
+                  className="flex h-8 items-center gap-2 rounded-md px-2 hover:bg-accent"
                 >
-                  <Admin className="size-4 shrink-0" />
-                  <span className="text-sm ">{t('common:noun.adminPanel')}</span>
+                  <ShieldUser className="size-4 shrink-0" />
+                  <span className="text-sm">{t('common:noun.adminPanel')}</span>
                 </Link>
               )}
 
@@ -275,10 +297,10 @@ export const SpaceSwitcher = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setOpen(false)}
-                  className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
+                  className="flex h-8 items-center gap-2 rounded-md px-2 hover:bg-accent"
                 >
-                  <Settings className="size-4 shrink-0" />
-                  <span className="text-sm ">{t('common:noun.organizationPanel')}</span>
+                  <Building2 className="size-4 shrink-0" />
+                  <span className="text-sm">{t('common:noun.organizationPanel')}</span>
                 </Link>
               )}
 
@@ -287,10 +309,10 @@ export const SpaceSwitcher = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setOpen(false)}
-                className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
+                className="flex h-8 items-center gap-2 rounded-md p-2 hover:bg-accent"
               >
                 <Trash2 className="size-4 shrink-0" />
-                <span className="text-sm ">{t('common:trash.spaceTrash')}</span>
+                <span className="text-sm">{t('common:trash.spaceTrash')}</span>
               </Link>
             </div>
           </Command>
@@ -329,6 +351,18 @@ export const SpaceSwitcher = () => {
           </div>
         }
       />
+
+      {spaceInnerSettingModal ? (
+        spaceInnerSettingModal
+      ) : (
+        <SpaceInnerSettingModalComponent
+          open={settingModalOpen}
+          setOpen={setSettingModalOpen}
+          defaultTab={SettingTab.General}
+        >
+          <span className="hidden" />
+        </SpaceInnerSettingModalComponent>
+      )}
     </>
   );
 };

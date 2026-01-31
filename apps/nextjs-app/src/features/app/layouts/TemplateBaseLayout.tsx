@@ -38,7 +38,7 @@ export const TemplateBaseLayout = ({
   const { i18n } = useTranslation();
   const isTemplate = !!base?.template;
   const templateHeader = base?.template?.headers;
-  initAxios({ templateHeader });
+  initAxios(base);
 
   const wsPath = useMemo(() => {
     if (typeof window === 'object' && templateHeader) {
@@ -86,7 +86,7 @@ export const TemplateBaseLayout = ({
                     <div className="flex h-screen w-full">
                       <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
                         <Fragment>
-                          <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
+                          <div className="flex h-full flex-col gap-2 divide-y divide-solid overflow-auto py-2">
                             <BaseSideBar />
                           </div>
                           <div className="grow basis-0" />

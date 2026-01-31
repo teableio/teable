@@ -14,7 +14,7 @@ export const QueryStatus = () => {
   const queryClient = useQueryClient();
   const { t } = useTranslation('chart');
   const refreshQuery = () => {
-    queryClient.invalidateQueries(['baseQuery', baseId, query]);
+    queryClient.invalidateQueries({ queryKey: ['baseQuery', baseId, query] });
   };
 
   return (

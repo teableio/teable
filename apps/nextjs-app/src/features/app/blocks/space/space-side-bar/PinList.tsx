@@ -37,10 +37,10 @@ export const PinList = (props: { className?: string }) => {
   const { mutate: updateOrder } = useMutation({
     mutationFn: updatePinOrder,
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.pinList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });
     },
     onError: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.pinList());
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });
     },
   });
 

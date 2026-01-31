@@ -41,6 +41,9 @@
     "pin": "Pin",
     "empty": "Ihre gepinnten Bases und Spaces werden hier erscheinen"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "Sie haben keine Berechtigung, eine Base zu erstellen"
+  },
   "tip": {
     "delete": "Sind Sie sicher, dass Sie <0/> löschen wollen?",
     "title": "Tipps",
@@ -65,7 +68,7 @@
     "empty": "Noch keine geteilten Bases"
   },
   "trash": {
-    "spaceDescription": "Alle gelöschten Spaces in dieser Instanz",
+    "spaceDescription": "Alle gelöschten Spaces",
     "baseDescription": "Alle gelöschten Bases in diesem Space"
   },
   "integration": {
@@ -89,7 +92,9 @@
   },
   "template": {
     "title": "Vorlage",
-    "description": "Erstellen Sie schnell eine neue Base aus einer Vorlage"
+    "description": "Erstellen Sie schnell eine neue Base aus einer Vorlage",
+    "noTemplatesAvailable": "Keine Vorlagen verfügbar",
+    "noTemplatesDescription": "Hier gibt es derzeit nichts"
   },
   "recentlyBase": {
     "title": "Zuletzt besucht"
@@ -105,6 +110,7 @@
   "baseList": {
     "allBases": "Alle Bases",
     "owner": "Eigentümer",
+    "createdTime": "Erstellt",
     "lastOpened": "Zuletzt geöffnet",
     "enter": "Eintreten",
     "noTables": "Keine Tabellen",
@@ -152,6 +158,22 @@
     "urlCopied": "URL in die Zwischenablage kopiert!",
     "urlCopiedForDiscord": "URL in die Zwischenablage kopiert! Sie können sie in Discord einfügen.",
     "publishSuccessDescription": "Teilen Sie Ihre Arbeit mit der Welt",
-    "shareWith": "Teilen mit"
+    "shareWith": "Teilen mit",
+    "unpublishedApps": {
+      "title": "Unveröffentlichte Apps erkannt",
+      "description": "Unveröffentlichte Apps können Fehler bei der Vorlagenvorschau verursachen. Veröffentlichen Sie sie jetzt oder fahren Sie trotzdem fort.",
+      "publishAll": "Alle veröffentlichen",
+      "publish": "Veröffentlichen",
+      "published": "Veröffentlicht",
+      "publishing": "Veröffentlichen...",
+      "publishFailed": "Veröffentlichung fehlgeschlagen",
+      "publishFailedTip1": "Überprüfen Sie, ob die Quell-App erfolgreich veröffentlicht werden kann",
+      "publishFailedTip2": "Versuchen Sie, diese Vorlage erneut zu veröffentlichen",
+      "notPublished": "Nicht veröffentlicht",
+      "ignoreAndContinue": "Ignorieren und fortfahren",
+      "goToFix": "Zur Behebung",
+      "redeploy": "Erneut bereitstellen",
+      "unnamedApp": "Unbenannte App"
+    }
   }
 }

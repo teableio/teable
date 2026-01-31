@@ -42,7 +42,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
 
   const queryClient = useQueryClient();
 
-  const { mutateAsync: duplicateBaseMutator, isLoading } = useMutation({
+  const { mutateAsync: duplicateBaseMutator, isPending: isLoading } = useMutation({
     mutationFn: duplicateBase,
     onSuccess: ({ data }) => {
       targetSpaceId &&

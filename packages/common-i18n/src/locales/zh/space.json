@@ -45,6 +45,9 @@
     "pin": "收藏",
     "empty": "您收藏的数据库和空间将显示在这里"
   },
+  "tooltip": {
+    "noPermissionToCreateBase": "您没有权限创建数据库"
+  },
   "tip": {
     "delete": "确定要删除 \"<0/>\" 空间吗？",
     "title": "提示",
@@ -69,7 +72,7 @@
     "empty": "暂无分享给我的数据库"
   },
   "trash": {
-    "spaceDescription": "该实例下所有已删除的空间",
+    "spaceDescription": "所有已删除的空间",
     "baseDescription": "该空间下所有已删除的数据库"
   },
   "integration": {
@@ -93,7 +96,9 @@
   },
   "template": {
     "title": "模板中心",
-    "description": "快速从模板创建一个新数据库"
+    "description": "快速从模板创建一个新数据库",
+    "noTemplatesAvailable": "暂无模板",
+    "noTemplatesDescription": "当前没有可用的模板"
   },
   "recentlyBase": {
     "title": "最近访问"
@@ -109,10 +114,14 @@
   "baseList": {
     "allBases": "所有数据库",
     "owner": "所有者",
+    "createdTime": "创建时间",
     "lastOpened": "最近打开",
     "enter": "进入",
     "noTables": "暂无表",
-    "empty": "暂无数据库"
+    "empty": "暂无数据库",
+    "recent": "最近访问",
+    "manual": "手动排序",
+    "noBasesFound": "未找到数据库"
   },
   "publishBase": {
     "title": "发布数据库到社区",
@@ -154,6 +163,22 @@
     "urlCopied": "链接已复制到剪贴板！",
     "urlCopiedForDiscord": "链接已复制到剪贴板！你可以在 Discord 中粘贴。",
     "publishSuccessDescription": "分享你的作品到世界",
-    "shareWith": "分享到"
+    "shareWith": "分享到",
+    "unpublishedApps": {
+      "title": "检测到未发布的应用",
+      "description": "未发布的应用可能导致模板预览失败，建议先发布后继续。",
+      "publishAll": "全部发布",
+      "publish": "发布",
+      "published": "已发布",
+      "publishing": "发布中",
+      "notPublished": "未发布",
+      "publishFailed": "发布失败",
+      "publishFailedTip1": "检查源应用是否能正常发布",
+      "publishFailedTip2": "尝试重新发布此模板",
+      "ignoreAndContinue": "忽略并继续",
+      "goToFix": "去修复",
+      "redeploy": "重新部署",
+      "unnamedApp": "未命名应用"
+    }
   }
 }

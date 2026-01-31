@@ -32,7 +32,7 @@ const WaitlistPageInner = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const router = useRouter();
 
-  const { mutate: joinWaitlistMutation, isLoading } = useMutation({
+  const { mutate: joinWaitlistMutation, isPending: isLoading } = useMutation({
     mutationFn: (ro: IJoinWaitlistRo) => joinWaitlist(ro),
     onSuccess: () => {
       setIsSubmitted(true);

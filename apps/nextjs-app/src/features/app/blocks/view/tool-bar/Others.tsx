@@ -36,15 +36,6 @@ const OthersList = ({
           </ToolBarButton>
         )}
       </SharePopover>
-      <APIDialog>
-        <ToolBarButton
-          text="API"
-          className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
-          textClassName={textClassName}
-        >
-          <Code2 className="size-4" />
-        </ToolBarButton>
-      </APIDialog>
       {!foldButton && <div className="mx-1 h-4 w-px shrink-0 bg-border" />}
       <PersonalViewSwitch
         textClassName={textClassName}

@@ -1,21 +1,20 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBaseNodeChannel } from '@teable/core';
 import type { IBaseNodeTreeVo, IBaseNodeVo } from '@teable/openapi';
-import { getBaseNodeTree } from '@teable/openapi';
+import { BaseNodeResourceType, getBaseNodeTree } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useConnection } from '@teable/sdk/hooks';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { buildTreeItems } from './helper';
+import { buildTreeItems, hasChildrenNode } from './helper';
 
 export type TreeItemData = Omit<IBaseNodeVo, 'children'> & { children: string[] };
 
-export const useBaseNode = (baseId: string) => {
+export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => {
   const { connection } = useConnection();
   const channel = getBaseNodeChannel(baseId);
   const presence = connection?.getPresence(channel);
   const [nodes, setNodes] = useState<IBaseNodeVo[]>([]);
-
   const queryClient = useQueryClient();
 
   // Initialize treeItems from cache to avoid flash of empty state on remount
@@ -53,11 +52,22 @@ export const useBaseNode = (baseId: string) => {
 
   useEffect(() => {
     if (nodes.length > 0) {
-      setTreeItems(buildTreeItems(nodes));
+      setTreeItems(
+        buildTreeItems(
+          isRestrictedAuthority
+            ? nodes.filter((node) => {
+                if (node.resourceType === BaseNodeResourceType.Folder) {
+                  return hasChildrenNode(node.id, nodes);
+                }
+                return true;
+              })
+            : nodes
+        )
+      );
     } else {
       setTreeItems({});
     }
-  }, [nodes, setTreeItems]);
+  }, [nodes, setTreeItems, isRestrictedAuthority]);
 
   useEffect(() => {
     if (!presence || !channel) {

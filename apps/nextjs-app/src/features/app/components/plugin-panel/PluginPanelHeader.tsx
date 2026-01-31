@@ -50,14 +50,14 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
   const { mutate: deletePluginPanelMutate } = useMutation({
     mutationFn: () => deletePluginPanel(tableId, activePluginPanelId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getPluginPanelList(tableId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getPluginPanelList(tableId) });
     },
   });
 
   const { mutate: renamePluginPanelMutate } = useMutation({
     mutationFn: (name: string) => renamePluginPanel(tableId, activePluginPanelId, { name }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getPluginPanelList(tableId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getPluginPanelList(tableId) });
       setRename(null);
     },
   });
@@ -68,7 +68,7 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
         name: `${name} ${t('common:noun.copy')}`,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getPluginPanelList(tableId));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getPluginPanelList(tableId) });
       setRename(null);
       toast.success(t('table:table.actionTips.copySuccessful'));
     },

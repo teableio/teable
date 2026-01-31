@@ -1,5 +1,11 @@
 import type { RowHeightLevel, IGridViewOptions } from '@teable/core';
-import { ArrowUpDown, EyeOff, Filter as FilterIcon, LayoutList } from '@teable/icons';
+import {
+  ArrowUpDown,
+  EyeOff,
+  Filter as FilterIcon,
+  LayoutList,
+  AlertTriangle,
+} from '@teable/icons';
 import { useView, RowHeight, Group, HideFields } from '@teable/sdk';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
@@ -33,18 +39,22 @@ export const Toolbar = () => {
         )}
       </HideFields>
       <ShareViewFilter filters={view?.filter || null} onChange={onFilterChange}>
-        {(text, isActive) => (
+        {(text, isActive, hasWarning) => (
           <ToolBarButton
             isActive={isActive}
             text={text}
             className={cn(
               'max-w-xs',
               isActive &&
-                'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30'
+                'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
+              hasWarning && 'border-yellow-500'
             )}
             textClassName="@2xl/toolbar:inline"
           >
-            <FilterIcon className="size-4 text-sm" />
+            <>
+              <FilterIcon className="size-4 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 text-yellow-500" />}
+            </>
           </ToolBarButton>
         )}
       </ShareViewFilter>

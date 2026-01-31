@@ -7,7 +7,7 @@ import React from 'react';
 import { GridViewBaseInner } from './GridViewBaseInner';
 
 interface IGridViewProps {
-  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | undefined };
+  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | null };
   onRowExpand?: (recordId: string) => void;
 }
 

@@ -17,11 +17,12 @@ import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { UploadType, type INotifyVo } from '@teable/openapi';
-import { FilePreviewProvider, ScrollArea, cn, sonner } from '@teable/ui-lib';
+import { Button, FilePreviewProvider, ScrollArea, cn, sonner } from '@teable/ui-lib';
 import { omit } from 'lodash';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useBaseId, useIsMobile } from '../../../../hooks';
+import { useDownloadAttachmentsStore } from '../../../../store';
 import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
 import { useAttachmentPreviewI18Map } from '../../../hooks';
 import { FileZone } from '../../../upload/FileZone';
@@ -38,6 +39,8 @@ export interface IUploadAttachment {
   attachments: IAttachmentCellValue;
   attachmentManager?: AttachmentManager;
   onChange?: (attachment: IAttachmentCellValue | null) => void;
+  /** Show download all button, uses store to trigger download */
+  showDownloadAll?: boolean;
   readonly?: boolean;
   disabled?: boolean;
 }
@@ -62,10 +65,12 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
       className,
       attachments,
       onChange,
+      showDownloadAll,
       readonly,
       disabled,
       attachmentManager = defaultAttachmentManager,
     } = props;
+    const triggerCellDownload = useDownloadAttachmentsStore((state) => state.triggerCellDownload);
     const { resolvedTheme } = useTheme();
     const baseId = useBaseId();
     const [uploadingFiles, setUploadingFiles] = useState<IUploadingFile[]>([]);
@@ -158,6 +163,10 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
                   uploadList.findIndex((item) => item.id === b.id)
               ),
             ]);
+            const uploadedIds = batchResult.completed.map((item) => item.id);
+            requestAnimationFrame(() => {
+              setUploadingFiles((prev) => prev.filter((item) => !uploadedIds.includes(item.id)));
+            });
             batchResult.completed = [];
           }
         };
@@ -172,10 +181,6 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 
           batchResult.completed.push(newAttachment);
           batchResult.pending--;
-
-          // Remove from uploading list
-          setUploadingFiles((prev) => prev.filter((item) => item.id !== id));
-
           if (batchResult.pending === 0) {
             commitBatch();
           }
@@ -183,10 +188,6 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 
         const handleError = (file: IFile, error?: string, code?: number) => {
           batchResult.pending--;
-
-          // Remove from uploading list on error
-          setUploadingFiles((prev) => prev.filter((item) => item.id !== file.id));
-
           if (code === 402) {
             useUsageLimitModalStore.setState({
               modalType: UsageLimitModalType.Upgrade,
@@ -195,11 +196,13 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
           } else {
             toast.error(error ?? t('common.uploadFailed'));
           }
-
           // Commit when all files are processed (even if some failed)
           if (batchResult.pending === 0) {
             commitBatch();
           }
+          requestAnimationFrame(() => {
+            setUploadingFiles((prev) => prev.filter((item) => item.id !== file.id));
+          });
         };
 
         attachmentManager.upload(
@@ -282,7 +285,19 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 
     return (
       <div className={cn('flex h-full flex-col overflow-hidden p-4', className)}>
-        <div className="relative flex-1 overflow-hidden">
+        {attachments.length > 0 && showDownloadAll && (
+          <div className="absolute bottom-0 right-0 z-10">
+            <Button
+              className="font-normal opacity-50"
+              variant="link"
+              size={'sm'}
+              onClick={() => triggerCellDownload(attachments, 'attachments.zip')}
+            >
+              {t('editor.attachment.downloadAll')}
+            </Button>
+          </div>
+        )}
+        <div className="relative flex flex-1 overflow-hidden">
           <FileZone
             action={['drop', 'paste']}
             disabled={disabled || readonly}
@@ -290,7 +305,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
             zoneClassName={cn('h-12 cursor-default', {
               'h-[120px]': totalCount === 0,
             })}
-            className="min-h-[auto]"
+            className="size-auto min-h-0 flex-1"
             defaultText={
               <div className="flex items-center justify-center">
                 <p className="text-sm">

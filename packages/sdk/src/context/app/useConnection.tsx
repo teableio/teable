@@ -2,14 +2,14 @@ import { HttpError, HttpErrorCode } from '@teable/core';
 import { toast } from '@teable/ui-lib';
 import { debounce } from 'lodash';
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';
 import type { ConnectionReceiveRequest, Socket } from 'sharedb/lib/sharedb';
+import { ReconnectingSockJS } from '../../utils/reconnectingSockJS';
 import { isConnected, useConnectionAutoManage } from './useConnectionAutoManage';
 
 export function getWsPath() {
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${wsProtocol}//${window.location.host}/socket`;
+  // SockJS uses HTTP/HTTPS protocol for initial handshake
+  return `${window.location.origin}/socket`;
 }
 
 const ignoreErrorCodes = [HttpErrorCode.VIEW_NOT_FOUND];
@@ -33,21 +33,29 @@ const shareDbErrorHandler = (error: unknown) => {
 export const useConnection = (path?: string) => {
   const [connected, setConnected] = useState(false);
   const [connection, setConnection] = useState<Connection>();
-  const [socket, setSocket] = useState<ReconnectingWebSocket | null>(null);
+  const [socket, setSocket] = useState<ReconnectingSockJS | null>(null);
   const [refreshTime, setRefreshTime] = useState(Date.now());
 
   useEffect(() => {
-    setSocket((prev) => {
-      if (prev) {
-        return prev;
-      }
-      return new ReconnectingWebSocket(path || getWsPath());
-    });
+    const newSocket = new ReconnectingSockJS(path || getWsPath());
+    setSocket(newSocket);
+
+    return () => {
+      // Cleanup socket on unmount or path change
+      newSocket.destroy();
+    };
   }, [path]);
 
   const updateRefreshTime = useMemo(() => {
     return debounce(() => setRefreshTime(Date.now()), 1000);
   }, []);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      updateRefreshTime.cancel();
+    };
+  }, [updateRefreshTime]);
 
   const updateShareDb = useCallback(() => {
     if (socket && isConnected(socket)) {
@@ -68,7 +76,7 @@ export const useConnection = (path?: string) => {
     if (!socket) {
       return;
     }
-    if (socket && !isConnected(socket)) {
+    if (!isConnected(socket)) {
       socket.reconnect();
     }
     const connection = new Connection(socket as Socket);

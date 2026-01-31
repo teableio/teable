@@ -8,12 +8,6 @@ import {
   generateTemplateId,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  CollaboratorType,
-  ResourceType,
-  BaseNodeResourceType,
-  BaseDuplicateMode,
-} from '@teable/openapi';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
@@ -26,7 +20,15 @@ import type {
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import { keyBy, isNumber, pick } from 'lodash';
+import {
+  CollaboratorType,
+  ResourceType,
+  BaseNodeResourceType,
+  BaseDuplicateMode,
+  UploadType,
+  PrincipalType,
+} from '@teable/openapi';
+import { keyBy, isNumber, pick, uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -35,8 +37,12 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { updateOrder } from '../../utils/update-order';
+import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import { ATTACHMENT_LG_THUMBNAIL_HEIGHT } from '../attachments/constant';
+import StorageAdapter from '../attachments/plugins/adapter';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
+import { CanaryService } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { GraphService } from '../graph/graph.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
@@ -55,6 +61,8 @@ export class BaseService {
     private readonly permissionService: PermissionService,
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly graphService: GraphService,
+    private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly canaryService: CanaryService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -114,6 +122,10 @@ export class BaseService {
     const { role, collaboratorType } = template
       ? { role: Role.Viewer, collaboratorType: CollaboratorType.Base }
       : await this.getRoleByBaseId(baseId, base.spaceId);
+
+    // Check if this base's space is in canary release
+    const isCanary = await this.canaryService.isSpaceInCanary(base.spaceId);
+
     return {
       ...base,
       role,
@@ -122,6 +134,7 @@ export class BaseService {
         template?.baseId === baseId
           ? { id: template.id, headers: this.permissionService.generateTemplateHeader(template.id) }
           : undefined,
+      isCanary: isCanary || undefined, // Only include if true
     };
   }
 
@@ -141,43 +154,55 @@ export class BaseService {
       },
       where: {
         deletedTime: null,
-        OR: [
-          {
-            id: {
-              in: baseIds,
-            },
-          },
-          {
-            spaceId: {
-              in: spaceIds,
-            },
-            space: {
-              deletedTime: null,
-            },
-          },
-        ],
+        OR: [{ id: { in: baseIds } }, { spaceId: { in: spaceIds }, space: { deletedTime: null } }],
       },
       orderBy: [{ spaceId: 'asc' }, { order: 'asc' }],
     });
 
-    const createdUserList = await this.prismaService.user.findMany({
-      where: { id: { in: baseList.map((base) => base.createdBy) } },
+    if (!baseList.length) {
+      return [];
+    }
+
+    const baseSpaceIds = uniq(baseList.map((base) => base.spaceId));
+    const spaceCollaborators = await this.prismaService.collaborator.findMany({
+      where: {
+        resourceType: CollaboratorType.Space,
+        resourceId: { in: baseSpaceIds },
+        principalType: PrincipalType.User,
+      },
+      select: { resourceId: true, principalId: true, roleName: true },
+    });
+
+    const validCreatorSet = new Set(
+      spaceCollaborators.map((c) => `${c.resourceId}:${c.principalId}`)
+    );
+    const spaceOwnerMap = new Map(
+      spaceCollaborators
+        .filter((c) => c.roleName === Role.Owner)
+        .map((c) => [c.resourceId, c.principalId])
+    );
+    const allUserIds = uniq([...baseList.map((base) => base.createdBy), ...spaceOwnerMap.values()]);
+
+    const userList = await this.prismaService.user.findMany({
+      where: { id: { in: allUserIds } },
       select: { id: true, name: true, avatar: true },
     });
-    const createdUserMap = keyBy(createdUserList, 'id');
+    const userMap = keyBy(userList, 'id');
 
     return baseList.map((base) => {
-      const role = roleMap[base.id] || roleMap[base.spaceId];
-      const createdUser = createdUserMap[base.createdBy];
+      const isCreatorInSpace = validCreatorSet.has(`${base.spaceId}:${base.createdBy}`);
+      const displayUserId = isCreatorInSpace ? base.createdBy : spaceOwnerMap.get(base.spaceId);
+      const displayUser = displayUserId ? userMap[displayUserId] : undefined;
+
       return {
         ...base,
-        role,
+        role: roleMap[base.id] || roleMap[base.spaceId],
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
-        createdUser: createdUser
+        createdUser: displayUser
           ? {
-              ...createdUser,
-              avatar: createdUser.avatar && getPublicFullStorageUrl(createdUser.avatar),
+              ...displayUser,
+              avatar: displayUser.avatar && getPublicFullStorageUrl(displayUser.avatar),
             }
           : undefined,
       };
@@ -619,6 +644,8 @@ export class BaseService {
         resourceType: ResourceType.Base,
       },
     });
+
+    await this.cleanRelativeNodesData(baseId);
   }
 
   async moveBase(baseId: string, moveBaseRo: IMoveBaseRo) {
@@ -718,6 +745,18 @@ export class BaseService {
           defaultUrl,
         };
 
+        // Generate thumbnail for template cover image
+        if (cover) {
+          const coverThumbnail = await this.cropTemplateCoverImage(cover);
+
+          if (coverThumbnail?.lgThumbnailPath && coverThumbnail?.smThumbnailPath) {
+            cover.thumbnailPath = {
+              lg: coverThumbnail.lgThumbnailPath,
+              sm: coverThumbnail.smThumbnailPath,
+            };
+          }
+        }
+
         // if already published, update template
         if (template) {
           const updatedTemplate = await prisma.template.update({
@@ -739,6 +778,7 @@ export class BaseService {
               id: true,
             },
           });
+
           return {
             baseId: snapshot.baseId,
             defaultUrl,
@@ -820,6 +860,42 @@ export class BaseService {
 
   async cleanTemplateRelatedData(baseId: string) {
     await this.permanentEmptyBaseRelatedData(baseId);
+  }
+
+  /**
+   * Generate thumbnail for template cover image
+   * Template only has one cover image, so we generate thumbnail synchronously (no queue needed)
+   */
+  private async cropTemplateCoverImage(cover: {
+    path: string;
+    mimetype?: string;
+    height?: number;
+  }) {
+    const { path, mimetype, height } = cover;
+
+    // Only process images with height info
+    if (!mimetype?.startsWith('image/') || !height) {
+      return;
+    }
+
+    // Only generate thumbnail if the image is larger than the thumbnail size
+    if (height <= ATTACHMENT_LG_THUMBNAIL_HEIGHT) {
+      return;
+    }
+
+    try {
+      const bucket = StorageAdapter.getBucket(UploadType.Template);
+      const result = await this.attachmentsStorageService.cropTableImage(bucket, path, height);
+      const { lgThumbnailPath, smThumbnailPath } = result;
+      this.logger.log(`Template cover thumbnail generated for path: ${path}`);
+      return {
+        lgThumbnailPath,
+        smThumbnailPath,
+      };
+    } catch (error) {
+      // Log error but don't fail the publish operation
+      this.logger.error(`Failed to generate template cover thumbnail: ${(error as Error).message}`);
+    }
   }
 
   private async createTemplateBySnapshot(

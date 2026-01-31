@@ -7,12 +7,12 @@ import React from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
+import { SettingDialog } from '@overridable/SettingDialog';
 import { DuplicateBaseModal } from '../blocks/base/duplicate/DuplicateBaseModal';
 import { TemplateCreateBaseModal } from '../blocks/base/duplicate/TemplateCreateBaseModal';
 import { SpaceSubscriptionModal } from '../blocks/billing/SpaceSubscriptionModal';
 import { useBrand } from '../hooks/useBrand';
 import { PublicOperateButton } from './PublicOperateButton';
-import { SettingDialog } from './setting/SettingDialog';
 import { UserNav } from './user/UserNav';
 
 export const SideBarFooter: React.FC = () => {
@@ -47,13 +47,13 @@ export const SideBarFooter: React.FC = () => {
   }
 
   return (
-    <div className="m-2 flex flex-col items-center gap-2">
+    <div className="flex w-full flex-col items-center gap-2 p-2">
       <div className="flex w-full justify-between gap-2">
         <UserNav>
           <Button
             variant="ghost"
             size={'sm'}
-            className="w-full justify-start py-1.5 pl-2 text-sm font-normal"
+            className="min-w-0 flex-1 justify-start overflow-hidden py-1.5 pl-2 text-sm font-normal"
           >
             <UserAvatar className="border" user={user} />
             <p className="truncate" title={user.name}>

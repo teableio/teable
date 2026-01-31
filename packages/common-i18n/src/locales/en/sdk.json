@@ -36,6 +36,11 @@
   "notification": {
     "title": "Notification"
   },
+  "aiError": {
+    "title": "AI Generation Failed",
+    "retry": "Retry",
+    "dismiss": "Dismiss"
+  },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
     "loadFileError": "Failed to load file"
@@ -58,7 +63,13 @@
       "uploadBaseTextPrefix": "Click to upload ",
       "uploadBaseText": " or paste or drag and drop here",
       "uploadDragDefault": "Paste or drag and drop to upload here",
-      "upload": "Upload file"
+      "upload": "Upload file",
+      "downloadAll": "Download all",
+      "downloading": "Downloading...",
+      "downloadSuccess": "Download completed",
+      "downloadFailed": "Download failed",
+      "downloadCancelled": "Download cancelled",
+      "requireHttps": "Bulk download requires HTTPS. Please access via HTTPS or localhost"
     },
     "date": {
       "placeholder": "Pick a date",
@@ -158,7 +169,9 @@
     "conjunction": {
       "and": "and",
       "or": "or",
-      "where": "where"
+      "where": "where",
+      "meetingAll": "Meeting all conditions",
+      "meetingAny": "Meeting any conditions"
     },
     "operator": {
       "is": "is",
@@ -329,7 +342,7 @@
       "date": "Record dates or times.",
       "createdTime": "Show when a record was created.",
       "lastModifiedTime": "Show the most recent update time.",
-      "attachment": "Upload files or images.",
+      "attachment": "Upload files or AI generate images, supports models such as 🍌 Nano banana pro",
       "checkbox": "Toggle a simple yes or no.",
       "rollup": "Summarize linked records with formulas.",
       "conditionalRollup": "Summarize data from conditions.",
@@ -427,7 +440,8 @@
     "recordHistory": "Record history",
     "you": "You",
     "instance": "Instance",
-    "enterprise": "Enterprise"
+    "enterprise": "Enterprise",
+    "history": "History"
   },
   "formula": {
     "SUM": {
@@ -891,6 +905,7 @@
     "automationNodeParseError": "Automation node parse error",
     "automationNodeNeedTest": "Automation node need test",
     "automationNodeTestOutdated": "Automation node test outdated",
+    "invalidToken": "Invalid token",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
@@ -1182,6 +1197,8 @@
       "propertyParseError": "Failed to parse view property",
       "primaryFieldCannotBeHidden": "Primary field cannot be hidden",
       "filterUnsupportedFieldType": "Filter unsupported field type",
+      "filterInvalidOperator": "Filter has invalid operator for this field type",
+      "filterInvalidOperatorMode": "Filter has invalid operator and mode combination",
       "sortUnsupportedFieldType": "Sort unsupported field type",
       "groupUnsupportedFieldType": "Group unsupported field type",
       "anchorNotFound": "Anchor view not found",
@@ -1213,6 +1230,7 @@
       "configurationNotSet": "AI configuration is not set",
       "unsupportedProvider": "Unsupported AI provider {{type}}",
       "providerConfigurationNotSet": "AI provider configuration is not set",
+      "gatewayApiKeyNotSet": "AI Gateway API key is not configured",
       "testLLMFailed": "LLM connection test failed",
       "audioNotSupported": "Audio input not supported by this model {{model}}",
       "imageNotSupported": "Image input not supported by this model {{model}}",
@@ -1222,7 +1240,8 @@
       "embeddingModelNotSet": "Embedding model is not set",
       "validateActionFailed": "Validate field AI action failed",
       "generateFailed": "AI generation failed",
-      "unsupportedActionType": "Unsupported AI action type"
+      "unsupportedActionType": "Unsupported AI action type",
+      "geminiImageNotSupportedViaGateway": "Gemini image generation is not supported through AI Gateway. Please configure a direct Google provider instead."
     },
     "role": {
       "notFound": "Role not found"
@@ -1357,7 +1376,32 @@
       "apiKeyNotSet": "App builder API key is not set",
       "cannotDeployAppBeforeInitialization": "Cannot deploy app before initialization",
       "noProjectOrVersionFound": "No project or version found",
-      "noDeploymentUrlAvailable": "No deployment URL available"
+      "noDeploymentUrlAvailable": "No deployment URL available",
+      "noFilesInZip": "No files found in ZIP",
+      "zipFileTooLarge": "ZIP file size exceeds 5MB limit",
+      "invalidZip": "Invalid ZIP file"
+    },
+    "reward": {
+      "notFound": "Reward not found",
+      "unsupportedSourceType": "Unsupported reward source type",
+      "maxClaimsReached": "You have reached the maximum reward claims (2) for this week",
+      "verificationFailed": "Verification failed: {{errors}}",
+      "alreadyClaimedThisWeek": "You have already claimed a reward for this account this week",
+      "invalidPostUrl": "Invalid post URL format",
+      "postAlreadyUsed": "This post has already been used to claim a reward",
+      "unsupportedPlatformUrl": "Unsupported social platform URL",
+      "unsupportedPlatform": "Unsupported platform: {{platform}}",
+      "minCharCount": "Post must have at least {{count}} characters",
+      "minFollowerCount": "Account must have at least {{count}} followers",
+      "mustMention": "Post must mention {{mention}}",
+      "fetchTweetFailed": "Failed to fetch X tweet: {{error}}",
+      "tweetNotFound": "X tweet not found: {{postId}}",
+      "fetchUserFailed": "Failed to fetch X user: {{error}}",
+      "xUserNotFound": "X user not found: {{username}}",
+      "fetchLinkedInPostFailed": "Failed to fetch LinkedIn post: {{error}}",
+      "linkedInPostNotFound": "LinkedIn post not found: {{postId}}",
+      "linkedInAuthorNotFound": "LinkedIn author not found: {{postId}}",
+      "fetchLinkedInUserFailed": "Failed to fetch LinkedIn user: {{error}}"
     }
   }
 }

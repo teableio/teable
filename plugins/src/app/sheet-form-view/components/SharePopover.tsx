@@ -52,11 +52,11 @@ export const SharePopover: React.FC<{
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>();
   const [sharePassword, setSharePassword] = useState<string>('');
 
-  const { mutate: enableShareFn, isLoading: enableShareLoading } = useMutation({
+  const { mutate: enableShareFn, isPending: enableShareLoading } = useMutation({
     mutationFn: async (view: View) => view.apiEnableShare(),
   });
 
-  const { mutate: disableShareFn, isLoading: disableShareLoading } = useMutation({
+  const { mutate: disableShareFn, isPending: disableShareLoading } = useMutation({
     mutationFn: async (view: View) => view.disableShare(),
   });
 

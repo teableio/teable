@@ -125,8 +125,8 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           value={values as string}
           displayRender={displayRender}
           optionRender={optionRender}
-          className={cn('flex overflow-hidden', className ? className : 'w-64')}
-          popoverClassName="w-64"
+          className={cn('flex h-8 overflow-hidden px-2', className ? className : 'w-40')}
+          popoverClassName="w-40"
           placeholderClassName="text-xs"
           onSearch={onSearch}
         />
@@ -138,8 +138,8 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           value={values as string[]}
           displayRender={displayRender}
           optionRender={optionRender}
-          className={cn(className ? className : 'w-64')}
-          popoverClassName="w-64"
+          className={cn('h-8 px-2', className ? className : 'w-40')}
+          popoverClassName="w-40"
           placeholderClassName="text-xs"
           onSearch={onSearch}
         />

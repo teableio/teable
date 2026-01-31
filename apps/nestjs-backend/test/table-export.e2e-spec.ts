@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo, IViewRo } from '@teable/core';
-import { FieldType, Colors, Relationship, ViewType, DriverClient } from '@teable/core';
+import { FieldType, Colors, Relationship, ViewType, DriverClient, SortFunc } from '@teable/core';
 import type { INotifyVo } from '@teable/openapi';
 import {
   exportCsvFromTable as apiExportCsvFromTable,
@@ -315,7 +315,7 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
         type: ViewType.Grid,
       });
 
-      const exportRes = await apiExportCsvFromTable(mainTable.id, view2.id);
+      const exportRes = await apiExportCsvFromTable(mainTable.id, { viewId: view2.id });
       const { data: csvData } = exportRes;
 
       await apiDeleteTable(baseId, mainTable.id);
@@ -345,7 +345,7 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
         type: ViewType.Grid,
       });
 
-      const exportRes = await apiExportCsvFromTable(mainTable.id, view2.id);
+      const exportRes = await apiExportCsvFromTable(mainTable.id, { viewId: view2.id });
       const { data: csvData } = exportRes;
 
       await apiDeleteTable(baseId, mainTable.id);
@@ -354,6 +354,150 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
       expect(csvData).toBe(
         `Text field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,true,x,"November 28, 2022",test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,y,"November 28, 2022",,test,,,,,\r\n,true,z,,,,,,,,`
       );
+    });
+
+    it(`should return a csv stream with filter parameter (personal view filter)`, async () => {
+      const { mainTable, subTable } = await createTables();
+
+      const textField = mainTable?.fields?.find((f) => f.name === 'Text field') as IFieldVo;
+
+      // Export with filter to only include records where Text field = 'txt1'
+      const exportRes = await apiExportCsvFromTable(mainTable.id, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: textField.id,
+              operator: 'is',
+              value: 'txt1',
+            },
+          ],
+        },
+      });
+      const { data: csvData } = exportRes;
+
+      await apiDeleteTable(baseId, mainTable.id);
+      await apiDeleteTable(baseId, subTable.id);
+
+      // Should only contain the first record with txt1
+      expect(csvData).toBe(
+        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,"November 28, 2022",test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y`
+      );
+    });
+
+    it(`should return a csv stream with projection parameter (only specified fields)`, async () => {
+      const { mainTable, subTable } = await createTables();
+
+      const textField = mainTable?.fields?.find((f) => f.name === 'Text field') as IFieldVo;
+      const numberField = mainTable?.fields?.find((f) => f.name === 'Number field') as IFieldVo;
+      const selectField = mainTable?.fields?.find((f) => f.name === 'Select field') as IFieldVo;
+
+      // Export with projection to only include specific fields
+      const exportRes = await apiExportCsvFromTable(mainTable.id, {
+        projection: [textField.id, numberField.id, selectField.id],
+      });
+      const { data: csvData } = exportRes;
+
+      await apiDeleteTable(baseId, mainTable.id);
+      await apiDeleteTable(baseId, subTable.id);
+
+      // Should only contain the specified fields in projection order
+      expect(csvData).toBe(`Text field,Number field,Select field\r\ntxt1,1.00,x\r\ntxt2,,y\r\n,,z`);
+    });
+
+    it(`should return a csv stream with orderBy parameter (sorted export)`, async () => {
+      const { mainTable, subTable } = await createTables();
+
+      const textField = mainTable?.fields?.find((f) => f.name === 'Text field') as IFieldVo;
+
+      // Export with orderBy to sort by Text field descending
+      const exportRes = await apiExportCsvFromTable(mainTable.id, {
+        orderBy: [
+          {
+            fieldId: textField.id,
+            order: SortFunc.Desc,
+          },
+        ],
+        projection: [textField.id], // Use projection to simplify test assertion
+      });
+      const { data: csvData } = exportRes;
+
+      await apiDeleteTable(baseId, mainTable.id);
+      await apiDeleteTable(baseId, subTable.id);
+
+      // Records should be sorted: txt2, txt1, empty
+      expect(csvData).toBe(`Text field\r\ntxt2\r\ntxt1\r\n`);
+    });
+
+    it(`should return a csv stream with ignoreViewQuery parameter (ignore view filter)`, async () => {
+      const { mainTable, subTable } = await createTables();
+
+      const textField = mainTable?.fields?.find((f) => f.name === 'Text field') as IFieldVo;
+
+      // Create a view with filter
+      const viewWithFilter = await createView(mainTable.id, {
+        type: ViewType.Grid,
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: textField.id,
+              operator: 'is',
+              value: 'txt1',
+            },
+          ],
+        },
+      });
+
+      // Export with ignoreViewQuery=true should return all records despite view filter
+      const exportRes = await apiExportCsvFromTable(mainTable.id, {
+        viewId: viewWithFilter.id,
+        ignoreViewQuery: true,
+        projection: [textField.id],
+      });
+      const { data: csvData } = exportRes;
+
+      await apiDeleteTable(baseId, mainTable.id);
+      await apiDeleteTable(baseId, subTable.id);
+
+      // Should return all records since view query is ignored
+      expect(csvData).toBe(`Text field\r\ntxt1\r\ntxt2\r\n`);
+    });
+
+    it(`should return a csv stream with combined filter and projection (personal view scenario)`, async () => {
+      const { mainTable, subTable } = await createTables();
+
+      const textField = mainTable?.fields?.find((f) => f.name === 'Text field') as IFieldVo;
+      const selectField = mainTable?.fields?.find((f) => f.name === 'Select field') as IFieldVo;
+      const numberField = mainTable?.fields?.find((f) => f.name === 'Number field') as IFieldVo;
+
+      // Simulate personal view export with filter + projection + orderBy
+      const exportRes = await apiExportCsvFromTable(mainTable.id, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: selectField.id,
+              operator: 'isAnyOf',
+              value: ['x', 'y'],
+            },
+          ],
+        },
+        projection: [textField.id, numberField.id, selectField.id],
+        orderBy: [
+          {
+            fieldId: textField.id,
+            order: SortFunc.Asc,
+          },
+        ],
+      });
+      const { data: csvData } = exportRes;
+
+      await apiDeleteTable(baseId, mainTable.id);
+      await apiDeleteTable(baseId, subTable.id);
+
+      // Should only return records with select 'x' or 'y', sorted by text field ascending
+      expect(csvData).toBe(`Text field,Number field,Select field\r\ntxt1,1.00,x\r\ntxt2,,y`);
     });
   }
 );

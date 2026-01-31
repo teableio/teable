@@ -73,7 +73,13 @@ export class FieldLoaderService extends TableCommonLoader<IFieldLoaderItem> {
     if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') {
       return;
     }
-    console.log(`cacheSet: ${this.cacheSet}, loadCount: ${this.loadCount}`);
+
+    const cacheHits = this.loadCount - this.cacheSet;
+    const hitRate = this.loadCount > 0 ? ((cacheHits / this.loadCount) * 100).toFixed(1) : '0.0';
+
+    console.log(
+      `[FieldLoader] 📊 loads: ${this.loadCount} | db queries: ${this.cacheSet} | cache hits: ${cacheHits} | hit rate: ${hitRate}%`
+    );
   }
 
   invalidateTables(tableIds: string | string[]) {

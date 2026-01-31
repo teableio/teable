@@ -62,11 +62,31 @@ export class AggregationFunctionSqlite extends AbstractAggregationFunction {
       .toQuery();
   }
 
+  checked(): string {
+    return this.knex.raw(`SUM(CASE WHEN ${this.tableColumnRef} = 1 THEN 1 ELSE 0 END)`).toQuery();
+  }
+
+  unChecked(): string {
+    return this.knex
+      .raw(
+        `SUM(CASE WHEN ${this.tableColumnRef} = 0 OR ${this.tableColumnRef} IS NULL THEN 1 ELSE 0 END)`
+      )
+      .toQuery();
+  }
+
   percentChecked(): string {
-    return this.percentFilled();
+    return this.knex
+      .raw(
+        `(SUM(CASE WHEN ${this.tableColumnRef} = 1 THEN 1 ELSE 0 END) * 1.0 / MAX(COUNT(*), 1)) * 100`
+      )
+      .toQuery();
   }
 
   percentUnChecked(): string {
-    return this.percentEmpty();
+    return this.knex
+      .raw(
+        `(SUM(CASE WHEN ${this.tableColumnRef} = 0 OR ${this.tableColumnRef} IS NULL THEN 1 ELSE 0 END) * 1.0 / MAX(COUNT(*), 1)) * 100`
+      )
+      .toQuery();
   }
 }

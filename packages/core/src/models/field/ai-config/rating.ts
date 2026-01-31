@@ -11,15 +11,14 @@ export type IRatingFieldRatingAIConfig = z.infer<typeof ratingFieldRatingAIConfi
 
 export const ratingFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
   type: z.literal(FieldAIActionType.Customization),
-  attachmentFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
   prompt: z.string(),
 });
 
 export type IRatingFieldCustomizeAIConfig = z.infer<typeof ratingFieldCustomizeAIConfigSchema>;
 
 export const ratingFieldAIConfigSchema = z.discriminatedUnion('type', [
-  ratingFieldRatingAIConfigSchema.strict(),
-  ratingFieldCustomizeAIConfigSchema.strict(),
+  ratingFieldRatingAIConfigSchema,
+  ratingFieldCustomizeAIConfigSchema,
 ]);
 
 export type IRatingFieldAIConfig = z.infer<typeof ratingFieldAIConfigSchema>;

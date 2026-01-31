@@ -28,7 +28,7 @@ export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
   const allBases = useBaseList();
   const bases = allBases?.filter((base) => base.spaceId === space.id);
 
-  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
+  const { mutate: createBaseMutator, isPending: createBaseLoading } = useMutation({
     mutationFn: createBase,
     onSuccess: ({ data }) => {
       router.push({

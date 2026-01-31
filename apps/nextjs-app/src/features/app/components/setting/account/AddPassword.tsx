@@ -27,7 +27,7 @@ export const AddPassword = () => {
   const [open, setOpen] = useState(false);
   const { refresh } = useSession();
 
-  const { mutateAsync: addPasswordMutate, isLoading } = useMutation({
+  const { mutateAsync: addPasswordMutate, isPending: isLoading } = useMutation({
     mutationFn: addPassword,
     onSuccess: () => {
       toast.success(t('settings.account.addPasswordSuccess.title'));

@@ -60,9 +60,9 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
 
   const updateGroupPoints = useCallback(
     () =>
-      queryClient.invalidateQueries(
-        ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, 3)
-      ),
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, 3),
+      }),
     [groupPointQuery, queryClient, tableId]
   );
 
@@ -72,9 +72,9 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
 
   const updateGroupPointsForTable = useCallback(
     () =>
-      queryClient.invalidateQueries(
-        ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, 2)
-      ),
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, 2),
+      }),
     [groupPointQuery, queryClient, tableId]
   );
 

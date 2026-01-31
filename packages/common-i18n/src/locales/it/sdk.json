@@ -158,7 +158,9 @@
     "conjunction": {
       "and": "e",
       "or": "o",
-      "where": "dove"
+      "where": "dove",
+      "meetingAll": "Soddisfare tutte le condizioni",
+      "meetingAny": "Soddisfare una condizione"
     },
     "operator": {
       "is": "è",
@@ -329,7 +331,7 @@
       "date": "Memorizza date o orari.",
       "createdTime": "Mostra quando è stato creato il record.",
       "lastModifiedTime": "Mostra l'ultimo aggiornamento.",
-      "attachment": "Carica file o immagini.",
+      "attachment": "Può caricare file o generare immagini con IA, supporta modelli come 🍌 Nano banana pro",
       "checkbox": "Attiva o disattiva un semplice sì/no.",
       "rollup": "Riassumi i record collegati con formule.",
       "conditionalRollup": "Riassumi dati in base a condizioni.",
@@ -427,7 +429,8 @@
     "recordHistory": "Cronologia Record",
     "you": "Tu",
     "instance": "Istanza",
-    "enterprise": "Enterprise"
+    "enterprise": "Impresa",
+    "history": "Storico"
   },
   "formula": {
     "SUM": {
@@ -891,6 +894,7 @@
     "automationNodeParseError": "Errore di analisi del nodo di automazione",
     "automationNodeNeedTest": "Il nodo di automazione ha bisogno di test",
     "automationNodeTestOutdated": "Test del nodo di automazione obsoleto",
+    "invalidToken": "Token non valido",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori vuoti, per favore riempilo completamente prima di inviare.",
       "fieldValueDuplicate": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori duplicati, per favore riempilo con un valore unico prima di inviare.",
@@ -1354,6 +1358,28 @@
       "cannotDeployAppBeforeInitialization": "Impossibile distribuire l'app prima dell'inizializzazione",
       "noProjectOrVersionFound": "Nessun progetto o versione trovato",
       "noDeploymentUrlAvailable": "Nessun URL di distribuzione disponibile"
+    },
+    "reward": {
+      "notFound": "Premio non trovato",
+      "unsupportedSourceType": "Tipo di fonte premio non supportato",
+      "maxClaimsReached": "Hai raggiunto il massimo di richieste premio (2) per questa settimana",
+      "verificationFailed": "Verifica fallita: {{errors}}",
+      "alreadyClaimedThisWeek": "Hai già richiesto un premio per questo account questa settimana",
+      "invalidPostUrl": "Formato URL del post non valido",
+      "postAlreadyUsed": "Questo post è già stato utilizzato per richiedere un premio",
+      "unsupportedPlatformUrl": "URL della piattaforma social non supportato",
+      "unsupportedPlatform": "Piattaforma non supportata: {{platform}}",
+      "minCharCount": "Il post deve avere almeno {{count}} caratteri",
+      "minFollowerCount": "L'account deve avere almeno {{count}} follower",
+      "mustMention": "Il post deve menzionare {{mention}}",
+      "fetchTweetFailed": "Impossibile recuperare il tweet X: {{error}}",
+      "tweetNotFound": "Tweet X non trovato: {{postId}}",
+      "fetchUserFailed": "Impossibile recuperare l'utente X: {{error}}",
+      "xUserNotFound": "Utente X non trovato: {{username}}",
+      "fetchLinkedInPostFailed": "Impossibile recuperare il post LinkedIn: {{error}}",
+      "linkedInPostNotFound": "Post LinkedIn non trovato: {{postId}}",
+      "linkedInAuthorNotFound": "Autore LinkedIn non trovato: {{postId}}",
+      "fetchLinkedInUserFailed": "Impossibile recuperare l'utente LinkedIn: {{error}}"
     }
   }
 }

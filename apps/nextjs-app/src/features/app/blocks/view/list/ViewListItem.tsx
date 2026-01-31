@@ -2,7 +2,14 @@ import { useMutation } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
 import { Pencil, Trash2, Export, Copy, Lock, Star } from '@teable/icons';
 import { BaseNodeResourceType, duplicateView } from '@teable/openapi';
-import { useBaseId, useIsTemplate, useTableId, useTablePermission } from '@teable/sdk/hooks';
+import {
+  useBaseId,
+  useIsTemplate,
+  usePersonalView,
+  useTableId,
+  useTablePermission,
+  useView,
+} from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
 import { Spin } from '@teable/ui-lib/base';
 import {
@@ -16,10 +23,9 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { Unlock } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef, Fragment, useEffect, useCallback } from 'react';
+import { useState, useRef, Fragment, useEffect, useCallback, useMemo } from 'react';
 import { useIsInIframe } from '@/features/app/hooks/useIsInIframe';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { getNodeUrl } from '../../base/base-node/hooks';
@@ -50,6 +56,9 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const { highlightedViewId } = useGridSearchStore();
   const isHighlighted = highlightedViewId === view.id;
   const isTemplate = useIsTemplate();
+  const { personalViewCommonQuery } = usePersonalView();
+  const viewData = useView();
+
   const setOpen = useCallback(
     (value: boolean) => {
       if (value && isTemplate) {
@@ -59,7 +68,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
     },
     [isTemplate, _setOpen]
   );
-  const { mutateAsync: duplicateViewFn, isLoading: isDuplicateViewLoading } = useMutation({
+  const { mutateAsync: duplicateViewFn, isPending: isDuplicateViewLoading } = useMutation({
     mutationFn: () => duplicateView(tableId, view.id),
     onSuccess: (data) => {
       const { id } = data?.data || {};
@@ -77,10 +86,46 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
       }
     },
   });
+  const downloadUrl = useMemo(() => {
+    const { ignoreViewQuery, filter, orderBy, groupBy, projection } = personalViewCommonQuery || {};
+
+    if (!ignoreViewQuery) {
+      return `/api/export/${tableId}?viewId=${viewData?.id}`;
+    }
+
+    const params = new URLSearchParams();
+    params.set('viewId', viewData?.id ?? '');
+    params.set('ignoreViewQuery', 'true');
+
+    filter && params.set('filter', JSON.stringify(filter));
+    orderBy && !viewData?.sort?.manualSort && params.set('orderBy', JSON.stringify(orderBy));
+    groupBy && params.set('groupBy', JSON.stringify(groupBy));
+    projection?.forEach((field) => params.append('projection[]', field));
+
+    if (viewData?.columnMeta) {
+      const columnMetaWithOrderOnly = Object.fromEntries(
+        Object.entries(viewData.columnMeta).map(([fieldId, meta]) => [
+          fieldId,
+          { order: meta.order },
+        ])
+      );
+      params.set('columnMeta', JSON.stringify(columnMetaWithOrderOnly));
+    }
+
+    return `/api/export/${tableId}?${params.toString()}`;
+  }, [
+    personalViewCommonQuery,
+    tableId,
+    viewData?.columnMeta,
+    viewData?.id,
+    viewData?.sort?.manualSort,
+  ]);
+
   const { trigger } = useDownload({
-    downloadUrl: `/api/export/${tableId}?viewId=${view.id}`,
+    downloadUrl,
     key: 'view',
   });
+
   const { resetSearchHandler } = useGridSearchStore();
   const isInIframe = useIsInIframe();
 
@@ -115,13 +160,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const commonPart = (
     <div className="relative flex w-full items-center overflow-hidden px-0.5">
       {view.type === ViewType.Plugin ? (
-        <Image
-          className="mr-1 size-4 shrink-0"
-          width={16}
-          height={16}
-          src={view.options.pluginLogo}
-          alt={view.name}
-        />
+        <img className="mr-1 size-4 shrink-0" src={view.options.pluginLogo} alt={view.name} />
       ) : (
         <Fragment>
           {view.isLocked && <Lock className="mr-[2px] size-4 shrink-0" />}

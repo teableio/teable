@@ -1,7 +1,8 @@
-import { Admin, Database, Home, Settings, Trash2 } from '@teable/icons';
+import { Database, Home, Trash2, ShieldUser } from '@teable/icons';
 import { useSession } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import { Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -35,13 +36,13 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
     {
       href: `/enterprise/${organization?.id}`,
       text: t('noun.organizationPanel'),
-      Icon: Admin,
+      Icon: Building2,
       hidden: !organization?.isAdmin,
     },
     {
       href: '/admin/setting',
       text: t('noun.adminPanel'),
-      Icon: Settings,
+      Icon: ShieldUser,
       hidden: !isAdmin,
     },
     {

@@ -18,7 +18,7 @@ export const SingleLineTextOptions = (props: {
 
   const onDefaultValueChange = (defaultValue: string | undefined) => {
     onChange?.({
-      defaultValue,
+      defaultValue: defaultValue ?? null,
     });
   };
 

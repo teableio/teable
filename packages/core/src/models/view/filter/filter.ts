@@ -1,8 +1,11 @@
 import { z } from 'zod';
+import { FieldType } from '../../field/constant';
 import type { IConjunction } from './conjunction';
 import { and, conjunctionSchema } from './conjunction';
 import type { IFilterItem } from './filter-item';
 import { filterItemSchema, isFieldReferenceValue } from './filter-item';
+import type { IDateTimeFieldOperator } from './operator';
+import { getValidFilterSubOperators, isWithIn } from './operator';
 
 export const baseFilterSetSchema = z.object({
   conjunction: conjunctionSchema,
@@ -123,4 +126,57 @@ export const extractFieldIdsFromFilter = (
 
   traverse(filter);
   return [...new Set(fieldIds)];
+};
+
+export interface IFilterValidationError {
+  fieldId: string;
+  operator: string;
+  mode?: string;
+  message: string;
+}
+
+/**
+ * Validate filter operator and mode compatibility
+ * Returns an array of validation errors if any, empty array if valid
+ * @param filter - The filter to validate
+ * @param fieldTypeMap - A map of fieldId to FieldType
+ */
+export const validateFilterOperatorModeCompatibility = (
+  filter: IFilter | null | undefined,
+  fieldTypeMap: Record<string, FieldType>
+): IFilterValidationError[] => {
+  if (!filter) return [];
+
+  const errors: IFilterValidationError[] = [];
+
+  const traverse = (filterItem: IFilter | IFilterItem) => {
+    if (filterItem && 'fieldId' in filterItem) {
+      const { fieldId, operator, value } = filterItem;
+      const fieldType = fieldTypeMap[fieldId];
+
+      // Only validate date fields with date filter value
+      if (fieldType === FieldType.Date && value && typeof value === 'object' && 'mode' in value) {
+        const dateValue = value as { mode: string };
+        const validSubOperators = getValidFilterSubOperators(
+          fieldType,
+          operator as IDateTimeFieldOperator
+        );
+
+        if (validSubOperators && !validSubOperators.includes(dateValue.mode as never)) {
+          const operatorName = operator === isWithIn.value ? 'isWithIn' : operator;
+          errors.push({
+            fieldId,
+            operator: operator as string,
+            mode: dateValue.mode,
+            message: `The '${operatorName}' operation with mode '${dateValue.mode}' is invalid. Allowed modes: [${validSubOperators.join(',')}]`,
+          });
+        }
+      }
+    } else if (filterItem && 'filterSet' in filterItem) {
+      filterItem.filterSet.forEach((item) => traverse(item));
+    }
+  };
+
+  traverse(filter);
+  return errors;
 };

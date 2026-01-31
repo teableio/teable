@@ -1,20 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
-import { Eye } from '@teable/icons';
 import { getPublishedTemplateList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Spin } from '@teable/ui-lib/base';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
+import { TemplateCard } from './TemplateCard';
+import type { ITemplateBaseProps } from './TemplateMain';
 
-interface IRecommendTemplateProps {
+interface IRecommendTemplateProps extends Pick<ITemplateBaseProps, 'onClickTemplateCardHandler'> {
   filterTemplateIds?: string[];
-  onTemplateClick?: (templateId: string) => void;
+  onClickTemplateCardHandler?: (templateId: string) => void;
   className?: string;
 }
 
 export const RecommendTemplate = (props: IRecommendTemplateProps) => {
-  const { onTemplateClick, className, filterTemplateIds } = props;
+  const { onClickTemplateCardHandler, className, filterTemplateIds } = props;
   const { t } = useTranslation('common');
 
   const { data: templates, isLoading } = useQuery({
@@ -38,70 +39,19 @@ export const RecommendTemplate = (props: IRecommendTemplateProps) => {
     return null;
   }
 
-  const handleTemplateClick = (templateId: string) => {
-    onTemplateClick?.(templateId);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent, templateId: string) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleTemplateClick(templateId);
-    }
-  };
-
   return filteredTemplates && filteredTemplates?.length > 0 ? (
     <div className={cn('flex flex-col items-start justify-start gap-3 self-stretch', className)}>
       <p className="text-base font-semibold text-foreground">
         {t('settings.templateAdmin.relatedTemplates')}
       </p>
-      <div className="flex flex-col items-start justify-start gap-5 self-stretch md:flex-row">
+      <div className="grid w-full grid-cols-3 gap-5">
         {filteredTemplates?.map((template) => (
-          <div
+          <TemplateCard
             key={template.id}
-            className="group relative flex w-full flex-col items-start justify-start rounded-lg border bg-card transition-shadow hover:shadow-md focus:outline-none md:max-w-[33%] md:flex-1"
-          >
-            <div
-              className="relative h-[218px] w-full cursor-pointer self-stretch overflow-hidden bg-secondary"
-              onClick={() => handleTemplateClick(template.id)}
-              onKeyDown={(e) => handleKeyDown(e, template.id)}
-              role="button"
-              tabIndex={0}
-            >
-              {template.cover?.presignedUrl ? (
-                <img
-                  src={template.cover.presignedUrl}
-                  alt={template.name}
-                  className="size-full object-cover transition-all duration-300 group-hover:scale-105"
-                />
-              ) : (
-                <div className="flex size-full items-center justify-center">
-                  <span className="text-sm text-muted-foreground">
-                    {t('settings.templateAdmin.noImage')}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col items-start justify-center gap-1 self-stretch p-4">
-              <div className="relative flex items-start justify-start gap-1 self-stretch">
-                <p
-                  className="w-full truncate text-sm font-medium text-foreground"
-                  title={template.name}
-                >
-                  {template.name}{' '}
-                </p>
-                <div className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-                  <Eye className="size-4" />
-                  <span>{template.visitCount > 999 ? '999+' : template.visitCount}</span>
-                </div>
-              </div>
-              <div
-                className="w-full truncate text-sm text-muted-foreground"
-                title={template.description}
-              >
-                {template.description}
-              </div>
-            </div>
-          </div>
+            template={template}
+            size="lg"
+            onClickTemplateCardHandler={onClickTemplateCardHandler}
+          />
         ))}
       </div>
     </div>

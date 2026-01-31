@@ -17,6 +17,8 @@ import type {
   ISettingVo,
   ITestLLMVo,
   IUploadLogoVo,
+  IBatchTestLLMVo,
+  ITestApiKeyVo,
 } from '@teable/openapi';
 import {
   IUpdateSettingRo,
@@ -26,6 +28,10 @@ import {
   setSettingMailTransportConfigRoSchema,
   ISetSettingMailTransportConfigRo,
   SettingKey,
+  batchTestLLMRoSchema,
+  IBatchTestLLMRo,
+  testApiKeyRoSchema,
+  ITestApiKeyRo,
 } from '@teable/openapi';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -67,13 +73,14 @@ export class SettingOpenApiController {
       SettingKey.DISALLOW_DASHBOARD,
       SettingKey.ENABLE_EMAIL_VERIFICATION,
       SettingKey.ENABLE_WAITLIST,
+      SettingKey.ENABLE_CREDIT_REWARD,
       SettingKey.AI_CONFIG,
       SettingKey.APP_CONFIG,
-      SettingKey.WEB_SEARCH_CONFIG,
     ]);
-    const { aiConfig, appConfig, webSearchConfig, ...rest } = setting;
+    const { aiConfig, appConfig, enableCreditReward, ...rest } = setting;
     return {
       ...rest,
+      enableCreditReward: enableCreditReward ?? undefined,
       aiConfig: {
         enable: aiConfig?.enable ?? false,
         llmProviders:
@@ -84,9 +91,10 @@ export class SettingOpenApiController {
           })) ?? [],
         chatModel: aiConfig?.chatModel,
         capabilities: aiConfig?.capabilities,
+        // Include gateway models for space-level AI config
+        gatewayModels: aiConfig?.gatewayModels,
       },
       appGenerationEnabled: Boolean(appConfig?.apiKey),
-      webSearchEnabled: Boolean(webSearchConfig?.apiKey),
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
       changeEmailSendCodeMailRate: this.thresholdConfig.changeEmailSendCodeMailRate,
       resetPasswordSendMailRate: this.thresholdConfig.resetPasswordSendMailRate,
@@ -132,6 +140,22 @@ export class SettingOpenApiController {
   }
 
   @Permissions('instance|update')
+  @Post('batch-test-llm')
+  async batchTestLLM(
+    @Body(new ZodValidationPipe(batchTestLLMRoSchema.optional())) batchTestLLMRo?: IBatchTestLLMRo
+  ): Promise<IBatchTestLLMVo> {
+    return await this.settingOpenApiService.batchTestLLM(batchTestLLMRo);
+  }
+
+  @Permissions('instance|update')
+  @Post('test-api-key')
+  async testApiKey(
+    @Body(new ZodValidationPipe(testApiKeyRoSchema)) testApiKeyRo: ITestApiKeyRo
+  ): Promise<ITestApiKeyVo> {
+    return await this.settingOpenApiService.testApiKey(testApiKeyRo);
+  }
+
+  @Permissions('instance|update')
   @Put('set-mail-transport-config')
   async setMailTransportConfig(
     @Body(new ZodValidationPipe(setSettingMailTransportConfigRoSchema))
@@ -149,5 +173,15 @@ export class SettingOpenApiController {
         },
       },
     };
+  }
+
+  /**
+   * Get available models from AI Gateway
+   * Returns configured=false if gateway is not set up
+   */
+  @Public()
+  @Get('gateway-models')
+  async getGatewayModels() {
+    return await this.settingOpenApiService.getGatewayModels();
   }
 }

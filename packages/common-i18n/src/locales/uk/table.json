@@ -206,7 +206,7 @@
       "reset": "Скинути",
       "fieldUpdated": "Поле оновлено",
       "fieldCreated": "Поле створено",
-      "previewDependenciesGraph": "Попередній перегляд графіка залежностей",
+      "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Ви впевнені, що хочете це виконати?",
       "addDescription": "Додати опис",
       "dbFieldName": "Назва поля БД",
@@ -287,7 +287,7 @@
       "link": "Посилання на записи у вибраній таблиці",
       "singleLineText": "Введіть текст або попередньо заповніть кожну нову клітинку значенням за замовчуванням.",
       "longText": "Введіть кілька рядків тексту.",
-      "attachment": "Додайте зображення, документи чи інші файли для перегляду чи завантаження.",
+      "attachment": "Додайте або згенеруйте за допомогою ШІ зображення, або завантажте документи чи інші файли для перегляду чи завантаження.",
       "checkbox": "Поставте або зніміть прапорець, щоб вказати статус.",
       "multipleSelect": "Виберіть один або більше попередньо визначених параметрів у списку.",
       "singleSelect": "Виберіть одну попередньо визначену опцію зі списку або попередньо заповніть кожну нову клітинку опцією за замовчуванням.",
@@ -464,10 +464,18 @@
       "addFromOtherSource": "Додати з інших джерел",
       "excelFile": "Microsoft Excel",
       "csvFile": "CSV-файл",
+      "importCsvData": "Імпортувати дані CSV",
+      "importExcelData": "Імпортувати дані Microsoft Excel",
       "cancel": "Скасувати",
       "leave": "Залишити",
-      "downAsCsv": "Завантажити CSV",
+      "downAsCsv": "Завантажити csv",
       "importData": "Імпорт даних",
+      "duplicate": "Дублювати",
+      "duplicating": "Дублювання...",
+      "duplicateSuccess": "Успішно дублювано",
+      "duplicateFailed": "Не вдалося дублювати",
+      "importing": "Імпорт",
+      "includeRecords": "Включити записи",
       "autoFill": "Оновити всі записи"
     },
     "tips": {
@@ -670,6 +678,10 @@
       "preview": "Попередній перегляд"
     },
     "newChat": "Новий чат",
+    "clearChat": "Очистити чат",
+    "clearChatConfirmTitle": "Підтвердити очищення чату",
+    "clearChatConfirmDesc": "Поточний вміст чату не буде збережено. Ви впевнені, що хочете його очистити?",
+    "dontShowAgain": "Більше не показувати",
     "noModel": "Немає доступних моделей",
     "noHistory": "Немає історії чату",
     "noFoundHistory": "Немає історії чату, будь ласка, почати нову розмову",
@@ -692,7 +704,8 @@
       "timeCostUnit": "s",
       "timeCostDescription": "Час генерації: {{timeCost}}s",
       "creditDescription": "{{credits}} кредитів використано",
-      "tokenDescription": "Токенів використано: {{tokens}}"
+      "tokenDescription": "Токенів використано: {{tokens}}",
+      "taskCompleted": "Завдання виконано"
     }
   }
 }
