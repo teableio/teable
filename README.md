@@ -242,8 +242,8 @@ git tag v1.10.0
 
 docker login gitlab.tao5g.net:5050
 
-zx scripts/build-image.mjs --file=dockers/teable/Dockerfile --platform=linux/amd64 --tag=gitlab.tao5g.net:5050/teable:v1.10.1 
+zx scripts/build-image.mjs --file=dockers/teable/Dockerfile --platform=linux/amd64 --tag=gitlab.tao5g.net:5050/teable:v1.10.2 
 
-docker tag gitlab.tao5g.net:1.10.1-alpha-amd64 gitlab.tao5g.net:5050/zctc/teable:1.10.1-alpha-amd64
+docker tag gitlab.tao5g.net:1.10.2-alpha-amd64 gitlab.tao5g.net:5050/zctc/teable:1.10.2-alpha-amd64
 
-docker push gitlab.tao5g.net:5050/zctc/teable:1.10.1-alpha-amd64 
+docker push gitlab.tao5g.net:5050/zctc/teable:1.10.2-alpha-amd64 
