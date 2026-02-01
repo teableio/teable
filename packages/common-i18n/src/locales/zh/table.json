@@ -931,8 +931,11 @@
         "modeExtracted": "文本提取",
         "modeExtractedDesc": "文件内容已解析并提取为文本用于分析",
         "visionLoaded": "已加载用于视觉分析",
+        "pdfLoaded": "已加载用于 PDF 分析",
         "textExtracted": "已提取 {{chars}} 字符",
-        "contextLoaded": "已加载到 AI 上下文"
+        "contextLoaded": "已加载到 AI 上下文",
+        "truncated": "已截断",
+        "preview": "预览"
       },
       "textExtract": {
         "title": "文本提取",
@@ -954,7 +957,6 @@
         "analyzeComplete": "分析完成",
         "worksheets": "工作表",
         "columns": "列",
-        "nextStep": "下一步：AI 将根据字段映射进行导入",
         "importComplete": "导入完成",
         "stageAnalyze": "分析中",
         "stageImport": "导入中"
@@ -1097,7 +1099,25 @@
       "connectedIntegrations": "已连接",
       "availableToConnect": "可连接",
       "connect": "连接",
-      "noIntegrationsAvailable": "暂无可用集成"
+      "noIntegrationsAvailable": "暂无可用集成",
+      "activateTool": "激活工具",
+      "webSearch": "网络搜索",
+      "webSearchResults": "找到 {{count}} 条结果",
+      "webSearchCompleted": "搜索完成",
+      "searchApi": "搜索 API",
+      "searchApiWithQuery": "搜索 API · {{query}}",
+      "noApiFound": "未找到 API",
+      "foundApis": "找到 {{count}} 个 API",
+      "totalApis": "共 {{count}} 个可用 API",
+      "callApi": "调用 API",
+      "callApiWithMethod": "{{method}} {{path}}...",
+      "response": "响应",
+      "success": "成功",
+      "failed": "失败",
+      "inputData": "输入数据",
+      "availableNodes": "可用节点",
+      "hasPreviousCode": "已有现有代码",
+      "noInputData": "无可用输入数据"
     },
     "showUI": {
       "connect": "连接",
@@ -1106,7 +1126,10 @@
       "connectToUse": "连接 {{provider}} 以在自动化中使用",
       "checkingConnection": "正在检查连接状态...",
       "confirm": "确认",
-      "confirmed": "已确认"
+      "confirmed": "已确认",
+      "cancel": "取消",
+      "cancelled": "已取消",
+      "connectionCancelled": "连接已取消"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
@@ -1186,7 +1209,6 @@
       "scriptUpdateFailed": "更新失败",
       "scriptExecuted": "脚本已执行",
       "scriptExecutionFailed": "执行失败",
-      "generatingScript": "正在生成脚本...",
       "scriptReady": "脚本已准备好",
       "executingScript": "正在执行脚本...",
       "waitedSeconds": "已等待 {{seconds}} 秒",

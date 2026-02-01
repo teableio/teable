@@ -413,7 +413,7 @@ export class RecordOpenApiService {
   async duplicateRecord(
     tableId: string,
     recordId: string,
-    order: IRecordInsertOrderRo,
+    order?: IRecordInsertOrderRo,
     projection?: string[]
   ) {
     const query = { fieldKeyType: FieldKeyType.Id, projection };

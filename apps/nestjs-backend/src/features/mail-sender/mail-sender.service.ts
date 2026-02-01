@@ -27,6 +27,7 @@ import { buildEmailFrom, type ISendMailOptions } from './mail-helpers';
 export class MailSenderService {
   private logger = new Logger(MailSenderService.name);
   private readonly defaultTransportConfig: IMailTransportConfig;
+  private readonly isMailConfigured: boolean;
 
   constructor(
     private readonly mailService: MailerService,
@@ -37,7 +38,8 @@ export class MailSenderService {
     private readonly cacheService: CacheService,
     private readonly i18n: I18nService<I18nTranslations>
   ) {
-    const { host, port, secure, auth, sender, senderName } = this.mailConfig;
+    const { host, port, secure, auth, sender, senderName, isConfigured } = this.mailConfig;
+    this.isMailConfigured = isConfigured;
     this.defaultTransportConfig = {
       senderName,
       sender,
@@ -49,6 +51,25 @@ export class MailSenderService {
         pass: auth.pass || '',
       },
     };
+  }
+
+  /**
+   * Log email content when mail is not configured.
+   * This helps developers debug email sending without actually sending emails.
+   */
+  private logEmailContent(mailOptions: ISendMailOptions, from?: string): void {
+    const emailInfo = {
+      from: from ?? mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      template: mailOptions.template,
+      context: mailOptions.context,
+      body: mailOptions.html ?? mailOptions.text,
+    };
+
+    this.logger.log(
+      `[Mail Not Configured] Would send email:\n${JSON.stringify(emailInfo, null, 2)}`
+    );
   }
 
   async checkSendMailRateLimit<T>(
@@ -91,7 +112,23 @@ export class MailSenderService {
     return transporter;
   }
 
+  /**
+   * Check if a transport config is valid (has required SMTP settings)
+   */
+  private isTransportConfigValid(config: IMailTransportConfig): boolean {
+    return Boolean(config.host && config.auth?.user && config.auth?.pass);
+  }
+
   async sendMailByConfig(mailOptions: ISendMailOptions, config: IMailTransportConfig) {
+    // Check if the provided config is valid (could be from env vars or backend settings)
+    if (!this.isTransportConfigValid(config)) {
+      const from =
+        mailOptions.from ??
+        buildEmailFrom(config.sender, mailOptions.senderName ?? config.senderName);
+      this.logEmailContent(mailOptions, from as string);
+      return { messageId: 'mock-message-id-not-configured' };
+    }
+
     const instance = await this.createTransporter(config);
     const from =
       mailOptions.from ??
@@ -167,12 +204,28 @@ export class MailSenderService {
     }
   ): Promise<boolean> {
     const { type, transportConfig, transporterName } = extra || {};
+
     let sender: Promise<boolean>;
     if (transportConfig) {
+      // Explicit transport config provided - sendMailByConfig will validate it
       sender = this.sendMailByConfig(mailOptions, transportConfig).then(() => true);
     } else if (transporterName) {
+      // Named transporter - may have config from backend settings, sendMailByTransporterName will validate
       sender = this.sendMailByTransporterName(mailOptions, transporterName, type).then(() => true);
     } else {
+      // No custom config - use default mailer service
+      // If env vars not configured, log the email instead
+      if (!this.isMailConfigured) {
+        const from =
+          mailOptions.from ??
+          buildEmailFrom(
+            this.mailConfig.sender,
+            mailOptions.senderName ?? this.mailConfig.senderName
+          );
+        this.logEmailContent(mailOptions, from as string);
+        return true;
+      }
+
       const from =
         mailOptions.from ??
         buildEmailFrom(

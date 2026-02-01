@@ -39,12 +39,12 @@ import {
   IGetRecordHistoryQuery,
   updateRecordsRoSchema,
   IUpdateRecordsRo,
-  recordInsertOrderRoSchema,
   IRecordInsertOrderRo,
   recordGetCollaboratorsRoSchema,
   IRecordGetCollaboratorsRo,
   formSubmitRoSchema,
   IFormSubmitRo,
+  optionalRecordOrderSchema,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
@@ -205,7 +205,7 @@ export class RecordOpenApiController {
   async duplicateRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
-    @Body(new ZodValidationPipe(recordInsertOrderRoSchema)) order: IRecordInsertOrderRo
+    @Body(new ZodValidationPipe(optionalRecordOrderSchema)) order?: IRecordInsertOrderRo
   ) {
     return await this.recordOpenApiService.duplicateRecord(tableId, recordId, order);
   }

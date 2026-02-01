@@ -931,8 +931,11 @@
         "modeExtracted": "Text Extracted",
         "modeExtractedDesc": "File content parsed and extracted as text for analysis",
         "visionLoaded": "Loaded for visual analysis",
+        "pdfLoaded": "Loaded for PDF analysis",
         "textExtracted": "{{chars}} characters extracted",
-        "contextLoaded": "Loaded to AI context"
+        "contextLoaded": "Loaded to AI context",
+        "truncated": "Truncated",
+        "preview": "Preview"
       },
       "textExtract": {
         "title": "Text Extract",
@@ -954,7 +957,6 @@
         "analyzeComplete": "Analysis Complete",
         "worksheets": "Worksheets",
         "columns": "columns",
-        "nextStep": "Next: AI will import with field mappings",
         "importComplete": "Import Complete",
         "stageAnalyze": "Analyzing",
         "stageImport": "Importing"
@@ -1097,7 +1099,25 @@
       "connectedIntegrations": "Connected",
       "availableToConnect": "Available to connect",
       "connect": "Connect",
-      "noIntegrationsAvailable": "No integrations available"
+      "noIntegrationsAvailable": "No integrations available",
+      "activateTool": "Activate tools",
+      "webSearch": "Web search",
+      "webSearchResults": "Found {{count}} result(s)",
+      "webSearchCompleted": "Search completed",
+      "searchApi": "Search API",
+      "searchApiWithQuery": "Search API · {{query}}",
+      "noApiFound": "No APIs found",
+      "foundApis": "Found {{count}} API(s)",
+      "totalApis": "Total {{count}} APIs available",
+      "callApi": "Call API",
+      "callApiWithMethod": "{{method}} {{path}}...",
+      "response": "Response",
+      "success": "Success",
+      "failed": "Failed",
+      "inputData": "Input data",
+      "availableNodes": "Available nodes",
+      "hasPreviousCode": "Has existing code",
+      "noInputData": "No input data available"
     },
     "showUI": {
       "connect": "Connect",
@@ -1106,7 +1126,10 @@
       "connectToUse": "Connect {{provider}} to use in automations",
       "checkingConnection": "Checking connection status...",
       "confirm": "Confirm",
-      "confirmed": "Confirmed"
+      "confirmed": "Confirmed",
+      "cancel": "Cancel",
+      "cancelled": "Cancelled",
+      "connectionCancelled": "Connection cancelled"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
@@ -1186,7 +1209,6 @@
       "scriptUpdateFailed": "Update Failed",
       "scriptExecuted": "Script Executed",
       "scriptExecutionFailed": "Execution Failed",
-      "generatingScript": "Generating script...",
       "scriptReady": "Script ready",
       "executingScript": "Executing script...",
       "waitedSeconds": "Waited {{seconds}}s",

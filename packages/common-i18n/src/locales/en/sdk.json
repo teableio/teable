@@ -1094,7 +1094,8 @@
       "notAllowedToExecuteSqlWithKeyword": "Not allowed to execute sql with keyword {{keyword}}",
       "whiteListCheckError": "An error occurred while checking table access: {{message}}",
       "databaseConnectionFailed": "Database connection failed: {{message}}",
-      "executeQuerySqlFailed": "Execute query sql failed: {{message}}"
+      "executeQuerySqlFailed": "Execute query sql failed: {{message}}",
+      "readOnlyCheckFailed": "Read only check failed: {{message}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",

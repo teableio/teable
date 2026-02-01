@@ -2856,6 +2856,7 @@ export type I18nTranslations = {
                 "whiteListCheckError": string;
                 "databaseConnectionFailed": string;
                 "executeQuerySqlFailed": string;
+                "readOnlyCheckFailed": string;
             };
             "permission": {
                 "createRecordWithDeniedFields": string;
@@ -4308,8 +4309,11 @@ export type I18nTranslations = {
                     "modeExtracted": string;
                     "modeExtractedDesc": string;
                     "visionLoaded": string;
+                    "pdfLoaded": string;
                     "textExtracted": string;
                     "contextLoaded": string;
+                    "truncated": string;
+                    "preview": string;
                 };
                 "textExtract": {
                     "title": string;
@@ -4331,7 +4335,6 @@ export type I18nTranslations = {
                     "analyzeComplete": string;
                     "worksheets": string;
                     "columns": string;
-                    "nextStep": string;
                     "importComplete": string;
                     "stageAnalyze": string;
                     "stageImport": string;
@@ -4521,6 +4524,24 @@ export type I18nTranslations = {
                 "availableToConnect": string;
                 "connect": string;
                 "noIntegrationsAvailable": string;
+                "activateTool": string;
+                "webSearch": string;
+                "webSearchResults": string;
+                "webSearchCompleted": string;
+                "searchApi": string;
+                "searchApiWithQuery": string;
+                "noApiFound": string;
+                "foundApis": string;
+                "totalApis": string;
+                "callApi": string;
+                "callApiWithMethod": string;
+                "response": string;
+                "success": string;
+                "failed": string;
+                "inputData": string;
+                "availableNodes": string;
+                "hasPreviousCode": string;
+                "noInputData": string;
             };
             "showUI": {
                 "connect": string;
@@ -4530,6 +4551,9 @@ export type I18nTranslations = {
                 "checkingConnection": string;
                 "confirm": string;
                 "confirmed": string;
+                "cancel": string;
+                "cancelled": string;
+                "connectionCancelled": string;
             };
             "buildFlow": {
                 "progress": string;
@@ -4603,7 +4627,6 @@ export type I18nTranslations = {
                 "scriptUpdateFailed": string;
                 "scriptExecuted": string;
                 "scriptExecutionFailed": string;
-                "generatingScript": string;
                 "scriptReady": string;
                 "executingScript": string;
                 "waitedSeconds": string;

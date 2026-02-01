@@ -164,6 +164,24 @@ describe('OpenAPI FieldController (e2e)', () => {
         formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       });
 
+      // Test number field with empty options object (AI tool scenario)
+      // When AI passes options: {} without formatting, server should provide defaults
+      const numberFieldWithEmptyOptions = await createFieldByType(FieldType.Number, {});
+      expect(numberFieldWithEmptyOptions.options).toEqual({
+        formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+      });
+
+      // Test number field with partial options (only showAs, no formatting)
+      const numberFieldWithPartialOptions = await createFieldByType(FieldType.Number, {
+        showAs: undefined,
+      } as IFieldRo['options']);
+      expect((numberFieldWithPartialOptions.options as { formatting: unknown }).formatting).toEqual(
+        {
+          type: NumberFormattingType.Decimal,
+          precision: 2,
+        }
+      );
+
       const selectField = await createFieldByType(FieldType.SingleSelect);
       expect(selectField.name).toEqual('Select');
       expect(selectField.options).toEqual({

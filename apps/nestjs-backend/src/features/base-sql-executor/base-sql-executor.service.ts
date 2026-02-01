@@ -299,7 +299,23 @@ export class BaseSqlExecutorService {
       database: this.driver,
     });
     // 3. read only role check table access, only pg and pg version > 14 support
-    await this.readonlyExecuteSql(sql);
+    try {
+      await this.readonlyExecuteSql(sql);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      throw new CustomHttpException(
+        `read only check failed: ${error?.meta?.message || error?.message}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseSqlExecutor.readOnlyCheckFailed',
+            context: {
+              message: error?.meta?.message || error?.message,
+            },
+          },
+        }
+      );
+    }
   }
 
   async executeQuerySql<T = unknown>(

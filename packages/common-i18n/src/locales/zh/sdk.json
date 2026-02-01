@@ -1094,7 +1094,8 @@
       "notAllowedToExecuteSqlWithKeyword": "不允许执行包含关键字 {{keyword}} 的 SQL",
       "whiteListCheckError": "检查表访问时发生错误：{{message}}",
       "databaseConnectionFailed": "数据库连接失败：{{message}}",
-      "executeQuerySqlFailed": "执行查询 SQL 失败：{{message}}"
+      "executeQuerySqlFailed": "执行查询 SQL 失败：{{message}}",
+      "readOnlyCheckFailed": "只读检查失败：{{message}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",

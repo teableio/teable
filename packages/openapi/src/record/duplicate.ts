@@ -7,6 +7,13 @@ import type { IRecord } from './get';
 
 export const DUPLICATE_URL = '/table/{tableId}/record/{recordId}/duplicate';
 
+// Schema that accepts undefined, null, or empty object and normalizes to undefined
+export const optionalRecordOrderSchema = z.preprocess((val) => {
+  if (val === null || val === undefined) return undefined;
+  if (typeof val === 'object' && Object.keys(val as object).length === 0) return undefined;
+  return val;
+}, recordInsertOrderRoSchema.optional());
+
 export const duplicateRoute = registerRoute({
   method: 'post',
   path: DUPLICATE_URL,
@@ -41,7 +48,12 @@ export const duplicateRoute = registerRoute({
 export const duplicateRecord = async (
   tableId: string,
   recordId: string,
-  order: IRecordInsertOrderRo
+  order?: IRecordInsertOrderRo
 ) => {
-  return axios.post<IRecord>(urlBuilder(DUPLICATE_URL, { tableId, recordId }), order);
+  const url = urlBuilder(DUPLICATE_URL, { tableId, recordId });
+  // When order is undefined, don't send any body data
+  if (order === undefined) {
+    return axios.post<IRecord>(url);
+  }
+  return axios.post<IRecord>(url, order);
 };

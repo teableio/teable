@@ -734,4 +734,69 @@ export class AiService {
     const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
     return aiConfig?.attachmentTransferMode || 'url';
   }
+
+  /**
+   * Find the first model that supports vision capability from configured models.
+   * Searches in order: gateway models (enabled), then custom llm providers.
+   * Returns complete model info to avoid redundant lookups.
+   *
+   * @param llmProviders - List of configured LLM providers
+   * @returns Complete vision model info, or undefined if none found
+   */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async findFirstVisionModel(llmProviders: LLMProvider[]): Promise<
+    | {
+        modelKey: string;
+        modelInstance: ILanguageModelV2;
+        isInstance: boolean;
+        tags: GatewayModelTag[];
+      }
+    | undefined
+  > {
+    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+
+    // 1. Check gateway models first (they are typically more capable)
+    const gatewayModels = aiConfig?.gatewayModels ?? [];
+    for (const model of gatewayModels) {
+      if (!model.enabled) continue;
+
+      if (model.tags?.includes('vision')) {
+        const modelKey = this.buildGatewayModelKey(model.id);
+        const modelInstance = await this.getModelInstance(modelKey, llmProviders);
+        return {
+          modelKey,
+          modelInstance,
+          isInstance: true, // Gateway models are always instance-level
+          tags: model.tags,
+        };
+      }
+    }
+
+    // 2. Check custom LLM providers
+    for (const provider of llmProviders) {
+      const models = provider.models?.split(',').map((m) => m.trim()) ?? [];
+      for (const model of models) {
+        const modelConfig = provider.modelConfigs?.[model];
+        if (!modelConfig) continue;
+
+        // Check tags (new format) or ability (backward compatibility)
+        const hasVision = modelConfig.tags?.includes('vision') || modelConfig.ability?.image;
+        if (hasVision) {
+          const modelKey = `${provider.type}@${model}@${provider.name}`;
+          const modelInstance = await this.getModelInstance(modelKey, llmProviders);
+          // Convert ability to tags for backward compatibility
+          const tags: GatewayModelTag[] =
+            modelConfig.tags ?? this.abilityToTags(modelConfig.ability ?? {});
+          return {
+            modelKey,
+            modelInstance,
+            isInstance: !!provider.isInstance,
+            tags,
+          };
+        }
+      }
+    }
+
+    return undefined;
+  }
 }

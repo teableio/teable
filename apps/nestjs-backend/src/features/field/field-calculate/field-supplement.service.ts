@@ -54,6 +54,7 @@ import type {
   ITextFieldCustomizeAIConfig,
   ITextFieldSummarizeAIConfig,
   IConditionalLookupOptions,
+  INumberFieldOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -1144,10 +1145,17 @@ export class FieldSupplementService {
   private prepareNumberField(field: IFieldRo) {
     const { name, options } = field;
 
+    // Handle empty options object - use default if options is null/undefined OR empty object without formatting
+    const numberOptions = options as INumberFieldOptions | undefined;
+    const needsDefault = !numberOptions || !numberOptions.formatting;
+    const finalOptions = needsDefault
+      ? { ...NumberFieldCore.defaultOptions(), ...numberOptions }
+      : numberOptions;
+
     return {
       ...field,
       name: name ?? 'Number',
-      options: options ?? NumberFieldCore.defaultOptions(),
+      options: finalOptions,
       cellValueType: CellValueType.Number,
       dbFieldType: DbFieldType.Real,
     };
