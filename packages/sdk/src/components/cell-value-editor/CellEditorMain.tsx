@@ -178,6 +178,9 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
         <AttachmentEditor
           key={`${field.id}-${recordId}`}
           className={className}
+          tableId={tableId}
+          recordId={recordId}
+          fieldId={field.id}
           value={cellValue as IAttachmentCellValue}
           onChange={onChange}
           readonly={readonly}

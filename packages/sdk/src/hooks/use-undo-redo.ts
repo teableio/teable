@@ -14,7 +14,6 @@ export const useUndoRedo = () => {
       toast('nothing to undo');
       return;
     }
-
     toast.promise(
       async () => {
         const res = await undo(tableId);

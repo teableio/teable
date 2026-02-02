@@ -1300,5 +1300,12 @@
         "defaultTitle": "代码项目"
       }
     }
+  },
+  "upload": {
+    "panelUploading": "正在上传 {{count}} 个文件",
+    "panelFailed": "{{count}} 个文件失败",
+    "panelCompleted": "{{count}} 个文件已完成",
+    "statusFailed": "上传失败",
+    "statusCompleted": "完成"
   }
 }
