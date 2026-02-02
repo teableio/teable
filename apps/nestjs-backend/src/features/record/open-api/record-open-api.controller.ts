@@ -45,6 +45,8 @@ import {
   formSubmitRoSchema,
   IFormSubmitRo,
   optionalRecordOrderSchema,
+  insertAttachmentRoSchema,
+  IInsertAttachmentRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
@@ -153,6 +155,23 @@ export class RecordOpenApiController {
       fieldId,
       file,
       fileUrl
+    );
+  }
+
+  @Permissions('record|update')
+  @Post(':recordId/:fieldId/insertAttachment')
+  async insertAttachment(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Param('fieldId') fieldId: string,
+    @Body(new ZodValidationPipe(insertAttachmentRoSchema)) body: IInsertAttachmentRo
+  ): Promise<IRecord> {
+    return await this.recordOpenApiService.insertAttachment(
+      tableId,
+      recordId,
+      fieldId,
+      body.attachments,
+      body.anchorId
     );
   }
 

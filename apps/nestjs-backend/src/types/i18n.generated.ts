@@ -4730,6 +4730,13 @@ export type I18nTranslations = {
                 "deniedUpdate": string;
             };
         };
+        "upload": {
+            "panelUploading": string;
+            "panelFailed": string;
+            "panelCompleted": string;
+            "statusFailed": string;
+            "statusCompleted": string;
+        };
     };
     "token": {
         "access": string;
