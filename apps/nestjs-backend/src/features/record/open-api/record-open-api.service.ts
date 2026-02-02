@@ -410,6 +410,40 @@ export class RecordOpenApiService {
     return await this.updateRecord(tableId, recordId, updateRecordRo);
   }
 
+  async insertAttachment(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    attachments: IAttachmentItem[],
+    anchorId?: string
+  ) {
+    if (!attachments.length) {
+      throw new CustomHttpException('No attachments provided', HttpErrorCode.VALIDATION_ERROR);
+    }
+
+    const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
+
+    // Fetch full attachment data for each attachment item from database
+
+    const current = (record.fields[fieldId] || []) as IAttachmentItem[];
+    const anchorIndex = anchorId ? current.findIndex((item) => item.id === anchorId) : -1;
+    const next =
+      anchorIndex >= 0
+        ? [...current.slice(0, anchorIndex + 1), ...attachments, ...current.slice(anchorIndex + 1)]
+        : current.concat(attachments);
+
+    const updateRecordRo: IUpdateRecordRo = {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: next,
+        },
+      },
+    };
+
+    return await this.updateRecord(tableId, recordId, updateRecordRo);
+  }
+
   async duplicateRecord(
     tableId: string,
     recordId: string,

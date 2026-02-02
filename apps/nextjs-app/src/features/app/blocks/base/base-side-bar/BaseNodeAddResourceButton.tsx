@@ -1,5 +1,5 @@
 import { getUniqName, ViewType } from '@teable/core';
-import { File, FileCsv, FileExcel, Slack } from '@teable/icons';
+import { FileCsv, FileExcel, Slack, Table2 } from '@teable/icons';
 import type { ICreateBaseNodeRo } from '@teable/openapi';
 import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { useTables } from '@teable/sdk';
@@ -71,7 +71,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
           className="cursor-pointer"
         >
           <Button variant="ghost" size="xs" className="h-4">
-            <File className="size-4" />
+            <Table2 className="size-4" />
             {t('table.operator.createBlank')}
           </Button>
         </DropdownMenuItem>

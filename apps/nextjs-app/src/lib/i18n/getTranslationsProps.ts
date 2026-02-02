@@ -10,6 +10,6 @@ export const getTranslationsProps = (
   i18nNamespaces: I18nNamespace[] | I18nNamespace | undefined,
   configOverride?: UserConfig | null
 ) => {
-  const locale = context.res.getHeader(CookieLocaleKey) as string | undefined;
+  const locale = context.locale || (context.res.getHeader(CookieLocaleKey) as string | undefined);
   return getServerSideTranslations(locale || 'en', i18nNamespaces, configOverride);
 };
