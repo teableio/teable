@@ -15,6 +15,7 @@ import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
 import { UsageLimitModal } from '../components/billing/UsageLimitModal';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
+import { UploadProgressPanel } from '../components/upload-progress-panel/UploadProgressPanel';
 import type { IBaseResourceTable } from '../hooks/useBaseResource';
 import { useBaseResource } from '../hooks/useBaseResource';
 import { useSdkLocale } from '../hooks/useSdkLocale';
@@ -69,6 +70,7 @@ export const BaseLayout: React.FC<{
                           </Sidebar>
                           <div className="min-w-80 flex-1">{children}</div>
                         </div>
+                        <UploadProgressPanel />
                       </div>
                       <UsageLimitModal />
                       <WorkFlowPanelModal />
