@@ -1,3 +1,4 @@
+import { z } from '@teable/openapi';
 import type { Request } from 'express';
 
 export interface IPayloadUser {
@@ -16,8 +17,31 @@ export enum JwtAuthInternalType {
   User = 'user',
 }
 
-export interface IJwtAuthInternalInfo {
-  type: JwtAuthInternalType;
-  baseId: string;
-  userId?: string; // Optional user ID for User type tokens
-}
+const workflowContextSchema = z.object({
+  actionId: z.string().optional(),
+});
+
+export type IWorkflowContext = z.infer<typeof workflowContextSchema>;
+
+const jwtAuthInternalBaseInfoSchema = z.object({
+  baseId: z.string(),
+  userId: z.string().optional(),
+  context: z.unknown().optional(),
+});
+
+export const jwtAuthInternalInfoSchema = jwtAuthInternalBaseInfoSchema.and(
+  z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal(JwtAuthInternalType.Automation),
+      context: workflowContextSchema.optional(),
+    }),
+    z.object({
+      type: z.literal(JwtAuthInternalType.App),
+    }),
+    z.object({
+      type: z.literal(JwtAuthInternalType.User),
+    }),
+  ])
+);
+
+export type IJwtAuthInternalInfo = z.infer<typeof jwtAuthInternalInfoSchema>;
