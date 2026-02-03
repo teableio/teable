@@ -69,6 +69,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     if (payload.type === JwtAuthInternalType.App) {
       await this.setAppIdFromToken(req);
     }
+    if (payload.type === JwtAuthInternalType.Automation) {
+      this.cls.set('workflowContext', payload.context);
+    }
 
     return user;
   }
