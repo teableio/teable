@@ -316,7 +316,6 @@ describe('OpenAPI delete field (e2e)', () => {
     it('should handle complex formula chain when deleting intermediate field', async () => {
       const primaryField = table.fields.find((f) => f.name === 'Primary Field')!;
       const referenceField1 = table.fields.find((f) => f.name === 'Reference Field 1')!;
-      const referenceField2 = table.fields.find((f) => f.name === 'Reference Field 2')!;
 
       // Create a chain: referenceField1 -> intermediateFormula -> primaryField (converted to formula)
       const intermediateFormula = await createField(table.id, {

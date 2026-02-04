@@ -61,7 +61,7 @@ export const QuickAction = () => {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              className="w-6 shrink-0 px-0"
+              className="size-7 shrink-0 p-0"
               variant="ghost"
               size="xs"
               onClick={() => setOpen(true)}

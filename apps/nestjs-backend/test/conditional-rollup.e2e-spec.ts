@@ -148,7 +148,7 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         let fixtures: Awaited<ReturnType<typeof setupConditionalRollupFixtures>> | undefined;
         try {
           fixtures = await setupConditionalRollupFixtures();
-          const { foreign, host, linkField, hostRecordId } = fixtures;
+          const { foreign, host, hostRecordId } = fixtures;
           const lookupFieldId = fixtures[lookupFieldKey];
 
           const field = await createField(host.id, {
@@ -3866,7 +3866,6 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
   describe('numeric array field reference rollups', () => {
     let games: ITableFullVo;
     let summary: ITableFullVo;
-    let gamesLinkFieldId: string;
     let scoreFieldId: string;
     let thresholdFieldId: string;
     let ceilingFieldId: string;
@@ -3942,7 +3941,6 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         ],
       });
 
-      gamesLinkFieldId = summary.fields.find((f) => f.name === 'Games')!.id;
       const summaryPlayerFieldId = summary.fields.find((f) => f.name === 'Player')!.id;
       thresholdFieldId = summary.fields.find((f) => f.name === 'Threshold')!.id;
       ceilingFieldId = summary.fields.find((f) => f.name === 'Ceiling')!.id;

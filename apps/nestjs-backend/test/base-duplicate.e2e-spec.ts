@@ -1210,10 +1210,10 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         name: 'Folder 1',
       }).then((res) => res.data);
 
-      const _folder2Node = await createBaseNode(base.id, {
+      await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Folder,
         name: 'Folder 2',
-      }).then((res) => res.data);
+      });
 
       const table1Node = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
@@ -1222,12 +1222,12 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         views: [{ name: 'Grid view', type: ViewType.Grid }],
       }).then((res) => res.data);
 
-      const _table2Node = await createBaseNode(base.id, {
+      await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Table outside',
         fields: [{ name: 'Name', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
-      }).then((res) => res.data);
+      });
 
       // Move table1 into folder1
       await moveBaseNode(base.id, table1Node.id, { parentId: folder1Node.id });
@@ -1362,7 +1362,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
     it('should handle lookup fields when link field is disconnected', async () => {
       const table1 = await createTable(base.id, { name: 'table1' });
-      const _table2 = await createTable(base.id, { name: 'table2' });
+      await createTable(base.id, { name: 'table2' });
       const table3 = await createTable(base.id, { name: 'table3' });
 
       // Create link from table1 to table3

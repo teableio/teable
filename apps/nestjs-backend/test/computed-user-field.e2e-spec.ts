@@ -1,7 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo } from '@teable/core';
 import { FieldKeyType, FieldType, Role } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
 import {
   deleteSpaceCollaborator,
   emailSpaceInvitation,
@@ -19,7 +18,6 @@ import {
 } from '@teable/openapi';
 import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
-import type { Knex } from 'knex';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
@@ -37,15 +35,10 @@ describe('Computed user field (e2e)', () => {
   let app: INestApplication;
   const spaceId = globalThis.testConfig.spaceId;
   const userName = globalThis.testConfig.userName;
-  const userEmail = globalThis.testConfig.email;
-  let prisma: PrismaService;
-  let knex: Knex;
   let baseId: string;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    prisma = app.get(PrismaService);
-    knex = app.get('CUSTOM_KNEX');
     const base = await createBase({ name: 'base1', spaceId });
     baseId = base.id;
   });
@@ -57,11 +50,6 @@ describe('Computed user field (e2e)', () => {
 
   describe('CRUD', () => {
     let table1: ITableFullVo;
-    const fetchRow = async (dbTableName: string, cols: string[], id: string) => {
-      const [schema, table] = dbTableName.split('.');
-      const qb = table ? knex.withSchema(schema).from(table) : knex(dbTableName);
-      return qb.select('*').where('__id', id).first();
-    };
 
     beforeEach(async () => {
       table1 = await createTable(baseId, { name: 'table1' });

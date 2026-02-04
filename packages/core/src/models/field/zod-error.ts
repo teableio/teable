@@ -34,7 +34,7 @@ interface IValidateFieldOptionProps {
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 const validateLookupOptions = (data: IValidateFieldOptionProps) => {
-  const { isLookup, isConditionalLookup, lookupOptions, type, options } = data;
+  const { isLookup, isConditionalLookup, lookupOptions, type } = data;
   const res: IFieldValidateData[] = [];
 
   const isRollup = type === FieldType.Rollup;

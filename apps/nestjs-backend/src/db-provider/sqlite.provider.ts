@@ -3,7 +3,6 @@ import { Logger } from '@nestjs/common';
 import type {
   IFilter,
   ILookupLinkOptionsVo,
-  ILookupOptionsVo,
   ISortItem,
   FieldCore,
   TableDomain,

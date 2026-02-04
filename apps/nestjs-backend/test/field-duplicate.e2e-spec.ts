@@ -66,7 +66,7 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
         ],
       });
 
-      const autoLen = await createField(table.id, {
+      await createField(table.id, {
         name: 'auto-len',
         type: FieldType.Formula,
         options: {

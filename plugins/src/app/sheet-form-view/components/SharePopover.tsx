@@ -171,7 +171,7 @@ export const SharePopover: React.FC<{
                 </Label>
                 {Boolean(shareMeta?.password) && (
                   <Button
-                    className="hover:text-muted-foreground h-5 py-0"
+                    className="h-5 py-0 hover:text-muted-foreground"
                     variant={'link'}
                     size={'xs'}
                     onClick={() => setShowPasswordDialog(true)}
@@ -193,7 +193,7 @@ export const SharePopover: React.FC<{
             </div>
           </>
         ) : (
-          <div className="text-muted-foreground text-center text-sm">
+          <div className="text-center text-sm text-muted-foreground">
             {!enableShare && permission['view|share'] ? t('share.tips') : t('share.noPermission')}
           </div>
         )}

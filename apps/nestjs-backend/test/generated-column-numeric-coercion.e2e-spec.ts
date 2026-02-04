@@ -302,14 +302,12 @@ describe('Generated column numeric coercion (e2e)', () => {
 
     it('supports date minus numeric operands and comparisons with TODAY()', async () => {
       const recordId = table.records[0].id;
-      const initialLead = addUtcDays(dueDateUtc, -2);
       const initialRecord = await getRecord(table.id, recordId);
       const storedDueDate = initialRecord.fields[dueDateField.id] as string | undefined;
       const expectedInitialLead = shiftDateString(storedDueDate, -2, dueDateUtc);
       expect(initialRecord.fields[startDateField.id]).toBe(expectedInitialLead);
       expect(initialRecord.fields[statusField.id]).toBe('pending');
 
-      const updatedLead = addUtcDays(dueDateUtc, -7);
       await updateRecordByApi(table.id, recordId, bufferDaysField.id, 7);
 
       const updatedRecord = await getRecord(table.id, recordId);

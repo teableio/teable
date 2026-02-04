@@ -3,7 +3,6 @@ import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship } from '@teable/core';
 import type { IFieldRo } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { Knex } from 'knex';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { preservedDbFieldNames } from '../src/features/field/constant';
@@ -18,7 +17,6 @@ import {
 describe('Field -> Physical Columns mapping (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  let knex: Knex;
   let db: IDbProvider;
   const baseId = (globalThis as any).testConfig.baseId as string;
 
@@ -26,7 +24,6 @@ describe('Field -> Physical Columns mapping (e2e)', () => {
     const appCtx = await initApp();
     app = appCtx.app;
     prisma = app.get(PrismaService);
-    knex = app.get('CUSTOM_KNEX' as any);
     db = app.get<IDbProvider>(DB_PROVIDER_SYMBOL as any);
   });
 

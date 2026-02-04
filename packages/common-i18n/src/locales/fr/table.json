@@ -688,5 +688,31 @@
       "tokenDescription": "Tokens utilisés : {{tokens}}",
       "taskCompleted": "Tâche terminée"
     }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Télécharger toutes les pièces jointes",
+      "loading": "Chargement de l'aperçu...",
+      "rowsWithAttachments": "{{count}} lignes avec pièces jointes",
+      "totalAttachments": "{{count}} pièces jointes",
+      "totalSize": "Taille totale : {{size}}",
+      "startDownload": "Démarrer le téléchargement",
+      "confirmTitle": "Télécharger {{count}} fichiers",
+      "confirmDescription": "Taille totale : {{size}}. Les fichiers seront compressés dans un fichier ZIP.",
+      "confirm": "Télécharger",
+      "cancel": "Annuler",
+      "downloading": "Téléchargement en cours...",
+      "downloadingFile": "Téléchargement : {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Téléchargement terminé",
+      "cancelled": "Téléchargement annulé",
+      "noAttachments": "Aucune pièce jointe à télécharger",
+      "error": "Échec du téléchargement",
+      "errorPartial": "{{failedCount}} fichiers n'ont pas pu être téléchargés",
+      "requireHttps": "Le téléchargement groupé nécessite HTTPS. Veuillez accéder via HTTPS ou localhost.",
+      "namingFieldLabel": "Préfixe du nom de pièce jointe",
+      "groupByRow": "Archiver dans des dossiers",
+      "groupByRowTip": "Lorsqu'une ligne contient plusieurs pièces jointes, elles seront placées dans le même dossier ; les lignes avec une seule pièce jointe ne créeront pas de dossier."
+    }
   }
 }

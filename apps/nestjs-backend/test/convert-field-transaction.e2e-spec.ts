@@ -265,7 +265,7 @@ describe('Field convert transaction (e2e)', () => {
       alterSpy = vi
         .spyOn(fieldService, 'alterTableDeleteField')
         .mockImplementationOnce(async (...args) => {
-          const result = await originalAlter(...(args as Parameters<typeof originalAlter>));
+          await originalAlter(...(args as Parameters<typeof originalAlter>));
           throw new Error('force-delete-failure');
         });
 

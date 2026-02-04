@@ -254,7 +254,7 @@ describe('Bulk text to link conversion (e2e)', () => {
           });
         });
 
-        occurrencesByCode.forEach((count, code) => {
+        occurrencesByCode.forEach((count, _code) => {
           expect(count).toBe(TOTAL_RECORDS / AGENCY_CODES.length);
         });
       };

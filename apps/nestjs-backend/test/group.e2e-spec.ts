@@ -407,7 +407,7 @@ describe('Lookup grouping keeps headers aligned', () => {
       )
     );
 
-    const [projectFields, taskFields] = await Promise.all([
+    const [projectFields] = await Promise.all([
       getFields(projectTable.id),
       getFields(taskTable.id),
     ]);

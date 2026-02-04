@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, generateFieldId } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import {
   createField,
   createRecords,

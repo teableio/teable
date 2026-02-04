@@ -1273,7 +1273,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
 
   describe('self-table field-reference lookups projecting alternate fields', () => {
     let table: ITableFullVo;
-    let titleId: string;
     let nameId: string;
     let nameMirrorId: string;
     let title2Id: string;
@@ -1300,7 +1299,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         ],
       });
 
-      titleId = table.fields.find((f) => f.name === 'Title')!.id;
       nameId = table.fields.find((f) => f.name === 'Name')!.id;
       nameMirrorId = table.fields.find((f) => f.name === 'NameMirror')!.id;
       title2Id = table.fields.find((f) => f.name === 'Title2')!.id;
@@ -1354,7 +1352,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
 
   describe('self-table field-reference lookups selecting alternate titles', () => {
     let table: ITableFullVo;
-    let titleId: string;
     let nameId: string;
     let name2Id: string;
     let title2Id: string;
@@ -1381,7 +1378,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         ],
       });
 
-      titleId = table.fields.find((f) => f.name === 'Title')!.id;
       nameId = table.fields.find((f) => f.name === 'Name')!.id;
       name2Id = table.fields.find((f) => f.name === 'Name2')!.id;
       title2Id = table.fields.find((f) => f.name === 'Title2')!.id;
@@ -1543,8 +1539,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let hostHardwareActiveId: string;
     let hostOfficeActiveId: string;
     let hostHardwareInactiveId: string;
-    let foreignLaptopId: string;
-    let foreignMonitorId: string;
 
     beforeAll(async () => {
       foreign = await createTable(baseId, {
@@ -1600,8 +1594,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
       quantityId = foreign.fields.find((f) => f.name === 'Quantity')!.id;
       statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
-      foreignLaptopId = foreign.records.find((record) => record.fields.Title === 'Laptop')!.id;
-      foreignMonitorId = foreign.records.find((record) => record.fields.Title === 'Monitor')!.id;
 
       host = await createTable(baseId, {
         name: 'ConditionalLookup_FieldMatrix_Host',
@@ -2416,7 +2408,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let supplierRatingId: string;
     let linkToSupplierField: IFieldVo;
     let supplierRatingLookup: IFieldVo;
-    let supplierRatingRollup: IFieldVo;
     let supplierRatingConditionalLookup: IFieldVo;
     let supplierRatingConditionalRollup: IFieldVo;
     let supplierRatingDoubleFormula: IFieldVo;
@@ -2497,7 +2488,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         } as ILookupOptionsRo,
       } as IFieldRo);
 
-      supplierRatingRollup = await createField(products.id, {
+      await createField(products.id, {
         name: 'Supplier Rating Sum',
         type: FieldType.Rollup,
         lookupOptions: {
@@ -3566,7 +3557,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
   describe('numeric array field reference filters', () => {
     let games: ITableFullVo;
     let summary: ITableFullVo;
-    let roundScoresField: IFieldVo;
     let gamesLinkFieldId: string;
     let thresholdFieldId: string;
     let ceilingFieldId: string;
@@ -3644,7 +3634,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
 
       gamesLinkFieldId = summary.fields.find((f) => f.name === 'Games')!.id;
       const summaryPlayerFieldId = summary.fields.find((f) => f.name === 'Player')!.id;
-      roundScoresField = await createField(summary.id, {
+      await createField(summary.id, {
         name: 'Round Scores',
         type: FieldType.Number,
         isLookup: true,

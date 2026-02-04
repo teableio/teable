@@ -915,7 +915,7 @@ IF(
       await updateRecordByApi(t1.id, t1.records[0].id, linkOnT1.id, [{ id: t2.records[0].id }]);
 
       // Convert link to two-way (still OneMany) and capture record.update events
-      const { events, result: newFieldVo } = await runAndCaptureRecordUpdates(async () => {
+      const { events } = await runAndCaptureRecordUpdates(async () => {
         return await convertField(t1.id, linkOnT1.id, {
           id: linkOnT1.id,
           type: FieldType.Link,

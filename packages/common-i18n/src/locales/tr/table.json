@@ -633,5 +633,31 @@
   "pasteNewRecords": {
     "title": "Birden fazla kayıt eklemek istiyor musunuz?",
     "description": "{{count}} kayıt tabloya eklenecek."
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Tüm ekleri indir",
+      "loading": "Önizleme yükleniyor...",
+      "rowsWithAttachments": "{{count}} satır ek içeriyor",
+      "totalAttachments": "{{count}} ek",
+      "totalSize": "Toplam boyut: {{size}}",
+      "startDownload": "İndirmeyi başlat",
+      "confirmTitle": "{{count}} dosya indir",
+      "confirmDescription": "Toplam boyut: {{size}}. Dosyalar ZIP dosyasına sıkıştırılacak.",
+      "confirm": "İndir",
+      "cancel": "İptal",
+      "downloading": "İndiriliyor...",
+      "downloadingFile": "İndiriliyor: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "İndirme tamamlandı",
+      "cancelled": "İndirme iptal edildi",
+      "noAttachments": "İndirilecek ek yok",
+      "error": "İndirme başarısız",
+      "errorPartial": "{{failedCount}} dosya indirilemedi",
+      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin.",
+      "namingFieldLabel": "Ek adı öneki",
+      "groupByRow": "Klasörlere arşivle",
+      "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
+    }
   }
 }

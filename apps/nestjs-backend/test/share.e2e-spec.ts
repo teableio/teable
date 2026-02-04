@@ -250,7 +250,6 @@ describe('OpenAPI ShareController (e2e)', () => {
     let recordsViewId: string;
     let recordsShareId: string;
     let primaryFieldId: string;
-    let createdRecordIds: string[] = [];
     const primaryFieldName = 'Name';
 
     beforeAll(async () => {
@@ -271,7 +270,6 @@ describe('OpenAPI ShareController (e2e)', () => {
       recordsTableId = table.id;
       recordsViewId = table.defaultViewId!;
       primaryFieldId = table.fields[0].id;
-      createdRecordIds = table.records.map((r) => r.id);
 
       const shareResult = await apiEnableShareView({
         tableId: recordsTableId,

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, ILookupOptionsRo } from '@teable/core';
+import type { IFieldRo, ILookupOptionsRo } from '@teable/core';
 import { DriverClient, FieldType, Relationship } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
