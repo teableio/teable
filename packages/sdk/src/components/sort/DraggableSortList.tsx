@@ -1,5 +1,5 @@
 import type { ISort, ISortItem } from '@teable/core';
-import { DraggableHandle, Trash2 } from '@teable/icons';
+import { DraggableHandle, Trash } from '@teable/icons';
 import { Button, cn, DndKitContext, Droppable, Draggable } from '@teable/ui-lib';
 import type { DraggableAttributes, SyntheticListenerMap, DragEndEvent } from '@teable/ui-lib';
 import { useIsHydrated } from '../../hooks';
@@ -41,7 +41,7 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
         className="size-8 text-muted-foreground"
         onClick={() => deleteHandler(index)}
       >
-        <Trash2 className="size-4"></Trash2>
+        <Trash className="size-4"></Trash>
       </Button>
 
       <div

@@ -252,7 +252,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Filter,
         name: t('table:menu.filterField'),
         icon: <Filter className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -286,7 +286,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Sort,
         name: t('table:menu.sortField'),
         icon: <ArrowUpDown className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -323,7 +323,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Group,
         name: t('table:menu.groupField'),
         icon: <LayoutList className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -357,7 +357,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Freeze,
         name: t('table:menu.freezeUpField'),
         icon: <FreezeColumn className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
         onClick: async () => await freezeField(),
       },
     ],
@@ -366,7 +366,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Hidden,
         name: t('table:menu.hideField'),
         icon: <EyeOff className={iconClassName} />,
-        hidden: !permission['view|update'] || !isViewConfigurable,
+        hidden: !isViewConfigurable,
         disabled: fields.some((f) => f.isPrimary),
         onClick: async () => {
           const fieldIdsSet = new Set(fieldIds);
