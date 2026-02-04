@@ -48,6 +48,7 @@ export const daysAgo = z.literal('daysAgo');
 export const daysFromNow = z.literal('daysFromNow');
 export const exactDate = z.literal('exactDate');
 export const exactFormatDate = z.literal('exactFormatDate');
+export const dateRange = z.literal('dateRange');
 
 // date sub operation by isWithin
 export const pastWeek = z.literal('pastWeek');
@@ -107,6 +108,7 @@ export const subOperators = z.union([
   daysFromNow,
   exactDate,
   exactFormatDate,
+  dateRange,
   // date sub operation by isWithin
   pastWeek,
   pastMonth,
@@ -278,6 +280,7 @@ export const dateTimeFieldSubOperators = z.union([
   daysFromNow,
   exactDate,
   exactFormatDate,
+  dateRange,
 ]);
 export type IDateTimeFieldSubOperator = z.infer<typeof dateTimeFieldSubOperators>;
 export const dateTimeFieldValidSubOperators = [
@@ -301,6 +304,7 @@ export const dateTimeFieldValidSubOperators = [
   daysFromNow.value,
   exactDate.value,
   exactFormatDate.value,
+  dateRange.value,
 ];
 
 export const dateTimeFieldSubOperatorsByIsWithin = z.union([
@@ -429,7 +433,12 @@ export function getValidFilterSubOperators(
 
   if (parentOperator === isWithIn.value) {
     return dateTimeFieldValidSubOperatorsByIsWithin;
-  } else {
+  }
+
+  // dateRange is only available for 'is' operator
+  if (parentOperator === is.value) {
     return dateTimeFieldValidSubOperators;
   }
+
+  return dateTimeFieldValidSubOperators.filter((op) => op !== dateRange.value);
 }

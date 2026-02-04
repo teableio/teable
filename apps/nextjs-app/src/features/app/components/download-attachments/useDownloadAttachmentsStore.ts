@@ -10,6 +10,7 @@ interface IColumnDownloadDialogState {
   fieldId?: string;
   fieldName?: string;
   viewId?: string;
+  shareId?: string;
   personalViewCommonQuery?: IGetRecordsRo;
 
   openDialog: (params: {
@@ -17,6 +18,7 @@ interface IColumnDownloadDialogState {
     fieldId: string;
     fieldName: string;
     viewId?: string;
+    shareId?: string;
     personalViewCommonQuery?: IGetRecordsRo;
   }) => void;
   closeDialog: () => void;
@@ -37,6 +39,7 @@ export const useColumnDownloadDialogStore = create<IColumnDownloadDialogState>((
       fieldId: undefined,
       fieldName: undefined,
       viewId: undefined,
+      shareId: undefined,
       personalViewCommonQuery: undefined,
     }),
 }));

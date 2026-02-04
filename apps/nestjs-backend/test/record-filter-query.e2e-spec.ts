@@ -13,6 +13,7 @@ import {
   CHECKBOX_LOOKUP_FIELD_CASES,
   DATE_FIELD_CASES,
   DATE_LOOKUP_FIELD_CASES,
+  DATE_RANGE_ERROR_CASES,
   MULTIPLE_SELECT_FIELD_CASES,
   MULTIPLE_SELECT_LOOKUP_FIELD_CASES,
   MULTIPLE_USER_FIELD_CASES,
@@ -141,6 +142,38 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     describe('simple filter multiple select field record', () => {
       test.each(MULTIPLE_SELECT_FIELD_CASES)(testDesc, async (param) => doTest(table, param));
+    });
+
+    describe('dateRange filter error cases', () => {
+      it('should throw error when start > end (invalid range)', async () => {
+        const { fieldIndex, operator, queryValue } = DATE_RANGE_ERROR_CASES.invalidRange;
+        const filter: IFilter = {
+          filterSet: [
+            {
+              fieldId: table.fields[fieldIndex].id,
+              value: queryValue,
+              operator,
+            },
+          ],
+          conjunction: and.value,
+        };
+        await expect(getFilterRecord(table.id, table.views[0].id, filter)).rejects.toThrow();
+      });
+
+      it('should throw error when dateRange is used with isNot operator', async () => {
+        const { fieldIndex, operator, queryValue } = DATE_RANGE_ERROR_CASES.invalidOperator;
+        const filter: IFilter = {
+          filterSet: [
+            {
+              fieldId: table.fields[fieldIndex].id,
+              value: queryValue,
+              operator,
+            },
+          ],
+          conjunction: and.value,
+        };
+        await expect(getFilterRecord(table.id, table.views[0].id, filter)).rejects.toThrow();
+      });
     });
   });
 

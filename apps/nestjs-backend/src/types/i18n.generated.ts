@@ -1835,6 +1835,11 @@ export type I18nTranslations = {
             "date": {
                 "placeholder": string;
                 "today": string;
+                "rangePlaceholder": string;
+                "rangeSelected": string;
+                "invalidTimeRange": string;
+                "from": string;
+                "to": string;
             };
             "formula": {
                 "title": string;
@@ -1999,6 +2004,7 @@ export type I18nTranslations = {
                     "nextYear": string;
                     "pastNumberOfDays": string;
                     "nextNumberOfDays": string;
+                    "dateRange": string;
                 };
             };
         };
@@ -4729,6 +4735,13 @@ export type I18nTranslations = {
                 "deniedRead": string;
                 "deniedUpdate": string;
             };
+        };
+        "upload": {
+            "panelUploading": string;
+            "panelFailed": string;
+            "panelCompleted": string;
+            "statusFailed": string;
+            "statusCompleted": string;
         };
     };
     "token": {

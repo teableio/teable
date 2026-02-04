@@ -1,6 +1,7 @@
 import { ViewType } from '@teable/core';
 import { ShareViewContext } from '@teable/sdk/context';
 import { useContext } from 'react';
+import { DownloadAllAttachmentsDialog } from '@/features/app/components/download-attachments';
 import { CalendarView } from './component/calendar/CalendarView';
 import { FormView } from './component/form/FormView';
 import { GalleryView } from './component/gallery/GalleryView';
@@ -31,5 +32,10 @@ export const ShareView = () => {
     }
   };
 
-  return <div className="h-screen w-full">{getViewComponent()}</div>;
+  return (
+    <div className="h-screen w-full">
+      {getViewComponent()}
+      <DownloadAllAttachmentsDialog />
+    </div>
+  );
 };

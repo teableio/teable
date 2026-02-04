@@ -1,4 +1,7 @@
 import { isEmpty, isNotEmpty } from '@teable/core';
+import { DATE_RANGE_SETS, LOOKUP_DATE_RANGE_SETS, DATE_RANGE_ERROR_CASES } from './date-range-sets';
+
+export { DATE_RANGE_ERROR_CASES };
 import { IS_AFTER_SETS, LOOKUP_IS_AFTER_SETS } from './is-after-sets';
 import { IS_BEFORE_SETS, LOOKUP_IS_BEFORE_SETS } from './is-before-sets';
 import { IS_NOT_SETS, LOOKUP_IS_NOT_SETS } from './is-not-sets';
@@ -27,6 +30,7 @@ export const DATE_FIELD_CASES = [
   ...IS_AFTER_SETS,
   ...IS_ON_OR_BEFORE_SETS,
   ...IS_ON_OR_AFTER_SETS,
+  ...DATE_RANGE_SETS,
 ];
 
 export const DATE_LOOKUP_FIELD_CASES = [
@@ -61,6 +65,10 @@ export const DATE_LOOKUP_FIELD_CASES = [
     fieldIndex: testCase.fieldIndex ?? 6,
   })),
   ...LOOKUP_IS_ON_OR_AFTER_SETS.map((testCase) => ({
+    ...testCase,
+    fieldIndex: testCase.fieldIndex ?? 6,
+  })),
+  ...LOOKUP_DATE_RANGE_SETS.map((testCase) => ({
     ...testCase,
     fieldIndex: testCase.fieldIndex ?? 6,
   })),

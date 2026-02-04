@@ -140,3 +140,29 @@ body {
   padding-left: 0.3rem;
   font-size: small;
 }
+
+/* React Flow Controls dark mode support */
+.react-flow__controls {
+  border-radius: 0.375rem;
+  border: 1px solid hsl(var(--border));
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
+.react-flow__controls-button {
+  background-color: hsl(var(--popover)) !important;
+  border-color: hsl(var(--border)) !important;
+  fill: hsl(var(--foreground)) !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: hsl(var(--accent)) !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor !important;
+}
