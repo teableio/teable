@@ -18,9 +18,11 @@ import {
   shareViewRowCountRoSchema,
   shareViewAggregationsRoSchema,
   shareViewGroupPointsRoSchema,
+  shareViewRecordsRoSchema,
   IShareViewRowCountRo,
   IShareViewGroupPointsRo,
   IShareViewAggregationsRo,
+  IShareViewRecordsRo,
   rangesQuerySchema,
   IRangesRo,
   shareViewLinkRecordsRoSchema,
@@ -49,6 +51,7 @@ import type {
   ISearchCountVo,
   ISearchIndexVo,
   IButtonClickVo,
+  IRecordsVo,
 } from '@teable/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -118,6 +121,19 @@ export class ShareController {
   ): Promise<IRowCountVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareService.getViewRowCount(shareInfo, query);
+  }
+
+  @ShareLinkView()
+  @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
+  @Get('/:shareId/view/records')
+  async getViewRecords(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(shareViewRecordsRoSchema), TqlPipe)
+    query?: IShareViewRecordsRo
+  ): Promise<IRecordsVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareService.getViewRecords(shareInfo, query);
   }
 
   @ShareSubmit()

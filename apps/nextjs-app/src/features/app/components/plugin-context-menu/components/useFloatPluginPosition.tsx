@@ -3,6 +3,7 @@ import { getPluginContextMenu, PluginPosition } from '@teable/openapi';
 import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
 import { useCallback, useMemo } from 'react';
 import { useLocalStorage } from 'react-use';
+import { isPercentage, pixelToPercent } from './utils/position';
 
 const DEFAULT_FLOAT_PLUGIN_WIDTH = 320;
 const DEFAULT_FLOAT_PLUGIN_HEIGHT = 200;
@@ -34,21 +35,64 @@ export const useFloatPluginPosition = (tableId: string, pluginInstallId: string)
 
   const defaultPosition = useMemo(() => {
     const body = document.body;
-    const width = body.clientWidth;
-    const height = body.clientHeight;
+    const viewportWidth = body.clientWidth;
+    const viewportHeight = body.clientHeight;
+
+    // Helper to normalize config value to 0-1 percentage
+    const normalizeValue = (
+      value: number | string | undefined,
+      defaultPixel: number,
+      viewportSize: number
+    ): number => {
+      if (value === undefined) {
+        return pixelToPercent(defaultPixel, viewportSize);
+      }
+      // Handle percentage strings like "50%"
+      if (typeof value === 'string' && value.endsWith('%')) {
+        return parseFloat(value) / 100;
+      }
+      const numValue = value as number;
+      // If already 0-1, keep it; if >1, convert to percentage
+      return isPercentage(numValue) ? numValue : pixelToPercent(numValue, viewportSize);
+    };
+
     return {
-      x: (config?.x ?? width / 2 - DEFAULT_FLOAT_PLUGIN_WIDTH / 2) as number,
-      y: (config?.y ?? height / 2 - DEFAULT_FLOAT_PLUGIN_HEIGHT / 2) as number,
-      width: (config?.width ?? DEFAULT_FLOAT_PLUGIN_WIDTH) as number,
-      height: (config?.height ?? DEFAULT_FLOAT_PLUGIN_HEIGHT) as number,
+      x: normalizeValue(
+        config?.x,
+        viewportWidth / 2 - DEFAULT_FLOAT_PLUGIN_WIDTH / 2,
+        viewportWidth
+      ),
+      y: normalizeValue(
+        config?.y,
+        viewportHeight / 2 - DEFAULT_FLOAT_PLUGIN_HEIGHT / 2,
+        viewportHeight
+      ),
+      width: normalizeValue(config?.width, DEFAULT_FLOAT_PLUGIN_WIDTH, viewportWidth),
+      height: normalizeValue(config?.height, DEFAULT_FLOAT_PLUGIN_HEIGHT, viewportHeight),
     };
   }, [config]);
 
   const updatePosition = useCallback(
     (position: IFloatPluginPosition) => {
+      const body = document.body;
+      const viewportWidth = body.clientWidth;
+      const viewportHeight = body.clientHeight;
+
+      // Always save as 0-1 percentages
+      const normalizedPosition: IFloatPluginPosition = {
+        x: isPercentage(position.x) ? position.x : pixelToPercent(position.x, viewportWidth),
+        y: isPercentage(position.y) ? position.y : pixelToPercent(position.y, viewportHeight),
+        width: isPercentage(position.width)
+          ? position.width
+          : pixelToPercent(position.width, viewportWidth),
+        height: isPercentage(position.height)
+          ? position.height
+          : pixelToPercent(position.height, viewportHeight),
+      };
+
       setPluginsPosition({
         ...pluginsPosition,
-        [pluginInstallId]: position,
+        [pluginInstallId]: normalizedPosition,
       });
       return position;
     },

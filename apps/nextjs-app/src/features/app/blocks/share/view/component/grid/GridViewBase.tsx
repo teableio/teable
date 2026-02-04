@@ -84,7 +84,8 @@ export const GridViewBase = (props: IGridViewProps) => {
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const isTouchDevice = useIsTouchDevice();
-  const { setSelection, openStatisticMenu, openGroupHeaderMenu } = useGridViewStore();
+  const { setSelection, openStatisticMenu, openGroupHeaderMenu, openHeaderMenu } =
+    useGridViewStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -313,6 +314,54 @@ export const GridViewBase = (props: IGridViewProps) => {
     });
   };
 
+  const onColumnHeaderMenuClick = useCallback(
+    (colIndex: number, bounds: IRectangle) => {
+      const fieldId = columns[colIndex].id;
+      const { x, height } = bounds;
+      const selectedFields = visibleFields.filter((field) => field.id === fieldId);
+      openHeaderMenu({
+        fields: selectedFields,
+        position: { x, y: height },
+      });
+    },
+    [columns, visibleFields, openHeaderMenu]
+  );
+
+  const onColumnHeaderClick = useCallback(
+    (colIndex: number, bounds: IRectangle) => {
+      if (!isTouchDevice) return;
+      const fieldId = columns[colIndex].id;
+      const { x, height } = bounds;
+      const selectedFields = visibleFields.filter((field) => field.id === fieldId);
+      openHeaderMenu({ fields: selectedFields, position: { x, y: height } });
+    },
+    [isTouchDevice, columns, visibleFields, openHeaderMenu]
+  );
+
+  const onContextMenu = useCallback(
+    (selection: CombinedSelection, position: IPosition) => {
+      const { isColumnSelection, ranges } = selection;
+
+      if (isColumnSelection) {
+        const [start, end] = ranges[0];
+        const startIdx = Math.min(start, end);
+        const endIdx = Math.max(start, end);
+        const selectColumns = Array.from({ length: endIdx - startIdx + 1 })
+          .map((_, index) => columns[startIdx + index])
+          .filter(Boolean);
+        const indexedColumns = new Set(selectColumns.map((c) => c.id));
+        const selectFields = visibleFields.filter((field) => indexedColumns.has(field.id));
+        const onSelectionClear = () => gridRef.current?.resetState();
+        openHeaderMenu({
+          position,
+          fields: selectFields,
+          onSelectionClear,
+        });
+      }
+    },
+    [columns, visibleFields, openHeaderMenu]
+  );
+
   return (
     <div ref={container} className="relative size-full overflow-hidden">
       {prepare ? (
@@ -351,6 +400,9 @@ export const GridViewBase = (props: IGridViewProps) => {
             onColumnStatisticClick={onColumnStatisticClick}
             onCollapsedGroupChanged={onCollapsedGroupChanged}
             onGroupHeaderContextMenu={onGroupHeaderContextMenu}
+            onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+            onColumnHeaderClick={onColumnHeaderClick}
+            onContextMenu={onContextMenu}
           />
           <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
         </>

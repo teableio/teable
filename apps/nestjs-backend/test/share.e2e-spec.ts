@@ -13,17 +13,20 @@ import {
   FieldType,
   is,
   Relationship,
+  SortFunc,
   ViewType,
 } from '@teable/core';
 import {
   urlBuilder,
   SHARE_VIEW_GET,
   SHARE_VIEW_FORM_SUBMIT,
+  SHARE_VIEW_RECORDS,
   createRecords as apiCreateRecords,
   deleteRecords as apiDeleteRecords,
   enableShareView as apiEnableShareView,
   getShareViewLinkRecords as apiGetShareViewLinkRecords,
   getShareViewCollaborators as apiGetShareViewCollaborators,
+  getShareViewRecords as apiGetShareViewRecords,
   getBaseCollaboratorList as apiGetBaseCollaboratorList,
   updateViewColumnMeta as apiUpdateViewColumnMeta,
   updateViewShareMeta as apiUpdateViewShareMeta,
@@ -239,6 +242,145 @@ describe('OpenAPI ShareController (e2e)', () => {
         fields: {},
       });
       expect(res.status).toEqual(201);
+    });
+  });
+
+  describe('api/:shareId/view/records (GET)', () => {
+    let recordsTableId: string;
+    let recordsViewId: string;
+    let recordsShareId: string;
+    let primaryFieldId: string;
+    let createdRecordIds: string[] = [];
+    const primaryFieldName = 'Name';
+
+    beforeAll(async () => {
+      const table = await createTable(baseId, {
+        name: 'records-test-table',
+        fields: [
+          {
+            name: primaryFieldName,
+            type: FieldType.SingleLineText,
+          },
+        ],
+        records: [
+          { fields: { [primaryFieldName]: 'Record 1' } },
+          { fields: { [primaryFieldName]: 'Record 2' } },
+          { fields: { [primaryFieldName]: 'Record 3' } },
+        ],
+      });
+      recordsTableId = table.id;
+      recordsViewId = table.defaultViewId!;
+      primaryFieldId = table.fields[0].id;
+      createdRecordIds = table.records.map((r) => r.id);
+
+      const shareResult = await apiEnableShareView({
+        tableId: recordsTableId,
+        viewId: recordsViewId,
+      });
+      recordsShareId = shareResult.data.shareId;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, recordsTableId);
+    });
+
+    it('should return records with pagination', async () => {
+      const result = await apiGetShareViewRecords(recordsShareId, {
+        take: 2,
+        skip: 0,
+      });
+
+      expect(result.data.records.length).toEqual(2);
+    });
+
+    it('should return records with skip', async () => {
+      const result = await apiGetShareViewRecords(recordsShareId, {
+        take: 10,
+        skip: 1,
+      });
+
+      expect(result.data.records.length).toEqual(2);
+    });
+
+    it('should return empty array when includeRecords is false', async () => {
+      await apiUpdateViewShareMeta(recordsTableId, recordsViewId, { includeRecords: false });
+
+      const result = await apiGetShareViewRecords(recordsShareId, {
+        take: 10,
+      });
+
+      expect(result.data.records).toEqual([]);
+
+      // Restore includeRecords
+      await apiUpdateViewShareMeta(recordsTableId, recordsViewId, { includeRecords: true });
+    });
+
+    it('should return records with projection', async () => {
+      const result = await apiGetShareViewRecords(recordsShareId, {
+        take: 10,
+      });
+
+      expect(result.data.records.length).toEqual(3);
+      expect(result.data.records[0].fields).toHaveProperty(primaryFieldId);
+    });
+
+    it('should return records with filter', async () => {
+      const result = await apiGetShareViewRecords(recordsShareId, {
+        take: 10,
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: primaryFieldId,
+              operator: is.value,
+              value: 'Record 1',
+            },
+          ],
+        },
+      });
+
+      expect(result.data.records.length).toEqual(1);
+      expect(result.data.records[0].fields[primaryFieldId]).toEqual('Record 1');
+    });
+
+    it('should return records with orderBy', async () => {
+      const result = await apiGetShareViewRecords(recordsShareId, {
+        take: 10,
+        orderBy: [{ fieldId: primaryFieldId, order: SortFunc.Desc }],
+      });
+
+      expect(result.data.records.length).toEqual(3);
+      expect(result.data.records[0].fields[primaryFieldId]).toEqual('Record 3');
+      expect(result.data.records[1].fields[primaryFieldId]).toEqual('Record 2');
+      expect(result.data.records[2].fields[primaryFieldId]).toEqual('Record 1');
+    });
+
+    it('should return records with groupBy', async () => {
+      const result = await apiGetShareViewRecords(recordsShareId, {
+        take: 10,
+        groupBy: [{ fieldId: primaryFieldId, order: SortFunc.Desc }],
+      });
+
+      expect(result.data.records.length).toEqual(3);
+      // groupBy with desc order should return records in descending order
+      expect(result.data.records[0].fields[primaryFieldId]).toEqual('Record 3');
+      expect(result.data.records[1].fields[primaryFieldId]).toEqual('Record 2');
+      expect(result.data.records[2].fields[primaryFieldId]).toEqual('Record 1');
+    });
+
+    it('should not allow anonymous access without share auth when password protected', async () => {
+      await apiUpdateViewShareMeta(recordsTableId, recordsViewId, { password: 'test123' });
+
+      const error = await getError(() =>
+        anonymousUser.get(urlBuilder(SHARE_VIEW_RECORDS, { shareId: recordsShareId }), {
+          params: { take: 10 },
+        })
+      );
+
+      expect(error?.status).toEqual(401);
+
+      // Restore no password
+      await apiUpdateViewShareMeta(recordsTableId, recordsViewId, { password: undefined });
     });
   });
 

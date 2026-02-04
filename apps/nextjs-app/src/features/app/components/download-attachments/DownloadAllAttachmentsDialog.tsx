@@ -6,8 +6,16 @@ import { useColumnDownloadDialogStore } from './useDownloadAttachmentsStore';
 
 export const DownloadAllAttachmentsDialog = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { open, tableId, fieldId, fieldName, viewId, personalViewCommonQuery, closeDialog } =
-    useColumnDownloadDialogStore();
+  const {
+    open,
+    tableId,
+    fieldId,
+    fieldName,
+    viewId,
+    shareId,
+    personalViewCommonQuery,
+    closeDialog,
+  } = useColumnDownloadDialogStore();
 
   if (!open || !tableId || !fieldId || !fieldName) {
     return null;
@@ -24,6 +32,7 @@ export const DownloadAllAttachmentsDialog = () => {
           fieldId={fieldId}
           fieldName={fieldName}
           viewId={viewId}
+          shareId={shareId}
           personalViewCommonQuery={personalViewCommonQuery}
           onClose={closeDialog}
         />

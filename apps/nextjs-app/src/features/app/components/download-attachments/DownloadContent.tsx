@@ -17,6 +17,7 @@ interface IDownloadContentProps {
   fieldId: string;
   fieldName: string;
   viewId?: string;
+  shareId?: string;
   personalViewCommonQuery?: IGetRecordsRo;
   onClose: () => void;
 }
@@ -26,6 +27,7 @@ export const DownloadContent = ({
   fieldId,
   fieldName,
   viewId,
+  shareId,
   personalViewCommonQuery,
   onClose,
 }: IDownloadContentProps) => {
@@ -43,6 +45,7 @@ export const DownloadContent = ({
           tableId,
           fieldId,
           viewId,
+          shareId,
           personalViewCommonQuery
         );
         setPreview(previewData);
@@ -56,7 +59,7 @@ export const DownloadContent = ({
     };
 
     loadPreview();
-  }, [tableId, fieldId, viewId, personalViewCommonQuery, onClose, t]);
+  }, [tableId, fieldId, viewId, shareId, personalViewCommonQuery, onClose, t]);
 
   const handleStartDownload = useCallback(async () => {
     if (!preview || preview.totalAttachments === 0) return;
@@ -119,6 +122,7 @@ export const DownloadContent = ({
         fieldId,
         fieldName,
         viewId,
+        shareId,
         personalViewCommonQuery,
         abortController,
         onProgress: updateProgress,
@@ -145,7 +149,7 @@ export const DownloadContent = ({
       setDownloading(false);
       abortControllerRef.current = null;
     }
-  }, [preview, tableId, fieldId, fieldName, viewId, personalViewCommonQuery, onClose, t]);
+  }, [preview, tableId, fieldId, fieldName, viewId, shareId, personalViewCommonQuery, onClose, t]);
 
   if (loading) {
     return (

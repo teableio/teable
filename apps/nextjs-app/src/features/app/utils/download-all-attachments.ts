@@ -2,7 +2,12 @@
 import type { IAttachmentCellValue, IFilter } from '@teable/core';
 import { FieldKeyType, mergeFilter } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { getRecords, getRowCount } from '@teable/openapi';
+import {
+  getRecords,
+  getRowCount,
+  getShareViewRecords,
+  getShareViewRowCount,
+} from '@teable/openapi';
 
 export interface IDownloadProgress {
   downloaded: number;
@@ -16,6 +21,7 @@ export interface IDownloadAllAttachmentsOptions {
   fieldId: string;
   fieldName: string;
   viewId?: string;
+  shareId?: string;
   personalViewCommonQuery?: IGetRecordsRo;
   onProgress?: (progress: IDownloadProgress) => void;
   abortController?: AbortController;
@@ -88,6 +94,7 @@ async function loadAllAttachments(
   tableId: string,
   fieldId: string,
   viewId?: string,
+  shareId?: string,
   personalViewCommonQuery?: IGetRecordsRo,
   abortSignal?: AbortSignal
 ): Promise<{
@@ -101,12 +108,16 @@ async function loadAllAttachments(
   // 1. Create filter with non-empty attachment condition
   const attachmentFilter = createAttachmentFilter(fieldId, filter as IFilter | undefined);
 
-  // 2. Get total row count with the filter
-  const { data: rowCountData } = await getRowCount(tableId, {
-    viewId,
-    ...(ignoreViewQuery ? { ignoreViewQuery } : {}),
-    filter: attachmentFilter,
-  });
+  // 2. Get total row count with the filter (use share view API if shareId is provided)
+  const rowCountData = shareId
+    ? (await getShareViewRowCount(shareId, { filter: attachmentFilter })).data
+    : (
+        await getRowCount(tableId, {
+          viewId,
+          ...(ignoreViewQuery ? { ignoreViewQuery } : {}),
+          filter: attachmentFilter,
+        })
+      ).data;
 
   const totalRows = rowCountData.rowCount;
 
@@ -143,7 +154,10 @@ async function loadAllAttachments(
       ...(groupBy ? { groupBy } : {}),
     };
 
-    const { data } = await getRecords(tableId, query);
+    // Use share view API if shareId is provided
+    const { data } = shareId
+      ? await getShareViewRecords(shareId, query)
+      : await getRecords(tableId, query);
     const records = data.records;
 
     if (!records?.length) break;
@@ -188,12 +202,14 @@ export async function getAttachmentPreview(
   tableId: string,
   fieldId: string,
   viewId?: string,
+  shareId?: string,
   personalViewCommonQuery?: IGetRecordsRo
 ): Promise<IAttachmentPreview> {
   const { rowsWithAttachments, totalAttachments, totalSize } = await loadAllAttachments(
     tableId,
     fieldId,
     viewId,
+    shareId,
     personalViewCommonQuery
   );
 
@@ -237,6 +253,7 @@ export async function downloadAllAttachments(
     fieldId,
     fieldName,
     viewId,
+    shareId,
     personalViewCommonQuery,
     onProgress,
     abortController,
@@ -251,6 +268,7 @@ export async function downloadAllAttachments(
       tableId,
       fieldId,
       viewId,
+      shareId,
       personalViewCommonQuery,
       abortSignal
     );

@@ -10,6 +10,7 @@ import type {
   ShareViewGetVo,
   IShareViewRowCountRo,
   IShareViewAggregationsRo,
+  IShareViewRecordsRo,
   IRangesRo,
   IShareViewGroupPointsRo,
   IAggregationVo,
@@ -208,6 +209,44 @@ export class ShareService {
     return {
       rowCount: result.rowCount,
     };
+  }
+
+  async getViewRecords(
+    shareInfo: IShareViewInfo,
+    query?: IShareViewRecordsRo
+  ): Promise<IRecordsVo> {
+    const { tableId, view, linkOptions, shareMeta } = shareInfo;
+
+    if (!shareMeta?.includeRecords) {
+      return { records: [] };
+    }
+
+    const { id, group } = view ?? {};
+    const { filterByViewId, filter: linkFilter, visibleFieldIds } = linkOptions ?? {};
+    const viewId = filterByViewId ?? id;
+
+    const fields = await this.fieldService.getFieldsByQuery(tableId, {
+      viewId,
+      filterHidden: Boolean(filterByViewId) || !shareMeta?.includeHiddenField,
+    });
+    const filteredFields = visibleFieldIds?.length
+      ? fields.filter((f) => visibleFieldIds?.includes(f.id) || f.isPrimary)
+      : fields;
+
+    return await this.recordService.getRecords(
+      tableId,
+      {
+        viewId,
+        skip: query?.skip ?? 0,
+        take: query?.take ?? 100,
+        filter: query?.filter ?? linkFilter,
+        orderBy: query?.orderBy,
+        groupBy: query?.groupBy ?? group,
+        fieldKeyType: FieldKeyType.Id,
+        projection: query?.projection ?? filteredFields.map((f) => f.id),
+      },
+      true
+    );
   }
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
