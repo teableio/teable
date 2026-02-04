@@ -701,5 +701,31 @@
       "tokenDescription": "Tokens utilizados: {{tokens}}",
       "taskCompleted": "Tarea completada"
     }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Descargar todos los archivos adjuntos",
+      "loading": "Cargando vista previa...",
+      "rowsWithAttachments": "{{count}} filas con archivos adjuntos",
+      "totalAttachments": "{{count}} archivos adjuntos",
+      "totalSize": "Tamaño total: {{size}}",
+      "startDownload": "Iniciar descarga",
+      "confirmTitle": "Descargar {{count}} archivos",
+      "confirmDescription": "Tamaño total: {{size}}. Los archivos se comprimirán en un archivo ZIP.",
+      "confirm": "Descargar",
+      "cancel": "Cancelar",
+      "downloading": "Descargando...",
+      "downloadingFile": "Descargando: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Descarga completada",
+      "cancelled": "Descarga cancelada",
+      "noAttachments": "No hay archivos adjuntos para descargar",
+      "error": "Descarga fallida",
+      "errorPartial": "{{failedCount}} archivos no se pudieron descargar",
+      "requireHttps": "La descarga por lotes requiere HTTPS. Por favor acceda a través de HTTPS o localhost.",
+      "namingFieldLabel": "Prefijo del nombre del adjunto",
+      "groupByRow": "Archivar en carpetas",
+      "groupByRowTip": "Cuando una fila tiene múltiples adjuntos, se colocarán en la misma carpeta; las filas con solo un adjunto no crearán una carpeta."
+    }
   }
 }

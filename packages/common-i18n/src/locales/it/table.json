@@ -713,5 +713,31 @@
       "tokenDescription": "Tokens usati: {{tokens}}",
       "taskCompleted": "Attività completata"
     }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Scarica tutti gli allegati",
+      "loading": "Caricamento anteprima...",
+      "rowsWithAttachments": "{{count}} righe con allegati",
+      "totalAttachments": "{{count}} allegati",
+      "totalSize": "Dimensione totale: {{size}}",
+      "startDownload": "Avvia download",
+      "confirmTitle": "Scarica {{count}} file",
+      "confirmDescription": "Dimensione totale: {{size}}. I file verranno compressi in un file ZIP.",
+      "confirm": "Scarica",
+      "cancel": "Annulla",
+      "downloading": "Download in corso...",
+      "downloadingFile": "Download: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Download completato",
+      "cancelled": "Download annullato",
+      "noAttachments": "Nessun allegato da scaricare",
+      "error": "Download fallito",
+      "errorPartial": "{{failedCount}} file non sono stati scaricati",
+      "requireHttps": "Il download batch richiede HTTPS. Accedi tramite HTTPS o localhost.",
+      "namingFieldLabel": "Prefisso nome allegato",
+      "groupByRow": "Archivia in cartelle",
+      "groupByRowTip": "Quando una riga ha più allegati, verranno inseriti nella stessa cartella; le righe con un solo allegato non creeranno una cartella."
+    }
   }
 }

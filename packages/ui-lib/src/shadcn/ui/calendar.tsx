@@ -1,7 +1,8 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 'use client';
 
-import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from 'lucide-react';
 import { differenceInCalendarDays } from 'date-fns';
+import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from 'lucide-react';
 import * as React from 'react';
 import {
   DayPicker,

@@ -1,16 +1,31 @@
+import type { IFieldVo } from '@teable/core';
+import { HelpCircle } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { Button, Skeleton } from '@teable/ui-lib/shadcn';
+import { FieldSelector, useFields } from '@teable/sdk';
+import type { IFieldInstance } from '@teable/sdk';
+import {
+  Button,
+  Checkbox,
+  Label,
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IAttachmentPreview, IDownloadProgress } from '../../utils/download-all-attachments';
 import {
   downloadAllAttachments,
   formatFileSize,
   getAttachmentPreview,
+  isFieldSuitableForNaming,
 } from '../../utils/download-all-attachments';
 import { DownloadProgressToast } from '../DownloadProgressToast';
+import { useColumnDownloadDialogStore } from './useDownloadAttachmentsStore';
 
 interface IDownloadContentProps {
   tableId: string;
@@ -36,6 +51,40 @@ export const DownloadContent = ({
   const [preview, setPreview] = useState<IAttachmentPreview | null>(null);
   const [downloading, setDownloading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const { namingFieldId, setNamingFieldId, groupByRow, setGroupByRow } =
+    useColumnDownloadDialogStore();
+  const allFields = useFields({ withHidden: true, withDenied: true });
+
+  // Filter fields suitable for naming (text-based fields)
+  const namingFields = useMemo(() => {
+    return allFields.filter((field) => isFieldSuitableForNaming(field as unknown as IFieldVo));
+  }, [allFields]);
+
+  // Set default naming field to first available field
+  useEffect(() => {
+    if (namingFieldId === undefined && namingFields.length > 0) {
+      setNamingFieldId(namingFields[0].id);
+    }
+  }, [namingFieldId, namingFields, setNamingFieldId]);
+
+  // Get the selected naming field instance for download
+  const namingField = useMemo(() => {
+    if (!namingFieldId) return undefined;
+    return allFields.find((f) => f.id === namingFieldId);
+  }, [namingFieldId, allFields]);
+
+  // Handle field selection - toggle if clicking the same field
+  const handleFieldSelect = useCallback(
+    (selectedFieldId: string) => {
+      if (selectedFieldId === namingFieldId) {
+        setNamingFieldId(undefined);
+      } else {
+        setNamingFieldId(selectedFieldId);
+      }
+    },
+    [namingFieldId, setNamingFieldId]
+  );
 
   // Load preview on mount
   useEffect(() => {
@@ -124,6 +173,8 @@ export const DownloadContent = ({
         viewId,
         shareId,
         personalViewCommonQuery,
+        namingField,
+        groupByRow,
         abortController,
         onProgress: updateProgress,
       });
@@ -149,7 +200,19 @@ export const DownloadContent = ({
       setDownloading(false);
       abortControllerRef.current = null;
     }
-  }, [preview, tableId, fieldId, fieldName, viewId, shareId, personalViewCommonQuery, onClose, t]);
+  }, [
+    preview,
+    tableId,
+    fieldId,
+    fieldName,
+    viewId,
+    shareId,
+    namingField,
+    groupByRow,
+    personalViewCommonQuery,
+    onClose,
+    t,
+  ]);
 
   if (loading) {
     return (
@@ -204,6 +267,41 @@ export const DownloadContent = ({
             size: formatFileSize(preview.totalSize),
           })}
         </p>
+
+        {/* Naming field selector */}
+        <div className="mt-1 space-y-1">
+          <Label className="text-sm text-muted-foreground">
+            {t('table:download.allAttachments.namingFieldLabel')}
+          </Label>
+          <FieldSelector
+            fields={namingFields as IFieldInstance[]}
+            value={namingFieldId}
+            onSelect={handleFieldSelect}
+            className="w-full max-w-full"
+          />
+        </div>
+
+        {/* Group by row option */}
+        <div className="mt-1 flex items-center gap-2">
+          <Checkbox
+            id="groupByRow"
+            checked={groupByRow}
+            onCheckedChange={(checked) => setGroupByRow(checked === true)}
+          />
+          <Label htmlFor="groupByRow" className="cursor-pointer text-sm">
+            {t('table:download.allAttachments.groupByRow')}
+          </Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <HelpCircle className="size-4 cursor-pointer text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={5}>
+                <p className="max-w-xs">{t('table:download.allAttachments.groupByRowTip')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onClose} disabled={downloading}>
