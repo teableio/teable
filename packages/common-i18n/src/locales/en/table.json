@@ -1300,5 +1300,12 @@
         "defaultTitle": "Code Project"
       }
     }
+  },
+  "upload": {
+    "panelUploading": "Uploading {{count}} files",
+    "panelFailed": "{{count}} files failed",
+    "panelCompleted": "{{count}} files completed",
+    "statusFailed": "Failed",
+    "statusCompleted": "Completed"
   }
 }

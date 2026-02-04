@@ -21,6 +21,9 @@ export default function withEnv<P extends { [key: string]: any }>(
   return async (context: GetServerSidePropsContext) => {
     const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
     const envMaxSearchFieldCount = toNumber(process.env.MAX_SEARCH_FIELD_COUNT);
+    const task = {
+      maxTaskRows: toNumber(process.env.MAX_TASK_ROWS),
+    };
     const storage = {
       provider: process.env.BACKEND_STORAGE_PROVIDER ?? 'local',
       prefix: process.env.STORAGE_PREFIX ?? process.env.PUBLIC_ORIGIN,
@@ -48,6 +51,7 @@ export default function withEnv<P extends { [key: string]: any }>(
             : envMaxSearchFieldCount,
         publicOrigin: process.env.PUBLIC_ORIGIN,
         enableCanaryFeature: process.env.ENABLE_CANARY_FEATURE === 'true' ? true : undefined,
+        task,
       },
       isUndefined
     );

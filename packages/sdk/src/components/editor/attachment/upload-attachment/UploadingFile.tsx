@@ -19,9 +19,9 @@ export const UploadingFile = ({ file, progress }: { file: File; progress: number
   }, [file]);
   return (
     <div>
-      <li className="flex h-[132px] w-[104px] flex-col rounded-lg p-1">
+      <li className="flex h-[132px] w-[104px] flex-col gap-2 rounded-lg p-1">
         <div className="relative flex-1 overflow-hidden rounded-lg">
-          <div className="absolute inset-0">
+          <div className="flex size-full items-center">
             <FileCover
               className="size-full object-cover"
               mimetype={file.type}

@@ -9,6 +9,7 @@ export * from './delete-list';
 export * from './get-record-history';
 export * from './get-record-list-history';
 export * from './upload-attachment';
+export * from './insert-attachment';
 export * from './get-record-status';
 export * from './auto-fill-cell';
 export * from './button-click';
