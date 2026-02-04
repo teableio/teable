@@ -34,6 +34,7 @@ export const dateFilterSchema = z
     mode: subOperators,
     numberOfDays: z.coerce.number().int().nonnegative().optional(),
     exactDate: dataFieldCellValueSchema.optional(),
+    exactDateEnd: dataFieldCellValueSchema.optional(),
     timeZone: timeZoneStringSchema,
   })
   .superRefine((val, ctx) => {
@@ -42,6 +43,19 @@ export const dateFilterSchema = z
         code: z.ZodIssueCode.custom,
         message: `When the mode is set to '${val.mode}', an '${val.mode}' must be provided`,
       });
+    } else if (val.mode === 'dateRange') {
+      if (!val.exactDate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `When the mode is 'dateRange', a start date 'exactDate' must be provided`,
+        });
+      }
+      if (!val.exactDateEnd) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `When the mode is 'dateRange', an end date 'exactDateEnd' must be provided`,
+        });
+      }
     } else if (modesRequiringDays.includes(val.mode) && val.numberOfDays == null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -3,15 +3,7 @@ import { Button, Calendar, cn, Input, NavView } from '@teable/ui-lib';
 import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
 import { formatInTimeZone, toDate, toZonedTime, fromZonedTime } from 'date-fns-tz';
 import type { ForwardRefRenderFunction } from 'react';
-import {
-  forwardRef,
-  useContext,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { forwardRef, useContext, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { AppContext } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import type { ICellEditor, IEditorRef } from '../type';
@@ -117,9 +109,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
     onChange?.(val);
   };
 
-  const now = () => {
-    return fromZonedTime(new Date(), timeZone);
-  };
+  const now = () => fromZonedTime(new Date(), timeZone);
 
   return (
     <>

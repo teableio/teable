@@ -1,14 +1,16 @@
 'use client';
 
-import { ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
+import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from 'lucide-react';
 import { differenceInCalendarDays } from 'date-fns';
 import * as React from 'react';
 import {
   DayPicker,
+  getDefaultClassNames,
   labelNext,
   labelPrevious,
   useDayPicker,
   type DayPickerProps,
+  type DayButton,
 } from 'react-day-picker';
 import { cn } from '../utils';
 import { Button, buttonVariants } from './button';
@@ -21,10 +23,16 @@ export type CalendarProps = DayPickerProps & {
   yearRange?: number;
 
   /**
-   * Wether to show the year switcher in the caption.
+   * Whether to show the year switcher in the caption.
    * @default true
    */
   showYearSwitcher?: boolean;
+
+  /**
+   * Button variant for navigation buttons
+   * @default "ghost"
+   */
+  buttonVariant?: React.ComponentProps<typeof Button>['variant'];
 
   monthsClassName?: string;
   monthCaptionClassName?: string;
@@ -59,17 +67,23 @@ export enum NavView {
 
 /**
  * A custom calendar component built on top of react-day-picker.
+ * Supports both custom year grid navigation and dropdown selection.
  * @param props The props for the calendar.
  * @default yearRange 12
  * @returns
  */
 function Calendar({
   className,
+  classNames,
   showOutsideDays = true,
   showYearSwitcher = true,
   yearRange = 12,
   numberOfMonths,
   onNavViewChange,
+  captionLayout = 'label',
+  buttonVariant = 'ghost',
+  formatters,
+  components,
   ...props
 }: CalendarProps) {
   const [navView, setNavView] = React.useState<NavView>(NavView.Day);
@@ -95,33 +109,85 @@ function Calendar({
 
   const columnsDisplayed = navView === NavView.Year ? 1 : numberOfMonths;
 
-  const _monthsClassName = cn('relative flex', props.monthsClassName);
+  // Check if using dropdown layout
+  const isDropdownLayout =
+    captionLayout === 'dropdown' ||
+    captionLayout === 'dropdown-months' ||
+    captionLayout === 'dropdown-years';
+
+  const defaultClassNames = getDefaultClassNames();
+
+  // Build classNames based on layout mode
+  const _monthsClassName = cn(
+    isDropdownLayout ? 'flex gap-4 flex-col md:flex-row relative' : 'relative flex',
+    props.monthsClassName
+  );
   const _monthCaptionClassName = cn(
-    'relative mx-10 flex h-7 items-center justify-center',
+    isDropdownLayout
+      ? 'flex items-center justify-center h-7 w-full px-7'
+      : 'relative mx-10 flex h-7 items-center justify-center',
     props.monthCaptionClassName
   );
   const _weekdaysClassName = cn('flex flex-row', props.weekdaysClassName);
   const _weekdayClassName = cn(
-    'w-8 text-sm font-normal text-muted-foreground',
+    isDropdownLayout
+      ? 'text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem] select-none'
+      : 'w-8 text-sm font-normal text-muted-foreground',
     props.weekdayClassName
   );
-  const _monthClassName = cn('w-full', props.monthClassName);
+  const _monthClassName = cn(
+    'w-full',
+    isDropdownLayout && 'flex flex-col gap-4',
+    props.monthClassName
+  );
   const _captionClassName = cn(
     'relative flex items-center justify-center pt-1',
     props.captionClassName
   );
-  const _captionLabelClassName = cn('truncate text-sm font-medium', props.captionLabelClassName);
+  const _captionLabelClassName = cn(
+    'truncate text-sm font-medium select-none',
+    isDropdownLayout
+      ? 'rounded-md flex items-center gap-1 [&>svg]:text-muted-foreground [&>svg]:size-3.5'
+      : '',
+    props.captionLabelClassName
+  );
   const buttonNavClassName = buttonVariants({
-    variant: 'outline',
-    className: 'absolute h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100',
+    variant: isDropdownLayout ? buttonVariant : 'outline',
+    className: isDropdownLayout
+      ? 'size-7 aria-disabled:opacity-50 p-0 select-none'
+      : 'absolute h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100',
   });
-  const _buttonNextClassName = cn(buttonNavClassName, 'right-0', props.buttonNextClassName);
-  const _buttonPreviousClassName = cn(buttonNavClassName, 'left-0', props.buttonPreviousClassName);
-  const _navClassName = cn('flex items-start', props.navClassName);
+  const _buttonNextClassName = cn(
+    buttonNavClassName,
+    !isDropdownLayout && 'right-0',
+    props.buttonNextClassName
+  );
+  const _buttonPreviousClassName = cn(
+    buttonNavClassName,
+    !isDropdownLayout && 'left-0',
+    props.buttonPreviousClassName
+  );
+  const _navClassName = cn(
+    isDropdownLayout
+      ? 'flex items-center gap-1 w-full absolute top-0 inset-x-0 justify-between'
+      : 'flex items-start',
+    props.navClassName
+  );
   const _monthGridClassName = cn('mx-auto mt-4', props.monthGridClassName);
-  const _weekClassName = cn('mt-2 flex w-max items-start', props.weekClassName);
+  const _weekClassName = cn(
+    isDropdownLayout ? 'flex w-full mt-2' : 'mt-2 flex w-max items-start',
+    props.weekClassName
+  );
   const _dayClassName = cn(
-    'flex size-8 flex-1 items-center justify-center p-0 text-sm',
+    isDropdownLayout
+      ? 'relative w-full rounded-md h-full p-0 text-center group/day aspect-square select-none'
+      : 'flex size-8 flex-1 items-center justify-center p-0 text-sm',
+    isDropdownLayout && props.showWeekNumber
+      ? '[&:nth-child(2)[data-selected=true]_button]:rounded-l-md'
+      : isDropdownLayout
+        ? '[&:first-child[data-selected=true]_button]:rounded-l-md'
+        : '',
+    isDropdownLayout && '[&:last-child[data-selected=true]_button]:rounded-r-md',
     props.dayClassName
   );
   const _dayButtonClassName = cn(
@@ -132,17 +198,21 @@ function Calendar({
   const buttonRangeClassName =
     'bg-accent [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground';
   const _rangeStartClassName = cn(
-    buttonRangeClassName,
-    'day-range-start rounded-s-md',
+    isDropdownLayout
+      ? 'rounded-l-md bg-muted relative after:bg-muted after:absolute after:inset-y-0 after:w-4 after:right-0 -z-0 isolate'
+      : buttonRangeClassName + ' day-range-start rounded-s-md',
     props.rangeStartClassName
   );
   const _rangeEndClassName = cn(
-    buttonRangeClassName,
-    'day-range-end rounded-e-md',
+    isDropdownLayout
+      ? 'rounded-r-md bg-muted relative after:bg-muted after:absolute after:inset-y-0 after:w-4 after:left-0 -z-0 isolate'
+      : buttonRangeClassName + ' day-range-end rounded-e-md',
     props.rangeEndClassName
   );
   const _rangeMiddleClassName = cn(
-    'bg-accent !text-foreground [&>button]:bg-transparent [&>button]:!text-foreground [&>button]:hover:bg-transparent [&>button]:hover:!text-foreground',
+    isDropdownLayout
+      ? 'rounded-none'
+      : 'bg-accent !text-foreground [&>button]:bg-transparent [&>button]:!text-foreground [&>button]:hover:bg-transparent [&>button]:hover:!text-foreground',
     props.rangeMiddleClassName
   );
   const _selectedClassName = cn(
@@ -150,7 +220,9 @@ function Calendar({
     props.selectedClassName
   );
   const _todayClassName = cn(
-    '[&>button]:bg-accent [&>button]:text-accent-foreground',
+    isDropdownLayout
+      ? 'bg-muted text-foreground rounded-md data-[selected=true]:rounded-none'
+      : '[&>button]:bg-accent [&>button]:text-accent-foreground',
     props.todayClassName
   );
   const _outsideClassName = cn(
@@ -160,12 +232,39 @@ function Calendar({
   const _disabledClassName = cn('text-muted-foreground opacity-50', props.disabledClassName);
   const _hiddenClassName = cn('invisible flex-1', props.hiddenClassName);
 
+  // Dropdown-specific classNames
+  const _dropdownsClassName = cn(
+    'w-full flex items-center text-sm font-medium justify-center h-7 gap-1.5',
+    defaultClassNames.dropdowns
+  );
+  const _dropdownRootClassName = cn('relative rounded-md', defaultClassNames.dropdown_root);
+  const _dropdownClassName = cn(
+    'absolute bg-popover inset-0 opacity-0',
+    defaultClassNames.dropdown
+  );
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn('p-3', className)}
-      style={{
-        width: 248.8 * (columnsDisplayed ?? 1) + 'px',
+      className={cn(
+        isDropdownLayout
+          ? 'p-2 [--cell-radius:var(--radius-md)] [--cell-size:1.75rem] bg-background group/calendar [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent'
+          : 'p-3',
+        String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
+        String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
+        className
+      )}
+      style={
+        !isDropdownLayout
+          ? {
+              width: 248.8 * (columnsDisplayed ?? 1) + 'px',
+            }
+          : undefined
+      }
+      captionLayout={captionLayout}
+      formatters={{
+        formatMonthDropdown: (date) => date.toLocaleString('default', { month: 'short' }),
+        ...formatters,
       }}
       classNames={{
         months: _monthsClassName,
@@ -190,46 +289,100 @@ function Calendar({
         outside: _outsideClassName,
         disabled: _disabledClassName,
         hidden: _hiddenClassName,
+        dropdowns: _dropdownsClassName,
+        dropdown_root: _dropdownRootClassName,
+        dropdown: _dropdownClassName,
+        table: 'w-full border-collapse',
+        week_number_header: cn('select-none w-7', defaultClassNames.week_number_header),
+        week_number: cn(
+          'text-[0.8rem] select-none text-muted-foreground',
+          defaultClassNames.week_number
+        ),
+        ...classNames,
       }}
       components={{
-        Chevron: ({ orientation }) => {
-          const Icon = orientation === 'left' ? ChevronLeftIcon : ChevronRightIcon;
-          return <Icon className="h-4 w-4" />;
+        Root: ({
+          className,
+          rootRef,
+          ...rootProps
+        }: {
+          className?: string;
+          rootRef?: React.Ref<HTMLDivElement>;
+        } & React.HTMLAttributes<HTMLDivElement>) => {
+          return (
+            <div data-slot="calendar" ref={rootRef} className={cn(className)} {...rootProps} />
+          );
         },
-        Nav: ({ className }) => (
-          <Nav
-            className={className}
-            displayYears={displayYears}
-            navView={navView}
-            setDisplayYears={setDisplayYears}
-            startMonth={startMonth}
-            endMonth={endMonth}
-            onPrevClick={onPrevClick}
-            onNextClick={onNextClick}
-          />
-        ),
-        CaptionLabel: (props) => (
-          <CaptionLabel
-            showYearSwitcher={showYearSwitcher}
-            navView={navView}
-            setNavView={setNavView}
-            displayYears={displayYears}
-            {...props}
-          />
-        ),
-        MonthGrid: ({ className, children, ...props }) => (
-          <MonthGrid
-            className={className}
-            displayYears={displayYears}
-            startMonth={startMonth}
-            endMonth={endMonth}
-            navView={navView}
-            setNavView={setNavView}
-            {...props}
-          >
-            {children}
-          </MonthGrid>
-        ),
+        Chevron: ({ className: chevronClassName, orientation, ...chevronProps }) => {
+          if (orientation === 'left') {
+            return <ChevronLeftIcon className={cn('size-4', chevronClassName)} {...chevronProps} />;
+          }
+          if (orientation === 'right') {
+            return (
+              <ChevronRightIcon className={cn('size-4', chevronClassName)} {...chevronProps} />
+            );
+          }
+          return <ChevronDownIcon className={cn('size-4', chevronClassName)} {...chevronProps} />;
+        },
+        ...(isDropdownLayout
+          ? {
+              DayButton: CalendarDayButton,
+              WeekNumber: ({
+                children,
+                ...weekNumberProps
+              }: React.PropsWithChildren<React.TdHTMLAttributes<HTMLTableCellElement>>) => {
+                return (
+                  <td {...weekNumberProps}>
+                    <div className="flex size-7 items-center justify-center text-center">
+                      {children}
+                    </div>
+                  </td>
+                );
+              },
+            }
+          : {
+              Nav: ({ className: navClassName }: { className?: string }) => (
+                <Nav
+                  className={navClassName}
+                  displayYears={displayYears}
+                  navView={navView}
+                  setDisplayYears={setDisplayYears}
+                  startMonth={startMonth}
+                  endMonth={endMonth}
+                  onPrevClick={onPrevClick}
+                  onNextClick={onNextClick}
+                />
+              ),
+              CaptionLabel: (captionLabelProps: React.HTMLAttributes<HTMLSpanElement>) => (
+                <CaptionLabel
+                  showYearSwitcher={showYearSwitcher}
+                  navView={navView}
+                  setNavView={setNavView}
+                  displayYears={displayYears}
+                  {...captionLabelProps}
+                />
+              ),
+              MonthGrid: ({
+                className: monthGridClassName,
+                children,
+                ...monthGridProps
+              }: React.PropsWithChildren<
+                { className?: string } & React.TableHTMLAttributes<HTMLTableElement>
+              >) => (
+                <MonthGrid
+                  className={monthGridClassName}
+                  displayYears={displayYears}
+                  startMonth={startMonth}
+                  endMonth={endMonth}
+                  navView={navView}
+                  setNavView={setNavView}
+                  {...monthGridProps}
+                >
+                  {children}
+                </MonthGrid>
+              ),
+            }),
+        ...components,
       }}
       numberOfMonths={columnsDisplayed}
       {...props}
@@ -237,6 +390,44 @@ function Calendar({
   );
 }
 Calendar.displayName = 'Calendar';
+
+function CalendarDayButton({
+  className,
+  day,
+  modifiers,
+  ...props
+}: React.ComponentProps<typeof DayButton>) {
+  const defaultClassNames = getDefaultClassNames();
+
+  const ref = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    if (modifiers.focused) ref.current?.focus();
+  }, [modifiers.focused]);
+
+  return (
+    <Button
+      ref={ref}
+      variant="ghost"
+      size="icon"
+      data-day={day.date.toLocaleDateString()}
+      data-selected-single={
+        modifiers.selected &&
+        !modifiers.range_start &&
+        !modifiers.range_end &&
+        !modifiers.range_middle
+      }
+      data-range-start={modifiers.range_start}
+      data-range-end={modifiers.range_end}
+      data-range-middle={modifiers.range_middle}
+      className={cn(
+        'data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 dark:hover:text-foreground relative isolate z-10 flex aspect-square size-auto w-full min-w-7 flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] data-[range-end=true]:rounded-md data-[range-end=true]:rounded-r-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md data-[range-start=true]:rounded-l-md [&>span]:text-xs [&>span]:opacity-70',
+        defaultClassNames.day,
+        className
+      )}
+      {...props}
+    />
+  );
+}
 
 function Nav({
   className,
@@ -464,4 +655,4 @@ function YearGrid({
   );
 }
 
-export { Calendar };
+export { Calendar, CalendarDayButton };

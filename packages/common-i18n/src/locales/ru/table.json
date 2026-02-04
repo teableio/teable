@@ -688,5 +688,31 @@
       "tokenDescription": "Токенов использовано: {{tokens}}",
       "taskCompleted": "Задача выполнена"
     }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Скачать все вложения",
+      "loading": "Загрузка предпросмотра...",
+      "rowsWithAttachments": "{{count}} строк с вложениями",
+      "totalAttachments": "{{count}} вложений",
+      "totalSize": "Общий размер: {{size}}",
+      "startDownload": "Начать загрузку",
+      "confirmTitle": "Скачать {{count}} файлов",
+      "confirmDescription": "Общий размер: {{size}}. Файлы будут сжаты в ZIP-архив.",
+      "confirm": "Скачать",
+      "cancel": "Отмена",
+      "downloading": "Загрузка...",
+      "downloadingFile": "Загрузка: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Загрузка завершена",
+      "cancelled": "Загрузка отменена",
+      "noAttachments": "Нет вложений для скачивания",
+      "error": "Ошибка загрузки",
+      "errorPartial": "{{failedCount}} файлов не удалось загрузить",
+      "requireHttps": "Пакетная загрузка требует HTTPS. Пожалуйста, используйте HTTPS или localhost.",
+      "namingFieldLabel": "Префикс имени вложения",
+      "groupByRow": "Архивировать в папки",
+      "groupByRowTip": "Когда в строке несколько вложений, они будут помещены в одну папку; строки с одним вложением не создадут папку."
+    }
   }
 }

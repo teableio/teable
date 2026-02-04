@@ -5,7 +5,7 @@ const path = require('path');
 const { createSecureHeaders } = require('next-secure-headers');
 const pc = require('picocolors');
 
-const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
+const workspaceRoot = path.resolve(__dirname, '..', '..');
 /**
  * Once supported replace by node / eslint / ts and out of experimental, replace by
  * `import packageJson from './package.json' assert { type: 'json' };`
@@ -121,8 +121,6 @@ const nextConfig = {
   crossOrigin: 'anonymous',
   reactStrictMode: true,
   productionBrowserSourceMaps: NEXT_BUILD_ENV_SOURCEMAPS === true,
-  // optimizeFonts is enabled by default in Next.js 16
-
   // Transpile packages that use React to ensure single React instance
   transpilePackages: [
     'streamdown',
@@ -187,13 +185,16 @@ const nextConfig = {
     // @link https://nextjs.org/docs/app/api-reference/config/next-config-js/proxyClientMaxBodySize
     proxyClientMaxBodySize: '100mb',
 
+    // Optimize package imports for better bundle size and faster builds
+    // @link https://vercel.com/blog/how-we-optimized-package-imports-in-next-js
+    optimizePackageImports: ['lucide-react', 'date-fns', '@tanstack/react-virtual'],
+
     // Experimental /app dir
     // appDir: true,
   },
 
   // Turbopack configuration (Next.js 16 default bundler)
   turbopack: {
-    // Set workspace root to fix multiple lockfile detection
     root: workspaceRoot,
     rules: {
       '*.svg': {
@@ -266,29 +267,6 @@ const nextConfig = {
       // @link https://github.com/vercel/next.js/issues/36514#issuecomment-1112074589
       config.resolve.fallback = { ...config.resolve.fallback, fs: false };
     }
-
-    // Handle node: protocol imports for server-side (e.g., node:fs from i18next-fs-backend)
-    // This tells webpack to treat node: protocol imports as external commonjs modules
-    if (isServer) {
-      config.externals = config.externals || [];
-      config.externals.push(
-        (/** @type {{ request: string }} */ { request }, /** @type {Function} */ callback) => {
-          if (request.startsWith('node:')) {
-            // Convert node:fs -> fs, node:path -> path, etc.
-            return callback(null, 'commonjs ' + request.slice(5));
-          }
-          callback();
-        }
-      );
-    }
-
-    // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/tree-shaking/
-    config.plugins.push(
-      new webpack.DefinePlugin({
-        __SENTRY_DEBUG__: NEXT_BUILD_ENV_SENTRY_DEBUG,
-        __SENTRY_TRACING__: NEXT_BUILD_ENV_SENTRY_TRACING,
-      })
-    );
 
     // Grab the existing rule that handles SVG imports
     const fileLoaderRule = config.module.rules.find(

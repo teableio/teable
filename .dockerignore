@@ -1,5 +1,5 @@
 # All node_modules directories
-node_modules
+**/node_modules
 **/dist
 **/.next
 

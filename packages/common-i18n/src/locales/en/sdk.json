@@ -73,7 +73,12 @@
     },
     "date": {
       "placeholder": "Pick a date",
-      "today": "Today"
+      "today": "Today",
+      "rangePlaceholder": "Pick a date range",
+      "rangeSelected": "Selected",
+      "invalidTimeRange": "End time must be after start time",
+      "from": "From",
+      "to": "To"
     },
     "formula": {
       "title": "Formula editor",
@@ -221,6 +226,7 @@
         "daysFromNow": "days from now",
         "exactDate": "exact date",
         "exactFormatDate": "exact date (formatted)",
+        "dateRange": "custom range",
         "currentWeek": "current week",
         "currentMonth": "current month",
         "currentYear": "current year",

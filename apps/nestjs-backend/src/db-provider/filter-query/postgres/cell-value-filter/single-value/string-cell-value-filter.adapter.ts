@@ -6,8 +6,8 @@ import {
   type ILiteralValue,
 } from '@teable/core';
 import type { Knex } from 'knex';
-import type { IDbProvider } from '../../../../db.provider.interface';
 import { escapeLikeWildcards } from '../../../../../utils/sql-like-escape';
+import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class StringCellValueFilterAdapter extends CellValueFilterPostgres {

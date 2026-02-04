@@ -1,9 +1,9 @@
-import { defaultDatetimeFormatting, formatDateToString } from '@teable/core';
+import { defaultDatetimeFormatting, formatDateToString, TimeFormatting } from '@teable/core';
 import { Calendar as CalendarIcon } from '@teable/icons';
 import { Button, Input, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState, useEffect } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { useIsTouchDevice } from '../../../hooks';
 import type { IEditorRef } from '../type';
@@ -27,7 +27,17 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const isTouchDevice = useIsTouchDevice();
   const { t } = useTranslation();
 
-  const formatting = options?.formatting || defaultDatetimeFormatting;
+  // When disableTimePicker is true, force date-only display (no time)
+  const formatting = useMemo(() => {
+    const baseFormatting = options?.formatting || defaultDatetimeFormatting;
+    if (disableTimePicker) {
+      return {
+        ...baseFormatting,
+        time: TimeFormatting.None,
+      };
+    }
+    return baseFormatting;
+  }, [options?.formatting, disableTimePicker]);
 
   useImperativeHandle(ref, () => ({
     setValue: (value?: string) => {

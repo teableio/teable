@@ -8,14 +8,26 @@ import {
 } from '@teable/icons';
 import { useView, RowHeight, Group, HideFields } from '@teable/sdk';
 import { cn } from '@teable/ui-lib/shadcn';
+import { useEffect, useRef } from 'react';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { SearchButton } from '@/features/app/blocks/view/search/SearchButton';
+import { useToolBarStore } from '@/features/app/blocks/view/tool-bar/components/useToolBarStore';
 import { ToolBarButton } from '@/features/app/blocks/view/tool-bar/ToolBarButton';
 import { ShareViewFilter } from '../../share-view-filter';
 import { Sort } from './Sort';
 
 export const Toolbar = () => {
   const view = useView();
+  const { setFilterRef, setSortRef, setGroupRef } = useToolBarStore();
+  const filterRef = useRef<HTMLButtonElement>(null);
+  const sortRef = useRef<HTMLButtonElement>(null);
+  const groupRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setFilterRef(filterRef);
+    setSortRef(sortRef);
+    setGroupRef(groupRef);
+  }, [setFilterRef, setGroupRef, setSortRef]);
 
   const {
     onFilterChange,
@@ -43,6 +55,7 @@ export const Toolbar = () => {
           <ToolBarButton
             isActive={isActive}
             text={text}
+            ref={filterRef}
             className={cn(
               'max-w-xs',
               isActive &&
@@ -63,6 +76,7 @@ export const Toolbar = () => {
           <ToolBarButton
             isActive={isActive}
             text={text}
+            ref={sortRef}
             className={cn(
               'max-w-xs',
               isActive &&
@@ -79,6 +93,7 @@ export const Toolbar = () => {
           <ToolBarButton
             isActive={isActive}
             text={text}
+            ref={groupRef}
             className={cn(
               'max-w-xs',
               isActive &&

@@ -45,6 +45,7 @@ import {
   SheetContent,
   SheetHeader,
 } from '@teable/ui-lib/shadcn';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
@@ -77,9 +78,11 @@ const iconClassName = 'mr-2 h-4 w-4';
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
+  const router = useRouter();
   const view = useView() as GridView | undefined;
   const { filter, sort, group } = view || {};
   const tableId = useTableId();
+  const shareId = router.query.shareId as string | undefined;
   const { headerMenu, closeHeaderMenu } = useGridViewStore();
   const { isViewConfigurable } = useViewConfigurable();
   const { openSetting } = useFieldSettingStore();
@@ -168,12 +171,26 @@ export const FieldMenu = () => {
   const handleDownloadAllAttachments = () => {
     if (!tableId || !fields?.length) return;
     const field = fields[0];
+
+    // For share view: use view's filter/sort/group directly (no personal view in share view)
+    // For normal view: use personalViewCommonQuery
+    const downloadQuery = shareId
+      ? view?.filter || view?.sort || view?.group
+        ? {
+            filter: view?.filter ?? undefined,
+            orderBy: view?.sort?.sortObjs ?? undefined,
+            groupBy: view?.group ?? undefined,
+          }
+        : undefined
+      : personalViewCommonQuery ?? undefined;
+
     openDownloadDialog({
       tableId,
       fieldId: field.id,
       fieldName: field.name,
       viewId: view?.id,
-      personalViewCommonQuery: personalViewCommonQuery ?? undefined,
+      shareId,
+      personalViewCommonQuery: downloadQuery,
     });
   };
 
@@ -252,7 +269,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Filter,
         name: t('table:menu.filterField'),
         icon: <Filter className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -286,7 +303,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Sort,
         name: t('table:menu.sortField'),
         icon: <ArrowUpDown className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -323,7 +340,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Group,
         name: t('table:menu.groupField'),
         icon: <LayoutList className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -357,7 +374,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Freeze,
         name: t('table:menu.freezeUpField'),
         icon: <FreezeColumn className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
         onClick: async () => await freezeField(),
       },
     ],
@@ -366,7 +383,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Hidden,
         name: t('table:menu.hideField'),
         icon: <EyeOff className={iconClassName} />,
-        hidden: !permission['view|update'] || !isViewConfigurable,
+        hidden: !isViewConfigurable,
         disabled: fields.some((f) => f.isPrimary),
         onClick: async () => {
           const fieldIdsSet = new Set(fieldIds);

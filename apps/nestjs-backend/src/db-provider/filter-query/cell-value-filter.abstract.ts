@@ -33,6 +33,7 @@ import {
   literalValueListSchema,
   isFieldReferenceComparable,
   isFieldReferenceValue,
+  TimeFormatting,
 } from '@teable/core';
 import type {
   FieldCore,
@@ -46,8 +47,8 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import type { Knex } from 'knex';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
-import type { IDbProvider } from '../db.provider.interface';
 import { escapeLikeWildcards } from '../../utils/sql-like-escape';
+import type { IDbProvider } from '../db.provider.interface';
 import type { ICellValueFilterInterface } from './cell-value-filter.interface';
 
 export class FieldReferenceCompatibilityException extends BadRequestException {
@@ -389,8 +390,11 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
     const { mode, numberOfDays, exactDate } = filterValueByDate;
     const {
-      formatting: { timeZone, date: dateFormat },
+      formatting: { timeZone, date: dateFormat, time: timeFormat },
     } = dateFieldOptions;
+
+    // Check if the field has time format configured (not None)
+    const hasTimeFormat = timeFormat && timeFormat !== TimeFormatting.None;
 
     const dateUtil = new DateUtil(timeZone);
 
@@ -498,6 +502,31 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       return [cursorDate.startOf(unit).startOf('day'), cursorDate.endOf(unit).endOf('day')];
     };
 
+    // Helper function to determine date range for a custom date range (from exactDate to exactDateEnd).
+    const determineDateRangeForDateRange = (): [Dayjs, Dayjs] => {
+      if (!exactDate) {
+        throw new BadRequestException('Start date must be entered for date range');
+      }
+      const exactDateEnd = filterValueByDate.exactDateEnd;
+      if (!exactDateEnd) {
+        throw new BadRequestException('End date must be entered for date range');
+      }
+
+      const startDate = dateUtil.date(exactDate);
+      const endDate = dateUtil.date(exactDateEnd);
+
+      // Validate that start date is not after end date
+      if (startDate.isAfter(endDate)) {
+        throw new BadRequestException('Start date cannot be after end date');
+      }
+
+      // If field has time format, use exact time from frontend; otherwise use start/end of day
+      if (hasTimeFormat) {
+        return [startDate, endDate];
+      }
+      return [startDate.startOf('day'), endDate.endOf('day')];
+    };
+
     // Map of operation functions based on date mode.
     const operationMap: Record<string, () => [Dayjs, Dayjs]> = {
       today: () => computeDateRangeForFixedDays('date'),
@@ -511,6 +540,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       daysFromNow: () => calculateDateRangeForOffsetDays(false),
       exactDate: () => determineDateRangeForExactDate(),
       exactFormatDate: () => determineDateRangeForExactFormatDate(),
+      dateRange: () => determineDateRangeForDateRange(),
       currentWeek: () => generateRelativeDateFromCurrentDateRange('current', 'week'),
       currentMonth: () => generateRelativeDateFromCurrentDateRange('current', 'month'),
       currentYear: () => generateRelativeDateFromCurrentDateRange('current', 'year'),

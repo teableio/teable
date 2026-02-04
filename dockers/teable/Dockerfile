@@ -74,7 +74,7 @@ RUN set -ex; \
         pnpm nuke:node_modules; \
         chmod +x ./scripts/post-build-cleanup.mjs; \
         zx ./scripts/post-build-cleanup.mjs; \
-        pnpm install --prod --prefer-offline --frozen-lockfile; \
+        pnpm -F '!@teable/eslint-config-bases' --config.dedupe-peer-dependents=false install --prod --prefer-offline --frozen-lockfile; \
         pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 RUN set -ex; \
@@ -133,23 +133,23 @@ COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/next.config.
         /app/apps/nextjs-app/.env \
         ./apps/nextjs-app/
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
 
 # mv it is necessary
-COPY --from=builder --chown=nodejs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
+COPY --from=builder --link --chown=nodejs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/packages ./packages
-COPY --from=post-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=post-builder --chown=nodejs:nodejs /app/package.json ./package.json
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/packages ./packages
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/package.json ./package.json
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/plugins/.next/standalone/plugins ./plugins
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/static ./static
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/plugins/.next/standalone/plugins ./plugins
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/static ./static
 
 COPY --chown=nodejs:nodejs scripts/start.sh ./scripts/start.sh
 COPY --chown=nodejs:nodejs scripts/db-migrate.mjs ./scripts/db-migrate.mjs

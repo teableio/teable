@@ -1,132 +1,220 @@
-/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
+/**
+ * OpenTelemetry Tracing Configuration
+ *
+ * This module initializes OpenTelemetry SDK for distributed tracing, logging, and metrics.
+ *
+ * Environment Variables:
+ * ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+ * | Variable                           | Description                    | Dev Default      | Prod Default |
+ * |------------------------------------|--------------------------------|------------------|--------------|
+ * | OTEL_EXPORTER_OTLP_ENDPOINT        | Trace exporter endpoint        | localhost:4318   | (disabled)   |
+ * | OTEL_EXPORTER_OTLP_LOGS_ENDPOINT   | Log exporter endpoint          | localhost:4318   | (disabled)   |
+ * | OTEL_EXPORTER_OTLP_METRICS_ENDPOINT| Metrics exporter endpoint      | (disabled)       | (disabled)   |
+ * | OTEL_EXPORTER_OTLP_HEADERS         | Custom headers (key=val,...)   | (none)           | (none)       |
+ * | OTEL_SERVICE_NAME                  | Service name for tracing       | teable           | teable       |
+ * | OTEL_EXPORT_RATIO                  | Export ratio (0.0-1.0)         | 1.0 (100%)       | 0.1 (10%)    |
+ * | OTEL_EXPORT_LATENCY_THRESHOLD_MS   | Slow request threshold (ms)    | 1500             | 1500         |
+ * | BACKEND_SENTRY_DSN                 | Sentry DSN for error tracking  | (disabled)       | (disabled)   |
+ * | BUILD_VERSION                      | Build version for resource     | (none)           | (none)       |
+ * ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ * Notes:
+ * - In development, traces and logs are enabled by default (localhost endpoint)
+ * - In production, you must explicitly set OTEL_EXPORTER_OTLP_ENDPOINT to enable tracing
+ * - Sampling rate is always 100%; OTEL_EXPORT_RATIO controls how many spans are sent to backend
+ * - Smart export always sends: errors, HTTP 5xx responses, and slow requests (regardless of ratio)
+ */
+import { Logger } from '@nestjs/common';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { ExpressInstrumentation, ExpressLayerType } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
+import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
 import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
+import { BatchSpanProcessor, NoopSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import {
+  ATTR_HTTP_RESPONSE_STATUS_CODE,
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
+} from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 import { SentrySpanProcessor } from '@sentry/opentelemetry';
 
-const parseOtelHeaders = (headerStr?: string) => {
+const { BatchLogRecordProcessor } = opentelemetry.logs;
+const { PeriodicExportingMetricReader } = opentelemetry.metrics;
+const { AlwaysOnSampler } = opentelemetry.node;
+
+const otelLogger = new Logger('OpenTelemetry');
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
+/**
+ * Environment-specific default values
+ * - undefined means the feature is disabled unless explicitly configured
+ */
+const ENV_DEFAULTS = {
+  development: {
+    OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
+    OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: 'http://localhost:4318/v1/logs',
+    OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: undefined,
+    OTEL_SERVICE_NAME: 'teable',
+    OTEL_EXPORT_RATIO: '1.0',
+    OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
+  },
+  production: {
+    OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
+    OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: undefined,
+    OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: undefined,
+    OTEL_SERVICE_NAME: 'teable',
+    OTEL_EXPORT_RATIO: '0.1',
+    OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
+  },
+} as const;
+
+type EnvConfigKey = keyof typeof ENV_DEFAULTS.development;
+
+/**
+ * Get configuration value
+ * Priority: environment variable > current environment default
+ */
+const getConfig = (key: EnvConfigKey): string | undefined => {
+  const envValue = process.env[key];
+  if (envValue !== undefined) return envValue;
+
+  const defaults = isDevelopment ? ENV_DEFAULTS.development : ENV_DEFAULTS.production;
+  return defaults[key];
+};
+
+const parseHeaders = (headerStr?: string): Record<string, string> => {
   if (!headerStr) return {};
   return headerStr.split(',').reduce(
     (acc, curr) => {
-      const [key, value] = curr.split('=');
-      if (key && value) {
-        acc[key.trim()] = value.trim();
-      }
+      const [key, ...valueParts] = curr.split('=');
+      const value = valueParts.join('=');
+      if (key && value) acc[key.trim()] = value.trim();
       return acc;
     },
     {} as Record<string, string>
   );
 };
 
-const headers = parseOtelHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
-
-const isDevelopment = process.env.NODE_ENV !== 'production';
-
-// Development fallbacks so local tracing/logging works without manual env setup.
-const devOtelDefaults = {
-  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
-  OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: 'http://localhost:4318/v1/logs',
-  OTEL_TRACES_SAMPLER: 'always_on',
-  OTEL_SERVICE_NAME: 'teable',
-  OTEL_SAMPLER_RATIO: '1.0',
-} as const;
-
-type DevOtelKey = keyof typeof devOtelDefaults;
-
-const resolveDevDefault = (key: DevOtelKey) => {
-  return process.env[key] ?? (isDevelopment ? devOtelDefaults[key] : undefined);
+const parseNumber = (value: string | undefined, defaultValue: number): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
 };
 
-const traceEndpoint = resolveDevDefault('OTEL_EXPORTER_OTLP_ENDPOINT');
-const logEndpoint = resolveDevDefault('OTEL_EXPORTER_OTLP_LOGS_ENDPOINT');
-const samplerRatioEnv = resolveDevDefault('OTEL_SAMPLER_RATIO');
-const traceSamplerSetting = resolveDevDefault('OTEL_TRACES_SAMPLER');
-const serviceName = resolveDevDefault('OTEL_SERVICE_NAME') || 'teable';
+// Configuration
+const headers = parseHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
+const traceEndpoint = getConfig('OTEL_EXPORTER_OTLP_ENDPOINT');
+const logEndpoint = getConfig('OTEL_EXPORTER_OTLP_LOGS_ENDPOINT');
+const metricsEndpoint = getConfig('OTEL_EXPORTER_OTLP_METRICS_ENDPOINT');
+const serviceName = getConfig('OTEL_SERVICE_NAME') || 'teable';
+const exportRatio = Math.max(0, Math.min(1, parseNumber(getConfig('OTEL_EXPORT_RATIO'), 0.1)));
+const latencyThresholdMs = Math.max(
+  0,
+  parseNumber(getConfig('OTEL_EXPORT_LATENCY_THRESHOLD_MS'), 1500)
+);
 
-const traceExporterOptions = {
-  url: traceEndpoint,
-  headers: {
-    'Content-Type': 'application/x-protobuf',
-    ...headers,
-  },
-};
+// Exporters
+const createExporterOptions = (url?: string) => ({
+  url,
+  headers: { 'Content-Type': 'application/x-protobuf', ...headers },
+});
 
-const traceExporter = traceExporterOptions.url
-  ? new OTLPTraceExporter(traceExporterOptions)
+const traceExporter = traceEndpoint
+  ? new OTLPTraceExporter(createExporterOptions(traceEndpoint))
+  : undefined;
+const logExporter = logEndpoint
+  ? new OTLPLogExporter(createExporterOptions(logEndpoint))
+  : undefined;
+const metricsExporter = metricsEndpoint
+  ? new OTLPMetricExporter(createExporterOptions(metricsEndpoint))
   : undefined;
 
-const logExporterOptions = {
-  url: logEndpoint,
-  headers: {
-    'Content-Type': 'application/x-protobuf',
-    ...headers,
-  },
+// Smart export: deterministic decision based on traceId hash
+// No cache needed - hash function is pure and fast
+const getTraceDecision = (traceId: string): boolean => {
+  // FNV-1a hash for better distribution
+  let hash = 2166136261;
+  for (let i = 0; i < traceId.length; i++) {
+    hash ^= traceId.charCodeAt(i);
+    hash = (hash * 16777619) >>> 0;
+  }
+  return hash % 10000 < exportRatio * 10000;
 };
 
-const logExporter = logExporterOptions.url ? new OTLPLogExporter(logExporterOptions) : undefined;
+const shouldExportSpan = (span: opentelemetry.tracing.ReadableSpan): boolean => {
+  if (exportRatio >= 1.0) return true;
 
-const metricsExporterOptions = {
-  url: process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
-  headers: {
-    'Content-Type': 'application/x-protobuf',
-    ...headers,
-  },
+  // Always export errors
+  if (span.status.code === SpanStatusCode.ERROR) return true;
+
+  // Always export HTTP errors (5xx)
+  const httpStatusCode = span.attributes[ATTR_HTTP_RESPONSE_STATUS_CODE];
+  if (typeof httpStatusCode === 'number' && httpStatusCode >= 500) return true;
+
+  // Always export slow requests
+  const durationMs = span.duration[0] * 1000 + span.duration[1] / 1_000_000;
+  if (durationMs > latencyThresholdMs) return true;
+
+  // Consistent export decision based on traceId - all spans in same trace have same fate
+  return getTraceDecision(span.spanContext().traceId);
 };
-const metricsExporter = metricsExporterOptions.url
-  ? new OTLPMetricExporter(metricsExporterOptions)
-  : undefined;
 
-const { BatchLogRecordProcessor } = opentelemetry.logs;
-const { PeriodicExportingMetricReader } = opentelemetry.metrics;
-const { AlwaysOnSampler, ParentBasedSampler, TraceIdRatioBasedSampler } = opentelemetry.node;
-const parsedSamplerRatio = Number(samplerRatioEnv);
-const samplerRatio = Number.isFinite(parsedSamplerRatio) ? parsedSamplerRatio : 0.1;
-const resolvedTraceSampler = traceSamplerSetting?.toLowerCase();
-const sampler =
-  resolvedTraceSampler === 'always_on'
-    ? new AlwaysOnSampler()
-    : new ParentBasedSampler({
-        root: new TraceIdRatioBasedSampler(samplerRatio),
-      });
+const createSmartBatchProcessor = (exporter: OTLPTraceExporter): SpanProcessor => {
+  const batchProcessor = new BatchSpanProcessor(exporter, {
+    maxQueueSize: 2048,
+    maxExportBatchSize: 512,
+    scheduledDelayMillis: 5000,
+    exportTimeoutMillis: 30000,
+  });
+  if (exportRatio >= 1.0) return batchProcessor;
 
-// Span processors: export traces to multiple backends
+  return {
+    onStart: batchProcessor.onStart.bind(batchProcessor),
+    onEnd: (span: opentelemetry.tracing.ReadableSpan) => {
+      if (shouldExportSpan(span)) batchProcessor.onEnd(span);
+    },
+    shutdown: batchProcessor.shutdown.bind(batchProcessor),
+    forceFlush: batchProcessor.forceFlush.bind(batchProcessor),
+  };
+};
+
+// Span processors - NoopSpanProcessor ensures trace context is always generated
+// even when no exporter is configured (needed for trace ID in logs)
 const spanProcessors = [
   ...(process.env.BACKEND_SENTRY_DSN ? [new SentrySpanProcessor()] : []),
-  ...(traceExporter ? [new BatchSpanProcessor(traceExporter)] : []),
+  ...(traceExporter ? [createSmartBatchProcessor(traceExporter)] : [new NoopSpanProcessor()]),
+];
+
+const ignorePaths = [
+  '/favicon.ico',
+  '/_next/',
+  '/__nextjs',
+  '/images/',
+  '/.well-known/',
+  '/health',
 ];
 
 const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
-  sampler,
+  sampler: new AlwaysOnSampler(),
   metricReader: metricsExporter
     ? new PeriodicExportingMetricReader({
         exporter: metricsExporter,
+        exportIntervalMillis: 60000,
       })
     : undefined,
   instrumentations: [
     new HttpInstrumentation({
-      ignoreIncomingRequestHook: (request) => {
-        const ignorePaths = [
-          '/favicon.ico',
-          '/_next/',
-          '/__nextjs',
-          '/images/',
-          '/.well-known/',
-          '/health',
-        ];
-        return ignorePaths.some((path) => request.url?.startsWith(path));
-      },
+      ignoreIncomingRequestHook: (req) => ignorePaths.some((path) => req.url?.startsWith(path)),
     }),
     new ExpressInstrumentation({
       ignoreLayersType: [ExpressLayerType.MIDDLEWARE, ExpressLayerType.REQUEST_HANDLER],
@@ -134,6 +222,9 @@ const otelSDK = new opentelemetry.NodeSDK({
     new NestInstrumentation(),
     new PrismaInstrumentation(),
     new PinoInstrumentation(),
+    new IORedisInstrumentation({
+      requireParentSpan: true,
+    }),
   ],
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
@@ -141,15 +232,25 @@ const otelSDK = new opentelemetry.NodeSDK({
   }),
 });
 
+// Log configuration on startup
+otelLogger.log(
+  `Initialized: service=${serviceName}, env=${isDevelopment ? 'dev' : 'prod'}, ` +
+    `exportRatio=${exportRatio * 100}%, latencyThreshold=${latencyThresholdMs}ms, ` +
+    `exporters=[traces:${!!traceEndpoint}, logs:${!!logEndpoint}, metrics:${!!metricsEndpoint}], ` +
+    `sentry=${!!process.env.BACKEND_SENTRY_DSN}`
+);
+
 export default otelSDK;
 
+let isShuttingDown = false;
 const shutdownHandler = () => {
+  if (isShuttingDown) return Promise.resolve();
+  isShuttingDown = true;
   return otelSDK.shutdown().then(
-    () => console.log('OTEL shut down successfully'),
-    (err) => console.log('Error shutting down OTEL', err)
+    () => otelLogger.log('Shutdown successfully'),
+    (err) => otelLogger.error('Shutdown error', err)
   );
 };
 
-// Handle both SIGTERM and SIGINT
 process.on('SIGTERM', shutdownHandler);
 process.on('SIGINT', shutdownHandler);

@@ -89,7 +89,12 @@
     },
     "date": {
       "placeholder": "选择日期",
-      "today": "今天"
+      "today": "今天",
+      "rangePlaceholder": "选择日期范围",
+      "rangeSelected": "已选",
+      "invalidTimeRange": "结束时间必须晚于开始时间",
+      "from": "开始",
+      "to": "结束"
     },
     "formula": {
       "title": "公式编辑器",
@@ -237,6 +242,7 @@
         "daysFromNow": "几天后",
         "exactDate": "具体日期",
         "exactFormatDate": "具体日期（格式化）",
+        "dateRange": "日期范围",
         "currentWeek": "本周",
         "currentMonth": "本月",
         "currentYear": "今年",
