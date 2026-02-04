@@ -12,6 +12,8 @@ interface IColumnDownloadDialogState {
   viewId?: string;
   shareId?: string;
   personalViewCommonQuery?: IGetRecordsRo;
+  namingFieldId?: string;
+  groupByRow: boolean;
 
   openDialog: (params: {
     tableId: string;
@@ -22,14 +24,19 @@ interface IColumnDownloadDialogState {
     personalViewCommonQuery?: IGetRecordsRo;
   }) => void;
   closeDialog: () => void;
+  setNamingFieldId: (namingFieldId?: string) => void;
+  setGroupByRow: (groupByRow: boolean) => void;
 }
 
 export const useColumnDownloadDialogStore = create<IColumnDownloadDialogState>((set) => ({
   open: false,
+  groupByRow: false,
 
   openDialog: (params) =>
     set({
       open: true,
+      namingFieldId: undefined, // Reset naming field when opening dialog
+      groupByRow: false, // Reset group by row when opening dialog
       ...params,
     }),
   closeDialog: () =>
@@ -41,5 +48,9 @@ export const useColumnDownloadDialogStore = create<IColumnDownloadDialogState>((
       viewId: undefined,
       shareId: undefined,
       personalViewCommonQuery: undefined,
+      namingFieldId: undefined,
+      groupByRow: false,
     }),
+  setNamingFieldId: (namingFieldId) => set({ namingFieldId }),
+  setGroupByRow: (groupByRow) => set({ groupByRow }),
 }));

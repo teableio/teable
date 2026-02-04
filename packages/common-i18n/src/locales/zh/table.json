@@ -653,7 +653,10 @@
       "noAttachments": "没有可下载的附件",
       "error": "下载失败",
       "errorPartial": "{{failedCount}} 个文件下载失败",
-      "requireHttps": "批量下载需要 HTTPS 环境，请通过 HTTPS 或 localhost 访问"
+      "requireHttps": "批量下载需要 HTTPS 环境，请通过 HTTPS 或 localhost 访问",
+      "namingFieldLabel": "附件名前缀",
+      "groupByRow": "归档到文件夹",
+      "groupByRowTip": "同一行有多个附件时，会放入同一个文件夹中；只有一个附件的行不会创建文件夹。"
     }
   },
   "grid": {

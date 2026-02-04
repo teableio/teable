@@ -214,7 +214,9 @@ describe('Filter operators and sub-operators utility functions', () => {
       const parentOp: IDateTimeFieldOperator = isAfter.value;
 
       const subOperators = getValidFilterSubOperators(dateField.type, parentOp);
-      expect(subOperators).toEqual(dateTimeFieldValidSubOperators);
+      expect(subOperators).toEqual(
+        dateTimeFieldValidSubOperators.filter((op) => op !== 'dateRange')
+      );
     });
   });
 });

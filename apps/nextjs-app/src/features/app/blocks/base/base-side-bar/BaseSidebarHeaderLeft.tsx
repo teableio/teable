@@ -211,7 +211,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
   };
 
   return (
-    <div className="flex max-w-[calc(100%-28px)] shrink grow items-center">
+    <div className="flex min-w-0 shrink grow items-center">
       <div
         className="relative mr-1 size-6 shrink-0 cursor-pointer"
         onClick={backSpace}

@@ -709,5 +709,31 @@
       "tokenDescription": "Tokens verwendet: {{tokens}}",
       "taskCompleted": "Aufgabe abgeschlossen"
     }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Alle Anhänge herunterladen",
+      "loading": "Vorschau wird geladen...",
+      "rowsWithAttachments": "{{count}} Zeilen mit Anhängen",
+      "totalAttachments": "{{count}} Anhänge",
+      "totalSize": "Gesamtgröße: {{size}}",
+      "startDownload": "Download starten",
+      "confirmTitle": "{{count}} Dateien herunterladen",
+      "confirmDescription": "Gesamtgröße: {{size}}. Die Dateien werden in eine ZIP-Datei komprimiert.",
+      "confirm": "Herunterladen",
+      "cancel": "Abbrechen",
+      "downloading": "Wird heruntergeladen...",
+      "downloadingFile": "Wird heruntergeladen: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Download abgeschlossen",
+      "cancelled": "Download abgebrochen",
+      "noAttachments": "Keine Anhänge zum Herunterladen",
+      "error": "Download fehlgeschlagen",
+      "errorPartial": "{{failedCount}} Dateien konnten nicht heruntergeladen werden",
+      "requireHttps": "Batch-Download erfordert HTTPS. Bitte über HTTPS oder localhost zugreifen.",
+      "namingFieldLabel": "Präfix für Anhangsname",
+      "groupByRow": "In Ordner archivieren",
+      "groupByRowTip": "Wenn eine Zeile mehrere Anhänge hat, werden sie im selben Ordner abgelegt; Zeilen mit nur einem Anhang erstellen keinen Ordner."
+    }
   }
 }

@@ -14,15 +14,20 @@ export const SidebarHeader = (props: ISidebarHeaderProps) => {
   const modKeyStr = useModKeyStr();
   const { t } = useTranslation(['common']);
   return (
-    <div className="flex w-full items-center gap-2 py-2 pl-4 pr-3">
-      {headerLeft}
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+    <div className="flex w-full items-center gap-2 py-2 pl-4 pr-2">
+      <div className="min-w-0 flex-1">{headerLeft}</div>
+      <div className="flex shrink-0 items-center gap-1">
         {headerRight}
         {onExpand && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button className="w-6 shrink-0 px-0" variant="ghost" size="xs" onClick={onExpand}>
+                <Button
+                  className="size-7 shrink-0 p-0"
+                  variant="ghost"
+                  size="xs"
+                  onClick={onExpand}
+                >
                   <Sidebar className="size-4" />
                 </Button>
               </TooltipTrigger>

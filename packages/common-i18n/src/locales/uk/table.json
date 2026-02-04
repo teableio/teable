@@ -707,5 +707,31 @@
       "tokenDescription": "Токенів використано: {{tokens}}",
       "taskCompleted": "Завдання виконано"
     }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Завантажити всі вкладення",
+      "loading": "Завантаження попереднього перегляду...",
+      "rowsWithAttachments": "{{count}} рядків з вкладеннями",
+      "totalAttachments": "{{count}} вкладень",
+      "totalSize": "Загальний розмір: {{size}}",
+      "startDownload": "Почати завантаження",
+      "confirmTitle": "Завантажити {{count}} файлів",
+      "confirmDescription": "Загальний розмір: {{size}}. Файли будуть стиснуті в ZIP-архів.",
+      "confirm": "Завантажити",
+      "cancel": "Скасувати",
+      "downloading": "Завантаження...",
+      "downloadingFile": "Завантаження: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Завантаження завершено",
+      "cancelled": "Завантаження скасовано",
+      "noAttachments": "Немає вкладень для завантаження",
+      "error": "Помилка завантаження",
+      "errorPartial": "{{failedCount}} файлів не вдалося завантажити",
+      "requireHttps": "Пакетне завантаження вимагає HTTPS. Будь ласка, використовуйте HTTPS або localhost.",
+      "namingFieldLabel": "Префікс імені вкладення",
+      "groupByRow": "Архівувати в папки",
+      "groupByRowTip": "Коли рядок має кілька вкладень, вони будуть розміщені в одній папці; рядки з одним вкладенням не створюють папку."
+    }
   }
 }

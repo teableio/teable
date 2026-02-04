@@ -652,7 +652,10 @@
       "noAttachments": "No attachments to download",
       "error": "Download failed",
       "errorPartial": "{{failedCount}} files failed to download",
-      "requireHttps": "Batch download requires HTTPS. Please access via HTTPS or localhost."
+      "requireHttps": "Batch download requires HTTPS. Please access via HTTPS or localhost.",
+      "namingFieldLabel": "Attachment name prefix",
+      "groupByRow": "Archive into folders",
+      "groupByRowTip": "When a row has multiple attachments, they will be placed in the same folder; rows with only one attachment will not create a folder."
     }
   },
   "grid": {

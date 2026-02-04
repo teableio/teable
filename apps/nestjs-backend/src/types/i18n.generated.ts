@@ -4706,6 +4706,9 @@ export type I18nTranslations = {
                 "error": string;
                 "errorPartial": string;
                 "requireHttps": string;
+                "namingFieldLabel": string;
+                "groupByRow": string;
+                "groupByRowTip": string;
             };
         };
         "plugin": {

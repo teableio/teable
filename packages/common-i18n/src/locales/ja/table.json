@@ -687,5 +687,31 @@
       "tokenDescription": "トークン使用数: {{tokens}}",
       "taskCompleted": "タスク完了"
     }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "すべての添付ファイルをダウンロード",
+      "loading": "プレビューを読み込み中...",
+      "rowsWithAttachments": "{{count}} 行に添付ファイルがあります",
+      "totalAttachments": "{{count}} 個の添付ファイル",
+      "totalSize": "合計サイズ: {{size}}",
+      "startDownload": "ダウンロード開始",
+      "confirmTitle": "{{count}} ファイルをダウンロード",
+      "confirmDescription": "合計サイズ: {{size}}。ファイルはZIPファイルに圧縮されます。",
+      "confirm": "ダウンロード",
+      "cancel": "キャンセル",
+      "downloading": "ダウンロード中...",
+      "downloadingFile": "ダウンロード中: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "ダウンロード完了",
+      "cancelled": "ダウンロードがキャンセルされました",
+      "noAttachments": "ダウンロードする添付ファイルがありません",
+      "error": "ダウンロード失敗",
+      "errorPartial": "{{failedCount}} ファイルのダウンロードに失敗しました",
+      "requireHttps": "一括ダウンロードにはHTTPSが必要です。HTTPSまたはlocalhostでアクセスしてください。",
+      "namingFieldLabel": "添付ファイル名のプレフィックス",
+      "groupByRow": "フォルダにアーカイブ",
+      "groupByRowTip": "行に複数の添付ファイルがある場合、同じフォルダに配置されます。添付ファイルが1つだけの行はフォルダを作成しません。"
+    }
   }
 }
