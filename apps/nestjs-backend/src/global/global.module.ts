@@ -35,7 +35,7 @@ const globalModules = {
     ClsModule.forRoot({
       global: true,
       middleware: {
-        mount: true,
+        mount: false,
         generateId: true,
         idGenerator: (req: Request) => {
           const existingID = req.headers[X_REQUEST_ID] as string;
