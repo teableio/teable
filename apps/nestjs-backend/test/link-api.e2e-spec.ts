@@ -3547,6 +3547,74 @@ describe('OpenAPI link (e2e)', () => {
     });
   });
 
+  it('clears link when primary formula embeds lookup value', async () => {
+    const tableB = await createTable(baseId, {
+      name: 'link-formula-lookup-b',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+        { name: 'Code', type: FieldType.SingleLineText } as IFieldRo,
+      ],
+      records: [{ fields: { Name: 'B1', Code: 'C1' } }],
+    });
+
+    const tableA = await createTable(baseId, {
+      name: 'link-formula-lookup-a',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Title: 'A1' } }],
+    });
+
+    try {
+      const linkField = await createField(tableA.id, {
+        name: 'A->B',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: tableB.id,
+        },
+      } as IFieldRo);
+
+      const lookupField = await createField(tableA.id, {
+        name: 'B Code',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: tableB.id,
+          lookupFieldId: tableB.fields[1].id,
+          linkFieldId: linkField.id,
+        },
+      } as IFieldRo);
+
+      const primaryField = tableA.fields.find((field) => field.isPrimary)!;
+      await convertField(tableA.id, primaryField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${lookupField.id}}`,
+        },
+      });
+
+      await updateRecordByApi(tableA.id, tableA.records[0].id, linkField.id, {
+        id: tableB.records[0].id,
+      });
+
+      const linked = await getRecord(tableA.id, tableA.records[0].id);
+      expect((linked.fields[linkField.id] as { id: string } | undefined)?.id).toBe(
+        tableB.records[0].id
+      );
+      expect(linked.fields[lookupField.id]).toBe('C1');
+      expect(linked.fields[primaryField.id]).toBe('C1');
+
+      await updateRecordByApi(tableA.id, tableA.records[0].id, linkField.id, null);
+
+      const cleared = await getRecord(tableA.id, tableA.records[0].id);
+      expect(cleared.fields[linkField.id]).toBeUndefined();
+      expect(cleared.fields[lookupField.id]).toBeUndefined();
+      expect(cleared.fields[primaryField.id]).toBeUndefined();
+    } finally {
+      await permanentDeleteTable(baseId, tableA.id);
+      await permanentDeleteTable(baseId, tableB.id);
+    }
+  });
+
   describe('Create two bi-link for two tables', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;

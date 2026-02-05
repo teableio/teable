@@ -146,7 +146,7 @@ export const ImagePreview = () => {
       </div>
     </div>,
     modalElementRef.current
-  );
+  ) as unknown as JSX.Element;
 };
 
 export function ScaleInput(props: React.ComponentProps<'input'>) {

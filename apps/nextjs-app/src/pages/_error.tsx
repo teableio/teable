@@ -9,8 +9,8 @@ import NextErrorComponent from 'next/error';
 import type { ErrorProps } from 'next/error';
 import { ErrorPage } from '@/features/system/pages';
 import {
-  systemLocaleLoaders,
-  loadSystemTranslations,
+  commonLocaleLoaders,
+  loadCommonTranslations,
   getLocaleFromCookie,
   getLocaleFromAcceptLanguage,
 } from '@/lib/i18n/staticPageLocale';
@@ -87,7 +87,7 @@ const CustomError: NextPage<CustomErrorProps> = (props) => {
 CustomError.getInitialProps = async (context: AugmentedNextPageContext) => {
   const { res, err, asPath, req } = context;
 
-  const supportedLocales = Object.keys(systemLocaleLoaders);
+  const supportedLocales = Object.keys(commonLocaleLoaders);
   // Detect locale: prefer context.locale, fallback to cookie, then Accept-Language header, default to 'en'
   const cookieLocale = getLocaleFromCookie(req?.headers?.cookie ?? '');
   const acceptLangLocale = getLocaleFromAcceptLanguage(
@@ -95,23 +95,23 @@ CustomError.getInitialProps = async (context: AugmentedNextPageContext) => {
     supportedLocales
   );
   const detectedLocale = context.locale || cookieLocale || acceptLangLocale || 'en';
-  const locale = systemLocaleLoaders[detectedLocale] ? detectedLocale : 'en';
+  const locale = commonLocaleLoaders[detectedLocale] ? detectedLocale : 'en';
 
   const errorInitialProps = (await NextErrorComponent.getInitialProps({
     res,
     err,
   } as NextPageContext)) as CustomErrorProps;
 
-  const resources = await loadSystemTranslations(locale);
+  const resources = await loadCommonTranslations(locale);
   Object.assign(errorInitialProps, {
     _nextI18Next: {
       initialI18nStore: {
         [locale]: {
-          system: resources,
+          common: resources,
         },
       },
       initialLocale: locale,
-      ns: ['system'],
+      ns: ['common'],
       userConfig: null,
     },
   });
