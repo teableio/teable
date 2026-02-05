@@ -10,6 +10,21 @@ import {
 } from '@teable/openapi';
 import type { IFieldInstance } from '@teable/sdk';
 
+/**
+ * Check if should disable cache for this mimetype to avoid CORS issues.
+ * Media types (image/video/audio) may be cached by browser via native tags without CORS headers.
+ * Returns true (disable cache) if mimetype is media type or invalid.
+ */
+const shouldDisableCache = (mimetype: string | undefined, fileName: string): boolean => {
+  if (!mimetype || typeof mimetype !== 'string') {
+    console.error(`Invalid mimetype for: ${fileName}, using no-store fallback`);
+    return true;
+  }
+  return (
+    mimetype.startsWith('image/') || mimetype.startsWith('video/') || mimetype.startsWith('audio/')
+  );
+};
+
 export interface IDownloadProgress {
   downloaded: number;
   total: number;
@@ -490,8 +505,11 @@ export async function downloadAllAttachments(
       zip.add(file);
 
       try {
-        // Fetch the attachment
-        const response = await fetch(attachment.presignedUrl, { signal: abortSignal });
+        const disableCache = shouldDisableCache(attachment.mimetype, attachment.name);
+        const response = await fetch(attachment.presignedUrl, {
+          signal: abortSignal,
+          ...(disableCache && { cache: 'no-store' }),
+        });
 
         if (!response.ok) {
           failedFiles.push(attachment.name);
@@ -534,6 +552,7 @@ export async function downloadAllAttachments(
         if ((error as Error).name === 'AbortError') {
           throw error;
         }
+        console.error(`Fetch error for: ${attachment.name}`, error);
         failedFiles.push(attachment.name);
       }
     }
@@ -606,7 +625,13 @@ function generateUniqueFileName(fileName: string, filenameCount: Map<string, num
  * Shared logic for both column and cell downloads
  */
 async function streamAttachmentsToZip(
-  attachments: Array<{ fileName: string; url: string; originalName: string; size: number }>,
+  attachments: Array<{
+    fileName: string;
+    url: string;
+    originalName: string;
+    size: number;
+    mimetype: string;
+  }>,
   zipFileName: string,
   totalSize: number,
   onProgress?: (progress: IDownloadProgress) => void,
@@ -646,7 +671,7 @@ async function streamAttachmentsToZip(
   });
 
   // Process each attachment
-  for (const { fileName, url, originalName } of attachments) {
+  for (const { fileName, url, originalName, mimetype } of attachments) {
     if (abortSignal?.aborted) {
       zip.end();
       throw new DOMException(DOWNLOAD_CANCELLED_MESSAGE, 'AbortError');
@@ -664,7 +689,11 @@ async function streamAttachmentsToZip(
     zip.add(file);
 
     try {
-      const response = await fetch(url, { signal: abortSignal });
+      const disableCache = shouldDisableCache(mimetype, originalName);
+      const response = await fetch(url, {
+        signal: abortSignal,
+        ...(disableCache && { cache: 'no-store' }),
+      });
 
       if (!response.ok) {
         failedFiles.push(originalName);
@@ -704,6 +733,7 @@ async function streamAttachmentsToZip(
       if ((error as Error).name === 'AbortError') {
         throw error;
       }
+      console.error(`Fetch error for: ${originalName}`, error);
       failedFiles.push(originalName);
     }
   }
@@ -746,6 +776,7 @@ export async function downloadCellAttachments(
     url: a.presignedUrl!,
     originalName: a.name,
     size: a.size || 0,
+    mimetype: a.mimetype,
   }));
 
   try {

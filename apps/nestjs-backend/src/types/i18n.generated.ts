@@ -1410,13 +1410,6 @@ export type I18nTranslations = {
             "createResource": string;
             "noPermissionToCreateResource": string;
         };
-        "noPermissionToCreateBase": string;
-        "app": {
-            "title": string;
-            "description": string;
-            "previewAppError": string;
-            "sendErrorToAI": string;
-        };
         "credit": {
             "title": string;
             "leftAmount": string;
@@ -1514,6 +1507,13 @@ export type I18nTranslations = {
                     "rejected": string;
                 };
             };
+        };
+        "noPermissionToCreateBase": string;
+        "app": {
+            "title": string;
+            "description": string;
+            "previewAppError": string;
+            "sendErrorToAI": string;
         };
         "chat": {
             "serverError": string;
@@ -4620,9 +4620,6 @@ export type I18nTranslations = {
                     "scheduledTime": string;
                     "buttonClick": string;
                 };
-                "testPassed": string;
-                "testFailed": string;
-                "testOutput": string;
                 "activated": string;
                 "deactivated": string;
                 "discarded": string;
