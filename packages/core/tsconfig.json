@@ -17,10 +17,13 @@
     "declaration": true,
     "declarationDir": "dist",
     "composite": true,
-    "rootDir": "src",
+    "rootDir": "../",
     "outDir": "dist",
-    "types": ["vitest/globals", "node"]
+    "types": ["vitest/globals", "node"],
+    "paths": {
+      "@teable/formula": ["../formula/src"]
+    }
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src"]
+  "include": ["src", "../formula/src"]
 }
