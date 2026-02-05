@@ -746,7 +746,7 @@
     "sortField": "Sort by this field",
     "groupField": "Group by this field",
     "downloadAllAttachments": "Download all files",
-    "autoFill": "Regenerate",
+    "autoFill": "Generate",
     "groupMenuTitle": "Group menu",
     "expandGroup": "Expand this group and its sub-groups",
     "collapseGroup": "Collapse this group and its sub-groups",
@@ -1199,9 +1199,6 @@
         "scheduledTime": "Scheduled Time",
         "buttonClick": "Button Click"
       },
-      "testPassed": "Test Passed",
-      "testFailed": "Test Failed",
-      "testOutput": "Test Output",
       "activated": "Activated",
       "deactivated": "Deactivated",
       "discarded": "Changes Discarded",

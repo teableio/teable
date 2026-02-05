@@ -1091,10 +1091,17 @@ export class AggregationService implements IAggregationService {
     const filterStr = viewRaw?.filter;
     const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
     const currentUserId = this.cls.get('user.id');
+    const selectionMap = new Map(Object.values(fieldMap).map((f) => [f.id, `"${f.dbFieldName}"`]));
 
     if (mergedFilter) {
       this.dbProvider
-        .filterQuery(queryBuilder, fieldMap, mergedFilter, { withUserId: currentUserId })
+        .filterQuery(
+          queryBuilder,
+          fieldMap,
+          mergedFilter,
+          { withUserId: currentUserId },
+          { selectionMap }
+        )
         .appendQueryBuilder();
     }
 

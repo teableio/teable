@@ -183,7 +183,7 @@ const nextConfig = {
 
     // Increase middleware client max body size for large file uploads (e.g., .tea import files)
     // @link https://nextjs.org/docs/app/api-reference/config/next-config-js/proxyClientMaxBodySize
-    proxyClientMaxBodySize: '100mb',
+    proxyClientMaxBodySize: '1024mb',
 
     // Optimize package imports for better bundle size and faster builds
     // @link https://vercel.com/blog/how-we-optimized-package-imports-in-next-js
