@@ -1,8 +1,10 @@
 import { z } from '../../../zod';
 import { CellValueType } from '../constant';
+import { longTextShowAsSchema } from './long-text';
 import { multiNumberShowAsSchema, numberShowAsSchema, singleNumberShowAsSchema } from './number';
 import { singleLineTextShowAsSchema } from './text';
 
+export * from './long-text';
 export * from './number';
 export * from './text';
 
@@ -26,7 +28,7 @@ export const getShowAsSchema = (
 };
 
 export const unionShowAsSchema = z
-  .union([singleLineTextShowAsSchema.strict(), numberShowAsSchema])
+  .union([singleLineTextShowAsSchema.strict(), longTextShowAsSchema.strict(), numberShowAsSchema])
   .meta({
     description:
       'According to the results of expression parsing to determine different visual effects, where strings, numbers will provide customized "show as"',

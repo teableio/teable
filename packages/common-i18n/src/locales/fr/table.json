@@ -220,6 +220,8 @@
       "url": "Url",
       "email": "Email",
       "phone": "Téléphone",
+      "plainText": "Texte brut",
+      "markdown": "Markdown",
       "maxNumber": "Nombre maximum",
       "showNumber": "Afficher le nombre",
       "autoFillDate": "Remplir automatiquement avec la date actuelle",

@@ -6,6 +6,7 @@ import type {
   ILinkCellValue,
   ILinkFieldOptions,
   ILongTextCellValue,
+  ILongTextFieldOptions,
   IMultipleSelectCellValue,
   INumberCellValue,
   IRatingFieldOptions,
@@ -93,6 +94,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as ILongTextCellValue}
+          options={options as ILongTextFieldOptions}
           onChange={onChange}
           readonly={readonly}
         />

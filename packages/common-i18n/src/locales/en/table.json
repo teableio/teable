@@ -259,6 +259,8 @@
       "url": "Url",
       "email": "Email",
       "phone": "Phone",
+      "plainText": "Plain text",
+      "markdown": "Markdown",
       "maxNumber": "Max number",
       "showNumber": "Show number",
       "autoFillDate": "Auto fill with current date",

@@ -224,6 +224,8 @@
       "url": "URL",
       "email": "Електронна пошта",
       "phone": "Телефон",
+      "plainText": "Простий текст",
+      "markdown": "Markdown",
       "maxNumber": "Максимальна кількість",
       "showNumber": "Показати номер",
       "autoFillDate": "Автозаповнення поточною датою",

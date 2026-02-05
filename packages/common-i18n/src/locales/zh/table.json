@@ -259,6 +259,8 @@
       "url": "网址",
       "email": "邮件",
       "phone": "电话",
+      "plainText": "纯文本",
+      "markdown": "Markdown",
       "maxNumber": "最大值",
       "showNumber": "显示数值",
       "autoFillDate": "自动填充当前日期",

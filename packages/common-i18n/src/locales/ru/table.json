@@ -220,6 +220,8 @@
       "url": "URL",
       "email": "Email",
       "phone": "Телефон",
+      "plainText": "Простой текст",
+      "markdown": "Markdown",
       "maxNumber": "Максимальное число",
       "showNumber": "Показать число",
       "autoFillDate": "Автозаполнение текущей датой",

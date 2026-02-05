@@ -224,6 +224,8 @@
       "url": "Url",
       "email": "Email",
       "phone": "Telefono",
+      "plainText": "Testo normale",
+      "markdown": "Markdown",
       "maxNumber": "Numero massimo",
       "showNumber": "Mostra Numero",
       "autoFillDate": "Compila automaticamente con la data corrente",
