@@ -204,6 +204,9 @@ export const ReactQueryKeys = {
   calendarDailyCollection: (tableId: string, query: ICalendarDailyCollectionRo) =>
     ['calendar-daily-collection', tableId, query] as const,
 
+  shareCalendarDailyCollection: (shareId: string, query: ICalendarDailyCollectionRo) =>
+    ['share-calendar-daily-collection', shareId, query] as const,
+
   getDepartmentList: (ro?: IGetDepartmentListRo) => ['department-list', ro] as const,
 
   getDepartmentUsers: (ro?: IGetDepartmentUserRo) => ['department-users', ro] as const,

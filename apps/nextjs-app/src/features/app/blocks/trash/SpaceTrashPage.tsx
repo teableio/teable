@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Trash2 } from '@teable/icons';
+import { ChevronLeft, Trash2 } from '@teable/icons';
 import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
 import {
   getTrash,
@@ -18,6 +18,7 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { IterationCcwIcon } from 'lucide-react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { useBrand } from '@/features/app/hooks/useBrand';
@@ -30,7 +31,12 @@ export const SpaceTrashPage = () => {
   const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { brandName } = useBrand();
+  const router = useRouter();
   const resourceType = ResourceType.Space;
+
+  const onBack = () => {
+    router.push({ pathname: '/space' });
+  };
 
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
@@ -194,6 +200,14 @@ export const SpaceTrashPage = () => {
         <title>{`${t('common:trash.spaceTrash')} - ${brandName}`}</title>
       </Head>
       <div className="flex flex-col items-start justify-between gap-2 ">
+        <Button
+          className="h-6 p-0 text-sm text-muted-foreground hover:no-underline hover:opacity-75"
+          variant="link"
+          onClick={onBack}
+        >
+          <ChevronLeft className="size-4" />
+          <span>{t('common:settings.back')}</span>
+        </Button>
         <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
         <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
           {t('space:trash.spaceDescription')}

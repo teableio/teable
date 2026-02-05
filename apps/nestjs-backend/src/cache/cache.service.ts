@@ -126,4 +126,26 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   async getMany<TKey extends keyof T>(keys: TKey[]): Promise<Array<T[TKey] | undefined>> {
     return this.cacheManager.get(keys as string[]);
   }
+
+  /**
+   * Update the TTL of an existing key without reading/writing data
+   * Returns true if the key exists and TTL was updated
+   */
+  async expire<TKey extends keyof T>(key: TKey, ttl: number | string): Promise<boolean> {
+    const ttlSeconds = typeof ttl === 'string' ? second(ttl) : ttl;
+    const redis = this.getRedisClient();
+    if (!redis) {
+      // Fallback for non-Redis: get and re-set
+      const value = await this.get(key);
+      if (value !== undefined) {
+        await this.setDetail(key, value, ttlSeconds);
+        return true;
+      }
+      return false;
+    }
+
+    const fullKey = `${this.cacheManager.opts.namespace}:${key as string}`;
+    const result = await redis.expire(fullKey, ttlSeconds);
+    return result === 1;
+  }
 }

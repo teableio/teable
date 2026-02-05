@@ -15,7 +15,7 @@ export const SidebarHeader = (props: ISidebarHeaderProps) => {
   const { t } = useTranslation(['common']);
   return (
     <div className="flex w-full items-center gap-2 py-2 pl-4 pr-2">
-      <div className="min-w-0 flex-1">{headerLeft}</div>
+      <div className="flex min-w-0 flex-1 items-center gap-2">{headerLeft}</div>
       <div className="flex shrink-0 items-center gap-1">
         {headerRight}
         {onExpand && (
