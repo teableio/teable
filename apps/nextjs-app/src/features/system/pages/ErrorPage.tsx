@@ -1,6 +1,5 @@
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
-import { systemConfig } from '@/features/i18n/system.config';
 import { IllustrationPage } from './IllustrationPage';
 
 type Props = {
@@ -13,7 +12,7 @@ type Props = {
 
 export const ErrorPage: FC<Props> = (props) => {
   const { error, errorId, message, statusCode } = props;
-  const { t } = useTranslation(systemConfig.i18nNamespaces);
+  const { t } = useTranslation('common');
 
   return (
     <div className="relative">
@@ -21,9 +20,9 @@ export const ErrorPage: FC<Props> = (props) => {
         imageLightSrc="/images/layout/error-light.png"
         imageDarkSrc="/images/layout/error-dark.png"
         imageAlt="Error"
-        title={t('system:error.title')}
-        description={t('system:error.description')}
-        button={{ label: t('system:links.backToHome'), href: '/' }}
+        title={t('system.error.title')}
+        description={t('system.error.description')}
+        button={{ label: t('system.links.backToHome'), href: '/' }}
       />
       <div className="absolute bottom-0 right-0 m-5 flex flex-col gap-1 rounded-lg border bg-background p-4 text-left text-sm">
         <div className="flex gap-2" data-testid="error-status-code">

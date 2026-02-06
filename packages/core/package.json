@@ -27,7 +27,6 @@
     "dev": "tsc --watch",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
-    "antlr4ts": "antlr4ts -visitor -no-listener src/formula/parser/*.g4",
     "antlr4ts-tql": "antlr4ts -visitor -no-listener src/query/parser/*.g4",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "check-dist": "es-check -v",
@@ -41,6 +40,7 @@
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "8.1.0",
     "@httpx/dsn-parser": "1.8.4",
+    "@teable/formula": "workspace:*",
     "@types/color": "3.0.6",
     "@types/papaparse": "5.3.14",
     "antlr4ts": "0.5.0-alpha.4",
