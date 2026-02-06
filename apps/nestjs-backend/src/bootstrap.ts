@@ -13,7 +13,6 @@ import type { IBaseConfig } from './configs/base.config';
 import type { ISecurityWebConfig, IApiDocConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import { setupSwagger } from './swagger';
-import otelSDK from './tracing';
 
 const host = 'localhost';
 
@@ -41,7 +40,8 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 }
 
 export async function bootstrap() {
-  otelSDK.start();
+  // OTEL SDK is now started in tracing.ts when the module is imported.
+  // This ensures instrumentation is applied before any instrumented modules are loaded.
 
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const configService = app.get(ConfigService);

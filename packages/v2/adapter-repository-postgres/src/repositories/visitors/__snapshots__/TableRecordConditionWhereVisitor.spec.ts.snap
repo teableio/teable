@@ -1,0 +1,1188 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'attachment:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_files" is null) or (jsonb_array_length(to_jsonb("col_files")) = 0)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'attachment:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_files" is not null) and (jsonb_array_length(to_jsonb("col_files")) > 0)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'button:contains' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_action" like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'button:doesNotContain' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_action" not like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'button:is' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_action" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'button:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_action" is null) or (to_jsonb("col_action") = '{}'::jsonb)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'button:isNot' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_action" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'button:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_action" is not null) and (to_jsonb("col_action") != '{}'::jsonb)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'checkbox:is' 1`] = `
+{
+  "parameters": [
+    true,
+  ],
+  "sql": ""col_done" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:is' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+  ],
+  "sql": ""col_due_date" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:isAfter' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_due_date" > $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:isBefore' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+  ],
+  "sql": ""col_due_date" < $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_due_date" is null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:isNot' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+  ],
+  "sql": ""col_due_date" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_due_date" is not null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:isOnOrAfter' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+  ],
+  "sql": ""col_due_date" >= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:isOnOrBefore' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_due_date" <= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'date:isWithIn' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_due_date" between $1 and $2",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:contains' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_score" like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:doesNotContain' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_score" not like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:hasAllOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_score" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:hasAnyOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_score" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:hasNoneOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_score" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:is' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_score" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isAfter' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_score" > $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isAnyOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_score" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isBefore' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+  ],
+  "sql": ""col_score" < $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_score" is null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isExactly' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_score" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isGreater' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_score" > $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isGreaterEqual' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_score" >= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isLess' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_score" < $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isLessEqual' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_score" <= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isNoneOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_score" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isNot' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_score" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_score" is not null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isNotExactly' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_score" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isOnOrAfter' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+  ],
+  "sql": ""col_score" >= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isOnOrBefore' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_score" <= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'formula:isWithIn' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_score" between $1 and $2",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:contains' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_related_many" like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:doesNotContain' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_related_many" not like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:hasAllOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "to_jsonb("col_related_many") ?& array[$1, $2]",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:hasAnyOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "to_jsonb("col_related_many") ?| array[$1, $2]",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:hasNoneOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "not (to_jsonb("col_related_many") ?| array[$1, $2])",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_related_many" is null) or (jsonb_array_length(to_jsonb("col_related_many")) = 0)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:isExactly' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+    "alpha",
+    "beta",
+  ],
+  "sql": "(to_jsonb("col_related_many") @> to_jsonb(array[$1, $2])) and (to_jsonb("col_related_many") <@ to_jsonb(array[$3, $4]))",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_related_many" is not null) and (jsonb_array_length(to_jsonb("col_related_many")) > 0)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkMultiple:isNotExactly' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+    "alpha",
+    "beta",
+  ],
+  "sql": "not ((to_jsonb("col_related_many") @> to_jsonb(array[$1, $2])) and (to_jsonb("col_related_many") <@ to_jsonb(array[$3, $4])))",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkSingle:contains' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_related" like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkSingle:doesNotContain' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_related" not like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkSingle:is' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_related" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkSingle:isAnyOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": ""col_related" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkSingle:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_related" is null) or (to_jsonb("col_related") = '{}'::jsonb)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkSingle:isNoneOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": ""col_related" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkSingle:isNot' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_related" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'linkSingle:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_related" is not null) and (to_jsonb("col_related") != '{}'::jsonb)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'longText:contains' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_description" like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'longText:doesNotContain' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_description" not like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'longText:is' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_description" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'longText:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_description" is null) or ("col_description" = '')",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'longText:isNot' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_description" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'longText:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_description" is not null) and ("col_description" != '')",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'multipleSelect:hasAllOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "to_jsonb("col_tags") ?& array[$1, $2]",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'multipleSelect:hasAnyOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "to_jsonb("col_tags") ?| array[$1, $2]",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'multipleSelect:hasNoneOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "not (to_jsonb("col_tags") ?| array[$1, $2])",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'multipleSelect:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_tags" is null) or (jsonb_array_length(to_jsonb("col_tags")) = 0)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'multipleSelect:isExactly' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+    "alpha",
+    "beta",
+  ],
+  "sql": "(to_jsonb("col_tags") @> to_jsonb(array[$1, $2])) and (to_jsonb("col_tags") <@ to_jsonb(array[$3, $4]))",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'multipleSelect:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_tags" is not null) and (jsonb_array_length(to_jsonb("col_tags")) > 0)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'multipleSelect:isNotExactly' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+    "alpha",
+    "beta",
+  ],
+  "sql": "not ((to_jsonb("col_tags") @> to_jsonb(array[$1, $2])) and (to_jsonb("col_tags") <@ to_jsonb(array[$3, $4])))",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'number:is' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_amount" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'number:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_amount" is null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'number:isGreater' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_amount" > $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'number:isGreaterEqual' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_amount" >= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'number:isLess' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_amount" < $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'number:isLessEqual' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_amount" <= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'number:isNot' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_amount" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'number:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_amount" is not null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rating:is' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rating" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rating:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_rating" is null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rating:isGreater' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rating" > $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rating:isGreaterEqual' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rating" >= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rating:isLess' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rating" < $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rating:isLessEqual' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rating" <= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rating:isNot' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rating" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rating:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_rating" is not null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:contains' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_rollup" like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:doesNotContain' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_rollup" not like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:hasAllOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_rollup" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:hasAnyOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_rollup" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:hasNoneOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_rollup" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:is' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rollup" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isAfter' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_rollup" > $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isAnyOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_rollup" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isBefore' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+  ],
+  "sql": ""col_rollup" < $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_rollup" is null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isExactly' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_rollup" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isGreater' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rollup" > $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isGreaterEqual' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rollup" >= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isLess' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rollup" < $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isLessEqual' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rollup" <= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isNoneOf' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_rollup" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isNot' 1`] = `
+{
+  "parameters": [
+    42,
+  ],
+  "sql": ""col_rollup" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": ""col_rollup" is not null",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isNotExactly' 1`] = `
+{
+  "parameters": [
+    1,
+    2,
+  ],
+  "sql": ""col_rollup" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isOnOrAfter' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+  ],
+  "sql": ""col_rollup" >= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isOnOrBefore' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_rollup" <= $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'rollup:isWithIn' 1`] = `
+{
+  "parameters": [
+    "2024-01-01T00:00:00.000Z",
+    "2024-01-01T23:59:59.999Z",
+  ],
+  "sql": ""col_rollup" between $1 and $2",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleLineText:contains' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_title" like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleLineText:doesNotContain' 1`] = `
+{
+  "parameters": [
+    "%hello%",
+  ],
+  "sql": ""col_title" not like $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleLineText:is' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_title" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleLineText:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_title" is null) or ("col_title" = '')",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleLineText:isNot' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_title" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleLineText:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_title" is not null) and ("col_title" != '')",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleSelect:is' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_status" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleSelect:isAnyOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": ""col_status" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleSelect:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_status" is null) or ("col_status" = '')",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleSelect:isNoneOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": ""col_status" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleSelect:isNot' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_status" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'singleSelect:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_status" is not null) and ("col_status" != '')",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userMultiple:hasAllOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "to_jsonb("col_collaborators") ?& array[$1, $2]",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userMultiple:hasAnyOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "to_jsonb("col_collaborators") ?| array[$1, $2]",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userMultiple:hasNoneOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": "not (to_jsonb("col_collaborators") ?| array[$1, $2])",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userMultiple:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_collaborators" is null) or (jsonb_array_length(to_jsonb("col_collaborators")) = 0)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userMultiple:isExactly' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+    "alpha",
+    "beta",
+  ],
+  "sql": "(to_jsonb("col_collaborators") @> to_jsonb(array[$1, $2])) and (to_jsonb("col_collaborators") <@ to_jsonb(array[$3, $4]))",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userMultiple:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_collaborators" is not null) and (jsonb_array_length(to_jsonb("col_collaborators")) > 0)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userMultiple:isNotExactly' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+    "alpha",
+    "beta",
+  ],
+  "sql": "not ((to_jsonb("col_collaborators") @> to_jsonb(array[$1, $2])) and (to_jsonb("col_collaborators") <@ to_jsonb(array[$3, $4])))",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userSingle:is' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_owner" = $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userSingle:isAnyOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": ""col_owner" in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userSingle:isEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_owner" is null) or (to_jsonb("col_owner") = '{}'::jsonb)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userSingle:isNoneOf' 1`] = `
+{
+  "parameters": [
+    "alpha",
+    "beta",
+  ],
+  "sql": ""col_owner" not in ($1, $2)",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userSingle:isNot' 1`] = `
+{
+  "parameters": [
+    "hello",
+  ],
+  "sql": ""col_owner" != $1",
+}
+`;
+
+exports[`TableRecordConditionWhereVisitor > builds SQL for 'userSingle:isNotEmpty' 1`] = `
+{
+  "parameters": [],
+  "sql": "("col_owner" is not null) and (to_jsonb("col_owner") != '{}'::jsonb)",
+}
+`;
