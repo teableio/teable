@@ -41,8 +41,10 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
     return statusHook.checkLoading(fieldId, recordId);
   };
   const isClickable = useMemo(() => {
-    return !isLookup && recordId && checkButtonClickable(fieldOptions, value);
-  }, [fieldOptions, value, recordId, isLookup]);
+    return Boolean(
+      tableId && fieldId && recordId && !isLookup && checkButtonClickable(fieldOptions, value)
+    );
+  }, [tableId, fieldId, recordId, isLookup, fieldOptions, value]);
 
   const button = useMemo(() => {
     const rectColor = isClickable ? fieldOptions.color : Colors.Gray;
