@@ -1,0 +1,103 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'JSONB fields (attachment)' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = v."col_name", "col_files" = v."col_files", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_401', 'Document 1', '[{"id":"att_001","name":"file1.pdf"}]'::jsonb, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_402', 'Document 2', '[{"id":"att_002","name":"file2.pdf"}]'::jsonb, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_name", "col_files", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'NULL values' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = v."col_name", "col_count" = v."col_count", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_501', 'Alice', NULL::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_502', NULL, 42::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_name", "col_count", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'date field' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_event" = v."col_event", "col_date" = v."col_date", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_601', 'Meeting', '2025-01-15T10:00:00.000Z'::timestamptz, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_602', 'Conference', '2025-02-20T14:30:00.000Z'::timestamptz, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_event", "col_date", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'large batch (5 records)' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = v."col_name", "col_value" = v."col_value", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_900', 'Record 1', 10::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_901', 'Record 2', 20::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_902', 'Record 3', 30::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_903', 'Record 4', 40::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_904', 'Record 5', 50::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_name", "col_value", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'multiple text fields' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_first_name" = v."col_first_name", "col_last_name" = v."col_last_name", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_101', 'John', 'Doe', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_102', 'Jane', 'Smith', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_first_name", "col_last_name", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'multipleSelect field (JSONB)' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_item" = v."col_item", "col_tags" = v."col_tags", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_701', 'Product A', '["tag1","tag2","tag3"]'::jsonb, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_702', 'Product B', '["tag2","tag4"]'::jsonb, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_item", "col_tags", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'number and checkbox fields' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_score" = v."col_score", "col_active" = v."col_active", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_301', 95.5::double precision, true::boolean, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_302', 82.3::double precision, false::boolean, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_score", "col_active", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'single record update' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = v."col_name", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_801', 'Only One', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_name", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'single text field' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = v."col_name", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_001', 'Alice', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_002', 'Bob', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_name", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'sparse updates (different fields per …' 1`] = `
+"UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = v."col_name", "col_age" = v."col_age", "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM (VALUES
+  ('rec_201', 'Alice', NULL::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_202', NULL, 30::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "col_name", "col_age", "__last_modified_time", "__last_modified_by")
+WHERE t.__id = v.__id"
+`;

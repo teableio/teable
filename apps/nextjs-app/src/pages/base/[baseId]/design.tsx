@@ -3,7 +3,7 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import type { ReactElement } from 'react';
 import { Design } from '@/features/app/blocks/design/Design';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
-import { tableConfig } from '@/features/i18n/table.config';
+import { baseAllConfig } from '@/features/i18n/base-all.config';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { IBasePageProps, NextPageWithLayout } from '@/lib/type';
@@ -32,11 +32,10 @@ export const getServerSideProps = withEnv(
         }),
       ]);
 
-      const { i18nNamespaces } = tableConfig;
       return {
         props: {
           dehydratedState: dehydrate(queryClient),
-          ...(await getTranslationsProps(context, i18nNamespaces)),
+          ...(await getTranslationsProps(context, baseAllConfig.i18nNamespaces)),
         },
       };
     })
