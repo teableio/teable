@@ -357,18 +357,16 @@ describe('OpenAPI ImportController (e2e)', () => {
       });
 
       // import data into table
-      await apiInplaceImportTableFromFile(baseId, tableId, {
-        attachmentUrl,
-        fileType,
-        insertConfig: {
-          sourceWorkSheetKey: CsvImporter.DEFAULT_SHEETKEY,
-          excludeFirstRow: true,
-          sourceColumnMap,
-        },
-      });
-
       await awaitWithEvent(async () => {
-        noop();
+        await apiInplaceImportTableFromFile(baseId, tableId, {
+          attachmentUrl,
+          fileType,
+          insertConfig: {
+            sourceWorkSheetKey: CsvImporter.DEFAULT_SHEETKEY,
+            excludeFirstRow: true,
+            sourceColumnMap,
+          },
+        });
       });
 
       const { records } = await apiGetTableById(baseId, tableId, {

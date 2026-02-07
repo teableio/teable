@@ -1,0 +1,545 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`error handling > 'AbsTypeError': 'Abs with non-convertible type' 1`] = `
+{
+  "description": "Abs with non-convertible type",
+  "formula": "ABS({Button})",
+  "funcId": "AbsTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE ((CASE WHEN TRUE THEN NULL ELSE ABS(NULL::double precision) END))::text END",
+}
+`;
+
+exports[`error handling > 'AndTypeError': 'And with non-convertible type' 1`] = `
+{
+  "description": "And with non-convertible type",
+  "formula": "AND({Button}, TRUE)",
+  "funcId": "AndTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`error handling > 'AverageTypeError': 'Average with non-convertible type' 1`] = `
+{
+  "description": "Average with non-convertible type",
+  "formula": "AVERAGE({Button})",
+  "funcId": "AverageTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (CASE WHEN 1 = 0 THEN NULL ELSE (NULL::double precision) / 1 END) END))::text END",
+}
+`;
+
+exports[`error handling > 'DateAddTypeError': 'DateAdd with non-convertible type' 1`] = `
+{
+  "description": "DateAdd with non-convertible type",
+  "formula": "DATE_ADD({Button}, 1, "day")",
+  "funcId": "DateAddTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE (NULL::timestamptz)::text END",
+}
+`;
+
+exports[`error handling > 'DatetimeDiffTypeError': 'DatetimeDiff with non-convertible type' 1`] = `
+{
+  "description": "DatetimeDiff with non-convertible type",
+  "formula": "DATETIME_DIFF({Button}, NOW(), "day")",
+  "funcId": "DatetimeDiffTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE (NULL::double precision)::text END",
+}
+`;
+
+exports[`error handling > 'DayTypeError': 'Day with non-convertible type' 1`] = `
+{
+  "description": "Day with non-convertible type",
+  "formula": "DAY({Button})",
+  "funcId": "DayTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE ((CASE WHEN TRUE THEN NULL ELSE EXTRACT(DAY FROM (NULL::timestamptz) AT TIME ZONE 'UTC')::int END))::text END",
+}
+`;
+
+exports[`error handling > 'FindTypeError': 'Find with non-convertible type' 1`] = `
+{
+  "description": "Find with non-convertible type",
+  "formula": "FIND("x", {Button})",
+  "funcId": "FindTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "POSITION('x' IN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))",
+}
+`;
+
+exports[`error handling > 'IfTypeError': 'If with non-convertible type' 1`] = `
+{
+  "description": "If with non-convertible type",
+  "formula": "IF({Button}, "yes", "no")",
+  "funcId": "IfTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`error handling > 'LeftTypeError': 'Left with non-convertible type' 1`] = `
+{
+  "description": "Left with non-convertible type",
+  "formula": "LEFT({Button}, 1)",
+  "funcId": "LeftTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "LEFT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), (1)::double precision::integer)",
+}
+`;
+
+exports[`error handling > 'LenTypeError': 'Len with non-convertible type' 1`] = `
+{
+  "description": "Len with non-convertible type",
+  "formula": "LEN({Button})",
+  "funcId": "LenTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "LENGTH(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))",
+}
+`;
+
+exports[`error handling > 'LogTypeError': 'Log with non-convertible type' 1`] = `
+{
+  "description": "Log with non-convertible type",
+  "formula": "LOG({Button})",
+  "funcId": "LogTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE ((CASE WHEN TRUE THEN NULL ELSE LN(NULL::double precision) END))::text END",
+}
+`;
+
+exports[`error handling > 'MaxTypeError': 'Max with non-convertible type' 1`] = `
+{
+  "description": "Max with non-convertible type",
+  "formula": "MAX({Button})",
+  "funcId": "MaxTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN TRUE THEN NULL ELSE GREATEST(NULL::double precision) END))::text END",
+}
+`;
+
+exports[`error handling > 'MidTypeError': 'Mid with non-convertible type' 1`] = `
+{
+  "description": "Mid with non-convertible type",
+  "formula": "MID({Button}, 1, 2)",
+  "funcId": "MidTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "SUBSTRING(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') FROM (1)::double precision::integer FOR (2)::double precision::integer)",
+}
+`;
+
+exports[`error handling > 'MinTypeError': 'Min with non-convertible type' 1`] = `
+{
+  "description": "Min with non-convertible type",
+  "formula": "MIN({Button})",
+  "funcId": "MinTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN TRUE THEN NULL ELSE LEAST(NULL::double precision) END))::text END",
+}
+`;
+
+exports[`error handling > 'ModDivZero': 'Mod with division by zero' 1`] = `
+{
+  "description": "Mod with division by zero",
+  "formula": "MOD(10, 0)",
+  "funcId": "ModDivZero",
+  "inputs": {},
+  "result": "#ERROR:DIV0:division_by_zero",
+  "sql": "CASE WHEN ((0)::double precision) = 0 THEN CASE WHEN ((0)::double precision) = 0 THEN '#ERROR:DIV0:division_by_zero' ELSE '#ERROR:DIV0:division_by_zero' END ELSE ((CASE WHEN ((0)::double precision) = 0 THEN NULL ELSE MOD((10)::double precision::numeric, (0)::double precision::numeric)::double precision END))::text END",
+}
+`;
+
+exports[`error handling > 'ModTypeError': 'Mod with non-convertible type' 1`] = `
+{
+  "description": "Mod with non-convertible type",
+  "formula": "MOD({Button}, 2)",
+  "funcId": "ModTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN (TRUE OR ((2)::double precision) = 0) THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' WHEN ((2)::double precision) = 0 THEN '#ERROR:DIV0:division_by_zero' ELSE '#ERROR:DIV0:division_by_zero' END ELSE ((CASE WHEN (TRUE OR ((2)::double precision) = 0) THEN NULL ELSE MOD(NULL::double precision::numeric, (2)::double precision::numeric)::double precision END))::text END",
+}
+`;
+
+exports[`error handling > 'MonthTypeError': 'Month with non-convertible type' 1`] = `
+{
+  "description": "Month with non-convertible type",
+  "formula": "MONTH({Button})",
+  "funcId": "MonthTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE ((CASE WHEN TRUE THEN NULL ELSE EXTRACT(MONTH FROM (NULL::timestamptz) AT TIME ZONE 'UTC')::int END))::text END",
+}
+`;
+
+exports[`error handling > 'NotTypeError': 'Not with non-convertible type' 1`] = `
+{
+  "description": "Not with non-convertible type",
+  "formula": "NOT({Button})",
+  "funcId": "NotTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(NOT (CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`error handling > 'OrTypeError': 'Or with non-convertible type' 1`] = `
+{
+  "description": "Or with non-convertible type",
+  "formula": "OR({Button}, FALSE)",
+  "funcId": "OrTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`error handling > 'PowerTypeError': 'Power with non-convertible type' 1`] = `
+{
+  "description": "Power with non-convertible type",
+  "formula": "POWER({Button}, 2)",
+  "funcId": "PowerTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN TRUE THEN NULL ELSE POWER(NULL::double precision, (2)::double precision) END))::text END",
+}
+`;
+
+exports[`error handling > 'ReplaceTypeError': 'Replace with non-convertible type' 1`] = `
+{
+  "description": "Replace with non-convertible type",
+  "formula": "REPLACE({Button}, 1, 1, "x")",
+  "funcId": "ReplaceTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "OVERLAY(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
+}
+`;
+
+exports[`error handling > 'RightTypeError': 'Right with non-convertible type' 1`] = `
+{
+  "description": "Right with non-convertible type",
+  "formula": "RIGHT({Button}, 1)",
+  "funcId": "RightTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "RIGHT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), (1)::double precision::integer)",
+}
+`;
+
+exports[`error handling > 'RoundTypeError': 'Round with non-convertible type' 1`] = `
+{
+  "description": "Round with non-convertible type",
+  "formula": "ROUND({Button})",
+  "funcId": "RoundTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ROUND(NULL::double precision::numeric) END))::text END",
+}
+`;
+
+exports[`error handling > 'SearchTypeError': 'Search with non-convertible type' 1`] = `
+{
+  "description": "Search with non-convertible type",
+  "formula": "SEARCH("x", {Button})",
+  "funcId": "SearchTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "POSITION(UPPER('x') IN UPPER(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))",
+}
+`;
+
+exports[`error handling > 'SqrtTypeError': 'Sqrt with non-convertible type' 1`] = `
+{
+  "description": "Sqrt with non-convertible type",
+  "formula": "SQRT({Button})",
+  "funcId": "SqrtTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE ((CASE WHEN TRUE THEN NULL ELSE SQRT(NULL::double precision) END))::text END",
+}
+`;
+
+exports[`error handling > 'SumTypeError': 'Sum with non-convertible type' 1`] = `
+{
+  "description": "Sum with non-convertible type",
+  "formula": "SUM({Button})",
+  "funcId": "SumTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (NULL::double precision) END))::text END",
+}
+`;
+
+exports[`error handling > 'ValueTypeError': 'Value with non-convertible type' 1`] = `
+{
+  "description": "Value with non-convertible type",
+  "formula": "VALUE({Button})",
+  "funcId": "ValueTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_number",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (NULL::double precision)::text END",
+}
+`;
+
+exports[`error handling > 'YearTypeError': 'Year with non-convertible type' 1`] = `
+{
+  "description": "Year with non-convertible type",
+  "formula": "YEAR({Button})",
+  "funcId": "YearTypeError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "#ERROR:TYPE:cannot_cast_to_datetime",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE ((CASE WHEN TRUE THEN NULL ELSE EXTRACT(YEAR FROM (NULL::timestamptz) AT TIME ZONE 'UTC')::int END))::text END",
+}
+`;
