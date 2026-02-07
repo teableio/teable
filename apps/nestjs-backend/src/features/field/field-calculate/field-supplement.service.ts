@@ -105,6 +105,10 @@ export class FieldSupplementService {
     return `__fk_${fieldId}`;
   }
 
+  private getDefaultTimeZone(): string {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+
   private async getJunctionTableName(
     tableId: string,
     fieldId: string,
@@ -774,8 +778,7 @@ export class FieldSupplementService {
     const formatting =
       (fieldRo.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
     const timeZone =
-      (fieldRo.options as IFormulaFieldOptions)?.timeZone ??
-      Intl.DateTimeFormat().resolvedOptions().timeZone;
+      (fieldRo.options as IFormulaFieldOptions)?.timeZone ?? this.getDefaultTimeZone();
 
     return {
       ...fieldRo,
@@ -966,7 +969,7 @@ export class FieldSupplementService {
     const { cellValueType, isMultipleCellValue } = valueType;
 
     const formatting = options.formatting ?? getDefaultFormatting(cellValueType);
-    const timeZone = options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timeZone = options.timeZone ?? this.getDefaultTimeZone();
 
     const foreignTable = await this.prismaService.txClient().tableMeta.findUnique({
       where: { id: foreignTableId },

@@ -70,6 +70,8 @@ export const uploadAttachment = async (
       headers: {
         ...formData.getHeaders(),
       },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
     }
   );
 };

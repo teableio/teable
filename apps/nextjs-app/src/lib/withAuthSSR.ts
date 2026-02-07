@@ -9,8 +9,6 @@ import type {
   GetServerSideProps as NextGetServerSideProps,
 } from 'next';
 import { SsrApi } from '@/backend/api/rest/ssr-api';
-import { systemConfig } from '@/features/i18n/system.config';
-import { getTranslationsProps } from '@/lib/i18n';
 
 export type SSRHttpError = { httpError: IHttpError };
 
@@ -67,7 +65,6 @@ export default function withAuthSSR<
               },
               isUndefined
             ) as IHttpError,
-            ...(await getTranslationsProps(context, systemConfig.i18nNamespaces)),
           },
         };
       }

@@ -37,6 +37,7 @@ import { AttachmentsStorageService } from '../../attachments/attachments-storage
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
+import { EMAIL_LOGO_TOKEN } from '../../builtin-assets-init/builtin-assets-init.service';
 import { verifyTransport } from '../../mail-sender/mail-helpers';
 import { SettingService } from '../setting.service';
 
@@ -73,9 +74,10 @@ export class SettingOpenApiService {
   }
 
   async getServerBrand(): Promise<{ brandName: string; brandLogo: string }> {
+    const logoPath = join(StorageAdapter.getDir(UploadType.Logo), EMAIL_LOGO_TOKEN);
     return {
       brandName: 'Teable',
-      brandLogo: `${this.baseConfig.publicOrigin}/images/favicon/apple-touch-icon.png`,
+      brandLogo: getPublicFullStorageUrl(logoPath),
     };
   }
 

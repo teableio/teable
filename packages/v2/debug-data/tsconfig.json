@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-debug-data",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": false,
+    "target": "esnext",
+    "lib": ["esnext", "dom"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "../../",
+    "outDir": "dist",
+    "paths": {
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-di": ["../di/src"],
+      "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
+      "@teable/v2-postgres-schema": ["../postgres-schema/src"],
+      "@teable/v2-field-dependency-core": ["../field-dependency-core/src"]
+    },
+    "types": ["node"]
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../core/src/**/*.test.ts",
+    "../adapter-db-postgres-pg/src/**/*.spec.ts",
+    "../adapter-db-postgres-pg/src/**/*.test.ts"
+  ],
+  "include": [
+    "src",
+    "../core/src",
+    "../di/src",
+    "../adapter-db-postgres-pg/src",
+    "../postgres-schema/src",
+    "../field-dependency-core/src"
+  ]
+}
