@@ -478,7 +478,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Mantıksal argüman doğruysa number1'i, değilse number2'yi döndürür. İç içe IF ifadeleri yapmak için de kullanılabilir.\nAyrıca bir hücrenin boş olup olmadığını kontrol etmek için de kullanılabilir.",
+      "summary": "Bir sayıyı en yakın tam sayıya aşağı doğru yuvarlar.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {

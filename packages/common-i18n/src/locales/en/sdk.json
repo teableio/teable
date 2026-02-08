@@ -495,7 +495,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Returns number1 if the logical argument is true, otherwise it returns number2. Can also be used to make nested IF statements.\nCan also be used to check if a cell is blank/is empty.",
+      "summary": "Returns the integer part of a number, rounding down toward negative infinity.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {

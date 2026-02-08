@@ -478,7 +478,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Restituisce numero1 se l'argomento logico è vero, altrimenti restituisce numero2. Può anche essere utilizzato per creare dichiarazioni IF annidate.\nPuò anche essere utilizzato per verificare se una cella è vuota/è vuota.",
+      "summary": "Arrotonda un numero verso il basso al numero intero più vicino.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {

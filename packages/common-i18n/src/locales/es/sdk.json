@@ -490,8 +490,8 @@
       "example": "Impar (0.1) => 1\n"
     },
     "INT": {
-      "summary": "Devuelve Number1 si el argumento lógico es verdadero, de lo contrario devuelve el número2. ",
-      "example": "Int (1.9) => 1\n"
+      "summary": "Redondea un número hacia abajo al entero más cercano.",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
       "summary": "Devuelve el valor absoluto.",

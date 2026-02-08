@@ -478,7 +478,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Renvoie number1 si l'argument logique est vrai, sinon renvoie number2. Peut également être utilisé pour créer des instructions IF imbriquées.\nPeut également être utilisé pour vérifier si une cellule est vide.",
+      "summary": "Arrondit un nombre vers le bas à l'entier le plus proche.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {

@@ -1,0 +1,55 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parameterless functions > 'ParamlessAutoNumber' returns expected SQL and result 1`] = `
+{
+  "formula": "AUTO_NUMBER()",
+  "funcId": "ParamlessAutoNumber",
+  "result": "1",
+  "sql": ""t".__auto_number",
+}
+`;
+
+exports[`parameterless functions > 'ParamlessCreatedTime' returns expected SQL and result 1`] = `
+{
+  "formula": "CREATED_TIME()",
+  "funcId": "ParamlessCreatedTime",
+  "result": "0000-00-00 00:00:00+00",
+  "sql": ""t"."__created_time"",
+}
+`;
+
+exports[`parameterless functions > 'ParamlessLastModifiedTime' returns expected SQL and result 1`] = `
+{
+  "formula": "LAST_MODIFIED_TIME()",
+  "funcId": "ParamlessLastModifiedTime",
+  "result": "0000-00-00 00:00:00+00",
+  "sql": ""t"."__last_modified_time"",
+}
+`;
+
+exports[`parameterless functions > 'ParamlessNow' returns expected SQL and result 1`] = `
+{
+  "formula": "NOW()",
+  "funcId": "ParamlessNow",
+  "result": "0000-00-00 00:00:00+00",
+  "sql": "NOW()",
+}
+`;
+
+exports[`parameterless functions > 'ParamlessRecordId' returns expected SQL and result 1`] = `
+{
+  "formula": "RECORD_ID()",
+  "funcId": "ParamlessRecordId",
+  "result": "recXXXXXXXXXXXXXXX",
+  "sql": ""t".__id",
+}
+`;
+
+exports[`parameterless functions > 'ParamlessToday' returns expected SQL and result 1`] = `
+{
+  "formula": "TODAY()",
+  "funcId": "ParamlessToday",
+  "result": "0000-00-00",
+  "sql": "CURRENT_DATE",
+}
+`;
