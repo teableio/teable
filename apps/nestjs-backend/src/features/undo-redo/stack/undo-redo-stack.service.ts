@@ -72,6 +72,28 @@ export class UndoRedoStackService {
     this.eventEmitterService.emit(Events.OPERATION_PUSH, operation);
   }
 
+  async mergeLastOperation(
+    userId: string,
+    tableId: string,
+    windowId: string,
+    merge: (operation: IUndoRedoOperation) => IUndoRedoOperation | null
+  ): Promise<boolean> {
+    const undoStack = await this.getUndoStack(userId, tableId, windowId);
+    if (!undoStack.length) {
+      return false;
+    }
+
+    const lastIndex = undoStack.length - 1;
+    const merged = merge(undoStack[lastIndex]);
+    if (!merged) {
+      return false;
+    }
+
+    undoStack[lastIndex] = merged;
+    await this.setUndoStack(userId, tableId, windowId, undoStack);
+    return true;
+  }
+
   async popUndo(tableId: string, windowId: string) {
     const userId = this.cls.get('user.id');
     const undoStack = await this.getUndoStack(userId, tableId, windowId);

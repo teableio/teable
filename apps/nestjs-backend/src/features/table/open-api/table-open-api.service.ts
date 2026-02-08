@@ -203,9 +203,20 @@ export class TableOpenApiService {
 
       // create teable should not set computed field isPending, because noting need to calculate when create
       preparedFields.forEach((field) => delete field.isPending);
-      const fieldVos = await this.createFields(tableId, preparedFields);
+      await this.createFields(tableId, preparedFields);
 
       const viewVos = await this.createView(tableId, tableRo.views);
+      const allFieldVos = await this.fieldOpenApiService.getFields(tableId, {
+        filterHidden: false,
+      });
+
+      // Maintain original field order from input to ensure consistent API response
+      const fieldIdOrder = new Map(preparedFields.map((f, i) => [f.id, i]));
+      const fieldVos = allFieldVos.sort((a, b) => {
+        const orderA = fieldIdOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+        const orderB = fieldIdOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      });
 
       return {
         ...tableVo,
