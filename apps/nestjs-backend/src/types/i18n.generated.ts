@@ -1508,6 +1508,27 @@ export type I18nTranslations = {
                 };
             };
         };
+        "system": {
+            "notFound": {
+                "title": string;
+                "description": string;
+            };
+            "links": {
+                "backToHome": string;
+            };
+            "forbidden": {
+                "title": string;
+                "description": string;
+            };
+            "paymentRequired": {
+                "title": string;
+                "description": string;
+            };
+            "error": {
+                "title": string;
+                "description": string;
+            };
+        };
         "noPermissionToCreateBase": string;
         "app": {
             "title": string;
@@ -3387,27 +3408,6 @@ export type I18nTranslations = {
         "collaborators": string;
         "more": string;
     };
-    "system": {
-        "notFound": {
-            "title": string;
-            "description": string;
-        };
-        "links": {
-            "backToHome": string;
-        };
-        "forbidden": {
-            "title": string;
-            "description": string;
-        };
-        "paymentRequired": {
-            "title": string;
-            "description": string;
-        };
-        "error": {
-            "title": string;
-            "description": string;
-        };
-    };
     "table": {
         "toolbar": {
             "comingSoon": string;
@@ -4703,7 +4703,9 @@ export type I18nTranslations = {
                 "error": string;
                 "errorPartial": string;
                 "requireHttps": string;
+                "advancedOptions": string;
                 "namingFieldLabel": string;
+                "selectField": string;
                 "groupByRow": string;
                 "groupByRowTip": string;
             };

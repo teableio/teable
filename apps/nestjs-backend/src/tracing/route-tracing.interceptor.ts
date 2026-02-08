@@ -1,12 +1,31 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
-import { trace } from '@opentelemetry/api';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { trace, TraceFlags } from '@opentelemetry/api';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
+const buildTraceLink = (traceId: string, baseUrl?: string) => {
+  const normalizedBaseUrl = baseUrl?.replace(/\/+$/, '');
+  if (!normalizedBaseUrl) return null;
+  return `${normalizedBaseUrl}/trace/${traceId}?uiEmbed=v0`;
+};
+
+const buildTraceparent = (traceId: string, spanId: string, traceFlags: TraceFlags) => {
+  const sampled = (traceFlags & TraceFlags.SAMPLED) === TraceFlags.SAMPLED;
+  return `00-${traceId}-${spanId}-${sampled ? '01' : '00'}`;
+};
+
 @Injectable()
 export class RouteTracingInterceptor implements NestInterceptor {
+  private readonly traceLinkBaseUrl?: string;
+
+  constructor(@Optional() @Inject(ConfigService) configService?: ConfigService) {
+    this.traceLinkBaseUrl =
+      configService?.get<string>('TRACE_LINK_BASE_URL') ?? process.env.TRACE_LINK_BASE_URL;
+  }
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<void> {
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
@@ -34,6 +53,17 @@ export class RouteTracingInterceptor implements NestInterceptor {
 
       const spanName = `${httpMethod} ${route}`;
       span.updateName(spanName);
+
+      // Set trace response headers
+      const spanContext = span.spanContext();
+      response.setHeader(
+        'traceparent',
+        buildTraceparent(spanContext.traceId, spanContext.spanId, spanContext.traceFlags)
+      );
+      const traceLink = buildTraceLink(spanContext.traceId, this.traceLinkBaseUrl);
+      if (traceLink) {
+        response.setHeader('Link', `<${traceLink}>; rel="trace"`);
+      }
     }
 
     return next.handle().pipe(
