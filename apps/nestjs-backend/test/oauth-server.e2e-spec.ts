@@ -241,13 +241,13 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const tokenRes = await anonymousAxios.post(
       `/oauth/access_token`,
-      {
+      new URLSearchParams({
         grant_type: 'authorization_code',
-        code,
+        code: code ?? '',
         client_id: oauth.clientId,
         client_secret: secret.data.secret,
         redirect_uri: oauth.redirectUris[0],
-      },
+      }),
       {
         maxRedirects: 0,
         headers: {
@@ -282,12 +282,12 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const tokenRes = await anonymousAxios.post(
       `/oauth/access_token`,
-      {
+      new URLSearchParams({
         grant_type: 'authorization_code',
-        code,
+        code: code ?? '',
         client_id: oauth.clientId,
         client_secret: secret.data.secret,
-      },
+      }),
       {
         maxRedirects: 0,
         headers: {
@@ -321,13 +321,13 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const tokenRes = await anonymousAxios.post(
       `/oauth/access_token`,
-      {
+      new URLSearchParams({
         grant_type: 'authorization_code',
-        code,
+        code: code ?? '',
         client_id: oauthRes.data.clientId,
         client_secret: secret.data.secret,
         redirect_uri: oauthRes.data.redirectUris[0],
-      },
+      }),
       {
         maxRedirects: 0,
         headers: {
@@ -382,13 +382,13 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const tokenRes = await anonymousAxios.post(
       `/oauth/access_token`,
-      {
+      new URLSearchParams({
         grant_type: 'authorization_code',
-        code,
+        code: code ?? '',
         client_id: oauthRes.data.clientId,
         client_secret: secret.data.secret,
         redirect_uri: oauthRes.data.redirectUris[0],
-      },
+      }),
       {
         maxRedirects: 0,
         headers: {
@@ -437,13 +437,13 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const tokenRes = await anonymousAxios.post(
       `/oauth/access_token`,
-      {
+      new URLSearchParams({
         grant_type: 'authorization_code',
-        code,
+        code: code ?? '',
         client_id: oauth.clientId,
         client_secret: secret.data.secret,
         redirect_uri: oauth.redirectUris[0],
-      },
+      }),
       {
         maxRedirects: 0,
         headers: {
@@ -455,12 +455,12 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const refreshTokenRes = await anonymousAxios.post(
       `/oauth/access_token`,
-      {
+      new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: tokenRes.data.refresh_token,
+        refresh_token: `${tokenRes.data.refresh_token}`,
         client_id: oauth.clientId,
         client_secret: secret.data.secret,
-      },
+      }),
       {
         maxRedirects: 0,
         headers: {
@@ -483,12 +483,12 @@ describe('OpenAPI OAuthController (e2e)', () => {
     const error = await getError(() =>
       anonymousAxios.post(
         `/oauth/access_token`,
-        {
+        new URLSearchParams({
           grant_type: 'refresh_token',
-          refresh_token: tokenRes.data.refresh_token,
+          refresh_token: `${tokenRes.data.refresh_token}`,
           client_id: oauth.clientId,
           client_secret: secret.data.secret,
-        },
+        }),
         {
           maxRedirects: 0,
           headers: {
@@ -515,13 +515,13 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
       const tokenRes = await anonymousAxios.post(
         `/oauth/access_token`,
-        {
+        new URLSearchParams({
           grant_type: 'authorization_code',
-          code,
+          code: code ?? '',
           client_id: oauth.clientId,
           client_secret: secret.data.secret,
           redirect_uri: oauth.redirectUris[0],
-        },
+        }),
         {
           maxRedirects: 0,
           headers: {

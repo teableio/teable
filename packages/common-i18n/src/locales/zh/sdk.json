@@ -171,7 +171,7 @@
   "filter": {
     "label": "筛选",
     "displayLabel": "筛选字段 ",
-    "displayLabel_other": "筛选({{count}})",
+    "displayLabel_other": "筛选({{totalCount}})",
     "addCondition": "添加条件",
     "addConditionGroup": "添加条件组",
     "nestedLimitTip": "条件组最多支持{{depth}}层嵌套",

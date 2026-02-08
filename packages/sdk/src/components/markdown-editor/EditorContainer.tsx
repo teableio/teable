@@ -6,6 +6,10 @@ import { cva } from 'class-variance-authority';
 import type { VariantProps } from 'class-variance-authority';
 import React from 'react';
 
+type ForwardRefComponent<T, P> = React.ForwardRefExoticComponent<
+  React.PropsWithoutRef<P> & React.RefAttributes<T>
+>;
+
 const editorVariants = cva(
   cn(
     'relative overflow-x-auto whitespace-pre-wrap break-words',
@@ -45,30 +49,31 @@ const editorVariants = cva(
 
 export type EditorProps = PlateContentProps & VariantProps<typeof editorVariants>;
 
-const EditorContainer = React.forwardRef<HTMLDivElement, EditorProps>(
-  ({ className, disabled, focused, focusRing, readOnly, size, variant, ...props }, ref) => {
-    return (
-      <div ref={ref} className="relative w-1/2">
-        <PlateContent
-          className={cn(
-            editorVariants({
-              disabled,
-              focused,
-              focusRing,
-              size,
-              variant,
-            }),
-            className
-          )}
-          disableDefaultStyles
-          readOnly={disabled ?? readOnly}
-          aria-disabled={disabled}
-          {...props}
-        />
-      </div>
-    );
-  }
-);
+const EditorContainer: ForwardRefComponent<HTMLDivElement, EditorProps> = React.forwardRef<
+  HTMLDivElement,
+  EditorProps
+>(({ className, disabled, focused, focusRing, readOnly, size, variant, ...props }, ref) => {
+  return (
+    <div ref={ref} className="relative w-1/2">
+      <PlateContent
+        className={cn(
+          editorVariants({
+            disabled,
+            focused,
+            focusRing,
+            size,
+            variant,
+          }),
+          className
+        )}
+        disableDefaultStyles
+        readOnly={disabled ?? readOnly}
+        aria-disabled={disabled}
+        {...props}
+      />
+    </div>
+  );
+});
 
 EditorContainer.displayName = 'EditorContainer';
 

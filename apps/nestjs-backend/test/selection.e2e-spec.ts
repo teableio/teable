@@ -23,6 +23,7 @@ import {
   deleteSelection,
   clear,
   updateViewFilter,
+  updateViewSort,
   USER_ME,
   UPDATE_USER_NAME,
   createSpace,
@@ -1167,6 +1168,272 @@ describe('OpenAPI SelectionController (e2e)', () => {
       expect(firstRecord.fields[fieldB.id]).toBe('B1');
       expect(firstRecord.fields[fieldC.id]).toBe('C1');
       expect(firstRecord.fields[fieldD.id]).toBe('D1');
+    });
+  });
+
+  describe('paste with orderBy (view row order)', () => {
+    /**
+     * Critical test for ensuring paste operations target the correct rows
+     * when a view has custom sort order.
+     *
+     * Without the orderBy parameter, paste would use the default __auto_number order,
+     * causing updates to go to the wrong records.
+     */
+    let sortTable: ITableFullVo;
+
+    beforeEach(async () => {
+      // Create a table for sort tests with explicit records
+      // Creation order: A(100), B(200), C(300), D(400), E(500)
+      // Default order (by auto_number): A, B, C, D, E
+      // Descending by Value: E(500), D(400), C(300), B(200), A(100)
+      sortTable = await createTable(baseId, {
+        name: 'sort-paste-table',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Value', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Name: 'RecordA', Value: 100 } },
+          { fields: { Name: 'RecordB', Value: 200 } },
+          { fields: { Name: 'RecordC', Value: 300 } },
+          { fields: { Name: 'RecordD', Value: 400 } },
+          { fields: { Name: 'RecordE', Value: 500 } },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, sortTable.id);
+    });
+
+    it('should paste to correct rows when orderBy is specified (descending)', async () => {
+      /**
+       * Test scenario:
+       * - Records in creation order: A(100), B(200), C(300), D(400), E(500)
+       * - View sorted by Value DESC: E(500), D(400), C(300), B(200), A(100)
+       * - Paste "Updated" to row 0 with orderBy=[{fieldId: valueFieldId, order: 'desc'}]
+       * - Should update E (first in DESC order), NOT A (first in creation order)
+       */
+      const nameField = sortTable.fields.find((f) => f.name === 'Name')!;
+      const valueField = sortTable.fields.find((f) => f.name === 'Value')!;
+
+      await apiPaste(sortTable.id, {
+        viewId: sortTable.views[0].id,
+        content: 'SortTestUpdated',
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        orderBy: [{ fieldId: valueField.id, order: SortFunc.Desc }],
+      });
+
+      // Verify E was updated (not A)
+      const records = await getRecords(sortTable.id, {
+        viewId: sortTable.views[0].id,
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const recordE = records.data.records.find((r) => r.fields[valueField.id] === 500);
+      const recordA = records.data.records.find((r) => r.fields[valueField.id] === 100);
+
+      expect(recordE?.fields[nameField.id]).toBe('SortTestUpdated');
+      expect(recordA?.fields[nameField.id]).toBe('RecordA'); // Should remain unchanged
+    });
+
+    it('should paste multiple rows in correct sort order', async () => {
+      /**
+       * Test scenario:
+       * - View sorted by Value DESC: E(500), D(400), C(300), B(200), A(100)
+       * - Paste to rows 1-3 with orderBy DESC
+       * - Should update D, C, B (rows 1-3 in DESC order)
+       */
+      const nameField = sortTable.fields.find((f) => f.name === 'Name')!;
+      const valueField = sortTable.fields.find((f) => f.name === 'Value')!;
+
+      await apiPaste(sortTable.id, {
+        viewId: sortTable.views[0].id,
+        content: 'SortRow1\nSortRow2\nSortRow3',
+        ranges: [
+          [0, 1],
+          [0, 3],
+        ],
+        orderBy: [{ fieldId: valueField.id, order: SortFunc.Desc }],
+      });
+
+      // Verify D, C, B were updated in order
+      const records = await getRecords(sortTable.id, {
+        viewId: sortTable.views[0].id,
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const recordD = records.data.records.find((r) => r.fields[valueField.id] === 400);
+      const recordC = records.data.records.find((r) => r.fields[valueField.id] === 300);
+      const recordB = records.data.records.find((r) => r.fields[valueField.id] === 200);
+      const recordE = records.data.records.find((r) => r.fields[valueField.id] === 500);
+      const recordA = records.data.records.find((r) => r.fields[valueField.id] === 100);
+
+      expect(recordD?.fields[nameField.id]).toBe('SortRow1'); // First in paste range (row 1 in DESC)
+      expect(recordC?.fields[nameField.id]).toBe('SortRow2'); // Second in paste range (row 2 in DESC)
+      expect(recordB?.fields[nameField.id]).toBe('SortRow3'); // Third in paste range (row 3 in DESC)
+      expect(recordE?.fields[nameField.id]).toBe('RecordE'); // Row 0, not in paste range
+      expect(recordA?.fields[nameField.id]).toBe('RecordA'); // Row 4, not in paste range
+    });
+
+    it('should paste to correct rows with ascending sort', async () => {
+      /**
+       * Test scenario:
+       * - View sorted by Value ASC: A(100), B(200), C(300), D(400), E(500)
+       * - This matches creation order, so row 0 should be A
+       * - Paste to row 0 with orderBy ASC
+       * - Should update A (first in ASC order)
+       */
+      const nameField = sortTable.fields.find((f) => f.name === 'Name')!;
+      const valueField = sortTable.fields.find((f) => f.name === 'Value')!;
+
+      await apiPaste(sortTable.id, {
+        viewId: sortTable.views[0].id,
+        content: 'AscTestUpdated',
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        orderBy: [{ fieldId: valueField.id, order: SortFunc.Asc }],
+      });
+
+      const records = await getRecords(sortTable.id, {
+        viewId: sortTable.views[0].id,
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const recordA = records.data.records.find((r) => r.fields[valueField.id] === 100);
+      const recordE = records.data.records.find((r) => r.fields[valueField.id] === 500);
+
+      expect(recordA?.fields[nameField.id]).toBe('AscTestUpdated');
+      expect(recordE?.fields[nameField.id]).toBe('RecordE'); // Should remain unchanged
+    });
+  });
+
+  describe('paste with view-level sort and filter (no client orderBy)', () => {
+    /**
+     * Regression test: when the view has a saved sort/filter but the client
+     * does NOT send orderBy/filter in the paste request, the paste should
+     * still target the correct rows using the view's saved configuration.
+     *
+     * This tests the v1-to-v2 adapter path where the adapter passes
+     * sort:undefined to v2 core, which should then fall back to view defaults.
+     */
+    let viewSortTable: ITableFullVo;
+
+    beforeEach(async () => {
+      viewSortTable = await createTable(baseId, {
+        name: 'view-sort-paste-table',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Value', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Name: 'RecordA', Value: 100 } },
+          { fields: { Name: 'RecordB', Value: 200 } },
+          { fields: { Name: 'RecordC', Value: 300 } },
+          { fields: { Name: 'RecordD', Value: 400 } },
+          { fields: { Name: 'RecordE', Value: 500 } },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, viewSortTable.id);
+    });
+
+    it('should paste to correct row when view has sort+filter and client omits orderBy', async () => {
+      const nameField = viewSortTable.fields.find((f) => f.name === 'Name')!;
+      const valueField = viewSortTable.fields.find((f) => f.name === 'Value')!;
+      const viewId = viewSortTable.views[0].id;
+
+      // Set view-level sort: Value DESC
+      await updateViewSort(viewSortTable.id, viewId, {
+        sort: {
+          sortObjs: [{ fieldId: valueField.id, order: SortFunc.Desc }],
+          manualSort: false,
+        },
+      });
+
+      // Set view-level filter: Value >= 200 (filters out RecordA=100)
+      await updateViewFilter(viewSortTable.id, viewId, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: valueField.id,
+              value: 200,
+              operator: 'isGreaterEqual',
+            },
+          ],
+        },
+      });
+
+      // Paste at row 0 WITHOUT orderBy — rely on view defaults
+      // Filtered DESC order: E(500), D(400), C(300), B(200)
+      // Row 0 should be E(500)
+      await apiPaste(viewSortTable.id, {
+        viewId,
+        content: 'ViewSortUpdated',
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        // No orderBy or filter — the view's saved sort/filter should be used
+      });
+
+      // Query WITHOUT viewId to see all records (including those filtered out by view)
+      const records = await getRecords(viewSortTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const recordE = records.data.records.find((r) => r.fields[valueField.id] === 500);
+      const recordA = records.data.records.find((r) => r.fields[valueField.id] === 100);
+
+      // E should be updated (first in DESC among filtered)
+      expect(recordE?.fields[nameField.id]).toBe('ViewSortUpdated');
+      // A should remain unchanged (filtered out by the view)
+      expect(recordA?.fields[nameField.id]).toBe('RecordA');
+    });
+
+    it('should paste to correct middle row when view has sort and client omits orderBy', async () => {
+      const nameField = viewSortTable.fields.find((f) => f.name === 'Name')!;
+      const valueField = viewSortTable.fields.find((f) => f.name === 'Value')!;
+      const viewId = viewSortTable.views[0].id;
+
+      // Set view-level sort: Value DESC (no filter this time)
+      await updateViewSort(viewSortTable.id, viewId, {
+        sort: {
+          sortObjs: [{ fieldId: valueField.id, order: SortFunc.Desc }],
+          manualSort: false,
+        },
+      });
+
+      // Paste at row 2 WITHOUT orderBy — rely on view sort
+      // DESC order: E(500), D(400), C(300), B(200), A(100)
+      // Row 2 should be C(300)
+      await apiPaste(viewSortTable.id, {
+        viewId,
+        content: 'ViewSortMiddle',
+        ranges: [
+          [0, 2],
+          [0, 2],
+        ],
+        // No orderBy — the view's saved sort should be used
+      });
+
+      const records = await getRecords(viewSortTable.id, {
+        viewId,
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const recordC = records.data.records.find((r) => r.fields[valueField.id] === 300);
+
+      // C should be updated (row 2 in DESC order)
+      expect(recordC?.fields[nameField.id]).toBe('ViewSortMiddle');
     });
   });
 });
