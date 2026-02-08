@@ -220,10 +220,10 @@ describe('OpenAPI OAuthController (e2e)', () => {
       await permanentDeleteBase(base.id);
     }
     expect(userLastVisitListBaseVoSchema.safeParse(res.data).success).toEqual(true);
-    expect(res.data.list.length).toEqual(10);
-    expect(res.data.total).toEqual(10);
+    expect(res.data.list.length).toEqual(21);
+    expect(res.data.total).toEqual(21);
     expect(res.data.list[0].resource.id).toEqual(base_21[20].id);
-    expect(res.data.list[9].resource.id).toEqual(base_21[11].id);
+    expect(res.data.list[20].resource.id).toEqual(base_21[0].id);
 
     const res2 = await getUserLastVisitListBase();
 

@@ -589,15 +589,20 @@ export class SqliteProvider implements IDbProvider {
       .crossJoin(datesSubquery.wrap('(', ') as d'))
       .where((builder) => {
         builder
-          .where(this.knex.raw(`datetime(??, ?)`, [endField.dbFieldName, offsetStr]), '<', endDate)
+          .whereRaw(`date(datetime(??, ?)) <= date(datetime(?, ?))`, [
+            startField.dbFieldName,
+            offsetStr,
+            endDate,
+            offsetStr,
+          ])
           .andWhere(
-            this.knex.raw(`datetime(COALESCE(??, ??), ?)`, [
+            this.knex.raw(`date(datetime(COALESCE(??, ??), ?))`, [
               endField.dbFieldName,
               startField.dbFieldName,
               offsetStr,
             ]),
             '>=',
-            startDate
+            this.knex.raw(`date(datetime(?, ?))`, [startDate, offsetStr])
           );
       })
       .andWhere((builder) => {

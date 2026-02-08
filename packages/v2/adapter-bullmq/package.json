@@ -1,0 +1,10 @@
+{
+  "name": "@teable/v2-adapter-bullmq",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@teable/v2-core": "workspace:*"
+  }
+}

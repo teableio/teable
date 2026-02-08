@@ -114,8 +114,8 @@ export class MailSenderMergeProcessor extends WorkerHost {
       return;
     }
 
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
-    const mailOptions = await this.mailSenderService.notifyMergeOptions(list, brandName);
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
+    const mailOptions = await this.mailSenderService.notifyMergeOptions(list, brandName, brandLogo);
     this.mailSenderService.sendMailByTransporterName(
       {
         ...mailOptions,

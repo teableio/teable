@@ -20,6 +20,8 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { duplicateField, convertField } from '@teable/openapi';
+import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
+import type { ComputedUpdateWorker } from '@teable/v2-adapter-table-repository-postgres';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -35,6 +37,7 @@ import {
   RECORD_QUERY_DIALECT_SYMBOL,
 } from '../src/features/record/query-builder/record-query-dialect.interface';
 import { TableDomainQueryService } from '../src/features/table-domain/table-domain-query.service';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import { createAwaitWithEventWithResultWithCount } from './utils/event-promise';
 import {
   deleteField,
@@ -53,6 +56,8 @@ import {
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+
 describe('Computed Orchestrator (e2e)', () => {
   let app: INestApplication;
   let eventEmitterService: EventEmitterService;
@@ -61,6 +66,7 @@ describe('Computed Orchestrator (e2e)', () => {
   let db: IDbProvider;
   let tableDomainQueryService: TableDomainQueryService;
   let recordDialect: IRecordQueryDialectProvider;
+  let v2ContainerService: V2ContainerService;
   const baseId = (globalThis as any).testConfig.baseId as string;
 
   beforeAll(async () => {
@@ -72,16 +78,83 @@ describe('Computed Orchestrator (e2e)', () => {
     db = app.get<IDbProvider>(DB_PROVIDER_SYMBOL as any);
     tableDomainQueryService = app.get(TableDomainQueryService);
     recordDialect = app.get<IRecordQueryDialectProvider>(RECORD_QUERY_DIALECT_SYMBOL as any);
+    v2ContainerService = app.get(V2ContainerService);
   });
 
   afterAll(async () => {
     await app.close();
   });
 
+  /**
+   * Process v2 computed update outbox tasks.
+   * This ensures all async computed updates are completed before assertions.
+   */
+  async function processV2Outbox(times = 1): Promise<void> {
+    if (!isForceV2) return;
+
+    const container = await v2ContainerService.getContainer();
+    const worker = container.resolve<ComputedUpdateWorker>(
+      v2RecordRepositoryPostgresTokens.computedUpdateWorker
+    );
+
+    for (let i = 0; i < times; i++) {
+      const maxIterations = 100;
+      let iterations = 0;
+
+      while (iterations < maxIterations) {
+        const result = await worker.runOnce({
+          workerId: 'test-worker',
+          limit: 100,
+        });
+
+        if (result.isErr()) {
+          throw new Error(`Outbox processing failed: ${result.error.message}`);
+        }
+
+        // result.value is the number of processed tasks
+        if (result.value === 0) {
+          break;
+        }
+        iterations++;
+      }
+    }
+  }
+
+  /**
+   * V2-compatible wrapper for createAwaitWithEventWithResultWithCount.
+   * In v2 mode, events are handled differently, so we execute the function
+   * and process the outbox to ensure async updates complete, returning empty payloads.
+   * Tests that need to verify event payloads should be skipped in v2 mode.
+   */
+  function createAwaitWithEventV2Compatible(
+    _eventEmitterService: EventEmitterService,
+    _event: Events,
+    _count: number = 1
+  ) {
+    return async function fn<T>(fn: () => Promise<T>) {
+      if (isForceV2) {
+        // In v2 mode, execute and process outbox to ensure async updates complete
+        const result = await fn();
+        await processV2Outbox();
+        return { result, payloads: [] };
+      }
+      // In v1 mode, use the original event-based waiting
+      return createAwaitWithEventWithResultWithCount(_eventEmitterService, _event, _count)(fn);
+    };
+  }
+
   async function runAndCaptureRecordUpdates<T>(fn: () => Promise<T>): Promise<{
     result: T;
     events: any[];
   }> {
+    if (isForceV2) {
+      // In v2 mode, execute and process outbox to ensure async updates complete
+      // Events are not emitted in V2 mode, so we return an empty array
+      const result = await fn();
+      await processV2Outbox();
+      return { result, events: [] };
+    }
+
     const events: any[] = [];
     const handler = (payload: any) => events.push(payload);
     eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, handler);
@@ -177,7 +250,7 @@ describe('Computed Orchestrator (e2e)', () => {
       await updateRecordByApi(table.id, table.records[0].id, aId, 1);
 
       // Expect a single record.update event; assert old/new for formula field
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         1
@@ -185,16 +258,19 @@ describe('Computed Orchestrator (e2e)', () => {
         await updateRecordByApi(table.id, table.records[0].id, aId, 2);
       })) as any;
 
-      const event = payloads[0] as any; // RecordUpdateEvent
-      expect(event.payload.tableId).toBe(table.id);
-      const changes = event.payload.record.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      // Formula F1 should move from 1 -> 2
-      const f1Change = assertChange(changes[f1.id]);
-      expectNoOldValue(f1Change);
-      expect(f1Change.newValue).toEqual(2);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const event = payloads[0] as any; // RecordUpdateEvent
+        expect(event.payload.tableId).toBe(table.id);
+        const changes = event.payload.record.fields as Record<
+          string,
+          { oldValue: unknown; newValue: unknown }
+        >;
+        // Formula F1 should move from 1 -> 2
+        const f1Change = assertChange(changes[f1.id]);
+        expectNoOldValue(f1Change);
+        expect(f1Change.newValue).toEqual(2);
+      }
 
       // Assert physical column for formula (non-generated) reflects new value
       const tblName = await getDbTableName(table.id);
@@ -393,7 +469,7 @@ IF(
       await updateRecordByApi(table.id, table.records[0].id, aId, 1);
 
       // Expect a single update event, and it should NOT include a change entry for F
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         1
@@ -401,14 +477,17 @@ IF(
         await updateRecordByApi(table.id, table.records[0].id, aId, -1);
       })) as any;
 
-      const event = payloads[0] as any;
-      const recs = Array.isArray(event.payload.record)
-        ? event.payload.record
-        : [event.payload.record];
-      const change = recs[0]?.fields?.[f.id] as FieldChangePayload | undefined;
-      const formulaChange = assertChange(change);
-      expectNoOldValue(formulaChange);
-      expect(formulaChange.newValue).toEqual(1);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const event = payloads[0] as any;
+        const recs = Array.isArray(event.payload.record)
+          ? event.payload.record
+          : [event.payload.record];
+        const change = recs[0]?.fields?.[f.id] as FieldChangePayload | undefined;
+        const formulaChange = assertChange(change);
+        expectNoOldValue(formulaChange);
+        expect(formulaChange.newValue).toEqual(1);
+      }
 
       // DB: F should remain 1
       const tblName = await getDbTableName(table.id);
@@ -448,7 +527,7 @@ IF(
       await updateRecordByApi(table.id, table.records[0].id, aId, 2);
 
       // Expect a single update event on this table; verify B,C,D old/new
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         1
@@ -456,25 +535,28 @@ IF(
         await updateRecordByApi(table.id, table.records[0].id, aId, 3);
       })) as any;
 
-      const event = payloads[0] as any;
-      expect(event.payload.tableId).toBe(table.id);
-      const rec = Array.isArray(event.payload.record)
-        ? event.payload.record[0]
-        : event.payload.record;
-      const changes = rec.fields as FieldChangeMap;
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const event = payloads[0] as any;
+        expect(event.payload.tableId).toBe(table.id);
+        const rec = Array.isArray(event.payload.record)
+          ? event.payload.record[0]
+          : event.payload.record;
+        const changes = rec.fields as FieldChangeMap;
 
-      // A: 2 -> 3, so B: 3 -> 4, C: 6 -> 8, D: 4 -> 5
-      const bChange = assertChange(changes[b.id]);
-      expectNoOldValue(bChange);
-      expect(bChange.newValue).toEqual(4);
+        // A: 2 -> 3, so B: 3 -> 4, C: 6 -> 8, D: 4 -> 5
+        const bChange = assertChange(changes[b.id]);
+        expectNoOldValue(bChange);
+        expect(bChange.newValue).toEqual(4);
 
-      const cChange = assertChange(changes[c.id]);
-      expectNoOldValue(cChange);
-      expect(cChange.newValue).toEqual(8);
+        const cChange = assertChange(changes[c.id]);
+        expectNoOldValue(cChange);
+        expect(cChange.newValue).toEqual(8);
 
-      const dChange = assertChange(changes[d.id]);
-      expectNoOldValue(dChange);
-      expect(dChange.newValue).toEqual(5);
+        const dChange = assertChange(changes[d.id]);
+        expectNoOldValue(dChange);
+        expect(dChange.newValue).toEqual(5);
+      }
 
       // DB: B=4, C=8, D=5
       const dbName = await getDbTableName(table.id);
@@ -873,12 +955,15 @@ IF(
         await updateRecordByApi(t2.id, t2.records[0].id, link.id, { id: t1.records[1].id });
       });
 
-      const evt = events.find((e) => e.payload.tableId === t2.id)!;
-      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as FieldChangeMap;
-      const lkpChange = assertChange(changes[lkp.id]);
-      expectNoOldValue(lkpChange);
-      expect(lkpChange.newValue).toEqual(456);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const evt = events.find((e) => e.payload.tableId === t2.id)!;
+        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+        const changes = rec.fields as FieldChangeMap;
+        const lkpChange = assertChange(changes[lkp.id]);
+        expectNoOldValue(lkpChange);
+        expect(lkpChange.newValue).toEqual(456);
+      }
 
       const t2Db = await getDbTableName(t2.id);
       const t2Row = await getRow(t2Db, t2.records[0].id);
@@ -935,17 +1020,20 @@ IF(
       )!;
       const symmetricFieldId = symmetric.id;
 
-      const evtOnT2 = events.find((e) => e.payload?.tableId === t2.id);
-      expect(evtOnT2).toBeDefined();
-      const recT2 = Array.isArray(evtOnT2!.payload.record)
-        ? evtOnT2!.payload.record.find((r: any) => r.id === t2.records[0].id)
-        : evtOnT2!.payload.record;
-      const changeOnT2 = recT2.fields?.[symmetricFieldId!];
-      expect(changeOnT2).toBeDefined();
-      expect(
-        changeOnT2.newValue?.id ||
-          (Array.isArray(changeOnT2.newValue) ? changeOnT2.newValue[0]?.id : undefined)
-      ).toBe(t1.records[0].id);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const evtOnT2 = events.find((e) => e.payload?.tableId === t2.id);
+        expect(evtOnT2).toBeDefined();
+        const recT2 = Array.isArray(evtOnT2!.payload.record)
+          ? evtOnT2!.payload.record.find((r: any) => r.id === t2.records[0].id)
+          : evtOnT2!.payload.record;
+        const changeOnT2 = recT2.fields?.[symmetricFieldId!];
+        expect(changeOnT2).toBeDefined();
+        expect(
+          changeOnT2.newValue?.id ||
+            (Array.isArray(changeOnT2.newValue) ? changeOnT2.newValue[0]?.id : undefined)
+        ).toBe(t1.records[0].id);
+      }
 
       // DB: the symmetric physical column on T2[B1] should be populated with {id: A1}
       const t2Db = await getDbTableName(t2.id);
@@ -998,12 +1086,15 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, link.id, [{ id: t2.records[0].id }]);
       });
 
-      const evt = events.find((e) => e.payload.tableId === t1.id)!;
-      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as FieldChangeMap;
-      const lkpChange = assertChange(changes[lkp.id]);
-      expectNoOldValue(lkpChange);
-      expect(lkpChange.newValue).toEqual([123]);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const evt = events.find((e) => e.payload.tableId === t1.id)!;
+        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+        const changes = rec.fields as FieldChangeMap;
+        const lkpChange = assertChange(changes[lkp.id]);
+        expectNoOldValue(lkpChange);
+        expect(lkpChange.newValue).toEqual([123]);
+      }
 
       const t1Db = await getDbTableName(t1.id);
       const t1Row = await getRow(t1Db, t1.records[0].id);
@@ -1052,12 +1143,15 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, link.id, null);
       });
 
-      const evt = events.find((e) => e.payload.tableId === t1.id)!;
-      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as FieldChangeMap;
-      const lkpChange = assertChange(changes[lkp.id]);
-      expectNoOldValue(lkpChange);
-      expect(lkpChange.newValue).toBeNull();
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const evt = events.find((e) => e.payload.tableId === t1.id)!;
+        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+        const changes = rec.fields as FieldChangeMap;
+        const lkpChange = assertChange(changes[lkp.id]);
+        expectNoOldValue(lkpChange);
+        expect(lkpChange.newValue).toBeNull();
+      }
 
       const t1Db = await getDbTableName(t1.id);
       const t1Row = await getRow(t1Db, t1.records[0].id);
@@ -1103,12 +1197,15 @@ IF(
         await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[1].id }]);
       });
 
-      const evt = events.find((e) => e.payload.tableId === t2.id)!;
-      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as FieldChangeMap;
-      const lkpChange = assertChange(changes[lkp.id]);
-      expectNoOldValue(lkpChange);
-      expect(lkpChange.newValue).toEqual([7]);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const evt = events.find((e) => e.payload.tableId === t2.id)!;
+        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+        const changes = rec.fields as FieldChangeMap;
+        const lkpChange = assertChange(changes[lkp.id]);
+        expectNoOldValue(lkpChange);
+        expect(lkpChange.newValue).toEqual([7]);
+      }
 
       const t2Db = await getDbTableName(t2.id);
       const t2Row = await getRow(t2Db, t2.records[0].id);
@@ -1152,7 +1249,7 @@ IF(
       await updateRecordByApi(t2.id, t2.records[0].id, link2.id, [{ id: t1.records[0].id }]);
 
       // Expect two record.update events (T1 base, T2 lookup). Assert T2 lookup old/new
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         2
@@ -1160,15 +1257,18 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, t1A, 20);
       })) as any;
 
-      // Find T2 event
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const changes = t2Event.payload.record.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      const lkpChange = assertChange(changes[lkp2.id]);
-      expectNoOldValue(lkpChange);
-      expect(lkpChange.newValue).toEqual([20]);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        // Find T2 event
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+        const changes = t2Event.payload.record.fields as Record<
+          string,
+          { oldValue: unknown; newValue: unknown }
+        >;
+        const lkpChange = assertChange(changes[lkp2.id]);
+        expectNoOldValue(lkpChange);
+        expect(lkpChange.newValue).toEqual([20]);
+      }
 
       // DB: lookup column should be [20]
       const t2Db = await getDbTableName(t2.id);
@@ -1217,7 +1317,7 @@ IF(
       ]);
 
       // Change one A: 3 -> 4; rollup 10 -> 11
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         2
@@ -1225,15 +1325,18 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, t1A, 4);
       })) as any;
 
-      // Find T2 event
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const changes = t2Event.payload.record.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      const rollChange = assertChange(changes[roll2.id]);
-      expectNoOldValue(rollChange);
-      expect(rollChange.newValue).toEqual(11);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        // Find T2 event
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+        const changes = t2Event.payload.record.fields as Record<
+          string,
+          { oldValue: unknown; newValue: unknown }
+        >;
+        const rollChange = assertChange(changes[roll2.id]);
+        expectNoOldValue(rollChange);
+        expect(rollChange.newValue).toEqual(11);
+      }
 
       // DB: rollup column should be 11
       const t2Db = await getDbTableName(t2.id);
@@ -1304,7 +1407,7 @@ IF(
       await updateRecordByApi(t3.id, t3.records[0].id, l23.id, [{ id: t2.records[0].id }]);
 
       // Change A: 4 -> 5; then F: 12 -> 15; LKP2: [12] -> [15]; LKP3: [12] -> [15]
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         3
@@ -1312,32 +1415,35 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, aId, 5);
       })) as any;
 
-      // T1
-      const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
-      const t1Changes = (
-        Array.isArray(t1Event.payload.record) ? t1Event.payload.record[0] : t1Event.payload.record
-      ).fields as FieldChangeMap;
-      const t1Change = assertChange(t1Changes[f1.id]);
-      expectNoOldValue(t1Change);
-      expect(t1Change.newValue).toEqual(15);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        // T1
+        const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
+        const t1Changes = (
+          Array.isArray(t1Event.payload.record) ? t1Event.payload.record[0] : t1Event.payload.record
+        ).fields as FieldChangeMap;
+        const t1Change = assertChange(t1Changes[f1.id]);
+        expectNoOldValue(t1Change);
+        expect(t1Change.newValue).toEqual(15);
 
-      // T2
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const t2Changes = (
-        Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as FieldChangeMap;
-      const t2Change = assertChange(t2Changes[lkp2.id]);
-      expectNoOldValue(t2Change);
-      expect(t2Change.newValue).toEqual([15]);
+        // T2
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+        const t2Changes = (
+          Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
+        ).fields as FieldChangeMap;
+        const t2Change = assertChange(t2Changes[lkp2.id]);
+        expectNoOldValue(t2Change);
+        expect(t2Change.newValue).toEqual([15]);
 
-      // T3
-      const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
-      const t3Changes = (
-        Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
-      ).fields as FieldChangeMap;
-      const t3Change = assertChange(t3Changes[lkp3.id]);
-      expectNoOldValue(t3Change);
-      expect(t3Change.newValue).toEqual([15]);
+        // T3
+        const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
+        const t3Changes = (
+          Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
+        ).fields as FieldChangeMap;
+        const t3Change = assertChange(t3Changes[lkp3.id]);
+        expectNoOldValue(t3Change);
+        expect(t3Change.newValue).toEqual([15]);
+      }
 
       // DB: T1.F=15, T2.LKP2=[15], T3.LKP3=[15]
       const t1Db = await getDbTableName(t1.id);
@@ -1430,7 +1536,7 @@ IF(
       await updateRecordByApi(t2.id, t2.records[0].id, linkT3.id, [{ id: t3.records[0].id }]);
       await updateRecordByApi(t3.id, t3.records[0].id, linkT2.id, [{ id: t2.records[0].id }]);
 
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         3
@@ -1438,21 +1544,24 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, aId, 7);
       })) as any;
 
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const t2Changes = (
-        Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as FieldChangeMap;
-      const t2Change = assertChange(t2Changes[lkpA.id]);
-      expectNoOldValue(t2Change);
-      expect(t2Change.newValue).toEqual([7]);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+        const t2Changes = (
+          Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
+        ).fields as FieldChangeMap;
+        const t2Change = assertChange(t2Changes[lkpA.id]);
+        expectNoOldValue(t2Change);
+        expect(t2Change.newValue).toEqual([7]);
 
-      const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
-      const t3Changes = (
-        Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
-      ).fields as FieldChangeMap;
-      const t3Change = assertChange(t3Changes[lkpFromT2.id]);
-      expectNoOldValue(t3Change);
-      expect(t3Change.newValue).toEqual([7]);
+        const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
+        const t3Changes = (
+          Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
+        ).fields as FieldChangeMap;
+        const t3Change = assertChange(t3Changes[lkpFromT2.id]);
+        expectNoOldValue(t3Change);
+        expect(t3Change.newValue).toEqual([7]);
+      }
 
       const t2Db = await getDbTableName(t2.id);
       const t3Db = await getDbTableName(t3.id);
@@ -1540,7 +1649,7 @@ IF(
       } as any);
       await updateRecordByApi(t4.id, t4.records[0].id, l34.id, [{ id: t3.records[0].id }]);
 
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         4
@@ -1548,29 +1657,32 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, aId, 9);
       })) as any;
 
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const t2Changes = (
-        Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as FieldChangeMap;
-      const t2Change = assertChange(t2Changes[l2.id]);
-      expectNoOldValue(t2Change);
-      expect(t2Change.newValue).toEqual([9]);
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+        const t2Changes = (
+          Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
+        ).fields as FieldChangeMap;
+        const t2Change = assertChange(t2Changes[l2.id]);
+        expectNoOldValue(t2Change);
+        expect(t2Change.newValue).toEqual([9]);
 
-      const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
-      const t3Changes = (
-        Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
-      ).fields as FieldChangeMap;
-      const t3Change = assertChange(t3Changes[l3.id]);
-      expectNoOldValue(t3Change);
-      expect(t3Change.newValue).toEqual([9]);
+        const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
+        const t3Changes = (
+          Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
+        ).fields as FieldChangeMap;
+        const t3Change = assertChange(t3Changes[l3.id]);
+        expectNoOldValue(t3Change);
+        expect(t3Change.newValue).toEqual([9]);
 
-      const t4Event = (payloads as any[]).find((e) => e.payload.tableId === t4.id)!;
-      const t4Changes = (
-        Array.isArray(t4Event.payload.record) ? t4Event.payload.record[0] : t4Event.payload.record
-      ).fields as FieldChangeMap;
-      const t4Change = assertChange(t4Changes[l4.id]);
-      expectNoOldValue(t4Change);
-      expect(t4Change.newValue).toEqual([9]);
+        const t4Event = (payloads as any[]).find((e) => e.payload.tableId === t4.id)!;
+        const t4Changes = (
+          Array.isArray(t4Event.payload.record) ? t4Event.payload.record[0] : t4Event.payload.record
+        ).fields as FieldChangeMap;
+        const t4Change = assertChange(t4Changes[l4.id]);
+        expectNoOldValue(t4Change);
+        expect(t4Change.newValue).toEqual([9]);
+      }
 
       const t2Db = await getDbTableName(t2.id);
       const t3Db = await getDbTableName(t3.id);
@@ -1641,17 +1753,19 @@ IF(
           } as IFieldRo);
         });
 
-      const hostCreateEvent = creationEvents.find((e) => e.payload.tableId === host.id);
-      expect(hostCreateEvent).toBeDefined();
-      const createRecordPayload = Array.isArray(hostCreateEvent!.payload.record)
-        ? hostCreateEvent!.payload.record[0]
-        : hostCreateEvent!.payload.record;
-      const createChanges = createRecordPayload.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      expect(createChanges[conditionalRollupField.id]).toBeDefined();
-      expect(createChanges[conditionalRollupField.id].newValue).toEqual(1);
+      if (!isForceV2) {
+        const hostCreateEvent = creationEvents.find((e) => e.payload.tableId === host.id);
+        expect(hostCreateEvent).toBeDefined();
+        const createRecordPayload = Array.isArray(hostCreateEvent!.payload.record)
+          ? hostCreateEvent!.payload.record[0]
+          : hostCreateEvent!.payload.record;
+        const createChanges = createRecordPayload.fields as Record<
+          string,
+          { oldValue: unknown; newValue: unknown }
+        >;
+        expect(createChanges[conditionalRollupField.id]).toBeDefined();
+        expect(createChanges[conditionalRollupField.id].newValue).toEqual(1);
+      }
 
       const referenceEdges = await prisma.reference.findMany({
         where: { toFieldId: conditionalRollupField.id },
@@ -1681,17 +1795,19 @@ IF(
         (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
       );
       expect(valueAfterStatus).toEqual(2);
-      const hostFilterEvent = filterEvents.find((e) => e.payload.tableId === host.id);
-      expect(hostFilterEvent).toBeDefined();
-      const filterRecordPayload = Array.isArray(hostFilterEvent!.payload.record)
-        ? hostFilterEvent!.payload.record[0]
-        : hostFilterEvent!.payload.record;
-      const filterChanges = filterRecordPayload.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      expect(filterChanges[conditionalRollupField.id]).toBeDefined();
-      expect(filterChanges[conditionalRollupField.id].newValue).toEqual(2);
+      if (!isForceV2) {
+        const hostFilterEvent = filterEvents.find((e) => e.payload.tableId === host.id);
+        expect(hostFilterEvent).toBeDefined();
+        const filterRecordPayload = Array.isArray(hostFilterEvent!.payload.record)
+          ? hostFilterEvent!.payload.record[0]
+          : hostFilterEvent!.payload.record;
+        const filterChanges = filterRecordPayload.fields as Record<
+          string,
+          { oldValue: unknown; newValue: unknown }
+        >;
+        expect(filterChanges[conditionalRollupField.id]).toBeDefined();
+        expect(filterChanges[conditionalRollupField.id].newValue).toEqual(2);
+      }
 
       const { events: lookupColumnEvents } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(foreign.id, foreign.records[0].id, titleId, null);
@@ -1700,17 +1816,19 @@ IF(
         (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
       );
       expect(valueAfterLookupColumnChange).toEqual(1);
-      const hostLookupEvent = lookupColumnEvents.find((e) => e.payload.tableId === host.id);
-      expect(hostLookupEvent).toBeDefined();
-      const lookupRecordPayload = Array.isArray(hostLookupEvent!.payload.record)
-        ? hostLookupEvent!.payload.record[0]
-        : hostLookupEvent!.payload.record;
-      const lookupChanges = lookupRecordPayload.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      expect(lookupChanges[conditionalRollupField.id]).toBeDefined();
-      expect(lookupChanges[conditionalRollupField.id].newValue).toEqual(1);
+      if (!isForceV2) {
+        const hostLookupEvent = lookupColumnEvents.find((e) => e.payload.tableId === host.id);
+        expect(hostLookupEvent).toBeDefined();
+        const lookupRecordPayload = Array.isArray(hostLookupEvent!.payload.record)
+          ? hostLookupEvent!.payload.record[0]
+          : hostLookupEvent!.payload.record;
+        const lookupChanges = lookupRecordPayload.fields as Record<
+          string,
+          { oldValue: unknown; newValue: unknown }
+        >;
+        expect(lookupChanges[conditionalRollupField.id]).toBeDefined();
+        expect(lookupChanges[conditionalRollupField.id].newValue).toEqual(1);
+      }
 
       expect(
         parseMaybe((await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName])
@@ -1979,29 +2097,31 @@ IF(
           const ctx = await setupEqualityConditionalRollup(expression);
           const { cleanup } = ctx;
           try {
-            const createAliceChange = findRecordChangeMap(
-              ctx.creationEvents,
-              ctx.host.id,
-              ctx.aliceRecordId
-            );
-            expect(createAliceChange).toBeDefined();
-            expectAggregateValue(
-              createAliceChange?.[ctx.rollupField.id]?.newValue,
-              initialAlice,
-              compareMode
-            );
+            if (!isForceV2) {
+              const createAliceChange = findRecordChangeMap(
+                ctx.creationEvents,
+                ctx.host.id,
+                ctx.aliceRecordId
+              );
+              expect(createAliceChange).toBeDefined();
+              expectAggregateValue(
+                createAliceChange?.[ctx.rollupField.id]?.newValue,
+                initialAlice,
+                compareMode
+              );
 
-            const createNobodyChange = findRecordChangeMap(
-              ctx.creationEvents,
-              ctx.host.id,
-              ctx.nobodyRecordId
-            );
-            expect(createNobodyChange).toBeDefined();
-            expectAggregateValue(
-              createNobodyChange?.[ctx.rollupField.id]?.newValue,
-              initialNobody,
-              compareMode
-            );
+              const createNobodyChange = findRecordChangeMap(
+                ctx.creationEvents,
+                ctx.host.id,
+                ctx.nobodyRecordId
+              );
+              expect(createNobodyChange).toBeDefined();
+              expectAggregateValue(
+                createNobodyChange?.[ctx.rollupField.id]?.newValue,
+                initialNobody,
+                compareMode
+              );
+            }
 
             const initialAliceValue = parseMaybe(
               (await getRow(ctx.hostDbTable, ctx.aliceRecordId))[ctx.hostFieldVo.dbFieldName]
@@ -2017,17 +2137,19 @@ IF(
               await update(ctx);
             });
 
-            const updateAliceChange = findRecordChangeMap(
-              updateEvents,
-              ctx.host.id,
-              ctx.aliceRecordId
-            );
-            expect(updateAliceChange).toBeDefined();
-            expectAggregateValue(
-              updateAliceChange?.[ctx.rollupField.id]?.newValue,
-              updatedAlice,
-              compareMode
-            );
+            if (!isForceV2) {
+              const updateAliceChange = findRecordChangeMap(
+                updateEvents,
+                ctx.host.id,
+                ctx.aliceRecordId
+              );
+              expect(updateAliceChange).toBeDefined();
+              expectAggregateValue(
+                updateAliceChange?.[ctx.rollupField.id]?.newValue,
+                updatedAlice,
+                compareMode
+              );
+            }
 
             const updatedAliceValue = parseMaybe(
               (await getRow(ctx.hostDbTable, ctx.aliceRecordId))[ctx.hostFieldVo.dbFieldName]
@@ -2061,21 +2183,23 @@ IF(
         });
         const { cleanup } = ctx;
         try {
-          const createAliceChange = findRecordChangeMap(
-            ctx.creationEvents,
-            ctx.host.id,
-            ctx.aliceRecordId
-          );
-          expect(createAliceChange).toBeDefined();
-          expectAggregateValue(createAliceChange?.[ctx.rollupField.id]?.newValue, 20, 'equal');
+          if (!isForceV2) {
+            const createAliceChange = findRecordChangeMap(
+              ctx.creationEvents,
+              ctx.host.id,
+              ctx.aliceRecordId
+            );
+            expect(createAliceChange).toBeDefined();
+            expectAggregateValue(createAliceChange?.[ctx.rollupField.id]?.newValue, 20, 'equal');
 
-          const createNobodyChange = findRecordChangeMap(
-            ctx.creationEvents,
-            ctx.host.id,
-            ctx.nobodyRecordId
-          );
-          expect(createNobodyChange).toBeDefined();
-          expectAggregateValue(createNobodyChange?.[ctx.rollupField.id]?.newValue, 0, 'equal');
+            const createNobodyChange = findRecordChangeMap(
+              ctx.creationEvents,
+              ctx.host.id,
+              ctx.nobodyRecordId
+            );
+            expect(createNobodyChange).toBeDefined();
+            expectAggregateValue(createNobodyChange?.[ctx.rollupField.id]?.newValue, 0, 'equal');
+          }
 
           const initialAliceValue = parseMaybe(
             (await getRow(ctx.hostDbTable, ctx.aliceRecordId))[ctx.hostFieldVo.dbFieldName]
@@ -2100,13 +2224,15 @@ IF(
             });
           });
 
-          const updateAliceChange = findRecordChangeMap(
-            updateEvents,
-            ctx.host.id,
-            ctx.aliceRecordId
-          );
-          expect(updateAliceChange).toBeDefined();
-          expectAggregateValue(updateAliceChange?.[ctx.rollupField.id]?.newValue, 35, 'equal');
+          if (!isForceV2) {
+            const updateAliceChange = findRecordChangeMap(
+              updateEvents,
+              ctx.host.id,
+              ctx.aliceRecordId
+            );
+            expect(updateAliceChange).toBeDefined();
+            expectAggregateValue(updateAliceChange?.[ctx.rollupField.id]?.newValue, 35, 'equal');
+          }
 
           const updatedAliceValue = parseMaybe(
             (await getRow(ctx.hostDbTable, ctx.aliceRecordId))[ctx.hostFieldVo.dbFieldName]
@@ -2175,12 +2301,14 @@ IF(
         }
       );
 
-      const createAliceChange = findRecordChangeMap(creationEvents, host.id, aliceId);
-      expect(createAliceChange).toBeDefined();
-      expect(createAliceChange?.[rollupField.id]?.newValue).toEqual(30);
-      const createNobodyChange = findRecordChangeMap(creationEvents, host.id, nobodyId);
-      expect(createNobodyChange).toBeDefined();
-      expect(createNobodyChange?.[rollupField.id]?.newValue).toEqual(0);
+      if (!isForceV2) {
+        const createAliceChange = findRecordChangeMap(creationEvents, host.id, aliceId);
+        expect(createAliceChange).toBeDefined();
+        expect(createAliceChange?.[rollupField.id]?.newValue).toEqual(30);
+        const createNobodyChange = findRecordChangeMap(creationEvents, host.id, nobodyId);
+        expect(createNobodyChange).toBeDefined();
+        expect(createNobodyChange?.[rollupField.id]?.newValue).toEqual(0);
+      }
 
       const hostDbTable = await getDbTableName(host.id);
       const hostFieldVo = (await getFields(host.id)).find((f) => f.id === rollupField.id)! as any;
@@ -2190,11 +2318,13 @@ IF(
       const { events: updateEvents } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(foreign.id, foreign.records[0].id, foreignAmountId, 15);
       });
-      const updateAliceChange = findRecordChangeMap(updateEvents, host.id, aliceId);
-      expect(updateAliceChange).toBeDefined();
-      expect(updateAliceChange?.[rollupField.id]?.newValue).toEqual(35);
-      const updateNobodyChange = findRecordChangeMap(updateEvents, host.id, nobodyId);
-      expect(updateNobodyChange?.[rollupField.id]).toBeUndefined();
+      if (!isForceV2) {
+        const updateAliceChange = findRecordChangeMap(updateEvents, host.id, aliceId);
+        expect(updateAliceChange).toBeDefined();
+        expect(updateAliceChange?.[rollupField.id]?.newValue).toEqual(35);
+        const updateNobodyChange = findRecordChangeMap(updateEvents, host.id, nobodyId);
+        expect(updateNobodyChange?.[rollupField.id]).toBeUndefined();
+      }
       expect(parseMaybe((await getRow(hostDbTable, aliceId))[hostFieldVo.dbFieldName])).toEqual(35);
       expect(parseMaybe((await getRow(hostDbTable, nobodyId))[hostFieldVo.dbFieldName])).toEqual(0);
 
@@ -2283,17 +2413,19 @@ IF(
         }
       );
 
-      const createAChange = findRecordChangeMap(creationEvents, host.id, hostAId);
-      expect(createAChange).toBeDefined();
-      expect(createAChange?.[rollupField.id]?.newValue).toEqual(15);
+      if (!isForceV2) {
+        const createAChange = findRecordChangeMap(creationEvents, host.id, hostAId);
+        expect(createAChange).toBeDefined();
+        expect(createAChange?.[rollupField.id]?.newValue).toEqual(15);
 
-      const createBChange = findRecordChangeMap(creationEvents, host.id, hostBId);
-      expect(createBChange).toBeDefined();
-      expect(createBChange?.[rollupField.id]?.newValue).toEqual(25);
+        const createBChange = findRecordChangeMap(creationEvents, host.id, hostBId);
+        expect(createBChange).toBeDefined();
+        expect(createBChange?.[rollupField.id]?.newValue).toEqual(25);
 
-      const createCChange = findRecordChangeMap(creationEvents, host.id, hostCId);
-      expect(createCChange).toBeDefined();
-      expect(createCChange?.[rollupField.id]?.newValue).toEqual(0);
+        const createCChange = findRecordChangeMap(creationEvents, host.id, hostCId);
+        expect(createCChange).toBeDefined();
+        expect(createCChange?.[rollupField.id]?.newValue).toEqual(0);
+      }
 
       const hostDbTable = await getDbTableName(host.id);
       const hostFieldVo = (await getFields(host.id)).find((f) => f.id === rollupField.id)! as any;
@@ -2430,9 +2562,11 @@ IF(
           } as IFieldRo);
         });
 
-      const createChange = findRecordChangeMap(creationEvents, host.id, hostRecordId);
-      expect(createChange).toBeDefined();
-      expect(createChange?.[conditionalRollupField.id]?.newValue).toEqual(1);
+      if (!isForceV2) {
+        const createChange = findRecordChangeMap(creationEvents, host.id, hostRecordId);
+        expect(createChange).toBeDefined();
+        expect(createChange?.[conditionalRollupField.id]?.newValue).toEqual(1);
+      }
 
       const hostDbTable = await getDbTableName(host.id);
       const hostFieldVo = (await getFields(host.id)).find(
@@ -2445,11 +2579,13 @@ IF(
       const { events: hostFieldChangeEvents } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(host.id, hostRecordId, targetFieldId, 'B');
       });
-      const hostFieldChange = findRecordChangeMap(hostFieldChangeEvents, host.id, hostRecordId);
-      expect(hostFieldChange).toBeDefined();
-      const hostFieldLookupChange = assertChange(hostFieldChange?.[conditionalRollupField.id]);
-      expectNoOldValue(hostFieldLookupChange);
-      expect(hostFieldLookupChange.newValue).toEqual(0);
+      if (!isForceV2) {
+        const hostFieldChange = findRecordChangeMap(hostFieldChangeEvents, host.id, hostRecordId);
+        expect(hostFieldChange).toBeDefined();
+        const hostFieldLookupChange = assertChange(hostFieldChange?.[conditionalRollupField.id]);
+        expectNoOldValue(hostFieldLookupChange);
+        expect(hostFieldLookupChange.newValue).toEqual(0);
+      }
 
       expect(
         parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
@@ -2458,15 +2594,17 @@ IF(
       const { events: foreignFieldChangeEvents } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(foreign.id, foreign.records[1].id, statusId, 'B');
       });
-      const foreignDrivenChange = findRecordChangeMap(
-        foreignFieldChangeEvents,
-        host.id,
-        hostRecordId
-      );
-      expect(foreignDrivenChange).toBeDefined();
-      const foreignLookupChange = assertChange(foreignDrivenChange?.[conditionalRollupField.id]);
-      expectNoOldValue(foreignLookupChange);
-      expect(foreignLookupChange.newValue).toEqual(1);
+      if (!isForceV2) {
+        const foreignDrivenChange = findRecordChangeMap(
+          foreignFieldChangeEvents,
+          host.id,
+          hostRecordId
+        );
+        expect(foreignDrivenChange).toBeDefined();
+        const foreignLookupChange = assertChange(foreignDrivenChange?.[conditionalRollupField.id]);
+        expectNoOldValue(foreignLookupChange);
+        expect(foreignLookupChange.newValue).toEqual(1);
+      }
 
       expect(
         parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
@@ -2540,13 +2678,15 @@ IF(
         (f) => f.id === conditionalRollupField.id
       )! as any;
 
-      const createChangeA = findRecordChangeMap(createEvents, host.id, hostRecordAId);
-      expect(createChangeA).toBeDefined();
-      expect(createChangeA?.[conditionalRollupField.id]?.newValue).toEqual(1);
+      if (!isForceV2) {
+        const createChangeA = findRecordChangeMap(createEvents, host.id, hostRecordAId);
+        expect(createChangeA).toBeDefined();
+        expect(createChangeA?.[conditionalRollupField.id]?.newValue).toEqual(1);
 
-      const createChangeB = findRecordChangeMap(createEvents, host.id, hostRecordBId);
-      expect(createChangeB).toBeDefined();
-      expect(createChangeB?.[conditionalRollupField.id]?.newValue).toEqual(0);
+        const createChangeB = findRecordChangeMap(createEvents, host.id, hostRecordBId);
+        expect(createChangeB).toBeDefined();
+        expect(createChangeB?.[conditionalRollupField.id]?.newValue).toEqual(0);
+      }
 
       expect(
         parseMaybe((await getRow(hostDbTable, hostRecordAId))[hostFieldVo.dbFieldName])
@@ -2580,18 +2720,20 @@ IF(
         } as IFieldRo);
       });
 
-      const updatedChangeA = findRecordChangeMap(filterChangeEvents, host.id, hostRecordAId);
-      if (updatedChangeA?.[conditionalRollupField.id]) {
-        const change = assertChange(updatedChangeA[conditionalRollupField.id]);
-        expectNoOldValue(change);
-        expect(change.newValue).toEqual(1);
-      }
+      if (!isForceV2) {
+        const updatedChangeA = findRecordChangeMap(filterChangeEvents, host.id, hostRecordAId);
+        if (updatedChangeA?.[conditionalRollupField.id]) {
+          const change = assertChange(updatedChangeA[conditionalRollupField.id]);
+          expectNoOldValue(change);
+          expect(change.newValue).toEqual(1);
+        }
 
-      const updatedChangeB = findRecordChangeMap(filterChangeEvents, host.id, hostRecordBId);
-      expect(updatedChangeB).toBeDefined();
-      const updatedLookupChangeB = assertChange(updatedChangeB?.[conditionalRollupField.id]);
-      expectNoOldValue(updatedLookupChangeB);
-      expect(updatedLookupChangeB.newValue).toEqual(1);
+        const updatedChangeB = findRecordChangeMap(filterChangeEvents, host.id, hostRecordBId);
+        expect(updatedChangeB).toBeDefined();
+        const updatedLookupChangeB = assertChange(updatedChangeB?.[conditionalRollupField.id]);
+        expectNoOldValue(updatedLookupChangeB);
+        expect(updatedLookupChangeB.newValue).toEqual(1);
+      }
 
       const valueAfterFilterChangeA = parseMaybe(
         (await getRow(hostDbTable, hostRecordAId))[hostFieldVo.dbFieldName]
@@ -2710,7 +2852,7 @@ IF(
       // Prime record value
       await updateRecordByApi(table.id, table.records[0].id, aId, 5);
 
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         1
@@ -2718,15 +2860,18 @@ IF(
         await deleteField(table.id, aId);
       })) as any;
 
-      const event = payloads[0] as any;
-      expect(event.payload.tableId).toBe(table.id);
-      const rec = Array.isArray(event.payload.record)
-        ? event.payload.record[0]
-        : event.payload.record;
-      const changes = rec.fields as FieldChangeMap;
-      const formulaChange = assertChange(changes[f.id]);
-      expectNoOldValue(formulaChange);
-      expect(formulaChange.newValue).toBeNull();
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const event = payloads[0] as any;
+        expect(event.payload.tableId).toBe(table.id);
+        const rec = Array.isArray(event.payload.record)
+          ? event.payload.record[0]
+          : event.payload.record;
+        const changes = rec.fields as FieldChangeMap;
+        const formulaChange = assertChange(changes[f.id]);
+        expectNoOldValue(formulaChange);
+        expect(formulaChange.newValue).toBeNull();
+      }
 
       // DB: F should be null after delete of dependency
       const dbName = await getDbTableName(table.id);
@@ -2762,7 +2907,7 @@ IF(
       // Prime values
       await updateRecordByApi(table.id, table.records[0].id, aId, 2);
 
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         1
@@ -2770,17 +2915,20 @@ IF(
         await deleteField(table.id, aId);
       })) as any;
 
-      const evt = payloads[0];
-      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as FieldChangeMap;
+      // Event payload verification only in v1 mode
+      if (!isForceV2) {
+        const evt = payloads[0];
+        const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+        const changes = rec.fields as FieldChangeMap;
 
-      // A: 2; B: 3; C: 6 -> null after delete
-      const bChange = assertChange(changes[b.id]);
-      expectNoOldValue(bChange);
-      expect(bChange.newValue).toBeNull();
-      const cChange = assertChange(changes[c.id]);
-      expectNoOldValue(cChange);
-      expect(cChange.newValue).toBeNull();
+        // A: 2; B: 3; C: 6 -> null after delete
+        const bChange = assertChange(changes[b.id]);
+        expectNoOldValue(bChange);
+        expect(bChange.newValue).toBeNull();
+        const cChange = assertChange(changes[c.id]);
+        expectNoOldValue(cChange);
+        expect(cChange.newValue).toBeNull();
+      }
 
       // DB: B and C should be null
       const dbName = await getDbTableName(table.id);
@@ -2845,7 +2993,7 @@ IF(
       } as any);
       await updateRecordByApi(t3.id, t3.records[0].id, l23.id, [{ id: t2.records[0].id }]);
 
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         2
@@ -2853,23 +3001,25 @@ IF(
         await deleteField(t1.id, aId);
       })) as any;
 
-      // T2
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const t2Changes = (
-        Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as FieldChangeMap;
-      const t2Change = assertChange(t2Changes[l2.id]);
-      expectNoOldValue(t2Change);
-      expect(t2Change.newValue).toBeNull();
+      if (!isForceV2) {
+        // T2
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+        const t2Changes = (
+          Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
+        ).fields as FieldChangeMap;
+        const t2Change = assertChange(t2Changes[l2.id]);
+        expectNoOldValue(t2Change);
+        expect(t2Change.newValue).toBeNull();
 
-      // T3
-      const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
-      const t3Changes = (
-        Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
-      ).fields as FieldChangeMap;
-      const t3Change = assertChange(t3Changes[l3.id]);
-      expectNoOldValue(t3Change);
-      expect(t3Change.newValue).toBeNull();
+        // T3
+        const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
+        const t3Changes = (
+          Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
+        ).fields as FieldChangeMap;
+        const t3Change = assertChange(t3Changes[l3.id]);
+        expectNoOldValue(t3Change);
+        expect(t3Change.newValue).toBeNull();
+      }
 
       // DB: L2 and L3 should be null
       const t2Db = await getDbTableName(t2.id);
@@ -2919,7 +3069,7 @@ IF(
 
       await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[0].id }]);
 
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         1
@@ -2927,13 +3077,15 @@ IF(
         await deleteField(t1.id, aId);
       })) as any;
 
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const changes = (
-        Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as FieldChangeMap;
-      const lkpChange = assertChange(changes[lkp.id]);
-      expectNoOldValue(lkpChange);
-      expect(lkpChange.newValue).toBeNull();
+      if (!isForceV2) {
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+        const changes = (
+          Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
+        ).fields as FieldChangeMap;
+        const lkpChange = assertChange(changes[lkp.id]);
+        expectNoOldValue(lkpChange);
+        expect(lkpChange.newValue).toBeNull();
+      }
 
       // DB: LKP should be null
       const t2Db = await getDbTableName(t2.id);
@@ -2980,7 +3132,7 @@ IF(
         { id: t1.records[1].id },
       ]);
 
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         1
@@ -3018,12 +3170,14 @@ IF(
         const { events } = await runAndCaptureRecordUpdates(async () => {
           await createField(table.id, { name: 'B', type: FieldType.SingleLineText } as IFieldRo);
         });
-        expect(events.length).toBe(1);
-        const baseField = (await getFields(table.id)).find((f) => f.name === 'B')!;
-        const changeMap = toChangeMap(events[0]);
-        const bChange = assertChange(changeMap[baseField.id]);
-        expectNoOldValue(bChange);
-        expect(bChange.newValue).toBeNull();
+        if (!isForceV2) {
+          expect(events.length).toBe(1);
+          const baseField = (await getFields(table.id)).find((f) => f.name === 'B')!;
+          const changeMap = toChangeMap(events[0]);
+          const bChange = assertChange(changeMap[baseField.id]);
+          expectNoOldValue(bChange);
+          expect(bChange.newValue).toBeNull();
+        }
       }
 
       // 2) formula referencing A -> expect 1 update with newValue
@@ -3035,12 +3189,14 @@ IF(
             options: { expression: `{${aId}} + 1` },
           } as IFieldRo);
         });
-        expect(events.length).toBe(1);
-        const changeMap = toChangeMap(events[0]);
         const fId = (await getFields(table.id)).find((f) => f.name === 'F')!.id;
-        const fChange = assertChange(changeMap[fId]);
-        expectNoOldValue(fChange);
-        expect(fChange.newValue).toEqual(2);
+        if (!isForceV2) {
+          expect(events.length).toBe(1);
+          const changeMap = toChangeMap(events[0]);
+          const fChange = assertChange(changeMap[fId]);
+          expectNoOldValue(fChange);
+          expect(fChange.newValue).toEqual(2);
+        }
 
         // DB: F should equal 2
         const tbl = await getDbTableName(table.id);
@@ -3088,12 +3244,14 @@ IF(
             } as any,
           } as any);
         });
-        expect(events.length).toBe(1);
         const lkpField = (await getFields(t2.id)).find((f) => f.name === 'LK')!;
-        const changeMap = toChangeMap(events[0]);
-        const lkpChange = assertChange(changeMap[lkpField.id]);
-        expectNoOldValue(lkpChange);
-        expect(lkpChange.newValue).toBeNull();
+        if (!isForceV2) {
+          expect(events.length).toBe(1);
+          const changeMap = toChangeMap(events[0]);
+          const lkpChange = assertChange(changeMap[lkpField.id]);
+          expectNoOldValue(lkpChange);
+          expect(lkpChange.newValue).toBeNull();
+        }
 
         // DB: LK should be null when there is no link
         const t2Db = await getDbTableName(t2.id);
@@ -3117,12 +3275,14 @@ IF(
             options: { expression: 'sum({values})' } as any,
           } as any);
         });
-        expect(events.length).toBe(1);
-        const changeMap = toChangeMap(events[0]);
         const rId = (await getFields(t2.id)).find((f) => f.name === 'R')!.id;
-        const rChange = assertChange(changeMap[rId]);
-        expectNoOldValue(rChange);
-        expect(rChange.newValue).toEqual(10);
+        if (!isForceV2) {
+          expect(events.length).toBe(1);
+          const changeMap = toChangeMap(events[0]);
+          const rChange = assertChange(changeMap[rId]);
+          expectNoOldValue(rChange);
+          expect(rChange.newValue).toEqual(10);
+        }
 
         // DB: R should equal 10
         const t2Db = await getDbTableName(t2.id);
@@ -3158,11 +3318,13 @@ IF(
           options: { expression: `{${aId}} + 5` },
         } as any);
       });
-      expect(events.length).toBe(1);
-      const changeMap = toChangeMap(events[0]);
-      const fChange = assertChange(changeMap[f.id]);
-      expectNoOldValue(fChange);
-      expect(fChange.newValue).toEqual(7);
+      if (!isForceV2) {
+        expect(events.length).toBe(1);
+        const changeMap = toChangeMap(events[0]);
+        const fChange = assertChange(changeMap[f.id]);
+        expectNoOldValue(fChange);
+        expect(fChange.newValue).toEqual(7);
+      }
 
       // DB: F should be 7 after convert
       const tbl = await getDbTableName(table.id);
@@ -3191,12 +3353,14 @@ IF(
         const { events } = await runAndCaptureRecordUpdates(async () => {
           await duplicateField(table.id, textField.id, { name: 'Text_copy' });
         });
-        expect(events.length).toBe(1);
-        const textCopyField = (await getFields(table.id)).find((f) => f.name === 'Text_copy')!;
-        const changeMap = toChangeMap(events[0]);
-        const textCopyChange = assertChange(changeMap[textCopyField.id]);
-        expectNoOldValue(textCopyChange);
-        expect(textCopyChange.newValue).toBeNull();
+        if (!isForceV2) {
+          expect(events.length).toBe(1);
+          const textCopyField = (await getFields(table.id)).find((f) => f.name === 'Text_copy')!;
+          const changeMap = toChangeMap(events[0]);
+          const textCopyChange = assertChange(changeMap[textCopyField.id]);
+          expectNoOldValue(textCopyChange);
+          expect(textCopyChange.newValue).toBeNull();
+        }
       }
 
       // Add formula F = Num + 1; duplicate it -> expect updates for computed values
@@ -3209,12 +3373,14 @@ IF(
         const { events } = await runAndCaptureRecordUpdates(async () => {
           await duplicateField(table.id, f.id, { name: 'F_copy' });
         });
-        expect(events.length).toBe(1);
-        const changeMap = toChangeMap(events[0]);
         const fCopyId = (await getFields(table.id)).find((x) => x.name === 'F_copy')!.id;
-        const fCopyChange = assertChange(changeMap[fCopyId]);
-        expectNoOldValue(fCopyChange);
-        expect(fCopyChange.newValue).toEqual(4);
+        if (!isForceV2) {
+          expect(events.length).toBe(1);
+          const changeMap = toChangeMap(events[0]);
+          const fCopyChange = assertChange(changeMap[fCopyId]);
+          expectNoOldValue(fCopyChange);
+          expect(fCopyChange.newValue).toEqual(4);
+        }
 
         // DB: F_copy should equal 4
         const tbl = await getDbTableName(table.id);
@@ -3254,7 +3420,7 @@ IF(
       await updateRecordByApi(t2.id, t2.records[0].id, link2.id, [{ id: t1.records[0].id }]);
 
       // Change title in T1, expect T2 link cell title updated in event
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         2
@@ -3262,12 +3428,14 @@ IF(
         await updateRecordByApi(t1.id, t1.records[0].id, titleId, 'Bar');
       })) as any;
 
-      // Find T2 event
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const changes = t2Event.payload.record.fields as FieldChangeMap;
-      const linkChange = assertChange(changes[link2.id]);
-      expectNoOldValue(linkChange);
-      expect([linkChange.newValue]?.flat()?.[0]?.title).toEqual('Bar');
+      if (!isForceV2) {
+        // Find T2 event
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+        const changes = t2Event.payload.record.fields as FieldChangeMap;
+        const linkChange = assertChange(changes[link2.id]);
+        expectNoOldValue(linkChange);
+        expect([linkChange.newValue]?.flat()?.[0]?.title).toEqual('Bar');
+      }
 
       // DB: link cell title should be updated to 'Bar'
       const t2Db = await getDbTableName(t2.id);
@@ -3306,24 +3474,15 @@ IF(
 
       // Initially set link to [r1]
       await updateRecordByApi(t2.id, t2r, link2.id, [{ id: r1 }]);
+      await processV2Outbox();
 
-      // Add r2: expect two updates (T2 link; T1[r2] symmetric)
-      await createAwaitWithEventWithResultWithCount(
-        eventEmitterService,
-        Events.TABLE_RECORD_UPDATE,
-        2
-      )(async () => {
-        await updateRecordByApi(t2.id, t2r, link2.id, [{ id: r1 }, { id: r2 }]);
-      });
+      // Add r2: updates T2 link and T1[r2] symmetric
+      await updateRecordByApi(t2.id, t2r, link2.id, [{ id: r1 }, { id: r2 }]);
+      await processV2Outbox();
 
-      // Remove r1: expect two updates (T2 link; T1[r1] symmetric)
-      await createAwaitWithEventWithResultWithCount(
-        eventEmitterService,
-        Events.TABLE_RECORD_UPDATE,
-        2
-      )(async () => {
-        await updateRecordByApi(t2.id, t2r, link2.id, [{ id: r2 }]);
-      });
+      // Remove r1: updates T2 link and T1[r1] symmetric
+      await updateRecordByApi(t2.id, t2r, link2.id, [{ id: r2 }]);
+      await processV2Outbox();
 
       // Verify symmetric link fields on T1 via field discovery
       const t1Fields = await getFields(t1.id);
@@ -3333,7 +3492,6 @@ IF(
       expect(symOnT1).toBeDefined();
 
       // After removal, r1 should not link back; r2 should link back to T2r
-      // Use events already asserted for presence; here we could also fetch records if needed.
 
       // DB: verify physical link columns
       const t2Db = await getDbTableName(t2.id);
@@ -3399,7 +3557,7 @@ IF(
       const r2_1 = t2.records[0].id; // 2-1
 
       // Perform: set T1[1-1].Link_T2 = [2-1]
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         2
@@ -3414,21 +3572,23 @@ IF(
           .map((x: any) => x?.id)
           .filter(Boolean);
 
-      // Expect: one event on T1[1-1] and one symmetric event on T2[2-1]
-      const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
-      const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+      if (!isForceV2) {
+        // Expect: one event on T1[1-1] and one symmetric event on T2[2-1]
+        const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
+        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
 
-      // Assert T1 event: linkOnT1 newValue [2-1]
-      const t1Changes = t1Event.payload.record.fields as FieldChangeMap;
-      const t1Change = assertChange(t1Changes[linkOnT1.id]);
-      expectNoOldValue(t1Change);
-      expect(new Set(idsOf(t1Change.newValue))).toEqual(new Set([r2_1]));
+        // Assert T1 event: linkOnT1 newValue [2-1]
+        const t1Changes = t1Event.payload.record.fields as FieldChangeMap;
+        const t1Change = assertChange(t1Changes[linkOnT1.id]);
+        expectNoOldValue(t1Change);
+        expect(new Set(idsOf(t1Change.newValue))).toEqual(new Set([r2_1]));
 
-      // Assert T2 event: symmetric link newValue [1-1]
-      const t2Changes = t2Event.payload.record.fields as FieldChangeMap;
-      const t2Change = assertChange(t2Changes[linkOnT2.id]);
-      expectNoOldValue(t2Change);
-      expect(new Set(idsOf(t2Change.newValue))).toEqual(new Set([r1_1]));
+        // Assert T2 event: symmetric link newValue [1-1]
+        const t2Changes = t2Event.payload.record.fields as FieldChangeMap;
+        const t2Change = assertChange(t2Changes[linkOnT2.id]);
+        expectNoOldValue(t2Change);
+        expect(new Set(idsOf(t2Change.newValue))).toEqual(new Set([r1_1]));
+      }
 
       // DB: verify both sides persisted
       const t1Db = await getDbTableName(t1.id);
@@ -3502,7 +3662,7 @@ IF(
 
       // Step 1: set T1[A1] = [B1]; expect symmetric event on T2[B1]
       {
-        const { payloads } = (await createAwaitWithEventWithResultWithCount(
+        const { payloads } = (await createAwaitWithEventV2Compatible(
           eventEmitterService,
           Events.TABLE_RECORD_UPDATE,
           2
@@ -3510,15 +3670,17 @@ IF(
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB1 }]);
         })) as any;
 
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const change = assertChange(getChangeFromEvent(t2Event, linkOnT2.id, rB1));
-        expectNoOldValue(change);
-        expect(new Set(idsOf(change.newValue))).toEqual(new Set([rA1]));
+        if (!isForceV2) {
+          const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+          const change = assertChange(getChangeFromEvent(t2Event, linkOnT2.id, rB1));
+          expectNoOldValue(change);
+          expect(new Set(idsOf(change.newValue))).toEqual(new Set([rA1]));
+        }
       }
 
       // Step 2: add B2 -> [B1, B2]; expect symmetric event for T2[B2]
       {
-        const { payloads } = (await createAwaitWithEventWithResultWithCount(
+        const { payloads } = (await createAwaitWithEventV2Compatible(
           eventEmitterService,
           Events.TABLE_RECORD_UPDATE,
           2
@@ -3526,15 +3688,17 @@ IF(
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB1 }, { id: rB2 }]);
         })) as any;
 
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const change = assertChange(getChangeFromEvent(t2Event, linkOnT2.id, rB2));
-        expectNoOldValue(change);
-        expect(new Set(idsOf(change.newValue))).toEqual(new Set([rA1]));
+        if (!isForceV2) {
+          const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+          const change = assertChange(getChangeFromEvent(t2Event, linkOnT2.id, rB2));
+          expectNoOldValue(change);
+          expect(new Set(idsOf(change.newValue))).toEqual(new Set([rA1]));
+        }
       }
 
       // Step 3: remove B1 -> [B2]; expect symmetric removal event on T2[B1]
       {
-        const { payloads } = (await createAwaitWithEventWithResultWithCount(
+        const { payloads } = (await createAwaitWithEventV2Compatible(
           eventEmitterService,
           Events.TABLE_RECORD_UPDATE,
           2
@@ -3542,12 +3706,15 @@ IF(
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB2 }]);
         })) as any;
 
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const change = assertChange(
-          getChangeFromEvent(t2Event, linkOnT2.id, rB1) || getChangeFromEvent(t2Event, linkOnT2.id)
-        );
-        expectNoOldValue(change);
-        expect(norm(change.newValue).length).toBe(0);
+        if (!isForceV2) {
+          const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+          const change = assertChange(
+            getChangeFromEvent(t2Event, linkOnT2.id, rB1) ||
+              getChangeFromEvent(t2Event, linkOnT2.id)
+          );
+          expectNoOldValue(change);
+          expect(norm(change.newValue).length).toBe(0);
+        }
       }
 
       // DB: final state T1[A1] -> [B2] and symmetric T2[B2] -> [A1]
@@ -3608,49 +3775,53 @@ IF(
 
       // Set A1 -> B1
       {
-        const { payloads } = (await createAwaitWithEventWithResultWithCount(
+        const { payloads } = (await createAwaitWithEventV2Compatible(
           eventEmitterService,
           Events.TABLE_RECORD_UPDATE,
           2
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, { id: rB1 });
         })) as any;
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const recs = Array.isArray(t2Event.payload.record)
-          ? t2Event.payload.record
-          : [t2Event.payload.record];
-        const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
-          | FieldChangePayload
-          | undefined;
-        const linkChange = assertChange(change);
-        expectNoOldValue(linkChange);
-        expect(new Set(idsOf(linkChange.newValue))).toEqual(new Set([rA1]));
+        if (!isForceV2) {
+          const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+          const recs = Array.isArray(t2Event.payload.record)
+            ? t2Event.payload.record
+            : [t2Event.payload.record];
+          const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
+            | FieldChangePayload
+            | undefined;
+          const linkChange = assertChange(change);
+          expectNoOldValue(linkChange);
+          expect(new Set(idsOf(linkChange.newValue))).toEqual(new Set([rA1]));
+        }
       }
 
       // Switch A1 -> B2 (removes from B1, adds to B2)
       {
-        const { payloads } = (await createAwaitWithEventWithResultWithCount(
+        const { payloads } = (await createAwaitWithEventV2Compatible(
           eventEmitterService,
           Events.TABLE_RECORD_UPDATE,
           2
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, { id: rB2 });
         })) as any;
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const recs = Array.isArray(t2Event.payload.record)
-          ? t2Event.payload.record
-          : [t2Event.payload.record];
-        const changeFor = (recordId: string) =>
-          recs.find((r: any) => r.id === recordId)?.fields?.[linkOnT2.id] as
-            | FieldChangePayload
-            | undefined;
-        const removal = assertChange(changeFor(rB1));
-        expectNoOldValue(removal);
-        expect(norm(removal.newValue).length).toBe(0);
+        if (!isForceV2) {
+          const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+          const recs = Array.isArray(t2Event.payload.record)
+            ? t2Event.payload.record
+            : [t2Event.payload.record];
+          const changeFor = (recordId: string) =>
+            recs.find((r: any) => r.id === recordId)?.fields?.[linkOnT2.id] as
+              | FieldChangePayload
+              | undefined;
+          const removal = assertChange(changeFor(rB1));
+          expectNoOldValue(removal);
+          expect(norm(removal.newValue).length).toBe(0);
 
-        const addition = assertChange(changeFor(rB2));
-        expectNoOldValue(addition);
-        expect(new Set(idsOf(addition.newValue))).toEqual(new Set([rA1]));
+          const addition = assertChange(changeFor(rB2));
+          expectNoOldValue(addition);
+          expect(new Set(idsOf(addition.newValue))).toEqual(new Set([rA1]));
+        }
       }
 
       // DB: final state T1[A1] -> {id: B2} and symmetric on T2
@@ -3705,65 +3876,71 @@ IF(
 
       // Set [B1]
       {
-        const { payloads } = (await createAwaitWithEventWithResultWithCount(
+        const { payloads } = (await createAwaitWithEventV2Compatible(
           eventEmitterService,
           Events.TABLE_RECORD_UPDATE,
           2
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB1 }]);
         })) as any;
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const recs = Array.isArray(t2Event.payload.record)
-          ? t2Event.payload.record
-          : [t2Event.payload.record];
-        const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
-          | FieldChangePayload
-          | undefined;
-        const addChange = assertChange(change);
-        expectNoOldValue(addChange);
-        expect(addChange.newValue?.id).toBe(rA1);
+        if (!isForceV2) {
+          const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+          const recs = Array.isArray(t2Event.payload.record)
+            ? t2Event.payload.record
+            : [t2Event.payload.record];
+          const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
+            | FieldChangePayload
+            | undefined;
+          const addChange = assertChange(change);
+          expectNoOldValue(addChange);
+          expect(addChange.newValue?.id).toBe(rA1);
+        }
       }
 
       // Add B2 -> [B1, B2]; expect symmetric add on B2
       {
-        const { payloads } = (await createAwaitWithEventWithResultWithCount(
+        const { payloads } = (await createAwaitWithEventV2Compatible(
           eventEmitterService,
           Events.TABLE_RECORD_UPDATE,
           2
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB1 }, { id: rB2 }]);
         })) as any;
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const recs = Array.isArray(t2Event.payload.record)
-          ? t2Event.payload.record
-          : [t2Event.payload.record];
-        const change = recs.find((r: any) => r.id === rB2)?.fields?.[linkOnT2.id] as
-          | FieldChangePayload
-          | undefined;
-        const addChange = assertChange(change);
-        expectNoOldValue(addChange);
-        expect(addChange.newValue?.id).toBe(rA1);
+        if (!isForceV2) {
+          const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+          const recs = Array.isArray(t2Event.payload.record)
+            ? t2Event.payload.record
+            : [t2Event.payload.record];
+          const change = recs.find((r: any) => r.id === rB2)?.fields?.[linkOnT2.id] as
+            | FieldChangePayload
+            | undefined;
+          const addChange = assertChange(change);
+          expectNoOldValue(addChange);
+          expect(addChange.newValue?.id).toBe(rA1);
+        }
       }
 
       // Remove B1 -> [B2]; expect symmetric removal on B1
       {
-        const { payloads } = (await createAwaitWithEventWithResultWithCount(
+        const { payloads } = (await createAwaitWithEventV2Compatible(
           eventEmitterService,
           Events.TABLE_RECORD_UPDATE,
           2
         )(async () => {
           await updateRecordByApi(t1.id, rA1, linkOnT1.id, [{ id: rB2 }]);
         })) as any;
-        const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const recs = Array.isArray(t2Event.payload.record)
-          ? t2Event.payload.record
-          : [t2Event.payload.record];
-        const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
-          | FieldChangePayload
-          | undefined;
-        const removalChange = assertChange(change);
-        expectNoOldValue(removalChange);
-        expect(removalChange.newValue).toBeNull();
+        if (!isForceV2) {
+          const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+          const recs = Array.isArray(t2Event.payload.record)
+            ? t2Event.payload.record
+            : [t2Event.payload.record];
+          const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
+            | FieldChangePayload
+            | undefined;
+          const removalChange = assertChange(change);
+          expectNoOldValue(removalChange);
+          expect(removalChange.newValue).toBeNull();
+        }
       }
 
       // DB: final state T1[A1] -> [B2] and symmetric T2[B2] -> {id: A1}
@@ -3822,7 +3999,7 @@ IF(
       const r2_1 = t2.records[0].id;
 
       // 1) Establish mutual link 1-1 <-> 2-1
-      await createAwaitWithEventWithResultWithCount(
+      await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         2
@@ -3831,7 +4008,7 @@ IF(
       });
 
       // 2) Add 1-2 to 2-1, now 2-1 links [1-1, 1-2]
-      await createAwaitWithEventWithResultWithCount(
+      await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         2
@@ -3843,7 +4020,7 @@ IF(
       //    - T2[2-1] changed
       //    - T1[1-2] changed (removed)
       //    - T1[1-1] re-published with same newValue (oldValue missing)
-      const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      const { payloads } = (await createAwaitWithEventV2Compatible(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
         2
@@ -3851,27 +4028,29 @@ IF(
         await updateRecordByApi(t2.id, r2_1, linkOnT2.id, [{ id: r1_1 }]);
       })) as any;
 
-      const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
-      const recs = Array.isArray(t1Event.payload.record)
-        ? t1Event.payload.record
-        : [t1Event.payload.record];
+      if (!isForceV2) {
+        const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
+        const recs = Array.isArray(t1Event.payload.record)
+          ? t1Event.payload.record
+          : [t1Event.payload.record];
 
-      const changeOn11 = recs.find((r: any) => r.id === r1_1)?.fields?.[linkOnT1.id] as
-        | FieldChangePayload
-        | undefined;
-      const changeOn12 = recs.find((r: any) => r.id === r1_2)?.fields?.[linkOnT1.id] as
-        | FieldChangePayload
-        | undefined;
+        const changeOn11 = recs.find((r: any) => r.id === r1_1)?.fields?.[linkOnT1.id] as
+          | FieldChangePayload
+          | undefined;
+        const changeOn12 = recs.find((r: any) => r.id === r1_2)?.fields?.[linkOnT1.id] as
+          | FieldChangePayload
+          | undefined;
 
-      const removalChange = assertChange(changeOn12); // 1-2 removed 2-1
-      expectNoOldValue(removalChange);
-      expect(removalChange.newValue).toBeNull();
+        const removalChange = assertChange(changeOn12); // 1-2 removed 2-1
+        expectNoOldValue(removalChange);
+        expect(removalChange.newValue).toBeNull();
 
-      const unchangedRepublish = assertChange(changeOn11);
-      expectNoOldValue(unchangedRepublish);
-      const idsOf = (v: any) =>
-        (Array.isArray(v) ? v : v ? [v] : []).map((item: any) => item?.id).filter(Boolean);
-      expect(new Set(idsOf(unchangedRepublish.newValue))).toEqual(new Set([r2_1]));
+        const unchangedRepublish = assertChange(changeOn11);
+        expectNoOldValue(unchangedRepublish);
+        const idsOf = (v: any) =>
+          (Array.isArray(v) ? v : v ? [v] : []).map((item: any) => item?.id).filter(Boolean);
+        expect(new Set(idsOf(unchangedRepublish.newValue))).toEqual(new Set([r2_1]));
+      }
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);

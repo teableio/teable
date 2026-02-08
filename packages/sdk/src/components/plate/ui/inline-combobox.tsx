@@ -324,7 +324,7 @@ const InlineComboboxEmpty = ({ children, className }: React.HTMLAttributes<HTMLD
   );
 };
 
-const InlineComboboxRow = ComboboxRow;
+const InlineComboboxRow: typeof ComboboxRow = ComboboxRow;
 
 function InlineComboboxGroup({ className, ...props }: React.ComponentProps<typeof ComboboxGroup>) {
   return (

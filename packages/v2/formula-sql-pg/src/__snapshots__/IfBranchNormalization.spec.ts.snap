@@ -1,0 +1,111 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`if branch normalization > 'IfEmptyTextThenLookup' snapshots 1`] = `
+{
+  "formula": "IF(FALSE, {LookupType}, {SingleLineText})",
+  "id": "IfEmptyTextThenLookup",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": "",
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN COALESCE(FALSE, FALSE) THEN (
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    ) ELSE (CASE
+      WHEN "t"."SingleLineText" IS NULL THEN NULL
+      WHEN BTRIM(("t"."SingleLineText")::text) = '' THEN NULL
+      ELSE "t"."SingleLineText"
+    END) END)",
+}
+`;
+
+exports[`if branch normalization > 'IfLookupThenEmptyText' snapshots 1`] = `
+{
+  "formula": "IF(TRUE, {LookupType}, {SingleLineText})",
+  "id": "IfLookupThenEmptyText",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": "",
+    },
+  },
+  "result": null,
+  "sql": "(CASE WHEN COALESCE(TRUE, FALSE) THEN (
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    ) ELSE (CASE
+      WHEN "t"."SingleLineText" IS NULL THEN NULL
+      WHEN BTRIM(("t"."SingleLineText")::text) = '' THEN NULL
+      ELSE "t"."SingleLineText"
+    END) END)",
+}
+`;
