@@ -72,11 +72,16 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     console.log('record1.data.fields[field.id]', record1.data.fields[field.id]);
     expect((record1.data.fields[field.id] as Array<IAttachmentItem>)[0]!.name).toEqual('😀1 2.txt');
 
+    const existingAttachment = (record1.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    const presignedUrl = existingAttachment.presignedUrl || '';
+    const localAttachmentUrl = presignedUrl.startsWith('http')
+      ? presignedUrl
+      : `${appUrl}${presignedUrl}`;
     const record2 = await uploadAttachment(
       table.id,
       table.records[0].id,
       field.id,
-      'https://app.teable.ai/favicon.ico'
+      localAttachmentUrl
     );
     expect(record2.status).toBe(201);
     expect((record2.data.fields[field.id] as Array<object>).length).toEqual(2);

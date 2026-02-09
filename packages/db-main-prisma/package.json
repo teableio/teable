@@ -20,17 +20,26 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@teable/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
     "prisma"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "pnpm prisma-generate-ci && tsc",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "dev": "tsc --watch",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
     "prisma-generate": "prisma generate",
+    "prisma-generate-ci": "cross-env PRISMA_DATABASE_URL=\"postgresql://teable:teable@127.0.0.1:5432/teable?schema=public\" prisma generate --schema ./prisma/postgres/schema.prisma",
     "prisma-migrate": "dotenv-flow -p ../../apps/nextjs-app -- pnpm prisma migrate",
     "prisma-migrate-reset": "dotenv-flow -p ../../apps/nextjs-app -- pnpm prisma migrate reset",
     "prisma-db-push": "dotenv-flow -p ../../apps/nextjs-app -- pnpm prisma db push",

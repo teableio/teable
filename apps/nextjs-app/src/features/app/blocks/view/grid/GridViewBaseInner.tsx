@@ -453,7 +453,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           position,
           isMultipleSelected,
           deleteRecords: async () => {
-            const deleteRows = getEffectRows(selection);
+            const deleteRows = getEffectRows(selection, realRowCount);
 
             if (deleteRows >= 10) {
               const confirmed = await confirm({
