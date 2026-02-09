@@ -53,7 +53,7 @@ RUN set -ex; \
         if [ -n "$INTEGRATION_TEST" ]; then \
               pnpm -F "./packages/**" run build; \
         else \
-              NODE_OPTIONS=--max-old-space-size=8192 pnpm g:build; \
+              NODE_OPTIONS=--max-old-space-size=8192 pnpm -r --filter '!playground' run build; \
         fi
 
 

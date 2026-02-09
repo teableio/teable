@@ -11,10 +11,25 @@ import {
   Query,
   Req,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from '@teable/db-main-prisma';
+import {
+  createRecordsRoSchema,
+  getRecordQuerySchema,
+  getRecordsRoSchema,
+  updateRecordRoSchema,
+  deleteRecordsQuerySchema,
+  getRecordHistoryQuerySchema,
+  updateRecordsRoSchema,
+  recordInsertOrderRoSchema,
+  recordGetCollaboratorsRoSchema,
+  formSubmitRoSchema,
+  optionalRecordOrderSchema,
+  insertAttachmentRoSchema,
+} from '@teable/openapi';
 import type {
   IAutoFillCellVo,
   IButtonClickVo,
@@ -23,29 +38,16 @@ import type {
   IRecordGetCollaboratorsVo,
   IRecordStatusVo,
   IRecordsVo,
-} from '@teable/openapi';
-import {
-  createRecordsRoSchema,
-  getRecordQuerySchema,
-  getRecordsRoSchema,
-  IGetRecordsRo,
   ICreateRecordsRo,
-  IGetRecordQuery,
-  IUpdateRecordRo,
-  updateRecordRoSchema,
-  deleteRecordsQuerySchema,
   IDeleteRecordsQuery,
-  getRecordHistoryQuerySchema,
+  IGetRecordQuery,
   IGetRecordHistoryQuery,
-  updateRecordsRoSchema,
-  IUpdateRecordsRo,
-  IRecordInsertOrderRo,
-  recordGetCollaboratorsRoSchema,
+  IGetRecordsRo,
   IRecordGetCollaboratorsRo,
-  formSubmitRoSchema,
+  IRecordInsertOrderRo,
+  IUpdateRecordRo,
+  IUpdateRecordsRo,
   IFormSubmitRo,
-  optionalRecordOrderSchema,
-  insertAttachmentRoSchema,
   IInsertAttachmentRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
@@ -58,11 +60,17 @@ import { filterHasMe } from '../../../utils/filter-has-me';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { RecordService } from '../record.service';
 import { FieldKeyPipe } from './field-key.pipe';
+import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
 
+@UseGuards(V2FeatureGuard)
+@UseInterceptors(V2IndicatorInterceptor)
 @Controller('api/table/:tableId/record')
 @AllowAnonymous()
 export class RecordOpenApiController {
@@ -71,7 +79,8 @@ export class RecordOpenApiController {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly recordOpenApiV2Service: RecordOpenApiV2Service
   ) {}
 
   @Permissions('record|update')
@@ -121,6 +130,7 @@ export class RecordOpenApiController {
     return await this.recordService.getRecord(tableId, recordId, query, true, true);
   }
 
+  @UseV2Feature('updateRecord')
   @Permissions('record|update')
   @Patch(':recordId')
   async updateRecord(
@@ -130,6 +140,17 @@ export class RecordOpenApiController {
     @Headers('x-window-id') windowId?: string,
     @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<IRecord> {
+    // Use V2 logic when canary config enables it for this space + feature
+    if (this.cls.get('useV2')) {
+      return this.recordOpenApiV2Service.updateRecord(
+        tableId,
+        recordId,
+        updateRecordRo,
+        windowId,
+        isAiInternal
+      );
+    }
+
     return await this.recordOpenApiService.updateRecord(
       tableId,
       recordId,
@@ -176,6 +197,7 @@ export class RecordOpenApiController {
   }
 
   @Permissions('record|update')
+  @UseV2Feature('updateRecords')
   @Patch()
   async updateRecords(
     @Param('tableId') tableId: string,
@@ -183,6 +205,15 @@ export class RecordOpenApiController {
     @Headers('x-window-id') windowId?: string,
     @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<IRecord[]> {
+    if (this.cls.get('useV2')) {
+      return await this.recordOpenApiV2Service.updateRecords(
+        tableId,
+        updateRecordsRo,
+        windowId,
+        isAiInternal
+      );
+    }
+
     return (
       await this.recordOpenApiService.updateRecords(
         tableId,
@@ -193,6 +224,7 @@ export class RecordOpenApiController {
     ).records;
   }
 
+  @UseV2Feature('createRecord')
   @Permissions('record|create')
   @Post()
   @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE)
@@ -201,6 +233,15 @@ export class RecordOpenApiController {
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo,
     @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
+    // Use V2 logic when canary config enables it for this space + feature
+    if (this.cls.get('useV2')) {
+      return await this.recordOpenApiV2Service.createRecords(
+        tableId,
+        createRecordsRo,
+        isAiInternal
+      );
+    }
+
     return await this.recordOpenApiService.multipleCreateRecords(
       tableId,
       createRecordsRo,
@@ -209,15 +250,21 @@ export class RecordOpenApiController {
     );
   }
 
+  @UseV2Feature('formSubmit')
   @Permissions('record|create')
   @Post('form-submit')
   async formSubmit(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(formSubmitRoSchema)) formSubmitRo: IFormSubmitRo
   ): Promise<IRecord> {
+    if (this.cls.get('useV2')) {
+      return this.recordOpenApiV2Service.formSubmit(tableId, formSubmitRo);
+    }
+
     return await this.recordOpenApiService.formSubmit(tableId, formSubmitRo);
   }
 
+  @UseV2Feature('duplicateRecord')
   @Permissions('record|create', 'record|read')
   @Post(':recordId/duplicate')
   @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE)
@@ -226,9 +273,13 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Body(new ZodValidationPipe(optionalRecordOrderSchema)) order?: IRecordInsertOrderRo
   ) {
+    if (this.cls.get('useV2')) {
+      return await this.recordOpenApiV2Service.duplicateRecord(tableId, recordId, order);
+    }
     return await this.recordOpenApiService.duplicateRecord(tableId, recordId, order);
   }
 
+  @UseV2Feature('deleteRecord')
   @Permissions('record|delete')
   @Delete(':recordId')
   async deleteRecord(
@@ -236,9 +287,16 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Headers('x-window-id') windowId?: string
   ): Promise<IRecord> {
+    // Use V2 logic when canary config enables it for this space + feature
+    if (this.cls.get('useV2')) {
+      const result = await this.recordOpenApiV2Service.deleteRecords(tableId, [recordId], windowId);
+      return result.records[0];
+    }
+
     return await this.recordOpenApiService.deleteRecord(tableId, recordId, windowId);
   }
 
+  @UseV2Feature('deleteRecord')
   @Permissions('record|delete')
   @Delete()
   async deleteRecords(
@@ -246,6 +304,11 @@ export class RecordOpenApiController {
     @Query(new ZodValidationPipe(deleteRecordsQuerySchema)) query: IDeleteRecordsQuery,
     @Headers('x-window-id') windowId?: string
   ): Promise<IRecordsVo> {
+    // Use V2 logic when canary config enables it for this space + feature
+    if (this.cls.get('useV2')) {
+      return this.recordOpenApiV2Service.deleteRecords(tableId, query.recordIds, windowId);
+    }
+
     return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds, windowId);
   }
 

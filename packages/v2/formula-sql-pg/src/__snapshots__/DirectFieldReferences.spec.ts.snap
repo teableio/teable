@@ -1,0 +1,429 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`direct field references > direct reference to 'attachment' field 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "{Attachment}",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+  "sql": ""t"."Attachment"",
+}
+`;
+
+exports[`direct field references > direct reference to 'autoNumber' field 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "{AutoNumber}",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "1",
+  "sql": ""t"."AutoNumber"",
+}
+`;
+
+exports[`direct field references > direct reference to 'button' field 1`] = `
+{
+  "fieldType": "button",
+  "formula": "{Button}",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')",
+}
+`;
+
+exports[`direct field references > direct reference to 'checkbox' field 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "{Checkbox}",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "true",
+  "sql": ""t"."Checkbox"",
+}
+`;
+
+exports[`direct field references > direct reference to 'conditionalLookup' field 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "{ConditionalLookupType}",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": ""t"."ConditionalLookupType"",
+}
+`;
+
+exports[`direct field references > direct reference to 'conditionalRollup' field 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "{ConditionalRollupType}",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": ""t"."ConditionalRollupType"",
+}
+`;
+
+exports[`direct field references > direct reference to 'createdBy' field 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "{CreatedBy}",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+  "sql": ""t"."CreatedBy"",
+}
+`;
+
+exports[`direct field references > direct reference to 'createdTime' field 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "{CreatedTime}",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0000-00-00 00:00:00.000+00",
+  "sql": ""t"."CreatedTime"",
+}
+`;
+
+exports[`direct field references > direct reference to 'date' field 1`] = `
+{
+  "fieldType": "date",
+  "formula": "{Date}",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "2024-02-03 00:00:00+00",
+  "sql": ""t"."Date"",
+}
+`;
+
+exports[`direct field references > direct reference to 'formula' field 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "{FormulaType}",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "10",
+  "sql": "10",
+}
+`;
+
+exports[`direct field references > direct reference to 'lastModifiedBy' field 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "{LastModifiedBy}",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+  "sql": ""t"."LastModifiedBy"",
+}
+`;
+
+exports[`direct field references > direct reference to 'lastModifiedTime' field 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "{LastModifiedTime}",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0000-00-00 00:00:00.000+00",
+  "sql": ""t"."LastModifiedTime"",
+}
+`;
+
+exports[`direct field references > direct reference to 'link' field 1`] = `
+{
+  "fieldType": "link",
+  "formula": "{LinkType}",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "10",
+  "sql": "COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')",
+}
+`;
+
+exports[`direct field references > direct reference to 'longText' field 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "{LongText}",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "10",
+  "sql": ""t"."LongText"",
+}
+`;
+
+exports[`direct field references > direct reference to 'lookup' field 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "{LookupType}",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": ""t"."LookupType"",
+}
+`;
+
+exports[`direct field references > direct reference to 'multipleSelect' field 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "{MultipleSelect}",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "["10", "20"]",
+  "sql": ""t"."MultipleSelect"",
+}
+`;
+
+exports[`direct field references > direct reference to 'number' field 1`] = `
+{
+  "fieldType": "number",
+  "formula": "{Number}",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "10",
+  "sql": ""t"."Number"",
+}
+`;
+
+exports[`direct field references > direct reference to 'rating' field 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "{Rating}",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "4",
+  "sql": ""t"."Rating"",
+}
+`;
+
+exports[`direct field references > direct reference to 'rollup' field 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "{RollupType}",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": ""t"."RollupType"",
+}
+`;
+
+exports[`direct field references > direct reference to 'singleLineText' field 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "{SingleLineText}",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "10",
+  "sql": ""t"."SingleLineText"",
+}
+`;
+
+exports[`direct field references > direct reference to 'singleSelect' field 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "{SingleSelect}",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "10",
+  "sql": ""t"."SingleSelect"",
+}
+`;
+
+exports[`direct field references > direct reference to 'user' field 1`] = `
+{
+  "fieldType": "user",
+  "formula": "{User}",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": ""t"."User"",
+}
+`;

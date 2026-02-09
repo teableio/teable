@@ -1,12 +1,12 @@
 import { Loader2, Play, Square } from '@teable/icons';
+import { chatModelAbilityType } from '@teable/openapi';
 import type {
   IChatModelAbility,
   IImageModelAbility,
   ITestLLMRo,
   ITestLLMVo,
   LLMProvider,
-} from '@teable/openapi/src/admin/setting';
-import { chatModelAbilityType } from '@teable/openapi/src/admin/setting';
+} from '@teable/openapi';
 import { Button, Progress } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState, useCallback, useRef, useEffect } from 'react';

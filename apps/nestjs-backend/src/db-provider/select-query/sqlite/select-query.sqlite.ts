@@ -607,8 +607,24 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     return `COUNT(${this.joinParams(params.map((p) => `CASE WHEN ${p} IS NOT NULL THEN 1 END`))})`;
   }
 
-  countAll(_value: string): string {
-    return `COUNT(*)`;
+  countAll(value: string): string {
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      const baseExpr =
+        paramInfo.isFieldReference && paramInfo.fieldDbName
+          ? this.tableAlias
+            ? `"${this.tableAlias}"."${paramInfo.fieldDbName}"`
+            : `"${paramInfo.fieldDbName}"`
+          : value;
+      return `CASE
+        WHEN ${baseExpr} IS NULL THEN 0
+        WHEN json_valid(${baseExpr}) AND json_type(${baseExpr}) = 'array' THEN COALESCE(json_array_length(${baseExpr}), 0)
+        WHEN json_valid(${baseExpr}) AND json_type(${baseExpr}) = 'null' THEN 0
+        ELSE 1
+      END`;
+    }
+
+    return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
   private buildJsonArrayUnion(

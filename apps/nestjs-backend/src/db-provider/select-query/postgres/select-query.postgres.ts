@@ -1209,8 +1209,26 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   encodeUrlComponent(text: string): string {
-    // PostgreSQL doesn't have built-in URL encoding, would need custom function
-    return `encode(${text}::bytea, 'escape')`;
+    const textExpr = `(${text})::text`;
+    const encodedSql = `(SELECT string_agg(
+      CASE
+        WHEN byte_val BETWEEN 48 AND 57
+          OR byte_val BETWEEN 65 AND 90
+          OR byte_val BETWEEN 97 AND 122
+          OR byte_val IN (45, 95, 46, 33, 126, 42, 39, 40, 41)
+        THEN chr(byte_val)
+        ELSE '%' || UPPER(LPAD(to_hex(byte_val), 2, '0'))
+      END,
+      ''
+      ORDER BY ord
+    )
+    FROM (
+      SELECT ord, get_byte(src.bytes, ord) AS byte_val
+      FROM (SELECT convert_to(${textExpr}, 'UTF8') AS bytes) AS src
+      CROSS JOIN generate_series(0, octet_length(src.bytes) - 1) AS ord
+    ) AS utf8_bytes)`;
+
+    return `(CASE WHEN ${text} IS NULL THEN NULL ELSE COALESCE(${encodedSql}, '') END)`;
   }
 
   // DateTime Functions - These can use mutable functions in SELECT context
@@ -1599,7 +1617,22 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   countAll(value: string): string {
-    return this.countANonNullExpression(value, 0);
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      const baseExpr =
+        paramInfo.isFieldReference && paramInfo.fieldDbName
+          ? this.tableAlias
+            ? `"${this.tableAlias}"."${paramInfo.fieldDbName}"`
+            : `"${paramInfo.fieldDbName}"`
+          : value;
+      const normalized = `COALESCE(NULLIF((${baseExpr})::jsonb, 'null'::jsonb), '[]'::jsonb)`;
+      return `(CASE
+        WHEN jsonb_typeof(${normalized}) = 'array' THEN jsonb_array_length(${normalized})
+        ELSE 1
+      END)`;
+    }
+
+    return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
   private normalizeJsonbArray(array: string): string {
