@@ -475,9 +475,33 @@ export const appConfigSchema = z.object({
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;
 
+export const webSearchConfigSchema = z.object({
+  apiKey: z.string().optional(),
+});
+
+export type IWebSearchConfig = z.infer<typeof webSearchConfigSchema>;
+
+// V2 feature names for canary control
+export const v2FeatureSchema = z.enum([
+  'createRecord',
+  'formSubmit',
+  'updateRecord',
+  'updateRecords',
+  'deleteRecord',
+  'duplicateRecord',
+  'reorderRecords',
+  'paste',
+  'clear',
+  'importRecords',
+]);
+
+export type V2Feature = z.infer<typeof v2FeatureSchema>;
+
 export const canaryConfigSchema = z.object({
   enabled: z.boolean(),
   spaceIds: z.array(z.string()).default([]),
+  // Force all requests to use V2 (highest priority)
+  forceV2All: z.boolean().optional(),
 });
 
 export type ICanaryConfig = z.infer<typeof canaryConfigSchema>;

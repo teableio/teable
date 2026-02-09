@@ -1,12 +1,24 @@
 import type { IFieldVo } from '@teable/core';
-import { HelpCircle } from '@teable/icons';
+import { HelpCircle, ChevronDown, ChevronRight, Check } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { FieldSelector, useFields } from '@teable/sdk';
-import type { IFieldInstance } from '@teable/sdk';
+import { useFields, useFieldStaticGetter } from '@teable/sdk';
 import {
   Button,
   Checkbox,
+  cn,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Skeleton,
   Tooltip,
   TooltipContent,
@@ -55,32 +67,30 @@ export const DownloadContent = ({
   const { namingFieldId, setNamingFieldId, groupByRow, setGroupByRow } =
     useColumnDownloadDialogStore();
   const allFields = useFields({ withHidden: true, withDenied: true });
+  const fieldStaticGetter = useFieldStaticGetter();
+  const [selectorOpen, setSelectorOpen] = useState(false);
 
   // Filter fields suitable for naming (text-based fields)
   const namingFields = useMemo(() => {
     return allFields.filter((field) => isFieldSuitableForNaming(field as unknown as IFieldVo));
   }, [allFields]);
 
-  // Set default naming field to first available field
-  useEffect(() => {
-    if (namingFieldId === undefined && namingFields.length > 0) {
-      setNamingFieldId(namingFields[0].id);
-    }
-  }, [namingFieldId, namingFields, setNamingFieldId]);
-
   // Get the selected naming field instance for download
+  // When namingFieldId is undefined, return undefined (use row number prefix)
   const namingField = useMemo(() => {
     if (!namingFieldId) return undefined;
     return allFields.find((f) => f.id === namingFieldId);
   }, [namingFieldId, allFields]);
 
-  // Handle field selection - toggle if clicking the same field
+  // Handle field selection - toggle if clicking the same field (deselect)
   const handleFieldSelect = useCallback(
-    (selectedFieldId: string) => {
-      if (selectedFieldId === namingFieldId) {
+    (selectedValue: string) => {
+      setSelectorOpen(false);
+      if (selectedValue === namingFieldId) {
+        // Deselect if clicking the same field
         setNamingFieldId(undefined);
       } else {
-        setNamingFieldId(selectedFieldId);
+        setNamingFieldId(selectedValue);
       }
     },
     [namingFieldId, setNamingFieldId]
@@ -268,40 +278,114 @@ export const DownloadContent = ({
           })}
         </p>
 
-        {/* Naming field selector */}
-        <div className="mt-1 space-y-1">
-          <Label className="text-sm text-muted-foreground">
-            {t('table:download.allAttachments.namingFieldLabel')}
-          </Label>
-          <FieldSelector
-            fields={namingFields as IFieldInstance[]}
-            value={namingFieldId}
-            onSelect={handleFieldSelect}
-            className="w-full max-w-full"
-          />
-        </div>
+        {/* Advanced options */}
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            {t('table:download.allAttachments.advancedOptions')}
+            <ChevronRight className="size-4 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 pt-2">
+            {/* Naming field selector */}
+            <div className="space-y-1">
+              <Label className="text-sm text-muted-foreground">
+                {t('table:download.allAttachments.namingFieldLabel')}
+              </Label>
+              <Popover open={selectorOpen} onOpenChange={setSelectorOpen} modal>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={selectorOpen}
+                    className="w-full justify-between dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {namingFieldId ? (
+                        (() => {
+                          const selectedField = namingFields.find((f) => f.id === namingFieldId);
+                          if (!selectedField) return null;
+                          const { Icon } = fieldStaticGetter(selectedField.type, {
+                            isLookup: selectedField.isLookup,
+                            isConditionalLookup: selectedField.isConditionalLookup,
+                            hasAiConfig: Boolean(selectedField.aiConfig),
+                            deniedReadRecord: !selectedField.canReadFieldRecord,
+                          });
+                          return (
+                            <>
+                              <Icon className="size-4 shrink-0" />
+                              <span className="truncate">{selectedField.name}</span>
+                            </>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {t('table:download.allAttachments.selectField')}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0">
+                  <Command>
+                    <CommandInput placeholder={t('common:actions.search')} />
+                    <CommandList className="max-h-60">
+                      <CommandEmpty>{t('common:noResult')}</CommandEmpty>
+                      <CommandGroup>
+                        {namingFields.map((field) => {
+                          const { Icon } = fieldStaticGetter(field.type, {
+                            isLookup: field.isLookup,
+                            isConditionalLookup: field.isConditionalLookup,
+                            hasAiConfig: Boolean(field.aiConfig),
+                            deniedReadRecord: !field.canReadFieldRecord,
+                          });
+                          return (
+                            <CommandItem
+                              key={field.id}
+                              value={field.id}
+                              keywords={[field.name]}
+                              onSelect={() => handleFieldSelect(field.id)}
+                            >
+                              <Icon className="mr-2 size-4" />
+                              <span className="truncate">{field.name}</span>
+                              <Check
+                                className={cn(
+                                  'ml-auto size-4',
+                                  namingFieldId === field.id ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
 
-        {/* Group by row option */}
-        <div className="mt-1 flex items-center gap-2">
-          <Checkbox
-            id="groupByRow"
-            checked={groupByRow}
-            onCheckedChange={(checked) => setGroupByRow(checked === true)}
-          />
-          <Label htmlFor="groupByRow" className="cursor-pointer text-sm">
-            {t('table:download.allAttachments.groupByRow')}
-          </Label>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <HelpCircle className="size-4 cursor-pointer text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={5}>
-                <p className="max-w-xs">{t('table:download.allAttachments.groupByRowTip')}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+            {/* Group by row option */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="groupByRow"
+                checked={groupByRow}
+                onCheckedChange={(checked) => setGroupByRow(checked === true)}
+              />
+              <Label htmlFor="groupByRow" className="cursor-pointer text-sm">
+                {t('table:download.allAttachments.groupByRow')}
+              </Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <HelpCircle className="size-4 cursor-pointer text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={5}>
+                    <p className="max-w-xs">{t('table:download.allAttachments.groupByRowTip')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onClose} disabled={downloading}>

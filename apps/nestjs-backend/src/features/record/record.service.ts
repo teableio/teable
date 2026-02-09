@@ -1426,7 +1426,18 @@ export class RecordService {
       snapshots.map((s) => {
         return Object.entries(s).reduce(
           (acc, [key, value]) => {
-            acc[key] = Array.isArray(value) ? JSON.stringify(value) : value;
+            if (Array.isArray(value)) {
+              acc[key] = JSON.stringify(value);
+              return acc;
+            }
+            if (value && typeof value === 'object') {
+              const isDate = (value as Date) instanceof Date;
+              if (!isDate) {
+                acc[key] = JSON.stringify(value);
+                return acc;
+              }
+            }
+            acc[key] = value;
             return acc;
           },
           {} as Record<string, unknown>

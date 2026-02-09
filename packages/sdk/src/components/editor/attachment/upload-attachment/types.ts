@@ -41,6 +41,7 @@ export interface IUploadAttachmentRef {
 export interface UploadAttachmentViewProps extends UploadAttachmentBaseProps {
   uploadingFiles: IUploadingFile[];
   onUpload: (files: File[]) => void;
+  onCancelUpload?: (id: string) => void;
 }
 
 export interface UploadAttachmentViewRef {
