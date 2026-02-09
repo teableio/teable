@@ -171,7 +171,7 @@
   "filter": {
     "label": "筛选",
     "displayLabel": "筛选字段 ",
-    "displayLabel_other": "筛选({{count}})",
+    "displayLabel_other": "筛选({{totalCount}})",
     "addCondition": "添加条件",
     "addConditionGroup": "添加条件组",
     "nestedLimitTip": "条件组最多支持{{depth}}层嵌套",
@@ -495,7 +495,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "如果逻辑参数为真，则返回 number1，否则返回 number2。也可用于制作嵌套的 IF 语句。\n还可用于检查单元格是否为空/是否为空。",
+      "summary": "将数字向下舍入到最接近的整数。",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -1301,6 +1301,8 @@
       "notFound": "回收站项目未找到",
       "parentSpaceTrashed": "无法恢复此数据库，因为其父空间也在回收站中",
       "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父数据库或空间也在回收站中",
+      "parentBaseTrashed": "无法恢复此项目，因为其父数据库也在回收站中",
+      "parentNotFound": "父级资源未找到",
       "tableNotFound": "表格回收站项目未找到"
     },
     "license": {

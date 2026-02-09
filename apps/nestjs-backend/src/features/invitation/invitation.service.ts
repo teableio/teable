@@ -157,11 +157,9 @@ export class InvitationService {
             invitationId: id,
           },
         });
-        const { brandName } = await this.settingOpenApiService.getServerBrand();
 
         // get email info
         const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({
-          brandName,
           name: user.name,
           email: user.email,
           resourceName,

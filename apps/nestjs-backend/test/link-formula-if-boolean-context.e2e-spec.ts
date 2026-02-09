@@ -43,12 +43,17 @@ describe('Formula IF link boolean context (e2e)', () => {
         fields: [
           { name: 'B Primary', type: FieldType.SingleLineText },
           { name: 'Active', type: FieldType.Checkbox },
+          { name: 'Empty Text', type: FieldType.SingleLineText },
         ],
-        records: [{ fields: { 'B Primary': 'Row-1', Active: true } }],
+        records: [
+          { fields: { 'B Primary': 'Row-1', Active: true, 'Empty Text': 'ignore' } },
+          { fields: { 'B Primary': 'Row-2', Active: false, 'Empty Text': '' } },
+        ],
       });
 
       const primaryFieldB = tableB.fields[0];
       const activeField = tableB.fields.find((field) => field.name === 'Active') as IFieldVo;
+      const emptyTextField = tableB.fields.find((field) => field.name === 'Empty Text') as IFieldVo;
 
       const linkAtoB = await createField(tableA.id, {
         name: 'Link to B',
@@ -67,7 +72,7 @@ describe('Formula IF link boolean context (e2e)', () => {
       await convertField(tableB.id, primaryFieldB.id, {
         type: FieldType.Formula,
         options: {
-          expression: `IF({${activeField.id}}, {${symmetricLinkId}}, '')`,
+          expression: `IF({${activeField.id}}, {${symmetricLinkId}}, {${emptyTextField.id}})`,
         },
       });
 
@@ -97,8 +102,9 @@ describe('Formula IF link boolean context (e2e)', () => {
         projection: [primaryFieldB.id],
       });
 
-      expect(tableBRecords.records).toHaveLength(1);
-      expect(tableBRecords.records[0].fields[primaryFieldB.id]).toBe('Alpha');
+      expect(tableBRecords.records).toHaveLength(2);
+      const row1 = tableBRecords.records.find((record) => record.id === tableB!.records[0].id);
+      expect(row1?.fields[primaryFieldB.id]).toBe('Alpha');
     } finally {
       if (tableA) {
         await permanentDeleteTable(baseId, tableA.id);

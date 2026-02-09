@@ -696,7 +696,10 @@
     "permanentDeleteTips": "Sei sicuro di voler eliminare definitivamente \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Sei sicuro di voler svuotare il cestino?",
     "addToTrash": "Muovi nel cestino",
-    "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati."
+    "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati.",
+    "spaceDescription": "Ripristina gli spazi eliminati negli ultimi {{retentionDays}} giorni",
+    "spaceInnerDescription": "Ripristina le basi eliminate da questo spazio negli ultimi {{retentionDays}} giorni",
+    "baseDescription": "Ripristina le risorse eliminate da questa base negli ultimi {{retentionDays}} giorni"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin non impostato URL",
@@ -982,6 +985,27 @@
         "approved": "Approvato",
         "rejected": "Rifiutato"
       }
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "Pagina non trovata",
+      "description": "Il link che hai seguito potrebbe essere non valido o la pagina è stata spostata."
+    },
+    "links": {
+      "backToHome": "Torna alla home"
+    },
+    "forbidden": {
+      "title": "Accesso limitato",
+      "description": "Hai bisogno dell'autorizzazione per accedere a questa risorsa.\nContatta il tuo amministratore."
+    },
+    "paymentRequired": {
+      "title": "Sblocca funzionalità Premium",
+      "description": "Questa funzionalità è disponibile nei piani avanzati.\nEffettua l'upgrade per espandere le tue capacità."
+    },
+    "error": {
+      "title": "Qualcosa è andato storto",
+      "description": "Si è verificato un errore imprevisto. Riprova più tardi."
     }
   }
 }
