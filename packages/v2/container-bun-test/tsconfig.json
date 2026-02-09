@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-container-bun-test",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "../",
+    "outDir": "dist",
+    "paths": {
+      "@teable/v2-adapter-csv-parser-papaparse": ["../adapter-csv-parser-papaparse/src"],
+      "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
+      "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
+      "@teable/v2-adapter-record-repository-postgres": [
+        "../adapter-record-repository-postgres/src"
+      ],
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
+      "@teable/v2-di": ["../di/src"],
+      "@teable/v2-postgres-schema": ["../postgres-schema/src"]
+    },
+    "types": ["vitest/globals"]
+  },
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "include": [
+    "src",
+    "../adapter-csv-parser-papaparse/src",
+    "../adapter-logger-console/src",
+    "../adapter-table-repository-postgres/src",
+    "../adapter-repository-postgres/src",
+    "../core/src",
+    "../adapter-db-postgres-pg/src",
+    "../di/src",
+    "../postgres-schema/src"
+  ]
+}
