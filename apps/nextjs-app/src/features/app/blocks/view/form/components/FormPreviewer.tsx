@@ -21,7 +21,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
     <div className="w-full overflow-y-auto bg-muted pb-8 sm:pt-8" ref={containerRef}>
       <FormBody
         className="sm:shadow-mdw-full relative mx-auto mb-12 flex max-w-screen-sm flex-col items-center overflow-hidden bg-background sm:rounded-lg sm:border sm:pb-12"
-        submit={(formData) => onSubmit(formData)}
+        submit={submit ? (formData) => onSubmit(formData) : undefined}
       />
       <BrandFooter />
     </div>

@@ -1,11 +1,11 @@
 import { AlertTriangle, Check, Image, File, Settings } from '@teable/icons';
-import {
-  chatModelAbilityType,
-  type IAIIntegrationConfig,
-  type IChatModelAbility,
-  type IAbilityDetail,
+import { chatModelAbilityType } from '@teable/openapi';
+import type {
+  IAIIntegrationConfig,
+  IChatModelAbility,
+  IAbilityDetail,
+  ISettingVo,
 } from '@teable/openapi';
-import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   cn,

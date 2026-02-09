@@ -54,9 +54,9 @@ import type {
   IFormulaParamFieldMetadata,
   FormulaParamType,
   IDatetimeFormatting,
+  ITeableToDbFunctionConverter,
 } from '@teable/core';
-import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
-import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
+import type { RootContext, UnaryOpContext } from '@teable/formula';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import type { IFieldSelectName } from './field-select.type';

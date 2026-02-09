@@ -710,7 +710,9 @@
       "error": "Échec du téléchargement",
       "errorPartial": "{{failedCount}} fichiers n'ont pas pu être téléchargés",
       "requireHttps": "Le téléchargement groupé nécessite HTTPS. Veuillez accéder via HTTPS ou localhost.",
+      "advancedOptions": "Options avancées",
       "namingFieldLabel": "Préfixe du nom de pièce jointe",
+      "selectField": "Par défaut: index de pièce jointe",
       "groupByRow": "Archiver dans des dossiers",
       "groupByRowTip": "Lorsqu'une ligne contient plusieurs pièces jointes, elles seront placées dans le même dossier ; les lignes avec une seule pièce jointe ne créeront pas de dossier."
     }
