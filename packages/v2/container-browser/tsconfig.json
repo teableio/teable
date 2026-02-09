@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-container-browser",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext", "dom"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "../",
+    "outDir": "dist",
+    "paths": {
+      "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
+      "@teable/v2-adapter-db-postgres-pglite": ["../adapter-db-postgres-pglite/src"],
+      "@teable/v2-adapter-record-repository-postgres": [
+        "../adapter-record-repository-postgres/src"
+      ],
+      "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
+      "@teable/v2-adapter-table-repository-postgres": ["../adapter-table-repository-postgres/src"],
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-di": ["../di/src"]
+    },
+    "types": ["vitest/globals"]
+  },
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "include": [
+    "src",
+    "../adapter-db-postgres-pg/src",
+    "../adapter-db-postgres-pglite/src",
+    "../adapter-record-repository-postgres/src",
+    "../adapter-repository-postgres/src",
+    "../adapter-table-repository-postgres/src",
+    "../core/src",
+    "../di/src"
+  ]
+}

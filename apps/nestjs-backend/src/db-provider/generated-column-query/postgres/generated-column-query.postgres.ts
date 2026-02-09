@@ -1360,8 +1360,16 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   countAll(value: string): string {
-    // For arrays, this would count array elements
-    // For single values, return 1 if not null, 0 if null
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      const normalized = `COALESCE(NULLIF((${value})::jsonb, 'null'::jsonb), '[]'::jsonb)`;
+      return `(CASE
+        WHEN jsonb_typeof(${normalized}) = 'array' THEN jsonb_array_length(${normalized})
+        ELSE 1
+      END)`;
+    }
+
+    // For single values, return 1 if not null, 0 if null.
     return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 

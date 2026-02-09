@@ -9,11 +9,12 @@ import { useEffect, useRef, useState } from 'react';
 
 interface ITaskItemProps {
   task: IGlobalUploadTask;
+  onCancel: () => void;
   onRemove: () => void;
   onRetry: () => void;
 }
 
-export const TaskItem = ({ task, onRemove, onRetry }: ITaskItemProps) => {
+export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) => {
   const { t } = useTranslation('table');
   const mimetype = task.file.type || 'application/octet-stream';
   const isError = task.status === 'error';
@@ -21,7 +22,7 @@ export const TaskItem = ({ task, onRemove, onRetry }: ITaskItemProps) => {
   const isUploading = task.status === 'uploading' || task.status === 'pending';
   const shouldShowRemove = isError || isCompleted;
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
-
+  console.log('isUploading', isUploading);
   // Use ref to avoid resetting timers when parent re-renders with new callback references
   const onRemoveRef = useRef(onRemove);
   onRemoveRef.current = onRemove;
@@ -86,8 +87,19 @@ export const TaskItem = ({ task, onRemove, onRetry }: ITaskItemProps) => {
             type="button"
             className="flex size-6 items-center justify-center rounded transition-colors hover:bg-muted/50"
             onClick={onRetry}
+            title={t('upload.statusRetry')}
           >
             <RotateCcw className="size-3.5 text-muted-foreground" />
+          </button>
+        ) : null}
+        {isUploading ? (
+          <button
+            type="button"
+            className="flex size-6 items-center justify-center rounded transition-colors hover:bg-muted/50"
+            onClick={onCancel}
+            title={t('upload.statusCancel')}
+          >
+            <X className="size-3.5 text-muted-foreground" />
           </button>
         ) : null}
         {shouldShowRemove ? (

@@ -1202,6 +1202,9 @@ export type I18nTranslations = {
             "resetTrashConfirm": string;
             "addToTrash": string;
             "description": string;
+            "spaceDescription": string;
+            "spaceInnerDescription": string;
+            "baseDescription": string;
         };
         "pluginCenter": {
             "pluginUrlEmpty": string;
@@ -1506,6 +1509,27 @@ export type I18nTranslations = {
                     "approved": string;
                     "rejected": string;
                 };
+            };
+        };
+        "system": {
+            "notFound": {
+                "title": string;
+                "description": string;
+            };
+            "links": {
+                "backToHome": string;
+            };
+            "forbidden": {
+                "title": string;
+                "description": string;
+            };
+            "paymentRequired": {
+                "title": string;
+                "description": string;
+            };
+            "error": {
+                "title": string;
+                "description": string;
             };
         };
         "noPermissionToCreateBase": string;
@@ -3062,6 +3086,8 @@ export type I18nTranslations = {
                 "notFound": string;
                 "parentSpaceTrashed": string;
                 "parentBaseOrSpaceTrashed": string;
+                "parentBaseTrashed": string;
+                "parentNotFound": string;
                 "tableNotFound": string;
             };
             "license": {
@@ -3196,6 +3222,10 @@ export type I18nTranslations = {
         };
         "openOnNewPage": string;
         "errorTips": string;
+        "form": {
+            "requireLoginTip": string;
+            "login": string;
+        };
     };
     "space": {
         "initialSpaceName": string;
@@ -3267,10 +3297,6 @@ export type I18nTranslations = {
             "title": string;
             "description": string;
             "empty": string;
-        };
-        "trash": {
-            "spaceDescription": string;
-            "baseDescription": string;
         };
         "integration": {
             "title": string;
@@ -3386,27 +3412,6 @@ export type I18nTranslations = {
         };
         "collaborators": string;
         "more": string;
-    };
-    "system": {
-        "notFound": {
-            "title": string;
-            "description": string;
-        };
-        "links": {
-            "backToHome": string;
-        };
-        "forbidden": {
-            "title": string;
-            "description": string;
-        };
-        "paymentRequired": {
-            "title": string;
-            "description": string;
-        };
-        "error": {
-            "title": string;
-            "description": string;
-        };
     };
     "table": {
         "toolbar": {
@@ -4703,7 +4708,9 @@ export type I18nTranslations = {
                 "error": string;
                 "errorPartial": string;
                 "requireHttps": string;
+                "advancedOptions": string;
                 "namingFieldLabel": string;
+                "selectField": string;
                 "groupByRow": string;
                 "groupByRowTip": string;
             };
@@ -4742,6 +4749,8 @@ export type I18nTranslations = {
             "panelCompleted": string;
             "statusFailed": string;
             "statusCompleted": string;
+            "statusCancel": string;
+            "statusRetry": string;
         };
     };
     "token": {

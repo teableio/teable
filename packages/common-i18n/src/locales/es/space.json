@@ -67,10 +67,6 @@
     "description": "Todas las bases a las que me invitaron a unirme",
     "empty": "Aún no hay bases compartidas"
   },
-  "trash": {
-    "spaceDescription": "Todos los espacios",
-    "baseDescription": "Todas las bases eliminadas en este espacio"
-  },
   "integration": {
     "title": "Integración",
     "description": "Administrar integraciones de su espacio",

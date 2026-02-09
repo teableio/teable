@@ -29,4 +29,48 @@ describe('GeneratedColumnQueryPostgres if', () => {
     expect(sql).toContain('jsonb_array_elements_text');
     expect(sql).toContain('double precision');
   });
+
+  it('counts multi-value json field elements in COUNTALL', () => {
+    const query = new GeneratedColumnQueryPostgres();
+    query.setContext({} as unknown as never);
+    query.setCallMetadata([
+      {
+        type: 'string',
+        isFieldReference: true,
+        field: {
+          id: 'fldMulti',
+          isMultiple: true,
+          isLookup: false,
+          dbFieldName: '__owners',
+          dbFieldType: DbFieldType.Json,
+          cellValueType: 'string',
+        },
+      },
+    ] as unknown as never);
+
+    const sql = query.countAll('"__owners"');
+    expect(sql).toContain('jsonb_array_length');
+    expect(sql).toContain(`NULLIF(("__owners")::jsonb, 'null'::jsonb)`);
+  });
+
+  it('keeps scalar COUNTALL behavior for non-json field', () => {
+    const query = new GeneratedColumnQueryPostgres();
+    query.setContext({} as unknown as never);
+    query.setCallMetadata([
+      {
+        type: 'number',
+        isFieldReference: true,
+        field: {
+          id: 'fldNumber',
+          isMultiple: false,
+          isLookup: false,
+          dbFieldName: '__number',
+          dbFieldType: DbFieldType.Real,
+          cellValueType: 'number',
+        },
+      },
+    ] as unknown as never);
+
+    expect(query.countAll('"__number"')).toBe('CASE WHEN "__number" IS NULL THEN 0 ELSE 1 END');
+  });
 });

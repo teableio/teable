@@ -135,7 +135,7 @@ export class BaseNodeEventFactory {
       })
       .with(Events.BASE_NODE_DELETE, () => {
         const { baseId, node } = payload as IBaseNodeDeletePayload;
-        const { resourceId, resourceType } = node;
+        const { resourceId, resourceType, permanent } = node;
         switch (resourceType) {
           case BaseNodeResourceType.Folder:
             return BaseFolderEventFactory.create(
@@ -152,13 +152,13 @@ export class BaseNodeEventFactory {
           case BaseNodeResourceType.Workflow:
             return WorkflowEventFactory.create(
               Events.WORKFLOW_DELETE,
-              { baseId, workflowId: resourceId },
+              { baseId, workflowId: resourceId, permanent },
               context
             );
           case BaseNodeResourceType.App:
             return AppEventFactory.create(
               Events.APP_DELETE,
-              { baseId, appId: resourceId },
+              { baseId, appId: resourceId, permanent },
               context
             );
           default:
