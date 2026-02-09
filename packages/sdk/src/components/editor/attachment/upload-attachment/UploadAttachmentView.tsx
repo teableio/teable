@@ -38,6 +38,7 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
       readonly,
       disabled,
       onUpload,
+      onCancelUpload,
     } = props;
     const triggerCellDownload = useDownloadAttachmentsStore((state) => state.triggerCellDownload);
     const { resolvedTheme } = useTheme();
@@ -224,7 +225,12 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
                     </DndContext>
                   </FilePreviewProvider>
                   {uploadingFiles.map(({ id, progress, file }) => (
-                    <UploadingFile key={id} file={file} progress={progress} />
+                    <UploadingFile
+                      key={id}
+                      file={file}
+                      progress={progress}
+                      onCancel={onCancelUpload ? () => onCancelUpload(id) : undefined}
+                    />
                   ))}
                 </ul>
               </ScrollArea>

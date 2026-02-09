@@ -1,0 +1,166 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`FieldReferenceSqlVisitor > JSON fields with display value extraction > should aggregate names from attachment field 1`] = `
+{
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_attachment"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > JSON fields with display value extraction > should aggregate names from multiple user field 1`] = `
+{
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_multiple_user"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > JSON fields with display value extraction > should extract title from button field 1`] = `
+{
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_button"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > JSON fields with display value extraction > should extract title/name from single user field 1`] = `
+{
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_single_user"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > link fields > should aggregate titles from multi-value link field 1`] = `
+{
+  "isArray": false,
+  "lateralCalls": [
+    {
+      "columnType": {
+        "isMultiValue": true,
+        "lookupFieldId": FieldId {
+          "value": "fldtttttttttttttttt",
+        },
+        "orderBy": {
+          "column": "__fk_fldyyyyyyyyyyyyyyyy_order",
+          "source": "foreign",
+        },
+        "type": "link",
+      },
+      "foreignTableId": "tblffffffffffffffff",
+      "linkFieldId": "fldllllllllllllllll",
+      "outputAlias": "col_link_multiple",
+      "type": "addColumn",
+    },
+  ],
+  "storageKind": "json",
+  "valueSql": ""lat_0"."col_link_multiple"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > link fields > should extract title from single-value link field 1`] = `
+{
+  "isArray": false,
+  "lateralCalls": [
+    {
+      "columnType": {
+        "isMultiValue": false,
+        "lookupFieldId": FieldId {
+          "value": "fldtttttttttttttttt",
+        },
+        "orderBy": undefined,
+        "type": "link",
+      },
+      "foreignTableId": "tblffffffffffffffff",
+      "linkFieldId": "fldkkkkkkkkkkkkkkkk",
+      "outputAlias": "col_link_single",
+      "type": "addColumn",
+    },
+  ],
+  "storageKind": "json",
+  "valueSql": ""lat_0"."col_link_single"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column reference for Checkbox field 1`] = `
+{
+  "fieldName": "Checkbox",
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_checkbox"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column reference for CreatedTime field 1`] = `
+{
+  "fieldName": "CreatedTime",
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_created_time"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column reference for Date field 1`] = `
+{
+  "fieldName": "Date",
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_date"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column reference for LastModifiedTime field 1`] = `
+{
+  "fieldName": "LastModifiedTime",
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_last_modified_time"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column reference for Number field 1`] = `
+{
+  "fieldName": "Number",
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_number"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column reference for SingleLineText field 1`] = `
+{
+  "fieldName": "SingleLineText",
+  "isArray": false,
+  "storageKind": "scalar",
+  "valueSql": ""t"."col_single_line_text"",
+  "valueType": "unknown",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > user ID fields > should generate user name lookup SQL for CreatedBy field 1`] = `
+{
+  "isArray": false,
+  "valueSql": "COALESCE((SELECT u.name FROM public.users u WHERE u.id = "t"."__created_by"), "t"."__created_by")",
+  "valueType": "string",
+}
+`;
+
+exports[`FieldReferenceSqlVisitor > user ID fields > should generate user name lookup SQL for LastModifiedBy field 1`] = `
+{
+  "isArray": false,
+  "valueSql": "COALESCE((SELECT u.name FROM public.users u WHERE u.id = "t"."__last_modified_by"), "t"."__last_modified_by")",
+  "valueType": "string",
+}
+`;

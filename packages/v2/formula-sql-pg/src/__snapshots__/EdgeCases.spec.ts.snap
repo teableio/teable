@@ -1,0 +1,222 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`edge cases > 'ConcatBlank': 'Concat with blank value' 1`] = `
+{
+  "description": "Concat with blank value",
+  "formula": ""prefix" & BLANK() & "suffix"",
+  "funcId": "ConcatBlank",
+  "inputs": {},
+  "result": "prefixsuffix",
+  "sql": "(COALESCE((COALESCE('prefix', '') || COALESCE(NULL, '')), '') || COALESCE('suffix', ''))",
+}
+`;
+
+exports[`edge cases > 'DateAddNegative': 'DateAdd with negative count' 1`] = `
+{
+  "description": "DateAdd with negative count",
+  "formula": "DATE_ADD(NOW(), -1, "day")",
+  "funcId": "DateAddNegative",
+  "inputs": {},
+  "result": "0000-00-00 00:00:00+00",
+  "sql": "(NOW())::timestamptz + (((-((1)::double precision)))::double precision) * INTERVAL '1 day'",
+}
+`;
+
+exports[`edge cases > 'DateAddZero': 'DateAdd with zero count' 1`] = `
+{
+  "description": "DateAdd with zero count",
+  "formula": "DATE_ADD(NOW(), 0, "day")",
+  "funcId": "DateAddZero",
+  "inputs": {},
+  "result": "0000-00-00 00:00:00+00",
+  "sql": "(NOW())::timestamptz + ((0)::double precision) * INTERVAL '1 day'",
+}
+`;
+
+exports[`edge cases > 'FindEmptyString': 'Find with empty search string' 1`] = `
+{
+  "description": "Find with empty search string",
+  "formula": "FIND("", {SingleLineText})",
+  "funcId": "FindEmptyString",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "POSITION('' IN "t"."SingleLineText")",
+}
+`;
+
+exports[`edge cases > 'LeftZero': 'Left with zero length' 1`] = `
+{
+  "description": "Left with zero length",
+  "formula": "LEFT({SingleLineText}, 0)",
+  "funcId": "LeftZero",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "LEFT("t"."SingleLineText", (0)::double precision::integer)",
+}
+`;
+
+exports[`edge cases > 'MidNegativeStart': 'Mid with negative start' 1`] = `
+{
+  "description": "Mid with negative start",
+  "formula": "MID({SingleLineText}, -1, 2)",
+  "funcId": "MidNegativeStart",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "SUBSTRING("t"."SingleLineText" FROM ((-((1)::double precision)))::double precision::integer FOR (2)::double precision::integer)",
+}
+`;
+
+exports[`edge cases > 'MidZeroLength': 'Mid with zero length' 1`] = `
+{
+  "description": "Mid with zero length",
+  "formula": "MID({SingleLineText}, 1, 0)",
+  "funcId": "MidZeroLength",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "SUBSTRING("t"."SingleLineText" FROM (1)::double precision::integer FOR (0)::double precision::integer)",
+}
+`;
+
+exports[`edge cases > 'PowerZeroBase': 'Power with zero base' 1`] = `
+{
+  "description": "Power with zero base",
+  "formula": "POWER(0, 2)",
+  "funcId": "PowerZeroBase",
+  "inputs": {},
+  "result": "0",
+  "sql": "POWER((0)::double precision, (2)::double precision)",
+}
+`;
+
+exports[`edge cases > 'PowerZeroExp': 'Power with zero exponent' 1`] = `
+{
+  "description": "Power with zero exponent",
+  "formula": "POWER(2, 0)",
+  "funcId": "PowerZeroExp",
+  "inputs": {},
+  "result": "1",
+  "sql": "POWER((2)::double precision, (0)::double precision)",
+}
+`;
+
+exports[`edge cases > 'ReptNegative': 'Rept with negative count' 1`] = `
+{
+  "description": "Rept with negative count",
+  "formula": "REPT({SingleLineText}, -1)",
+  "funcId": "ReptNegative",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "REPEAT("t"."SingleLineText", ((-((1)::double precision)))::double precision::integer)",
+}
+`;
+
+exports[`edge cases > 'ReptZero': 'Rept with zero count' 1`] = `
+{
+  "description": "Rept with zero count",
+  "formula": "REPT({SingleLineText}, 0)",
+  "funcId": "ReptZero",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "REPEAT("t"."SingleLineText", (0)::double precision::integer)",
+}
+`;
+
+exports[`edge cases > 'RightZero': 'Right with zero length' 1`] = `
+{
+  "description": "Right with zero length",
+  "formula": "RIGHT({SingleLineText}, 0)",
+  "funcId": "RightZero",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "",
+  "sql": "RIGHT("t"."SingleLineText", (0)::double precision::integer)",
+}
+`;
+
+exports[`edge cases > 'SqrtZero': 'Sqrt with zero' 1`] = `
+{
+  "description": "Sqrt with zero",
+  "formula": "SQRT(0)",
+  "funcId": "SqrtZero",
+  "inputs": {},
+  "result": "0",
+  "sql": "SQRT((0)::double precision)",
+}
+`;
+
+exports[`edge cases > 'WorkdayNegative': 'Workday with negative days' 1`] = `
+{
+  "description": "Workday with negative days",
+  "formula": "WORKDAY(NOW(), -1)",
+  "funcId": "WorkdayNegative",
+  "inputs": {},
+  "result": "0000-00-00 00:00:00",
+  "sql": "(((NOW())::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * ((-((1)::double precision)))::double precision",
+}
+`;
+
+exports[`edge cases > 'WorkdayZero': 'Workday with zero days' 1`] = `
+{
+  "description": "Workday with zero days",
+  "formula": "WORKDAY(NOW(), 0)",
+  "funcId": "WorkdayZero",
+  "inputs": {},
+  "result": "0000-00-00 00:00:00",
+  "sql": "(((NOW())::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (0)::double precision",
+}
+`;

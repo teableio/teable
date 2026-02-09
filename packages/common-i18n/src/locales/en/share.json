@@ -4,6 +4,10 @@
     "submit": "Submit",
     "password": "Password"
   },
+  "form": {
+    "requireLoginTip": "This form requires you to log in before submitting",
+    "login": "Log in"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Select..."
   },

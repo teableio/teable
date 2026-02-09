@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string, @typescript-eslint/naming-convention */
 import type { FunctionName } from '@teable/core';
-import { FormulaFuncType, FormulaLexer } from '@teable/core';
+import { FormulaFuncType } from '@teable/core';
+import { FormulaLexer } from '@teable/formula';
 import { Hash, A, CheckSquare, Calendar } from '@teable/icons';
 import type { IFunctionSchema } from '@teable/openapi';
 import { funcDefine } from '@teable/openapi';

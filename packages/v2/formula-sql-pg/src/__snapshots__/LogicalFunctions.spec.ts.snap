@@ -1,0 +1,4438 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`logical functions > 'And' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "AND({Attachment}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+          WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "AND({AutoNumber}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE WHEN "t"."AutoNumber" IS NULL THEN FALSE WHEN "t"."AutoNumber" <> 0 THEN TRUE ELSE FALSE END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "AND({Button}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "AND({Checkbox}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "true",
+  "sql": "(COALESCE("t"."Checkbox", FALSE) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "AND({ConditionalLookupType}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "AND({ConditionalRollupType}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE WHEN "t"."ConditionalRollupType" IS NULL THEN FALSE WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "AND({CreatedBy}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "AND({CreatedTime}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "AND({Date}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "AND({FormulaType}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "((CASE WHEN 10 IS NULL THEN FALSE WHEN 10 <> 0 THEN TRUE ELSE FALSE END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "AND({LastModifiedBy}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "AND({LastModifiedTime}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "AND({LinkType}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "AND({LongText}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN "t"."LongText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."LongText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."LongText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "AND({LookupType}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "AND({MultipleSelect}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+          WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "AND({Number}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE WHEN "t"."Number" IS NULL THEN FALSE WHEN "t"."Number" <> 0 THEN TRUE ELSE FALSE END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "AND({Rating}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE WHEN "t"."Rating" IS NULL THEN FALSE WHEN "t"."Rating" <> 0 THEN TRUE ELSE FALSE END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "AND({RollupType}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE WHEN "t"."RollupType" IS NULL THEN FALSE WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "AND({SingleLineText}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN "t"."SingleLineText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleLineText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleLineText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "AND({SingleSelect}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN "t"."SingleSelect" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleSelect") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleSelect")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'And' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "AND({User}, TRUE)",
+  "funcId": "And",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+          WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) AND COALESCE(TRUE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Blank' handles constant formula 1`] = `
+{
+  "formula": "BLANK()",
+  "funcId": "Blank",
+  "inputs": {},
+  "result": null,
+  "sql": "NULL",
+}
+`;
+
+exports[`logical functions > 'Compare' handles constant formula 1`] = `
+{
+  "formula": "{SingleLineText} = {Number}",
+  "funcId": "Compare",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "(CASE
+      WHEN ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT "t"."SingleLineText" AS val) AS v) OR ("t"."SingleLineText" IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ("t"."Number")::text AS val) AS v) OR (("t"."Number")::text IS NULL)) THEN (COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT "t"."SingleLineText" AS val) AS v), 0) = COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ("t"."Number")::text AS val) AS v), 0))
+      ELSE (COALESCE("t"."SingleLineText", '') = COALESCE(("t"."Number")::text, ''))
+    END)",
+}
+`;
+
+exports[`logical functions > 'Error' handles constant formula 1`] = `
+{
+  "formula": "ERROR("boom")",
+  "funcId": "Error",
+  "inputs": {},
+  "result": "#ERROR:USER:boom",
+  "sql": "CASE WHEN TRUE THEN ('#ERROR:USER:' || COALESCE('boom', '')) ELSE NULL END",
+}
+`;
+
+exports[`logical functions > 'If' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "IF({Attachment}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+          WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "IF({AutoNumber}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE WHEN "t"."AutoNumber" IS NULL THEN FALSE WHEN "t"."AutoNumber" <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "IF({Button}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "IF({Checkbox}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN COALESCE("t"."Checkbox", FALSE) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "IF({ConditionalLookupType}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "IF({ConditionalRollupType}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN FALSE WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "IF({CreatedBy}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "IF({CreatedTime}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "IF({Date}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "IF({FormulaType}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE WHEN 10 IS NULL THEN FALSE WHEN 10 <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "IF({LastModifiedBy}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "IF({LastModifiedTime}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "IF({LinkType}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "IF({LongText}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN "t"."LongText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."LongText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."LongText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "IF({LookupType}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "IF({MultipleSelect}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+          WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "IF({Number}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE WHEN "t"."Number" IS NULL THEN FALSE WHEN "t"."Number" <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "IF({Rating}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE WHEN "t"."Rating" IS NULL THEN FALSE WHEN "t"."Rating" <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "IF({RollupType}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE WHEN "t"."RollupType" IS NULL THEN FALSE WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "IF({SingleLineText}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN "t"."SingleLineText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleLineText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleLineText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "IF({SingleSelect}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "yes",
+  "sql": "(CASE WHEN (CASE
+      WHEN "t"."SingleSelect" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleSelect") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleSelect")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'If' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "IF({User}, "yes", "no")",
+  "funcId": "If",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "no",
+  "sql": "(CASE WHEN (CASE
+          WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) THEN 'yes' ELSE 'no' END)",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "IS_ERROR({Attachment})",
+  "funcId": "IsError",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "false",
+  "sql": "((
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "IS_ERROR({AutoNumber})",
+  "funcId": "IsError",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "false",
+  "sql": "(("t"."AutoNumber")::text LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "IS_ERROR({Button})",
+  "funcId": "IsError",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "IS_ERROR({Checkbox})",
+  "funcId": "IsError",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "false",
+  "sql": "(("t"."Checkbox")::text LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "IS_ERROR({ConditionalLookupType})",
+  "funcId": "IsError",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+  ) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "IS_ERROR({ConditionalRollupType})",
+  "funcId": "IsError",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "IS_ERROR({CreatedBy})",
+  "funcId": "IsError",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "IS_ERROR({CreatedTime})",
+  "funcId": "IsError",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "false",
+  "sql": "(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "IS_ERROR({Date})",
+  "funcId": "IsError",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "false",
+  "sql": "(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "IS_ERROR({FormulaType})",
+  "funcId": "IsError",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "(trim(to_char((10)::numeric, '999999990D00')) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "IS_ERROR({LastModifiedBy})",
+  "funcId": "IsError",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "IS_ERROR({LastModifiedTime})",
+  "funcId": "IsError",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "false",
+  "sql": "(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "IS_ERROR({LinkType})",
+  "funcId": "IsError",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "false",
+  "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "IS_ERROR({LongText})",
+  "funcId": "IsError",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "("t"."LongText" LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "IS_ERROR({LookupType})",
+  "funcId": "IsError",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    ) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "IS_ERROR({MultipleSelect})",
+  "funcId": "IsError",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "false",
+  "sql": "((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "IS_ERROR({Number})",
+  "funcId": "IsError",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(trim(to_char(("t"."Number")::numeric, '999999990D00')) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "IS_ERROR({Rating})",
+  "funcId": "IsError",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "false",
+  "sql": "(("t"."Rating")::text LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "IS_ERROR({RollupType})",
+  "funcId": "IsError",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(trim(to_char(("t"."RollupType")::numeric, '999999990D00')) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "IS_ERROR({SingleLineText})",
+  "funcId": "IsError",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "("t"."SingleLineText" LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "IS_ERROR({SingleSelect})",
+  "funcId": "IsError",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "("t"."SingleSelect" LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'IsError' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "IS_ERROR({User})",
+  "funcId": "IsError",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "((
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ) LIKE '#ERROR:%')",
+}
+`;
+
+exports[`logical functions > 'Not' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "NOT({Attachment})",
+  "funcId": "Not",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+          WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "NOT({AutoNumber})",
+  "funcId": "Not",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE WHEN "t"."AutoNumber" IS NULL THEN FALSE WHEN "t"."AutoNumber" <> 0 THEN TRUE ELSE FALSE END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "NOT({Button})",
+  "funcId": "Not",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(NOT (CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "NOT({Checkbox})",
+  "funcId": "Not",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT COALESCE("t"."Checkbox", FALSE))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "NOT({ConditionalLookupType})",
+  "funcId": "Not",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(NOT (CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "NOT({ConditionalRollupType})",
+  "funcId": "Not",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(NOT (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN FALSE WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "NOT({CreatedBy})",
+  "funcId": "Not",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "NOT({CreatedTime})",
+  "funcId": "Not",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "NOT({Date})",
+  "funcId": "Not",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "NOT({FormulaType})",
+  "funcId": "Not",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE WHEN 10 IS NULL THEN FALSE WHEN 10 <> 0 THEN TRUE ELSE FALSE END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "NOT({LastModifiedBy})",
+  "funcId": "Not",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "NOT({LastModifiedTime})",
+  "funcId": "Not",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "NOT({LinkType})",
+  "funcId": "Not",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "NOT({LongText})",
+  "funcId": "Not",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN "t"."LongText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."LongText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."LongText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "NOT({LookupType})",
+  "funcId": "Not",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(NOT (CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "NOT({MultipleSelect})",
+  "funcId": "Not",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+          WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "NOT({Number})",
+  "funcId": "Not",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE WHEN "t"."Number" IS NULL THEN FALSE WHEN "t"."Number" <> 0 THEN TRUE ELSE FALSE END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "NOT({Rating})",
+  "funcId": "Not",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE WHEN "t"."Rating" IS NULL THEN FALSE WHEN "t"."Rating" <> 0 THEN TRUE ELSE FALSE END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "NOT({RollupType})",
+  "funcId": "Not",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(NOT (CASE WHEN "t"."RollupType" IS NULL THEN FALSE WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "NOT({SingleLineText})",
+  "funcId": "Not",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN "t"."SingleLineText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleLineText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleLineText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "NOT({SingleSelect})",
+  "funcId": "Not",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(NOT (CASE
+      WHEN "t"."SingleSelect" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleSelect") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleSelect")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END))",
+}
+`;
+
+exports[`logical functions > 'Not' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "NOT({User})",
+  "funcId": "Not",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(NOT (CASE
+          WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "OR({Attachment}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+          WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "OR({AutoNumber}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE WHEN "t"."AutoNumber" IS NULL THEN FALSE WHEN "t"."AutoNumber" <> 0 THEN TRUE ELSE FALSE END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "OR({Button}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "OR({Checkbox}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "true",
+  "sql": "(COALESCE("t"."Checkbox", FALSE) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "OR({ConditionalLookupType}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "OR({ConditionalRollupType}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE WHEN "t"."ConditionalRollupType" IS NULL THEN FALSE WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "OR({CreatedBy}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "OR({CreatedTime}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "OR({Date}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "OR({FormulaType}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "((CASE WHEN 10 IS NULL THEN FALSE WHEN 10 <> 0 THEN TRUE ELSE FALSE END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "OR({LastModifiedBy}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "OR({LastModifiedTime}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "OR({LinkType}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "OR({LongText}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN "t"."LongText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."LongText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."LongText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "OR({LookupType}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "OR({MultipleSelect}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+          WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "OR({Number}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE WHEN "t"."Number" IS NULL THEN FALSE WHEN "t"."Number" <> 0 THEN TRUE ELSE FALSE END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "OR({Rating}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE WHEN "t"."Rating" IS NULL THEN FALSE WHEN "t"."Rating" <> 0 THEN TRUE ELSE FALSE END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "OR({RollupType}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE WHEN "t"."RollupType" IS NULL THEN FALSE WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "OR({SingleLineText}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN "t"."SingleLineText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleLineText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleLineText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "OR({SingleSelect}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "true",
+  "sql": "((CASE
+      WHEN "t"."SingleSelect" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleSelect") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleSelect")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Or' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "OR({User}, FALSE)",
+  "funcId": "Or",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "((CASE
+          WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) OR COALESCE(FALSE, FALSE))",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "SWITCH({Attachment}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN (
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "SWITCH({AutoNumber}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN ("t"."AutoNumber")::text = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "SWITCH({Button}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "SWITCH({Checkbox}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN ("t"."Checkbox")::text = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "SWITCH({ConditionalLookupType}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN (
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+  ) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "SWITCH({ConditionalRollupType}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "SWITCH({CreatedBy}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN (CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "SWITCH({CreatedTime}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "SWITCH({Date}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "SWITCH({FormulaType}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN trim(to_char((10)::numeric, '999999990D00')) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "SWITCH({LastModifiedBy}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN (CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "SWITCH({LastModifiedTime}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "SWITCH({LinkType}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "ten",
+  "sql": "(CASE WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "SWITCH({LongText}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "ten",
+  "sql": "(CASE WHEN "t"."LongText" = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "SWITCH({LookupType}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN (
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "SWITCH({MultipleSelect}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN (
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "SWITCH({Number}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN trim(to_char(("t"."Number")::numeric, '999999990D00')) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "SWITCH({Rating}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN ("t"."Rating")::text = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "SWITCH({RollupType}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN trim(to_char(("t"."RollupType")::numeric, '999999990D00')) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "SWITCH({SingleLineText}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "ten",
+  "sql": "(CASE WHEN "t"."SingleLineText" = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "SWITCH({SingleSelect}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "ten",
+  "sql": "(CASE WHEN "t"."SingleSelect" = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Switch' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "SWITCH({User}, 10, "ten", "other")",
+  "funcId": "Switch",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "other",
+  "sql": "(CASE WHEN (
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
+    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "XOR({Attachment}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+          WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "XOR({AutoNumber}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE WHEN "t"."AutoNumber" IS NULL THEN FALSE WHEN "t"."AutoNumber" <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "XOR({Button}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(((CASE WHEN (CASE
+      WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "XOR({Checkbox}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN COALESCE("t"."Checkbox", FALSE) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "XOR({ConditionalLookupType}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(((CASE WHEN (CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "XOR({ConditionalRollupType}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(((CASE WHEN (CASE WHEN "t"."ConditionalRollupType" IS NULL THEN FALSE WHEN "t"."ConditionalRollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "XOR({CreatedBy}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "XOR({CreatedTime}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "XOR({Date}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "XOR({FormulaType}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE WHEN 10 IS NULL THEN FALSE WHEN 10 <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "XOR({LastModifiedBy}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN (CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END) IS NULL THEN FALSE
+      WHEN BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END)) = '' THEN FALSE
+      WHEN LOWER(BTRIM((CASE
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
+    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
+    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+  END))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "XOR({LastModifiedTime}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
+      WHEN BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "XOR({LinkType}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
+      WHEN BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = '' THEN FALSE
+      WHEN LOWER(BTRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "XOR({LongText}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN "t"."LongText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."LongText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."LongText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "XOR({LookupType}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(((CASE WHEN (CASE
+          WHEN (SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp) IS NULL OR jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'null' THEN FALSE
+          WHEN jsonb_typeof((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) = 'array' THEN jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) > 0
+          ELSE TRUE
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "XOR({MultipleSelect}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+          WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "XOR({Number}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE WHEN "t"."Number" IS NULL THEN FALSE WHEN "t"."Number" <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "XOR({Rating}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE WHEN "t"."Rating" IS NULL THEN FALSE WHEN "t"."Rating" <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "XOR({RollupType}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(((CASE WHEN (CASE WHEN "t"."RollupType" IS NULL THEN FALSE WHEN "t"."RollupType" <> 0 THEN TRUE ELSE FALSE END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "XOR({SingleLineText}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN "t"."SingleLineText" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleLineText") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleLineText")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "XOR({SingleSelect}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "false",
+  "sql": "(((CASE WHEN (CASE
+      WHEN "t"."SingleSelect" IS NULL THEN FALSE
+      WHEN BTRIM("t"."SingleSelect") = '' THEN FALSE
+      WHEN LOWER(BTRIM("t"."SingleSelect")) IN ('false','0','no','off','null') THEN FALSE
+      ELSE TRUE
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;
+
+exports[`logical functions > 'Xor' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "XOR({User}, TRUE)",
+  "funcId": "Xor",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "true",
+  "sql": "(((CASE WHEN (CASE
+          WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
+          WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
+          ELSE TRUE
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+}
+`;

@@ -1,11 +1,11 @@
-import type { IAIIntegrationConfig } from '@teable/openapi';
 import type {
+  IAIIntegrationConfig,
   IChatModelAbility,
   IImageModelAbility,
   ITestLLMRo,
   ITestLLMVo,
   LLMProvider,
-} from '@teable/openapi/src/admin/setting';
+} from '@teable/openapi';
 import {
   Card,
   CardContent,
