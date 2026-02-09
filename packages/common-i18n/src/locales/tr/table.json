@@ -655,7 +655,9 @@
       "error": "İndirme başarısız",
       "errorPartial": "{{failedCount}} dosya indirilemedi",
       "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin.",
+      "advancedOptions": "Gelişmiş seçenekler",
       "namingFieldLabel": "Ek adı öneki",
+      "selectField": "Varsayılan: ek dizini",
       "groupByRow": "Klasörlere arşivle",
       "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
     }

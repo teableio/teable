@@ -711,7 +711,17 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
   }
 
   countAll(value: string): string {
-    // For single values, return 1 if not null, 0 if null
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      return `CASE
+        WHEN ${value} IS NULL THEN 0
+        WHEN json_valid(${value}) AND json_type(${value}) = 'array' THEN COALESCE(json_array_length(${value}), 0)
+        WHEN json_valid(${value}) AND json_type(${value}) = 'null' THEN 0
+        ELSE 1
+      END`;
+    }
+
+    // For single values, return 1 if not null, 0 if null.
     return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 

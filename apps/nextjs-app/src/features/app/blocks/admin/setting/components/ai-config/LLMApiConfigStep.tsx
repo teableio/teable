@@ -173,7 +173,7 @@ export function LLMApiConfigStep({
   const effectiveAttachmentTest = attachmentTestResult || savedAttachmentTest;
 
   const handleTest = async (data: ITestLLMRo) => {
-    const { testLLM } = await import('@teable/openapi/src/admin/setting');
+    const { testLLM } = await import('@teable/openapi');
     return testLLM(data);
   };
 

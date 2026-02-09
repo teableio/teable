@@ -723,7 +723,9 @@
       "error": "Descarga fallida",
       "errorPartial": "{{failedCount}} archivos no se pudieron descargar",
       "requireHttps": "La descarga por lotes requiere HTTPS. Por favor acceda a través de HTTPS o localhost.",
+      "advancedOptions": "Opciones avanzadas",
       "namingFieldLabel": "Prefijo del nombre del adjunto",
+      "selectField": "Por defecto: índice de adjunto",
       "groupByRow": "Archivar en carpetas",
       "groupByRowTip": "Cuando una fila tiene múltiples adjuntos, se colocarán en la misma carpeta; las filas con solo un adjunto no crearán una carpeta."
     }

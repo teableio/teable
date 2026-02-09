@@ -89,7 +89,12 @@ const Droppable = (
   return (
     <SortableContext {...rest}>
       {children}
-      {!customerOverLay && createPortal(<DragOverlay>{dragOverRender}</DragOverlay>, document.body)}
+      {!customerOverLay
+        ? (createPortal(
+            <DragOverlay>{dragOverRender}</DragOverlay>,
+            document.body
+          ) as unknown as React.ReactNode)
+        : null}
     </SortableContext>
   );
 };

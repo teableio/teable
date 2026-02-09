@@ -380,12 +380,7 @@ const TimeInput = memo(function TimeInput({ label, value, onChange }: ITimeInput
   return (
     <div className="flex items-center justify-between px-2 py-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <Input
-        type="time"
-        value={value}
-        onChange={onChange}
-        className="h-7 w-24 px-2 text-center text-xs"
-      />
+      <Input type="time" value={value} onChange={onChange} className="h-8 w-20 px-2 text-xs" />
     </div>
   );
 });
@@ -624,7 +619,7 @@ export function DateRangePicker({ value, onChange, options, className }: IDateRa
           value={inputDisplayValue}
           readOnly
           className={cn(
-            'h-9 cursor-pointer text-left',
+            'h-8 cursor-pointer text-left',
             inputWidthClass,
             !displayValue && 'text-muted-foreground',
             className

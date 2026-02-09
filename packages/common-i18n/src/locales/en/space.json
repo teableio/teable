@@ -71,10 +71,7 @@
     "description": "All the bases that invited me to join",
     "empty": "No bases shared with me yet"
   },
-  "trash": {
-    "spaceDescription": "All deleted spaces",
-    "baseDescription": "All deleted bases under this space"
-  },
+
   "integration": {
     "title": "Integrations",
     "description": "Manage integrations of your space",
