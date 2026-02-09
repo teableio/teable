@@ -708,7 +708,10 @@
     "permanentDeleteTips": "「{{name}}」{{resource}}を完全に削除してもよろしいですか？",
     "resetTrashConfirm": "ゴミ箱を空にしてもよろしいですか？",
     "addToTrash": "ゴミ箱に移動",
-    "description": "ゴミ箱のデータは依然としてレコード使用量と添付ファイル使用量を占めています。"
+    "description": "ゴミ箱のデータは依然としてレコード使用量と添付ファイル使用量を占めています。",
+    "spaceDescription": "過去{{retentionDays}}日以内に削除されたスペースを復元",
+    "spaceInnerDescription": "過去{{retentionDays}}日以内にこのスペースから削除されたベースを復元",
+    "baseDescription": "過去{{retentionDays}}日以内にこのベースから削除されたリソースを復元"
   },
   "automation": {
     "turnOnTip": "現在のオートメーションを有効にしますか？"
@@ -984,6 +987,27 @@
         "approved": "承認済み",
         "rejected": "却下"
       }
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "ページが見つかりません",
+      "description": "お探しのリンクは無効であるか、ページが移動された可能性があります。"
+    },
+    "links": {
+      "backToHome": "ホームへ戻る"
+    },
+    "forbidden": {
+      "title": "アクセス制限",
+      "description": "このリソースにアクセスするには権限が必要です。\n管理者にお問い合わせください。"
+    },
+    "paymentRequired": {
+      "title": "プレミアム機能のロック解除",
+      "description": "この機能は上位プランでご利用いただけます。\nアップグレードして機能を拡張しましょう。"
+    },
+    "error": {
+      "title": "エラーが発生しました",
+      "description": "予期しないエラーが発生しました。後でもう一度お試しください。"
     }
   }
 }

@@ -735,7 +735,9 @@
       "error": "Download fallito",
       "errorPartial": "{{failedCount}} file non sono stati scaricati",
       "requireHttps": "Il download batch richiede HTTPS. Accedi tramite HTTPS o localhost.",
+      "advancedOptions": "Opzioni avanzate",
       "namingFieldLabel": "Prefisso nome allegato",
+      "selectField": "Predefinito: indice allegato",
       "groupByRow": "Archivia in cartelle",
       "groupByRowTip": "Quando una riga ha più allegati, verranno inseriti nella stessa cartella; le righe con un solo allegato non creeranno una cartella."
     }

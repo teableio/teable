@@ -5,12 +5,14 @@ import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { AuthorityMatrixPage } from '@/features/app/blocks/AuthorityMatrix';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
+import { baseAllConfig } from '@/features/i18n/base-all.config';
 import ensureLogin from '@/lib/ensureLogin';
 import handleBase from '@/lib/handleBase';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
+
 const Node: NextPageWithLayout = () => <AuthorityMatrixPage />;
 
 export const getServerSideProps: GetServerSideProps = withEnv(
@@ -43,7 +45,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
       return {
         props: {
           dehydratedState: dehydrate(queryClient),
-          ...(await getTranslationsProps(context, ['common', 'space', 'sdk'])),
+          ...(await getTranslationsProps(context, baseAllConfig.i18nNamespaces)),
         },
       };
     })

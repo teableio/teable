@@ -67,10 +67,6 @@
     "description": "Alle Bases, zu denen ich eingeladen wurde",
     "empty": "Noch keine geteilten Bases"
   },
-  "trash": {
-    "spaceDescription": "Alle gelöschten Spaces",
-    "baseDescription": "Alle gelöschten Bases in diesem Space"
-  },
   "integration": {
     "title": "Integrationen",
     "description": "Verwalten Sie die Integrationen Ihres Spaces",

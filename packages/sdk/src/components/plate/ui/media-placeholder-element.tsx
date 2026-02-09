@@ -50,7 +50,7 @@ const CONTENT: Record<
   },
 };
 
-export const MediaPlaceholderElement = withHOC(
+const MediaPlaceholderElement = withHOC(
   PlaceholderProvider,
   function MediaPlaceholderElement(props: PlateElementProps<TPlaceholderElement>) {
     const { editor, element } = props;
@@ -191,7 +191,9 @@ export const MediaPlaceholderElement = withHOC(
       </PlateElement>
     );
   }
-);
+) as React.FC<PlateElementProps<TPlaceholderElement>>;
+
+export { MediaPlaceholderElement };
 
 export function ImageProgress({
   className,
