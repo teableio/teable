@@ -1,8 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
+import { domainError, err, v2CoreTokens } from '@teable/v2-core';
+import type { ITableRecordRepository } from '@teable/v2-core';
 import { vi } from 'vitest';
 import { RecordService } from '../src/features/record/record.service';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import {
   createField,
   createRecords,
@@ -17,6 +20,7 @@ import {
 describe('Auto number continuity (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -39,15 +43,27 @@ describe('Auto number continuity (e2e)', () => {
     });
 
     it('should not advance autoNumber if the request fails before hitting the database', async () => {
-      const recordService = app.get(RecordService);
       const initial = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
       const initialCount = initial.records.length;
       const maxAutoNumber =
         initial.records.reduce((max, r) => Math.max(max, r.autoNumber ?? 0), 0) || 0;
 
-      const spy = vi.spyOn(recordService, 'batchCreateRecords').mockImplementationOnce(async () => {
-        throw new Error('mocked-create-failure');
-      });
+      const spy = isForceV2
+        ? vi
+            .spyOn(
+              (await app.get(V2ContainerService).getContainer()).resolve<ITableRecordRepository>(
+                v2CoreTokens.tableRecordRepository
+              ),
+              'insertMany'
+            )
+            .mockResolvedValueOnce(
+              err(domainError.unexpected({ message: 'mocked-create-failure' }))
+            )
+        : vi
+            .spyOn(app.get(RecordService), 'batchCreateRecords')
+            .mockImplementationOnce(async () => {
+              throw new Error('mocked-create-failure');
+            });
 
       await createRecords(
         table.id,
