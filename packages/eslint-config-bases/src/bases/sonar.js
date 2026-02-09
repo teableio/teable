@@ -34,6 +34,18 @@ module.exports = {
       },
     },
     {
+      // relax build/test tool config files as they often contain repeated configuration strings
+      files: [
+        'vitest*.config.{ts,mts}',
+        'vite.config.{ts,mts}',
+        'tsdown.config.{ts,mts}',
+        'webpack.config.{ts,mts}',
+      ],
+      rules: {
+        'sonarjs/no-duplicate-string': 'off',
+      },
+    },
+    {
       // relax javascript code as it often contains obscure configs
       files: ['*.js', '*.cjs'],
       parser: 'espree',

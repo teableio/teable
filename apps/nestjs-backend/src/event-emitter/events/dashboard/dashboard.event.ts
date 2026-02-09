@@ -6,7 +6,7 @@ import { Events } from '../event.enum';
 
 type IDashboardCreatePayload = { baseId: string; dashboard: ICreateDashboardVo };
 type IDashboardUpdatePayload = { baseId: string; dashboard: ICreateDashboardVo };
-type IDashboardDeletePayload = { baseId: string; dashboardId: string };
+type IDashboardDeletePayload = { baseId: string; dashboardId: string; permanent?: boolean };
 
 export class DashboardCreateEvent extends CoreEvent<IDashboardCreatePayload> {
   public readonly name = Events.DASHBOARD_CREATE;
@@ -39,16 +39,13 @@ export class DashboardEventFactory {
   ) {
     return match(name)
       .with(Events.DASHBOARD_CREATE, () => {
-        const { baseId, dashboard } = payload as IDashboardCreatePayload;
-        return new DashboardCreateEvent({ baseId, dashboard }, context);
+        return new DashboardCreateEvent(payload as IDashboardCreatePayload, context);
       })
       .with(Events.DASHBOARD_DELETE, () => {
-        const { baseId, dashboardId } = payload as IDashboardDeletePayload;
-        return new DashboardDeleteEvent({ baseId, dashboardId }, context);
+        return new DashboardDeleteEvent(payload as IDashboardDeletePayload, context);
       })
       .with(Events.DASHBOARD_UPDATE, () => {
-        const { baseId, dashboard } = payload as IDashboardUpdatePayload;
-        return new DashboardUpdateEvent({ baseId, dashboard }, context);
+        return new DashboardUpdateEvent(payload as IDashboardUpdatePayload, context);
       })
       .otherwise(() => null);
   }

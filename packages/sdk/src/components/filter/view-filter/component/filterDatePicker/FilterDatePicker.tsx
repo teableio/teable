@@ -81,7 +81,7 @@ const DatePickerInput = memo(function DatePickerInput({
       onChange={handleChange}
       options={fieldOptions}
       disableTimePicker={true}
-      className="h-9 w-40 text-xs sm:h-9"
+      className="h-8 w-40 text-xs"
     />
   );
 });
@@ -147,7 +147,7 @@ const NumberInput = memo(function NumberInput({ innerValue, onSelect }: INumberI
     <Input
       placeholder={t('filter.default.placeholder')}
       defaultValue={innerValue?.numberOfDays ?? ''}
-      className="h-9 w-24 placeholder:text-xs"
+      className="h-8 w-24 placeholder:text-xs"
       onInput={handleInput}
       onChange={handleChange}
     />
@@ -358,7 +358,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         onSelect={mergedOnSelect}
         value={innerValue?.mode || null}
         defaultLabel={currentValueLabel}
-        className={cn('h-9 min-w-[8rem] flex-1', className)}
+        className={cn('h-8 min-w-[8rem] flex-1', className)}
         popoverClassName="w-max"
         modal={modal}
       />

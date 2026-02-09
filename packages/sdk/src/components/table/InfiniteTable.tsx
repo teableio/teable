@@ -62,7 +62,7 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
                 return (
                   <TableHead
                     key={header.id}
-                    className={cn('flex items-center px-0', isAutoSize && 'flex-1')}
+                    className={cn('flex items-center px-4', isAutoSize && 'flex-1')}
                     style={{
                       minWidth: header.column.columnDef.minSize,
                       width: isAutoSize ? undefined : width,
@@ -86,7 +86,7 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        'flex min-h-[40px] items-center px-0 overflow-hidden',
+                        'flex min-h-[40px] items-center px-4 overflow-hidden',
                         isAutoSize && 'flex-1'
                       )}
                       style={{

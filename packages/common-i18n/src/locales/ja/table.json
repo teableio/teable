@@ -709,7 +709,9 @@
       "error": "ダウンロード失敗",
       "errorPartial": "{{failedCount}} ファイルのダウンロードに失敗しました",
       "requireHttps": "一括ダウンロードにはHTTPSが必要です。HTTPSまたはlocalhostでアクセスしてください。",
+      "advancedOptions": "詳細オプション",
       "namingFieldLabel": "添付ファイル名のプレフィックス",
+      "selectField": "デフォルト: 添付ファイル番号",
       "groupByRow": "フォルダにアーカイブ",
       "groupByRowTip": "行に複数の添付ファイルがある場合、同じフォルダに配置されます。添付ファイルが1つだけの行はフォルダを作成しません。"
     }

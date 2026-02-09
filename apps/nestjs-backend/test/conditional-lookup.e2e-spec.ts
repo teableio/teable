@@ -3420,6 +3420,93 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     });
   });
 
+  describe('user field filters with multi host field', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let lookupField: IFieldVo;
+    let titleId: string;
+    let foreignOwnerId: string;
+    let hostAssigneesId: string;
+    let assignedRecordId: string;
+    let emptyRecordId: string;
+
+    beforeAll(async () => {
+      const { userId, userName, email } = globalThis.testConfig;
+      const userCell = { id: userId, title: userName, email };
+
+      foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_User_Foreign_MultiHost',
+        fields: [
+          { name: 'Task', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Owner', type: FieldType.User } as IFieldRo,
+        ],
+        records: [
+          { fields: { Task: 'Task Alpha', Owner: userCell } },
+          { fields: { Task: 'Task Beta', Owner: userCell } },
+          { fields: { Task: 'Task Gamma' } },
+        ],
+      });
+
+      titleId = foreign.fields.find((field) => field.name === 'Task')!.id;
+      foreignOwnerId = foreign.fields.find((field) => field.name === 'Owner')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalLookup_User_Host_Multi',
+        fields: [
+          {
+            name: 'Assignees',
+            type: FieldType.User,
+            options: { isMultiple: true },
+          } as IFieldRo,
+        ],
+        records: [{ fields: { Assignees: [userCell] } }, { fields: { Assignees: null } }],
+      });
+
+      hostAssigneesId = host.fields.find((field) => field.name === 'Assignees')!.id;
+      assignedRecordId = host.records[0].id;
+      emptyRecordId = host.records[1].id;
+
+      const ownerMatchFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: foreignOwnerId,
+            operator: 'is',
+            value: { type: 'field', fieldId: hostAssigneesId },
+          },
+        ],
+      };
+
+      lookupField = await createField(host.id, {
+        name: 'Owned Tasks',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleId,
+          filter: ownerMatchFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should match single user against multi user reference', async () => {
+      expect(lookupField.id).toBeDefined();
+
+      const assignedRecord = await getRecord(host.id, assignedRecordId);
+      const ownedTasks = [...((assignedRecord.fields[lookupField.id] as string[]) ?? [])].sort();
+      expect(ownedTasks).toEqual(['Task Alpha', 'Task Beta']);
+
+      const emptyRecord = await getRecord(host.id, emptyRecordId);
+      expect((emptyRecord.fields[lookupField.id] as string[] | undefined) ?? []).toEqual([]);
+    });
+  });
+
   describe('field reference compatibility validation', () => {
     it('marks lookup field as errored when reference field type changes', async () => {
       const { userId, userName, email } = globalThis.testConfig;

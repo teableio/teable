@@ -2,14 +2,14 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MessageSquareDot, Zap, Box } from '@teable/icons';
+import { aiConfigVoSchema } from '@teable/openapi';
 import type {
   IGatewayModel,
   IChatModelAbility,
   IImageModelAbility,
   LLMProvider,
+  ISettingVo,
 } from '@teable/openapi';
-import { aiConfigVoSchema } from '@teable/openapi/src/admin/setting';
-import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import { Form } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';

@@ -13,6 +13,7 @@ import { mailConfig } from './mail.config';
 import { oauthConfig } from './oauth.config';
 import { storageConfig } from './storage';
 import { thresholdConfig } from './threshold.config';
+import { trashConfig } from './trash.config';
 
 const configurations = [
   ...bootstrapConfigs,
@@ -24,6 +25,7 @@ const configurations = [
   thresholdConfig,
   cacheConfig,
   oauthConfig,
+  trashConfig,
 ];
 
 @Module({})

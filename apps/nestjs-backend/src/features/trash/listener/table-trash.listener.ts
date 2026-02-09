@@ -19,7 +19,7 @@ export class TableTrashListener {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
-  @OnEvent(Events.OPERATION_RECORDS_DELETE, { async: true })
+  @OnEvent(Events.OPERATION_RECORDS_DELETE)
   async recordDeleteListener(payload: IDeleteRecordsPayload) {
     const { operationId, userId, tableId, records } = payload;
 

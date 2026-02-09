@@ -731,7 +731,9 @@
       "error": "Download fehlgeschlagen",
       "errorPartial": "{{failedCount}} Dateien konnten nicht heruntergeladen werden",
       "requireHttps": "Batch-Download erfordert HTTPS. Bitte über HTTPS oder localhost zugreifen.",
+      "advancedOptions": "Erweiterte Optionen",
       "namingFieldLabel": "Präfix für Anhangsname",
+      "selectField": "Standard: Anhangsindex",
       "groupByRow": "In Ordner archivieren",
       "groupByRowTip": "Wenn eine Zeile mehrere Anhänge hat, werden sie im selben Ordner abgelegt; Zeilen mit nur einem Anhang erstellen keinen Ordner."
     }

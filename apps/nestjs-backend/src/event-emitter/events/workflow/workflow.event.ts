@@ -9,7 +9,7 @@ interface IWorkflowVo {
 }
 
 type IWorkflowCreatePayload = { baseId: string; workflow: IWorkflowVo };
-type IWorkflowDeletePayload = { baseId: string; workflowId: string };
+type IWorkflowDeletePayload = { baseId: string; workflowId: string; permanent?: boolean };
 type IWorkflowUpdatePayload = IWorkflowCreatePayload;
 
 export class WorkflowCreateEvent extends CoreEvent<IWorkflowCreatePayload> {
@@ -43,16 +43,13 @@ export class WorkflowEventFactory {
   ) {
     return match(name)
       .with(Events.WORKFLOW_CREATE, () => {
-        const { baseId, workflow } = payload as IWorkflowCreatePayload;
-        return new WorkflowCreateEvent({ baseId, workflow }, context);
+        return new WorkflowCreateEvent(payload as IWorkflowCreatePayload, context);
       })
       .with(Events.WORKFLOW_DELETE, () => {
-        const { baseId, workflowId } = payload as IWorkflowDeletePayload;
-        return new WorkflowDeleteEvent({ baseId, workflowId }, context);
+        return new WorkflowDeleteEvent(payload as IWorkflowDeletePayload, context);
       })
       .with(Events.WORKFLOW_UPDATE, () => {
-        const { baseId, workflow } = payload as IWorkflowUpdatePayload;
-        return new WorkflowUpdateEvent({ baseId, workflow }, context);
+        return new WorkflowUpdateEvent(payload as IWorkflowUpdatePayload, context);
       })
       .otherwise(() => null);
   }
