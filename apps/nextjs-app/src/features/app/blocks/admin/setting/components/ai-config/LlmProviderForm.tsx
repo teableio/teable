@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, Loader2, Plus, X, Eye, Image } from '@teable/icons';
+import { llmProviderSchema, LLMProviderType, chatModelAbilityType } from '@teable/openapi';
 import type {
   ITestLLMVo,
   ITestLLMRo,
@@ -8,12 +9,7 @@ import type {
   IModelConfig,
   IChatModelAbility,
   IImageModelAbility,
-} from '@teable/openapi/src/admin/setting';
-import {
-  llmProviderSchema,
-  LLMProviderType,
-  chatModelAbilityType,
-} from '@teable/openapi/src/admin/setting';
+} from '@teable/openapi';
 import {
   Button,
   cn,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -20,15 +21,22 @@ import { AnonymousStrategy } from './strategies/anonymous/anonymous.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SessionStrategy } from './strategies/session.strategy';
 import { TurnstileModule } from './turnstile/turnstile.module';
+
+const CONDITIONAL_MODULE_TIMEOUT = process.env.CI ? 30000 : 5000;
+
 @Module({
   imports: [
     UserModule,
     PassportModule.register({ session: true }),
     SessionModule,
     AccessTokenModule,
-    ConditionalModule.registerWhen(LocalAuthModule, (env) => {
-      return Boolean(env.PASSWORD_LOGIN_DISABLED !== 'true');
-    }),
+    ConditionalModule.registerWhen(
+      LocalAuthModule,
+      (env) => {
+        return Boolean(env.PASSWORD_LOGIN_DISABLED !== 'true');
+      },
+      { timeout: CONDITIONAL_MODULE_TIMEOUT }
+    ),
     SocialModule,
     PermissionModule,
     TurnstileModule,

@@ -239,12 +239,14 @@ export const useSelectionOperation = (props?: {
       const { cellValues } = getCellPasteInfo(e);
 
       const pasteRecordLength = cellValues?.length ?? 0;
+      const effectRows = getEffectRows(selection, rowCount);
+      const affectedRows = Math.max(pasteRecordLength, effectRows);
 
-      if (pasteRecordLength >= 10) {
+      if (affectedRows >= 10) {
         const confirmed = await confirm({
           title: t('table:table.actionTips.pasteConfirmTitle'),
           description: t('table:table.actionTips.pasteConfirmDescription', {
-            recordCount: pasteRecordLength,
+            recordCount: affectedRows,
           }),
           confirmText: t('table:table.actionTips.paste'),
           cancelText: t('common:actions.cancel'),
@@ -312,7 +314,7 @@ export const useSelectionOperation = (props?: {
         console.error('Paste error: ', error);
       }
     },
-    [viewId, tableId, fields, t, confirm, baseId, temporaryPasteReq, pasteReq]
+    [viewId, tableId, fields, rowCount, t, confirm, baseId, temporaryPasteReq, pasteReq]
   );
 
   const doFill = useCallback(
@@ -338,7 +340,7 @@ export const useSelectionOperation = (props?: {
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
 
-      const effectRows = getEffectRows(selection);
+      const effectRows = getEffectRows(selection, rowCount);
       const effectCells = getEffectCellCount(selection, fields, rowCount);
 
       if (effectRows >= 10 && effectCells) {

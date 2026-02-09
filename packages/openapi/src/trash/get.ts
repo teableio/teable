@@ -5,6 +5,7 @@ import { userCollaboratorItem } from '../space';
 import { ResourceType } from '../types';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
+import { TrashType, TableTrashType } from './types';
 
 export const GET_TRASH = '/trash';
 
@@ -59,6 +60,14 @@ export const resourceMapVoSchema = z.record(
       id: z.string().startsWith(IdPrefix.Table),
       name: z.string(),
     }),
+    z.object({
+      id: z.string().startsWith(IdPrefix.App),
+      name: z.string(),
+    }),
+    z.object({
+      id: z.string().startsWith(IdPrefix.Workflow),
+      name: z.string(),
+    }),
     viewSnapshotItemVoSchema,
     fieldSnapshotItemVoSchema,
     recordSnapshotItemVoSchema,
@@ -73,7 +82,7 @@ export type IResourceMapVo = z.infer<typeof resourceMapVoSchema>;
 
 export const trashRoSchema = z.object({
   spaceId: z.string().startsWith(IdPrefix.Space).optional(),
-  resourceType: z.enum([ResourceType.Space, ResourceType.Base]),
+  resourceType: z.enum([TrashType.Space, TrashType.Base]),
 });
 
 export type ITrashRo = z.infer<typeof trashRoSchema>;
@@ -81,7 +90,7 @@ export type ITrashRo = z.infer<typeof trashRoSchema>;
 export const trashItemVoSchema = z.object({
   id: z.string(),
   resourceId: z.string(),
-  resourceType: z.enum([ResourceType.Space, ResourceType.Base, ResourceType.Table]),
+  resourceType: z.enum(TrashType),
   deletedTime: z.string(),
   deletedBy: z.string(),
 });
@@ -89,7 +98,7 @@ export const trashItemVoSchema = z.object({
 export const tableTrashItemVoSchema = z.object({
   id: z.string(),
   resourceIds: z.array(z.string()),
-  resourceType: z.enum([ResourceType.View, ResourceType.Field, ResourceType.Record]),
+  resourceType: z.enum(TableTrashType),
   deletedTime: z.string(),
   deletedBy: z.string(),
 });
