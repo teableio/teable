@@ -478,7 +478,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Restituisce numero1 se l'argomento logico è vero, altrimenti restituisce numero2. Può anche essere utilizzato per creare dichiarazioni IF annidate.\nPuò anche essere utilizzato per verificare se una cella è vuota/è vuota.",
+      "summary": "Arrotonda un numero verso il basso al numero intero più vicino.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -1276,6 +1276,8 @@
       "notFound": "Elemento del cestino non trovato",
       "parentSpaceTrashed": "Impossibile ripristinare questa base perché il suo spazio padre è anche nel cestino",
       "parentBaseOrSpaceTrashed": "Impossibile ripristinare questa tabella perché la sua base o spazio padre è anche nel cestino",
+      "parentBaseTrashed": "Impossibile ripristinare questo elemento perché la sua base padre è anche nel cestino",
+      "parentNotFound": "Risorsa padre non trovata",
       "tableNotFound": "Elemento del cestino della tabella non trovato"
     },
     "license": {

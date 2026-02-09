@@ -3,6 +3,7 @@ import { BaseModule } from '../base/base.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
 import { RecordModule } from '../record/record.module';
+import { SpaceModule } from '../space/space.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
 import { UserModule } from '../user/user.module';
 import { ViewModule } from '../view/view.module';
@@ -13,6 +14,7 @@ import { TrashService } from './trash.service';
 @Module({
   imports: [
     UserModule,
+    SpaceModule,
     BaseModule,
     TableOpenApiModule,
     FieldOpenApiModule,

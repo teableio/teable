@@ -1,7 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { type HttpError } from '@teable/core';
-import { resetPassword } from '@teable/openapi';
-import { passwordSchema } from '@teable/openapi/src/auth/types';
+import { resetPassword, passwordSchema } from '@teable/openapi';
 import { Spin, Error } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
