@@ -1,4 +1,4 @@
-import { FunctionCallContext } from '@teable/core';
+import { FunctionCallContext } from '@teable/formula';
 import type {
   ExprContext,
   IntegerLiteralContext,
@@ -6,7 +6,7 @@ import type {
   RightWhitespaceOrCommentsContext,
   StringLiteralContext,
   FormulaVisitor,
-} from '@teable/core';
+} from '@teable/formula';
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import type { ParseTree } from 'antlr4ts/tree/ParseTree';
 import type { TerminalNode } from 'antlr4ts/tree/TerminalNode';

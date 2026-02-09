@@ -3,10 +3,11 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "es6",
-    "moduleResolution": "Node",
-    "module": "CommonJS",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "isolatedModules": false,
     "noEmit": false,
     "allowJs": false
   },

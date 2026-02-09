@@ -694,7 +694,10 @@
     "permanentDeleteTips": "¿Estás seguro de que deseas eliminar permanentemente \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "¿Estás seguro de que deseas vaciar la papelera?",
     "addToTrash": "Mover a la papelera",
-    "description": "Los datos en la papelera aún ocupan espacio de uso de registros y uso de archivos adjuntos."
+    "description": "Los datos en la papelera aún ocupan espacio de uso de registros y uso de archivos adjuntos.",
+    "spaceDescription": "Restaurar espacios eliminados en los últimos {{retentionDays}} días",
+    "spaceInnerDescription": "Restaurar bases eliminadas de este espacio en los últimos {{retentionDays}} días",
+    "baseDescription": "Restaurar recursos eliminados de esta base en los últimos {{retentionDays}} días"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Complemento no configurando URL",
@@ -980,6 +983,27 @@
         "approved": "Aprobado",
         "rejected": "Rechazado"
       }
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "Página no encontrada",
+      "description": "El enlace que seguiste puede estar roto o la página ha sido movida."
+    },
+    "links": {
+      "backToHome": "Volver al inicio"
+    },
+    "forbidden": {
+      "title": "Acceso restringido",
+      "description": "Necesitas permiso para acceder a este recurso.\nPor favor, contacta con tu administrador."
+    },
+    "paymentRequired": {
+      "title": "Desbloquear función Premium",
+      "description": "Esta función está disponible en planes avanzados.\nActualiza para ampliar tus capacidades."
+    },
+    "error": {
+      "title": "Algo salió mal",
+      "description": "Ocurrió un error inesperado. Por favor, inténtalo de nuevo más tarde."
     }
   }
 }
