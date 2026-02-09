@@ -1,0 +1,60 @@
+{
+  "name": "@teable/v2-adapter-table-repository-postgres",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "@teable/source": "./src/index.ts",
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsdown --tsconfig tsconfig.build.json",
+    "dev": "tsdown --tsconfig tsconfig.build.json --watch",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-adapter-table-repository-postgres.eslintcache",
+    "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "test-unit": "vitest run --silent",
+    "test-unit-cover": "pnpm test-unit --coverage",
+    "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
+  },
+  "dependencies": {
+    "@teable/v2-core": "workspace:*",
+    "@teable/v2-di": "workspace:*",
+    "@teable/v2-field-dependency-core": "workspace:*",
+    "@teable/v2-formula-sql-pg": "workspace:*",
+    "@teable/v2-postgres-schema": "workspace:*",
+    "dayjs": "1.11.10",
+    "kysely": "0.28.9",
+    "neverthrow": "8.2.0",
+    "transliteration": "2.3.5",
+    "ts-pattern": "5.1.1",
+    "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
+    "@teable/v2-tsdown-config": "workspace:*",
+    "@teable/eslint-config-bases": "workspace:^",
+    "@testcontainers/postgresql": "11.10.0",
+    "@types/node": "22.18.0",
+    "@vitest/coverage-v8": "4.0.17",
+    "eslint": "8.57.0",
+    "prettier": "3.2.5",
+    "rimraf": "5.0.5",
+    "tsdown": "0.18.1",
+    "typescript": "5.4.3",
+    "vitest": "4.0.17"
+  }
+}

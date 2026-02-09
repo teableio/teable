@@ -9,29 +9,29 @@ interface IAppVo {
 }
 
 type IAppCreatePayload = { baseId: string; app: IAppVo };
-type IAppDeletePayload = { baseId: string; appId: string };
+type IAppDeletePayload = { baseId: string; appId: string; permanent?: boolean };
 type IAppUpdatePayload = { baseId: string; app: IAppVo };
 
 export class AppCreateEvent extends CoreEvent<IAppCreatePayload> {
   public readonly name = Events.APP_CREATE;
 
-  constructor(baseId: string, app: IAppVo, context: IEventContext) {
-    super({ baseId, app }, context);
+  constructor(payload: IAppCreatePayload, context: IEventContext) {
+    super(payload, context);
   }
 }
 
 export class AppDeleteEvent extends CoreEvent<IAppDeletePayload> {
   public readonly name = Events.APP_DELETE;
-  constructor(baseId: string, appId: string, context: IEventContext) {
-    super({ baseId, appId }, context);
+  constructor(payload: IAppDeletePayload, context: IEventContext) {
+    super(payload, context);
   }
 }
 
 export class AppUpdateEvent extends CoreEvent<IAppUpdatePayload> {
   public readonly name = Events.APP_UPDATE;
 
-  constructor(baseId: string, app: IAppVo, context: IEventContext) {
-    super({ baseId, app }, context);
+  constructor(payload: IAppUpdatePayload, context: IEventContext) {
+    super(payload, context);
   }
 }
 
@@ -44,15 +44,15 @@ export class AppEventFactory {
     return match(name)
       .with(Events.APP_CREATE, () => {
         const { baseId, app } = payload as IAppCreatePayload;
-        return new AppCreateEvent(baseId, app, context);
+        return new AppCreateEvent({ baseId, app }, context);
       })
       .with(Events.APP_UPDATE, () => {
         const { baseId, app } = payload as IAppUpdatePayload;
-        return new AppUpdateEvent(baseId, app, context);
+        return new AppUpdateEvent({ baseId, app }, context);
       })
       .with(Events.APP_DELETE, () => {
-        const { baseId, appId } = payload as IAppDeletePayload;
-        return new AppDeleteEvent(baseId, appId, context);
+        const { baseId, appId, permanent } = payload as IAppDeletePayload;
+        return new AppDeleteEvent({ baseId, appId, permanent }, context);
       })
       .otherwise(() => null);
   }

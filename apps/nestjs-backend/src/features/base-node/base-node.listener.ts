@@ -1,12 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '@teable/db-main-prisma';
-import type {
-  IBaseNodePresenceCreatePayload,
-  IBaseNodePresenceDeletePayload,
-  IBaseNodePresenceFlushPayload,
-  IBaseNodePresenceUpdatePayload,
-} from '@teable/openapi';
+import type { IBaseNodePresenceFlushPayload } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { LocalPresence } from 'sharedb/lib/client';
