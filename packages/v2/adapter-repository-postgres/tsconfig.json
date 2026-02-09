@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-adapter-repository-postgres",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "../../",
+    "outDir": "dist",
+    "paths": {
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-di": ["../di/src"],
+      "@teable/v2-postgres-schema": ["../postgres-schema/src"],
+      "@teable/formula": ["../../formula/src"]
+    },
+    "types": ["vitest/globals"]
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../../formula/src/**/*.spec.ts"
+  ],
+  "include": ["src", "../core/src", "../di/src", "../postgres-schema/src", "../../formula/src"]
+}

@@ -7,3 +7,4 @@ pnpm-lock.yaml
 **/build
 **/.tmp
 **/.cache
+apps/playground/src/routeTree.gen.ts
