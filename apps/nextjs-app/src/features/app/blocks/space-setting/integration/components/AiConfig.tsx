@@ -1,17 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { testIntegrationLLM, type IAIIntegrationConfig } from '@teable/openapi';
+import {
+  testIntegrationLLM,
+  aiConfigVoSchema,
+  chatModelAbilityType,
+  getPublicSetting,
+} from '@teable/openapi';
 import type {
+  IAIIntegrationConfig,
   IChatModelAbility,
   IImageModelAbility,
   ITestLLMRo,
   LLMProvider,
-} from '@teable/openapi/src/admin/setting';
-import {
-  aiConfigVoSchema,
-  chatModelAbilityType,
-  getPublicSetting,
-} from '@teable/openapi/src/admin/setting';
+} from '@teable/openapi';
 import { Form, toast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';

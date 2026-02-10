@@ -67,10 +67,6 @@
     "description": "参加を招待されたすべてのベース",
     "empty": "共有ベースはまだありません"
   },
-  "trash": {
-    "spaceDescription": "このインスタンス内のすべての削除されたスペース",
-    "baseDescription": "このスペース内のすべての削除されたベース"
-  },
   "integration": {
     "title": "インテグレーション",
     "description": "空間のインテグレーションを管理",

@@ -83,7 +83,7 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   datetimeFormat(date: string, format: string): TReturn;
   datetimeParse(dateString: string, format?: string): TReturn;
   day(date: string): TReturn;
-  fromNow(date: string): TReturn;
+  fromNow(date: string, unit?: string): TReturn;
   hour(date: string): TReturn;
   isAfter(date1: string, date2: string): TReturn;
   isBefore(date1: string, date2: string): TReturn;
@@ -93,9 +93,9 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   month(date: string): TReturn;
   second(date: string): TReturn;
   timestr(date: string): TReturn;
-  toNow(date: string): TReturn;
+  toNow(date: string, unit?: string): TReturn;
   weekNum(date: string): TReturn;
-  weekday(date: string): TReturn;
+  weekday(date: string, startDayOfWeek?: string): TReturn;
   workday(startDate: string, days: string): TReturn;
   workdayDiff(startDate: string, endDate: string): TReturn;
   year(date: string): TReturn;

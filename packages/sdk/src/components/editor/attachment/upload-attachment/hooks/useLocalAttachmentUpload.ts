@@ -21,6 +21,7 @@ interface UseLocalAttachmentUploadParams {
 interface UseLocalAttachmentUploadReturn {
   uploadingFiles: IUploadingFile[];
   onUpload: (files: File[]) => void;
+  onCancelUpload: (id: string) => void;
   setUploadingFiles: React.Dispatch<React.SetStateAction<IUploadingFile[]>>;
 }
 
@@ -127,5 +128,13 @@ export const useLocalAttachmentUpload = (
     [attachmentManager, baseId, onChange, t]
   );
 
-  return { uploadingFiles, onUpload, setUploadingFiles };
+  const onCancelUpload = useCallback(
+    (id: string) => {
+      attachmentManager.cancelTask(id);
+      setUploadingFiles((prev) => prev.filter((item) => item.id !== id));
+    },
+    [attachmentManager]
+  );
+
+  return { uploadingFiles, onUpload, onCancelUpload, setUploadingFiles };
 };

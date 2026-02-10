@@ -98,7 +98,7 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract datetimeFormat(date: string, format: string): string;
   abstract datetimeParse(dateString: string, format?: string): string;
   abstract day(date: string): string;
-  abstract fromNow(date: string): string;
+  abstract fromNow(date: string, unit?: string): string;
   abstract hour(date: string): string;
   abstract isAfter(date1: string, date2: string): string;
   abstract isBefore(date1: string, date2: string): string;
@@ -108,9 +108,9 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract month(date: string): string;
   abstract second(date: string): string;
   abstract timestr(date: string): string;
-  abstract toNow(date: string): string;
+  abstract toNow(date: string, unit?: string): string;
   abstract weekNum(date: string): string;
-  abstract weekday(date: string): string;
+  abstract weekday(date: string, startDayOfWeek?: string): string;
   abstract workday(startDate: string, days: string): string;
   abstract workdayDiff(startDate: string, endDate: string): string;
   abstract year(date: string): string;

@@ -20,8 +20,9 @@ import type {
   IGetDashboardListVo,
   IGetDashboardVo,
   IUpdateLayoutDashboardRo,
+  IDashboardLayout,
+  IDashboardPluginItem,
 } from '@teable/openapi';
-import type { IDashboardLayout, IDashboardPluginItem } from '@teable/openapi/src/dashboard/types';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';

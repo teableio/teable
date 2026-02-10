@@ -10,6 +10,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { CopyButton } from '../../components/CopyButton';
 import { useBaseUsage } from '../../hooks/useBaseUsage';
 import { useIsCloud } from '../../hooks/useIsCloud';
+import { useIsCommunity } from '../../hooks/useIsCommunity';
 import { useDbConnection } from './hooks';
 
 export const DbConnectionPanel = ({ className }: { className?: string }) => {
@@ -20,7 +21,8 @@ export const DbConnectionPanel = ({ className }: { className?: string }) => {
   const queryClient = useQueryClient();
   const { data, dataArray } = useDbConnection();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const maxNumDatabaseConnections = usage?.limit.maxNumDatabaseConnections;
+  const isCommunity = useIsCommunity();
+  const maxNumDatabaseConnections = isCommunity ? Infinity : usage?.limit.maxNumDatabaseConnections;
   const hasPermission = permissions?.['base|db_connection'];
   const isUnavailable = isCloud && usage?.level !== BillingProductLevel.Enterprise;
 

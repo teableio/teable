@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { RecordModule } from '../../record/record.module';
@@ -11,10 +11,10 @@ import { UndoRedoStackService } from './undo-redo-stack.service';
 @Module({
   imports: [
     RecordModule,
-    RecordOpenApiModule,
+    forwardRef(() => RecordOpenApiModule),
     ViewModule,
     ViewOpenApiModule,
-    FieldOpenApiModule,
+    forwardRef(() => FieldOpenApiModule),
     TableDomainQueryModule,
   ],
   providers: [UndoRedoStackService, UndoRedoOperationService],

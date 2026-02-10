@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 import { systemConfig } from '@/features/i18n/system.config';
 import { NotFoundPage } from '@/features/system/pages';
 import {
+  commonLocaleLoaders,
   detectStaticLocale,
-  loadSystemTranslations,
-  systemLocaleLoaders,
+  loadCommonTranslations,
 } from '@/lib/i18n/staticPageLocale';
 
 export const getStaticProps: GetStaticProps = async () => {
@@ -24,7 +24,7 @@ export default function Custom404() {
 
   useEffect(() => {
     const detectedLocale = detectStaticLocale(document.cookie);
-    const validLocale = systemLocaleLoaders[detectedLocale] ? detectedLocale : 'en';
+    const validLocale = commonLocaleLoaders[detectedLocale] ? detectedLocale : 'en';
 
     // If locale matches current i18n locale, ready immediately
     if (validLocale === i18n.language) {
@@ -33,9 +33,9 @@ export default function Custom404() {
     }
 
     // Load translations for detected locale and update i18n
-    loadSystemTranslations(validLocale)
+    loadCommonTranslations(validLocale)
       .then((translations) => {
-        i18n.addResourceBundle(validLocale, 'system', translations, true, true);
+        i18n.addResourceBundle(validLocale, 'common', translations, true, true);
         return i18n.changeLanguage(validLocale);
       })
       .catch((error) => {

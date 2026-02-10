@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import type { IRole } from '@teable/core';
 import {
@@ -312,10 +313,6 @@ export class SpaceService {
     });
   }
 
-  protected getSearchableTypes(): ResourceType[] {
-    return [ResourceType.Base, ResourceType.Table, ResourceType.Dashboard];
-  }
-
   protected getTableMapping(): Record<
     string,
     { table: string; hasDeletedTime: boolean; hasIcon?: boolean }
@@ -360,9 +357,9 @@ export class SpaceService {
       return { list: [], total: 0, nextCursor: null };
     }
 
-    const searchableTypes = this.getSearchableTypes();
-    const typesToSearch = filterType ? [filterType] : searchableTypes;
     const tableMapping = this.getTableMapping();
+    const searchableTypes = Object.keys(tableMapping).map((key) => key as ResourceType);
+    const typesToSearch = filterType ? [filterType] : searchableTypes;
 
     const cursorData = this.parseCursor(cursor);
 
@@ -509,13 +506,23 @@ export class SpaceService {
     return { list, total, nextCursor };
   }
 
-  async permanentDeleteSpace(spaceId: string) {
-    const accessTokenId = this.cls.get('accessTokenId');
-    await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);
+  async permanentDeleteSpace(spaceId: string, ignorePermissionCheck: boolean = false) {
+    if (!ignorePermissionCheck) {
+      const accessTokenId = this.cls.get('accessTokenId');
+      await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);
+    }
 
-    await this.prismaService.space.findUniqueOrThrow({
-      where: { id: spaceId },
-    });
+    await this.prismaService.space
+      .findUniqueOrThrow({
+        where: { id: spaceId },
+      })
+      .catch(() => {
+        throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.space.notFound',
+          },
+        });
+      });
 
     await this.prismaService.$tx(
       async (prisma) => {
@@ -525,7 +532,7 @@ export class SpaceService {
         });
 
         for (const { id } of bases) {
-          await this.baseService.permanentDeleteBase(id);
+          await this.baseService.permanentDeleteBase(id, ignorePermissionCheck);
         }
 
         await this.cleanSpaceRelatedData(spaceId);

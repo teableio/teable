@@ -536,13 +536,42 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return `CAST(STRFTIME('%d', ${date}) AS INTEGER)`;
   }
 
-  fromNow(date: string): string {
+  private buildNowDiffByUnit(nowExpr: string, dateExpr: string, unit: string): string {
+    const diffUnit = this.normalizeDiffUnit(unit);
+    const baseDiffDays = `(JULIANDAY(${nowExpr}) - JULIANDAY(${dateExpr}))`;
+    switch (diffUnit) {
+      case 'millisecond':
+        return `(${baseDiffDays}) * 24.0 * 60 * 60 * 1000`;
+      case 'second':
+        return `(${baseDiffDays}) * 24.0 * 60 * 60`;
+      case 'minute':
+        return `(${baseDiffDays}) * 24.0 * 60`;
+      case 'hour':
+        return `(${baseDiffDays}) * 24.0`;
+      case 'week':
+        return `(${baseDiffDays}) / 7.0`;
+      case 'month':
+        return this.buildMonthDiff(nowExpr, dateExpr);
+      case 'quarter':
+        return `${this.buildMonthDiff(nowExpr, dateExpr)} / 3.0`;
+      case 'year': {
+        const monthDiff = this.buildMonthDiff(nowExpr, dateExpr);
+        return `CAST((${monthDiff}) / 12.0 AS INTEGER)`;
+      }
+      case 'day':
+      default:
+        return `${baseDiffDays}`;
+    }
+  }
+
+  fromNow(date: string, unit = 'day'): string {
     // For generated columns, use the current timestamp at field creation time
+    const dateExpr = `DATETIME(${date})`;
     if (this.isGeneratedColumnContext) {
       const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `(JULIANDAY('${currentTimestamp}') - JULIANDAY(${date})) * 24 * 60 * 60`;
+      return this.buildNowDiffByUnit(`'${currentTimestamp}'`, dateExpr, unit);
     }
-    return `(JULIANDAY('now') - JULIANDAY(${date})) * 24 * 60 * 60`;
+    return this.buildNowDiffByUnit("'now'", dateExpr, unit);
   }
 
   hour(date: string): string {
@@ -590,20 +619,15 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return `TIME(${date})`;
   }
 
-  toNow(date: string): string {
-    // For generated columns, use the current timestamp at field creation time
-    if (this.isGeneratedColumnContext) {
-      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `(JULIANDAY(${date}) - JULIANDAY('${currentTimestamp}')) * 24 * 60 * 60`;
-    }
-    return `(JULIANDAY(${date}) - JULIANDAY('now')) * 24 * 60 * 60`;
+  toNow(date: string, unit = 'day'): string {
+    return this.fromNow(date, unit);
   }
 
   weekNum(date: string): string {
     return `CAST(STRFTIME('%W', ${date}) AS INTEGER)`;
   }
 
-  weekday(date: string): string {
+  weekday(date: string, _startDayOfWeek?: string): string {
     // Convert SQLite's 0-based weekday (0=Sunday) to 1-based (1=Sunday)
     return `(CAST(STRFTIME('%w', ${date}) AS INTEGER) + 1)`;
   }
@@ -711,7 +735,17 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
   }
 
   countAll(value: string): string {
-    // For single values, return 1 if not null, 0 if null
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      return `CASE
+        WHEN ${value} IS NULL THEN 0
+        WHEN json_valid(${value}) AND json_type(${value}) = 'array' THEN COALESCE(json_array_length(${value}), 0)
+        WHEN json_valid(${value}) AND json_type(${value}) = 'null' THEN 0
+        ELSE 1
+      END`;
+    }
+
+    // For single values, return 1 if not null, 0 if null.
     return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 

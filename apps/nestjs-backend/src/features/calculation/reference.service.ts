@@ -66,7 +66,11 @@ export class ReferenceService {
   private async getLookupFilterFieldMap(fieldMap: IFieldMap) {
     const fieldIds = Object.keys(fieldMap)
       .map((fieldId) => {
-        const lookupOptions = fieldMap[fieldId].lookupOptions;
+        const field = fieldMap[fieldId];
+        if (!field) {
+          return [];
+        }
+        const lookupOptions = field.lookupOptions;
         if (lookupOptions && lookupOptions.filter) {
           return extractFieldIdsFromFilter(lookupOptions.filter, true);
         }

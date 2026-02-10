@@ -67,15 +67,7 @@ export const Collaborator = (props: ICollaboratorProps) => {
   const { item, className, tips } = props;
 
   return (
-    <div
-      className={cn(
-        'flex flex-1',
-        {
-          'items-center': item.type === PrincipalType.Department,
-        },
-        className
-      )}
-    >
+    <div className={cn('flex flex-1 items-center', className)}>
       {item.type === PrincipalType.User && (
         <UserAvatar className="border" user={{ name: item.name, avatar: item.avatar }} />
       )}

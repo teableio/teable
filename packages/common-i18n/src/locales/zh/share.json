@@ -4,6 +4,10 @@
     "submit": "提交",
     "password": "密码"
   },
+  "form": {
+    "requireLoginTip": "此表单需要登录后才能提交",
+    "login": "登录"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "请选择..."
   },
