@@ -478,7 +478,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "論理引数が true の場合は数値1を返し、そうでない場合は数値2を返します。ネストされたIFステートメントを作成するためにも使用できます。\nセルが空白かどうかを確認するためにも使用できます。",
+      "summary": "数値を最も近い整数に切り捨てます。",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -851,7 +851,8 @@
     },
     "toolbar": {
       "link": "リンク",
-      "image": "画像"
+      "image": "画像",
+      "mention": "メンション"
     },
     "floatToolbar": {
       "editLink": "リンクを編集",
@@ -1276,6 +1277,8 @@
       "notFound": "ゴミ箱のアイテムが見つかりません",
       "parentSpaceTrashed": "親スペースもゴミ箱にあるため、このベースを復元できません",
       "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
+      "parentBaseTrashed": "親ベースもゴミ箱にあるため、このアイテムを復元できません",
+      "parentNotFound": "親リソースが見つかりません",
       "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
     },
     "license": {

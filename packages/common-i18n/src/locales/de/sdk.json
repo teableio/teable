@@ -478,7 +478,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Gibt nummer1 zurück, wenn das logische Argument wahr ist, andernfalls nummer2. Kann auch verwendet werden, um verschachtelte IF-Anweisungen zu erstellen. Kann auch verwendet werden, um zu prüfen, ob eine Zelle leer ist.",
+      "summary": "Gibt die ganze Zahl eines Wertes zurück und rundet dabei gegen die negative Unendlichkeit.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -851,7 +851,8 @@
     },
     "toolbar": {
       "link": "Link",
-      "image": "Bild"
+      "image": "Bild",
+      "mention": "Erwähnung"
     },
     "floatToolbar": {
       "editLink": "Link bearbeiten",
@@ -1281,6 +1282,8 @@
       "notFound": "Papierkorb-Element nicht gefunden",
       "parentSpaceTrashed": "Diese Basis kann nicht wiederhergestellt werden, da der übergeordnete Bereich ebenfalls im Papierkorb ist",
       "parentBaseOrSpaceTrashed": "Diese Tabelle kann nicht wiederhergestellt werden, da die übergeordnete Basis oder der Bereich ebenfalls im Papierkorb ist",
+      "parentBaseTrashed": "Dieses Element kann nicht wiederhergestellt werden, da seine übergeordnete Basis ebenfalls im Papierkorb ist",
+      "parentNotFound": "Übergeordnete Ressource nicht gefunden",
       "tableNotFound": "Tabellen-Papierkorb-Element nicht gefunden"
     },
     "license": {

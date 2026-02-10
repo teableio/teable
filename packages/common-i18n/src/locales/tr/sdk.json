@@ -478,7 +478,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Mantıksal argüman doğruysa number1'i, değilse number2'yi döndürür. İç içe IF ifadeleri yapmak için de kullanılabilir.\nAyrıca bir hücrenin boş olup olmadığını kontrol etmek için de kullanılabilir.",
+      "summary": "Bir sayıyı en yakın tam sayıya aşağı doğru yuvarlar.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -851,7 +851,8 @@
     },
     "toolbar": {
       "link": "Bağlantı",
-      "image": "Görsel"
+      "image": "Görsel",
+      "mention": "Bahset"
     },
     "floatToolbar": {
       "editLink": "Bağlantıyı Düzenle",
@@ -1276,6 +1277,8 @@
       "notFound": "Çöp kutusu öğesi bulunamadı",
       "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
       "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
+      "parentBaseTrashed": "Üst taban da çöp kutusunda olduğu için bu öğe geri yüklenemiyor",
+      "parentNotFound": "Üst kaynak bulunamadı",
       "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
     },
     "license": {

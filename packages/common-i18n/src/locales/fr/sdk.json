@@ -478,7 +478,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Renvoie number1 si l'argument logique est vrai, sinon renvoie number2. Peut également être utilisé pour créer des instructions IF imbriquées.\nPeut également être utilisé pour vérifier si une cellule est vide.",
+      "summary": "Arrondit un nombre vers le bas à l'entier le plus proche.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -851,7 +851,8 @@
     },
     "toolbar": {
       "link": "Lien",
-      "image": "Image"
+      "image": "Image",
+      "mention": "Mention"
     },
     "floatToolbar": {
       "editLink": "Modifier le lien",
@@ -1276,6 +1277,8 @@
       "notFound": "Élément de la corbeille introuvable",
       "parentSpaceTrashed": "Impossible de restaurer cette base car son espace parent est également dans la corbeille",
       "parentBaseOrSpaceTrashed": "Impossible de restaurer cette table car sa base ou son espace parent est également dans la corbeille",
+      "parentBaseTrashed": "Impossible de restaurer cet élément car sa base parente est également dans la corbeille",
+      "parentNotFound": "Ressource parente non trouvée",
       "tableNotFound": "Élément de corbeille de table introuvable"
     },
     "license": {

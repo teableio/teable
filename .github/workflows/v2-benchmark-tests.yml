@@ -1,0 +1,72 @@
+name: V2 Benchmarks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'packages/v2/**'
+      - '.github/workflows/v2-benchmark-tests.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    name: V2 Benchmarks
+    env:
+      CI: 1
+      TESTCONTAINERS_REUSE_ENABLE: 'false'
+
+    strategy:
+      matrix:
+        node-version: [22.18.0]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/pnpm-install
+
+      - name: 🧪 Run v2 benchmarks
+        run: |
+          pnpm -C packages/v2/benchmark-node bench
+
+  bench-bun:
+    runs-on: ubuntu-latest
+    name: V2 Benchmarks (Bun)
+    env:
+      CI: 1
+      TESTCONTAINERS_REUSE_ENABLE: 'false'
+
+    strategy:
+      matrix:
+        node-version: [22.18.0]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Use Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 'latest'
+
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/pnpm-install
+
+      - name: 🧪 Run v2 bun benchmarks
+        run: |
+          pnpm -C packages/v2/benchmark-bun bench

@@ -19,6 +19,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
+    "packages/v2/*",
     "plugins",
     "!apps/electron"
   ],
@@ -26,6 +27,10 @@
     "clean:global-cache": "rimraf ./.cache",
     "deps:check": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName .ncurc.yml --workspaces --root --mergeConfig",
     "deps:update": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName .ncurc.yml -u --workspaces --root --mergeConfig",
+    "dev:playground": "pnpm -C apps/playground dev",
+    "dev:v2": "pnpm -r --parallel --stream -F @teable/formula -F './packages/v2/*' dev",
+    "clean:v2": "pnpm -r --parallel --stream -F @teable/formula -F './packages/v2/*' clean",
+    "build:v2": "pnpm -r --parallel --stream -F @teable/formula -F './packages/v2/*' build",
     "build:packages": "pnpm -r -F './packages/**' build",
     "g:build": "pnpm -r run build",
     "g:build-changed": "pnpm -r -F '...[origin/main]' build",

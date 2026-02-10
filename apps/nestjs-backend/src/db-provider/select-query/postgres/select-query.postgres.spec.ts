@@ -69,3 +69,49 @@ describe('SelectQueryPostgres truthinessScore', () => {
     expect(sql).toContain('double precision');
   });
 });
+
+describe('SelectQueryPostgres countAll', () => {
+  it('counts JSON array length for multi-value field references', () => {
+    const query = new SelectQueryPostgres();
+    query.setContext({ tableAlias: 't' } as unknown as never);
+    query.setCallMetadata([
+      {
+        type: 'string',
+        isFieldReference: true,
+        field: {
+          id: 'fldUsers',
+          isMultiple: true,
+          isLookup: false,
+          dbFieldName: '__users',
+          dbFieldType: DbFieldType.Json,
+          cellValueType: 'string',
+        },
+      },
+    ] as unknown as never);
+
+    const sql = query.countAll('(SELECT json_agg(x) FROM x)');
+    expect(sql).toContain('jsonb_array_length');
+    expect(sql).toContain(`"t"."__users"`);
+  });
+
+  it('uses scalar null-check semantics for non-json fields', () => {
+    const query = new SelectQueryPostgres();
+    query.setContext({ tableAlias: 't' } as unknown as never);
+    query.setCallMetadata([
+      {
+        type: 'number',
+        isFieldReference: true,
+        field: {
+          id: 'fldNum',
+          isMultiple: false,
+          isLookup: false,
+          dbFieldName: '__num',
+          dbFieldType: DbFieldType.Real,
+          cellValueType: 'number',
+        },
+      },
+    ] as unknown as never);
+
+    expect(query.countAll('"t"."__num"')).toBe('CASE WHEN "t"."__num" IS NULL THEN 0 ELSE 1 END');
+  });
+});

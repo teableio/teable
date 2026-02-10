@@ -17,6 +17,7 @@ interface UseCellAttachmentUploadParams {
 interface UseCellAttachmentUploadReturn {
   uploadingFiles: IUploadingFile[];
   onUpload: (files: File[]) => void;
+  onCancelUpload: (id: string) => void;
 }
 
 export const useCellAttachmentUpload = (
@@ -24,6 +25,7 @@ export const useCellAttachmentUpload = (
 ): UseCellAttachmentUploadReturn => {
   const { tableId, recordId, fieldId, baseId, enabled } = params;
   const startCellUpload = useCellAttachmentUploadStore((state) => state.startUpload);
+  const cancelCellTask = useCellAttachmentUploadStore((state) => state.cancelTask);
   const cellKey = useMemo(
     () => buildCellKey(tableId, recordId, fieldId),
     [tableId, recordId, fieldId]
@@ -52,5 +54,12 @@ export const useCellAttachmentUpload = (
     [baseId, enabled, fieldId, recordId, startCellUpload, tableId]
   );
 
-  return { uploadingFiles, onUpload };
+  const onCancelUpload = useCallback(
+    (id: string) => {
+      cancelCellTask(cellKey, id);
+    },
+    [cancelCellTask, cellKey]
+  );
+
+  return { uploadingFiles, onUpload, onCancelUpload };
 };

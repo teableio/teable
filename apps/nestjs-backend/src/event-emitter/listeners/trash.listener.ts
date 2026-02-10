@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ResourceType } from '@teable/openapi';
-import type { SpaceDeleteEvent, BaseDeleteEvent, TableDeleteEvent } from '../events';
+import type {
+  SpaceDeleteEvent,
+  BaseDeleteEvent,
+  TableDeleteEvent,
+  AppDeleteEvent,
+  WorkflowDeleteEvent,
+} from '../events';
 import { Events } from '../events';
 
 @Injectable()
@@ -12,19 +18,29 @@ export class TrashListener {
   @OnEvent(Events.SPACE_DELETE, { async: true })
   @OnEvent(Events.BASE_DELETE, { async: true })
   @OnEvent(Events.TABLE_DELETE, { async: true })
-  async spaceDeleteListener(event: SpaceDeleteEvent | BaseDeleteEvent | TableDeleteEvent) {
-    const { name, payload, context } = event;
-    const { user } = context;
+  @OnEvent(Events.APP_DELETE, { async: true })
+  @OnEvent(Events.WORKFLOW_DELETE, { async: true })
+  async onEvent(
+    event:
+      | SpaceDeleteEvent
+      | BaseDeleteEvent
+      | TableDeleteEvent
+      | AppDeleteEvent
+      | WorkflowDeleteEvent
+  ) {
+    const { name, payload } = event;
+    const { user } = event.context;
     let resourceId: string;
     let resourceType: ResourceType;
     let deletedTime: Date | undefined | null;
     let parentId: string | undefined;
 
+    if ('permanent' in payload && payload.permanent) {
+      return;
+    }
+
     switch (name) {
       case Events.SPACE_DELETE: {
-        if (payload.permanent) {
-          return;
-        }
         resourceId = payload.spaceId;
         resourceType = ResourceType.Space;
         const space = await this.prismaService.space.findUnique({
@@ -35,9 +51,6 @@ export class TrashListener {
         break;
       }
       case Events.BASE_DELETE: {
-        if (payload.permanent) {
-          return;
-        }
         resourceId = payload.baseId;
         resourceType = ResourceType.Base;
         const base = await this.prismaService.base.findUnique({
@@ -51,12 +64,34 @@ export class TrashListener {
       case Events.TABLE_DELETE: {
         resourceId = payload.tableId;
         resourceType = ResourceType.Table;
-        const space = await this.prismaService.tableMeta.findUnique({
+        const table = await this.prismaService.tableMeta.findUnique({
           where: { id: resourceId },
           select: { id: true, baseId: true, deletedTime: true },
         });
-        deletedTime = space?.deletedTime;
-        parentId = space?.baseId;
+        deletedTime = table?.deletedTime;
+        parentId = table?.baseId;
+        break;
+      }
+      case Events.APP_DELETE: {
+        resourceId = payload.appId;
+        resourceType = ResourceType.App;
+        const app = await this.prismaService.app.findUnique({
+          where: { id: resourceId },
+          select: { id: true, baseId: true, deletedTime: true },
+        });
+        deletedTime = app?.deletedTime;
+        parentId = app?.baseId;
+        break;
+      }
+      case Events.WORKFLOW_DELETE: {
+        resourceId = payload.workflowId;
+        resourceType = ResourceType.Workflow;
+        const workflow = await this.prismaService.workflow.findUnique({
+          where: { id: resourceId },
+          select: { id: true, baseId: true, deletedTime: true },
+        });
+        deletedTime = workflow?.deletedTime;
+        parentId = workflow?.baseId;
         break;
       }
     }
