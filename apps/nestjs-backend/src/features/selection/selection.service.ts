@@ -164,9 +164,7 @@ export class SelectionService {
         recordIds = recordIds.concat(result.ids);
       }
 
-      return ranges.reduce<string[]>((acc, range) => {
-        return acc.concat(recordIds.slice(range[0], range[1] + 1));
-      }, []);
+      return recordIds;
     }
 
     const [start, end] = ranges;
@@ -902,10 +900,7 @@ export class SelectionService {
         ).records;
       }
 
-      updateRange[1] = [
-        col + updateFields.length - 1 + newFields.length,
-        row + updateFields.length - 1 + (newRecords?.length ?? 0),
-      ];
+      updateRange[1] = [col + updateFields.length - 1, row + tableRowCount - 1];
       return {
         updateRecords: {
           cellContexts,

@@ -659,7 +659,10 @@
     "permanentDeleteTips": "\"{{name}}\" {{resource}} öğesini kalıcı olarak silmek istediğinizden emin misiniz?",
     "resetTrashConfirm": "Çöp kutusunu boşaltmak istediğinizden emin misiniz?",
     "addToTrash": "Çöp kutusuna taşı",
-    "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar."
+    "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar.",
+    "spaceDescription": "Son {{retentionDays}} gün içinde silinen alanları geri yükle",
+    "spaceInnerDescription": "Son {{retentionDays}} gün içinde bu alandan silinen veritabanlarını geri yükle",
+    "baseDescription": "Son {{retentionDays}} gün içinde bu veritabanından silinen kaynakları geri yükle"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Eklenti URL'si Ayarlanmamış",
@@ -977,5 +980,26 @@
   "hideText": "Metni Gizle",
   "showText": "Metni Göster",
   "sourceTable": "Kaynak Tablo",
-  "sourceView": "Kaynak Görünüm"
+  "sourceView": "Kaynak Görünüm",
+  "system": {
+    "notFound": {
+      "title": "Sayfa bulunamadı",
+      "description": "Takip ettiğiniz bağlantı bozuk olabilir veya sayfa taşınmış olabilir."
+    },
+    "links": {
+      "backToHome": "Ana sayfaya dön"
+    },
+    "forbidden": {
+      "title": "Erişim kısıtlı",
+      "description": "Bu kaynağa erişmek için izne ihtiyacınız var.\nLütfen yöneticinizle iletişime geçin."
+    },
+    "paymentRequired": {
+      "title": "Premium özelliğin kilidini aç",
+      "description": "Bu özellik gelişmiş planlarda kullanılabilir.\nYeteneklerinizi genişletmek için yükseltin."
+    },
+    "error": {
+      "title": "Bir şeyler yanlış gitti",
+      "description": "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+    }
+  }
 }

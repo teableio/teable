@@ -1,6 +1,5 @@
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
-import { systemConfig } from '@/features/i18n/system.config';
 import type { IButtonConfig } from './IllustrationPage';
 import { IllustrationPage } from './IllustrationPage';
 
@@ -11,16 +10,16 @@ type NotFoundPageProps = {
 };
 
 export const NotFoundPage: FC<NotFoundPageProps> = ({ title, description, button }) => {
-  const { t } = useTranslation(systemConfig.i18nNamespaces);
+  const { t } = useTranslation('common');
 
   return (
     <IllustrationPage
       imageLightSrc="/images/layout/not-found-light.png"
       imageDarkSrc="/images/layout/not-found-dark.png"
       imageAlt="Not Found"
-      title={title ?? t('system:notFound.title')}
-      description={description ?? t('system:notFound.description')}
-      button={button ?? { label: t('system:links.backToHome'), href: '/' }}
+      title={title ?? t('system.notFound.title')}
+      description={description ?? t('system.notFound.description')}
+      button={button ?? { label: t('system.links.backToHome'), href: '/' }}
     />
   );
 };

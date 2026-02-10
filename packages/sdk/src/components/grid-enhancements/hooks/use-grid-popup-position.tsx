@@ -19,7 +19,10 @@ export const useGridPopupPosition = (rect: IEditorProps['rect'], maxHeight?: num
     const spaceAbove = Math.max(y, gridY);
     const spaceBelow = screenH - gridY - y - height;
     const isAbove = spaceAbove > spaceBelow;
-    const finalHeight = Math.min((isAbove ? y : spaceBelow) - SAFE_SPACING, maxHeight ?? Infinity);
+    const finalHeight = Math.min(
+      (isAbove ? spaceAbove : spaceBelow) - SAFE_SPACING,
+      maxHeight ?? Infinity
+    );
 
     return {
       top: isAbove ? 'unset' : height + 1,

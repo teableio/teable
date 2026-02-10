@@ -1,10 +1,17 @@
-import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig, configDefaults } from 'vitest/config';
 
 const testFiles = ['./src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: {
+    conditions: ['@teable/source'],
+  },
+  ssr: {
+    resolve: {
+      conditions: ['@teable/source'],
+      externalConditions: ['@teable/source'],
+    },
+  },
   cacheDir: '../../.cache/vitest/core',
   test: {
     globals: true,
@@ -14,12 +21,6 @@ export default defineConfig({
     typecheck: {
       enabled: false,
     },
-    /*
-    deps: {
-      experimentalOptimizer: {
-        enabled: true,
-      },
-    }, */
     pool: 'forks',
     coverage: {
       provider: 'v8',

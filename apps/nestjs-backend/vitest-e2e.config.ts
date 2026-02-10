@@ -2,6 +2,10 @@ import swc from 'unplugin-swc';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults, defineConfig } from 'vitest/config';
 
+// Set timezone to UTC for deterministic datetime test results
+// This must be set before any datetime operations
+process.env.TZ = 'UTC';
+
 if (!process.env.CONDITIONAL_QUERY_MAX_LIMIT) {
   process.env.CONDITIONAL_QUERY_MAX_LIMIT = '7';
 }
@@ -14,6 +18,15 @@ const timeout = process.env.CI ? 60000 : 10000;
 const testFiles = ['**/test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
 
 export default defineConfig({
+  resolve: {
+    conditions: ['@teable/source'],
+  },
+  ssr: {
+    resolve: {
+      conditions: ['@teable/source'],
+      externalConditions: ['@teable/source'],
+    },
+  },
   plugins: [
     swc.vite({
       jsc: {

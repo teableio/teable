@@ -162,5 +162,5 @@ export const FloatPlugin = (props: {
       </div>
     </Rnd>,
     document.body
-  );
+  ) as unknown as JSX.Element;
 };

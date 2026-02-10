@@ -42,4 +42,10 @@ export class TrashController {
   ): Promise<void> {
     return await this.trashService.resetTrashItems(query);
   }
+
+  @Delete(':trashId')
+  @TokenAccess()
+  async delete(@Param('trashId') trashId: string): Promise<void> {
+    return await this.trashService.delete(trashId);
+  }
 }

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-contract-http",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext", "dom"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "../",
+    "outDir": "dist",
+    "paths": {
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-di": ["../di/src"]
+    },
+    "types": ["vitest/globals"]
+  },
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage", "../core/src/**/*.spec.ts"],
+  "include": ["src", "../core/src", "../di/src"]
+}

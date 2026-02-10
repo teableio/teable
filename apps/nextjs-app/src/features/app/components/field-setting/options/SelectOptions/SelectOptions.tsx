@@ -119,7 +119,6 @@ export const SelectOptions = (props: {
                     <ChoiceItem
                       choice={choice}
                       readonly={isLookup}
-                      onChange={(key, value) => updateOptionChange(0, key, value)}
                       onKeyDown={onKeyDown}
                       onInputRef={(el) => (inputRefs.current[0] = el)}
                     />
@@ -160,7 +159,6 @@ export const SelectOptions = (props: {
                     >
                       {(draggableProvided) => {
                         const { draggableProps, dragHandleProps } = draggableProvided;
-
                         return (
                           <div
                             ref={draggableProvided.innerRef}
