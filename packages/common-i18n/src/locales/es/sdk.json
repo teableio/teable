@@ -90,15 +90,17 @@
       "searchPlaceholder": "Registros de búsqueda",
       "create": "Agregar registro",
       "selectRecord": "Seleccionar registro",
-      "unselected": "No seleccionado",
+      "all": "Todos",
       "selected": "Seleccionado",
       "expandRecordError": "No hay permiso para ver este registro.",
       "alreadyOpen": "Este registro ya está abierto.",
+      "linkedTo": "Vinculado a",
       "goToForeignTable": "Ir a la mesa extranjera",
       "foreignTableIdRequired": "La tabla externa es obligatoria",
       "linkFieldIdRequired": "El campo de enlace es obligatorio",
       "selectTooManyRecords": "Los registros seleccionados no deben exceder {{maxCount}}",
-      "relationshipRequired": "La relación es obligatoria"
+      "relationshipRequired": "La relación es obligatoria",
+      "rangeSelectFailed": "Error al seleccionar registros en el rango"
     },
     "user": {
       "searchPlaceholder": "Encuentra usuarios por nombre",
@@ -490,8 +492,8 @@
       "example": "Impar (0.1) => 1\n"
     },
     "INT": {
-      "summary": "Devuelve Number1 si el argumento lógico es verdadero, de lo contrario devuelve el número2. ",
-      "example": "Int (1.9) => 1\n"
+      "summary": "Redondea un número hacia abajo al entero más cercano.",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
       "summary": "Devuelve el valor absoluto.",
@@ -851,7 +853,8 @@
     },
     "toolbar": {
       "link": "Enlace",
-      "image": "Imagen"
+      "image": "Imagen",
+      "mention": "Mención"
     },
     "floatToolbar": {
       "editLink": "Enlace de edición",
@@ -1276,6 +1279,8 @@
       "notFound": "Elemento de la papelera no encontrado",
       "parentSpaceTrashed": "No se puede restaurar esta base porque su espacio principal también está en la papelera",
       "parentBaseOrSpaceTrashed": "No se puede restaurar esta tabla porque su base o espacio principal también está en la papelera",
+      "parentBaseTrashed": "No se puede restaurar este elemento porque su base principal también está en la papelera",
+      "parentNotFound": "Recurso principal no encontrado",
       "tableNotFound": "Elemento de papelera de tabla no encontrado"
     },
     "license": {

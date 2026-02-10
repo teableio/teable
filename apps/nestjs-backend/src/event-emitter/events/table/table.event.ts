@@ -11,7 +11,7 @@ export type IChangeTable = Record<keyof Omit<ITableOp, 'id' | 'lastModifiedTime'
 };
 
 type ITableCreatePayload = { baseId: string; table: ITableOp };
-type ITableDeletePayload = { baseId: string; tableId: string };
+type ITableDeletePayload = { baseId: string; tableId: string; permanent?: boolean };
 type ITableUpdatePayload = {
   baseId: string;
   table: IChangeTable;
@@ -21,8 +21,8 @@ export class TableCreateEvent extends OpEvent<ITableCreatePayload> {
   public readonly name = Events.TABLE_CREATE;
   public readonly rawOpType = RawOpType.Create;
 
-  constructor(baseId: string, table: ITableOp, context: IEventContext) {
-    super({ baseId, table }, context);
+  constructor(payload: ITableCreatePayload, context: IEventContext) {
+    super(payload, context);
   }
 }
 
@@ -30,8 +30,8 @@ export class TableDeleteEvent extends OpEvent<ITableDeletePayload> {
   public readonly name = Events.TABLE_DELETE;
   public readonly rawOpType = RawOpType.Del;
 
-  constructor(baseId: string, tableId: string, context: IEventContext) {
-    super({ baseId, tableId }, context);
+  constructor(payload: ITableDeletePayload, context: IEventContext) {
+    super(payload, context);
   }
 }
 
@@ -39,8 +39,8 @@ export class TableUpdateEvent extends OpEvent<ITableUpdatePayload> {
   public readonly name = Events.TABLE_UPDATE;
   public readonly rawOpType = RawOpType.Edit;
 
-  constructor(baseId: string, table: IChangeTable, context: IEventContext) {
-    super({ baseId, table }, context);
+  constructor(payload: ITableUpdatePayload, context: IEventContext) {
+    super(payload, context);
   }
 }
 
@@ -52,16 +52,13 @@ export class TableEventFactory {
   ) {
     return match(name)
       .with(Events.TABLE_CREATE, () => {
-        const { baseId, table } = payload as ITableCreatePayload;
-        return new TableCreateEvent(baseId, table, context);
+        return new TableCreateEvent(payload as ITableCreatePayload, context);
       })
       .with(Events.TABLE_DELETE, () => {
-        const { baseId, tableId } = payload as ITableDeletePayload;
-        return new TableDeleteEvent(baseId, tableId, context);
+        return new TableDeleteEvent(payload as ITableDeletePayload, context);
       })
       .with(Events.TABLE_UPDATE, () => {
-        const { baseId, table } = payload as ITableUpdatePayload;
-        return new TableUpdateEvent(baseId, table, context);
+        return new TableUpdateEvent(payload as ITableUpdatePayload, context);
       })
       .otherwise(() => null);
   }

@@ -1,5 +1,11 @@
-import { axios, SIGN_UP, createAxios, USER_ME, SIGN_IN } from '@teable/openapi';
-import { signupPasswordSchema } from '@teable/openapi/src/auth/types';
+import {
+  axios,
+  SIGN_UP,
+  createAxios,
+  USER_ME,
+  SIGN_IN,
+  signupPasswordSchema,
+} from '@teable/openapi';
 import type { AxiosHeaderValue } from 'axios';
 
 export async function createNewUserAxios({ email, password }: { email: string; password: string }) {

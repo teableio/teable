@@ -22,8 +22,7 @@ export const UploadProgressBubble = ({
   const { t } = useTranslation('table');
   const globalProgress = useCellAttachmentUploadStore((state) => state.getGlobalProgress());
 
-  const { total, completed, uploading, failed } = globalProgress;
-  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const { total, uploading, failed, progress } = globalProgress;
   const hasActiveUploads = uploading > 0;
   const hasErrors = failed > 0 && !hasActiveUploads;
   const hasTasks = total > 0;

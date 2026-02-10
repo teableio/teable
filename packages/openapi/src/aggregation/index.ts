@@ -6,3 +6,4 @@ export * from './type';
 export * from './get-search-count';
 export * from './get-search-by-index';
 export * from './get-task-status-collection';
+export * from './get-record-index';

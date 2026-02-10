@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import { DbFieldType } from '@teable/core';
 import { describe, expect, it } from 'vitest';
 
 import { SelectQuerySqlite } from './select-query.sqlite';
@@ -177,5 +178,73 @@ describe('SelectQuerySqlite unit-aware date helpers', () => {
         '((COALESCE(CAST((column_a) AS REAL), 0) + COALESCE(CAST((10) AS REAL), 0))) / 2'
       );
     });
+  });
+});
+
+describe('SelectQuerySqlite countAll', () => {
+  it('counts JSON array length for multi-value field references', () => {
+    const query = new SelectQuerySqlite();
+    query.setContext({ tableAlias: 't' } as unknown as never);
+    query.setCallMetadata([
+      {
+        type: 'string',
+        isFieldReference: true,
+        field: {
+          id: 'fldUsers',
+          isMultiple: true,
+          isLookup: false,
+          dbFieldName: '__users',
+          dbFieldType: DbFieldType.Json,
+          cellValueType: 'string',
+        },
+      },
+    ] as unknown as never);
+
+    const sql = query.countAll('(SELECT json_group_array(x) FROM x)');
+    expect(sql).toContain('json_array_length');
+    expect(sql).toContain('"t"."__users"');
+  });
+
+  it('uses scalar null-check semantics for non-json fields', () => {
+    const query = new SelectQuerySqlite();
+    query.setContext({ tableAlias: 't' } as unknown as never);
+    query.setCallMetadata([
+      {
+        type: 'number',
+        isFieldReference: true,
+        field: {
+          id: 'fldNum',
+          isMultiple: false,
+          isLookup: false,
+          dbFieldName: '__num',
+          dbFieldType: DbFieldType.Real,
+          cellValueType: 'number',
+        },
+      },
+    ] as unknown as never);
+
+    expect(query.countAll('"t"."__num"')).toBe('CASE WHEN "t"."__num" IS NULL THEN 0 ELSE 1 END');
+  });
+});
+
+describe('SelectQuerySqlite FROMNOW/TONOW', () => {
+  it('applies unit conversion for FROMNOW', () => {
+    const query = new SelectQuerySqlite();
+
+    const daySql = query.fromNow('date_col', "'day'");
+    const hourSql = query.fromNow('date_col', "'hour'");
+    const secondSql = query.fromNow('date_col', "'second'");
+
+    expect(daySql).toBe("(JULIANDAY('now') - JULIANDAY(DATETIME(date_col)))");
+    expect(hourSql).toBe("((JULIANDAY('now') - JULIANDAY(DATETIME(date_col)))) * 24.0");
+    expect(secondSql).toBe("((JULIANDAY('now') - JULIANDAY(DATETIME(date_col)))) * 24.0 * 60 * 60");
+  });
+
+  it('keeps TONOW aligned with FROMNOW direction', () => {
+    const query = new SelectQuerySqlite();
+
+    const fromNowSql = query.fromNow('date_col', "'day'");
+    const toNowSql = query.toNow('date_col', "'day'");
+    expect(toNowSql).toBe(fromNowSql);
   });
 });

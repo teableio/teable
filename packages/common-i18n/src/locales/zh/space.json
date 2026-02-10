@@ -71,10 +71,6 @@
     "description": "所有邀请我加入的数据库",
     "empty": "暂无分享给我的数据库"
   },
-  "trash": {
-    "spaceDescription": "所有已删除的空间",
-    "baseDescription": "该空间下所有已删除的数据库"
-  },
   "integration": {
     "title": "集成",
     "description": "管理空间集成",
