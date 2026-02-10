@@ -31,12 +31,13 @@ const LocalUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentL
     const { attachments, onChange, attachmentManager = defaultAttachmentManager } = props;
     const baseId = useBaseId();
 
-    const { uploadingFiles, onUpload, setUploadingFiles } = useLocalAttachmentUpload({
-      attachments,
-      onChange,
-      attachmentManager,
-      baseId,
-    });
+    const { uploadingFiles, onUpload, onCancelUpload, setUploadingFiles } =
+      useLocalAttachmentUpload({
+        attachments,
+        onChange,
+        attachmentManager,
+        baseId,
+      });
 
     const viewRef = useRef<UploadAttachmentViewRef>(null);
 
@@ -54,6 +55,7 @@ const LocalUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentL
         {...props}
         uploadingFiles={uploadingFiles}
         onUpload={onUpload}
+        onCancelUpload={onCancelUpload}
       />
     );
   }
@@ -97,6 +99,7 @@ const CellUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentCe
         {...props}
         uploadingFiles={uploadingFiles}
         onUpload={cellUpload.onUpload}
+        onCancelUpload={cellUpload.onCancelUpload}
       />
     );
   }

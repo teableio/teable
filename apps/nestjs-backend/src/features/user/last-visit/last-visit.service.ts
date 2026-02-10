@@ -556,7 +556,7 @@ export class LastVisitService {
     userId,
     resourceType,
     resourceId,
-    maxRecords = 10,
+    maxRecords = 0,
     parentResourceId,
     maxKeys,
   }: {
@@ -587,29 +587,31 @@ export class LastVisitService {
         },
       });
 
-      const oldRecords = await prisma.userLastVisit.findMany({
-        where: {
-          userId,
-          resourceType,
-          ...(maxKeys?.includes('parentResourceId') ? { parentResourceId } : {}),
-        },
-        orderBy: {
-          lastVisitTime: 'desc',
-        },
-        skip: maxRecords,
-        select: {
-          id: true,
-        },
-      });
-
-      if (oldRecords.length > 0) {
-        await prisma.userLastVisit.deleteMany({
+      if (maxRecords > 0) {
+        const oldRecords = await prisma.userLastVisit.findMany({
           where: {
-            id: {
-              in: oldRecords.map((record) => record.id),
-            },
+            userId,
+            resourceType,
+            ...(maxKeys?.includes('parentResourceId') ? { parentResourceId } : {}),
+          },
+          orderBy: {
+            lastVisitTime: 'desc',
+          },
+          skip: maxRecords,
+          select: {
+            id: true,
           },
         });
+
+        if (oldRecords.length > 0) {
+          await prisma.userLastVisit.deleteMany({
+            where: {
+              id: {
+                in: oldRecords.map((record) => record.id),
+              },
+            },
+          });
+        }
       }
     });
   }

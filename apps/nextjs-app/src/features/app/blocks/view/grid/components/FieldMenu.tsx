@@ -93,7 +93,8 @@ export const FieldMenu = () => {
   const fieldSettingRef = useRef<HTMLDivElement>(null);
   const { fields, aiEnable, onSelectionClear, onAutoFill } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
-  const { personalViewCommonQuery } = usePersonalView();
+  const { personalViewCommonQuery, isPersonalView } = usePersonalView();
+  const isViewLocked = Boolean(view?.isLocked && !isPersonalView);
   const emptyFieldMenu = !view || !fields?.length || !allFields.length;
   const [deleteFieldDialog, setDeleteFieldDialog] = useState<{
     open: boolean;
@@ -270,6 +271,7 @@ export const FieldMenu = () => {
         name: t('table:menu.filterField'),
         icon: <Filter className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !isViewConfigurable,
+        disabled: isViewLocked,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -304,6 +306,7 @@ export const FieldMenu = () => {
         name: t('table:menu.sortField'),
         icon: <ArrowUpDown className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !isViewConfigurable,
+        disabled: isViewLocked,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -341,6 +344,7 @@ export const FieldMenu = () => {
         name: t('table:menu.groupField'),
         icon: <LayoutList className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !isViewConfigurable,
+        disabled: isViewLocked,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -375,6 +379,7 @@ export const FieldMenu = () => {
         name: t('table:menu.freezeUpField'),
         icon: <FreezeColumn className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !isViewConfigurable,
+        disabled: isViewLocked,
         onClick: async () => await freezeField(),
       },
     ],
@@ -384,7 +389,7 @@ export const FieldMenu = () => {
         name: t('table:menu.hideField'),
         icon: <EyeOff className={iconClassName} />,
         hidden: !isViewConfigurable,
-        disabled: fields.some((f) => f.isPrimary),
+        disabled: fields.some((f) => f.isPrimary) || isViewLocked,
         onClick: async () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);

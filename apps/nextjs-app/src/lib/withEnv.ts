@@ -2,6 +2,7 @@
 import type { ParsedUrlQuery } from 'querystring';
 import { parseDsn } from '@teable/core';
 import { isUndefined, omitBy, toNumber } from 'lodash';
+import ms from 'ms';
 import type {
   GetServerSidePropsContext,
   GetServerSidePropsResult,
@@ -30,6 +31,10 @@ export default function withEnv<P extends { [key: string]: any }>(
       publicBucket: process.env.BACKEND_STORAGE_PUBLIC_BUCKET ?? 'public',
       publicUrl: process.env.BACKEND_STORAGE_PUBLIC_URL,
     };
+    const trashRetention = process.env.TRASH_RETENTION ?? '30d';
+    const trash = {
+      retentionDays: ms(trashRetention) / ms('1d'),
+    };
     const env = omitBy(
       {
         driver,
@@ -52,6 +57,7 @@ export default function withEnv<P extends { [key: string]: any }>(
         publicOrigin: process.env.PUBLIC_ORIGIN,
         enableCanaryFeature: process.env.ENABLE_CANARY_FEATURE === 'true' ? true : undefined,
         task,
+        trash,
       },
       isUndefined
     );

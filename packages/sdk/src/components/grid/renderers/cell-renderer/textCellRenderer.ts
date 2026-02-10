@@ -16,11 +16,13 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
   measure: (cell: ITextCell, props: ICellMeasureProps) => {
     const { displayData } = cell;
     const { ctx, theme, width, height } = props;
-    const { cellTextColor } = theme;
+    const { cellTextColor, fontSizeSM, fontFamily } = theme;
 
     if (!displayData) {
       return { width, height, totalHeight: height };
     }
+
+    ctx.font = `${fontSizeSM}px ${fontFamily}`;
 
     const lineCount = drawMultiLineText(ctx, {
       text: displayData,

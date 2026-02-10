@@ -8,8 +8,6 @@ interface IBlockParagraphElementProps extends IBaseNodeProps {
 export const BlockParagraphElement = (props: IBlockParagraphElementProps) => {
   const { children, className } = props;
   return (
-    <div className={cn('text-wrap w-auto flex', className)}>
-      <span className="gap-1 text-wrap text-left">{children}</span>
-    </div>
+    <div className={cn('max-w-full whitespace-pre-wrap break-all', className)}>{children}</div>
   );
 };

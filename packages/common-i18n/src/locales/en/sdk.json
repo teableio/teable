@@ -106,15 +106,17 @@
       "searchPlaceholder": "Search records",
       "create": "Add record",
       "selectRecord": "Select record",
-      "unselected": "Unselected",
+      "all": "All",
       "selected": "Selected",
       "expandRecordError": "No permission to view this record.",
       "alreadyOpen": "This record is already open.",
+      "linkedTo": "Linked to",
       "goToForeignTable": "Go to foreign table",
       "foreignTableIdRequired": "Foreign table is required",
       "linkFieldIdRequired": "Link field is required",
       "selectTooManyRecords": "The selected records should not exceed {{maxCount}}",
-      "relationshipRequired": "Relationship is required"
+      "relationshipRequired": "Relationship is required",
+      "rangeSelectFailed": "Failed to select records in range"
     },
     "user": {
       "searchPlaceholder": "Find users by name",
@@ -495,7 +497,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Returns number1 if the logical argument is true, otherwise it returns number2. Can also be used to make nested IF statements.\nCan also be used to check if a cell is blank/is empty.",
+      "summary": "Returns the integer part of a number, rounding down toward negative infinity.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -648,7 +650,7 @@
     },
     "WEEKDAY": {
       "summary": "Returns the day of the week as an integer between 0 and 6, inclusive. You may optionally provide a second argument (either \"Sunday\" or \"Monday\") to start weeks on that day. If omitted, weeks start on Sunday by default. Example:\nWEEKDAY(TODAY(), \"Monday\")",
-      "example": "WEEKNUM(\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "Returns the day of the month of a datetime in the form of a number between 1-31.",
@@ -711,7 +713,7 @@
       "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
-      "summary": "Formats a datetime into a specified string. For an explanation of how to use this function with date fields, click here. For a list of supported format specifiers, please click here.",
+      "summary": "Formats a datetime into a specified string. Supported specifiers: YY, YYYY, M, MM, MMM, MMMM, D, DD, d, dd, ddd, dddd, H, HH, h, hh, m, mm, s, ss, SSS, Z, ZZ, A, a, LT, LTS, L, LL, LLL, LLLL, l, ll, lll, llll.",
       "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
     },
     "DATETIME_PARSE": {
@@ -868,7 +870,8 @@
     },
     "toolbar": {
       "link": "Link",
-      "image": "Image"
+      "image": "Image",
+      "mention": "Mention"
     },
     "floatToolbar": {
       "editLink": "Edit link",
@@ -1301,6 +1304,8 @@
       "notFound": "Trash item not found",
       "parentSpaceTrashed": "Unable to restore this base because its parent space is also in trash",
       "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
+      "parentBaseTrashed": "Unable to restore this item because its parent base is also in trash",
+      "parentNotFound": "Parent resource not found",
       "tableNotFound": "Table trash item not found"
     },
     "license": {

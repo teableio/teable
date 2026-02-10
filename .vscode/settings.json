@@ -56,7 +56,15 @@
     },
     {
       "pattern": "./packages/*/"
+    },
+    {
+      "pattern": "./packages/v2/*/"
     }
   ],
-  "vitest.maximumConfigs": 10
+  "vitest.maximumConfigs": 50,
+  "vitest.nodeEnv": {
+    "DOCKER_HOST": "unix:///Users/nichenqin/.colima/default/docker.sock",
+    "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE": "/var/run/docker.sock",
+    "TESTCONTAINERS_HOST_OVERRIDE": "127.0.0.1"
+  }
 }

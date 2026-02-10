@@ -1,10 +1,20 @@
 import type { Action, IFieldVo } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
+import type { V2Feature } from '@teable/openapi';
 import type { ClsStore } from 'nestjs-cls';
 import type { IWorkflowContext } from '../features/auth/strategies/types';
 import type { IPerformanceCacheStore } from '../performance-cache';
 import type { IRawOpMap } from '../share-db/interface';
 import type { IDataLoaderCache } from './data-loader';
+
+export type V2Reason =
+  | 'env_force_v2_all'
+  | 'config_force_v2_all'
+  | 'header_override'
+  | 'space_feature'
+  | 'disabled'
+  | 'feature_not_enabled'
+  | 'no_feature';
 
 export interface IClsStore extends ClsStore {
   user: {
@@ -58,4 +68,8 @@ export interface IClsStore extends ClsStore {
   dataLoaderCache?: IDataLoaderCache;
   clearCacheKeys?: (keyof IPerformanceCacheStore)[];
   canaryHeader?: string; // x-canary header value for canary release override
+  useV2?: boolean; // Flag to indicate if V2 implementation should be used (set by V2FeatureGuard)
+  v2Reason?: V2Reason; // Reason why V2 was enabled or disabled
+  v2Feature?: V2Feature; // The feature name that triggered V2 check
+  windowId?: string; // Window ID from x-window-id header for undo/redo tracking
 }

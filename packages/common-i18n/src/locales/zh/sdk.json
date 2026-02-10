@@ -122,15 +122,17 @@
       "searchPlaceholder": "搜索记录",
       "create": "添加记录",
       "selectRecord": "选择记录",
-      "unselected": "未选择",
+      "all": "全部",
       "selected": "已选择",
       "expandRecordError": "无权查看此记录",
       "alreadyOpen": "此记录已被打开",
+      "linkedTo": "跳转至",
       "goToForeignTable": "跳转至关联表",
       "foreignTableIdRequired": "关联表不能为空",
       "linkFieldIdRequired": "关联字段不能为空",
       "selectTooManyRecords": "选择的记录不应超过 {{maxCount}}",
-      "relationshipRequired": "关系不能为空"
+      "relationshipRequired": "关系不能为空",
+      "rangeSelectFailed": "范围选择记录失败"
     },
     "user": {
       "searchPlaceholder": "通过姓名查找用户",
@@ -171,7 +173,7 @@
   "filter": {
     "label": "筛选",
     "displayLabel": "筛选字段 ",
-    "displayLabel_other": "筛选({{count}})",
+    "displayLabel_other": "筛选({{totalCount}})",
     "addCondition": "添加条件",
     "addConditionGroup": "添加条件组",
     "nestedLimitTip": "条件组最多支持{{depth}}层嵌套",
@@ -495,7 +497,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "如果逻辑参数为真，则返回 number1，否则返回 number2。也可用于制作嵌套的 IF 语句。\n还可用于检查单元格是否为空/是否为空。",
+      "summary": "将数字向下舍入到最接近的整数。",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -648,7 +650,7 @@
     },
     "WEEKDAY": {
       "summary": "返回星期几，作为 0 到 6 之间的整数（包括 0 和 6）。你可以选择提供第二个参数（\"Sunday\" 或 \"Monday\"）来指定一周的开始日。如果省略，默认以周日开始。例如：\nWEEKDAY(TODAY(), \"Monday\")",
-      "example": "WEEKNUM(\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "返回日期时间的月份中的日期，形式为 1-31 之间的数字。",
@@ -711,7 +713,7 @@
       "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
-      "summary": "将日期时间格式化为指定的字符串。有关如何在日期字段中使用此函数的说明，请点击此处。有关支持的格式说明符列表，请点击此处。",
+      "summary": "将日期时间格式化为指定字符串。支持的说明符：YY、YYYY、M、MM、MMM、MMMM、D、DD、d、dd、ddd、dddd、H、HH、h、hh、m、mm、s、ss、SSS、Z、ZZ、A、a、LT、LTS、L、LL、LLL、LLLL、l、ll、lll、llll。",
       "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
     },
     "DATETIME_PARSE": {
@@ -868,7 +870,8 @@
     },
     "toolbar": {
       "link": "链接",
-      "image": "图片"
+      "image": "图片",
+      "mention": "提及"
     },
     "floatToolbar": {
       "editLink": "编辑",
@@ -1301,6 +1304,8 @@
       "notFound": "回收站项目未找到",
       "parentSpaceTrashed": "无法恢复此数据库，因为其父空间也在回收站中",
       "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父数据库或空间也在回收站中",
+      "parentBaseTrashed": "无法恢复此项目，因为其父数据库也在回收站中",
+      "parentNotFound": "父级资源未找到",
       "tableNotFound": "表格回收站项目未找到"
     },
     "license": {
