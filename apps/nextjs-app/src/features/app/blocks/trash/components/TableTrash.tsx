@@ -7,7 +7,7 @@ import type {
   IViewSnapshotItemVo,
   IFieldSnapshotItemVo,
 } from '@teable/openapi';
-import { getTrashItems, ResourceType, restoreTrash } from '@teable/openapi';
+import { getTrashItems, TrashType, restoreTrash, TableTrashType } from '@teable/openapi';
 import { CollaboratorWithHoverCard, InfiniteTable } from '@teable/sdk/components';
 import { VIEW_ICON_MAP } from '@teable/sdk/components/view/constant';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -42,7 +42,7 @@ export const TableTrash = (props: ITableTrashProps) => {
     pageParam,
   }: QueryFunctionContext<readonly ['trash-items', string], string | undefined>) => {
     const res = await getTrashItems({
-      resourceType: ResourceType.Table,
+      resourceType: TrashType.Table,
       resourceId: queryKey[1] as string,
       cursor: pageParam,
     });
@@ -118,9 +118,9 @@ export const TableTrash = (props: ITableTrashProps) => {
         cell: ({ row }) => {
           const resourceType = row.getValue<string>('resourceType');
           const resourceStringMap: Record<string, string> = {
-            [ResourceType.View]: t('noun.view'),
-            [ResourceType.Field]: t('noun.field'),
-            [ResourceType.Record]: t('noun.record'),
+            [TableTrashType.View]: t('noun.view'),
+            [TableTrashType.Field]: t('noun.field'),
+            [TableTrashType.Record]: t('noun.record'),
           };
 
           return <div className="flex items-center gap-x-1">{resourceStringMap[resourceType]}</div>;
@@ -132,7 +132,7 @@ export const TableTrash = (props: ITableTrashProps) => {
         size: Number.MAX_SAFE_INTEGER,
         minSize: 200,
         cell: ({ row }) => {
-          const resourceType = row.getValue<ResourceType>('resourceType');
+          const resourceType = row.getValue<TableTrashType>('resourceType');
           const resourceIds = row.getValue<ITableTrashItemVo['resourceIds']>('resourceIds');
           const resourceList = resourceIds
             .map((resourceId) => {
@@ -146,7 +146,7 @@ export const TableTrash = (props: ITableTrashProps) => {
                   {resourceList.map((resource) => {
                     const { id, name } = resource;
                     const Icon =
-                      resourceType === ResourceType.Field
+                      resourceType === TableTrashType.Field
                         ? getFieldStatic((resource as IFieldSnapshotItemVo).type, {
                             isLookup: Boolean((resource as IFieldSnapshotItemVo).isLookup),
                             isConditionalLookup: Boolean(
@@ -154,7 +154,7 @@ export const TableTrash = (props: ITableTrashProps) => {
                             ),
                             hasAiConfig: false,
                           }).Icon
-                        : resourceType === ResourceType.View
+                        : resourceType === TableTrashType.View
                           ? VIEW_ICON_MAP[(resource as IViewSnapshotItemVo).type]
                           : null;
                     return (

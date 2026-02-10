@@ -509,8 +509,8 @@ export class BaseService {
   }
 
   async permanentDeleteBase(baseId: string, ignorePermissionCheck: boolean = false) {
-    const accessTokenId = this.cls.get('accessTokenId');
     if (!ignorePermissionCheck) {
+      const accessTokenId = this.cls.get('accessTokenId');
       await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
     }
 

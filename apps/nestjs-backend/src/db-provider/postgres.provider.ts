@@ -720,15 +720,21 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       )
       .where((builder) => {
         builder
-          .where(`${dbTableName}.${startField.dbFieldName}`, '<', endDate)
-          .andWhere(
-            this.knex.raw(`COALESCE(??.??::timestamptz, ??.??)::timestamptz >= ?::timestamptz`, [
+          .whereRaw(
+            `(??.??::timestamptz AT TIME ZONE ?)::date <= (?::timestamptz AT TIME ZONE ?)::date`,
+            [dbTableName, startField.dbFieldName, timezone, endDate, timezone]
+          )
+          .andWhereRaw(
+            `(COALESCE(??.??::timestamptz, ??.??)::timestamptz AT TIME ZONE ?)::date >= (?::timestamptz AT TIME ZONE ?)::date`,
+            [
               dbTableName,
               endField.dbFieldName,
               dbTableName,
               startField.dbFieldName,
+              timezone,
               startDate,
-            ])
+              timezone,
+            ]
           )
           .andWhere((subBuilder) => {
             subBuilder

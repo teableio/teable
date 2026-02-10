@@ -1121,16 +1121,42 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `EXTRACT(DAY FROM ${this.castToTimestamp(date, 0)})`;
   }
 
-  fromNow(date: string): string {
+  private buildNowDiffByUnit(nowExpr: string, dateExpr: string, unit: string): string {
+    const diffUnit = this.normalizeDiffUnit(unit.replace(/^'|'$/g, ''));
+    const diffSeconds = `EXTRACT(EPOCH FROM ${nowExpr} - ${dateExpr})`;
+    const diffMonths = `EXTRACT(MONTH FROM AGE(${nowExpr}, ${dateExpr})) + EXTRACT(YEAR FROM AGE(${nowExpr}, ${dateExpr})) * 12`;
+    const diffYears = `EXTRACT(YEAR FROM AGE(${nowExpr}, ${dateExpr}))`;
+    switch (diffUnit) {
+      case 'millisecond':
+        return `(${diffSeconds}) * 1000`;
+      case 'second':
+        return `(${diffSeconds})`;
+      case 'minute':
+        return `(${diffSeconds}) / 60`;
+      case 'hour':
+        return `(${diffSeconds}) / 3600`;
+      case 'week':
+        return `(${diffSeconds}) / (86400 * 7)`;
+      case 'month':
+        return diffMonths;
+      case 'quarter':
+        return `(${diffMonths}) / 3.0`;
+      case 'year':
+        return diffYears;
+      case 'day':
+      default:
+        return `(${diffSeconds}) / 86400`;
+    }
+  }
+
+  fromNow(date: string, unit = 'day'): string {
     // For generated columns, use the current timestamp at field creation time
+    const dateExpr = this.castToTimestamp(date, 0);
     if (this.isGeneratedColumnContext) {
       const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `EXTRACT(EPOCH FROM '${currentTimestamp}'::timestamp - ${this.castToTimestamp(
-        date,
-        0
-      )})`;
+      return this.buildNowDiffByUnit(`'${currentTimestamp}'::timestamp`, dateExpr, unit);
     }
-    return `EXTRACT(EPOCH FROM NOW() - ${this.castToTimestamp(date, 0)})`;
+    return this.buildNowDiffByUnit('NOW()', dateExpr, unit);
   }
 
   hour(date: string): string {
@@ -1183,13 +1209,8 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `(${this.castToTimestamp(date, 0)})::time::text`;
   }
 
-  toNow(date: string): string {
-    // For generated columns, use the current timestamp at field creation time
-    if (this.isGeneratedColumnContext) {
-      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `EXTRACT(EPOCH FROM ${this.castToTimestamp(date, 0)} - '${currentTimestamp}'::timestamp)`;
-    }
-    return `EXTRACT(EPOCH FROM ${this.castToTimestamp(date, 0)} - NOW())`;
+  toNow(date: string, unit = 'day'): string {
+    return this.fromNow(date, unit);
   }
 
   weekNum(date: string): string {
@@ -1360,8 +1381,16 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   countAll(value: string): string {
-    // For arrays, this would count array elements
-    // For single values, return 1 if not null, 0 if null
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      const normalized = `COALESCE(NULLIF((${value})::jsonb, 'null'::jsonb), '[]'::jsonb)`;
+      return `(CASE
+        WHEN jsonb_typeof(${normalized}) = 'array' THEN jsonb_array_length(${normalized})
+        ELSE 1
+      END)`;
+    }
+
+    // For single values, return 1 if not null, 0 if null.
     return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 

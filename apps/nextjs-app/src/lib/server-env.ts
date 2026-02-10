@@ -41,6 +41,9 @@ export interface IServerEnv {
   task?: {
     maxTaskRows?: number;
   };
+  trash?: {
+    retentionDays?: number;
+  };
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});

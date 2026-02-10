@@ -40,13 +40,15 @@ export const CoverFieldSelect = (props: ICoverFieldSelect) => {
         <span className="text-sm">{t('table:kanban.toolbar.imageSetting')}</span>
         {fieldId && (
           <div className="flex items-center gap-2">
-            <Label htmlFor="attachment-field-select" className="text-xs font-normal text-slate-400">
+            <Label
+              htmlFor="attachment-field-select"
+              className="text-xs font-normal text-muted-foreground"
+            >
               {t('table:kanban.toolbar.fit')}
             </Label>
             <Switch
               id="attachment-field-select"
-              className="h-4 w-7"
-              classNameThumb="size-3 data-[state=checked]:translate-x-3"
+              size={'sm'}
               checked={isCoverFit}
               onCheckedChange={(checked) => onCheckedChange?.(checked)}
             />

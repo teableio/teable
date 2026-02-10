@@ -991,7 +991,10 @@
     "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Are you sure you want to empty the trash?",
     "addToTrash": "Move to Trash",
-    "description": "Data in the trash still occupies record usage and attachment usage."
+    "description": "Data in the trash still occupies record usage and attachment usage.",
+    "spaceDescription": "Restore spaces deleted within the past {{retentionDays}} days",
+    "spaceInnerDescription": "Restore bases deleted from this space within the past {{retentionDays}} days",
+    "baseDescription": "Restore resources deleted from this base within the past {{retentionDays}} days"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin Not Setting url",
@@ -1304,5 +1307,26 @@
   "chat": {
     "serverError": "Server error occurred",
     "serverErrorHint": "Please start a new conversation and try again."
+  },
+  "system": {
+    "notFound": {
+      "title": "Page not found",
+      "description": "The link you followed may be broken, or the page has been moved."
+    },
+    "links": {
+      "backToHome": "Back to home"
+    },
+    "forbidden": {
+      "title": "Access restricted",
+      "description": "You need permission to access this resource.\nPlease contact your admin."
+    },
+    "paymentRequired": {
+      "title": "Unlock premium feature",
+      "description": "This feature is available on advanced plans.\nUpgrade to expand your capabilities."
+    },
+    "error": {
+      "title": "Something went wrong",
+      "description": "An unexpected issue occurred. Please try again later."
+    }
   }
 }

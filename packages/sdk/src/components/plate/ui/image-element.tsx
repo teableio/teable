@@ -15,7 +15,7 @@ import * as React from 'react';
 
 import { mediaResizeHandleVariants, Resizable, ResizeHandle } from './resize-handle';
 
-export const ImageElement = withHOC(
+const ImageElement = withHOC(
   ResizableProvider,
   function ImageElement(props: PlateElementProps<TImageElement>) {
     const { align = 'center', focused, readOnly, selected } = useMediaState();
@@ -63,4 +63,6 @@ export const ImageElement = withHOC(
       </PlateElement>
     );
   }
-);
+) as React.FC<PlateElementProps<TImageElement>>;
+
+export { ImageElement };

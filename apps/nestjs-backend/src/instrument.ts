@@ -6,6 +6,7 @@ if (process.env.BACKEND_SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.BACKEND_SENTRY_DSN,
     tracesSampleRate: traceRate,
+    skipOpenTelemetrySetup: true,
     enableLogs: true,
     _experiments: {
       enableMetrics: true,
@@ -16,6 +17,7 @@ if (process.env.BACKEND_SENTRY_DSN) {
     // Only keep error-related integrations, tracing is handled by OTEL
     integrations: [
       Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] }),
+      Sentry.pinoIntegration(),
       Sentry.childProcessIntegration(),
       Sentry.onUnhandledRejectionIntegration(),
       Sentry.onUncaughtExceptionIntegration(),

@@ -20,12 +20,12 @@ import { ImageElement } from '../../plate/ui/image-element';
 import { ImagePreview } from '../../plate/ui/image-preview';
 import { LinkElement } from '../../plate/ui/link-element';
 import { LinkFloatingToolbar } from '../../plate/ui/link-floating-toolbar';
-import { LinkToolbarButton } from '../../plate/ui/link-toolbar-button';
 import { MediaPlaceholderElement } from '../../plate/ui/media-placeholder-element';
 import { MediaToolbarButton } from '../../plate/ui/media-toolbar-button';
 import { MediaUploadToast } from '../../plate/ui/media-upload-toast';
 import { MentionElement } from '../../plate/ui/mention-element';
 import { MentionInputElement } from '../../plate/ui/mention-input-element';
+import { MentionToolbarButton } from '../../plate/ui/mention-toolbar-button';
 import { ParagraphElement } from '../../plate/ui/paragraph-element';
 import { Toolbar } from '../../plate/ui/toolbar';
 import { MentionUser } from '../comment-list/node';
@@ -249,7 +249,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
           />
           <Toolbar className="no-scrollbar gap-x-1 border-y p-1">
             <MediaToolbarButton nodeType={ImagePlugin.key} />
-            <LinkToolbarButton />
+            <MentionToolbarButton />
           </Toolbar>
           <Editor
             placeholder={t('comment.placeholder')}

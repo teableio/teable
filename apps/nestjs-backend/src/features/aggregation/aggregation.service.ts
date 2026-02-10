@@ -27,6 +27,8 @@ import type {
   ISearchIndexByQueryRo,
   ISearchCountRo,
   IGetRecordsRo,
+  IRecordIndexRo,
+  IRecordIndexVo,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
@@ -1007,6 +1009,45 @@ export class AggregationService implements IAggregationService {
       throw error;
     }
   }
+  async getRecordIndex(tableId: string, queryRo: IRecordIndexRo): Promise<IRecordIndexVo> {
+    const { recordId } = queryRo;
+
+    const { queryBuilder: viewRecordsQB, alias } = await this.recordService.buildFilterSortQuery(
+      tableId,
+      { ...queryRo, skip: undefined, take: undefined },
+      true
+    );
+
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+
+    const { viewCte } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      { viewId: queryRo.viewId }
+    );
+
+    const indexQueryBuilder = this.knex
+      .with('t', viewRecordsQB.from({ [alias]: viewCte || dbTableName }))
+      .with('t1', (db) => {
+        db.select('__id').select(this.knex.raw('ROW_NUMBER() OVER () as row_num')).from('t');
+      })
+      .select('t1.row_num')
+      .from('t1')
+      .where('t1.__id', recordId);
+
+    const sql = indexQueryBuilder.toQuery();
+    this.logger.debug('getRecordIndex sql: %s', sql);
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const result = await this.prisma.$queryRawUnsafe<{ row_num: number }[]>(sql);
+
+    if (!result?.length) {
+      return null;
+    }
+
+    return { index: Number(result[0].row_num) - 1 };
+  }
+
   /**
    * Get calendar daily collection data
    * @param tableId - The table ID
