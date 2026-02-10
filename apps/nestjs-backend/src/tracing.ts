@@ -27,6 +27,7 @@
  */
 import { Logger } from '@nestjs/common';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
@@ -34,6 +35,7 @@ import { ExpressInstrumentation, ExpressLayerType } from '@opentelemetry/instrum
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
 import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
+import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
@@ -45,7 +47,18 @@ import {
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
-import { SentrySpanProcessor } from '@sentry/opentelemetry';
+import {
+  SentryPropagator,
+  SentrySpanProcessor,
+  wrapContextManagerClass,
+} from '@sentry/opentelemetry';
+
+// Use webpack's special require that bypasses bundling, falling back to standard require
+// This is needed because webpack transforms import.meta.url and createRequire in ways
+// that can break module resolution for native Node.js modules like pg.
+declare const __non_webpack_require__: NodeRequire | undefined;
+const nativeRequire: NodeRequire =
+  typeof __non_webpack_require__ !== 'undefined' ? __non_webpack_require__ : require;
 
 const { BatchLogRecordProcessor } = opentelemetry.logs;
 const { PeriodicExportingMetricReader } = opentelemetry.metrics;
@@ -76,6 +89,8 @@ const ENV_DEFAULTS = {
     OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
   },
 } as const;
+
+const hasSentry = !!process.env.BACKEND_SENTRY_DSN;
 
 type EnvConfigKey = keyof typeof ENV_DEFAULTS.development;
 
@@ -189,9 +204,15 @@ const createSmartBatchProcessor = (exporter: OTLPTraceExporter): SpanProcessor =
 // Span processors - NoopSpanProcessor ensures trace context is always generated
 // even when no exporter is configured (needed for trace ID in logs)
 const spanProcessors = [
-  ...(process.env.BACKEND_SENTRY_DSN ? [new SentrySpanProcessor()] : []),
+  ...(hasSentry ? [new SentrySpanProcessor()] : []),
   ...(traceExporter ? [createSmartBatchProcessor(traceExporter)] : [new NoopSpanProcessor()]),
 ];
+
+// When Sentry is enabled, use SentryPropagator and SentryContextManager to ensure
+// Sentry spans are properly correlated with OTEL traces and async context is preserved.
+const SentryContextManager = hasSentry
+  ? wrapContextManagerClass(AsyncLocalStorageContextManager)
+  : undefined;
 
 const ignorePaths = [
   '/favicon.ico',
@@ -206,6 +227,8 @@ const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
   sampler: new AlwaysOnSampler(),
+  contextManager: SentryContextManager ? new SentryContextManager() : undefined,
+  textMapPropagator: hasSentry ? new SentryPropagator() : undefined,
   metricReader: metricsExporter
     ? new PeriodicExportingMetricReader({
         exporter: metricsExporter,
@@ -221,6 +244,10 @@ const otelSDK = new opentelemetry.NodeSDK({
     }),
     new NestInstrumentation(),
     new PrismaInstrumentation(),
+    new PgInstrumentation({
+      enhancedDatabaseReporting: true, // Records SQL; ensure sensitive data is scrubbed.
+      requireParentSpan: false, // Create spans even without parent, ensures v2 Kysely queries are traced
+    }),
     new PinoInstrumentation(),
     new IORedisInstrumentation({
       requireParentSpan: true,
@@ -237,10 +264,34 @@ otelLogger.log(
   `Initialized: service=${serviceName}, env=${isDevelopment ? 'dev' : 'prod'}, ` +
     `exportRatio=${exportRatio * 100}%, latencyThreshold=${latencyThresholdMs}ms, ` +
     `exporters=[traces:${!!traceEndpoint}, logs:${!!logEndpoint}, metrics:${!!metricsEndpoint}], ` +
-    `sentry=${!!process.env.BACKEND_SENTRY_DSN}`
+    `sentry=${hasSentry}`
 );
 
 export default otelSDK;
+
+// This ensures instrumentation is applied BEFORE any instrumented modules (like pg) are loaded.
+try {
+  otelSDK.start();
+  // Force load pg after SDK start to ensure it is instrumented.
+  // OpenTelemetry instruments modules by patching their exports when they're first required.
+  // If pg is loaded before SDK.start(), the instrumentation won't work.
+  //
+  // Use nativeRequire to bypass webpack bundling and ensure we're loading
+  // the actual pg module from node_modules, not a bundled version.
+  try {
+    nativeRequire('pg');
+  } catch {
+    // pg might not be available, that's ok
+  }
+
+  // Also force load via ESM import to ensure ESM module cache is populated
+  // This is important because v2 adapter uses `await import('pg')`
+  void import('pg').catch(() => {
+    // pg might not be available via ESM, that's ok
+  });
+} catch (err) {
+  console.error('OTEL SDK start error:', err);
+}
 
 let isShuttingDown = false;
 const shutdownHandler = () => {

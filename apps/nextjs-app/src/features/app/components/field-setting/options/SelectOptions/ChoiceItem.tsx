@@ -7,7 +7,7 @@ import { ColorPicker } from './ColorPicker';
 interface IOptionItemProps {
   choice: ISelectFieldChoice;
   readonly?: boolean;
-  onChange: (key: keyof ISelectFieldChoice, value: string) => void;
+  onChange?: (key: keyof ISelectFieldChoice, value: string) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onInputRef?: (el: HTMLInputElement | null) => void;
 }
@@ -35,7 +35,7 @@ export const ChoiceItem = (props: IOptionItemProps) => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2">
-            <ColorPicker color={color} onSelect={(color) => onChange('color', color)} />
+            <ColorPicker color={color} onSelect={(color) => onChange?.('color', color)} />
           </PopoverContent>
         </Popover>
       )}
@@ -45,7 +45,7 @@ export const ChoiceItem = (props: IOptionItemProps) => {
           name={name}
           readOnly={readonly}
           onKeyDown={(e) => onKeyDown?.(e)}
-          onChange={(value) => onChange('name', value)}
+          onChange={(value) => onChange?.('name', value)}
         />
       </div>
     </li>

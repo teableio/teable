@@ -13,7 +13,7 @@ import {
 } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
-import { isEmpty } from 'lodash';
+import { isEmpty, pick } from 'lodash';
 import { useEffect, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
 import type { ISearchButtonProps } from './SearchButton';
@@ -52,6 +52,10 @@ export const SearchCountPagination = forwardRef<
   const { gridRef, setSearchCursor, recordMap } = useGridSearchStore();
   const { personalViewCommonQuery } = usePersonalView();
   const [isEnd, setIsEnd] = useState(false);
+
+  const searchViewCondition = useMemo(() => {
+    return view ? pick(view, ['sort', 'filter', 'group', 'columnMeta']) : {};
+  }, [view]);
 
   useImperativeHandle(ref, () => ({
     nextIndex: () => {
@@ -99,7 +103,7 @@ export const SearchCountPagination = forwardRef<
 
     const result = await searchFn(baseQueryRo);
 
-    if (!result || pageParam === null) {
+    if (!result?.data || pageParam === null) {
       setIsEnd(true);
       return {
         data: [],
@@ -127,8 +131,9 @@ export const SearchCountPagination = forwardRef<
       'search_index',
       tableId,
       value,
-      JSON.stringify(view?.filter),
+      JSON.stringify(searchViewCondition),
       JSON.stringify(searchQuery),
+      JSON.stringify(personalViewCommonQuery),
     ],
     queryFn,
     refetchOnMount: 'always',

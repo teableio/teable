@@ -5,6 +5,7 @@ export * from './use-grid-row-order';
 export * from './use-grid-column-order';
 export * from './use-grid-column-resize';
 export * from './use-grid-async-records';
+export * from './use-grid-async-records-query';
 export * from './use-grid-popup-position';
 export * from './use-grid-column-statistics';
 export * from './use-grid-group-collection';

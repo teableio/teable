@@ -32,7 +32,6 @@ import { useTranslation } from 'next-i18next';
 import { useState, useMemo, useCallback } from 'react';
 import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { useChatPanelStore } from '../../components/sidebar/useChatPanelStore';
 import { BaseNodeProvider } from '../base/base-node/BaseNodeProvider';
 import { getNodeUrl } from '../base/base-node/hooks';
 import { BaseNodeTree } from '../base/base-side-bar/BaseNodeTree';
@@ -57,7 +56,6 @@ export const BaseList = (props: IBaseListProps) => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { open: openChatPanel } = useChatPanelStore();
   const [expandedBases, setExpandedBases] = useState<Set<string>>(new Set());
 
   const isHydrated = useIsHydrated();
@@ -178,7 +176,6 @@ export const BaseList = (props: IBaseListProps) => {
   });
 
   const intoBase = (baseId: string) => {
-    openChatPanel();
     router.push(`/base/${baseId}`);
   };
 

@@ -6,8 +6,8 @@ import {
   getTrashItems,
   PrincipalType,
   resetTrashItems,
-  ResourceType,
   restoreTrash,
+  TrashType,
 } from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -20,8 +20,10 @@ import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { useBrand } from '@/features/app/hooks/useBrand';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
+import { useIsCommunity } from '../../hooks/useIsCommunity';
 
 export const BaseTrashPage = () => {
   const baseId = useBaseId() as string;
@@ -30,21 +32,31 @@ export const BaseTrashPage = () => {
   const permission = useBasePermission();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { brandName } = useBrand();
+  const isCommunity = useIsCommunity();
+  const { trash } = useEnv();
+  const retentionDays = trash?.retentionDays ?? 0;
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
-  const [nextCursor, setNextCursor] = useState<string | null | undefined>();
+  const [nextCursor, setNextCursor] = useState<string | null | undefined>(undefined);
   const [isConfirmVisible, setConfirmVisible] = useState(false);
 
-  const queryFn = async ({ queryKey }: QueryFunctionContext) => {
+  const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
     const res = await getTrashItems({
-      resourceType: ResourceType.Base,
+      resourceType: TrashType.Base,
       resourceId: queryKey[1] as string,
+      cursor: pageParam as string | undefined,
+      pageSize: 20,
     });
-    const { trashItems, nextCursor } = res.data;
+    const {
+      trashItems,
+      nextCursor: newNextCursor,
+      userMap: newUserMap,
+      resourceMap: newResourceMap,
+    } = res.data;
 
-    setNextCursor(() => nextCursor);
-    setUserMap({ ...userMap, ...res.data.userMap });
-    setResourceMap({ ...resourceMap, ...res.data.resourceMap });
+    setNextCursor(newNextCursor);
+    setUserMap((prev) => ({ ...prev, ...newUserMap }));
+    setResourceMap((prev) => ({ ...prev, ...newResourceMap }));
 
     return trashItems;
   };
@@ -55,7 +67,7 @@ export const BaseTrashPage = () => {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: () => nextCursor,
+    getNextPageParam: () => nextCursor ?? undefined,
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
@@ -67,8 +79,8 @@ export const BaseTrashPage = () => {
     },
   });
 
-  const { mutateAsync: mutateResetTrash } = useMutation({
-    mutationFn: () => resetTrashItems({ resourceType: ResourceType.Base, resourceId: baseId }),
+  const { mutateAsync: mutateResetTrash, isPending: isResetting } = useMutation({
+    mutationFn: () => resetTrashItems({ resourceType: TrashType.Base, resourceId: baseId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId) });
       toast.success(t('actions.resetSucceed'));
@@ -80,13 +92,32 @@ export const BaseTrashPage = () => {
     [data]
   );
 
+  const canReset =
+    permission?.['table|delete'] && permission?.['app|delete'] && permission?.['automation|delete'];
+
+  const canRestore = useCallback(
+    (resourceType: string) => {
+      switch (resourceType) {
+        case TrashType.Table:
+          return permission?.['table|create'];
+        case TrashType.App:
+          return permission?.['app|create'];
+        case TrashType.Workflow:
+          return permission?.['automation|create'];
+        default:
+          return false;
+      }
+    },
+    [permission]
+  );
+
   const columns: ColumnDef<ITrashItemVo>[] = useMemo(() => {
     const tableColumns: ColumnDef<ITrashItemVo>[] = [
       {
         accessorKey: 'resourceId',
         header: t('name'),
         size: Number.MAX_SAFE_INTEGER,
-        minSize: 300,
+        minSize: 156,
         cell: ({ row }) => {
           const resourceId = row.getValue<string>('resourceId');
           const resourceInfo = resourceMap[resourceId];
@@ -95,13 +126,39 @@ export const BaseTrashPage = () => {
 
           const { name } = resourceInfo;
 
-          return <div className="text-wrap pr-2 text-sm">{name}</div>;
+          return (
+            <div className="truncate text-wrap text-sm" title={name}>
+              {name}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'resourceType',
+        header: t('trash.type'),
+        size: 96,
+        cell: ({ row }) => {
+          const resourceType = row.getValue<string>('resourceType');
+          const resourceName = () => {
+            switch (resourceType) {
+              case TrashType.Table:
+                return t('common:noun.table');
+              case TrashType.App:
+                return t('common:noun.app');
+              case TrashType.Workflow:
+                return t('common:noun.automation');
+              default:
+                return '';
+            }
+          };
+
+          return <div className="text-wrap pr-2 text-sm">{resourceName()}</div>;
         },
       },
       {
         accessorKey: 'deletedBy',
         header: t('trash.deletedBy'),
-        size: 220,
+        size: 196,
         cell: ({ row }) => {
           const createdBy = row.getValue<string>('deletedBy');
           const user = userMap[createdBy];
@@ -121,39 +178,58 @@ export const BaseTrashPage = () => {
       {
         accessorKey: 'deletedTime',
         header: t('trash.deletedTime'),
-        size: 220,
+        size: 156,
         cell: ({ row }) => {
           const deletedTime = row.getValue<string>('deletedTime');
           const deletedDateStr = dayjs(deletedTime).format('YYYY/MM/DD HH:mm');
           return <div title={deletedDateStr}>{deletedDateStr}</div>;
         },
       },
-    ];
-
-    if (permission?.['table|create']) {
-      tableColumns.push({
-        accessorKey: 'id',
+      {
+        id: 'actions',
         header: t('actions.title'),
-        size: 80,
+        size: 108,
         cell: ({ row }) => {
-          const trashId = row.getValue<string>('id');
+          const { id: trashId, resourceId, resourceType } = row.original;
+          const resourceInfo = resourceMap[resourceId];
+
+          if (!resourceInfo) return null;
+
+          const showRestore = canRestore(resourceType);
+
+          if (!showRestore) return null;
+
           return (
-            <Button size="xs" className="text-[13px]" onClick={() => mutateRestore({ trashId })}>
+            <Button
+              size="xs"
+              variant="outline"
+              title={t('actions.restore')}
+              onClick={() => mutateRestore({ trashId })}
+            >
               {t('actions.restore')}
             </Button>
           );
         },
-      });
-    }
+      },
+    ];
 
     return tableColumns;
-  }, [t, resourceMap, userMap, mutateRestore, permission]);
+  }, [t, resourceMap, userMap, mutateRestore, canRestore]);
 
   const fetchNextPageInner = useCallback(() => {
     if (!isFetching && nextCursor) {
       fetchNextPage();
     }
   }, [fetchNextPage, isFetching, nextCursor]);
+
+  const handleResetTrash = useCallback(() => {
+    setConfirmVisible(true);
+  }, []);
+
+  const handleConfirmReset = useCallback(() => {
+    setConfirmVisible(false);
+    mutateResetTrash();
+  }, [mutateResetTrash]);
 
   if (!isHydrated || isLoading) return null;
 
@@ -164,13 +240,20 @@ export const BaseTrashPage = () => {
           <title>{`${t('noun.trash')} - ${brandName}`}</title>
         </Head>
         <div className="flex w-full items-center justify-between px-8 pb-2">
-          <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
-          {permission?.['table|delete'] && (
+          <div className="flex flex-col items-start gap-2">
+            <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
+            {!isCommunity && retentionDays > 0 && (
+              <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
+                {t('common:trash.baseDescription', { retentionDays })}
+              </p>
+            )}
+          </div>
+          {canReset && (
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => setConfirmVisible(true)}
-              disabled={!allRows.length}
+              onClick={handleResetTrash}
+              disabled={allRows.length === 0 || isResetting}
             >
               {t('trash.resetTrash')}
             </Button>
@@ -190,10 +273,7 @@ export const BaseTrashPage = () => {
         cancelText={t('actions.cancel')}
         confirmText={t('actions.confirm')}
         onCancel={() => setConfirmVisible(false)}
-        onConfirm={() => {
-          setConfirmVisible(false);
-          mutateResetTrash();
-        }}
+        onConfirm={handleConfirmReset}
       />
     </>
   );

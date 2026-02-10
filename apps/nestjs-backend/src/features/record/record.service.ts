@@ -417,25 +417,34 @@ export class RecordService {
       if (this.isJunctionTable(fkHostTableName)) {
         queryBuilder.whereNotIn('__id', function () {
           this.select(foreignKeyName).from(fkHostTableName);
+          if (recordId) {
+            this.whereNot(selfKeyName, recordId);
+          }
         });
       } else {
-        queryBuilder.where(selfKeyName, null);
+        queryBuilder.where(function () {
+          this.whereNull(selfKeyName);
+          if (recordId) {
+            this.orWhere(selfKeyName, recordId);
+          }
+        });
       }
     }
     if (relationship === Relationship.OneOne) {
       if (selfKeyName === '__id') {
         queryBuilder.whereNotIn('__id', function () {
           this.select(foreignKeyName).from(fkHostTableName).whereNotNull(foreignKeyName);
+          if (recordId) {
+            this.whereNot(selfKeyName, recordId);
+          }
         });
       } else {
-        queryBuilder.where(selfKeyName, null);
-      }
-    }
-
-    if (recordId) {
-      const linkIds = await this.getLinkCellIds(fieldRaw.tableId, field, recordId);
-      if (linkIds.length) {
-        queryBuilder.whereNotIn('__id', linkIds);
+        queryBuilder.where(function () {
+          this.whereNull(selfKeyName);
+          if (recordId) {
+            this.orWhere(selfKeyName, recordId);
+          }
+        });
       }
     }
   }
@@ -1426,7 +1435,18 @@ export class RecordService {
       snapshots.map((s) => {
         return Object.entries(s).reduce(
           (acc, [key, value]) => {
-            acc[key] = Array.isArray(value) ? JSON.stringify(value) : value;
+            if (Array.isArray(value)) {
+              acc[key] = JSON.stringify(value);
+              return acc;
+            }
+            if (value && typeof value === 'object') {
+              const isDate = (value as Date) instanceof Date;
+              if (!isDate) {
+                acc[key] = JSON.stringify(value);
+                return acc;
+              }
+            }
+            acc[key] = value;
             return acc;
           },
           {} as Record<string, unknown>
@@ -1921,7 +1941,9 @@ export class RecordService {
         {
           ...query,
           projection: query.projection
-            ? query.projection.filter((id) => enabledFieldIds?.includes(id))
+            ? enabledFieldIds
+              ? query.projection.filter((id) => enabledFieldIds.includes(id))
+              : query.projection
             : enabledFieldIds,
           viewId,
         },

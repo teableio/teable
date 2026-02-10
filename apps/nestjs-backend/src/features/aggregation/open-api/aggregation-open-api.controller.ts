@@ -10,6 +10,7 @@ import type {
   ISearchCountVo,
   ISearchIndexVo,
   ITaskStatusCollectionVo,
+  IRecordIndexVo,
 } from '@teable/openapi';
 import {
   aggregationRoSchema,
@@ -24,6 +25,8 @@ import {
   ICalendarDailyCollectionRo,
   ISearchIndexByQueryRo,
   searchIndexByQueryRoSchema,
+  IRecordIndexRo,
+  recordIndexRoSchema,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../../performance-cache';
@@ -114,6 +117,17 @@ export class AggregationOpenApiController {
   ): Promise<IRowCountVo> {
     return await this.getAggregationWithCache('row_count', tableId, query, () =>
       this.aggregationOpenApiService.getRowCount(tableId, query)
+    );
+  }
+
+  @Get('/record-index')
+  @Permissions('table|read')
+  async getRecordIndex(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(recordIndexRoSchema), TqlPipe) query: IRecordIndexRo
+  ): Promise<IRecordIndexVo> {
+    return await this.getAggregationWithCache('record_index', tableId, query, () =>
+      this.aggregationOpenApiService.getRecordIndex(tableId, query)
     );
   }
 

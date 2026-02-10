@@ -118,12 +118,11 @@ export const FormBody = (props: IFormBodyProps) => {
         {} as Record<string, unknown>
       );
       await submit(finalData);
+      setTimeout(() => {
+        onReset();
+        toast.success(t('actions.submitSucceed'));
+      }, 1000);
     }
-
-    setTimeout(() => {
-      onReset();
-      toast.success(t('actions.submitSucceed'));
-    }, 1000);
   };
 
   const { coverUrl, logoUrl, submitLabel } = view?.options ?? {};
@@ -188,7 +187,7 @@ export const FormBody = (props: IFormBodyProps) => {
               className="w-full text-base sm:w-56"
               size={'lg'}
               onClick={onSubmit}
-              disabled={loading}
+              disabled={loading || !submit}
             >
               {loading && <Loader2 className="size-4 animate-spin" />}
               {submitLabel || t('common:actions.submit')}

@@ -653,7 +653,9 @@
       "error": "Download failed",
       "errorPartial": "{{failedCount}} files failed to download",
       "requireHttps": "Batch download requires HTTPS. Please access via HTTPS or localhost.",
+      "advancedOptions": "Advanced options",
       "namingFieldLabel": "Attachment name prefix",
+      "selectField": "Default: attachment index",
       "groupByRow": "Archive into folders",
       "groupByRowTip": "When a row has multiple attachments, they will be placed in the same folder; rows with only one attachment will not create a folder."
     }
@@ -1042,6 +1044,7 @@
       "activateAutomation": "Activate automation",
       "executeScript": "Execute script",
       "wait": "Wait",
+      "triggerAiFill": "Trigger AI fill",
       "initialize": "Initialize environment",
       "rename": "Generate app name",
       "buildTest": "Build test",
@@ -1057,6 +1060,9 @@
       "goTo": "Go to",
       "operationSuccess": "Operation completed successfully",
       "operationFailed": "Operation failed"
+    },
+    "aiFill": {
+      "processedRecords": "{{count}} record(s) queued for AI generation"
     },
     "queryTool": {
       "getRecords": "Query records",
@@ -1306,6 +1312,8 @@
     "panelFailed": "{{count}} files failed",
     "panelCompleted": "{{count}} files completed",
     "statusFailed": "Failed",
-    "statusCompleted": "Completed"
+    "statusCompleted": "Completed",
+    "statusCancel": "Cancel upload",
+    "statusRetry": "Retry upload"
   }
 }

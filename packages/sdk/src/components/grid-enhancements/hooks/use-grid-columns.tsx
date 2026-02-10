@@ -415,6 +415,7 @@ export const useCreateCellValue2GridDisplay = (
               displayData,
               choiceSorted: choices,
               isMultiple,
+              showAddButton: !readonly,
               onPreview: (activeId: string) => {
                 expandRecord?.(foreignTableId, activeId);
               },
@@ -424,7 +425,7 @@ export const useCreateCellValue2GridDisplay = (
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
             const data = cv.map(
-              ({ id, mimetype, presignedUrl, smThumbnailUrl, lgThumbnailUrl }) => {
+              ({ id, mimetype, presignedUrl, smThumbnailUrl, lgThumbnailUrl, width, height }) => {
                 const url = getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark');
                 const thumbnailUrl =
                   !rowHeight || rowHeight === RowHeightLevel.Short
@@ -433,6 +434,8 @@ export const useCreateCellValue2GridDisplay = (
                 return {
                   id,
                   url: isSystemFileIcon(mimetype) ? url : thumbnailUrl ?? url,
+                  width,
+                  height,
                 };
               }
             );

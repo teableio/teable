@@ -57,6 +57,7 @@ const UserEditorBaseRef: ForwardRefRenderFunction<IUserEditorRef, IUserEditorBas
   const { t } = useTranslation();
   const [search, setSearch] = useState(initialSearch ?? '');
   const [isComposing, setIsComposing] = useState(false);
+  const [highlightedUserId, setHighlightedUserId] = useState('');
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -97,8 +98,27 @@ const UserEditorBaseRef: ForwardRefRenderFunction<IUserEditorRef, IUserEditorBas
     }
   }, [search, isComposing, onSearch, setApplySearchDebounced]);
 
+  useEffect(() => {
+    if (isMultiple) return;
+
+    if (!collaborators?.length) {
+      setHighlightedUserId('');
+      return;
+    }
+
+    if (!collaborators.some((collaborator) => collaborator.userId === highlightedUserId)) {
+      setHighlightedUserId(collaborators[0].userId);
+    }
+  }, [collaborators, highlightedUserId, isMultiple]);
+
   return (
-    <Command className={className} style={style} shouldFilter={false}>
+    <Command
+      className={className}
+      style={style}
+      shouldFilter={false}
+      value={highlightedUserId}
+      onValueChange={setHighlightedUserId}
+    >
       <CommandInput
         ref={inputRef}
         value={search}

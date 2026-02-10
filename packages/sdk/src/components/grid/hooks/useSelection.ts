@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useUnmount, useUpdateEffect } from 'react-use';
 import type { IGridProps } from '../Grid';
 import type { ICellItem, ILinearRow, IMouseState, IPosition, IRange } from '../interface';
-import { RegionType, SelectionRegionType, SelectableType } from '../interface';
+import { RegionType, SelectionRegionType, SelectableType, RowControlType } from '../interface';
 import { CombinedSelection, type CoordinateManager } from '../managers';
 
 interface IUseSelectionProps {
@@ -11,6 +11,8 @@ interface IUseSelectionProps {
   isMultiSelectionEnable?: boolean;
   getLinearRow: (index: number) => ILinearRow;
   onSelectionChanged: IGridProps['onSelectionChanged'];
+  onRowControlClick?: IGridProps['onRowControlClick'];
+  onRowRangeSelected?: IGridProps['onRowRangeSelected'];
   setActiveCell: React.Dispatch<React.SetStateAction<ICellItem | null>>;
 }
 
@@ -22,13 +24,19 @@ export const useSelection = (props: IUseSelectionProps) => {
     getLinearRow,
     setActiveCell,
     onSelectionChanged,
+    onRowControlClick,
+    onRowRangeSelected,
   } = props;
   const onSelectionChangedRef = useRef<IGridProps['onSelectionChanged'] | undefined>();
+  const onRowControlClickRef = useRef<IGridProps['onRowControlClick'] | undefined>();
+  const onRowRangeSelectedRef = useRef<IGridProps['onRowRangeSelected'] | undefined>();
   const prevSelectedRowIndex = useRef<number | null>(null);
   const [isSelecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState(() => new CombinedSelection());
   const { pureRowCount } = coordInstance;
   onSelectionChangedRef.current = onSelectionChanged;
+  onRowControlClickRef.current = onRowControlClick;
+  onRowRangeSelectedRef.current = onRowRangeSelected;
 
   const onSelectionStart = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
@@ -153,14 +161,43 @@ export const useSelection = (props: IUseSelectionProps) => {
           const newSelection = selection.expand(newRange);
           prevSelectedRowIndex.current = rowIndex;
           setActiveCell(null);
-          return setSelection(newSelection);
+          setSelection(newSelection);
+          onRowRangeSelectedRef.current?.([newRange]);
+          return;
         }
-        return pureSelectColumnOrRow(rowIndex, SelectionRegionType.Rows);
+
+        const isCurrentlySelected = selection.includes(range);
+        pureSelectColumnOrRow(rowIndex, SelectionRegionType.Rows);
+        onRowControlClickRef.current?.(rowIndex, RowControlType.Checkbox, !isCurrentlySelected);
+        return;
       }
       case RegionType.Cell: {
         const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
         if (selectable === SelectableType.Row) {
-          return pureSelectColumnOrRow(rowIndex, SelectionRegionType.Rows);
+          const range = [rowIndex, rowIndex] as IRange;
+          if (
+            isMultiSelectionEnable &&
+            isShiftKey &&
+            isPrevRowSelection &&
+            prevSelectedRowIndex.current != null
+          ) {
+            if (selection.includes(range)) return;
+            const prevIndex = prevSelectedRowIndex.current;
+            const newRange = [
+              Math.min(rowIndex, prevIndex),
+              Math.max(rowIndex, prevIndex),
+            ] as IRange;
+            const newSelection = selection.expand(newRange);
+            prevSelectedRowIndex.current = rowIndex;
+            setActiveCell(null);
+            setSelection(newSelection);
+            onRowRangeSelectedRef.current?.([newRange]);
+            return;
+          }
+          const isCurrentlySelected = selection.includes(range);
+          pureSelectColumnOrRow(rowIndex, SelectionRegionType.Rows);
+          onRowControlClickRef.current?.(rowIndex, RowControlType.Checkbox, !isCurrentlySelected);
+          return;
         }
         if (selectable === SelectableType.Column) {
           return pureSelectColumnOrRow(columnIndex, SelectionRegionType.Columns);
@@ -171,10 +208,13 @@ export const useSelection = (props: IUseSelectionProps) => {
         if (selectable !== SelectableType.All && selectable !== SelectableType.Row) return;
         const allRanges = [[0, pureRowCount - 1]] as IRange[];
         const isPrevAll = isPrevRowSelection && selection.equals(allRanges);
-        const newSelection = isPrevAll
-          ? selection.reset()
-          : selection.set(SelectionRegionType.Rows, allRanges);
-        return setSelection(newSelection);
+        if (isPrevAll) {
+          return setSelection(selection.reset());
+        }
+        const newSelection = selection.set(SelectionRegionType.Rows, allRanges);
+        setSelection(newSelection);
+        onRowRangeSelectedRef.current?.(allRanges);
+        return;
       }
     }
   };
