@@ -24,7 +24,11 @@ export const useFilterNode = (filters: IFilter | null | undefined, fields: IFiel
 
       if (filterIds.size > 2) {
         const name = fields.find((field) => field.id === filterIdsArr?.[0])?.name;
-        text = `${t('filter.displayLabel_other', { fieldName: name, count: filterIds.size - 1 })}`;
+        text = `${t('filter.displayLabel_other', {
+          fieldName: name,
+          count: filterIds.size - 1,
+          totalCount: filterIds.size,
+        })}`;
       }
 
       return text || defaultText;

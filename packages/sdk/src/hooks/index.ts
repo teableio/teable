@@ -13,6 +13,7 @@ export * from './use-tables';
 export * from './use-table';
 export * from './use-base';
 export * from './use-records';
+export * from './use-records-query';
 export * from './use-record';
 export * from './use-search';
 export * from './use-link-filter';

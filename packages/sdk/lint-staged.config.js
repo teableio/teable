@@ -1,5 +1,9 @@
 // @ts-check
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import lintStagedCommon from '../../lint-staged.common.js';
+
 /**
  * This files overrides the base lint-staged.config.js present in the root directory.
  * It allows to run eslint based the package specific requirements.
@@ -7,7 +11,10 @@
  * {@link https://github.com/teableio/teable/blob/main/docs/about-lint-staged.md}
  */
 
-const { concatFilesForPrettier, getEslintFixCmd } = require('../../lint-staged.common.js');
+const { concatFilesForPrettier, getEslintFixCmd } = lintStagedCommon;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * @type {Record<string, (filenames: string[]) => string | string[] | Promise<string | string[]>>}
@@ -30,4 +37,4 @@ const rules = {
   },
 };
 
-module.exports = rules;
+export default rules;

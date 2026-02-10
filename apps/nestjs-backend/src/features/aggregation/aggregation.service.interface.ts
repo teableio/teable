@@ -11,6 +11,8 @@ import type {
   ICalendarDailyCollectionVo,
   ISearchIndexByQueryRo,
   ISearchCountRo,
+  IRecordIndexRo,
+  IRecordIndexVo,
 } from '@teable/openapi';
 import type { IFieldInstance } from '../field/model/factory';
 
@@ -117,6 +119,14 @@ export interface IAggregationService {
       }[]
     | null
   >;
+
+  /**
+   * Get the 0-based index of a specific record in the current query context
+   * @param tableId - The table ID
+   * @param queryRo - Query parameters including recordId and optional view/filter/sort
+   * @returns Promise<IRecordIndexVo> - The record index or null if not found
+   */
+  getRecordIndex(tableId: string, queryRo: IRecordIndexRo): Promise<IRecordIndexVo>;
 
   /**
    * Get calendar daily collection data

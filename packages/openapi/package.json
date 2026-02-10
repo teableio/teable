@@ -14,6 +14,14 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "sideEffects": false,
+  "exports": {
+    ".": {
+      "@teable/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
   "files": [
     "dist"
   ],
@@ -44,7 +52,6 @@
     "eslint": "8.57.0",
     "rimraf": "5.0.5",
     "typescript": "5.4.3",
-    "vite-tsconfig-paths": "4.3.2",
     "vitest": "4.0.17"
   }
 }

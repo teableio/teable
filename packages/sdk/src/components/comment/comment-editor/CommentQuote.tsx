@@ -31,11 +31,18 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
   const textRef = useRef<HTMLElement>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
+  const hasMultipleBlocks = useMemo(() => {
+    const content = quoteData?.content;
+    if (!content || content.length <= 1) return false;
+    // More than one block (paragraph/image) means content is truncated in preview
+    return content.length > 1;
+  }, [quoteData?.content]);
+
   useEffect(() => {
     const checkTextOverflow = () => {
       const element = textRef.current;
       if (element) {
-        setShowTooltip(element.scrollWidth > element.clientWidth);
+        setShowTooltip(hasMultipleBlocks || element.scrollWidth > element.clientWidth);
       }
     };
 
@@ -45,7 +52,7 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
     return () => {
       window.removeEventListener('resize', checkTextOverflow);
     };
-  }, [quoteData]);
+  }, [quoteData, hasMultipleBlocks]);
 
   const findDisplayLine = (commentContent: ICommentContent) => {
     for (let i = 0; i < commentContent.length; i++) {
@@ -134,7 +141,7 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="max-h-40 max-w-60 overflow-auto p-2">
-                    <CommentContent content={quoteData.content} isExpanded />
+                    <CommentContent content={quoteData.content} />
                   </PopoverContent>
                 </Popover>
               )}

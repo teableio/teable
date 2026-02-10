@@ -2,6 +2,7 @@ import type { FunctionName } from '@teable/core';
 import type { IFunctionSchema } from '@teable/openapi';
 import type { FC } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
+import { MemoizedContentMarkdownPreview } from '../../../markdown-editor/MarkDownPreview';
 
 interface IFunctionGuideProps {
   data: Partial<IFunctionSchema<FunctionName>> | null;
@@ -16,7 +17,9 @@ export const FunctionGuide: FC<IFunctionGuideProps> = (props) => {
     <div className="w-full overflow-y-auto">
       <div className="grow px-4 py-2">
         <h2 className="text-lg">{data.name}</h2>
-        <div className="text-[13px] text-muted-foreground">{data.summary}</div>
+        <MemoizedContentMarkdownPreview className="px-0 py-0 text-[13px] text-muted-foreground [&_p]:my-0 [&_a]:text-primary [&_a]:underline">
+          {data.summary}
+        </MemoizedContentMarkdownPreview>
         {data.definition && (
           <>
             <h3 className="mt-4 text-sm">{t('editor.formula.guideSyntax')}</h3>

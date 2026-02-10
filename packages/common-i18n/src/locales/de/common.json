@@ -691,7 +691,10 @@
     "permanentDeleteTips": "Sind Sie sicher, dass Sie \"{{name}}\" {{resource}}? dauerhaft löschen möchten",
     "resetTrashConfirm": "Sind Sie sicher, dass Sie den Papierkorb leeren wollen?",
     "addToTrash": "Zum Papierkorb verschieben",
-    "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge."
+    "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge.",
+    "spaceDescription": "Stellen Sie Spaces wieder her, die in den letzten {{retentionDays}} Tagen gelöscht wurden",
+    "spaceInnerDescription": "Stellen Sie Bases wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
+    "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus dieser Base gelöscht wurden"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin hat keine Url",
@@ -977,6 +980,27 @@
         "approved": "Genehmigt",
         "rejected": "Abgelehnt"
       }
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "Seite nicht gefunden",
+      "description": "Der Link, dem Sie gefolgt sind, ist möglicherweise fehlerhaft oder die Seite wurde verschoben."
+    },
+    "links": {
+      "backToHome": "Zurück zur Startseite"
+    },
+    "forbidden": {
+      "title": "Zugriff eingeschränkt",
+      "description": "Sie benötigen eine Berechtigung, um auf diese Ressource zuzugreifen.\nBitte wenden Sie sich an Ihren Administrator."
+    },
+    "paymentRequired": {
+      "title": "Premium-Funktion freischalten",
+      "description": "Diese Funktion ist in erweiterten Plänen verfügbar.\nUpgraden Sie, um Ihre Möglichkeiten zu erweitern."
+    },
+    "error": {
+      "title": "Etwas ist schief gelaufen",
+      "description": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut."
     }
   }
 }

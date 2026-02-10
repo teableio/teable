@@ -32,27 +32,27 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           echo "🔍 Checking for Issue IDs (pattern: T followed by numbers)..."
-          
+
           # Extract Issue IDs from PR title
           echo "📝 PR Title: $PR_TITLE"
           TITLE_ISSUES=$(echo "$PR_TITLE" | grep -oE 'T[0-9]+' || true)
-          
+
           # Extract Issue IDs from PR body/description
           echo "📝 PR Body:"
           echo "$PR_BODY"
           BODY_ISSUES=$(echo "$PR_BODY" | grep -oE 'T[0-9]+' || true)
-          
+
           # Extract Issue IDs from all commit messages (including body)
           echo "📝 Commit Messages:"
           COMMIT_MESSAGES=$(git log --format="%B" $BASE_SHA..$HEAD_SHA 2>/dev/null || git log --format="%B" -n 20)
           echo "$COMMIT_MESSAGES"
           COMMIT_ISSUES=$(echo "$COMMIT_MESSAGES" | grep -oE 'T[0-9]+' || true)
-          
+
           # Combine all Issue IDs and remove duplicates
           ALL_ISSUES=$(echo -e "$TITLE_ISSUES\n$BODY_ISSUES\n$COMMIT_ISSUES" | grep -E '^T[0-9]+$' | sort -u | tr '\n' ' ' | xargs)
-          
+
           echo "📋 Found Issue IDs: $ALL_ISSUES"
-          
+
           if [ -z "$ALL_ISSUES" ]; then
             echo "❌ No Issue IDs found!"
             echo "issue_ids=" >> $GITHUB_OUTPUT
@@ -82,7 +82,7 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           echo "🔗 Verifying Issue IDs in Teable: $ISSUE_IDS"
-          
+
           # Build filter for multiple Issue IDs
           FILTER_SET=""
           for ISSUE_ID in $ISSUE_IDS; do
@@ -91,49 +91,49 @@ jobs:
             fi
             FILTER_SET="$FILTER_SET{\"fieldId\":\"Issue_ID\",\"operator\":\"is\",\"value\":\"$ISSUE_ID\"}"
           done
-          
+
           FILTER="{\"conjunction\":\"or\",\"filterSet\":[$FILTER_SET]}"
           ENCODED_FILTER=$(echo "$FILTER" | jq -sRr @uri)
-          
+
           echo "📤 Querying Teable API..."
-          
+
           RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
             "https://app.teable.ai/api/table/tblNHimLUhUDtC3K7Jk/record?fieldKeyType=dbFieldName&viewId=viwBK7iTy1604XbFdYh&filter=$ENCODED_FILTER" \
             -H "Authorization: Bearer $TEABLE_API_TOKEN" \
             -H "Accept: application/json")
-          
+
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
-          
+
           echo "📥 API Response Code: $HTTP_CODE"
-          
+
           if [ "$HTTP_CODE" != "200" ]; then
             echo "::error::Failed to query Teable API. HTTP Code: $HTTP_CODE"
             echo "Response: $BODY"
             exit 1
           fi
-          
+
           # Check if records exist
           RECORD_COUNT=$(echo "$BODY" | jq '.records | length')
           echo "📊 Found $RECORD_COUNT matching records in Teable"
-          
+
           if [ "$RECORD_COUNT" -eq 0 ]; then
             echo "::error::No matching Issue IDs found in Teable. Please ensure the Issue IDs ($ISSUE_IDS) exist."
             exit 1
           fi
-          
+
           # Extract record IDs and their statuses for updating
           echo "$BODY" | jq -c '.records[] | {id: .id, status: .fields.status}' > /tmp/records.json
-          
+
           RECORD_IDS=$(echo "$BODY" | jq -r '.records[].id')
           echo "record_ids<<EOF" >> $GITHUB_OUTPUT
           echo "$RECORD_IDS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           echo "record_count=$RECORD_COUNT" >> $GITHUB_OUTPUT
-          
+
           # Save full response for status checking
           echo "$BODY" > /tmp/teable_response.json
-          
+
           echo "✅ All Issue IDs verified successfully!"
 
       - name: 📝 Update Teable records (Community_PR & Status)
@@ -143,10 +143,10 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           echo "📝 Updating Teable records..."
-          
+
           # Status values that should be updated to "Entered development workflow"
           STATUSES_TO_UPDATE=("" "Need more information" "Added to backlog")
-          
+
           # Read records from saved response
           cat /tmp/teable_response.json | jq -c '.records[]' | while read -r record; do
             RECORD_ID=$(echo "$record" | jq -r '.id')
@@ -190,7 +190,7 @@ jobs:
               echo "✅ Successfully updated record $RECORD_ID"
             fi
           done
-          
+
           echo "✅ Teable records update completed!"
 
       - name: 📝 Append Issue IDs to PR description
@@ -202,10 +202,10 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           echo "📝 Checking if Issue IDs need to be appended to PR description..."
-          
+
           # Create Issue IDs reference line
           ISSUE_IDS_LINE="**Related Issues:** $ISSUE_IDS"
-          
+
           # Check if Issue IDs are already in the PR body
           ISSUES_ALREADY_IN_BODY="true"
           for ISSUE_ID in $ISSUE_IDS; do
@@ -214,31 +214,31 @@ jobs:
               break
             fi
           done
-          
+
           # Check if the reference line already exists
           if echo "$PR_BODY" | grep -q "^\*\*Related Issues:\*\*"; then
             echo "✅ Related Issues line already exists in PR description, skipping update"
             exit 0
           fi
-          
+
           # If all Issue IDs are already in the body but not in the reference format, we still want to add the reference line
           # This ensures consistency and makes it easier to parse
-          
+
           echo "📝 Appending Issue IDs to PR description..."
-          
+
           # Append Issue IDs to PR body
           if [ -z "$PR_BODY" ]; then
             NEW_BODY="$ISSUE_IDS_LINE"
           else
             NEW_BODY="$PR_BODY
-          
+
           ---
           $ISSUE_IDS_LINE"
           fi
-          
+
           # Update PR description using GitHub CLI
           gh pr edit "$PR_NUMBER" --body "$NEW_BODY"
-          
+
           echo "✅ PR description updated with Issue IDs!"
 
       - name: ✅ Check Complete
