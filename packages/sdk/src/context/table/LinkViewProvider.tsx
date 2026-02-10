@@ -4,10 +4,7 @@ import { map } from 'lodash';
 import React, { useMemo } from 'react';
 import { ReactQueryKeys } from '../../config/react-query-keys';
 import { useFields } from '../../hooks';
-import { addQueryParamsToWebSocketUrl } from '../../utils/urlParams';
 import { AnchorContext } from '../anchor/AnchorContext';
-import { ConnectionProvider } from '../app';
-import { getWsPath } from '../app/useConnection';
 import { FieldProvider } from '../field';
 import { SearchProvider } from '../query';
 import { RecordProvider } from '../record';
@@ -52,31 +49,22 @@ export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
     queryFn: () => getShareView(linkFieldId).then(({ data }) => data),
   });
 
-  const wsPath = useMemo(() => {
-    if (typeof window === 'object') {
-      return addQueryParamsToWebSocketUrl(getWsPath(), { shareId: linkFieldId });
-    }
-    return undefined;
-  }, [linkFieldId]);
-
   if (isLoading || !linkFieldId || !shareData) {
     return fallback;
   }
 
   const { tableId, viewId, fields } = shareData;
   return (
-    <ConnectionProvider wsPath={wsPath}>
-      <ShareViewContext.Provider value={shareData}>
-        <AnchorContext.Provider value={{ baseId: linkBaseId, tableId, viewId }}>
-          <SearchProvider>
-            <FieldProvider fallback={fallback} serverSideData={fields}>
-              <ReadonlyFieldsPermissionProvider>
-                <RecordProvider>{children}</RecordProvider>
-              </ReadonlyFieldsPermissionProvider>
-            </FieldProvider>
-          </SearchProvider>
-        </AnchorContext.Provider>
-      </ShareViewContext.Provider>
-    </ConnectionProvider>
+    <ShareViewContext.Provider value={shareData}>
+      <AnchorContext.Provider value={{ baseId: linkBaseId, tableId, viewId }}>
+        <SearchProvider>
+          <FieldProvider fallback={fallback} serverSideData={fields}>
+            <ReadonlyFieldsPermissionProvider>
+              <RecordProvider>{children}</RecordProvider>
+            </ReadonlyFieldsPermissionProvider>
+          </FieldProvider>
+        </SearchProvider>
+      </AnchorContext.Provider>
+    </ShareViewContext.Provider>
   );
 };

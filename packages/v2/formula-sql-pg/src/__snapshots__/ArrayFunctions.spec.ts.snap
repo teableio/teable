@@ -1,0 +1,4915 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`array functions > 'ArrayCompact' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "ARRAYCOMPACT({Attachment}, {Attachment})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "["{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "ARRAYCOMPACT({AutoNumber}, {AutoNumber})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "["1", "1"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."AutoNumber" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."AutoNumber"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."AutoNumber" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."AutoNumber"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "ARRAYCOMPACT({Button}, {Button})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "ARRAYCOMPACT({Checkbox}, {Checkbox})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "["true", "true"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Checkbox" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Checkbox"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Checkbox" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Checkbox"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ARRAYCOMPACT({ConditionalLookupType}, {ConditionalLookupType})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ARRAYCOMPACT({ConditionalRollupType}, {ConditionalRollupType})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalRollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalRollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalRollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalRollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "ARRAYCOMPACT({CreatedBy}, {CreatedBy})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "ARRAYCOMPACT({CreatedTime}, {CreatedTime})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "["0000-00-00T00:00:00.000+00:00", "0000-00-00T00:00:00.000+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."CreatedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."CreatedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "ARRAYCOMPACT({Date}, {Date})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "["2024-02-03T00:00:00+00:00", "2024-02-03T00:00:00+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Date" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Date"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Date" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Date"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "ARRAYCOMPACT({FormulaType}, {FormulaType})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN 10 IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(10))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN 10 IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(10))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "ARRAYCOMPACT({LastModifiedBy}, {LastModifiedBy})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "ARRAYCOMPACT({LastModifiedTime}, {LastModifiedTime})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "["0000-00-00T00:00:00.000+00:00", "0000-00-00T00:00:00.000+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LastModifiedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LastModifiedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "ARRAYCOMPACT({LinkType}, {LinkType})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "ARRAYCOMPACT({LongText}, {LongText})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LongText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LongText"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LongText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LongText"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "ARRAYCOMPACT({LookupType}, {LookupType})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "ARRAYCOMPACT({MultipleSelect}, {MultipleSelect})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "["10", "20", "10", "20"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "ARRAYCOMPACT({Number}, {Number})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Number" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Number"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Number" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Number"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "ARRAYCOMPACT({Rating}, {Rating})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "["4", "4"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Rating" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Rating"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Rating" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Rating"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "ARRAYCOMPACT({RollupType}, {RollupType})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."RollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."RollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."RollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."RollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "ARRAYCOMPACT({SingleLineText}, {SingleLineText})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleLineText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleLineText"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleLineText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleLineText"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "ARRAYCOMPACT({SingleSelect}, {SingleSelect})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleSelect" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleSelect"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleSelect" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleSelect"))
+      END)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayCompact' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "ARRAYCOMPACT({User}, {User})",
+  "funcId": "ArrayCompact",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)
+          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS compacted
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "ARRAYFLATTEN({Attachment}, {Attachment})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "["{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "ARRAYFLATTEN({AutoNumber}, {AutoNumber})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "["1", "1"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."AutoNumber" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."AutoNumber"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."AutoNumber" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."AutoNumber"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "ARRAYFLATTEN({Button}, {Button})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "ARRAYFLATTEN({Checkbox}, {Checkbox})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "["true", "true"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Checkbox" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Checkbox"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Checkbox" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Checkbox"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ARRAYFLATTEN({ConditionalLookupType}, {ConditionalLookupType})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ARRAYFLATTEN({ConditionalRollupType}, {ConditionalRollupType})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalRollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalRollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalRollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalRollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "ARRAYFLATTEN({CreatedBy}, {CreatedBy})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "ARRAYFLATTEN({CreatedTime}, {CreatedTime})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "["0000-00-00T00:00:00.000+00:00", "0000-00-00T00:00:00.000+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."CreatedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."CreatedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "ARRAYFLATTEN({Date}, {Date})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "["2024-02-03T00:00:00+00:00", "2024-02-03T00:00:00+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Date" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Date"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Date" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Date"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "ARRAYFLATTEN({FormulaType}, {FormulaType})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN 10 IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(10))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN 10 IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(10))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "ARRAYFLATTEN({LastModifiedBy}, {LastModifiedBy})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "ARRAYFLATTEN({LastModifiedTime}, {LastModifiedTime})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "["0000-00-00T00:00:00.000+00:00", "0000-00-00T00:00:00.000+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LastModifiedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LastModifiedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "ARRAYFLATTEN({LinkType}, {LinkType})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "ARRAYFLATTEN({LongText}, {LongText})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LongText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LongText"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LongText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LongText"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "ARRAYFLATTEN({LookupType}, {LookupType})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "ARRAYFLATTEN({MultipleSelect}, {MultipleSelect})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "["10", "20", "10", "20"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "ARRAYFLATTEN({Number}, {Number})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Number" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Number"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Number" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Number"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "ARRAYFLATTEN({Rating}, {Rating})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "["4", "4"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Rating" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Rating"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Rating" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Rating"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "ARRAYFLATTEN({RollupType}, {RollupType})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."RollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."RollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."RollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."RollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "ARRAYFLATTEN({SingleLineText}, {SingleLineText})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleLineText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleLineText"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleLineText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleLineText"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "ARRAYFLATTEN({SingleSelect}, {SingleSelect})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10", "10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleSelect" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleSelect"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleSelect" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleSelect"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayFlatten' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "ARRAYFLATTEN({User}, {User})",
+  "funcId": "ArrayFlatten",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY arg_index, ord
+      ) AS flat
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "ARRAYJOIN({Attachment}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "10|20",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "ARRAYJOIN({AutoNumber}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "1",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."AutoNumber" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."AutoNumber"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "ARRAYJOIN({Button}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "ARRAYJOIN({Checkbox}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "true",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."Checkbox" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Checkbox"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ARRAYJOIN({ConditionalLookupType}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ARRAYJOIN({ConditionalRollupType}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."ConditionalRollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalRollupType"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "ARRAYJOIN({CreatedBy}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "System",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "ARRAYJOIN({CreatedTime}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0000-00-00T00:00:00.000+00:00",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."CreatedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."CreatedTime"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "ARRAYJOIN({Date}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "2024-02-03T00:00:00+00:00",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."Date" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Date"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "ARRAYJOIN({FormulaType}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "10",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN 10 IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(10))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "ARRAYJOIN({LastModifiedBy}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "System",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "ARRAYJOIN({LastModifiedTime}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0000-00-00T00:00:00.000+00:00",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."LastModifiedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LastModifiedTime"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "ARRAYJOIN({LinkType}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "10",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "ARRAYJOIN({LongText}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "10",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."LongText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LongText"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "ARRAYJOIN({LookupType}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "ARRAYJOIN({MultipleSelect}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "10|20",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "ARRAYJOIN({Number}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "10",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."Number" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Number"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "ARRAYJOIN({Rating}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "4",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."Rating" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Rating"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "ARRAYJOIN({RollupType}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."RollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."RollupType"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "ARRAYJOIN({SingleLineText}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "10",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."SingleLineText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleLineText"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "ARRAYJOIN({SingleSelect}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "10",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements((CASE
+        WHEN "t"."SingleSelect" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleSelect"))
+      END)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayJoin' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "ARRAYJOIN({User}, "|")",
+  "funcId": "ArrayJoin",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), '|')
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "ARRAYUNIQUE({Attachment}, {Attachment})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "["{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "ARRAYUNIQUE({AutoNumber}, {AutoNumber})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "["1"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."AutoNumber" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."AutoNumber"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."AutoNumber" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."AutoNumber"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "ARRAYUNIQUE({Button}, {Button})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "ARRAYUNIQUE({Checkbox}, {Checkbox})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "["true"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Checkbox" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Checkbox"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Checkbox" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Checkbox"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "ARRAYUNIQUE({ConditionalLookupType}, {ConditionalLookupType})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "ARRAYUNIQUE({ConditionalRollupType}, {ConditionalRollupType})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalRollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalRollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."ConditionalRollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."ConditionalRollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "ARRAYUNIQUE({CreatedBy}, {CreatedBy})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
+        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "ARRAYUNIQUE({CreatedTime}, {CreatedTime})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "["0000-00-00T00:00:00.000+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."CreatedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."CreatedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."CreatedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "ARRAYUNIQUE({Date}, {Date})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "["2024-02-03T00:00:00+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Date" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Date"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Date" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Date"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "ARRAYUNIQUE({FormulaType}, {FormulaType})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "["10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN 10 IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(10))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN 10 IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb(10))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "ARRAYUNIQUE({LastModifiedBy}, {LastModifiedBy})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
+        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
+        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "ARRAYUNIQUE({LastModifiedTime}, {LastModifiedTime})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "["0000-00-00T00:00:00.000+00:00"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LastModifiedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LastModifiedTime" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LastModifiedTime"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "ARRAYUNIQUE({LinkType}, {LinkType})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "["10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+    WHEN _cj.v IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'null' THEN '[]'::jsonb
+    WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
+    ELSE jsonb_build_array(_cj.v)
+  END FROM (SELECT (CASE
+    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
+        ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+      END
+    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+  END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "ARRAYUNIQUE({LongText}, {LongText})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LongText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LongText"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."LongText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."LongText"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "ARRAYUNIQUE({LookupType}, {LookupType})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "ARRAYUNIQUE({MultipleSelect}, {MultipleSelect})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "["10", "20"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "ARRAYUNIQUE({Number}, {Number})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "["10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Number" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Number"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Number" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Number"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "ARRAYUNIQUE({Rating}, {Rating})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "["4"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Rating" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Rating"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."Rating" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."Rating"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "ARRAYUNIQUE({RollupType}, {RollupType})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."RollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."RollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."RollupType" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."RollupType"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "ARRAYUNIQUE({SingleLineText}, {SingleLineText})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleLineText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleLineText"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleLineText" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleLineText"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "ARRAYUNIQUE({SingleSelect}, {SingleSelect})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "["10"]",
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleSelect" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleSelect"))
+      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text((CASE
+        WHEN "t"."SingleSelect" IS NULL THEN '[]'::jsonb
+        ELSE jsonb_build_array(to_jsonb("t"."SingleSelect"))
+      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'ArrayUnique' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "ARRAYUNIQUE({User}, {User})",
+  "funcId": "ArrayUnique",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": null,
+  "sql": "(
+      SELECT jsonb_agg(value)
+      FROM (
+        SELECT DISTINCT ON (value) value
+        FROM (SELECT elem.value, 0 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
+          FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
+        ORDER BY value, arg_index, ord
+      ) AS uniq
+    )",
+}
+`;
+
+exports[`array functions > 'Count' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "COUNT({Attachment})",
+  "funcId": "Count",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "2",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb
+        ))",
+}
+`;
+
+exports[`array functions > 'Count' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "COUNT({AutoNumber})",
+  "funcId": "Count",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."AutoNumber" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "COUNT({Button})",
+  "funcId": "Count",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "COUNT({Checkbox})",
+  "funcId": "Count",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."Checkbox" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "COUNT({ConditionalLookupType})",
+  "funcId": "Count",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb
+        ))",
+}
+`;
+
+exports[`array functions > 'Count' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "COUNT({ConditionalRollupType})",
+  "funcId": "Count",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."ConditionalRollupType" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "COUNT({CreatedBy})",
+  "funcId": "Count",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."CreatedBy" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "COUNT({CreatedTime})",
+  "funcId": "Count",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."CreatedTime" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "COUNT({Date})",
+  "funcId": "Count",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."Date" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "COUNT({FormulaType})",
+  "funcId": "Count",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN 10 IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "COUNT({LastModifiedBy})",
+  "funcId": "Count",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."LastModifiedBy" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "COUNT({LastModifiedTime})",
+  "funcId": "Count",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."LastModifiedTime" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "COUNT({LinkType})",
+  "funcId": "Count",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "COUNT({LongText})",
+  "funcId": "Count",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."LongText" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "COUNT({LookupType})",
+  "funcId": "Count",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb
+        ))",
+}
+`;
+
+exports[`array functions > 'Count' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "COUNT({MultipleSelect})",
+  "funcId": "Count",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "2",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb
+        ))",
+}
+`;
+
+exports[`array functions > 'Count' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "COUNT({Number})",
+  "funcId": "Count",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."Number" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "COUNT({Rating})",
+  "funcId": "Count",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."Rating" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "COUNT({RollupType})",
+  "funcId": "Count",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."RollupType" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "COUNT({SingleLineText})",
+  "funcId": "Count",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."SingleLineText" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "COUNT({SingleSelect})",
+  "funcId": "Count",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."SingleSelect" IS NOT NULL THEN 1 ELSE 0 END)",
+}
+`;
+
+exports[`array functions > 'Count' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "COUNT({User})",
+  "funcId": "Count",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb
+        ))",
+}
+`;
+
+exports[`array functions > 'CountA' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "COUNTA({Attachment})",
+  "funcId": "CountA",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "2",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END)) <> ''
+        ))",
+}
+`;
+
+exports[`array functions > 'CountA' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "COUNTA({AutoNumber})",
+  "funcId": "CountA",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."AutoNumber" IS NULL OR ("t"."AutoNumber")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "COUNTA({Button})",
+  "funcId": "CountA",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL OR (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "COUNTA({Checkbox})",
+  "funcId": "CountA",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."Checkbox" IS NULL OR ("t"."Checkbox")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "COUNTA({ConditionalLookupType})",
+  "funcId": "CountA",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END)) <> ''
+        ))",
+}
+`;
+
+exports[`array functions > 'CountA' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "COUNTA({ConditionalRollupType})",
+  "funcId": "CountA",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."ConditionalRollupType" IS NULL OR ("t"."ConditionalRollupType")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "COUNTA({CreatedBy})",
+  "funcId": "CountA",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."CreatedBy" IS NULL OR ("t"."CreatedBy")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "COUNTA({CreatedTime})",
+  "funcId": "CountA",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."CreatedTime" IS NULL OR ("t"."CreatedTime")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "COUNTA({Date})",
+  "funcId": "CountA",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."Date" IS NULL OR ("t"."Date")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "COUNTA({FormulaType})",
+  "funcId": "CountA",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN 10 IS NULL OR (10)::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "COUNTA({LastModifiedBy})",
+  "funcId": "CountA",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."LastModifiedBy" IS NULL OR ("t"."LastModifiedBy")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "COUNTA({LastModifiedTime})",
+  "funcId": "CountA",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."LastModifiedTime" IS NULL OR ("t"."LastModifiedTime")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "COUNTA({LinkType})",
+  "funcId": "CountA",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL OR (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "COUNTA({LongText})",
+  "funcId": "CountA",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."LongText" IS NULL OR ("t"."LongText")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "COUNTA({LookupType})",
+  "funcId": "CountA",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END)) <> ''
+        ))",
+}
+`;
+
+exports[`array functions > 'CountA' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "COUNTA({MultipleSelect})",
+  "funcId": "CountA",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "2",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END)) <> ''
+        ))",
+}
+`;
+
+exports[`array functions > 'CountA' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "COUNTA({Number})",
+  "funcId": "CountA",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."Number" IS NULL OR ("t"."Number")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "COUNTA({Rating})",
+  "funcId": "CountA",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."Rating" IS NULL OR ("t"."Rating")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "COUNTA({RollupType})",
+  "funcId": "CountA",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "(CASE WHEN "t"."RollupType" IS NULL OR ("t"."RollupType")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "COUNTA({SingleLineText})",
+  "funcId": "CountA",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."SingleLineText" IS NULL OR ("t"."SingleLineText")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "COUNTA({SingleSelect})",
+  "funcId": "CountA",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "(CASE WHEN "t"."SingleSelect" IS NULL OR ("t"."SingleSelect")::text = '' THEN 0 ELSE 1 END)",
+}
+`;
+
+exports[`array functions > 'CountA' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "COUNTA({User})",
+  "funcId": "CountA",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "((
+          SELECT COUNT(*)
+          FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+          WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END)) <> ''
+        ))",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'attachment' 1`] = `
+{
+  "fieldType": "attachment",
+  "formula": "COUNTALL({Attachment})",
+  "funcId": "CountAll",
+  "inputs": {
+    "Attachment": {
+      "fieldName": "Attachment",
+      "fieldType": "attachment",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
+    },
+  },
+  "result": "2",
+  "sql": "COALESCE(jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)), 0)",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'autoNumber' 1`] = `
+{
+  "fieldType": "autoNumber",
+  "formula": "COUNTALL({AutoNumber})",
+  "funcId": "CountAll",
+  "inputs": {
+    "AutoNumber": {
+      "fieldName": "AutoNumber",
+      "fieldType": "autoNumber",
+      "formattedValue": "1",
+      "formatting": undefined,
+      "rawValue": "1",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."AutoNumber" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'button' 1`] = `
+{
+  "fieldType": "button",
+  "formula": "COUNTALL({Button})",
+  "funcId": "CountAll",
+  "inputs": {
+    "Button": {
+      "fieldName": "Button",
+      "fieldType": "button",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'checkbox' 1`] = `
+{
+  "fieldType": "checkbox",
+  "formula": "COUNTALL({Checkbox})",
+  "funcId": "CountAll",
+  "inputs": {
+    "Checkbox": {
+      "fieldName": "Checkbox",
+      "fieldType": "checkbox",
+      "formattedValue": "true",
+      "formatting": undefined,
+      "rawValue": "true",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."Checkbox" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'conditionalLookup' 1`] = `
+{
+  "fieldType": "conditionalLookup",
+  "formula": "COUNTALL({ConditionalLookupType})",
+  "funcId": "CountAll",
+  "inputs": {
+    "ConditionalLookupType": {
+      "fieldName": "ConditionalLookupType",
+      "fieldType": "conditionalLookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": null,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "COALESCE(jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)), 0)",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'conditionalRollup' 1`] = `
+{
+  "fieldType": "conditionalRollup",
+  "formula": "COUNTALL({ConditionalRollupType})",
+  "funcId": "CountAll",
+  "inputs": {
+    "ConditionalRollupType": {
+      "fieldName": "ConditionalRollupType",
+      "fieldType": "conditionalRollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "CASE WHEN "t"."ConditionalRollupType" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'createdBy' 1`] = `
+{
+  "fieldType": "createdBy",
+  "formula": "COUNTALL({CreatedBy})",
+  "funcId": "CountAll",
+  "inputs": {
+    "CreatedBy": {
+      "fieldName": "CreatedBy",
+      "fieldType": "createdBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."CreatedBy" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'createdTime' 1`] = `
+{
+  "fieldType": "createdTime",
+  "formula": "COUNTALL({CreatedTime})",
+  "funcId": "CountAll",
+  "inputs": {
+    "CreatedTime": {
+      "fieldName": "CreatedTime",
+      "fieldType": "createdTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0",
+  "sql": "CASE WHEN "t"."CreatedTime" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'date' 1`] = `
+{
+  "fieldType": "date",
+  "formula": "COUNTALL({Date})",
+  "funcId": "CountAll",
+  "inputs": {
+    "Date": {
+      "fieldName": "Date",
+      "fieldType": "date",
+      "formattedValue": "2024-02-03 00:00:00+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "2024-02-03 00:00:00+00",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."Date" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'formula' 1`] = `
+{
+  "fieldType": "formula",
+  "formula": "COUNTALL({FormulaType})",
+  "funcId": "CountAll",
+  "inputs": {
+    "FormulaType": {
+      "fieldName": "FormulaType",
+      "fieldType": "formula",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN 10 IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'lastModifiedBy' 1`] = `
+{
+  "fieldType": "lastModifiedBy",
+  "formula": "COUNTALL({LastModifiedBy})",
+  "funcId": "CountAll",
+  "inputs": {
+    "LastModifiedBy": {
+      "fieldName": "LastModifiedBy",
+      "fieldType": "lastModifiedBy",
+      "formattedValue": "System",
+      "formatting": undefined,
+      "rawValue": "{"id": "system", "email": null, "title": "System", "avatarUrl": "/api/attachments/read/public/avatar/system"}",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."LastModifiedBy" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'lastModifiedTime' 1`] = `
+{
+  "fieldType": "lastModifiedTime",
+  "formula": "COUNTALL({LastModifiedTime})",
+  "funcId": "CountAll",
+  "inputs": {
+    "LastModifiedTime": {
+      "fieldName": "LastModifiedTime",
+      "fieldType": "lastModifiedTime",
+      "formattedValue": "0000-00-00 00:00:00.000+00",
+      "formatting": {
+        "date": "YYYY/MM/DD",
+        "time": "HH:mm",
+        "timeZone": "Asia/Shanghai",
+      },
+      "rawValue": "0000-00-00 00:00:00.000+00",
+    },
+  },
+  "result": "0",
+  "sql": "CASE WHEN "t"."LastModifiedTime" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'link' 1`] = `
+{
+  "fieldType": "link",
+  "formula": "COUNTALL({LinkType})",
+  "funcId": "CountAll",
+  "inputs": {
+    "LinkType": {
+      "fieldName": "LinkType",
+      "fieldType": "link",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "{"id": "rec_*", "title": "10"}",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'longText' 1`] = `
+{
+  "fieldType": "longText",
+  "formula": "COUNTALL({LongText})",
+  "funcId": "CountAll",
+  "inputs": {
+    "LongText": {
+      "fieldName": "LongText",
+      "fieldType": "longText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."LongText" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'lookup' 1`] = `
+{
+  "fieldType": "lookup",
+  "formula": "COUNTALL({LookupType})",
+  "funcId": "CountAll",
+  "inputs": {
+    "LookupType": {
+      "fieldName": "LookupType",
+      "fieldType": "lookup",
+      "formattedValue": "",
+      "formatting": undefined,
+      "innerField": {
+        "fieldName": "LookupType",
+        "fieldType": "singleLineText",
+        "formattedValue": null,
+        "formatting": undefined,
+        "rawValue": null,
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "COALESCE(jsonb_array_length((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)), 0)",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'multipleSelect' 1`] = `
+{
+  "fieldType": "multipleSelect",
+  "formula": "COUNTALL({MultipleSelect})",
+  "funcId": "CountAll",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "2",
+  "sql": "COALESCE(jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)), 0)",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'number' 1`] = `
+{
+  "fieldType": "number",
+  "formula": "COUNTALL({Number})",
+  "funcId": "CountAll",
+  "inputs": {
+    "Number": {
+      "fieldName": "Number",
+      "fieldType": "number",
+      "formattedValue": "10",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."Number" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'rating' 1`] = `
+{
+  "fieldType": "rating",
+  "formula": "COUNTALL({Rating})",
+  "funcId": "CountAll",
+  "inputs": {
+    "Rating": {
+      "fieldName": "Rating",
+      "fieldType": "rating",
+      "formattedValue": "4",
+      "formatting": undefined,
+      "rawValue": "4",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."Rating" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'rollup' 1`] = `
+{
+  "fieldType": "rollup",
+  "formula": "COUNTALL({RollupType})",
+  "funcId": "CountAll",
+  "inputs": {
+    "RollupType": {
+      "fieldName": "RollupType",
+      "fieldType": "rollup",
+      "formattedValue": "",
+      "formatting": {
+        "precision": 2,
+        "type": "decimal",
+      },
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "CASE WHEN "t"."RollupType" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'singleLineText' 1`] = `
+{
+  "fieldType": "singleLineText",
+  "formula": "COUNTALL({SingleLineText})",
+  "funcId": "CountAll",
+  "inputs": {
+    "SingleLineText": {
+      "fieldName": "SingleLineText",
+      "fieldType": "singleLineText",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."SingleLineText" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'singleSelect' 1`] = `
+{
+  "fieldType": "singleSelect",
+  "formula": "COUNTALL({SingleSelect})",
+  "funcId": "CountAll",
+  "inputs": {
+    "SingleSelect": {
+      "fieldName": "SingleSelect",
+      "fieldType": "singleSelect",
+      "formattedValue": "10",
+      "formatting": undefined,
+      "rawValue": "10",
+    },
+  },
+  "result": "1",
+  "sql": "CASE WHEN "t"."SingleSelect" IS NULL THEN 0 ELSE 1 END",
+}
+`;
+
+exports[`array functions > 'CountAll' with 'user' 1`] = `
+{
+  "fieldType": "user",
+  "formula": "COUNTALL({User})",
+  "funcId": "CountAll",
+  "inputs": {
+    "User": {
+      "fieldName": "User",
+      "fieldType": "user",
+      "formattedValue": "",
+      "formatting": undefined,
+      "rawValue": null,
+    },
+  },
+  "result": "0",
+  "sql": "COALESCE(jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)), 0)",
+}
+`;
+
+exports[`array functions > ArrayJoinNoSeparator uses default separator 1`] = `
+{
+  "formula": "ARRAYJOIN({MultipleSelect})",
+  "funcId": "ArrayJoinNoSeparator",
+  "inputs": {
+    "MultipleSelect": {
+      "fieldName": "MultipleSelect",
+      "fieldType": "multipleSelect",
+      "formattedValue": "10, 20",
+      "formatting": undefined,
+      "rawValue": "["10", "20"]",
+    },
+  },
+  "result": "10, 20",
+  "sql": "(
+      SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ')
+      FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
+    )",
+}
+`;

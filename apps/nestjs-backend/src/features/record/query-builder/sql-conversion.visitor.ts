@@ -54,9 +54,9 @@ import type {
   IFormulaParamFieldMetadata,
   FormulaParamType,
   IDatetimeFormatting,
+  ITeableToDbFunctionConverter,
 } from '@teable/core';
-import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
-import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
+import type { RootContext, UnaryOpContext } from '@teable/formula';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import type { IFieldSelectName } from './field-select.type';
@@ -587,7 +587,7 @@ abstract class BaseSqlConversionVisitor<
             this.formulaQuery.datetimeParse(params[0], params[1])
           )
           .with(FunctionName.Day, () => this.formulaQuery.day(params[0]))
-          .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0]))
+          .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0], params[1]))
           .with(FunctionName.Hour, () => this.formulaQuery.hour(params[0]))
           .with(FunctionName.IsAfter, () => this.formulaQuery.isAfter(params[0], params[1]))
           .with(FunctionName.IsBefore, () => this.formulaQuery.isBefore(params[0], params[1]))
@@ -599,9 +599,9 @@ abstract class BaseSqlConversionVisitor<
           .with(FunctionName.Month, () => this.formulaQuery.month(params[0]))
           .with(FunctionName.Second, () => this.formulaQuery.second(params[0]))
           .with(FunctionName.Timestr, () => this.formulaQuery.timestr(params[0]))
-          .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0]))
+          .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0], params[1]))
           .with(FunctionName.WeekNum, () => this.formulaQuery.weekNum(params[0]))
-          .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0]))
+          .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0], params[1]))
           .with(FunctionName.Workday, () => this.formulaQuery.workday(params[0], params[1]))
           .with(FunctionName.WorkdayDiff, () => this.formulaQuery.workdayDiff(params[0], params[1]))
           .with(FunctionName.Year, () => this.formulaQuery.year(params[0]))
@@ -998,7 +998,7 @@ abstract class BaseSqlConversionVisitor<
         );
       case FunctionName.Weekday:
         return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
-          this.formulaQuery.weekday(scalar)
+          this.formulaQuery.weekday(scalar, params[1])
         );
       case FunctionName.WeekNum:
         return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
@@ -1018,11 +1018,11 @@ abstract class BaseSqlConversionVisitor<
         );
       case FunctionName.FromNow:
         return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
-          this.formulaQuery.fromNow(scalar)
+          this.formulaQuery.fromNow(scalar, params[1])
         );
       case FunctionName.ToNow:
         return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
-          this.formulaQuery.toNow(scalar)
+          this.formulaQuery.toNow(scalar, params[1])
         );
       case FunctionName.Round:
         return this.buildPgNumericScalarAggregator(params[0], (scalar) =>

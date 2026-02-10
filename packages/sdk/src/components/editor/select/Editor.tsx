@@ -18,7 +18,15 @@ const SelectEditorBase: ForwardRefRenderFunction<
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
 
   const optionsMap = useMemo(() => keyBy(options, 'value'), [options]);
-  const arrayValue = isMultiple ? (value as string[]) : value ? [value] : [];
+  const arrayValue = isMultiple
+    ? Array.isArray(value)
+      ? (value as string[])
+      : value
+        ? [value as string]
+        : []
+    : value
+      ? [value]
+      : [];
 
   const displayOptions = arrayValue?.map((value) => optionsMap[value as string]).filter(Boolean);
 

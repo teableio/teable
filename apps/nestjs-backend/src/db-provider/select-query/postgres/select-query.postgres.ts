@@ -3,7 +3,10 @@
 import { DateFormattingPreset, DbFieldType, TimeFormatting } from '@teable/core';
 import type { IDatetimeFormatting } from '@teable/core';
 import type { ISelectFormulaConversionContext } from '../../../features/record/query-builder/sql-conversion.visitor';
-import { normalizeAirtableDatetimeFormatExpression } from '../../utils/datetime-format.util';
+import {
+  buildAirtableDatetimeFormatSql,
+  normalizeAirtableDatetimeFormatExpression,
+} from '../../utils/datetime-format.util';
 import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
 import {
   isBooleanLikeParam,
@@ -795,6 +798,18 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `${wrappedBase}::timestamptz AT TIME ZONE '${safeTz}'`;
   }
 
+  private buildTimezoneOffsetSql(localTimestampSql: string): string {
+    const tz = this.context?.timeZone as string | undefined;
+    if (!tz) {
+      return "'+00:00'";
+    }
+
+    const safeTz = tz.replace(/'/g, "''");
+    const offsetMinutesSql = `ROUND(EXTRACT(EPOCH FROM (((${localTimestampSql}) AT TIME ZONE 'UTC') - ((${localTimestampSql}) AT TIME ZONE '${safeTz}'))) / 60)::int`;
+
+    return `(CASE WHEN ${offsetMinutesSql} >= 0 THEN '+' ELSE '-' END || LPAD((ABS(${offsetMinutesSql}) / 60)::int::text, 2, '0') || ':' || LPAD((ABS(${offsetMinutesSql}) % 60)::int::text, 2, '0'))`;
+  }
+
   private getDatePattern(date: DateFormattingPreset | string): string {
     const presetValues = Object.values(DateFormattingPreset) as string[];
     const normalizedPreset = presetValues.includes(date)
@@ -1209,8 +1224,26 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   encodeUrlComponent(text: string): string {
-    // PostgreSQL doesn't have built-in URL encoding, would need custom function
-    return `encode(${text}::bytea, 'escape')`;
+    const textExpr = `(${text})::text`;
+    const encodedSql = `(SELECT string_agg(
+      CASE
+        WHEN byte_val BETWEEN 48 AND 57
+          OR byte_val BETWEEN 65 AND 90
+          OR byte_val BETWEEN 97 AND 122
+          OR byte_val IN (45, 95, 46, 33, 126, 42, 39, 40, 41)
+        THEN chr(byte_val)
+        ELSE '%' || UPPER(LPAD(to_hex(byte_val), 2, '0'))
+      END,
+      ''
+      ORDER BY ord
+    )
+    FROM (
+      SELECT ord, get_byte(src.bytes, ord) AS byte_val
+      FROM (SELECT convert_to(${textExpr}, 'UTF8') AS bytes) AS src
+      CROSS JOIN generate_series(0, octet_length(src.bytes) - 1) AS ord
+    ) AS utf8_bytes)`;
+
+    return `(CASE WHEN ${text} IS NULL THEN NULL ELSE COALESCE(${encodedSql}, '') END)`;
   }
 
   // DateTime Functions - These can use mutable functions in SELECT context
@@ -1288,8 +1321,12 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   datetimeFormat(date: string, format: string): string {
-    const normalizedFormat = normalizeAirtableDatetimeFormatExpression(format);
-    return `TO_CHAR(${this.tzWrap(date, 0)}, ${normalizedFormat})`;
+    const timestampExpr = this.tzWrap(date, 0);
+    return buildAirtableDatetimeFormatSql(
+      timestampExpr,
+      format,
+      this.buildTimezoneOffsetSql(timestampExpr)
+    );
   }
 
   datetimeParse(dateString: string, format?: string): string {
@@ -1321,12 +1358,40 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `EXTRACT(DAY FROM ${this.tzWrap(date, 0)})::int`;
   }
 
-  fromNow(date: string): string {
+  private buildNowDiffByUnit(nowExpr: string, dateExpr: string, unit: string): string {
+    const diffUnit = this.normalizeDiffUnit(unit.replace(/^'|'$/g, ''));
+    const diffSeconds = `EXTRACT(EPOCH FROM (${nowExpr} - ${dateExpr}))`;
+    const diffMonths = `EXTRACT(MONTH FROM AGE(${nowExpr}, ${dateExpr})) + EXTRACT(YEAR FROM AGE(${nowExpr}, ${dateExpr})) * 12`;
+    const diffYears = `EXTRACT(YEAR FROM AGE(${nowExpr}, ${dateExpr}))`;
+    switch (diffUnit) {
+      case 'millisecond':
+        return `(${diffSeconds}) * 1000`;
+      case 'second':
+        return `(${diffSeconds})`;
+      case 'minute':
+        return `(${diffSeconds}) / 60`;
+      case 'hour':
+        return `(${diffSeconds}) / 3600`;
+      case 'week':
+        return `(${diffSeconds}) / (86400 * 7)`;
+      case 'month':
+        return diffMonths;
+      case 'quarter':
+        return `(${diffMonths}) / 3.0`;
+      case 'year':
+        return diffYears;
+      case 'day':
+      default:
+        return `(${diffSeconds}) / 86400`;
+    }
+  }
+
+  fromNow(date: string, unit = 'day'): string {
     const tz = this.context?.timeZone?.replace(/'/g, "''");
     if (tz) {
-      return `EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE '${tz}') - ${this.tzWrap(date, 0)}))`;
+      return this.buildNowDiffByUnit(`(NOW() AT TIME ZONE '${tz}')`, this.tzWrap(date, 0), unit);
     }
-    return `EXTRACT(EPOCH FROM (NOW() - ${date}::timestamp))`;
+    return this.buildNowDiffByUnit('NOW()', `${date}::timestamp`, unit);
   }
 
   hour(date: string): string {
@@ -1379,20 +1444,22 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `(${this.tzWrap(date, 0)})::time::text`;
   }
 
-  toNow(date: string): string {
-    const tz = this.context?.timeZone?.replace(/'/g, "''");
-    if (tz) {
-      return `EXTRACT(EPOCH FROM (${this.tzWrap(date, 0)} - (NOW() AT TIME ZONE '${tz}')))`;
-    }
-    return `EXTRACT(EPOCH FROM (${date}::timestamp - NOW()))`;
+  toNow(date: string, unit = 'day'): string {
+    return this.fromNow(date, unit);
   }
 
   weekNum(date: string): string {
     return `EXTRACT(WEEK FROM ${this.tzWrap(date, 0)})::int`;
   }
 
-  weekday(date: string): string {
-    return `EXTRACT(DOW FROM ${this.tzWrap(date, 0)})::int`;
+  weekday(date: string, startDayOfWeek?: string): string {
+    const weekdaySql = `EXTRACT(DOW FROM ${this.tzWrap(date, 0)})::int`;
+    if (!startDayOfWeek) {
+      return weekdaySql;
+    }
+
+    const normalizedStartDay = `LOWER(BTRIM(COALESCE((${startDayOfWeek})::text, '')))`;
+    return `CASE WHEN ${normalizedStartDay} = 'monday' THEN ((${weekdaySql} + 6) % 7) ELSE ${weekdaySql} END`;
   }
 
   workday(startDate: string, days: string): string {
@@ -1400,7 +1467,8 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       return 'NULL';
     }
     // Simplified implementation in the target timezone; tzWrap sanitizes untrusted inputs
-    return `(${this.tzWrap(startDate, 0)})::date + INTERVAL '${days} days'`;
+    // Use interval multiplication so dynamic expressions (e.g. field references) are valid SQL.
+    return `(${this.tzWrap(startDate, 0)})::date + INTERVAL '1 day' * (${days})::double precision`;
   }
 
   workdayDiff(startDate: string, endDate: string): string {
@@ -1599,7 +1667,22 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   countAll(value: string): string {
-    return this.countANonNullExpression(value, 0);
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      const baseExpr =
+        paramInfo.isFieldReference && paramInfo.fieldDbName
+          ? this.tableAlias
+            ? `"${this.tableAlias}"."${paramInfo.fieldDbName}"`
+            : `"${paramInfo.fieldDbName}"`
+          : value;
+      const normalized = `COALESCE(NULLIF((${baseExpr})::jsonb, 'null'::jsonb), '[]'::jsonb)`;
+      return `(CASE
+        WHEN jsonb_typeof(${normalized}) = 'array' THEN jsonb_array_length(${normalized})
+        ELSE 1
+      END)`;
+    }
+
+    return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
   private normalizeJsonbArray(array: string): string {

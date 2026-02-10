@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-field-dependency-core",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "esnext",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "../../",
+    "outDir": "dist",
+    "paths": {
+      "@teable/v2-core": ["../core/src"]
+    },
+    "types": ["node"]
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../core/src/**/*.test.ts"
+  ],
+  "include": ["src", "../core/src"]
+}

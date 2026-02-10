@@ -2,14 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart, MessageSquare, Edit, Trash2 } from '@teable/icons';
 import type { ICommentVo, IUpdateCommentReactionRo } from '@teable/openapi';
 import { deleteComment, createCommentReaction } from '@teable/openapi';
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-  Button,
-  cn,
-  HoverCardPortal,
-} from '@teable/ui-lib';
+import { Popover, PopoverTrigger, PopoverContent, Button, cn } from '@teable/ui-lib';
 import { useState, useRef, useEffect } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
@@ -89,148 +82,138 @@ export const CommentItem = (props: ICommentItemProps) => {
   });
   return (
     createdBy && (
-      <HoverCard openDelay={200}>
-        <HoverCardTrigger asChild>
-          <div
-            className={cn('flex w-full gap-1 rounded-sm p-2 hover:bg-secondary', {
-              'flex-row-reverse': isMe,
-            })}
-            ref={itemRef}
-          >
-            <div>
-              <UserAvatar name={createdBy.name} avatar={createdBy.avatar} />
-            </div>
+      <div className="group relative">
+        <div
+          className={cn('flex w-full gap-1 rounded-sm p-2 hover:bg-secondary', {
+            'flex-row-reverse': isMe,
+          })}
+          ref={itemRef}
+        >
+          <div>
+            <UserAvatar name={createdBy.name} avatar={createdBy.avatar} />
+          </div>
 
-            <div className="flex-1 truncate px-1">
-              <div
-                className={cn('flex flex-1 truncate text-xs gap-1 items-center', {
-                  'flex-row-reverse': isMe,
+          <div className="min-w-0 flex-1 overflow-hidden px-1">
+            <div
+              className={cn('flex flex-1 truncate text-xs gap-1 items-center', {
+                'flex-row-reverse': isMe,
+              })}
+            >
+              <span
+                className={cn('truncate', {
+                  'text-end': isMe,
                 })}
               >
-                <span
-                  className={cn('truncate', {
-                    'text-end': isMe,
-                  })}
-                >
-                  {createdBy.name}
+                {createdBy.name}
+              </span>
+              <span className="shrink-0 text-xs text-secondary-foreground/60">{relativeTime}</span>
+              {lastModifiedTime && (
+                <span className="shrink-0 text-xs text-secondary-foreground/50">
+                  {t('comment.tip.edited')}
                 </span>
-                <span className="shrink-0 text-xs text-secondary-foreground/60">
-                  {relativeTime}
-                </span>
-                {lastModifiedTime && (
-                  <span className="shrink-0 text-xs text-secondary-foreground/50">
-                    {t('comment.tip.edited')}
-                  </span>
-                )}
-              </div>
-              <div className={cn('pt-1 flex flex-col')}>
-                <CommentListContext.Provider
-                  value={{
-                    isMe: isMe,
-                  }}
-                >
-                  <CommentContent content={content} />
-                  <CommentQuote
-                    quoteId={quoteId}
-                    className={cn(
-                      'flex w-auto max-w-full self-start truncate rounded-md bg-secondary p-1 text-xs text-secondary-foreground/50 mt-0.5',
-                      {
-                        'self-end': isMe,
-                      }
-                    )}
-                  />
-                </CommentListContext.Provider>
-              </div>
-              <Reaction value={reaction} commentId={id} />
+              )}
             </div>
+            <div className={cn('pt-1 flex flex-col', { 'items-end': isMe })}>
+              <CommentListContext.Provider
+                value={{
+                  isMe: isMe,
+                }}
+              >
+                <CommentContent content={content} />
+                <CommentQuote
+                  quoteId={quoteId}
+                  className={cn(
+                    'flex w-auto max-w-full self-start truncate rounded-md bg-secondary p-1 text-xs text-secondary-foreground/50 mt-0.5',
+                    {
+                      'self-end': isMe,
+                    }
+                  )}
+                />
+              </CommentListContext.Provider>
+            </div>
+            <Reaction value={reaction} commentId={id} />
           </div>
-        </HoverCardTrigger>
-        <HoverCardPortal container={modalRef.current}>
-          <HoverCardContent
-            side="top"
-            className="size-auto p-1"
-            sideOffset={-10}
-            hideWhenDetached
-            sticky="always"
+        </div>
+        <div
+          className={cn(
+            'invisible absolute -top-3 flex items-center rounded-md border border-border-high bg-popover p-0.5 shadow-sm group-hover:visible',
+            {
+              'left-8': !isMe,
+              'right-8': isMe,
+            },
+            emojiPickOpen && 'visible'
+          )}
+        >
+          <Popover open={emojiPickOpen} onOpenChange={setEmojiPickOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={'ghost'}
+                size={'xs'}
+                onClick={() => {
+                  setEmojiPickOpen(true);
+                }}
+              >
+                <Heart />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="top" className="size-auto p-0.5" container={modalRef.current}>
+              <ReactionPicker
+                onReactionClick={(emoji) => {
+                  setEmojiPickOpen(false);
+                  createCommentEmojiFn({
+                    tableId,
+                    recordId,
+                    commentId: id,
+                    reactionRo: { reaction: emoji },
+                  }).then(() => {
+                    setTimeout(() => {
+                      itemRef?.current &&
+                        itemRef?.current?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'nearest',
+                        });
+                    }, 200);
+                  });
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            variant={'ghost'}
+            size={'xs'}
+            onClick={() => {
+              setQuoteId(id);
+              editorRef.focus();
+            }}
           >
-            <HoverCard
-              open={emojiPickOpen}
-              onOpenChange={(open) => {
-                setEmojiPickOpen(open);
-              }}
-            >
-              <HoverCardTrigger asChild>
-                <Button
-                  variant={'ghost'}
-                  size={'xs'}
-                  onClick={() => {
-                    setEmojiPickOpen(true);
-                  }}
-                >
-                  <Heart />
-                </Button>
-              </HoverCardTrigger>
-
-              <HoverCardPortal container={modalRef.current}>
-                <HoverCardContent side="top" className="size-auto p-0.5" hideWhenDetached>
-                  <ReactionPicker
-                    onReactionClick={(emoji) => {
-                      createCommentEmojiFn({
-                        tableId,
-                        recordId,
-                        commentId: id,
-                        reactionRo: { reaction: emoji },
-                      }).then(() => {
-                        setTimeout(() => {
-                          itemRef?.current &&
-                            itemRef?.current?.scrollIntoView({
-                              behavior: 'smooth',
-                              block: 'nearest',
-                            });
-                        }, 200);
-                      });
-                    }}
-                  />
-                </HoverCardContent>
-              </HoverCardPortal>
-            </HoverCard>
-
+            <MessageSquare />
+          </Button>
+          {isMe && (
             <Button
               variant={'ghost'}
               size={'xs'}
               onClick={() => {
-                setQuoteId(id);
+                setEditingCommentId(id);
                 editorRef.focus();
               }}
             >
-              <MessageSquare />
+              <Edit />
             </Button>
-            {isMe && (
-              <Button
-                variant={'ghost'}
-                size={'xs'}
-                onClick={() => {
-                  setEditingCommentId(id);
-                  editorRef.focus();
-                }}
-              >
-                <Edit />
-              </Button>
-            )}
-            {isMe && (
-              <Button
-                variant={'ghost'}
-                size={'xs'}
-                onClick={() => {
-                  deleteCommentFn({ tableId, recordId, id });
-                }}
-              >
-                <Trash2 />
-              </Button>
-            )}
-          </HoverCardContent>
-        </HoverCardPortal>
-      </HoverCard>
+          )}
+          {isMe && (
+            <Button
+              variant={'ghost'}
+              size={'xs'}
+              onClick={() => {
+                deleteCommentFn({ tableId, recordId, id });
+              }}
+            >
+              <Trash2 />
+            </Button>
+          )}
+        </div>
+      </div>
     )
   );
 };

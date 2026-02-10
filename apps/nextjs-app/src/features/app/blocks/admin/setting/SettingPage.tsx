@@ -197,7 +197,9 @@ export const SettingPage = (props: ISettingPageProps) => {
               </div>
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
                 <div className="space-y-1">
-                  <Label htmlFor="allow-sign-up">{t('admin.setting.allowSpaceInvitation')}</Label>
+                  <Label htmlFor="allow-space-invitation">
+                    {t('admin.setting.allowSpaceInvitation')}
+                  </Label>
                   <div className="text-xs text-muted-foreground">
                     {t('admin.setting.allowSpaceInvitationDescription')}
                   </div>
