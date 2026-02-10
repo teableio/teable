@@ -4,7 +4,7 @@ import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { BaseTrashPage } from '@/features/app/blocks/trash/BaseTrashPage';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
-import { tableConfig } from '@/features/i18n/table.config';
+import { baseAllConfig } from '@/features/i18n/base-all.config';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { IBasePageProps, NextPageWithLayout } from '@/lib/type';
@@ -30,7 +30,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
       return {
         props: {
           dehydratedState: dehydrate(queryClient),
-          ...(await getTranslationsProps(context, tableConfig.i18nNamespaces)),
+          ...(await getTranslationsProps(context, baseAllConfig.i18nNamespaces)),
         },
       };
     })

@@ -1,38 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Edit, MoreHorizontal, Plus } from '@teable/icons';
-import {
-  deleteDashboard,
-  duplicateDashboard,
-  getDashboard,
-  renameDashboard,
-} from '@teable/openapi';
+import { MoreHorizontal, Plus } from '@teable/icons';
+import { BaseNodeResourceType, getDashboard, renameDashboard } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Input,
-} from '@teable/ui-lib/shadcn';
-import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { Button, Input } from '@teable/ui-lib/shadcn';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
-import { MenuDeleteItem } from '../components/MenuDeleteItem';
+import { BaseNodeMore } from '../blocks/base/base-side-bar/BaseNodeMore';
 import { useBrand } from '../hooks/useBrand';
 import { AddPluginDialog } from './components/AddPluginDialog';
 
 export const DashboardHeader = (props: { dashboardId: string }) => {
   const { dashboardId } = props;
   const baseId = useBaseId()!;
-  const router = useRouter();
   const queryClient = useQueryClient();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [editName, setEditName] = useState<string>('');
   const renameRef = useRef<HTMLInputElement>(null);
@@ -44,26 +27,6 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const { data: dashboard } = useQuery({
     queryKey: ReactQueryKeys.getDashboard(dashboardId),
     queryFn: () => getDashboard(baseId, dashboardId).then((res) => res.data),
-  });
-
-  const { mutate: deleteDashboardMutate } = useMutation({
-    mutationFn: () => deleteDashboard(baseId, dashboardId),
-    onSuccess: () => {
-      setMenuOpen(false);
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboardList(baseId) });
-      router.push(`/base/${baseId}/dashboard`);
-    },
-  });
-
-  const { mutate: duplicateDashboardMutate } = useMutation({
-    mutationFn: () =>
-      duplicateDashboard(baseId, dashboardId, {
-        name: `${dashboard?.name} ${t('common:noun.copy')}`,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getDashboardList(baseId) });
-      toast.success(t('table:table.actionTips.copySuccessful'));
-    },
   });
 
   const { mutate: renameDashboardMutate } = useMutation({
@@ -105,10 +68,14 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   };
 
   useEffect(() => {
-    if (isRenaming && renameRef.current) {
-      renameRef.current.focus();
-      renameRef.current.select();
+    let timer: NodeJS.Timeout;
+    if (isRenaming) {
+      timer = setTimeout(() => {
+        renameRef.current?.focus();
+        renameRef.current?.select();
+      }, 200);
     }
+    return () => clearTimeout(timer);
   }, [isRenaming]);
 
   return (
@@ -147,25 +114,15 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
           </AddPluginDialog>
         )}
         {canManage && (
-          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="outline" className="size-7">
-                <MoreHorizontal className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
-              <DropdownMenuItem onSelect={startRename}>
-                <Edit className="mr-1.5" />
-                {t('common:actions.rename')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => duplicateDashboardMutate()}>
-                <Copy className="mr-1.5" />
-                {t('common:actions.duplicate')}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <MenuDeleteItem onConfirm={deleteDashboardMutate} />
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <BaseNodeMore
+            resourceType={BaseNodeResourceType.Dashboard}
+            resourceId={dashboardId}
+            onRename={startRename}
+          >
+            <Button size="icon" variant="outline" className="size-7">
+              <MoreHorizontal className="size-3.5" />
+            </Button>
+          </BaseNodeMore>
         )}
       </div>
     </div>

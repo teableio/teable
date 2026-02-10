@@ -1,17 +1,18 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { ResourceType } from '../types';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import type { ITrashVo } from './get';
 import { trashVoSchema } from './get';
+import { TrashType } from './types';
 
 export const GET_TRASH_ITEMS = '/trash/items';
 
 export const trashItemsRoSchema = z.object({
   resourceId: z.string(),
-  resourceType: z.enum([ResourceType.Base, ResourceType.Table]),
+  resourceType: z.enum([TrashType.Base, TrashType.Table]),
   cursor: z.string().nullish(),
+  pageSize: z.coerce.number().int().min(1).max(20).default(20).optional(),
 });
 
 export type ITrashItemsRo = z.infer<typeof trashItemsRoSchema>;

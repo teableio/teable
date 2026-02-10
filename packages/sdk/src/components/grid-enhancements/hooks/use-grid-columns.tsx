@@ -415,6 +415,7 @@ export const useCreateCellValue2GridDisplay = (
               displayData,
               choiceSorted: choices,
               isMultiple,
+              showAddButton: !readonly,
               onPreview: (activeId: string) => {
                 expandRecord?.(foreignTableId, activeId);
               },

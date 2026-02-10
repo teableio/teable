@@ -3,6 +3,7 @@ import { cn } from '@teable/ui-lib';
 import type { IButtonClickStatusHook } from '../../hooks';
 import { useFieldStaticGetter } from '../../hooks';
 import type { Field, Record } from '../../model';
+import { AiFieldGenerateButton } from './AiFieldGenerateButton';
 import { CellEditorWrap } from './CellEditorWrap';
 
 export const RecordEditorItem = (props: {
@@ -24,11 +25,12 @@ export const RecordEditorItem = (props: {
     onAttachmentDownload,
   } = props;
   const { type, isLookup } = field;
+  const hasAiConfig = Boolean(field.aiConfig);
   const fieldStaticGetter = useFieldStaticGetter();
   const { Icon } = fieldStaticGetter(type, {
     isLookup,
     isConditionalLookup: field.isConditionalLookup,
-    hasAiConfig: Boolean(field.aiConfig),
+    hasAiConfig,
   });
 
   const cellValue = record?.getCellValue(field.id);
@@ -52,17 +54,22 @@ export const RecordEditorItem = (props: {
           </span>
         )}
       </div>
-      <CellEditorWrap
-        wrapClassName="min-w-0 flex-1 p-0.5"
-        cellValue={cellValue}
-        onChange={onChangeInner}
-        field={field}
-        recordId={record?.id}
-        readonly={!record || readonly}
-        record={record}
-        buttonClickStatusHook={buttonClickStatusHook}
-        onAttachmentDownload={onAttachmentDownload}
-      />
+      <div className="flex min-w-0 flex-1 items-start gap-1">
+        <CellEditorWrap
+          wrapClassName="min-w-0 flex-1 p-0.5"
+          cellValue={cellValue}
+          onChange={onChangeInner}
+          field={field}
+          recordId={record?.id}
+          readonly={!record || readonly}
+          record={record}
+          buttonClickStatusHook={buttonClickStatusHook}
+          onAttachmentDownload={onAttachmentDownload}
+        />
+        {hasAiConfig && field.tableId && record && !readonly && (
+          <AiFieldGenerateButton tableId={field.tableId} fieldId={field.id} recordId={record.id} />
+        )}
+      </div>
     </div>
   );
 };

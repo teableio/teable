@@ -2,13 +2,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import type { ColumnDef } from '@tanstack/react-table';
 import { ChevronLeft, Trash2 } from '@teable/icons';
 import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
-import {
-  getTrash,
-  ResourceType,
-  restoreTrash,
-  permanentDeleteSpace,
-  PrincipalType,
-} from '@teable/openapi';
+import { getTrash, restoreTrash, deleteTrash, PrincipalType, TrashType } from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
@@ -25,6 +19,8 @@ import { useBrand } from '@/features/app/hooks/useBrand';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
 import { SpaceAvatar } from '../../components/space/SpaceAvatar';
+import { useEnv } from '../../hooks/useEnv';
+import { useIsCommunity } from '../../hooks/useIsCommunity';
 
 export const SpaceTrashPage = () => {
   const isHydrated = useIsHydrated();
@@ -32,18 +28,20 @@ export const SpaceTrashPage = () => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { brandName } = useBrand();
   const router = useRouter();
-  const resourceType = ResourceType.Space;
+  const resourceType = TrashType.Space;
 
   const onBack = () => {
     router.push({ pathname: '/space' });
   };
-
+  const { trash } = useEnv();
+  const retentionDays = trash?.retentionDays ?? 0;
+  const isCommunity = useIsCommunity();
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const [isConfirmVisible, setConfirmVisible] = useState(false);
   const [deletingResource, setDeletingResource] = useState<
-    { resourceId: string; name: string } | undefined
+    { trashId: string; name: string } | undefined
   >();
 
   const queryFn = async () => {
@@ -75,8 +73,8 @@ export const SpaceTrashPage = () => {
     },
   });
 
-  const { mutateAsync: mutatePermanentDeleteSpace } = useMutation({
-    mutationFn: (props: { spaceId: string }) => permanentDeleteSpace(props.spaceId),
+  const { mutateAsync: mutatePermanentDelete } = useMutation({
+    mutationFn: (props: { trashId: string }) => deleteTrash(props.trashId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getSpaceTrash(resourceType) });
       toast.success(t('actions.deleteSucceed'));
@@ -104,7 +102,7 @@ export const SpaceTrashPage = () => {
           const { name } = resourceInfo;
 
           return (
-            <div className="flex min-w-0 items-center gap-2 pl-2">
+            <div className="flex min-w-0 items-center gap-2">
               <SpaceAvatar name={name} className="size-6" />
               <span className="truncate text-sm ">{name}</span>
             </div>
@@ -114,7 +112,7 @@ export const SpaceTrashPage = () => {
       {
         accessorKey: 'deletedBy',
         header: t('trash.deletedBy'),
-        size: 220,
+        size: 196,
         cell: ({ row }) => {
           const createdBy = row.getValue<string>('deletedBy');
           const user = userMap[createdBy];
@@ -134,7 +132,7 @@ export const SpaceTrashPage = () => {
       {
         accessorKey: 'deletedTime',
         header: t('trash.deletedTime'),
-        size: 220,
+        size: 156,
         cell: ({ row }) => {
           const deletedTime = row.getValue<string>('deletedTime');
           const deletedDateStr = dayjs(deletedTime).format('YYYY/MM/DD HH:mm');
@@ -144,7 +142,7 @@ export const SpaceTrashPage = () => {
       {
         id: 'actions',
         header: t('actions.title'),
-        size: 80,
+        size: 108,
         cell: ({ row }) => {
           const { id: trashId, resourceId } = row.original;
           const resourceInfo = resourceMap[resourceId];
@@ -156,7 +154,7 @@ export const SpaceTrashPage = () => {
               <Button
                 size="xs"
                 variant="ghost"
-                className="p-1"
+                className="size-8 p-0"
                 title={t('actions.restore')}
                 onClick={() => mutateRestore({ trashId })}
               >
@@ -165,12 +163,12 @@ export const SpaceTrashPage = () => {
               <Button
                 size="xs"
                 variant="ghost"
-                className="p-1"
+                className="size-8 p-0"
                 title={t('actions.permanentDelete')}
                 onClick={() => {
                   setConfirmVisible(true);
                   setDeletingResource({
-                    resourceId,
+                    trashId,
                     name: resourceInfo.name,
                   });
                 }}
@@ -209,9 +207,11 @@ export const SpaceTrashPage = () => {
           <span>{t('common:settings.back')}</span>
         </Button>
         <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
-        <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
-          {t('space:trash.spaceDescription')}
-        </p>
+        {!isCommunity && retentionDays > 0 && (
+          <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
+            {t('common:trash.spaceDescription', { retentionDays })}
+          </p>
+        )}
       </div>
       <InfiniteTable rows={allRows} columns={columns} fetchNextPage={fetchNextPageInner} />
       <ConfirmDialog
@@ -226,10 +226,10 @@ export const SpaceTrashPage = () => {
         onCancel={() => setConfirmVisible(false)}
         onConfirm={() => {
           if (deletingResource == null) return;
-          const { resourceId } = deletingResource;
+          const { trashId } = deletingResource;
           setConfirmVisible(false);
-          mutatePermanentDeleteSpace({
-            spaceId: resourceId,
+          mutatePermanentDelete({
+            trashId,
           });
         }}
       />

@@ -2,6 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type {
@@ -100,6 +101,7 @@ export async function initApp() {
   const configService = app.get(ConfigService);
 
   app.useGlobalFilters(new GlobalExceptionFilter(configService));
+  app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
@@ -133,6 +135,8 @@ export async function initApp() {
   const now = new Date();
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   console.log(`> Test NODE_ENV is ${process.env.NODE_ENV}`);
+  console.log(`> Test V2_COMPUTED_UPDATE_MODE is ${process.env.V2_COMPUTED_UPDATE_MODE}`);
+  console.log(`> Test FORCE_V2_ALL is ${process.env.FORCE_V2_ALL}`);
   console.log(`> Test Ready on ${url}`);
   console.log('> Test System Time Zone:', timeZone);
   console.log('> Test Current System Time:', now.toString());

@@ -81,7 +81,7 @@ describe('OpenAPI link Select (e2e)', () => {
         reversRelationship: Relationship.ManyOne,
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
-          { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
+          { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
           { left: { c: 3, s: 1 }, right: { c: 2, s: 1 } },
         ],
         direction: 'two way',
@@ -92,7 +92,7 @@ describe('OpenAPI link Select (e2e)', () => {
         reversRelationship: Relationship.ManyOne,
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
-          { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
+          { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
           { left: { c: 3, s: 1 }, right: { c: 2, s: 1 } },
         ],
         direction: 'one Way',
@@ -103,7 +103,7 @@ describe('OpenAPI link Select (e2e)', () => {
         reversRelationship: Relationship.OneOne,
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
-          { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
+          { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
           { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
         ],
         direction: 'two way',
@@ -114,7 +114,7 @@ describe('OpenAPI link Select (e2e)', () => {
         reversRelationship: Relationship.OneOne,
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
-          { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
+          { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
           { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
         ],
         direction: 'one Way',
@@ -126,7 +126,7 @@ describe('OpenAPI link Select (e2e)', () => {
         reversRelationship: Relationship.ManyMany,
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
-          { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
+          { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
           { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
         ],
         direction: 'two way',
@@ -136,7 +136,7 @@ describe('OpenAPI link Select (e2e)', () => {
         reversRelationship: Relationship.ManyMany,
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
-          { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
+          { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
           { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
         ],
         isOneWay: true,
@@ -400,7 +400,7 @@ describe('OpenAPI link Select (e2e)', () => {
           filterLinkCellCandidate: [linkField2.id, table2.records[0].id],
         };
         const result0 = await getRecords(table1.id, table1Record0Selected);
-        expect(result0.records.length).toEqual(0);
+        expect(result0.records.length).toEqual(3);
 
         const table1Record1Selected: IGetRecordsRo = {
           fieldKeyType: FieldKeyType.Id,
@@ -453,10 +453,10 @@ describe('OpenAPI link Select (e2e)', () => {
         };
 
         const result = await getRecords(table1.id, table1Record0Selected);
-        expect(result.records.length).toEqual(1);
+        expect(result.records.length).toEqual(2);
 
         const rowCountResult = (await apiGetRowCount(table1.id, table1Record0Selected)).data;
-        expect(rowCountResult.rowCount).toBe(1);
+        expect(rowCountResult.rowCount).toBe(2);
       });
     });
   });

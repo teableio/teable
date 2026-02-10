@@ -8,6 +8,7 @@ export const DELETE_BASE_NODE = '/base/{baseId}/node/{nodeId}';
 export const deleteBaseNodeVoSchema = z.object({
   resourceId: z.string(),
   resourceType: z.string(),
+  permanent: z.boolean().optional(),
 });
 
 export type IDeleteBaseNodeVo = z.infer<typeof deleteBaseNodeVoSchema>;

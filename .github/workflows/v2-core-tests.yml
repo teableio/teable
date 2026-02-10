@@ -1,0 +1,146 @@
+name: V2 Tests
+
+on:
+  pull_request:
+    branches:
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Unit tests - run each package in parallel
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: V2 Unit Tests (${{ matrix.package }})
+    env:
+      CI: 1
+      TESTCONTAINERS_REUSE_ENABLE: 'false'
+
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        package:
+          - '@teable/v2-adapter-db-postgres-pg'
+          - '@teable/v2-adapter-repository-postgres'
+          - '@teable/v2-adapter-table-repository-postgres'
+          - '@teable/v2-core'
+          - '@teable/v2-formula-sql-pg'
+          - '@teable/v2-test-node'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/pnpm-install
+        with:
+          filter: ${{ matrix.package }}
+
+      - name: 🧪 Run unit tests (${{ matrix.package }})
+        run: |
+          pnpm -F "${{ matrix.package }}" --if-present test-unit-cover
+
+  # E2E tests - use sharding for parallel execution (the slowest tests)
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: V2 E2E Tests (Shard ${{ matrix.shard }}/4)
+    env:
+      CI: 1
+      TESTCONTAINERS_REUSE_ENABLE: 'false'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/pnpm-install
+        with:
+          filter: '@teable/v2-e2e'
+
+      - name: 🧪 Run E2E tests with coverage (shard ${{ matrix.shard }}/4)
+        run: |
+          pnpm -C packages/v2/e2e test-unit-cover -- --shard=${{ matrix.shard }}/4 --reporter=json --reporter=default --outputFile=e2e-report-${{ matrix.shard }}.json
+
+      - name: 📊 Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-shard-${{ matrix.shard }}
+          path: packages/v2/e2e/e2e-report-${{ matrix.shard }}.json
+          retention-days: 7
+
+      - name: 📈 Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage-shard-${{ matrix.shard }}
+          path: packages/v2/e2e/coverage/
+          retention-days: 7
+
+  # Merge coverage from all e2e shards
+  e2e-coverage-merge:
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    name: V2 E2E Coverage Report
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22.18.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+
+      - name: 📥 Download all coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: e2e-coverage-shard-*
+          path: coverage-parts
+          merge-multiple: false
+
+      - name: 📥 Install nyc for merging coverage
+        run: npm install -g nyc
+
+      - name: 📊 Merge coverage reports
+        run: |
+          mkdir -p merged-coverage
+          # Copy all lcov.info files to merged-coverage with unique names
+          for dir in coverage-parts/e2e-coverage-shard-*; do
+            shard=$(basename $dir | sed 's/e2e-coverage-shard-//')
+            if [ -f "$dir/lcov.info" ]; then
+              cp "$dir/lcov.info" "merged-coverage/lcov-$shard.info"
+            fi
+          done
+          # Merge lcov files using lcov command (available on ubuntu)
+          sudo apt-get install -y lcov
+          lcov -a merged-coverage/lcov-1.info \
+               -a merged-coverage/lcov-2.info \
+               -a merged-coverage/lcov-3.info \
+               -a merged-coverage/lcov-4.info \
+               -o merged-coverage/lcov.info || true
+
+      - name: 📈 Upload merged coverage to Coveralls
+        if: ${{ hashFiles('merged-coverage/lcov.info') != '' }}
+        uses: coverallsapp/github-action@v2
+        with:
+          file: merged-coverage/lcov.info
+          flag-name: v2-e2e
+          parallel: false
+          allow-empty: true
+          fail-on-error: false
