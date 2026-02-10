@@ -78,7 +78,10 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
       })}
 
       {uniqueCellLoadings.map(([columnIndex, realRowIndex]) => {
+        if (realRowIndex >= coordInstance.pureRowCount) return null;
         const rowIndex = real2RowIndex(realRowIndex);
+        if (rowIndex == null) return null;
+
         const rowHeight = coordInstance.getRowHeight(rowIndex);
         const rowOffset = coordInstance.getRowOffset(rowIndex);
         const columnWidth = coordInstance.getColumnWidth(columnIndex);

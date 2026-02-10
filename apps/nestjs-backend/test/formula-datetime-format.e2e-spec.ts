@@ -8,6 +8,44 @@ import {
   permanentDeleteTable,
 } from './utils/init-app';
 
+const DATETIME_FORMAT_SPECIFIER_CASES = [
+  { token: 'YY', expected: '26' },
+  { token: 'YYYY', expected: '2026' },
+  { token: 'M', expected: '2' },
+  { token: 'MM', expected: '02' },
+  { token: 'MMM', expected: 'Feb' },
+  { token: 'MMMM', expected: 'February' },
+  { token: 'D', expected: '12' },
+  { token: 'DD', expected: '12' },
+  { token: 'd', expected: '4' },
+  { token: 'dd', expected: 'Th' },
+  { token: 'ddd', expected: 'Thu' },
+  { token: 'dddd', expected: 'Thursday' },
+  { token: 'H', expected: '15' },
+  { token: 'HH', expected: '15' },
+  { token: 'h', expected: '3' },
+  { token: 'hh', expected: '03' },
+  { token: 'm', expected: '4' },
+  { token: 'mm', expected: '04' },
+  { token: 's', expected: '5' },
+  { token: 'ss', expected: '05' },
+  { token: 'SSS', expected: '678' },
+  { token: 'Z', expected: '+00:00' },
+  { token: 'ZZ', expected: '+0000' },
+  { token: 'A', expected: 'PM' },
+  { token: 'a', expected: 'pm' },
+  { token: 'LT', expected: '3:04 PM' },
+  { token: 'LTS', expected: '3:04:05 PM' },
+  { token: 'L', expected: '02/12/2026' },
+  { token: 'LL', expected: 'February 12, 2026' },
+  { token: 'LLL', expected: 'February 12, 2026 3:04 PM' },
+  { token: 'LLLL', expected: 'Thursday, February 12, 2026 3:04 PM' },
+  { token: 'l', expected: '2/12/2026' },
+  { token: 'll', expected: 'Feb 12, 2026' },
+  { token: 'lll', expected: 'Feb 12, 2026 3:04 PM' },
+  { token: 'llll', expected: 'Thu, Feb 12, 2026 3:04 PM' },
+] as const;
+
 describe('Formula DATETIME_FORMAT token semantics (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
@@ -188,6 +226,48 @@ describe('Formula DATETIME_FORMAT token semantics (e2e)', () => {
       const record = await getRecord(tableId, records[0].id);
       const value = record.fields?.[formattedFieldId as string];
       expect(value).toBe('25-November-Thursday');
+    } finally {
+      if (tableId) {
+        await permanentDeleteTable(baseId, tableId);
+      }
+    }
+  });
+
+  it('supports all documented DATETIME_FORMAT specifiers', async () => {
+    let tableId: string | undefined;
+    const dateFieldId = generateFieldId();
+
+    try {
+      const formulaFields = DATETIME_FORMAT_SPECIFIER_CASES.map((item, index) => ({
+        name: `spec_${index.toString().padStart(2, '0')}`,
+        type: FieldType.Formula,
+        options: {
+          expression: `DATETIME_FORMAT({${dateFieldId}}, '${item.token}')`,
+          timeZone: 'UTC',
+        },
+      }));
+
+      const table = await createTable(baseId, {
+        name: 'formula-datetime-format-all-specifiers',
+        fields: [{ id: dateFieldId, name: 'input_time', type: FieldType.Date }, ...formulaFields],
+      });
+      tableId = table.id;
+
+      const fieldIdByName = Object.fromEntries(table.fields.map((field) => [field.name, field.id]));
+      const input = '2026-02-12T15:04:05.678Z';
+
+      const { records } = await createRecords(tableId, {
+        fieldKeyType: FieldKeyType.Name,
+        typecast: true,
+        records: [{ fields: { input_time: input } }],
+      });
+
+      const record = await getRecord(tableId, records[0].id);
+      for (const [index, item] of DATETIME_FORMAT_SPECIFIER_CASES.entries()) {
+        const fieldName = `spec_${index.toString().padStart(2, '0')}`;
+        const fieldId = fieldIdByName[fieldName];
+        expect(record.fields?.[fieldId as string]).toBe(item.expected);
+      }
     } finally {
       if (tableId) {
         await permanentDeleteTable(baseId, tableId);

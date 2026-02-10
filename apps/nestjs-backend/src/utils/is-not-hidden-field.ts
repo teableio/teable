@@ -17,14 +17,14 @@ export const isNotHiddenField = (
     const { stackFieldId, coverFieldId } = (options ?? {}) as IKanbanViewOptions;
     return (
       [stackFieldId, coverFieldId].includes(fieldId) ||
-      Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible)
+      (columnMeta[fieldId] as { visible?: boolean })?.visible !== false
     );
   }
 
   if (viewType === ViewType.Gallery) {
     const { coverFieldId } = (options ?? {}) as IGalleryViewOptions;
     return (
-      fieldId === coverFieldId || Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible)
+      fieldId === coverFieldId || (columnMeta[fieldId] as { visible?: boolean })?.visible !== false
     );
   }
 
@@ -34,7 +34,7 @@ export const isNotHiddenField = (
     return (
       (colorConfig?.type === ColorConfigType.Field && colorConfig.fieldId === fieldId) ||
       [startDateFieldId, endDateFieldId, titleFieldId].includes(fieldId) ||
-      Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible)
+      (columnMeta[fieldId] as { visible?: boolean })?.visible !== false
     );
   }
 

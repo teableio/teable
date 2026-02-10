@@ -138,7 +138,8 @@ export class BaseNodeController {
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string
   ): Promise<IDeleteBaseNodeVo> {
-    return this.baseNodeService.delete(baseId, nodeId, true);
+    const result = await this.baseNodeService.delete(baseId, nodeId, true);
+    return { ...result, permanent: true };
   }
 
   protected async getPermissionContext(_baseId: string) {

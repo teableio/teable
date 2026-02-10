@@ -17,6 +17,8 @@ import {
   updateRecordByApi,
 } from './utils/init-app';
 
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+
 describe('Link events (e2e)', () => {
   let app: INestApplication;
   let eventEmitterService: EventEmitterService;
@@ -45,7 +47,11 @@ describe('Link events (e2e)', () => {
     });
   };
 
-  it('emits formatted link titles in record update events', async () => {
+  // Skip in v2 mode - this test verifies v1 event payload format
+  // v2 uses different event system (RecordUpdated/RecordsBatchUpdated)
+  const itWhenV1 = isForceV2 ? it.skip : it;
+
+  itWhenV1('emits formatted link titles in record update events', async () => {
     const releaseFormatting = {
       date: DateFormattingPreset.Asian,
       time: TimeFormatting.Hour24,

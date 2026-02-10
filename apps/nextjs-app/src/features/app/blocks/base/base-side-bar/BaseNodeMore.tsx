@@ -107,218 +107,66 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
   canDelete?: boolean;
   canPermanentDelete?: boolean;
   canDuplicate?: boolean;
+  nodeTypeLabel?: string; // Node type label (Dashboard/Workflow/App)
 }
 
 const CommonOperation = (props: ICommonOperationProps) => {
-  const {
-    open,
-    setOpen,
-    onRename,
-    onDuplicate,
-    onDelete,
-    children,
-    variant = 'dropdown',
-    canRename = true,
-    canDelete = true,
-    canPermanentDelete = true,
-    canDuplicate = true,
-  } = props;
-  const { t } = useTranslation(tableConfig.i18nNamespaces);
-
-  const handleDuplicate = useCallback(() => {
-    if (!onDuplicate) return;
-    const promise = onDuplicate();
-    toast.promise(promise, {
-      loading: t('table:import.menu.duplicating'),
-      success: t('table:import.menu.duplicateSuccess'),
-      error: (err) => (err instanceof Error ? err.message : t('table:import.menu.duplicateFailed')),
-    });
-  }, [onDuplicate, t]);
-
-  if (!canRename && !canDelete && !canPermanentDelete && !canDuplicate) {
-    return null;
-  }
-
-  // List variant for mobile - renders flat list
-  if (variant === 'list') {
-    return (
-      <>
-        {canRename && (
-          <ListMenuItem
-            icon={<Pencil className="size-4" />}
-            label={t('table:table.rename')}
-            onClick={() => onRename?.()}
-          />
-        )}
-        {canDuplicate && (
-          <ListMenuItem
-            icon={<Copy className="size-4" />}
-            label={t('table:import.menu.duplicate')}
-            onClick={handleDuplicate}
-          />
-        )}
-        {canPermanentDelete && (
-          <ListMenuItem
-            icon={<Trash2 className="size-4" />}
-            label={t('common:actions.permanentDelete')}
-            onClick={() => onDelete?.(true)}
-            destructive
-          />
-        )}
-        {canDelete && (
-          <ListMenuItem
-            icon={<Trash2 className="size-4" />}
-            label={t('common:actions.delete')}
-            onClick={() => onDelete?.(false)}
-            destructive
-          />
-        )}
-      </>
-    );
-  }
-
-  // Dropdown variant for desktop
-  return (
-    <>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="min-w-[160px]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {canRename && (
-            <DropdownMenuItem onClick={() => onRename?.()}>
-              <Pencil className="mr-2" />
-              {t('table:table.rename')}
-            </DropdownMenuItem>
-          )}
-          {canDuplicate && (
-            <DropdownMenuItem onClick={handleDuplicate}>
-              <Copy className="mr-2" />
-              {t('table:import.menu.duplicate')}
-            </DropdownMenuItem>
-          )}
-          {canPermanentDelete && (
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => onDelete?.(true)}
-            >
-              <Trash2 className="mr-2" />
-              {t('common:actions.permanentDelete')}
-            </DropdownMenuItem>
-          )}
-          {canDelete && (
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => onDelete?.(false)}
-            >
-              <Trash2 className="mr-2" />
-              {t('common:actions.delete')}
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
-  );
-};
-
-export const DashboardOperation = (props: IBaseNodeMoreProps) => {
-  const permission = useBasePermission();
-  const { disallowDashboard } = useSetting();
-  const canRename = Boolean(permission?.['base|update']);
-  const canDelete = false;
-  const canPermanentDelete = Boolean(permission?.['base|delete']);
-  const canDuplicate = Boolean(permission?.['base|update'] && !disallowDashboard);
-
-  return (
-    <CommonOperation
-      {...props}
-      canRename={canRename}
-      canDelete={canDelete}
-      canPermanentDelete={canPermanentDelete}
-      canDuplicate={canDuplicate}
-    />
-  );
-};
-
-export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
-  const permission = useBasePermission();
-  const canRename = Boolean(permission?.['automation|update']);
-  const canDelete = false;
-  const canPermanentDelete = Boolean(permission?.['automation|delete']);
-  const canDuplicate = Boolean(permission?.['automation|create']);
-
-  return (
-    <CommonOperation
-      {...props}
-      canRename={canRename}
-      canDelete={canDelete}
-      canPermanentDelete={canPermanentDelete}
-      canDuplicate={canDuplicate}
-    />
-  );
-};
-
-export const AppOperation = (props: IBaseNodeMoreProps) => {
   const {
     resourceId,
     open,
     setOpen,
     onRename,
-    children,
-    onDelete,
     onDuplicate,
+    onDelete,
+    children,
     variant = 'dropdown',
+    canRename = false,
+    canDelete = false,
+    canPermanentDelete = false,
+    canDuplicate = false,
+    nodeTypeLabel,
   } = props;
-
-  const permission = useBasePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { treeItems } = useBaseNodeContext();
+
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const canRename = Boolean(permission?.['app|update']);
-  const canDelete = false;
-  const canPermanentDelete = Boolean(permission?.['app|delete']);
-  const canDuplicate = Boolean(permission?.['app|create']);
-
-  const app = useMemo(() => {
-    const node = Object.values(treeItems).find((node) => node.resourceId === resourceId);
-    return node?.resourceMeta;
+  // Get node name from treeItems
+  const nodeName = useMemo(() => {
+    const node = Object.values(treeItems).find((n) => n.resourceId === resourceId);
+    return node?.resourceMeta?.name;
   }, [treeItems, resourceId]);
 
-  const defaultAppName = useMemo(
-    () => `${app?.name ?? t('common:noun.app')} ${t('space:baseModal.copy')}`,
-    [t, app?.name]
+  const defaultName = useMemo(
+    () => `${nodeName ?? nodeTypeLabel} ${t('space:baseModal.copy')}`,
+    [nodeName, nodeTypeLabel, t]
   );
 
-  const { mutateAsync: duplicateAppFn, isPending: isLoading } = useMutation({
+  const { mutateAsync: duplicateFn, isPending } = useMutation({
     mutationFn: async (ro?: IDuplicateBaseNodeRo) => onDuplicate?.(ro),
-    onSuccess: () => {
-      setDuplicateSetting(false);
-    },
+    onSuccess: () => setDuplicateSetting(false),
   });
 
   const handleDuplicateClick = useCallback(() => {
     setDuplicateSetting(true);
   }, []);
 
-  const duplicateDialog = duplicateSetting && (
+  const duplicateDialog = duplicateSetting && canDuplicate && (
     <ConfirmDialog
       open={duplicateSetting}
       onOpenChange={setDuplicateSetting}
-      title={`${t('common:actions.duplicate')} ${app?.name ?? t('common:noun.app')}`}
+      title={`${t('common:actions.duplicate')} ${nodeName ?? nodeTypeLabel}`}
       cancelText={t('common:actions.cancel')}
       confirmText={t('common:actions.duplicate')}
-      confirmLoading={isLoading}
+      confirmLoading={isPending}
       content={
         <div className="flex flex-col space-y-2 text-sm">
           <div className="flex flex-col gap-2">
             <Label>
-              {t('common:noun.app')} {t('common:name')}
+              {nodeTypeLabel} {t('common:name')}
             </Label>
-            <Input ref={inputRef} defaultValue={defaultAppName} />
+            <Input ref={inputRef} defaultValue={defaultName} />
           </div>
         </div>
       }
@@ -329,7 +177,7 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
           toast.error(t('common:name') + ' ' + t('common:required'));
           return;
         }
-        await duplicateAppFn({ name });
+        await duplicateFn({ name });
       }}
     />
   );
@@ -338,7 +186,7 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
     return null;
   }
 
-  // List variant for mobile
+  // List variant for mobile - renders flat list
   if (variant === 'list') {
     return (
       <>
@@ -369,7 +217,6 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
             icon={<Trash2 className="size-4" />}
             label={t('common:actions.delete')}
             onClick={() => onDelete?.(false)}
-            destructive
           />
         )}
         {duplicateDialog}
@@ -424,11 +271,79 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
   );
 };
 
-export const FolderOperation = (props: IBaseNodeMoreProps) => {
+export const DashboardOperation = (props: IBaseNodeMoreProps) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const permission = useBasePermission();
+  const { disallowDashboard } = useSetting();
   const canRename = Boolean(permission?.['base|update']);
   const canDelete = false;
   const canPermanentDelete = Boolean(permission?.['base|delete']);
+  const canDuplicate = Boolean(permission?.['base|update'] && !disallowDashboard);
+
+  return (
+    <CommonOperation
+      {...props}
+      nodeTypeLabel={t('common:noun.dashboard')}
+      canRename={canRename}
+      canDelete={canDelete}
+      canPermanentDelete={canPermanentDelete}
+      canDuplicate={canDuplicate}
+    />
+  );
+};
+
+export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const permission = useBasePermission();
+  const canRename = Boolean(permission?.['automation|update']);
+  const canDelete = Boolean(permission?.['automation|delete']);
+  const canPermanentDelete = false;
+  const canDuplicate = Boolean(permission?.['automation|create']);
+
+  return (
+    <CommonOperation
+      {...props}
+      nodeTypeLabel={t('common:noun.automation')}
+      canRename={canRename}
+      canDelete={canDelete}
+      canPermanentDelete={canPermanentDelete}
+      canDuplicate={canDuplicate}
+    />
+  );
+};
+
+export const AppOperation = (props: IBaseNodeMoreProps) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const permission = useBasePermission();
+
+  const canRename = Boolean(permission?.['app|update']);
+  const canDelete = Boolean(permission?.['app|delete']);
+  const canPermanentDelete = false;
+  const canDuplicate = Boolean(permission?.['app|create']);
+
+  return (
+    <CommonOperation
+      {...props}
+      nodeTypeLabel={t('common:noun.app')}
+      canRename={canRename}
+      canDelete={canDelete}
+      canPermanentDelete={canPermanentDelete}
+      canDuplicate={canDuplicate}
+    />
+  );
+};
+
+export const FolderOperation = (props: IBaseNodeMoreProps) => {
+  const { resourceId } = props;
+  const { treeItems } = useBaseNodeContext();
+  const node = useMemo(
+    () => Object.values(treeItems).find((n) => n.resourceId === resourceId),
+    [treeItems, resourceId]
+  );
+  const permission = useBasePermission();
+  const canRename = Boolean(permission?.['base|update']);
+  const canDelete = false;
+  const canPermanentDelete = !node?.children?.length && Boolean(permission?.['base|update']);
   const canDuplicate = false;
 
   return (
@@ -1030,9 +945,9 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
               description: t('actions.deleteTip', {
                 name: nodeName,
               }),
-              confirmText: t('actions.delete'),
+              confirmText: permanent ? t('actions.delete') : t('trash.addToTrash'),
               cancelText: t('actions.cancel'),
-              confirmButtonVariant: 'destructive',
+              confirmButtonVariant: permanent ? 'destructive' : 'default',
             });
         if (result) {
           await curdHooks.deleteNode(node.id, permanent);

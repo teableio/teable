@@ -453,8 +453,35 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     return `CAST(STRFTIME('%d', ${date}) AS INTEGER)`;
   }
 
-  fromNow(date: string): string {
-    return `CAST((JULIANDAY('now') - JULIANDAY(${date})) * 86400 AS INTEGER)`;
+  private buildNowDiffByUnit(nowExpr: string, dateExpr: string, unit: string): string {
+    const baseDiffDays = `(JULIANDAY(${nowExpr}) - JULIANDAY(${dateExpr}))`;
+    switch (this.normalizeDiffUnit(unit)) {
+      case 'millisecond':
+        return `(${baseDiffDays}) * 24.0 * 60 * 60 * 1000`;
+      case 'second':
+        return `(${baseDiffDays}) * 24.0 * 60 * 60`;
+      case 'minute':
+        return `(${baseDiffDays}) * 24.0 * 60`;
+      case 'hour':
+        return `(${baseDiffDays}) * 24.0`;
+      case 'week':
+        return `(${baseDiffDays}) / 7.0`;
+      case 'month':
+        return this.buildMonthDiff(nowExpr, dateExpr);
+      case 'quarter':
+        return `${this.buildMonthDiff(nowExpr, dateExpr)} / 3.0`;
+      case 'year': {
+        const monthDiff = this.buildMonthDiff(nowExpr, dateExpr);
+        return `CAST((${monthDiff}) / 12.0 AS INTEGER)`;
+      }
+      case 'day':
+      default:
+        return `${baseDiffDays}`;
+    }
+  }
+
+  fromNow(date: string, unit = 'day'): string {
+    return this.buildNowDiffByUnit("'now'", `DATETIME(${date})`, unit);
   }
 
   hour(date: string): string {
@@ -502,17 +529,24 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     return `TIME(${date})`;
   }
 
-  toNow(date: string): string {
-    return `CAST((JULIANDAY(${date}) - JULIANDAY('now')) * 86400 AS INTEGER)`;
+  toNow(date: string, unit = 'day'): string {
+    return this.fromNow(date, unit);
   }
 
   weekNum(date: string): string {
     return `CAST(STRFTIME('%W', ${date}) AS INTEGER)`;
   }
 
-  weekday(date: string): string {
+  weekday(date: string, startDayOfWeek?: string): string {
     // SQLite STRFTIME('%w') returns 0-6 (Sunday=0), but we need 1-7 (Sunday=1)
-    return `CAST(STRFTIME('%w', ${date}) AS INTEGER) + 1`;
+    const weekdaySql = `CAST(STRFTIME('%w', ${date}) AS INTEGER) + 1`;
+    if (!startDayOfWeek) {
+      return weekdaySql;
+    }
+
+    const normalizedStartDay = `LOWER(TRIM(COALESCE(CAST(${startDayOfWeek} AS TEXT), '')))`;
+    const mondayWeekdaySql = `(CASE WHEN (${weekdaySql}) = 1 THEN 7 ELSE (${weekdaySql}) - 1 END)`;
+    return `CASE WHEN ${normalizedStartDay} = 'monday' THEN ${mondayWeekdaySql} ELSE ${weekdaySql} END`;
   }
 
   workday(startDate: string, days: string): string {
@@ -607,8 +641,24 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     return `COUNT(${this.joinParams(params.map((p) => `CASE WHEN ${p} IS NOT NULL THEN 1 END`))})`;
   }
 
-  countAll(_value: string): string {
-    return `COUNT(*)`;
+  countAll(value: string): string {
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      const baseExpr =
+        paramInfo.isFieldReference && paramInfo.fieldDbName
+          ? this.tableAlias
+            ? `"${this.tableAlias}"."${paramInfo.fieldDbName}"`
+            : `"${paramInfo.fieldDbName}"`
+          : value;
+      return `CASE
+        WHEN ${baseExpr} IS NULL THEN 0
+        WHEN json_valid(${baseExpr}) AND json_type(${baseExpr}) = 'array' THEN COALESCE(json_array_length(${baseExpr}), 0)
+        WHEN json_valid(${baseExpr}) AND json_type(${baseExpr}) = 'null' THEN 0
+        ELSE 1
+      END`;
+    }
+
+    return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
   private buildJsonArrayUnion(

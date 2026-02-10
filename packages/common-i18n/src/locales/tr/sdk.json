@@ -90,15 +90,17 @@
       "searchPlaceholder": "Kayıtlarda ara",
       "create": "Kayıt Ekle",
       "selectRecord": "Kayıt Seç",
-      "unselected": "Seçilmemiş",
+      "all": "Tümü",
       "selected": "Seçilmiş",
       "expandRecordError": "Bu kaydı görüntüleme izniniz yok.",
       "alreadyOpen": "Bu kayıt zaten açık.",
+      "linkedTo": "Bağlantılı",
       "goToForeignTable": "Yabancı tabloya git",
       "foreignTableIdRequired": "Yabancı tablo gereklidir",
       "linkFieldIdRequired": "Bağlantı alanı gereklidir",
       "selectTooManyRecords": "Seçilen kayıtlar {{maxCount}} değerini aşmamalıdır",
-      "relationshipRequired": "İlişki gereklidir"
+      "relationshipRequired": "İlişki gereklidir",
+      "rangeSelectFailed": "Aralıktaki kayıtları seçme başarısız oldu"
     },
     "user": {
       "searchPlaceholder": "İsme göre kullanıcı ara",
@@ -478,7 +480,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Mantıksal argüman doğruysa number1'i, değilse number2'yi döndürür. İç içe IF ifadeleri yapmak için de kullanılabilir.\nAyrıca bir hücrenin boş olup olmadığını kontrol etmek için de kullanılabilir.",
+      "summary": "Bir sayıyı en yakın tam sayıya aşağı doğru yuvarlar.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -631,7 +633,7 @@
     },
     "WEEKDAY": {
       "summary": "Haftanın gününü 0 ile 6 arasında bir tam sayı olarak döndürür. İsteğe bağlı olarak ikinci bir argüman (\"Sunday\" veya \"Monday\") sağlayarak haftaların o günden başlamasını sağlayabilirsiniz. Belirtilmezse, haftalar varsayılan olarak Pazar gününden başlar.",
-      "example": "WEEKNUM(\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "Bir tarih/saatin gününü 1-31 arasında bir sayı olarak döndürür.",
@@ -851,7 +853,8 @@
     },
     "toolbar": {
       "link": "Bağlantı",
-      "image": "Görsel"
+      "image": "Görsel",
+      "mention": "Bahset"
     },
     "floatToolbar": {
       "editLink": "Bağlantıyı Düzenle",
@@ -1276,6 +1279,8 @@
       "notFound": "Çöp kutusu öğesi bulunamadı",
       "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
       "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
+      "parentBaseTrashed": "Üst taban da çöp kutusunda olduğu için bu öğe geri yüklenemiyor",
+      "parentNotFound": "Üst kaynak bulunamadı",
       "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
     },
     "license": {

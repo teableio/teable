@@ -90,15 +90,17 @@
       "searchPlaceholder": "レコードの検索",
       "create": "レコードの追加",
       "selectRecord": "レコードを選択",
-      "unselected": "未選択",
+      "all": "すべて",
       "selected": "選択済",
       "expandRecordError": "このレコードを表示する権限がありません。",
       "alreadyOpen": "このレコードはすでに開いています。",
+      "linkedTo": "リンク先",
       "goToForeignTable": "関連テーブルに移動",
       "foreignTableIdRequired": "関連テーブルは必須です",
       "linkFieldIdRequired": "リンクフィールドは必須です",
       "selectTooManyRecords": "選択されたレコードは{{maxCount}}を超えてはいけません",
-      "relationshipRequired": "リレーションシップは必須です"
+      "relationshipRequired": "リレーションシップは必須です",
+      "rangeSelectFailed": "範囲内のレコードの選択に失敗しました"
     },
     "user": {
       "searchPlaceholder": "名前でユーザーを検索する",
@@ -478,7 +480,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "論理引数が true の場合は数値1を返し、そうでない場合は数値2を返します。ネストされたIFステートメントを作成するためにも使用できます。\nセルが空白かどうかを確認するためにも使用できます。",
+      "summary": "数値を最も近い整数に切り捨てます。",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -631,7 +633,7 @@
     },
     "WEEKDAY": {
       "summary": "0 から 6 までの整数として曜日を返します。オプションで 2 番目の引数 (\"Sunday\" または \"Monday\") を指定して、その曜日から週を開始することもできます。省略した場合、週はデフォルトで日曜日から始まります。例:\nWEEKDAY(TODAY(), \"Monday\")",
-      "example": "WEEKNUM(\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "日付時刻の月の日を 1～31 の数値形式で返します。",
@@ -851,7 +853,8 @@
     },
     "toolbar": {
       "link": "リンク",
-      "image": "画像"
+      "image": "画像",
+      "mention": "メンション"
     },
     "floatToolbar": {
       "editLink": "リンクを編集",
@@ -1276,6 +1279,8 @@
       "notFound": "ゴミ箱のアイテムが見つかりません",
       "parentSpaceTrashed": "親スペースもゴミ箱にあるため、このベースを復元できません",
       "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
+      "parentBaseTrashed": "親ベースもゴミ箱にあるため、このアイテムを復元できません",
+      "parentNotFound": "親リソースが見つかりません",
       "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
     },
     "license": {

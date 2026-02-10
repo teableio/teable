@@ -3,7 +3,7 @@ import { isMultiValueLink } from '@teable/core';
 import { Plus } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { Button, Dialog, DialogContent, DialogTrigger, sonner } from '@teable/ui-lib';
-import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { LinkViewProvider, RowCountProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import { LinkFilterProvider } from '../../../context/query/LinkFilterProvider';
@@ -44,7 +44,6 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   const listRef = useRef<ILinkListRef>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
   const [isEditing, setEditing] = useState<boolean>(false);
-  const [values, setValues] = useState<ILinkCellValue[]>();
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const { t } = useTranslation();
 
@@ -55,10 +54,6 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   }, [cellValue]);
   const recordIds = cvArray?.map((cv) => cv.id);
   const selectedRowCount = recordIds?.length ?? 0;
-
-  const isEqualPrevValue = useMemo(() => {
-    return JSON.stringify(values) === JSON.stringify(cellValue);
-  }, [cellValue, values]);
 
   const selectedRecordIds = useMemo(() => {
     return Array.isArray(cellValue)
@@ -73,11 +68,6 @@ export const LinkEditor = (props: ILinkEditorProps) => {
       selectedRecordIds,
     };
   }, [selectedRecordIds]);
-
-  useEffect(() => {
-    if (cellValue == null) return setValues(cellValue);
-    setValues(Array.isArray(cellValue) ? cellValue : [cellValue]);
-  }, [cellValue]);
 
   const updateExpandRecordId = (recordId?: string) => {
     if (recordId) {
@@ -100,18 +90,19 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     );
   };
 
-  const onRecordListChange = useCallback((value?: ILinkCellValue[]) => {
-    setValues(value);
-  }, []);
+  const onRecordListChange = useCallback(
+    (value?: ILinkCellValue[]) => {
+      if (!value || value.length === 0) {
+        return onChange?.(null);
+      }
+      onChange?.(isMultiple ? value : value[0]);
+    },
+    [isMultiple, onChange]
+  );
 
   const onOpenChange = (open: boolean) => {
     if (open) return setEditing?.(true);
     return linkEditorMainRef.current?.onReset();
-  };
-
-  const onConfirm = () => {
-    if (values == null) return onChange?.(null);
-    onChange?.(isMultiple ? values : values[0]);
   };
 
   return (
@@ -163,7 +154,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                   {t('editor.link.selectRecord')}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="flex h-[520px] max-w-4xl flex-col">
+              <DialogContent className="flex h-[520px] max-w-4xl flex-col p-4">
                 <LinkEditorMain
                   {...props}
                   ref={linkEditorMainRef}
@@ -172,13 +163,6 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                 />
               </DialogContent>
             </Dialog>
-            {Boolean(selectedRowCount) &&
-              !isEqualPrevValue &&
-              displayType === LinkDisplayType.Grid && (
-                <Button size={'sm'} onClick={onConfirm}>
-                  {t('common.confirm')}
-                </Button>
-              )}
           </div>
           <ExpandRecorder
             tableId={foreignTableId}
