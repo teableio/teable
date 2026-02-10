@@ -155,6 +155,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnStatisticClick,
     onCollapsedGroupChanged,
     onFillSelection,
+    onRowControlClick,
+    onRowRangeSelected,
     onDragStart: _onDragStart,
   } = props;
 
@@ -237,6 +239,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     getLinearRow,
     setActiveCell,
     onSelectionChanged,
+    onRowControlClick,
+    onRowRangeSelected,
   });
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,

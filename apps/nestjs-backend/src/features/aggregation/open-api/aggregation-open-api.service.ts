@@ -12,6 +12,8 @@ import type {
   IQueryBaseRo,
   IRowCountVo,
   ISearchCountRo,
+  IRecordIndexRo,
+  IRecordIndexVo,
 } from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';
 import { IAggregationService } from '../aggregation.service.interface';
@@ -84,6 +86,10 @@ export class AggregationOpenApiService {
     query: ICalendarDailyCollectionRo
   ): Promise<ICalendarDailyCollectionVo> {
     return await this.aggregationService.getCalendarDailyCollection(tableId, query);
+  }
+
+  async getRecordIndex(tableId: string, query: IRecordIndexRo): Promise<IRecordIndexVo> {
+    return await this.aggregationService.getRecordIndex(tableId, query);
   }
 
   private async validFieldStats(

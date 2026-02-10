@@ -66,6 +66,7 @@ export function LinkFloatingToolbar({ state }: { state?: LinkFloatingToolbarStat
     ref: insertRef,
     textInputProps,
   } = useFloatingLinkInsert(insertState);
+  const { style: insertStyle, ...insertRestProps } = insertProps;
 
   const editState = useFloatingLinkEditState({
     ...state,
@@ -80,6 +81,7 @@ export function LinkFloatingToolbar({ state }: { state?: LinkFloatingToolbarStat
     ref: editRef,
     unlinkButtonProps,
   } = useFloatingLinkEdit(editState);
+  const { style: editStyle, ...editRestProps } = editProps;
   const inputProps = useFormInputProps({
     preventDefaultOnEnterKeydown: true,
   });
@@ -176,9 +178,6 @@ export function LinkFloatingToolbar({ state }: { state?: LinkFloatingToolbarStat
       </button>
     </div>
   );
-
-  const { style: insertStyle, ...insertRestProps } = insertProps;
-  const { style: editStyle, ...editRestProps } = editProps;
 
   return (
     <>

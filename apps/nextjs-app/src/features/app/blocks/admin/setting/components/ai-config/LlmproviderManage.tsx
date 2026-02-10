@@ -1,14 +1,14 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { Check, Loader2, Play, X } from '@teable/icons';
+import { chatModelAbilityType } from '@teable/openapi';
 import type {
   IChatModelAbility,
   IImageModelAbility,
   ITestLLMRo,
   ITestLLMVo,
   LLMProvider,
-} from '@teable/openapi/src/admin/setting';
-import { chatModelAbilityType } from '@teable/openapi/src/admin/setting';
+} from '@teable/openapi';
 
 // Image model ability types
 const imageModelAbilities = ['generation', 'imageToImage'] as const;

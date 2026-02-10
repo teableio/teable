@@ -248,7 +248,21 @@ export class BaseSqlExecutorService {
     }
     const roleName = this.getReadOnlyRoleName(baseId);
     if (!(await this.roleExits(roleName))) {
-      await this.createReadOnlyRole(baseId);
+      try {
+        await this.createReadOnlyRole(baseId);
+      } catch (error) {
+        // Handle race condition: another concurrent request may have already created the role
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          (error?.meta?.code === '42710' || error?.meta?.code === '23505')
+        ) {
+          this.logger.warn(
+            `read only role ${roleName} already exists (concurrent creation), skipping`
+          );
+          return;
+        }
+        throw error;
+      }
     }
   }
 

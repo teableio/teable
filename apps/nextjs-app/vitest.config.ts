@@ -5,6 +5,15 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 const testFiles = ['./src/**/*.{test,spec}.{js,jsx,ts,tsx}'];
 export default defineConfig({
+  resolve: {
+    conditions: ['@teable/source'],
+  },
+  ssr: {
+    resolve: {
+      conditions: ['@teable/source'],
+      externalConditions: ['@teable/source'],
+    },
+  },
   plugins: [
     react({
       devTarget: 'es2022',

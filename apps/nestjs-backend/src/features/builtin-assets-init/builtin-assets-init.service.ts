@@ -45,6 +45,10 @@ const LOCK_TTL = 300; // 5 minutes
 const AUTOMATION_ROBOT_AVATAR_PATH = 'static/system/automation-robot.png';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const ANONYMOUS_USER_AVATAR_PATH = 'static/system/anonymous.png';
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const EMAIL_LOGO_PATH = 'static/system/email-logo.png';
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const EMAIL_LOGO_TOKEN = 'email-logo';
 
 /**
  * BuiltinAssetsInitService
@@ -210,6 +214,11 @@ export class BuiltinAssetsInitService implements OnModuleInit {
         id: ANONYMOUS_USER_ID,
         filePath: ANONYMOUS_USER_AVATAR_PATH,
         uploadType: UploadType.Avatar,
+      },
+      {
+        id: EMAIL_LOGO_TOKEN,
+        filePath: EMAIL_LOGO_PATH,
+        uploadType: UploadType.Logo,
       },
       {
         id: 'actTestImage',
