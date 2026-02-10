@@ -77,9 +77,14 @@ export class Record extends RecordCore {
   }
 
   private updateComputedField = async (fieldIds: string[], record: IRecord) => {
-    const changeCellFieldIds = fieldIds.filter(
-      (fieldId) => !isEqual(this.fields[fieldId], record.fields[fieldId])
-    );
+    const changeCellFieldIds = fieldIds.filter((fieldId) => {
+      // Skip if the new value is undefined - computed field hasn't been updated yet (V2 async)
+      // This prevents clearing computed fields that will be updated via ShareDB op
+      if (record.fields[fieldId] === undefined) {
+        return false;
+      }
+      return !isEqual(this.fields[fieldId], record.fields[fieldId]);
+    });
     if (!changeCellFieldIds.length) {
       return;
     }

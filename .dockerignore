@@ -45,6 +45,8 @@ tmp
 
 # other
 **/db
+!packages/v2/adapter-repository-postgres/src/db
+!packages/v2/adapter-repository-postgres/src/db/**
 **/.assets
 **/.temporary
 **.DS_Store

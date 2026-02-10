@@ -121,6 +121,81 @@ model Field {
   @@map("field")
 }
 
+model ComputedUpdateOutbox {
+  id                 String   @id @default(cuid())
+  baseId             String   @map("base_id")
+  seedTableId        String   @map("seed_table_id")
+  seedRecordIds      Json?    @map("seed_record_ids")
+  changeType         String   @map("change_type")
+  steps              Json
+  edges              Json
+  status             String
+  attempts           Int      @default(0)
+  maxAttempts        Int      @default(8) @map("max_attempts")
+  nextRunAt          DateTime @default(now()) @map("next_run_at")
+  lockedAt           DateTime? @map("locked_at")
+  lockedBy           String?  @map("locked_by")
+  lastError          String?  @map("last_error")
+  estimatedComplexity Int     @default(0) @map("estimated_complexity")
+  planHash           String   @map("plan_hash")
+  dirtyStats         Json?    @map("dirty_stats")
+  affectedTableIds   Json?    @map("affected_table_ids")
+  affectedFieldIds   Json?    @map("affected_field_ids")
+  syncMaxLevel       Int?     @map("sync_max_level")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  seeds ComputedUpdateOutboxSeed[]
+
+  @@index([status, nextRunAt])
+  @@index([baseId, seedTableId])
+  @@index([planHash])
+  @@map("computed_update_outbox")
+}
+
+model ComputedUpdateOutboxSeed {
+  id       String               @id @default(cuid())
+  taskId   String               @map("task_id")
+  tableId  String               @map("table_id")
+  recordId String               @map("record_id")
+  task     ComputedUpdateOutbox @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, tableId, recordId])
+  @@index([taskId])
+  @@map("computed_update_outbox_seed")
+}
+
+model ComputedUpdateDeadLetter {
+  id                 String   @id
+  baseId             String   @map("base_id")
+  seedTableId        String   @map("seed_table_id")
+  seedRecordIds      Json?    @map("seed_record_ids")
+  changeType         String   @map("change_type")
+  steps              Json
+  edges              Json
+  status             String
+  attempts           Int      @default(0)
+  maxAttempts        Int      @default(8) @map("max_attempts")
+  nextRunAt          DateTime @map("next_run_at")
+  lockedAt           DateTime? @map("locked_at")
+  lockedBy           String?  @map("locked_by")
+  lastError          String?  @map("last_error")
+  estimatedComplexity Int     @default(0) @map("estimated_complexity")
+  planHash           String   @map("plan_hash")
+  dirtyStats         Json?    @map("dirty_stats")
+  affectedTableIds   Json?    @map("affected_table_ids")
+  affectedFieldIds   Json?    @map("affected_field_ids")
+  syncMaxLevel       Int?     @map("sync_max_level")
+  traceData          Json?    @map("trace_data")
+  failedAt           DateTime @map("failed_at")
+  createdAt          DateTime @map("created_at")
+  updatedAt          DateTime @map("updated_at")
+
+  @@index([baseId, seedTableId])
+  @@index([planHash])
+  @@map("computed_update_dead_letter")
+}
+
 model View {
   id               String    @id
   name             String

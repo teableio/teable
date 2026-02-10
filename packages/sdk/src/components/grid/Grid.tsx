@@ -130,6 +130,18 @@ export interface IGridExternalProps {
    * Only vertical fill is supported. Provides current selection ranges and the target end real row index
    */
   onFillSelection?: (selectionRanges: [IRange, IRange], targetEndRealRowIndex: number) => void;
+
+  /**
+   * Triggered when user clicks a row control (checkbox, expand, drag)
+   * For checkbox: checked indicates the state after click (true = selected, false = deselected)
+   */
+  onRowControlClick?: (rowIndex: number, type: RowControlType, checked: boolean) => void;
+
+  /**
+   * Triggered when user shift+clicks to select a range of rows
+   * Provides the row ranges selected (can be used to fetch recordIds via API)
+   */
+  onRowRangeSelected?: (ranges: IRange[]) => void;
 }
 
 export interface IGridProps extends IGridExternalProps {
@@ -235,6 +247,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onItemClick,
     onScrollChanged,
     onFillSelection,
+    onRowControlClick,
+    onRowRangeSelected,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
@@ -718,6 +732,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onItemHovered={onItemHovered}
             onItemClick={onItemClick}
             onFillSelection={onFillSelection}
+            onRowControlClick={onRowControlClick}
+            onRowRangeSelected={onRowRangeSelected}
           />
         )}
       </div>

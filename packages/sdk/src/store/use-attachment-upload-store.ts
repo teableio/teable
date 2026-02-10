@@ -64,6 +64,7 @@ interface ICellAttachmentUploadState {
   hasActiveUploads: () => boolean;
   clearCompletedTasks: () => void;
   clearErrorTasks: () => void;
+  cancelTask: (cellKey: string, taskId: string) => void;
   removeTask: (cellKey: string, taskId: string) => void;
   retryTask: (cellKey: string, taskId: string) => void;
 }
@@ -321,29 +322,32 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
     let completed = 0;
     let uploading = 0;
     let failed = 0;
-    let progressSum = 0;
+    let totalBytes = 0;
+    let weightedProgressSum = 0;
 
     Object.values(cellUploads).forEach((cellState) => {
       cellState.tasks.forEach((task) => {
+        // Weight progress by file size for accurate overall progress
+        const fileSize = task.file.size || 1;
         total++;
+        totalBytes += fileSize;
         if (task.status === 'completed') {
           completed++;
-          progressSum += 100;
+          weightedProgressSum += fileSize * 100;
         } else if (task.status === 'error') {
           failed++;
         } else {
           uploading++;
-          progressSum += task.progress;
+          weightedProgressSum += fileSize * task.progress;
         }
       });
     });
-
     return {
       total,
       completed,
       uploading,
       failed,
-      progress: total > 0 ? Math.round(progressSum / total) : 0,
+      progress: totalBytes > 0 ? Math.round(weightedProgressSum / totalBytes) : 0,
     };
   },
 
@@ -382,6 +386,14 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
       });
       return { cellUploads: newCellUploads };
     });
+  },
+  cancelTask: (cellKey, taskId) => {
+    const cellState = get().cellUploads[cellKey];
+    if (!cellState) return;
+    // Abort the HTTP request via AttachmentManager
+    cellState.manager.cancelTask(taskId);
+    // Remove the task from store state
+    removeTask(cellKey, taskId);
   },
   removeTask: (cellKey, taskId) => {
     removeTask(cellKey, taskId);

@@ -17,14 +17,28 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Integration Tests
+    name: Integration Tests - ${{ matrix.e2e.database-type }} ${{ matrix.e2e.shard }} ${{ matrix.runtime.mode }}
 
     strategy:
       fail-fast: false
       matrix:
         node-version: [22.18.0]
-        database-type: [postgres]
-        shard: [1/4, 2/4, 3/4, 4/4]
+        runtime:
+          - mode: v1
+            force-v2-all: ''
+            computed-update-mode: ''
+          - mode: v2
+            force-v2-all: 'true'
+            computed-update-mode: 'sync'
+        e2e:
+          - database-type: postgres
+            shard: 1/4
+          - database-type: postgres
+            shard: 2/4
+          - database-type: postgres
+            shard: 3/4
+          - database-type: postgres
+            shard: 4/4
     env:
       CI: 1
 
@@ -42,12 +56,14 @@ jobs:
       - name: 🧪 Run Tests
         env:
           CI: 1
+          FORCE_V2_ALL: ${{ matrix.runtime.force-v2-all }}
+          V2_COMPUTED_UPDATE_MODE: ${{ matrix.runtime.computed-update-mode }}
           VITEST_MAX_THREADS: 2
           VITEST_MIN_THREADS: 1
-          VITEST_SHARD: ${{ matrix.shard }}
+          VITEST_SHARD: ${{ matrix.e2e.shard }}
           VITEST_REPORTER: blob
         run: |
-          make ${{ matrix.database-type }}.integration.test
+          make ${{ matrix.e2e.database-type }}.integration.test
           pnpm -F "@teable/backend" test-unit-cover
           pnpm -F "@teable/backend" merge-cover
           pnpm -F "@teable/backend" generate-cover

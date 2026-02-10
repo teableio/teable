@@ -12,6 +12,7 @@ interface IUploadTaskListProps {
 
 const TaskListContent = memo(() => {
   const allTasks = useCellAttachmentUploadStore((state) => state.getAllActiveTasks());
+  const cancelTask = useCellAttachmentUploadStore((state) => state.cancelTask);
   const removeTask = useCellAttachmentUploadStore((state) => state.removeTask);
   const retryTask = useCellAttachmentUploadStore((state) => state.retryTask);
 
@@ -55,6 +56,9 @@ const TaskListContent = memo(() => {
             <TaskItem
               key={virtualItem.index}
               task={allTasks[virtualItem.index]}
+              onCancel={() =>
+                cancelTask(allTasks[virtualItem.index].cellKey, allTasks[virtualItem.index].id)
+              }
               onRemove={() =>
                 removeTask(allTasks[virtualItem.index].cellKey, allTasks[virtualItem.index].id)
               }

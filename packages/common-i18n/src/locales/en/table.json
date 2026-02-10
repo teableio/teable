@@ -653,7 +653,9 @@
       "error": "Download failed",
       "errorPartial": "{{failedCount}} files failed to download",
       "requireHttps": "Batch download requires HTTPS. Please access via HTTPS or localhost.",
+      "advancedOptions": "Advanced options",
       "namingFieldLabel": "Attachment name prefix",
+      "selectField": "Default: attachment index",
       "groupByRow": "Archive into folders",
       "groupByRowTip": "When a row has multiple attachments, they will be placed in the same folder; rows with only one attachment will not create a folder."
     }
@@ -1306,6 +1308,8 @@
     "panelFailed": "{{count}} files failed",
     "panelCompleted": "{{count}} files completed",
     "statusFailed": "Failed",
-    "statusCompleted": "Completed"
+    "statusCompleted": "Completed",
+    "statusCancel": "Cancel upload",
+    "statusRetry": "Retry upload"
   }
 }
