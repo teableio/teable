@@ -8,9 +8,11 @@ import {
   hasAllOf,
   hasAnyOf,
   hasNoneOf,
+  is,
   isAnyOf,
   isEmpty,
   isExactly,
+  isNot,
   isNoneOf,
   isNotEmpty,
   nextNumberOfDays,
@@ -105,13 +107,30 @@ const operatorsExpectingArray: string[] = [
   hasNoneOf.value,
   isExactly.value,
 ];
+const operatorsAllowingNull: string[] = [is.value, isNot.value];
 
-export const baseFilterOperatorSchema = z.object({
-  isSymbol: z.literal(false).optional(),
-  fieldId: z.string(),
-  value: filterValueSchema,
-  operator: operators,
-});
+const normalizeUnaryOperatorValue = (input: unknown): unknown => {
+  if (input == null || typeof input !== 'object') return input;
+
+  const value = input as Record<string, unknown>;
+  if (!operatorsExpectingNull.includes(String(value.operator))) return input;
+  if ('value' in value) return input;
+
+  return {
+    ...value,
+    value: null,
+  };
+};
+
+export const baseFilterOperatorSchema = z.preprocess(
+  normalizeUnaryOperatorValue,
+  z.object({
+    isSymbol: z.literal(false).optional(),
+    fieldId: z.string(),
+    value: filterValueSchema,
+    operator: operators,
+  })
+);
 
 const filterOperatorRefineBase = z.object({
   value: filterValueSchema,
@@ -124,14 +143,25 @@ export const refineExtendedFilterOperatorSchema = <
   schema: z.ZodSchema<T>
 ): z.ZodSchema<T> =>
   schema.superRefine((val, ctx) => {
-    if (!val.value) {
-      return z.NEVER;
-    }
     if (operatorsExpectingNull.includes(val.operator)) {
+      if (val.value === null) {
+        return;
+      }
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `For the operator '${val.operator}', the 'value' should be null`,
       });
+      return;
+    }
+
+    if (val.value === null) {
+      if (!operatorsAllowingNull.includes(val.operator)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `For the operator '${val.operator}', the 'value' is required`,
+        });
+      }
+      return;
     }
 
     if (

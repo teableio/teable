@@ -3,12 +3,17 @@ import { describe, expect, it } from 'vitest';
 import type { Field } from '../../fields/Field';
 import { FieldId } from '../../fields/FieldId';
 import { FieldName } from '../../fields/FieldName';
+import { FieldType } from '../../fields/FieldType';
 import { AttachmentField } from '../../fields/types/AttachmentField';
 import { AutoNumberField } from '../../fields/types/AutoNumberField';
 import { ButtonField } from '../../fields/types/ButtonField';
 import { CellValueMultiplicity } from '../../fields/types/CellValueMultiplicity';
 import { CellValueType } from '../../fields/types/CellValueType';
 import { CheckboxField } from '../../fields/types/CheckboxField';
+import { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
+import { ConditionalLookupOptions } from '../../fields/types/ConditionalLookupOptions';
+import { ConditionalRollupConfig } from '../../fields/types/ConditionalRollupConfig';
+import { ConditionalRollupField } from '../../fields/types/ConditionalRollupField';
 import { CreatedByField } from '../../fields/types/CreatedByField';
 import { CreatedTimeField } from '../../fields/types/CreatedTimeField';
 import { DateField } from '../../fields/types/DateField';
@@ -19,6 +24,8 @@ import { LastModifiedTimeField } from '../../fields/types/LastModifiedTimeField'
 import { LinkField } from '../../fields/types/LinkField';
 import { LinkFieldConfig } from '../../fields/types/LinkFieldConfig';
 import { LongTextField } from '../../fields/types/LongTextField';
+import { LookupField } from '../../fields/types/LookupField';
+import { LookupOptions } from '../../fields/types/LookupOptions';
 import { MultipleSelectField } from '../../fields/types/MultipleSelectField';
 import { NumberField } from '../../fields/types/NumberField';
 import { RatingField } from '../../fields/types/RatingField';
@@ -53,6 +60,9 @@ import {
   getValidRecordConditionOperators,
   multipleSelectConditionOperatorSchema,
   numberConditionOperatorSchema,
+  recordConditionOperatorSchema,
+  recordConditionOperatorsExpectingArray,
+  recordConditionOperatorsExpectingNull,
   singleSelectConditionOperatorSchema,
   textConditionOperatorSchema,
   type RecordConditionOperator,
@@ -194,6 +204,66 @@ const buildFields = () => {
       isMultipleCellValue: CellValueMultiplicity.single(),
     },
   })._unsafeUnwrap();
+  const lookupField = LookupField.create({
+    id: fieldId('x'),
+    name: fieldName('Lookup'),
+    innerField: textField,
+    lookupOptions: LookupOptions.create({
+      linkFieldId: linkSingleField.id().toString(),
+      lookupFieldId: textField.id().toString(),
+      foreignTableId: tableId('d').toString(),
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: fieldId('1').toString(),
+            operator: 'isNotEmpty',
+          },
+        ],
+      },
+    })._unsafeUnwrap(),
+  })._unsafeUnwrap();
+  const conditionalLookupField = ConditionalLookupField.create({
+    id: fieldId('y'),
+    name: fieldName('ConditionalLookup'),
+    innerField: textField,
+    conditionalLookupOptions: ConditionalLookupOptions.create({
+      foreignTableId: tableId('e').toString(),
+      lookupFieldId: textField.id().toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: fieldId('2').toString(),
+              operator: 'isNotEmpty',
+            },
+          ],
+        },
+      },
+    })._unsafeUnwrap(),
+  })._unsafeUnwrap();
+  const conditionalRollupField = ConditionalRollupField.create({
+    id: fieldId('z'),
+    name: fieldName('ConditionalRollup'),
+    config: ConditionalRollupConfig.create({
+      foreignTableId: tableId('f').toString(),
+      lookupFieldId: numberField.id().toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: fieldId('3').toString(),
+              operator: 'isNotEmpty',
+            },
+          ],
+        },
+      },
+    })._unsafeUnwrap(),
+    expression: RollupExpression.default(),
+    valuesField: numberField,
+  })._unsafeUnwrap();
 
   return {
     textField,
@@ -217,6 +287,9 @@ const buildFields = () => {
     linkMultiField,
     formulaField,
     rollupField,
+    lookupField,
+    conditionalLookupField,
+    conditionalRollupField,
   };
 };
 
@@ -553,6 +626,195 @@ describe('FieldConditionSpecBuilder', () => {
     expect(disallowArray._unsafeUnwrapErr().message).toContain(
       'Record condition does not allow list value'
     );
+  });
+});
+
+type MatrixValueCaseName =
+  | 'missing'
+  | 'null'
+  | 'literalString'
+  | 'literalNumber'
+  | 'literalBoolean'
+  | 'literalList'
+  | 'dateValue'
+  | 'fieldReference';
+
+type MatrixValueCase = {
+  name: MatrixValueCaseName;
+  create: (fields: ReturnType<typeof buildFields>) => RecordConditionValue | undefined;
+};
+
+const matrixValueCases: ReadonlyArray<MatrixValueCase> = [
+  { name: 'missing', create: () => undefined },
+  { name: 'null', create: () => null as unknown as RecordConditionValue },
+  {
+    name: 'literalString',
+    create: () => RecordConditionLiteralValue.create('open')._unsafeUnwrap(),
+  },
+  {
+    name: 'literalNumber',
+    create: () => RecordConditionLiteralValue.create(42)._unsafeUnwrap(),
+  },
+  {
+    name: 'literalBoolean',
+    create: () => RecordConditionLiteralValue.create(true)._unsafeUnwrap(),
+  },
+  {
+    name: 'literalList',
+    create: () => RecordConditionLiteralListValue.create(['open', 'closed'])._unsafeUnwrap(),
+  },
+  {
+    name: 'dateValue',
+    create: () =>
+      RecordConditionDateValue.create({
+        mode: 'exactDate',
+        exactDate: '2025-01-01T00:00:00.000Z',
+        timeZone: 'utc',
+      })._unsafeUnwrap(),
+  },
+  {
+    name: 'fieldReference',
+    create: (fields) => RecordConditionFieldReferenceValue.create(fields.textField)._unsafeUnwrap(),
+  },
+];
+
+describe('FieldConditionSpecBuilder matrix', () => {
+  const fields = buildFields();
+  const allOperators = recordConditionOperatorSchema.options;
+  const nullOperators = new Set(recordConditionOperatorsExpectingNull);
+  const arrayOperators = new Set(recordConditionOperatorsExpectingArray);
+  const noValueCases = new Set<MatrixValueCaseName>(['missing', 'null']);
+
+  const fieldCases = Object.entries(fields).map(([fieldName, field]) => {
+    const valueType = field.accept(new FieldValueTypeVisitor())._unsafeUnwrap();
+    let operatorField = field;
+    const fieldType = field.type();
+
+    // Keep expected matrix aligned with FieldConditionSpecBuilder#create:
+    // lookup-like fields validate operators against resolved inner fields.
+    if (fieldType.equals(FieldType.lookup())) {
+      const innerField = (field as LookupField).innerField();
+      if (innerField.isOk()) {
+        operatorField = innerField.value;
+      }
+    }
+
+    if (fieldType.equals(FieldType.conditionalLookup())) {
+      const innerField = (field as ConditionalLookupField).innerField();
+      if (innerField.isOk()) {
+        operatorField = innerField.value;
+      }
+    }
+
+    return {
+      fieldName,
+      field,
+      fieldType: field.type().toString(),
+      validOperators: new Set(getValidRecordConditionOperators(operatorField, valueType)),
+    };
+  });
+
+  const expectedResult = (input: {
+    operator: RecordConditionOperator;
+    valueCaseName: MatrixValueCaseName;
+    validOperators: Set<RecordConditionOperator>;
+  }): boolean => {
+    if (!input.validOperators.has(input.operator)) {
+      return false;
+    }
+
+    const hasValue = !noValueCases.has(input.valueCaseName);
+
+    if (nullOperators.has(input.operator)) {
+      return !hasValue;
+    }
+
+    if (!hasValue) {
+      return false;
+    }
+
+    if (arrayOperators.has(input.operator)) {
+      return input.valueCaseName === 'literalList' || input.valueCaseName === 'fieldReference';
+    }
+
+    return input.valueCaseName !== 'literalList';
+  };
+
+  const evaluate = (entry: {
+    fieldName: string;
+    fieldType: string;
+    field: Field;
+    operator: RecordConditionOperator;
+    valueCase: MatrixValueCase;
+    validOperators: Set<RecordConditionOperator>;
+  }) => {
+    const rawValue = entry.valueCase.create(fields);
+    const input: {
+      operator: RecordConditionOperator;
+      value?: RecordConditionValue;
+    } = { operator: entry.operator };
+
+    if (entry.valueCase.name !== 'missing') {
+      input.value = rawValue as RecordConditionValue;
+    }
+
+    const result = FieldConditionSpecBuilder.create(entry.field).create(input);
+    return {
+      ...entry,
+      success: result.isOk(),
+      message: result.isErr() ? result.error.message : 'ok',
+      expected: expectedResult({
+        operator: entry.operator,
+        valueCaseName: entry.valueCase.name,
+        validOperators: entry.validOperators,
+      }),
+    };
+  };
+
+  const matrix = fieldCases.flatMap((fieldCase) =>
+    allOperators.flatMap((operator) =>
+      matrixValueCases.map((valueCase) => ({
+        ...fieldCase,
+        operator,
+        valueCase,
+      }))
+    )
+  );
+
+  it.each(matrix)('$fieldName($fieldType) operator=$operator value=$valueCase.name', (entry) => {
+    const result = evaluate(entry);
+    expect(result.success).toBe(result.expected);
+  });
+
+  it('matches operator-value matrix snapshot across field types', () => {
+    const report = fieldCases.map((fieldCase) => {
+      const operatorRows = allOperators.map((operator) => {
+        const valueMask = matrixValueCases
+          .map((valueCase) => {
+            const { success } = evaluate({
+              ...fieldCase,
+              operator,
+              valueCase,
+            });
+            return success ? 'Y' : 'N';
+          })
+          .join('');
+
+        return `${operator}:${valueMask}`;
+      });
+
+      return {
+        fieldName: fieldCase.fieldName,
+        fieldType: fieldCase.fieldType,
+        validOperators: [...fieldCase.validOperators].sort(),
+        operatorRows,
+      };
+    });
+
+    expect({
+      legend: matrixValueCases.map((valueCase) => valueCase.name),
+      report,
+    }).toMatchSnapshot();
   });
 });
 
