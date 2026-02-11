@@ -654,7 +654,9 @@
       "error": "下载失败",
       "errorPartial": "{{failedCount}} 个文件下载失败",
       "requireHttps": "批量下载需要 HTTPS 环境，请通过 HTTPS 或 localhost 访问",
+      "advancedOptions": "高级选项",
       "namingFieldLabel": "附件名前缀",
+      "selectField": "默认附件序号",
       "groupByRow": "归档到文件夹",
       "groupByRowTip": "同一行有多个附件时，会放入同一个文件夹中；只有一个附件的行不会创建文件夹。"
     }
@@ -1042,6 +1044,7 @@
       "activateAutomation": "启用自动化",
       "executeScript": "执行脚本",
       "wait": "等待",
+      "triggerAiFill": "触发 AI 填充",
       "getRelativeData": "获取相关数据",
       "getPreviousNodeOutputVariables": "获取其他节点输出变量",
       "getApiJson": "获取 API 信息",
@@ -1057,6 +1060,9 @@
       "goTo": "前往",
       "operationSuccess": "操作成功完成",
       "operationFailed": "操作失败"
+    },
+    "aiFill": {
+      "processedRecords": "已排队 {{count}} 条记录进行 AI 生成"
     },
     "queryTool": {
       "getRecords": "查询记录",
@@ -1306,6 +1312,8 @@
     "panelFailed": "{{count}} 个文件失败",
     "panelCompleted": "{{count}} 个文件已完成",
     "statusFailed": "上传失败",
-    "statusCompleted": "完成"
+    "statusCompleted": "完成",
+    "statusCancel": "取消上传",
+    "statusRetry": "重试上传"
   }
 }

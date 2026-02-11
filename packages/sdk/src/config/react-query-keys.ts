@@ -12,7 +12,6 @@ import type {
   IAggregationRo,
   IGroupPointsRo,
   IQueryBaseRo,
-  ResourceType,
   ListSpaceCollaboratorRo,
   IGetRecordsRo,
   ListBaseCollaboratorRo,
@@ -26,6 +25,7 @@ import type {
   IRecordInsertOrderRo,
   IUpdateRecordOrdersRo,
   IRecordGetCollaboratorsRo,
+  TrashType,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -188,7 +188,7 @@ export const ReactQueryKeys = {
 
   getSharedBase: () => ['shared-base-list'] as const,
 
-  getSpaceTrash: (resourceType: ResourceType, spaceId?: string) =>
+  getSpaceTrash: (resourceType: TrashType, spaceId?: string) =>
     ['space-trash', resourceType, spaceId] as const,
 
   getTrashItems: (resourceId: string) => ['trash-items', resourceId] as const,
@@ -242,6 +242,9 @@ export const ReactQueryKeys = {
   oauthApp: (clientId: string) => ['oauth-app', clientId] as const,
 
   baseNodeTree: (baseId: string) => ['base-node-tree', baseId] as const,
+
+  linkEditorRecords: (tableId: string, query?: IGetRecordsRo) =>
+    ['link-editor-records', tableId, query] as const,
 
   workflowItem: (baseId: string, workflowId: string) =>
     ['workflow-item', baseId, workflowId] as const,

@@ -2,10 +2,11 @@ import type http from 'http';
 import type { AdaptableWebSocket } from '@an-epiphany/websocket-json-stream';
 import { WebSocketJSONStream } from '@an-epiphany/websocket-json-stream';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import type { Request } from 'express';
 import sockjs from 'sockjs';
+import { RealtimeMetricsService } from '../share-db/metrics/realtime-metrics.service';
 import { ShareDbService } from '../share-db/share-db.service';
 
 @Injectable()
@@ -16,7 +17,8 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly shareDb: ShareDbService,
-    private readonly httpAdapterHost: HttpAdapterHost
+    private readonly httpAdapterHost: HttpAdapterHost,
+    @Optional() private readonly realtimeMetrics?: RealtimeMetricsService
   ) {}
 
   onModuleInit() {
@@ -50,11 +52,13 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
     if (!conn) return;
 
     this.activeConnections.add(conn);
+    this.realtimeMetrics?.recordConnectionOpen();
     this.logger.log(`sockjs:on:connection (active: ${this.activeConnections.size})`);
 
     // Handle connection close to clean up tracking
     conn.on('close', () => {
       this.activeConnections.delete(conn);
+      this.realtimeMetrics?.recordConnectionClose();
       this.logger.log(`sockjs:on:close (active: ${this.activeConnections.size})`);
     });
 
@@ -69,6 +73,7 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
       this.shareDb.listen(stream, request);
     } catch (error) {
       this.logger.error('Connection error', error);
+      this.realtimeMetrics?.recordConnectionError();
       conn.write(JSON.stringify({ error }));
       conn.close();
       this.activeConnections.delete(conn);

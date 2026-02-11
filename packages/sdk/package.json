@@ -22,6 +22,8 @@
   "type": "module",
   "exports": {
     ".": {
+      "@teable/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
@@ -77,6 +79,7 @@
     "@tanstack/react-virtual": "3.2.0",
     "@teable/common-i18n": "workspace:*",
     "@teable/core": "workspace:*",
+    "@teable/formula": "workspace:*",
     "@teable/icons": "workspace:*",
     "@teable/next-themes": "0.3.5",
     "@teable/openapi": "workspace:*",
@@ -121,7 +124,7 @@
     "rehype-raw": "7.0.0",
     "remark-gfm": "4.0.0",
     "scroller": "0.0.3",
-    "sharedb": "4.1.2",
+    "sharedb": "5.2.2",
     "slate": "0.114.0",
     "slate-history": "0.113.1",
     "slate-hyperscript": "0.100.0",
@@ -147,7 +150,7 @@
     "@types/react-dom": "18.3.5",
     "@types/react-hammerjs": "1.0.7",
     "@types/scroller": "0.1.5",
-    "@types/sharedb": "3.3.10",
+    "@types/sharedb": "5.1.0",
     "@types/sockjs-client": "1.5.4",
     "@vitejs/plugin-react-swc": "3.6.0",
     "@vitest/coverage-v8": "4.0.17",
@@ -164,7 +167,6 @@
     "tailwindcss": "3.4.1",
     "typescript": "5.4.3",
     "vite-plugin-svgr": "4.2.0",
-    "vite-tsconfig-paths": "4.3.2",
     "vitest": "4.0.17"
   }
 }

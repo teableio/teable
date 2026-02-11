@@ -54,8 +54,17 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
       const cellValue2GridDisplay = createCellValue2GridDisplay(fields);
       if (localRecord != null) {
         const fieldId = columns[columnIndex]?.id;
-        if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(localRecord, columnIndex, true);
+        const field = fields.find((field) => field.id === fieldId);
+        if (!fieldId || !field) return { type: CellType.Loading };
+        const cellContent = cellValue2GridDisplay(localRecord, columnIndex, true);
+        if (!field.canCreateFieldRecord) {
+          return {
+            ...cellContent,
+            readonly: true,
+            locked: true,
+          };
+        }
+        return cellContent;
       }
       return { type: CellType.Loading };
     },

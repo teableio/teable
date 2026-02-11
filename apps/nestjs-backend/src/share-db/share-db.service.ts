@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { FieldOpBuilder, IdPrefix, ViewOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -13,6 +13,7 @@ import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
 import type { IRawOpMap } from './interface';
+import { RealtimeMetricsService } from './metrics/realtime-metrics.service';
 import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
 import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
@@ -28,7 +29,8 @@ export class ShareDbService extends ShareDBClass {
     private readonly cls: ClsService<IClsStore>,
     private readonly repairAttachmentOpService: RepairAttachmentOpService,
     @CacheConfig() private readonly cacheConfig: ICacheConfig,
-    private readonly performanceCacheService: PerformanceCacheService
+    private readonly performanceCacheService: PerformanceCacheService,
+    @Optional() private readonly realtimeMetrics?: RealtimeMetricsService
   ) {
     super({
       presence: true,
@@ -109,6 +111,7 @@ export class ShareDbService extends ShareDBClass {
     if (!rawOpMaps?.length) {
       return;
     }
+    let publishCount = 0;
     const repairAttachmentContext =
       await this.repairAttachmentOpService.getCollectionsAttachmentsContext(rawOpMaps);
     for (const rawOpMap of rawOpMaps) {
@@ -124,6 +127,7 @@ export class ShareDbService extends ShareDBClass {
             repairAttachmentContext
           );
           this.pubsub.publish(channels, repairedOp, noop);
+          publishCount++;
 
           if (this.shouldPublishAction(repairedOp)) {
             const tableId = collection.split('_')[1];
@@ -131,6 +135,9 @@ export class ShareDbService extends ShareDBClass {
           }
         }
       }
+    }
+    if (publishCount > 0) {
+      this.realtimeMetrics?.recordOpsPublished(publishCount);
     }
   }
 
@@ -165,17 +172,15 @@ export class ShareDbService extends ShareDBClass {
     const tracer = otelTrace.getTracer('default');
     const currentSpan = tracer.startSpan('submitOp');
 
-    // console.log('onSubmit start');
-
     otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
       const [docType] = context.collection.split('_');
 
       if (docType !== IdPrefix.Record || !context.op.op) {
+        this.realtimeMetrics?.recordOperationError('invalid_doc_type');
         return next(new Error('only record op can be committed'));
       }
+      this.realtimeMetrics?.recordOperationSubmit();
       next();
     });
-
-    // console.log('onSubmit end');
   };
 }

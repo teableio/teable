@@ -90,15 +90,17 @@
       "searchPlaceholder": "Cerca record",
       "create": "Aggiungi Record",
       "selectRecord": "Seleziona Record",
-      "unselected": "Non selezionato",
+      "all": "Tutti",
       "selected": "Selezionato",
       "expandRecordError": "Nessun permesso per visualizzare questo record.",
       "alreadyOpen": "Questo record è già aperto.",
+      "linkedTo": "Collegato a",
       "goToForeignTable": "Vai alla tabella esterna",
       "foreignTableIdRequired": "La tabella esterna è obbligatoria",
       "linkFieldIdRequired": "Il campo di collegamento è obbligatorio",
       "selectTooManyRecords": "I record selezionati non devono superare {{maxCount}}",
-      "relationshipRequired": "La relazione è obbligatoria"
+      "relationshipRequired": "La relazione è obbligatoria",
+      "rangeSelectFailed": "Impossibile selezionare i record nell'intervallo"
     },
     "user": {
       "searchPlaceholder": "Trova utenti per nome",
@@ -478,7 +480,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Restituisce numero1 se l'argomento logico è vero, altrimenti restituisce numero2. Può anche essere utilizzato per creare dichiarazioni IF annidate.\nPuò anche essere utilizzato per verificare se una cella è vuota/è vuota.",
+      "summary": "Arrotonda un numero verso il basso al numero intero più vicino.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -631,7 +633,7 @@
     },
     "WEEKDAY": {
       "summary": "Restituisce il giorno della settimana come un intero compreso tra 0 e 6, inclusi. Puoi opzionalmente fornire un secondo argomento (\"Sunday\" o \"Monday\") per iniziare le settimane in quel giorno. Se omesso, le settimane iniziano di domenica per impostazione predefinita. Esempio:\nWEEKDAY(TODAY(), \"Monday\")",
-      "example": "WEEKNUM(\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "Restituisce il giorno del mese di una data sotto forma di numero compreso tra 1-31.",
@@ -851,7 +853,8 @@
     },
     "toolbar": {
       "link": "Link",
-      "image": "Image"
+      "image": "Image",
+      "mention": "Menzione"
     },
     "floatToolbar": {
       "editLink": "Edit Link",
@@ -1276,6 +1279,8 @@
       "notFound": "Elemento del cestino non trovato",
       "parentSpaceTrashed": "Impossibile ripristinare questa base perché il suo spazio padre è anche nel cestino",
       "parentBaseOrSpaceTrashed": "Impossibile ripristinare questa tabella perché la sua base o spazio padre è anche nel cestino",
+      "parentBaseTrashed": "Impossibile ripristinare questo elemento perché la sua base padre è anche nel cestino",
+      "parentNotFound": "Risorsa padre non trovata",
       "tableNotFound": "Elemento del cestino della tabella non trovato"
     },
     "license": {

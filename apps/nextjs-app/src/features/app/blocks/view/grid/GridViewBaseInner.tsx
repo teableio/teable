@@ -453,7 +453,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           position,
           isMultipleSelected,
           deleteRecords: async () => {
-            const deleteRows = getEffectRows(selection);
+            const deleteRows = getEffectRows(selection, realRowCount);
 
             if (deleteRows >= 10) {
               const confirmed = await confirm({
@@ -609,6 +609,25 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     [view, columns]
   );
 
+  const filterCreateFieldValues = useCallback(
+    (
+      fieldMap: { [fieldId: string]: { canCreateFieldRecord?: boolean } },
+      fieldValueMap: { [fieldId: string]: unknown }
+    ) => {
+      return Object.entries(fieldValueMap).reduce(
+        (prev, [fieldId, value]) => {
+          if (fieldMap[fieldId]?.canCreateFieldRecord === false) {
+            return prev;
+          }
+          prev[fieldId] = value;
+          return prev;
+        },
+        {} as { [fieldId: string]: unknown }
+      );
+    },
+    []
+  );
+
   const generateRecord = async (
     fieldValueMap: { [fieldId: string]: unknown },
     targetIndex?: number,
@@ -625,8 +644,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     const fieldMap = keyBy(allFields, 'id');
 
     if (num === 1 || num === undefined) {
-      setPrefillingFieldValueMap(fieldValueMap);
-
+      setPrefillingFieldValueMap(filterCreateFieldValues(fieldMap, fieldValueMap));
       setPrefillingRowIndex(index);
       setSelection(emptySelection);
       gridRef.current?.setSelection(emptySelection);
@@ -644,12 +662,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         fieldMap,
         currentUserId: user.id,
       });
+      const filteredCreateFieldValueMap = filterCreateFieldValues(fieldMap, {
+        ...fieldValueMap,
+        ...filterValueMap,
+      });
       // insert empty records
       const emptyRecords = Array.from({ length: num }).fill({
-        fields: {
-          ...fieldValueMap,
-          ...filterValueMap,
-        },
+        fields: filteredCreateFieldValueMap,
       }) as ICreateRecordsRo['records'];
       mutateCreateRecord(emptyRecords);
     }

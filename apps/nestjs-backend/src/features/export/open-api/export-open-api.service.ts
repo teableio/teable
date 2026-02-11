@@ -1,5 +1,5 @@
 import { Readable } from 'stream';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
 import { FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -11,6 +11,7 @@ import { CustomHttpException } from '../../../custom.exception';
 import { FieldService } from '../../field/field.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
+import { ExportMetricsService } from '../metrics/export-metrics.service';
 
 @Injectable()
 export class ExportOpenApiService {
@@ -18,9 +19,12 @@ export class ExportOpenApiService {
   constructor(
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    @Optional() private readonly exportMetrics?: ExportMetricsService
   ) {}
   async exportCsvFromTable(response: Response, tableId: string, query?: IExportCsvRo) {
+    const exportStartTime = Date.now();
+    this.exportMetrics?.recordExportStart('csv');
     const {
       viewId,
       filter: queryFilter,
@@ -152,6 +156,11 @@ export class ExportOpenApiService {
           isOver = true;
           // end the stream
           csvStream.push(null);
+          this.exportMetrics?.recordExportComplete({
+            format: 'csv',
+            rows: count,
+            durationMs: Date.now() - exportStartTime,
+          });
           break;
         }
 
@@ -183,6 +192,10 @@ export class ExportOpenApiService {
       csvStream.push('\r\n');
       csvStream.push(`Export fail reason:, ${(e as Error)?.message}`);
       this.logger.error((e as Error)?.message, `ExportCsv: ${tableId}`);
+      this.exportMetrics?.recordExportError({
+        format: 'csv',
+        errorType: (e as Error)?.name ?? 'unknown',
+      });
     }
   }
 

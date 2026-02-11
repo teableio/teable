@@ -3,7 +3,7 @@ import os from 'os';
 import { Readable } from 'stream';
 import { Worker } from 'worker_threads';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { FieldType, ILocalization } from '@teable/core';
 import { getRandomString } from '@teable/core';
 import { UploadType } from '@teable/openapi';
@@ -15,6 +15,7 @@ import type { I18nPath } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
+import { ImportMetricsService } from '../metrics/import-metrics.service';
 import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-csv.processor';
 import { DEFAULT_IMPORT_CPU_USAGE, getWorkerPath, importerFactory } from './import.class';
 
@@ -84,7 +85,8 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     private readonly notificationService: NotificationService,
     private readonly importTableCsvQueueProcessor: ImportTableCsvQueueProcessor,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE) public readonly queue: Queue<ITableImportChunkJob>
+    @InjectQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE) public readonly queue: Queue<ITableImportChunkJob>,
+    @Optional() private readonly importMetrics?: ImportMetricsService
   ) {
     super();
     // When BACKEND_CACHE_REDIS_URI is not set, queues are backed by the local
@@ -118,14 +120,28 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       userId,
       options: { notification },
     } = job.data;
+    const importStartTime = Date.now();
+    const fileType = job.data.importerParams.fileType;
+    const operationType = job.data.recordsCal.sourceColumnMap ? 'inplace' : 'create_table';
 
     try {
       this.logger.log(
         `start chunk data job concurrency: ${TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY}`
       );
-      await this.resolveDataByWorker(job);
+      const rowCount = await this.resolveDataByWorker(job);
       this.logger.log(`import data to ${table.id} chunk data job completed`);
+      this.importMetrics?.recordImportComplete({
+        fileType,
+        operationType,
+        rows: rowCount,
+        durationMs: Date.now() - importStartTime,
+      });
     } catch (error) {
+      this.importMetrics?.recordImportError({
+        fileType,
+        operationType,
+        errorType: error instanceof ImportError ? 'import_error' : 'unknown',
+      });
       let finalMessage: string | ILocalization<I18nPath> = '';
       if (error instanceof ImportError && error.range) {
         const range = error.range;
@@ -159,7 +175,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     }
   }
 
-  private async resolveDataByWorker(job: Job<ITableImportChunkJob>) {
+  private async resolveDataByWorker(job: Job<ITableImportChunkJob>): Promise<number> {
     const jobId = String(job.id);
     const jobData = job.data;
     const { importerParams, table, options, baseId, userId, recordsCal } = jobData;
@@ -193,7 +209,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     // record count for error notification
     let recordCount = 1;
 
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<number>((resolve, reject) => {
       worker.on('message', async (result) => {
         const { type, data, chunkId, id, lastChunk } = result;
         switch (type) {
@@ -246,7 +262,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
           }
           case 'finished':
             worker.terminate();
-            resolve();
+            resolve(recordCount - 1);
             break;
           case 'error':
             worker.terminate();

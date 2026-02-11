@@ -1,0 +1,716 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DATETIME_FORMAT specifiers > formats token 'A' 1`] = `
+{
+  "expected": "PM",
+  "result": "PM",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'AM') END) END",
+  "token": "A",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'D' 1`] = `
+{
+  "expected": "12",
+  "result": "12",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDD') END) END",
+  "token": "D",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'DD' 1`] = `
+{
+  "expected": "12",
+  "result": "12",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'DD') END) END",
+  "token": "DD",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'H' 1`] = `
+{
+  "expected": "15",
+  "result": "15",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMHH24') END) END",
+  "token": "H",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'HH' 1`] = `
+{
+  "expected": "15",
+  "result": "15",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'HH24') END) END",
+  "token": "HH",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'L' 1`] = `
+{
+  "expected": "02/12/2026",
+  "result": "02/12/2026",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MM') || '/' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'DD') || '/' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') END) END",
+  "token": "L",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'LL' 1`] = `
+{
+  "expected": "February 12, 2026",
+  "result": "February 12, 2026",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMonth') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDD') || ', ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') END) END",
+  "token": "LL",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'LLL' 1`] = `
+{
+  "expected": "February 12, 2026 3:04 PM",
+  "result": "February 12, 2026 3:04 PM",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMonth') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDD') || ', ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMHH12') || ':' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MI') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'AM') END) END",
+  "token": "LLL",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'LLLL' 1`] = `
+{
+  "expected": "Thursday, February 12, 2026 3:04 PM",
+  "result": "Thursday, February 12, 2026 3:04 PM",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDay') || ', ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMonth') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDD') || ', ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMHH12') || ':' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MI') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'AM') END) END",
+  "token": "LLLL",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'LT' 1`] = `
+{
+  "expected": "3:04 PM",
+  "result": "3:04 PM",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMHH12') || ':' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MI') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'AM') END) END",
+  "token": "LT",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'LTS' 1`] = `
+{
+  "expected": "3:04:05 PM",
+  "result": "3:04:05 PM",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMHH12') || ':' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MI') || ':' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'SS') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'AM') END) END",
+  "token": "LTS",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'M' 1`] = `
+{
+  "expected": "2",
+  "result": "2",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMM') END) END",
+  "token": "M",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'MM' 1`] = `
+{
+  "expected": "02",
+  "result": "02",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MM') END) END",
+  "token": "MM",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'MMM' 1`] = `
+{
+  "expected": "Feb",
+  "result": "Feb",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMon') END) END",
+  "token": "MMM",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'MMMM' 1`] = `
+{
+  "expected": "February",
+  "result": "February",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMonth') END) END",
+  "token": "MMMM",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'SSS' 1`] = `
+{
+  "expected": "678",
+  "result": "678",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MS') END) END",
+  "token": "SSS",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'YY' 1`] = `
+{
+  "expected": "26",
+  "result": "26",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YY') END) END",
+  "token": "YY",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'YYYY' 1`] = `
+{
+  "expected": "2026",
+  "result": "2026",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') END) END",
+  "token": "YYYY",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'Z' 1`] = `
+{
+  "expected": "+00:00",
+  "result": "+00:00",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (CASE WHEN ROUND(EXTRACT(EPOCH FROM (((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') - ((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))) / 60)::int >= 0 THEN '+' ELSE '-' END || LPAD((ABS(ROUND(EXTRACT(EPOCH FROM (((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') - ((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))) / 60)::int) / 60)::int::text, 2, '0') || ':' || LPAD((ABS(ROUND(EXTRACT(EPOCH FROM (((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') - ((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))) / 60)::int) % 60)::int::text, 2, '0')) END) END",
+  "token": "Z",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'ZZ' 1`] = `
+{
+  "expected": "+0000",
+  "result": "+0000",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE REPLACE((CASE WHEN ROUND(EXTRACT(EPOCH FROM (((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') - ((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))) / 60)::int >= 0 THEN '+' ELSE '-' END || LPAD((ABS(ROUND(EXTRACT(EPOCH FROM (((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') - ((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))) / 60)::int) / 60)::int::text, 2, '0') || ':' || LPAD((ABS(ROUND(EXTRACT(EPOCH FROM (((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') - ((((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))) / 60)::int) % 60)::int::text, 2, '0')), ':', '') END) END",
+  "token": "ZZ",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'a' 1`] = `
+{
+  "expected": "pm",
+  "result": "pm",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE LOWER(TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'AM')) END) END",
+  "token": "a",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'd' 1`] = `
+{
+  "expected": "4",
+  "result": "4",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE EXTRACT(DOW FROM ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC')::int::text END) END",
+  "token": "d",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'dd' 1`] = `
+{
+  "expected": "Th",
+  "result": "Th",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE LEFT(TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDy'), 2) END) END",
+  "token": "dd",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'ddd' 1`] = `
+{
+  "expected": "Thu",
+  "result": "Thu",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDy') END) END",
+  "token": "ddd",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'dddd' 1`] = `
+{
+  "expected": "Thursday",
+  "result": "Thursday",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDay') END) END",
+  "token": "dddd",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'h' 1`] = `
+{
+  "expected": "3",
+  "result": "3",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMHH12') END) END",
+  "token": "h",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'hh' 1`] = `
+{
+  "expected": "03",
+  "result": "03",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'HH12') END) END",
+  "token": "hh",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'l' 1`] = `
+{
+  "expected": "2/12/2026",
+  "result": "2/12/2026",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMM') || '/' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDD') || '/' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') END) END",
+  "token": "l",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'll' 1`] = `
+{
+  "expected": "Feb 12, 2026",
+  "result": "Feb 12, 2026",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMon') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDD') || ', ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') END) END",
+  "token": "ll",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'lll' 1`] = `
+{
+  "expected": "Feb 12, 2026 3:04 PM",
+  "result": "Feb 12, 2026 3:04 PM",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMon') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDD') || ', ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMHH12') || ':' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MI') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'AM') END) END",
+  "token": "lll",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'llll' 1`] = `
+{
+  "expected": "Thu, Feb 12, 2026 3:04 PM",
+  "result": "Thu, Feb 12, 2026 3:04 PM",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDy') || ', ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMon') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMDD') || ', ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'YYYY') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMHH12') || ':' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MI') || ' ' || TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'AM') END) END",
+  "token": "llll",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'm' 1`] = `
+{
+  "expected": "4",
+  "result": "4",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMMI') END) END",
+  "token": "m",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'mm' 1`] = `
+{
+  "expected": "04",
+  "result": "04",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'MI') END) END",
+  "token": "mm",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 's' 1`] = `
+{
+  "expected": "5",
+  "result": "5",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'FMSS') END) END",
+  "token": "s",
+}
+`;
+
+exports[`DATETIME_FORMAT specifiers > formats token 'ss' 1`] = `
+{
+  "expected": "05",
+  "result": "05",
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_datetime_format' END ELSE (CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE TO_CHAR(((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+        WHEN v.val IS NULL THEN NULL::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
+        WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
+        ELSE NULL::timestamptz
+      END) FROM (SELECT '2026-02-12T15:04:05.678Z' AS val) AS v) END)) AT TIME ZONE 'UTC', 'SS') END) END",
+  "token": "ss",
+}
+`;

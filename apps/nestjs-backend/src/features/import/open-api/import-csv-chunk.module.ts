@@ -5,6 +5,7 @@ import { ShareDbModule } from '../../../share-db/share-db.module';
 import { StorageModule } from '../../attachments/plugins/storage.module';
 import { NotificationModule } from '../../notification/notification.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
+import { ImportMetricsModule } from '../metrics/import-metrics.module';
 import {
   ImportTableCsvChunkQueueProcessor,
   TABLE_IMPORT_CSV_CHUNK_QUEUE,
@@ -21,6 +22,7 @@ import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-c
     NotificationModule,
     StorageModule,
     EventEmitterModule,
+    ImportMetricsModule,
   ],
   exports: [ImportTableCsvChunkQueueProcessor, ImportTableCsvQueueProcessor],
 })

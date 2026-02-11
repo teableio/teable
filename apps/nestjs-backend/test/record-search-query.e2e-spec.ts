@@ -9,7 +9,8 @@ import {
   Relationship,
   SortFunc,
 } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import type { IExtraResult } from '@teable/core';
+import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import {
   getRecords as apiGetRecords,
   createField,
@@ -22,6 +23,8 @@ import {
   updateField,
   convertField,
   getSearchIndex,
+  urlBuilder,
+  axios,
 } from '@teable/openapi';
 import { differenceWith } from 'lodash';
 import type { IFieldInstance } from '../src/features/field/model/factory';
@@ -293,6 +296,28 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
           { recordId: res.records[22].id, fieldId: table.fields[0].id },
         ])
       );
+    });
+
+    it('should get doc-ids with searchHitIndex when projection is provided (personal view)', async () => {
+      const projectionFieldIds = table.fields.slice(0, 3).map((f) => f.id);
+      const query: IGetRecordsRo = {
+        search: ['text field 10'],
+        projection: projectionFieldIds,
+        ignoreViewQuery: true,
+      };
+      const res = await axios.post<{ ids: string[]; extra?: IExtraResult }>(
+        urlBuilder('/table/{tableId}/record/socket/doc-ids', {
+          tableId: table.id,
+        }),
+        query
+      );
+
+      expect(res.data.extra?.searchHitIndex).toBeDefined();
+      expect(res.data.extra?.searchHitIndex?.length).toBeGreaterThan(0);
+      // searchHitIndex should only contain fields within the projection
+      res.data.extra?.searchHitIndex?.forEach((hit) => {
+        expect(projectionFieldIds).toContain(hit.fieldId);
+      });
     });
   });
 

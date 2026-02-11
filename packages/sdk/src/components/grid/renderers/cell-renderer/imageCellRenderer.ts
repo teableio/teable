@@ -22,26 +22,41 @@ const INNER_PADDING = 4;
 
 const { cellHorizontalPadding, cellVerticalPaddingXS } = GRID_DEFAULT;
 
-const getImageCollection = (
-  data: IImageData[],
-  loadImg: (url: string) => HTMLImageElement | ImageBitmap | undefined
+const drawImagePlaceholder = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  fill: string
 ) => {
-  const collection: { id: string; img: HTMLImageElement | ImageBitmap }[] = [];
-
-  for (let index = 0; index < data.length; index++) {
-    const { id, url } = data[index];
-    const img = loadImg(url);
-
-    if (img !== undefined) {
-      collection.push({ id, img });
-    }
-  }
-
-  return collection;
+  drawRect(ctx, {
+    x,
+    y,
+    width,
+    height,
+    radius: INNER_PADDING,
+    fill,
+  });
 };
 
 const generateCacheKey = (data: IImageData[], width: number) => {
   return `${String(width)}-${data.map(({ id }) => id).join(',')}`;
+};
+
+const getImageWidth = (
+  imageItem: IImageData,
+  img: HTMLImageElement | ImageBitmap | undefined,
+  imgHeight: number
+) => {
+  const imageRatio = img?.height ? img.width / img.height : undefined;
+  const { width, height } = imageItem;
+  const metadataRatio =
+    typeof width === 'number' && typeof height === 'number' && width > 0 && height > 0
+      ? width / height
+      : undefined;
+  const ratio = imageRatio ?? metadataRatio ?? 1;
+  return imgHeight * ratio;
 };
 
 export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
@@ -51,16 +66,12 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
   draw: (cell: IImageCell, props: ICellRenderProps) => {
     const { rect, columnIndex, rowIndex, theme, ctx, imageManager, isActive, spriteManager } =
       props;
-    const { iconSizeSM, cellLineColor } = theme;
+    const { iconSizeSM, cellLineColor, cellOptionBgHighlight } = theme;
     const { data, readonly } = cell;
     const { x, y, width, height } = rect;
     const editable = !readonly && isActive;
     const initPadding = editable ? iconSizeSM + 2 : 0;
     const imgHeight = height - cellVerticalPaddingXS * 2;
-
-    const imageCollection = getImageCollection(data, (url) =>
-      imageManager.loadOrGetImage(url, columnIndex, rowIndex)
-    );
 
     if (editable) {
       spriteManager.drawSprite(ctx, {
@@ -72,7 +83,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
       });
     }
 
-    if (!imageCollection.length) return;
+    if (!data.length) return;
 
     ctx.save();
     ctx.beginPath();
@@ -84,10 +95,11 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
 
     let drawX = x + cellHorizontalPadding + initPadding;
 
-    for (const imgItem of imageCollection) {
+    for (const imageItem of data) {
       if (drawX > x + width) break;
-      const { id, img } = imgItem;
-      const imgWidth = img.width * (imgHeight / img.height);
+      const { id, url } = imageItem;
+      const img = imageManager.loadOrGetImage(url, columnIndex, rowIndex);
+      const imgWidth = getImageWidth(imageItem, img, imgHeight);
       drawRect(ctx, {
         x: drawX,
         y: y + cellVerticalPaddingXS,
@@ -97,17 +109,28 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
         stroke: cellLineColor,
       });
 
-      ctx.save();
-      drawRect(ctx, {
-        x: drawX,
-        y: y + cellVerticalPaddingXS,
-        width: imgWidth,
-        height: imgHeight,
-        radius: INNER_PADDING,
-      });
-      ctx.clip();
-      ctx.drawImage(img, drawX, y + cellVerticalPaddingXS, imgWidth, imgHeight);
-      ctx.restore();
+      if (img) {
+        ctx.save();
+        drawRect(ctx, {
+          x: drawX,
+          y: y + cellVerticalPaddingXS,
+          width: imgWidth,
+          height: imgHeight,
+          radius: INNER_PADDING,
+        });
+        ctx.clip();
+        ctx.drawImage(img, drawX, y + cellVerticalPaddingXS, imgWidth, imgHeight);
+        ctx.restore();
+      } else {
+        drawImagePlaceholder(
+          ctx,
+          drawX,
+          y + cellVerticalPaddingXS,
+          imgWidth,
+          imgHeight,
+          cellOptionBgHighlight
+        );
+      }
 
       positions.push({
         id,

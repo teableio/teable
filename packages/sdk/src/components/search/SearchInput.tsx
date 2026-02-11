@@ -11,9 +11,11 @@ import { FieldSelector } from '../field/FieldSelector';
 export function SearchInput({
   className,
   container,
+  globalOnly,
 }: {
   className?: string;
   container?: HTMLElement;
+  globalOnly?: boolean;
 }) {
   const fields = useFields();
 
@@ -45,10 +47,16 @@ export function SearchInput({
   }, [cancel, setValue]);
 
   useEffect(() => {
+    if (globalOnly) {
+      if (fieldId !== 'all_fields') {
+        setFieldId('all_fields');
+      }
+      return;
+    }
     if (!fieldId) {
       setFieldId(fields[0]?.id);
     }
-  }, [fieldId, fields, setFieldId]);
+  }, [fieldId, fields, globalOnly, setFieldId]);
 
   useUnmount(() => {
     cancel();
@@ -60,21 +68,26 @@ export function SearchInput({
       className={cn(
         'left-6 top-60 flex grow h-8 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background pr-2 text-sm border outline-muted-foreground',
         {
+          'pl-2': globalOnly,
+        },
+        {
           outline: isFocused,
         },
         className
       )}
     >
-      <FieldSelector
-        className="h-full w-auto gap-1 rounded-none border-0 border-r px-1 text-sm font-normal"
-        value={fieldId}
-        container={container}
-        fields={filterFields}
-        onSelect={(value) => {
-          setFieldId(value);
-        }}
-        modal
-      />
+      {!globalOnly && (
+        <FieldSelector
+          className="h-full w-auto gap-1 rounded-none border-0 border-r px-1 text-sm font-normal"
+          value={fieldId}
+          container={container}
+          fields={filterFields}
+          onSelect={(value) => {
+            setFieldId(value);
+          }}
+          modal
+        />
+      )}
       <input
         ref={ref}
         className="placeholder:text-muted-foregrounds grow rounded-md bg-transparent px-1 outline-none"

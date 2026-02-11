@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
 import {
   FieldType,
@@ -24,6 +24,7 @@ import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
+import { ImportMetricsService } from '../metrics/import-metrics.service';
 import {
   ImportTableCsvChunkQueueProcessor,
   TABLE_IMPORT_CSV_CHUNK_QUEUE,
@@ -44,7 +45,8 @@ export class ImportOpenApiService {
     private readonly notificationService: NotificationService,
     private readonly shareDbService: ShareDbService,
     private readonly importTableCsvChunkQueueProcessor: ImportTableCsvChunkQueueProcessor,
-    private readonly fieldOpenApiService: FieldOpenApiService
+    private readonly fieldOpenApiService: FieldOpenApiService,
+    @Optional() private readonly importMetrics?: ImportMetricsService
   ) {}
 
   async analyze(analyzeRo: IAnalyzeRo) {
@@ -62,6 +64,8 @@ export class ImportOpenApiService {
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
     const { worksheets, notification = false, tz, fileType, attachmentUrl } = importRo;
+
+    this.importMetrics?.recordImportQueued({ fileType, operationType: 'create_table' });
 
     // only record base table info, not include records
     const tableResult = [];
@@ -206,6 +210,8 @@ export class ImportOpenApiService {
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
     const { attachmentUrl, fileType, insertConfig, notification = false } = inplaceImportRo;
+
+    this.importMetrics?.recordImportQueued({ fileType, operationType: 'inplace' });
 
     const { sourceColumnMap, sourceWorkSheetKey, excludeFirstRow } = insertConfig;
 

@@ -15,6 +15,7 @@
  * | OTEL_SERVICE_NAME                  | Service name for tracing       | teable           | teable       |
  * | OTEL_EXPORT_RATIO                  | Export ratio (0.0-1.0)         | 1.0 (100%)       | 0.1 (10%)    |
  * | OTEL_EXPORT_LATENCY_THRESHOLD_MS   | Slow request threshold (ms)    | 1500             | 1500         |
+ * | OTEL_METRIC_EXPORT_INTERVAL_MS     | Metrics export interval (ms)   | 10000            | 60000        |
  * | BACKEND_SENTRY_DSN                 | Sentry DSN for error tracking  | (disabled)       | (disabled)   |
  * | BUILD_VERSION                      | Build version for resource     | (none)           | (none)       |
  * ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -26,7 +27,8 @@
  * - Smart export always sends: errors, HTTP 5xx responses, and slow requests (regardless of ratio)
  */
 import { Logger } from '@nestjs/common';
-import { SpanStatusCode } from '@opentelemetry/api';
+import { metrics, SpanKind, SpanStatusCode } from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
@@ -34,7 +36,9 @@ import { ExpressInstrumentation, ExpressLayerType } from '@opentelemetry/instrum
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
 import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
+import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
+import { RuntimeNodeInstrumentation } from '@opentelemetry/instrumentation-runtime-node';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
 import { BatchSpanProcessor, NoopSpanProcessor } from '@opentelemetry/sdk-trace-base';
@@ -45,7 +49,18 @@ import {
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
-import { SentrySpanProcessor } from '@sentry/opentelemetry';
+import {
+  SentryPropagator,
+  SentrySpanProcessor,
+  wrapContextManagerClass,
+} from '@sentry/opentelemetry';
+
+// Use webpack's special require that bypasses bundling, falling back to standard require
+// This is needed because webpack transforms import.meta.url and createRequire in ways
+// that can break module resolution for native Node.js modules like pg.
+declare const __non_webpack_require__: NodeRequire | undefined;
+const nativeRequire: NodeRequire =
+  typeof __non_webpack_require__ !== 'undefined' ? __non_webpack_require__ : require;
 
 const { BatchLogRecordProcessor } = opentelemetry.logs;
 const { PeriodicExportingMetricReader } = opentelemetry.metrics;
@@ -66,6 +81,7 @@ const ENV_DEFAULTS = {
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '1.0',
     OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
+    OTEL_METRIC_EXPORT_INTERVAL_MS: '10000',
   },
   production: {
     OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
@@ -74,8 +90,11 @@ const ENV_DEFAULTS = {
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '0.1',
     OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
+    OTEL_METRIC_EXPORT_INTERVAL_MS: '60000',
   },
 } as const;
+
+const hasSentry = !!process.env.BACKEND_SENTRY_DSN;
 
 type EnvConfigKey = keyof typeof ENV_DEFAULTS.development;
 
@@ -119,6 +138,10 @@ const exportRatio = Math.max(0, Math.min(1, parseNumber(getConfig('OTEL_EXPORT_R
 const latencyThresholdMs = Math.max(
   0,
   parseNumber(getConfig('OTEL_EXPORT_LATENCY_THRESHOLD_MS'), 1500)
+);
+const metricExportIntervalMs = Math.max(
+  1000,
+  parseNumber(getConfig('OTEL_METRIC_EXPORT_INTERVAL_MS'), 60000)
 );
 
 // Exporters
@@ -186,12 +209,50 @@ const createSmartBatchProcessor = (exporter: OTLPTraceExporter): SpanProcessor =
   };
 };
 
+// Track in-flight outbound HTTP requests by target host via SpanProcessor,
+// since instrumentation-http only records duration after completion.
+const httpClientActiveRequests = metrics
+  .getMeter('teable-observability')
+  .createUpDownCounter('http.client.active_requests', {
+    description: 'Number of currently in-flight outbound HTTP requests',
+  });
+
+const httpClientActiveRequestsProcessor: SpanProcessor = {
+  onStart(span): void {
+    if (span.kind !== SpanKind.CLIENT) return;
+    const host = String(
+      span.attributes['net.peer.name'] || span.attributes['server.address'] || ''
+    );
+    if (host) {
+      httpClientActiveRequests.add(1, { 'net.peer.name': host });
+    }
+  },
+  onEnd(span): void {
+    if (span.kind !== SpanKind.CLIENT) return;
+    const host = String(
+      span.attributes['net.peer.name'] || span.attributes['server.address'] || ''
+    );
+    if (host) {
+      httpClientActiveRequests.add(-1, { 'net.peer.name': host });
+    }
+  },
+  shutdown: () => Promise.resolve(),
+  forceFlush: () => Promise.resolve(),
+};
+
 // Span processors - NoopSpanProcessor ensures trace context is always generated
 // even when no exporter is configured (needed for trace ID in logs)
 const spanProcessors = [
-  ...(process.env.BACKEND_SENTRY_DSN ? [new SentrySpanProcessor()] : []),
+  ...(hasSentry ? [new SentrySpanProcessor()] : []),
   ...(traceExporter ? [createSmartBatchProcessor(traceExporter)] : [new NoopSpanProcessor()]),
+  httpClientActiveRequestsProcessor,
 ];
+
+// When Sentry is enabled, use SentryPropagator and SentryContextManager to ensure
+// Sentry spans are properly correlated with OTEL traces and async context is preserved.
+const SentryContextManager = hasSentry
+  ? wrapContextManagerClass(AsyncLocalStorageContextManager)
+  : undefined;
 
 const ignorePaths = [
   '/favicon.ico',
@@ -206,10 +267,12 @@ const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
   sampler: new AlwaysOnSampler(),
+  contextManager: SentryContextManager ? new SentryContextManager() : undefined,
+  textMapPropagator: hasSentry ? new SentryPropagator() : undefined,
   metricReader: metricsExporter
     ? new PeriodicExportingMetricReader({
         exporter: metricsExporter,
-        exportIntervalMillis: 60000,
+        exportIntervalMillis: metricExportIntervalMs,
       })
     : undefined,
   instrumentations: [
@@ -221,7 +284,12 @@ const otelSDK = new opentelemetry.NodeSDK({
     }),
     new NestInstrumentation(),
     new PrismaInstrumentation(),
+    new PgInstrumentation({
+      enhancedDatabaseReporting: true, // Records SQL; ensure sensitive data is scrubbed.
+      requireParentSpan: false, // Create spans even without parent, ensures v2 Kysely queries are traced
+    }),
     new PinoInstrumentation(),
+    new RuntimeNodeInstrumentation(),
     new IORedisInstrumentation({
       requireParentSpan: true,
     }),
@@ -237,10 +305,35 @@ otelLogger.log(
   `Initialized: service=${serviceName}, env=${isDevelopment ? 'dev' : 'prod'}, ` +
     `exportRatio=${exportRatio * 100}%, latencyThreshold=${latencyThresholdMs}ms, ` +
     `exporters=[traces:${!!traceEndpoint}, logs:${!!logEndpoint}, metrics:${!!metricsEndpoint}], ` +
-    `sentry=${!!process.env.BACKEND_SENTRY_DSN}`
+    `metricsInterval=${metricExportIntervalMs}ms, ` +
+    `sentry=${hasSentry}`
 );
 
 export default otelSDK;
+
+// This ensures instrumentation is applied BEFORE any instrumented modules (like pg) are loaded.
+try {
+  otelSDK.start();
+  // Force load pg after SDK start to ensure it is instrumented.
+  // OpenTelemetry instruments modules by patching their exports when they're first required.
+  // If pg is loaded before SDK.start(), the instrumentation won't work.
+  //
+  // Use nativeRequire to bypass webpack bundling and ensure we're loading
+  // the actual pg module from node_modules, not a bundled version.
+  try {
+    nativeRequire('pg');
+  } catch {
+    // pg might not be available, that's ok
+  }
+
+  // Also force load via ESM import to ensure ESM module cache is populated
+  // This is important because v2 adapter uses `await import('pg')`
+  void import('pg').catch(() => {
+    // pg might not be available via ESM, that's ok
+  });
+} catch (err) {
+  console.error('OTEL SDK start error:', err);
+}
 
 let isShuttingDown = false;
 const shutdownHandler = () => {

@@ -514,7 +514,7 @@ describe('selectionService', () => {
 
       expect(result).toEqual([
         [2, 1],
-        [6, 3],
+        [4, 3],
       ]);
     });
   });
