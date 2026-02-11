@@ -90,4 +90,91 @@ describe('Filter Parse', () => {
     const parse = filterSchema.parse(data);
     expect(parse).toEqual(data);
   });
+
+  it('should parse isNotEmpty without explicit value', async () => {
+    const data = {
+      filterSet: [
+        {
+          fieldId: 'fldbbM45OO5VOWuce4r',
+          operator: 'isNotEmpty',
+        },
+      ],
+      conjunction: 'and',
+    };
+
+    const parse = filterSchema.parse(data);
+    expect(parse).toEqual({
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: 'fldbbM45OO5VOWuce4r',
+          operator: 'isNotEmpty',
+          value: null,
+        },
+      ],
+    });
+  });
+
+  it('should parse is with null value for backward compatibility', async () => {
+    const data = {
+      filterSet: [
+        {
+          fieldId: 'fldbbM45OO5VOWuce4r',
+          operator: 'is',
+          value: null,
+        },
+      ],
+      conjunction: 'and',
+    };
+
+    const parse = filterSchema.parse(data);
+    expect(parse).toEqual(data);
+  });
+
+  it('should parse isNot with null value for backward compatibility', async () => {
+    const data = {
+      filterSet: [
+        {
+          fieldId: 'fldbbM45OO5VOWuce4r',
+          operator: 'isNot',
+          value: null,
+        },
+      ],
+      conjunction: 'and',
+    };
+
+    const parse = filterSchema.parse(data);
+    expect(parse).toEqual(data);
+  });
+
+  it('should reject non-unary operators without value', async () => {
+    const data = {
+      filterSet: [
+        {
+          fieldId: 'fldbbM45OO5VOWuce4r',
+          operator: 'is',
+        },
+      ],
+      conjunction: 'and',
+    };
+
+    const parse = filterSchema.safeParse(data);
+    expect(parse.success).toBe(false);
+  });
+
+  it('should reject null value for non-null operators', async () => {
+    const data = {
+      filterSet: [
+        {
+          fieldId: 'fldbbM45OO5VOWuce4r',
+          operator: 'contains',
+          value: null,
+        },
+      ],
+      conjunction: 'and',
+    };
+
+    const parse = filterSchema.safeParse(data);
+    expect(parse.success).toBe(false);
+  });
 });

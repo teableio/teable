@@ -35,6 +35,7 @@ export * from './application/projections/FieldOptionsAddedRealtimeProjection';
 export * from './application/projections/TableRecordRealtimeDTO';
 export * from './application/projections/RecordCreatedRealtimeProjection';
 export * from './application/projections/RecordUpdatedRealtimeProjection';
+export * from './application/projections/RecordReorderedRealtimeProjection';
 export * from './application/projections/RecordsBatchUpdatedRealtimeProjection';
 export * from './application/projections/RecordsBatchCreatedRealtimeProjection';
 export * from './application/projections/RecordsDeletedRealtimeProjection';
