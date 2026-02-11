@@ -116,48 +116,64 @@ const operatorsExpectingArray: ReadonlyArray<RecordFilterOperator> = [
   'isExactly',
 ];
 
-export const recordFilterConditionSchema = z
-  .object({
-    fieldId: z.string(),
-    operator: recordFilterOperatorSchema,
-    value: recordFilterValueSchema,
-  })
-  .superRefine((val, ctx) => {
-    if (operatorsExpectingNull.includes(val.operator)) {
-      if (val.value !== null) {
+const normalizeUnaryOperatorValue = (input: unknown): unknown => {
+  if (input == null || typeof input !== 'object') return input;
+
+  const value = input as Record<string, unknown>;
+  if (!operatorsExpectingNull.includes(value.operator as RecordFilterOperator)) return input;
+  if ('value' in value) return input;
+
+  return {
+    ...value,
+    value: null,
+  };
+};
+
+export const recordFilterConditionSchema = z.preprocess(
+  normalizeUnaryOperatorValue,
+  z
+    .object({
+      fieldId: z.string(),
+      operator: recordFilterOperatorSchema,
+      value: recordFilterValueSchema,
+    })
+    .superRefine((val, ctx) => {
+      if (operatorsExpectingNull.includes(val.operator)) {
+        if (val.value !== null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Operator '${val.operator}' requires null value`,
+          });
+        }
+        return;
+      }
+
+      if (val.value === null) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `Operator '${val.operator}' requires null value`,
+          message: `Operator '${val.operator}' does not allow null value`,
         });
+        return;
       }
-      return;
-    }
 
-    if (val.value === null) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Operator '${val.operator}' does not allow null value`,
-      });
-      return;
-    }
+      if (operatorsExpectingArray.includes(val.operator)) {
+        if (!Array.isArray(val.value) && !isRecordFilterFieldReferenceValue(val.value)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Operator '${val.operator}' requires an array value`,
+          });
+        }
+        return;
+      }
 
-    if (operatorsExpectingArray.includes(val.operator)) {
-      if (!Array.isArray(val.value) && !isRecordFilterFieldReferenceValue(val.value)) {
+      if (Array.isArray(val.value)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `Operator '${val.operator}' requires an array value`,
+          message: `Operator '${val.operator}' does not allow array values`,
         });
       }
-      return;
-    }
-
-    if (Array.isArray(val.value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Operator '${val.operator}' does not allow array values`,
-      });
-    }
-  });
+    })
+);
 
 export type RecordFilterCondition = z.infer<typeof recordFilterConditionSchema>;
 

@@ -62,6 +62,21 @@ describe('RecordFilterDto', () => {
       value: 'a',
     });
     expect(invalidScalarForArray.success).toBe(false);
+
+    const unaryWithoutValue = recordFilterConditionSchema.safeParse({
+      fieldId: 'fld123',
+      operator: 'isNotEmpty',
+    });
+    expect(unaryWithoutValue.success).toBe(true);
+    if (unaryWithoutValue.success) {
+      expect(unaryWithoutValue.data.value).toBeNull();
+    }
+
+    const nonUnaryWithoutValue = recordFilterConditionSchema.safeParse({
+      fieldId: 'fld123',
+      operator: 'is',
+    });
+    expect(nonUnaryWithoutValue.success).toBe(false);
   });
 
   it('validates groups, nodes, and nullable filters', () => {
