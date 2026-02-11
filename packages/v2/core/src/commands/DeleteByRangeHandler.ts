@@ -148,9 +148,14 @@ export class DeleteByRangeHandler
       const mergedDefaults = viewDefaults.merge({
         filter: command.filter,
         sort: command.sort,
+        group: command.groupBy,
       });
-      const effectiveFilter = mergedDefaults.filter() ?? undefined;
-      const effectiveSort = mergedDefaults.sort();
+      const effectiveFilter = command.ignoreViewQuery
+        ? command.filter ?? undefined
+        : mergedDefaults.filter() ?? undefined;
+      const effectiveSort = command.ignoreViewQuery
+        ? command.sort ?? undefined
+        : mergedDefaults.sort();
 
       // 3. Build filter spec from effective filter merged with search (if provided)
       const mergedFilter = mergeSearchFilter(effectiveFilter, command.search);
@@ -164,7 +169,10 @@ export class DeleteByRangeHandler
       // 4. Resolve orderBy from groupBy and sort
       // GroupBy fields are prepended to the sort order
       // If no explicit orderBy, fall back to view row order column
-      const groupByOrderBy = yield* resolveGroupByToOrderBy(command.groupBy);
+      const effectiveGroup = command.ignoreViewQuery
+        ? command.groupBy ?? undefined
+        : mergedDefaults.group();
+      const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
       const orderBy = mergeOrderBy(groupByOrderBy, sortOrderBy, command.viewId.toString());
 

@@ -2980,6 +2980,14 @@ export type I18nTranslations = {
                 "notAttachment": string;
                 "isComputed": string;
                 "notFoundAICofig": string;
+                "foreignTableIdRequired": string;
+                "lookupFieldIdRequired": string;
+                "lookupFieldNotExist": string;
+                "lookupFieldNotBelongToTable": string;
+                "lookupFieldTypeNotMatch": string;
+                "conditionalRollupOptionsRequired": string;
+                "conditionalRollupParseError": string;
+                "conditionalLookupOptionsRequired": string;
                 "button": {
                     "clickCountReachedMaxCount": string;
                     "notSupportReset": string;
