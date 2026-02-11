@@ -1,0 +1,40 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RecordFilterDto matrix > matches operator-value matrix snapshot 1`] = `
+{
+  "legend": [
+    "missing",
+    "null",
+    "literalString",
+    "literalNumber",
+    "literalBoolean",
+    "literalList",
+    "dateValue",
+    "fieldReference",
+  ],
+  "report": [
+    "is:NNYYYNYY",
+    "isNot:NNYYYNYY",
+    "contains:NNYYYNYY",
+    "doesNotContain:NNYYYNYY",
+    "isEmpty:YYNNNNNN",
+    "isNotEmpty:YYNNNNNN",
+    "isGreater:NNYYYNYY",
+    "isGreaterEqual:NNYYYNYY",
+    "isLess:NNYYYNYY",
+    "isLessEqual:NNYYYNYY",
+    "isAnyOf:NNNNNYNY",
+    "isNoneOf:NNNNNYNY",
+    "hasAnyOf:NNNNNYNY",
+    "hasAllOf:NNNNNYNY",
+    "isNotExactly:NNNNNYNY",
+    "hasNoneOf:NNNNNYNY",
+    "isExactly:NNNNNYNY",
+    "isWithIn:NNYYYNYY",
+    "isBefore:NNYYYNYY",
+    "isAfter:NNYYYNYY",
+    "isOnOrBefore:NNYYYNYY",
+    "isOnOrAfter:NNYYYNYY",
+  ],
+}
+`;

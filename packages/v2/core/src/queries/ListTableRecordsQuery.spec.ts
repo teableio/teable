@@ -36,4 +36,20 @@ describe('ListTableRecordsQuery', () => {
     });
     expect(invalidFilter.isErr()).toBe(true);
   });
+
+  it('accepts unary operators without explicit value in JSON filter input', () => {
+    const tableId = createTableId('c').toString();
+    const result = ListTableRecordsQuery.create({
+      tableId,
+      filter: JSON.stringify({
+        fieldId: 'fld123',
+        operator: 'isNotEmpty',
+      }),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk() && result.value.filter && 'fieldId' in result.value.filter) {
+      expect(result.value.filter.value).toBeNull();
+    }
+  });
 });

@@ -702,6 +702,33 @@ export class RecordOpenApiV2Service {
       collapsedGroupIds,
       fieldKeyType: FieldKeyType.Id,
     };
+    const maxBatchSize = 1000;
+
+    const fetchRecordIdsByRange = async (start: number, end: number): Promise<string[]> => {
+      const total = end - start + 1;
+      if (total <= 0) {
+        return [];
+      }
+
+      let recordIds: string[] = [];
+      for (let offset = 0; offset < total; offset += maxBatchSize) {
+        const take = Math.min(maxBatchSize, total - offset);
+        const result = await this.recordService.getDocIdsByQuery(
+          tableId,
+          {
+            ...baseQuery,
+            skip: start + offset,
+            take,
+          },
+          true
+        );
+        recordIds = recordIds.concat(result.ids);
+        if (result.ids.length < take) {
+          break;
+        }
+      }
+      return recordIds;
+    };
 
     if (type === RangeType.Columns) {
       // For columns selection, get all record IDs
@@ -717,24 +744,14 @@ export class RecordOpenApiV2Service {
       // For rows selection, iterate through each range [start, end]
       let recordIds: string[] = [];
       for (const [start, end] of ranges) {
-        const result = await this.recordService.getDocIdsByQuery(
-          tableId,
-          { ...baseQuery, skip: start, take: end - start + 1 },
-          true
-        );
-        recordIds = recordIds.concat(result.ids);
+        recordIds = recordIds.concat(await fetchRecordIdsByRange(start, end));
       }
       return recordIds;
     }
 
     // Default: cell range - ranges is [[startCol, startRow], [endCol, endRow]]
     const [start, end] = ranges;
-    const result = await this.recordService.getDocIdsByQuery(
-      tableId,
-      { ...baseQuery, skip: start[1], take: end[1] - start[1] + 1 },
-      true
-    );
-    return result.ids;
+    return fetchRecordIdsByRange(start[1], end[1]);
   }
 
   async deleteByRange(
