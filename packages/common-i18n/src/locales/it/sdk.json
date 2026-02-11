@@ -113,7 +113,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Il campo di ricerca è obbligatorio",
       "lookupOptionsNotAllowed": "Le opzioni di ricerca non sono consentite quando l'attributo isLookup è vero o il tipo di campo è rollup.",
-      "lookupOptionsRequired": "Le opzioni di ricerca sono richieste quando l'attributo isLookup è vero o il tipo di campo è rollup.",
+      "lookupOptionsRequired": "Le opzioni di ricerca sono richieste",
       "refineOptionsError": "Errore nell'analisi delle opzioni di ricerca {{message}}"
     },
     "rollup": {
@@ -288,7 +288,9 @@
     "addButton": "Aggiungi un altro ordinamento",
     "autoSort": "Ordina automaticamente i record",
     "selectASCLabel": "primo → ultimo",
-    "selectDESCLabel": "ultimo → primo"
+    "selectDESCLabel": "ultimo → primo",
+    "dateASCLabel": "Prima → Ultima",
+    "dateDESCLabel": "Ultima → Prima"
   },
   "group": {
     "label": "Gruppo",
@@ -1175,6 +1177,14 @@
       "notAttachment": "Il campo non è un campo allegato",
       "isComputed": "Il campo è calcolato e non può essere modificato",
       "notFoundAICofig": "Il campo non ha configurazione AI",
+      "foreignTableIdRequired": "La tabella esterna è obbligatoria",
+      "lookupFieldIdRequired": "Il campo di ricerca è obbligatorio",
+      "lookupFieldNotExist": "Il campo di ricerca {{lookupFieldId}} non esiste",
+      "lookupFieldNotBelongToTable": "Il campo di ricerca {{lookupFieldId}} non appartiene alla tabella {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "Il tipo di campo corrente {{fieldType}} non corrisponde al tipo di campo di ricerca {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "Le opzioni del campo riepilogo condizionale sono richieste",
+      "conditionalRollupParseError": "Errore di analisi del riepilogo condizionale: {{message}}",
+      "conditionalLookupOptionsRequired": "Le opzioni del campo di ricerca condizionale sono richieste",
       "button": {
         "clickCountReachedMaxCount": "Il conteggio dei clic sul pulsante ha raggiunto il limite massimo",
         "notSupportReset": "Il campo pulsante non supporta il ripristino"

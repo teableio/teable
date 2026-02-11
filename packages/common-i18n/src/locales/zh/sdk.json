@@ -143,9 +143,9 @@
       "choicesNameRequired": "选项名称不能为空"
     },
     "lookup": {
-      "lookupFieldIdRequired": "查找字段不能为空",
+      "lookupFieldIdRequired": "必须选择查找字段",
       "lookupOptionsNotAllowed": "非从关联的表中查找或者汇总时，不能配置查找选项",
-      "lookupOptionsRequired": "从关联的表中查找或者汇总时，必须配置查找选项",
+      "lookupOptionsRequired": "必须配置查找选项",
       "refineOptionsError": "解析查找选项配置错误 {{message}}"
     },
     "rollup": {
@@ -321,7 +321,9 @@
     "addButton": "添加另一个排序",
     "autoSort": "自动排序",
     "selectASCLabel": "选项顺序",
-    "selectDESCLabel": "选项倒序"
+    "selectDESCLabel": "选项倒序",
+    "dateASCLabel": "从近到远",
+    "dateDESCLabel": "从远到近"
   },
   "group": {
     "label": "分组",
@@ -1195,6 +1197,14 @@
       "notAttachment": "字段不是附件字段",
       "isComputed": "字段为计算字段，无法修改",
       "notFoundAICofig": "字段没有AI配置",
+      "foreignTableIdRequired": "必须指定关联表",
+      "lookupFieldIdRequired": "必须选择查找字段",
+      "lookupFieldNotExist": "查找字段 {{lookupFieldId}} 不存在",
+      "lookupFieldNotBelongToTable": "查找字段 {{lookupFieldId}} 不属于表 {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "当前字段类型 {{fieldType}} 与查找字段类型 {{lookupFieldType}} 不匹配",
+      "conditionalRollupOptionsRequired": "条件汇总字段选项是必需的",
+      "conditionalRollupParseError": "条件汇总解析错误：{{message}}",
+      "conditionalLookupOptionsRequired": "条件查找字段选项是必需的",
       "button": {
         "clickCountReachedMaxCount": "按钮点击次数已达到最大限制",
         "notSupportReset": "按钮不支持重置"

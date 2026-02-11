@@ -4,6 +4,7 @@ import type { ITableActionKey } from '@teable/core';
 import {
   RecordCreated,
   RecordUpdated,
+  RecordReordered,
   RecordsBatchCreated,
   RecordsBatchUpdated,
   RecordsDeleted,
@@ -101,6 +102,22 @@ class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<Reco
 }
 
 /**
+ * V2 projection handler that emits action triggers for record reorder events.
+ */
+@ProjectionHandler(RecordReordered)
+class V2RecordReorderedActionTriggerProjection implements IEventHandler<RecordReordered> {
+  constructor(private readonly shareDbService: ShareDbService) {}
+
+  async handle(
+    _context: IExecutionContext,
+    event: RecordReordered
+  ): Promise<Result<void, DomainError>> {
+    emitActionTrigger(this.shareDbService, event.tableId.toString(), [{ actionKey: 'setRecord' }]);
+    return ok(undefined);
+  }
+}
+
+/**
  * V2 projection handler that emits action triggers for record delete events.
  */
 @ProjectionHandler(RecordsDeleted)
@@ -156,6 +173,11 @@ export class V2ActionTriggerService {
     container.registerInstance(
       V2RecordsBatchUpdatedActionTriggerProjection,
       new V2RecordsBatchUpdatedActionTriggerProjection(shareDbService)
+    );
+
+    container.registerInstance(
+      V2RecordReorderedActionTriggerProjection,
+      new V2RecordReorderedActionTriggerProjection(shareDbService)
     );
 
     container.registerInstance(

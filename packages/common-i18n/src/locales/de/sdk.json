@@ -113,7 +113,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Lookup-Feld ist erforderlich",
       "lookupOptionsNotAllowed": "Lookup-Optionen sind nicht erlaubt, wenn das isLookup-Attribut wahr ist oder der Feldtyp Rollup ist.",
-      "lookupOptionsRequired": "Lookup-Optionen sind erforderlich, wenn das isLookup-Attribut wahr ist oder der Feldtyp Rollup ist.",
+      "lookupOptionsRequired": "Lookup-Optionen sind erforderlich",
       "refineOptionsError": "Fehler beim Parsen der Lookup-Optionen {{message}}"
     },
     "rollup": {
@@ -288,7 +288,9 @@
     "addButton": "Weitere Sortierung hinzufügen",
     "autoSort": "Datensätze automatisch sortieren",
     "selectASCLabel": "erste → letzte",
-    "selectDESCLabel": "letzte → erste"
+    "selectDESCLabel": "letzte → erste",
+    "dateASCLabel": "Früheste → Späteste",
+    "dateDESCLabel": "Späteste → Früheste"
   },
   "group": {
     "label": "Gruppieren",
@@ -1177,6 +1179,14 @@
       "notAttachment": "Feld ist kein Anhangfeld",
       "isComputed": "Feld ist berechnet und kann nicht geändert werden",
       "notFoundAICofig": "Feld hat keine AI-Konfiguration",
+      "foreignTableIdRequired": "Fremdtabelle ist erforderlich",
+      "lookupFieldIdRequired": "Suchfeld ist erforderlich",
+      "lookupFieldNotExist": "Suchfeld {{lookupFieldId}} existiert nicht",
+      "lookupFieldNotBelongToTable": "Suchfeld {{lookupFieldId}} gehört nicht zur Tabelle {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "Aktueller Feldtyp {{fieldType}} stimmt nicht mit Suchfeldtyp {{lookupFieldType}} überein",
+      "conditionalRollupOptionsRequired": "Optionen für bedingtes Rollup-Feld sind erforderlich",
+      "conditionalRollupParseError": "Fehler beim Parsen des bedingten Rollups: {{message}}",
+      "conditionalLookupOptionsRequired": "Optionen für bedingtes Lookup-Feld sind erforderlich",
       "button": {
         "clickCountReachedMaxCount": "Anzahl der Schaltflächenklicks hat das Maximum erreicht",
         "notSupportReset": "Schaltflächenfeld unterstützt kein Zurücksetzen"
