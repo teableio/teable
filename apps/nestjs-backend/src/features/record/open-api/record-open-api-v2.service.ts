@@ -2,7 +2,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
-import { FieldKeyType, generateOperationId, parseClipboardText } from '@teable/core';
+import { FieldKeyType, parseClipboardText } from '@teable/core';
 import type { IFilterSet } from '@teable/core';
 import type {
   IUpdateRecordRo,
@@ -40,14 +40,11 @@ import type {
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
-import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
-import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
 import { FieldService } from '../../field/field.service';
 import { SelectionService } from '../../selection/selection.service';
 import { TableService } from '../../table/table.service';
-import { TableDomainQueryService } from '../../table-domain';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { RecordService } from '../record.service';
@@ -82,8 +79,6 @@ export class RecordOpenApiV2Service {
     private readonly cls: ClsService<IClsStore>,
     private readonly fieldService: FieldService,
     private readonly aggregationService: AggregationService,
-    private readonly eventEmitterService: EventEmitterService,
-    private readonly tableDomainQueryService: TableDomainQueryService,
     @Inject(forwardRef(() => SelectionService))
     private readonly selectionService: SelectionService
   ) {}
@@ -702,6 +697,33 @@ export class RecordOpenApiV2Service {
       collapsedGroupIds,
       fieldKeyType: FieldKeyType.Id,
     };
+    const maxBatchSize = 1000;
+
+    const fetchRecordIdsByRange = async (start: number, end: number): Promise<string[]> => {
+      const total = end - start + 1;
+      if (total <= 0) {
+        return [];
+      }
+
+      let recordIds: string[] = [];
+      for (let offset = 0; offset < total; offset += maxBatchSize) {
+        const take = Math.min(maxBatchSize, total - offset);
+        const result = await this.recordService.getDocIdsByQuery(
+          tableId,
+          {
+            ...baseQuery,
+            skip: start + offset,
+            take,
+          },
+          true
+        );
+        recordIds = recordIds.concat(result.ids);
+        if (result.ids.length < take) {
+          break;
+        }
+      }
+      return recordIds;
+    };
 
     if (type === RangeType.Columns) {
       // For columns selection, get all record IDs
@@ -717,24 +739,14 @@ export class RecordOpenApiV2Service {
       // For rows selection, iterate through each range [start, end]
       let recordIds: string[] = [];
       for (const [start, end] of ranges) {
-        const result = await this.recordService.getDocIdsByQuery(
-          tableId,
-          { ...baseQuery, skip: start, take: end - start + 1 },
-          true
-        );
-        recordIds = recordIds.concat(result.ids);
+        recordIds = recordIds.concat(await fetchRecordIdsByRange(start, end));
       }
       return recordIds;
     }
 
     // Default: cell range - ranges is [[startCol, startRow], [endCol, endRow]]
     const [start, end] = ranges;
-    const result = await this.recordService.getDocIdsByQuery(
-      tableId,
-      { ...baseQuery, skip: start[1], take: end[1] - start[1] + 1 },
-      true
-    );
-    return result.ids;
+    return fetchRecordIdsByRange(start[1], end[1]);
   }
 
   async deleteByRange(
@@ -785,12 +797,11 @@ export class RecordOpenApiV2Service {
   async deleteRecords(
     tableId: string,
     recordIds: string[],
-    windowId?: string
+    _windowId?: string
   ): Promise<IRecordsVo> {
     const container = await this.v2ContainerService.getContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
-    const userId = this.cls.get('user.id');
 
     // Query records before deletion to return them in V1 format
     const recordSnapshots = await this.recordService.getSnapshotBulkWithPermission(
@@ -802,13 +813,6 @@ export class RecordOpenApiV2Service {
       true
     );
 
-    // Get record orders for undo/redo support (only if windowId is provided)
-    let orders: Record<string, number>[] | undefined;
-    if (windowId) {
-      const table = await this.tableDomainQueryService.getTableDomainById(tableId);
-      orders = await this.recordService.getRecordIndexes(table, recordIds);
-    }
-
     const v2Input = {
       tableId,
       recordIds,
@@ -817,29 +821,6 @@ export class RecordOpenApiV2Service {
     const result = await executeDeleteRecordsEndpoint(context, v2Input, commandBus);
 
     if (result.status === 200 && result.body.ok) {
-      // TODO: Migrate to pure V2 undo/redo - see v2-undo-redo.service.ts for details.
-      //
-      // Currently emitting V1 event because V2's RecordsDeleted projection cannot
-      // handle undo/redo correctly:
-      // 1. V2's stored query returns incomplete field data (primary field value missing)
-      // 2. V2 doesn't track record order in views (required for restoring position)
-      // 3. V1's getSnapshotBulkWithPermission + getRecordIndexes provides complete data
-      //
-      // When V2 stored query is fixed and order tracking is added, this should be
-      // replaced by proper V2 projection handling in V2RecordsDeletedUndoRedoProjection.
-      const records = recordSnapshots.map((snapshot, index) => ({
-        ...(snapshot.data as IRecord),
-        order: orders?.[index],
-      }));
-
-      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
-        operationId: generateOperationId(),
-        windowId,
-        tableId,
-        userId,
-        records,
-      });
-
       // Return records that were deleted (V1 format)
       return {
         records: recordSnapshots.map((snapshot) => snapshot.data as IRecord),
