@@ -36,14 +36,17 @@ import type {
   ICreateBaseRo,
   ICreateBaseVo,
   ITemplatePermalinkVo,
+  IGetBaseShareVo,
 } from '@teable/openapi';
 import {
   IS_TEMPLATE_HEADER,
   X_CANARY_HEADER,
+  BASE_SHARE_ID_HEADER,
   ACCEPT_INVITATION_LINK,
   CREATE_BASE,
   GET_BASE,
   GET_BASE_ALL,
+  GET_BASE_SHARE,
   GET_DASHBOARD,
   GET_DASHBOARD_LIST,
   GET_DEFAULT_VIEW_ID,
@@ -107,6 +110,17 @@ export class SsrApi {
         return config;
       });
     }
+  }
+
+  /**
+   * Configure axios interceptors for share-specific headers
+   */
+  configureShareHeaders(shareId: string) {
+    this.disableLastVisit = true;
+    this.axios.interceptors.request.use((config) => {
+      config.headers[BASE_SHARE_ID_HEADER] = shareId;
+      return config;
+    });
   }
 
   async getTable(
@@ -257,6 +271,12 @@ export class SsrApi {
   async getShareView(shareId: string) {
     return this.axios
       .get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }))
+      .then(({ data }) => data);
+  }
+
+  async getBaseShare(shareId: string) {
+    return this.axios
+      .get<IGetBaseShareVo>(urlBuilder(GET_BASE_SHARE, { shareId }))
       .then(({ data }) => data);
   }
 

@@ -252,7 +252,9 @@ export type I18nTranslations = {
             "backToSpace": string;
             "switchBase": string;
             "getMore": string;
+            "copySuccess": string;
             "retry": string;
+            "copyToMySpace": string;
             "collapse": string;
             "viewDetails": string;
         };
@@ -296,6 +298,21 @@ export type I18nTranslations = {
             "useTemplateDialog": {
                 "title": string;
                 "description": string;
+                "noSpaceDescription": string;
+                "newSpacePlaceholder": string;
+                "createSpace": string;
+            };
+        };
+        "share": {
+            "copyToSpaceDialog": {
+                "title": string;
+                "description": string;
+                "baseName": string;
+                "baseNamePlaceholder": string;
+                "selectSpace": string;
+                "noSpaceDescription": string;
+                "newSpacePlaceholder": string;
+                "createSpace": string;
             };
         };
         "settings": {
@@ -1532,6 +1549,12 @@ export type I18nTranslations = {
                 "description": string;
             };
         };
+        "changelog": {
+            "newUpdate": string;
+            "title": string;
+            "url": string;
+            "id": string;
+        };
         "noPermissionToCreateBase": string;
         "app": {
             "title": string;
@@ -2091,6 +2114,8 @@ export type I18nTranslations = {
             "autoSort": string;
             "selectASCLabel": string;
             "selectDESCLabel": string;
+            "dateASCLabel": string;
+            "dateDESCLabel": string;
         };
         "group": {
             "label": string;
@@ -2861,6 +2886,11 @@ export type I18nTranslations = {
                 "shareViewNotFound": string;
                 "linkFieldNotFound": string;
             };
+            "baseShare": {
+                "notFound": string;
+                "alreadyExists": string;
+                "copyNotAllowed": string;
+            };
             "shareSocket": {
                 "viewPermissionNotAllowed": string;
                 "fieldPermissionNotAllowed": string;
@@ -2980,6 +3010,14 @@ export type I18nTranslations = {
                 "notAttachment": string;
                 "isComputed": string;
                 "notFoundAICofig": string;
+                "foreignTableIdRequired": string;
+                "lookupFieldIdRequired": string;
+                "lookupFieldNotExist": string;
+                "lookupFieldNotBelongToTable": string;
+                "lookupFieldTypeNotMatch": string;
+                "conditionalRollupOptionsRequired": string;
+                "conditionalRollupParseError": string;
+                "conditionalLookupOptionsRequired": string;
                 "button": {
                     "clickCountReachedMaxCount": string;
                     "notSupportReset": string;
@@ -3219,6 +3257,7 @@ export type I18nTranslations = {
             "title": string;
             "submit": string;
             "password": string;
+            "passwordTooShort": string;
         };
         "toolbar": {
             "filterLinkSelectPlaceholder": string;
@@ -3319,6 +3358,27 @@ export type I18nTranslations = {
             "importWayTip": string;
             "baseImportTips": string;
             "confirm": string;
+            "phase": {
+                "parsingStructure": string;
+                "creatingBase": string;
+                "creatingTable": string;
+                "creatingCommonFields": string;
+                "creatingButtonFields": string;
+                "creatingFormulaFields": string;
+                "creatingLinkFields": string;
+                "creatingLookupFields": string;
+                "creatingTableViews": string;
+                "creatingPlugins": string;
+                "creatingFolders": string;
+                "creatingWorkflows": string;
+                "creatingApps": string;
+                "creatingAuthorityMatrix": string;
+                "queuingAttachments": string;
+                "uploadingAppFiles": string;
+                "queuingDataImport": string;
+                "done": string;
+                "clickToView": string;
+            };
         };
         "template": {
             "title": string;
@@ -3443,6 +3503,11 @@ export type I18nTranslations = {
                     "cancel": string;
                     "save": string;
                     "requireLogin": string;
+                    "copyCode": string;
+                    "theme": string;
+                    "themeSystem": string;
+                    "themeLight": string;
+                    "themeDark": string;
                 };
                 "extensions": {
                     "label": string;
@@ -4223,6 +4288,63 @@ export type I18nTranslations = {
             "resourceType": string;
             "deletedResource": string;
         };
+        "baseShare": {
+            "title": string;
+            "shareTitle": string;
+            "shareToWeb": string;
+            "description": string;
+            "nodeShareDescription": string;
+            "shareLinks": string;
+            "newLink": string;
+            "noShareLinks": string;
+            "createFirstLink": string;
+            "editSettings": string;
+            "refreshLink": string;
+            "deleteLink": string;
+            "deleteConfirmTitle": string;
+            "deleteConfirmDescription": string;
+            "createSuccess": string;
+            "createFailed": string;
+            "updateSuccess": string;
+            "updateFailed": string;
+            "deleteSuccess": string;
+            "deleteFailed": string;
+            "refreshSuccess": string;
+            "refreshFailed": string;
+            "copied": string;
+            "shareLink": string;
+            "passwordProtection": string;
+            "enterPassword": string;
+            "selectNodes": string;
+            "shareEntireBase": string;
+            "shareSelectedNodes": string;
+            "shareEntireBaseDescription": string;
+            "noNodesSelectedWarning": string;
+            "allowSave": string;
+            "allowSaveDescription": string;
+            "allowCopy": string;
+            "allowCopyData": string;
+            "allowDuplicate": string;
+            "allowCopyDescription": string;
+            "selectedNodes": string;
+            "allNodes": string;
+            "sharedNode": string;
+            "sharedNodeDescription": string;
+            "publicShareTitle": string;
+            "publicShareCount": string;
+            "noPublicShare": string;
+            "security": string;
+            "restrictByPassword": string;
+            "advanced": string;
+            "embedConfig": string;
+            "appPublicLink": string;
+            "appNotPublished": string;
+            "goToPublish": string;
+            "publishSuccess": string;
+            "publishFailed": string;
+            "openLink": string;
+            "appPublished": string;
+        };
         "aiChat": {
             "tool": {
                 "getTableFields": string;
@@ -4231,10 +4353,10 @@ export type I18nTranslations = {
                 "generateScriptAction": string;
                 "getScriptInput": string;
                 "getTeableApi": string;
-                "args": string;
-                "result": string;
                 "dataVisualization": string;
                 "updateBase": string;
+                "args": string;
+                "result": string;
                 "thinking": string;
                 "toBeConfirmed": string;
                 "errorMessage": string;
@@ -4354,52 +4476,6 @@ export type I18nTranslations = {
                     "stageImport": string;
                 };
             };
-            "codeBlock": {
-                "hiddenLines": string;
-                "collapseCode": string;
-                "code": string;
-                "preview": string;
-            };
-            "newChat": string;
-            "clearChat": string;
-            "clearChatConfirmTitle": string;
-            "clearChatConfirmDesc": string;
-            "dontShowAgain": string;
-            "noModel": string;
-            "noHistory": string;
-            "noFoundHistory": string;
-            "timeGroup": {
-                "today": string;
-                "oneWeek": string;
-                "twoWeek": string;
-                "oneMonth": string;
-                "other": string;
-            };
-            "context": {
-                "button": string;
-                "search": string;
-                "searchEmpty": string;
-                "emptyContext": string;
-            };
-            "inputPlaceholder": string;
-            "thought": string;
-            "meta": {
-                "timeCostUnit": string;
-                "timeCostDescription": string;
-                "creditDescription": string;
-                "tokenDescription": string;
-                "taskCompleted": string;
-                "input": string;
-                "output": string;
-                "tokens": string;
-                "totalTimeCost": string;
-                "totalCreditCost": string;
-                "customModel": string;
-                "tokenDetails": string;
-                "cachedInput": string;
-                "cacheWrite": string;
-                "reasoning": string;
-            };
             "tools": {
                 "getTeableApi": string;
                 "readFiles": string;
@@ -4477,6 +4553,7 @@ export type I18nTranslations = {
                 "activateAutomation": string;
                 "executeScript": string;
                 "wait": string;
+                "generateScriptFlowChart": string;
                 "triggerAiFill": string;
                 "initialize": string;
                 "rename": string;
@@ -4493,6 +4570,7 @@ export type I18nTranslations = {
                 "goTo": string;
                 "operationSuccess": string;
                 "operationFailed": string;
+                "deleteAutomationNode": string;
             };
             "aiFill": {
                 "processedRecords": string;
@@ -4573,6 +4651,12 @@ export type I18nTranslations = {
                 "cancelled": string;
                 "connectionCancelled": string;
             };
+            "codeBlock": {
+                "hiddenLines": string;
+                "collapseCode": string;
+                "code": string;
+                "preview": string;
+            };
             "buildFlow": {
                 "progress": string;
                 "completed": string;
@@ -4646,10 +4730,52 @@ export type I18nTranslations = {
                 "executingScript": string;
                 "waitedSeconds": string;
                 "waitFailed": string;
+                "flowchartGenerated": string;
+                "flowchartGenerationFailed": string;
             };
+            "newChat": string;
+            "clearChat": string;
             "expand": string;
             "history": string;
             "close": string;
+            "clearChatConfirmTitle": string;
+            "clearChatConfirmDesc": string;
+            "dontShowAgain": string;
+            "noModel": string;
+            "noHistory": string;
+            "noFoundHistory": string;
+            "timeGroup": {
+                "today": string;
+                "oneWeek": string;
+                "twoWeek": string;
+                "oneMonth": string;
+                "other": string;
+            };
+            "context": {
+                "button": string;
+                "search": string;
+                "searchEmpty": string;
+                "emptyContext": string;
+            };
+            "inputPlaceholder": string;
+            "thought": string;
+            "meta": {
+                "timeCostUnit": string;
+                "timeCostDescription": string;
+                "creditDescription": string;
+                "tokenDescription": string;
+                "input": string;
+                "output": string;
+                "tokens": string;
+                "totalTimeCost": string;
+                "totalCreditCost": string;
+                "customModel": string;
+                "tokenDetails": string;
+                "cachedInput": string;
+                "cacheWrite": string;
+                "reasoning": string;
+                "taskCompleted": string;
+            };
             "dataVisualization": {
                 "error": string;
             };
@@ -4692,6 +4818,17 @@ export type I18nTranslations = {
                 "codeProject": {
                     "defaultTitle": string;
                 };
+            };
+            "scriptPreview": {
+                "aiModelRequired": string;
+                "writeCodeHint": string;
+                "noPreview": string;
+                "generatePreview": string;
+                "analyzing": string;
+                "codeChanged": string;
+                "regenerate": string;
+                "refresh": string;
+                "regenerating": string;
             };
         };
         "download": {

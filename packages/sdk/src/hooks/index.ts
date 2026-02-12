@@ -44,4 +44,6 @@ export * from './use-record-operations';
 export * from './use-button-click-status';
 export * from './use-is-anonymous';
 export * from './use-is-template';
+export * from './use-share-id';
+export * from './use-is-readonly-preview';
 export * from './use-template';
