@@ -46,7 +46,8 @@
     "view": "Переглянути",
     "preview": "Попередній перегляд",
     "viewAndEdit": "Переглянути та редагувати",
-    "getMore": "Отримати більше"
+    "getMore": "Отримати більше",
+    "copySuccess": "Копіювання успішне"
   },
   "quickAction": {
     "title": "Швидкі дії",
@@ -78,7 +79,10 @@
     "createTemplate": "Створити Шаблон",
     "useTemplateDialog": {
       "title": "Виберіть простір",
-      "description": "Виберіть простір для застосування шаблону"
+      "description": "Виберіть простір для застосування шаблону",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Створіть свій бізнес-додаток з Teable",
@@ -92,6 +96,18 @@
         "guide6": "Створіть планувальник контенту з публікаціями та датами публікації",
         "guide7": "Вставте резюме → Попросіть Teable організувати та відібрати кандидатів"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Копіювати до простору",
+      "description": "Виберіть простір для копіювання цієї бази",
+      "baseName": "Назва бази",
+      "baseNamePlaceholder": "Введіть назву бази",
+      "selectSpace": "Виберіть простір",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     }
   },
   "settings": {
