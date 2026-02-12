@@ -632,7 +632,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return `(CAST(STRFTIME('%w', ${date}) AS INTEGER) + 1)`;
   }
 
-  workday(startDate: string, days: string): string {
+  workday(startDate: string, days: string, _holidayStr?: string): string {
     return `DATE(${startDate}, '+' || ${days} || ' days')`;
   }
 

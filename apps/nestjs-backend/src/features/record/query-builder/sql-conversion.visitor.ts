@@ -602,7 +602,9 @@ abstract class BaseSqlConversionVisitor<
           .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0], params[1]))
           .with(FunctionName.WeekNum, () => this.formulaQuery.weekNum(params[0]))
           .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0], params[1]))
-          .with(FunctionName.Workday, () => this.formulaQuery.workday(params[0], params[1]))
+          .with(FunctionName.Workday, () =>
+            this.formulaQuery.workday(params[0], params[1], params[2])
+          )
           .with(FunctionName.WorkdayDiff, () => this.formulaQuery.workdayDiff(params[0], params[1]))
           .with(FunctionName.Year, () => this.formulaQuery.year(params[0]))
           .with(FunctionName.CreatedTime, () => this.formulaQuery.createdTime())

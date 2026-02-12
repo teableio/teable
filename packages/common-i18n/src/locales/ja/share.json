@@ -2,7 +2,8 @@
   "auth": {
     "title": "このページを表示するにはパスワードを入力してください",
     "submit": "送信",
-    "password": "パスワード"
+    "password": "パスワード",
+    "passwordTooShort": "パスワードは3文字以上で入力してください"
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "選択..."

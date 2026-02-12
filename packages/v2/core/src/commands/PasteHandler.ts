@@ -158,9 +158,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       const mergedDefaults = viewDefaults.merge({
         filter: command.filter,
         sort: command.sort,
+        group: command.groupBy,
       });
-      const effectiveFilter = mergedDefaults.filter();
-      const effectiveSort = mergedDefaults.sort();
+      const effectiveFilter = command.ignoreViewQuery
+        ? command.filter ?? undefined
+        : mergedDefaults.filter();
+      const effectiveSort = command.ignoreViewQuery
+        ? command.sort ?? undefined
+        : mergedDefaults.sort();
 
       // 3. Build filter spec from effective view filter (if provided) - needed early for row count
       let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined =
@@ -232,7 +237,9 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       // 10. Build orderBy from group + sort for correct row mapping
       // If none provided, fall back to view row order column (__row_{viewId})
-      const effectiveGroup = mergedDefaults.group();
+      const effectiveGroup = command.ignoreViewQuery
+        ? command.groupBy ?? undefined
+        : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
       const orderBy = mergeOrderBy(groupByOrderBy, sortOrderBy, command.viewId.toString());

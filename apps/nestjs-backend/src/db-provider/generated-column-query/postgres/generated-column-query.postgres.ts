@@ -1223,7 +1223,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `EXTRACT(DOW FROM ${this.castToTimestamp(date, 0)})`;
   }
 
-  workday(startDate: string, days: string): string {
+  workday(startDate: string, days: string, _holidayStr?: string): string {
     if (!this.isDateLikeOperand(0)) {
       return 'NULL';
     }

@@ -19,7 +19,7 @@ import {
   FieldCreateOrSelectModal,
   useTablePermission,
   CreateRecordModal,
-  useIsTemplate,
+  useIsReadOnlyPreview,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
@@ -41,7 +41,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { stackFieldId, coverFieldId, isCoverFit, isEmptyStackHidden, isFieldNameHidden } =
     view?.options ?? {};
 
@@ -84,7 +84,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
 
   return (
     <div className="flex items-center gap-1">
-      {!isTemplate && (
+      {!isReadOnlyPreview && (
         <>
           <CreateRecordModal>
             <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>

@@ -63,7 +63,8 @@
     "useTemplate": "Vorlage verwenden",
     "backToSpace": "Zurück zum Space",
     "switchBase": "Base wechseln",
-    "getMore": "Mehr erhalten"
+    "getMore": "Mehr erhalten",
+    "copySuccess": "Kopieren erfolgreich"
   },
   "quickAction": {
     "title": "Schnelle Aktionen",
@@ -104,7 +105,22 @@
     },
     "useTemplateDialog": {
       "title": "Space auswählen",
-      "description": "Bitte wählen Sie einen Space für die Vorlage aus"
+      "description": "Bitte wählen Sie einen Space für die Vorlage aus",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "In Bereich kopieren",
+      "description": "Bitte wählen Sie einen Bereich aus, in den diese Basis kopiert werden soll",
+      "baseName": "Basisname",
+      "baseNamePlaceholder": "Basisname eingeben",
+      "selectSpace": "Bereich auswählen",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     }
   },
   "settings": {
