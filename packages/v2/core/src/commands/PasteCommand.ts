@@ -43,6 +43,13 @@ export const pasteSortSchema = z.object({
 
 export type PasteSort = z.infer<typeof pasteSortSchema>;
 
+export const pasteGroupSchema = z.object({
+  fieldId: z.string(),
+  order: z.enum(['asc', 'desc']),
+});
+
+export type PasteGroup = z.infer<typeof pasteGroupSchema>;
+
 /**
  * Parse clipboard text (tab-separated values) into a 2D array.
  * Handles both Unix and Windows line endings.
@@ -206,6 +213,15 @@ export const pasteCommandInputSchema = z.object({
    * If not provided, records are sorted by auto_number (creation order).
    */
   sort: z.array(pasteSortSchema).optional(),
+  /**
+   * Group configuration for row ordering.
+   * When provided, this overrides the view default group configuration.
+   */
+  groupBy: z.array(pasteGroupSchema).optional(),
+  /**
+   * Ignore view-level query defaults (filter/sort/group) and use only request parameters.
+   */
+  ignoreViewQuery: z.boolean().optional().default(false),
 });
 
 export type IPasteCommandInput = z.input<typeof pasteCommandInputSchema>;
@@ -222,7 +238,9 @@ export class PasteCommand {
     readonly sourceFields: ReadonlyArray<SourceFieldMeta> | undefined,
     readonly typecast: boolean,
     readonly projection: ReadonlyArray<string> | undefined,
-    readonly sort: ReadonlyArray<PasteSort> | undefined
+    readonly sort: ReadonlyArray<PasteSort> | undefined,
+    readonly groupBy: ReadonlyArray<PasteGroup> | undefined,
+    readonly ignoreViewQuery: boolean
   ) {}
 
   static create(raw: unknown): Result<PasteCommand, DomainError> {
@@ -269,7 +287,9 @@ export class PasteCommand {
           parsed.data.sourceFields,
           parsed.data.typecast,
           parsed.data.projection,
-          parsed.data.sort
+          parsed.data.sort,
+          parsed.data.groupBy,
+          parsed.data.ignoreViewQuery ?? false
         );
       })
     );

@@ -91,6 +91,7 @@ import { usePrevious, useClickAway } from 'react-use';
 import { computeFrozenColumnCount } from '@/features/app/blocks/view/grid/utils/computeFrozenFields';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
+import { useShareAllowCopy, useShareContext } from '@/features/app/context/ShareContext';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -178,6 +179,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const columnHeaderHeight =
     GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
   const permission = useTablePermission();
+  const { shareId } = useShareContext();
+  const shareAllowCopy = useShareAllowCopy();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = permission['field|update'];
   const { undo, redo } = useUndoRedo();
@@ -728,7 +731,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   };
 
   const onCopy = (selection: CombinedSelection, e: React.ClipboardEvent) => {
-    if (!permission['record|copy']) {
+    // In share context, use shareAllowCopy; otherwise use permission
+    const canCopy = shareId ? shareAllowCopy : permission['record|copy'];
+    if (!canCopy) {
       sonnerToast.warning(t('table:table.actionTips.copyError.noPermission'));
       return;
     }
