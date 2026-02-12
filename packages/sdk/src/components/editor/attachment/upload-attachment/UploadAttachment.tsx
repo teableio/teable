@@ -1,6 +1,11 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { usePendingUploadContext } from '../../../../context/pending-upload';
 import { useBaseId } from '../../../../hooks';
-import { useLocalAttachmentUpload, useCellAttachmentUpload } from './hooks';
+import {
+  useLocalAttachmentUpload,
+  useCellAttachmentUpload,
+  usePendingAttachmentUpload,
+} from './hooks';
 import type {
   IUploadAttachment,
   IUploadAttachmentRef,
@@ -27,6 +32,21 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 );
 
 const LocalUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentLocalProps>(
+  (props, ref) => {
+    const pendingCtx = usePendingUploadContext();
+
+    // When inside a PendingUploadContext, delegate to PendingUploadAttachment
+    if (pendingCtx) {
+      return <PendingUploadAttachment {...props} pendingCtx={pendingCtx} ref={ref} />;
+    }
+
+    return <PureLocalUploadAttachment {...props} ref={ref} />;
+  }
+);
+
+LocalUploadAttachment.displayName = 'LocalUploadAttachment';
+
+const PureLocalUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentLocalProps>(
   (props, ref) => {
     const { attachments, onChange, attachmentManager = defaultAttachmentManager } = props;
     const baseId = useBaseId();
@@ -61,7 +81,51 @@ const LocalUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentL
   }
 );
 
-LocalUploadAttachment.displayName = 'LocalUploadAttachment';
+PureLocalUploadAttachment.displayName = 'PureLocalUploadAttachment';
+
+interface IPendingUploadAttachmentProps extends UploadAttachmentLocalProps {
+  pendingCtx: { tempRecordId: string; tableId: string };
+}
+
+const PendingUploadAttachment = forwardRef<IUploadAttachmentRef, IPendingUploadAttachmentProps>(
+  (props, ref) => {
+    const { pendingCtx, fieldId, ...localProps } = props;
+    const baseId = useBaseId();
+
+    const { uploadingFiles, onUpload, onCancelUpload } = usePendingAttachmentUpload({
+      tableId: pendingCtx.tableId,
+      tempRecordId: pendingCtx.tempRecordId,
+      fieldId: fieldId ?? '',
+      baseId,
+      attachments: localProps.attachments,
+      onChange: localProps.onChange,
+    });
+
+    const viewRef = useRef<UploadAttachmentViewRef>(null);
+
+    useImperativeHandle(ref, () => ({
+      uploadAttachment: (files) => {
+        onUpload(files);
+        viewRef.current?.scrollToBottom();
+      },
+      setUploadingFiles: () => {
+        // no-op: pending uploads are managed by the global store
+      },
+    }));
+
+    return (
+      <UploadAttachmentView
+        ref={viewRef}
+        {...localProps}
+        uploadingFiles={uploadingFiles}
+        onUpload={onUpload}
+        onCancelUpload={onCancelUpload}
+      />
+    );
+  }
+);
+
+PendingUploadAttachment.displayName = 'PendingUploadAttachment';
 
 const CellUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentCellProps>(
   (props, ref) => {

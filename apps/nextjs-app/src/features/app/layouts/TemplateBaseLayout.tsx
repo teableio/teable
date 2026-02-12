@@ -38,7 +38,7 @@ export const TemplateBaseLayout = ({
   const { i18n } = useTranslation();
   const isTemplate = !!base?.template;
   const templateHeader = base?.template?.headers;
-  initAxios(base);
+  initAxios({ base });
 
   const wsPath = useMemo(() => {
     if (typeof window === 'object' && templateHeader) {

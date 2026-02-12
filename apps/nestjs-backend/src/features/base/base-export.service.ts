@@ -2,7 +2,12 @@
 import { Readable, PassThrough } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
-import type { ILinkFieldOptions, ILocalization } from '@teable/core';
+import type {
+  ILinkFieldOptions,
+  ILocalization,
+  IConditionalRollupFieldOptions,
+  IConditionalLookupOptions,
+} from '@teable/core';
 import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -394,6 +399,8 @@ export class BaseExportService {
     // for enterprise version, do not delete these properties
     includedAppIds,
     includedWorkflowIds,
+    // Root node IDs - nodes that should have their parentId set to null
+    rootNodeIds,
   }: {
     baseRaw: Base;
     tableRaws: TableMeta[];
@@ -406,6 +413,7 @@ export class BaseExportService {
     includedAppIds?: string[];
     includedWorkflowIds?: string[];
     excludedTableIds?: string[];
+    rootNodeIds?: string[];
   }) {
     const { name: baseName, icon: baseIcon, id: baseId } = baseRaw;
     const tables = [] as IBaseJson['tables'];
@@ -432,7 +440,7 @@ export class BaseExportService {
 
     const plugins = await this.generatePluginConfig(baseId, includedDashboardIds);
     const folders = await this.generateFolderConfig(baseId, includedFolderIds);
-    const nodes = await this.generateNodeConfig(baseId, includeNodes);
+    const nodes = await this.generateNodeConfig(baseId, includeNodes, rootNodeIds);
 
     return {
       id: baseId,
@@ -919,7 +927,7 @@ export class BaseExportService {
         ]);
       });
 
-    // fields which rely on the cross base link fields
+    // fields which rely on the disconnected link fields (link-based lookup/rollup)
     const disconnectedRelativeFields = fields
       .filter(
         ({ type, isLookup }) =>
@@ -950,9 +958,63 @@ export class BaseExportService {
         ]);
       });
 
+    const alreadyHandledIds = new Set([
+      ...disconnectedLinkFields.map(({ id }) => id),
+      ...disconnectedRelativeFields.map(({ id }) => id),
+    ]);
+
+    // Conditional fields (ConditionalLookup/ConditionalRollup) that directly reference excluded tables
+    // These don't go through a link field, so they aren't caught by the link-based check above
+    const disconnectedConditionalFields = fields
+      .filter(({ id }) => !alreadyHandledIds.has(id))
+      .filter(
+        ({ type, isLookup, isConditionalLookup }) =>
+          (isLookup && isConditionalLookup) || type === FieldType.ConditionalRollup
+      )
+      .filter((field) => {
+        const { type, isLookup, isConditionalLookup, lookupOptions, options } = field;
+
+        if (isLookup && isConditionalLookup) {
+          const conditionalOptions = lookupOptions as IConditionalLookupOptions | undefined;
+          return (
+            conditionalOptions?.foreignTableId &&
+            excludedTableIds.includes(conditionalOptions.foreignTableId)
+          );
+        }
+
+        if (type === FieldType.ConditionalRollup) {
+          const conditionalOptions = options as IConditionalRollupFieldOptions | undefined;
+          return (
+            conditionalOptions?.foreignTableId &&
+            excludedTableIds.includes(conditionalOptions.foreignTableId)
+          );
+        }
+
+        return false;
+      })
+      .map((field, index) => {
+        const res = {
+          ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+          type: FieldType.SingleLineText,
+          createdTime: createdTimeMap[field.id],
+          order: fieldRaws[index].order,
+          dbFieldType: 'TEXT',
+          cellValueType: 'string',
+        };
+
+        return omit(res, [
+          'options',
+          'lookupOptions',
+          'isLookup',
+          'isConditionalLookup',
+          'isMultipleCellValue',
+        ]);
+      });
+
     return [
       ...disconnectedLinkFields,
       ...disconnectedRelativeFields,
+      ...disconnectedConditionalFields,
     ] as IBaseJson['tables'][number]['fields'];
   }
 
@@ -987,7 +1049,7 @@ export class BaseExportService {
             ]);
       });
 
-    // fields which rely on the cross base link fields
+    // fields which rely on the cross base link fields (link-based lookup/rollup)
     const relativeFields = fields
       .filter(
         ({ type, isLookup }) =>
@@ -1029,7 +1091,60 @@ export class BaseExportService {
             ]);
       });
 
-    return [...crossBaseLinkFields, ...relativeFields] as IBaseJson['tables'][number]['fields'];
+    const alreadyHandledIds = new Set([
+      ...crossBaseLinkFields.map(({ id }) => id),
+      ...relativeFields.map(({ id }) => id),
+    ]);
+
+    // Conditional fields (ConditionalLookup/ConditionalRollup) that are cross-base
+    // These don't use a link field as intermediary, so they have their own baseId
+    const conditionalCrossBaseFields = fields
+      .filter(({ id }) => !alreadyHandledIds.has(id))
+      .filter(
+        ({ type, isLookup, isConditionalLookup }) =>
+          (isLookup && isConditionalLookup) || type === FieldType.ConditionalRollup
+      )
+      .filter((field) => {
+        const { type, isLookup, isConditionalLookup, lookupOptions, options } = field;
+
+        if (isLookup && isConditionalLookup) {
+          const conditionalOptions = lookupOptions as IConditionalLookupOptions | undefined;
+          return Boolean(conditionalOptions?.baseId);
+        }
+
+        if (type === FieldType.ConditionalRollup) {
+          const conditionalOptions = options as IConditionalRollupFieldOptions | undefined;
+          return Boolean(conditionalOptions?.baseId);
+        }
+
+        return false;
+      })
+      .map((field, index) => {
+        const res = {
+          ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+          type: allowCrossBase ? field.type : FieldType.SingleLineText,
+          createdTime: createdTimeMap[field.id],
+          order: fieldRaws[index].order,
+          dbFieldType: allowCrossBase ? field.dbFieldType : 'TEXT',
+          cellValueType: allowCrossBase ? field.cellValueType : 'string',
+        };
+
+        return allowCrossBase
+          ? res
+          : omit(res, [
+              'options',
+              'lookupOptions',
+              'isLookup',
+              'isConditionalLookup',
+              'isMultipleCellValue',
+            ]);
+      });
+
+    return [
+      ...crossBaseLinkFields,
+      ...relativeFields,
+      ...conditionalCrossBaseFields,
+    ] as IBaseJson['tables'][number]['fields'];
   }
 
   private generateViewConfig(viewRaws: View[]): IBaseJson['tables'][number]['views'] {
@@ -1091,7 +1206,18 @@ export class BaseExportService {
     }));
   }
 
-  async generateNodeConfig(baseId: string, includeNodes?: string[]): Promise<IBaseJson['nodes']> {
+  /**
+   * Generate node configuration for base export/duplicate
+   *
+   * @param baseId - The base ID to get nodes from
+   * @param includeNodes - Optional array of node IDs to include
+   * @param rootNodeIds - Optional array of node IDs that should become root nodes (parentId = null)
+   */
+  async generateNodeConfig(
+    baseId: string,
+    includeNodes?: string[],
+    rootNodeIds?: string[]
+  ): Promise<IBaseJson['nodes']> {
     // If includeNodes is an empty array, return empty array (user filtered but no nodes selected)
     if (includeNodes !== undefined && includeNodes.length === 0) {
       return [];
@@ -1115,13 +1241,26 @@ export class BaseExportService {
       },
     });
 
-    return nodeRaws.map((nodeRaw) => ({
-      id: nodeRaw.id,
-      parentId: nodeRaw.parentId,
-      resourceId: nodeRaw.resourceId,
-      resourceType: nodeRaw.resourceType as BaseNodeResourceType,
-      order: nodeRaw.order,
-    }));
+    const rootNodeIdSet = rootNodeIds ? new Set(rootNodeIds) : null;
+
+    return nodeRaws.map((nodeRaw) => {
+      // Set parentId to null if:
+      // 1. This node is in rootNodeIds, or
+      // 2. The parent node is not in includeNodes
+      const parentId =
+        rootNodeIdSet?.has(nodeRaw.id) ||
+        (includeNodes && nodeRaw.parentId && !includeNodes.includes(nodeRaw.parentId))
+          ? null
+          : nodeRaw.parentId;
+
+      return {
+        id: nodeRaw.id,
+        parentId,
+        resourceId: nodeRaw.resourceId,
+        resourceType: nodeRaw.resourceType as BaseNodeResourceType,
+        order: nodeRaw.order,
+      };
+    });
   }
 
   async generatePluginConfig(baseId: string, includedDashboardIds?: string[]) {
