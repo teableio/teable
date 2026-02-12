@@ -118,9 +118,11 @@ export class BaseService {
         });
       });
     const template = await this.cls.get('template');
-    const { role, collaboratorType } = template
-      ? { role: Role.Viewer, collaboratorType: CollaboratorType.Base }
-      : await this.getRoleByBaseId(baseId, base.spaceId);
+    const baseShare = await this.cls.get('baseShare');
+    const { role, collaboratorType } =
+      template || baseShare
+        ? { role: Role.Viewer, collaboratorType: CollaboratorType.Base }
+        : await this.getRoleByBaseId(baseId, base.spaceId);
 
     // Check if this base's space is in canary release
     const isCanary = await this.canaryService.isSpaceInCanary(base.spaceId);
@@ -346,11 +348,12 @@ export class BaseService {
   }
 
   async duplicateBase(duplicateBaseRo: IDuplicateBaseRo) {
-    // permission check, base update permission
-    await this.checkBaseUpdatePermission(duplicateBaseRo.fromBaseId);
-    this.logger.log(
-      `base-duplicate-service: Start to duplicating base: ${duplicateBaseRo.fromBaseId}`
-    );
+    const { fromBaseId } = duplicateBaseRo;
+
+    // Regular permission check, base update permission
+    await this.checkBaseUpdatePermission(fromBaseId);
+
+    this.logger.log(`base-duplicate-service: Start to duplicating base: ${fromBaseId}`);
 
     return await this.prismaService.$tx(
       async () => {

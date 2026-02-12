@@ -24,6 +24,11 @@ export enum BaseDuplicateMode {
    * Applying a template - user emails in automations are replaced with the current user's email
    */
   ApplyTemplate = 'applyTemplate',
+
+  /**
+   * Copying a shared base - similar to CreateTemplate, cross-base links are disconnected
+   */
+  CopyShareBase = 'copyShareBase',
 }
 
 export const DUPLICATE_BASE = '/base/duplicate';
@@ -44,6 +49,10 @@ export const duplicateBaseRoSchema = z.object({
   baseId: z.string().optional(),
   nodes: z.array(z.string()).optional().meta({
     description: 'The node IDs to include in the duplication',
+  }),
+  shareId: z.string().optional().meta({
+    description:
+      'The share ID when duplicating from a shared base. If provided, will use share permissions instead of base|update permission.',
   }),
 });
 

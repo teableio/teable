@@ -13,7 +13,7 @@ import {
   VisibleFields,
   useTablePermission,
   CreateRecordModal,
-  useIsTemplate,
+  useIsReadOnlyPreview,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
@@ -29,7 +29,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
   const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange, onSortChange } = useToolbarChange();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
 
   const onCoverFieldChange = (fieldId: string | null) => {
@@ -48,7 +48,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
 
   return (
     <div className="flex items-center gap-1">
-      {!isTemplate && (
+      {!isReadOnlyPreview && (
         <>
           <CreateRecordModal>
             <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>

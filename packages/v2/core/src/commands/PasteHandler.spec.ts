@@ -88,6 +88,38 @@ const buildTable = () => {
   };
 };
 
+const buildTableWithUser = () => {
+  const baseId = BaseId.create(`bse${'m'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'p'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('Paste User Test')._unsafeUnwrap();
+  const textFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+  const userFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+
+  const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+  builder
+    .field()
+    .singleLineText()
+    .withId(textFieldId)
+    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder
+    .field()
+    .user()
+    .withId(userFieldId)
+    .withName(FieldName.create('Assignee')._unsafeUnwrap())
+    .done();
+  builder.view().defaultGrid().done();
+
+  return {
+    table: builder.build()._unsafeUnwrap(),
+    baseId,
+    tableId,
+    textFieldId,
+    userFieldId,
+  };
+};
+
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   updated: Table[] = [];
@@ -291,6 +323,40 @@ class FakeRecordMutationSpecResolverService {
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     return ok(spec);
+  }
+
+  async resolveAndReplaceMany(
+    _: IExecutionContext,
+    specs: ReadonlyArray<ICellValueSpec | null>
+  ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
+    return ok(specs);
+  }
+}
+
+class CountingRecordMutationSpecResolverService extends FakeRecordMutationSpecResolverService {
+  resolveAndReplaceCalls = 0;
+  resolveAndReplaceManyCalls = 0;
+  resolvedBatchSizes: number[] = [];
+
+  override needsResolution(_: ICellValueSpec): Result<boolean, DomainError> {
+    return ok(true);
+  }
+
+  override async resolveAndReplace(
+    _: IExecutionContext,
+    spec: ICellValueSpec
+  ): Promise<Result<ICellValueSpec, DomainError>> {
+    this.resolveAndReplaceCalls += 1;
+    return ok(spec);
+  }
+
+  override async resolveAndReplaceMany(
+    _: IExecutionContext,
+    specs: ReadonlyArray<ICellValueSpec | null>
+  ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
+    this.resolveAndReplaceManyCalls += 1;
+    this.resolvedBatchSizes.push(specs.length);
+    return ok(specs);
   }
 }
 
@@ -554,6 +620,123 @@ describe('PasteHandler', () => {
   });
 
   describe('additional behavior', () => {
+    it('uses batched resolution for typecast paste with multiple rows', async () => {
+      const { table, tableId } = buildTableWithUser();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const resolver = new CountingRecordMutationSpecResolverService();
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        new FakeTableRecordRepository(),
+        new FakeTableRecordQueryRepository(),
+        resolver as unknown as RecordMutationSpecResolverService,
+        new RecordWriteSideEffectService(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [1, 2],
+        ],
+        content: [
+          ['A', { id: 'usr-1' }],
+          ['B', { id: 'usr-1' }],
+          ['C', { id: 'usr-1' }],
+        ],
+        typecast: true,
+      });
+
+      const result = await handler.handle(createContext(), command._unsafeUnwrap());
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().createdCount).toBe(3);
+      expect(resolver.resolveAndReplaceManyCalls).toBe(1);
+      expect(resolver.resolveAndReplaceCalls).toBe(0);
+      expect(resolver.resolvedBatchSizes).toEqual([3]);
+    });
+
+    it('uses batched resolution for typecast update paste with multiple rows', async () => {
+      const { table, tableId, textFieldId, userFieldId } = buildTableWithUser();
+      const viewId = table.views()[0]!.id();
+
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      recordQueryRepository.records = [
+        {
+          id: `rec${'a'.repeat(16)}`,
+          fields: {
+            [textFieldId.toString()]: 'old-a',
+            [userFieldId.toString()]: { id: 'usr-old' },
+          },
+          version: 1,
+        },
+        {
+          id: `rec${'b'.repeat(16)}`,
+          fields: {
+            [textFieldId.toString()]: 'old-b',
+            [userFieldId.toString()]: { id: 'usr-old' },
+          },
+          version: 2,
+        },
+      ];
+
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const resolver = new CountingRecordMutationSpecResolverService();
+
+      const handler = new PasteHandler(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        new FakeTableRecordRepository(),
+        recordQueryRepository,
+        resolver as unknown as RecordMutationSpecResolverService,
+        new RecordWriteSideEffectService(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
+        content: [
+          ['A', { id: 'usr-1' }],
+          ['B', { id: 'usr-1' }],
+        ],
+        typecast: true,
+      });
+
+      const result = await handler.handle(createContext(), command._unsafeUnwrap());
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().updatedCount).toBe(2);
+      expect(resolver.resolveAndReplaceManyCalls).toBe(1);
+      expect(resolver.resolveAndReplaceCalls).toBe(0);
+      expect(resolver.resolvedBatchSizes).toEqual([2]);
+    });
+
     it('returns zero counts when content is empty', async () => {
       const { table, tableId } = buildTable();
       const viewId = table.views()[0]!.id();

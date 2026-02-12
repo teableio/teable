@@ -63,7 +63,8 @@
     "export": "Esporta",
     "import": "Importa",
     "expand": "Espandi",
-    "getMore": "Ottieni di più"
+    "getMore": "Ottieni di più",
+    "copySuccess": "Copia riuscita"
   },
   "quickAction": {
     "title": "Azioni rapide",
@@ -91,7 +92,10 @@
     "createTemplate": "Crea Modello",
     "useTemplateDialog": {
       "title": "Seleziona spazio",
-      "description": "Seleziona uno spazio per il modello"
+      "description": "Seleziona uno spazio per il modello",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Costruisci la tua app aziendale con Teable",
@@ -105,6 +109,18 @@
         "guide6": "Costruisci un pianificatore di contenuti con post e date di pubblicazione",
         "guide7": "Incolla curriculum → Chiedi a Teable di organizzare e selezionare candidati"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Copia nello spazio",
+      "description": "Seleziona uno spazio in cui copiare questo database",
+      "baseName": "Nome database",
+      "baseNamePlaceholder": "Inserisci nome database",
+      "selectSpace": "Seleziona spazio",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     }
   },
   "settings": {
@@ -469,7 +485,7 @@
       "allowSignUp": "Consenti la creazione di nuovi account",
       "allowSignUpDescription": "Disabilitando questa opzione si proibiranno le nuove registrazioni degli utenti e il pulsante di registrazione non apparirà più nella pagina di accesso.",
       "allowSpaceInvitation": "Consenti l'invio di inviti per lo spazio",
-      "allowSpaceInvitationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di invitare altri a unirsi agli spazi. Abilitando questa opzione si consentirà agli utenti invitati direttamente di creare un account anche se la registrazione di nuovi account è disabilitata.",
+      "allowSpaceInvitationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di invitare altri a unirsi agli spazi. Quando abilitata, i nuovi utenti invitati via email possono completare la registrazione cliccando sul link di invito nell'email, ma i link di invito condivisi non funzioneranno.",
       "allowSpaceCreation": "Consenti a tutti di creare nuovi spazi",
       "allowSpaceCreationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di creare nuovi spazi.",
       "enableEmailVerification": "Abilita la verifica email",
@@ -1007,5 +1023,11 @@
       "title": "Qualcosa è andato storto",
       "description": "Si è verificato un errore imprevisto. Riprova più tardi."
     }
+  },
+  "changelog": {
+    "newUpdate": "NUOVO AGGIORNAMENTO",
+    "title": "Claude Opus 4.6 + 171 modelli lanciati",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

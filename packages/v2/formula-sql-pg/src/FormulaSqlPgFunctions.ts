@@ -1520,16 +1520,51 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const start = params[0];
     const days = params[1];
     if (!start || !days) return makeExpr('NULL', 'datetime', false);
+    const holiday = params[2];
     const startDt = this.coerceToDatetime(start);
     const dayCount = this.coerceToNumber(days, 'workday');
-    const errorCondition = combineErrorConditions([startDt, dayCount]);
+    const holidayText = holiday
+      ? this.coerceToString(holiday, false)
+      : makeExpr(sqlStringLiteral(''), 'string', false);
+    const errorCondition = combineErrorConditions([startDt, dayCount, holidayText]);
     const errorMessage = buildErrorMessageSql(
-      [startDt, dayCount],
+      [startDt, dayCount, holidayText],
       buildErrorLiteral('TYPE', 'invalid_workday')
     );
-    const valueSql = `(${this.applyFormulaTimeZone(
-      startDt.valueSql
-    )})::date + INTERVAL '1 day' * ${dayCount.valueSql}`;
+    const startDateSql = `(${this.applyFormulaTimeZone(startDt.valueSql)})::date`;
+    const dayCountSql = `COALESCE((${dayCount.valueSql})::integer, 0)`;
+    const valueSql = `(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ${startDateSql} AS start_date, ${dayCountSql} AS day_count, COALESCE(${holidayText.valueSql}, '') AS holiday_text
+      ) p
+    )`;
     return makeExpr(
       guardValueSql(valueSql, errorCondition),
       'datetime',

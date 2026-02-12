@@ -54,6 +54,16 @@ export const SignForm: FC<ISignForm> = (props) => {
     signupVerificationSendCodeMailRate = 0,
   } = setting ?? {};
 
+  const hasInvitationRedirect = useMemo(() => {
+    try {
+      const redirect = decodeURIComponent((router.query.redirect as string) || '');
+      const url = new URL(redirect, window.location.origin);
+      return url.searchParams.has('invitationId') && url.searchParams.has('invitationCode');
+    } catch {
+      return false;
+    }
+  }, [router.query.redirect]);
+
   const joinWaitlist = useCallback(() => {
     if (enableWaitlist) {
       const email = emailRef.current?.value;
@@ -439,7 +449,7 @@ export const SignForm: FC<ISignForm> = (props) => {
               {isLoading && <Spin />}
               {buttonText}
             </Button>
-            {!disallowSignUp && (
+            {(!disallowSignUp || hasInvitationRedirect) && (
               <div className="flex justify-end py-2">
                 <Link
                   href={{

@@ -111,7 +111,7 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract toNow(date: string, unit?: string): string;
   abstract weekNum(date: string): string;
   abstract weekday(date: string, startDayOfWeek?: string): string;
-  abstract workday(startDate: string, days: string): string;
+  abstract workday(startDate: string, days: string, holidayStr?: string): string;
   abstract workdayDiff(startDate: string, endDate: string): string;
   abstract year(date: string): string;
   abstract createdTime(): string;
