@@ -63,7 +63,8 @@
     "continue": "Продолжить",
     "export": "Экспорт",
     "import": "Импорт",
-    "getMore": "Получить больше"
+    "getMore": "Получить больше",
+    "copySuccess": "Копирование успешно"
   },
   "quickAction": {
     "title": "Быстрые действия",
@@ -91,7 +92,10 @@
     "createTemplate": "Создать Шаблон",
     "useTemplateDialog": {
       "title": "Выберите пространство",
-      "description": "Выберите пространство для шаблона"
+      "description": "Выберите пространство для шаблона",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Создайте бизнес-приложение с Teable",
@@ -105,6 +109,18 @@
         "guide6": "Создайте планировщик контента с постами и датами публикации",
         "guide7": "Вставьте резюме → Попросите Teable организовать и отобрать кандидатов"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Копировать в пространство",
+      "description": "Выберите пространство для копирования этой базы",
+      "baseName": "Название базы",
+      "baseNamePlaceholder": "Введите название базы",
+      "selectSpace": "Выбрать пространство",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     }
   },
   "settings": {

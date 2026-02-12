@@ -6,6 +6,7 @@ import {
   ViewColumnMetaUpdatedRealtimeProjection,
   RecordCreatedRealtimeProjection,
   RecordUpdatedRealtimeProjection,
+  RecordReorderedRealtimeProjection,
   RecordsBatchUpdatedRealtimeProjection,
   RecordsBatchCreatedRealtimeProjection,
   RecordsDeletedRealtimeProjection,
@@ -60,6 +61,9 @@ export const registerV2ShareDbRealtime = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(RecordUpdatedRealtimeProjection, RecordUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(RecordReorderedRealtimeProjection, RecordReorderedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(RecordsBatchUpdatedRealtimeProjection, RecordsBatchUpdatedRealtimeProjection, {

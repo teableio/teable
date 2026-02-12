@@ -62,11 +62,13 @@
     "refresh": "Refresh",
     "login": "Login",
     "useTemplate": "Use template",
+    "copyToMySpace": "Copy to my space",
     "backToSpace": "Back to space",
     "switchBase": "Switch base",
     "collapse": "Collapse",
     "viewDetails": "View details",
-    "getMore": "Get more"
+    "getMore": "Get more",
+    "copySuccess": "Copy successful"
   },
   "quickAction": {
     "title": "Quick actions",
@@ -107,7 +109,22 @@
     },
     "useTemplateDialog": {
       "title": "Select space",
-      "description": "Please select a space to apply template"
+      "description": "Please select a space to apply template",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Copy to space",
+      "description": "Please select a space to copy this base to",
+      "baseName": "Base name",
+      "baseNamePlaceholder": "Enter base name",
+      "selectSpace": "Select space",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     }
   },
   "settings": {

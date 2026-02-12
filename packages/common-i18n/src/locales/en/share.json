@@ -2,7 +2,8 @@
   "auth": {
     "title": "Enter your password to view this page",
     "submit": "Submit",
-    "password": "Password"
+    "password": "Password",
+    "passwordTooShort": "Password must be at least 3 characters"
   },
   "form": {
     "requireLoginTip": "This form requires you to log in before submitting",
