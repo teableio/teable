@@ -91,6 +91,17 @@ function OrderSelect(props: IOrderProps) {
       },
     ];
 
+    const DATEOPTIONS = [
+      {
+        value: 'asc',
+        label: t('sort.dateASCLabel'),
+      },
+      {
+        value: 'desc',
+        label: t('sort.dateDESCLabel'),
+      },
+    ];
+
     let option;
 
     switch (cellValueType) {
@@ -102,6 +113,9 @@ function OrderSelect(props: IOrderProps) {
         break;
       case 'boolean':
         option = CHECKBOXOPTIONS;
+        break;
+      case 'dateTime':
+        option = DATEOPTIONS;
         break;
       default:
         option = DEFAULTOPTIONS;

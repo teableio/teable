@@ -6,7 +6,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 export const TIME_ZONE_LIST = [
-  'utc',
+  'UTC',
   'Africa/Abidjan',
   'Africa/Accra',
   'Africa/Addis_Ababa',

@@ -63,7 +63,8 @@
     "export": "Esporta",
     "import": "Importa",
     "expand": "Espandi",
-    "getMore": "Ottieni di più"
+    "getMore": "Ottieni di più",
+    "copySuccess": "Copia riuscita"
   },
   "quickAction": {
     "title": "Azioni rapide",
@@ -91,7 +92,10 @@
     "createTemplate": "Crea Modello",
     "useTemplateDialog": {
       "title": "Seleziona spazio",
-      "description": "Seleziona uno spazio per il modello"
+      "description": "Seleziona uno spazio per il modello",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Costruisci la tua app aziendale con Teable",
@@ -105,6 +109,18 @@
         "guide6": "Costruisci un pianificatore di contenuti con post e date di pubblicazione",
         "guide7": "Incolla curriculum → Chiedi a Teable di organizzare e selezionare candidati"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Copia nello spazio",
+      "description": "Seleziona uno spazio in cui copiare questo database",
+      "baseName": "Nome database",
+      "baseNamePlaceholder": "Inserisci nome database",
+      "selectSpace": "Seleziona spazio",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     }
   },
   "settings": {
