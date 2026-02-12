@@ -62,11 +62,13 @@
     "refresh": "刷新",
     "login": "登录",
     "useTemplate": "使用模版",
+    "copyToMySpace": "复制到我的空间",
     "backToSpace": "返回空间",
     "switchBase": "切换数据库",
     "collapse": "收起",
     "viewDetails": "查看详情",
-    "getMore": "获取更多"
+    "getMore": "获取更多",
+    "copySuccess": "复制成功"
   },
   "quickAction": {
     "title": "快捷搜索",
@@ -107,11 +109,26 @@
     },
     "useTemplateDialog": {
       "title": "选择空间",
-      "description": "请选择一个空间来应用模版"
+      "description": "请选择一个空间来应用模版",
+      "noSpaceDescription": "你还没有任何空间，请先创建一个空间以继续。",
+      "newSpacePlaceholder": "空间名称",
+      "createSpace": "创建"
     },
     "non": {
       "share": "分享",
       "copy": "已复制"
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "复制到空间",
+      "description": "请选择一个空间来复制此数据库",
+      "baseName": "数据库名称",
+      "baseNamePlaceholder": "请输入数据库名称",
+      "selectSpace": "选择空间",
+      "noSpaceDescription": "你还没有任何空间，请先创建一个空间以继续。",
+      "newSpacePlaceholder": "空间名称",
+      "createSpace": "创建"
     }
   },
   "settings": {

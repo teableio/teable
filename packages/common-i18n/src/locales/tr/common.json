@@ -63,7 +63,8 @@
     "continue": "Devam Et",
     "export": "Dışa Aktar",
     "import": "İçe Aktar",
-    "getMore": "Daha fazla al"
+    "getMore": "Daha fazla al",
+    "copySuccess": "Kopyalama başarılı"
   },
   "quickAction": {
     "title": "Hızlı İşlemler",
@@ -91,7 +92,10 @@
     "createTemplate": "Şablon Oluştur",
     "useTemplateDialog": {
       "title": "Alan Seçin",
-      "description": "Şablon için bir alan seçin"
+      "description": "Şablon için bir alan seçin",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Teable ile iş uygulamanızı oluşturun",
@@ -105,6 +109,18 @@
         "guide6": "Gönderiler ve yayın tarihleri ile bir içerik planlayıcısı oluşturun",
         "guide7": "Özgeçmişleri yapıştırın → Teable'dan adayları düzenlemesini ve ön elemeyi yapmasını isteyin"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Alana kopyala",
+      "description": "Bu veritabanını kopyalamak için bir alan seçin",
+      "baseName": "Veritabanı adı",
+      "baseNamePlaceholder": "Veritabanı adını girin",
+      "selectSpace": "Alan seç",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     }
   },
   "settings": {

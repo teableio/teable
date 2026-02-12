@@ -94,6 +94,10 @@ export const clearCommandInputSchema = z.object({
    * This is required for personal view mode where visible columns differ per user.
    */
   projection: z.array(z.string()).optional(),
+  /**
+   * Ignore view-level query defaults (filter/sort/group) and use only request parameters.
+   */
+  ignoreViewQuery: z.boolean().optional().default(false),
 });
 
 export type IClearCommandInput = z.input<typeof clearCommandInputSchema>;
@@ -107,7 +111,8 @@ export class ClearCommand {
     readonly filter: RecordFilter | undefined,
     readonly sort: ReadonlyArray<ClearSort> | undefined,
     readonly groupBy: ReadonlyArray<ClearGroup> | undefined,
-    readonly projection: ReadonlyArray<string> | undefined
+    readonly projection: ReadonlyArray<string> | undefined,
+    readonly ignoreViewQuery: boolean
   ) {}
 
   static create(raw: unknown): Result<ClearCommand, DomainError> {
@@ -145,7 +150,8 @@ export class ClearCommand {
           parsed.data.filter ?? undefined,
           parsed.data.sort,
           parsed.data.groupBy,
-          parsed.data.projection
+          parsed.data.projection,
+          parsed.data.ignoreViewQuery ?? false
         );
       })
     );

@@ -63,7 +63,8 @@
     "continue": "続行",
     "export": "エクスポート",
     "import": "インポート",
-    "getMore": "もっと取得"
+    "getMore": "もっと取得",
+    "copySuccess": "コピー成功"
   },
   "quickAction": {
     "title": "クイックアクション",
@@ -91,7 +92,10 @@
     "createTemplate": "テンプレートを作成",
     "useTemplateDialog": {
       "title": "スペースを選択",
-      "description": "テンプレート用のスペースを選択してください"
+      "description": "テンプレート用のスペースを選択してください",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Teableでビジネスアプリを構築",
@@ -105,6 +109,18 @@
         "guide6": "投稿と公開日付を持つコンテンツプランナーを構築",
         "guide7": "履歴書を貼り付け → Teableに候補者を整理して選別させる"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "スペースにコピー",
+      "description": "このベースをコピーするスペースを選択してください",
+      "baseName": "ベース名",
+      "baseNamePlaceholder": "ベース名を入力",
+      "selectSpace": "スペースを選択",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     }
   },
   "settings": {

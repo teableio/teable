@@ -105,14 +105,18 @@ async function getViewOrderInfo(
   // Get all potential order column names
   const potentialColumns = views.map((view) => view.id().toRowOrderColumnName());
 
-  // First, check which columns actually exist in the table
-  // Query the information_schema to find existing columns
+  // Split db table name (schema.table) for information_schema lookup.
+  const splitIndex = tableName.indexOf('.');
+  const schemaName = splitIndex === -1 ? 'public' : tableName.slice(0, splitIndex);
+  const plainTableName = splitIndex === -1 ? tableName : tableName.slice(splitIndex + 1);
+
+  // First, check which columns actually exist in the table.
   try {
     const existingColumnsResult = await sql<{ column_name: string }>`
       SELECT column_name
       FROM information_schema.columns
-      WHERE table_name = ${tableName}
-      AND column_name = ANY(${sql.raw(`ARRAY[${potentialColumns.map((c) => `'${c}'`).join(',')}]`)})
+      WHERE table_schema = ${schemaName}
+      AND table_name = ${plainTableName}
     `.execute(db);
 
     const existingColumns = new Set(existingColumnsResult.rows.map((row) => row.column_name));
