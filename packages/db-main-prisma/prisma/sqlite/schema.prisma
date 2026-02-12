@@ -811,3 +811,20 @@ model BaseNodeFolder {
 
   @@map("base_node_folder")
 }
+
+model BaseShare {
+  id               String    @id @default(cuid())
+  baseId           String    @map("base_id")
+  shareId          String    @unique @map("share_id")
+  password         String?
+  nodeId           String    @unique @map("node_id")
+  allowSave        Boolean?  @map("allow_save")
+  allowCopy        Boolean?  @map("allow_copy")
+  enabled          Boolean   @default(true)
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  @@index([baseId])
+  @@map("base_share")
+}
