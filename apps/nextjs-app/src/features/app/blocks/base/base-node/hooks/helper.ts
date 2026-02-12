@@ -46,29 +46,30 @@ export const getNodeUrl = (props: {
   resourceType: string;
   resourceId: string;
   viewId?: string | null;
+  urlPrefix?: string;
 }): UrlObject | null => {
-  const { baseId, resourceId, resourceType, viewId } = props;
+  const { baseId, resourceId, resourceType, viewId, urlPrefix = '' } = props;
   switch (resourceType) {
     case ResourceType.Table:
       if (viewId) {
         return {
-          pathname: `/base/${baseId}/table/${resourceId}/${viewId}`,
+          pathname: `${urlPrefix}/base/${baseId}/table/${resourceId}/${viewId}`,
         };
       }
       return {
-        pathname: `/base/${baseId}/table/${resourceId}`,
+        pathname: `${urlPrefix}/base/${baseId}/table/${resourceId}`,
       };
     case ResourceType.Dashboard:
       return {
-        pathname: `/base/${baseId}/dashboard/${resourceId}`,
+        pathname: `${urlPrefix}/base/${baseId}/dashboard/${resourceId}`,
       };
     case ResourceType.Workflow:
       return {
-        pathname: `/base/${baseId}/automation/${resourceId}`,
+        pathname: `${urlPrefix}/base/${baseId}/automation/${resourceId}`,
       };
     case ResourceType.App:
       return {
-        pathname: `/base/${baseId}/app/${resourceId}`,
+        pathname: `${urlPrefix}/base/${baseId}/app/${resourceId}`,
       };
     case ResourceType.Base:
       return {

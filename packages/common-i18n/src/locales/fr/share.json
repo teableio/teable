@@ -2,7 +2,8 @@
   "auth": {
     "title": "Entrez votre mot de passe pour voir cette page",
     "submit": "Soumettre",
-    "password": "Mot de passe"
+    "password": "Mot de passe",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 3 caractères"
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Sélectionner..."

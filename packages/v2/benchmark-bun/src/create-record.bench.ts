@@ -2,7 +2,7 @@
 import { allFieldTypesTemplate, createTextColumns } from '@teable/v2-table-templates';
 import { Bench } from 'tinybench';
 
-import type { IBunBenchTarget } from './bench-context';
+import type { IBunBenchTarget, IBunBenchTargetsContext } from './bench-context';
 import { createBunBenchTargets } from './bench-context';
 
 const benchOptions = {
@@ -60,8 +60,11 @@ const getSelectChoiceIdByName = (
   return choiceId;
 };
 
-export const runCreateRecordBench = async (): Promise<void> => {
-  const context = await createBunBenchTargets();
+export const runCreateRecordBench = async (
+  sharedContext?: IBunBenchTargetsContext
+): Promise<void> => {
+  const context = sharedContext ?? (await createBunBenchTargets());
+  const ownsContext = !sharedContext;
 
   try {
     if (context.targets.length === 0) {
@@ -175,6 +178,8 @@ export const runCreateRecordBench = async (): Promise<void> => {
     await runScenario('100 columns', 'columns100');
     await runScenario('all field types', 'allTypes');
   } finally {
-    await context.dispose();
+    if (ownsContext) {
+      await context.dispose();
+    }
   }
 };

@@ -141,6 +141,7 @@ export interface SharedTestContext {
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     projection?: string[];
+    ignoreViewQuery?: boolean;
   }) => Promise<ReturnType<typeof parseClearResponse>>;
   deleteByRange: (payload: {
     tableId: string;
@@ -148,6 +149,10 @@ export interface SharedTestContext {
     ranges: [number, number][];
     type?: 'columns' | 'rows';
     filter?: RecordFilter;
+    sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    search?: [string, string, boolean?];
+    groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    ignoreViewQuery?: boolean;
   }) => Promise<ReturnType<typeof parseDeleteByRangeResponse>>;
   paste: (payload: IPasteCommandInput) => Promise<ReturnType<typeof parsePasteResponse>>;
   importCsv: (
@@ -600,6 +605,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     projection?: string[];
+    ignoreViewQuery?: boolean;
   }) => {
     const response = await fetch(`${baseUrl}/tables/clear`, {
       method: 'POST',
@@ -622,6 +628,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     search?: [string, string, boolean?];
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    ignoreViewQuery?: boolean;
   }) => {
     const response = await fetch(`${baseUrl}/tables/deleteByRange`, {
       method: 'DELETE',

@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
 import type { IBaseRole } from '@teable/core';
 import {
   createBaseRoSchema,
@@ -54,6 +54,7 @@ import type {
   UpdateBaseInvitationLinkVo,
   ICreateBaseFromTemplateVo,
 } from '@teable/openapi';
+import { Response as ExpressResponse } from 'express';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -98,6 +99,43 @@ export class BaseController {
     importBaseRo: ImportBaseRo
   ): Promise<IImportBaseVo> {
     return await this.baseImportService.importBase(importBaseRo);
+  }
+
+  @Post('import-stream')
+  @Permissions('base|create')
+  @ResourceMeta('spaceId', 'body')
+  async importBaseStream(
+    @Body(new ZodValidationPipe(importBaseRoSchema))
+    importBaseRo: ImportBaseRo,
+    @Res() res: ExpressResponse
+  ) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const sendEvent = (data: unknown) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+      const result = await this.baseImportService.importBase(
+        importBaseRo,
+        (phase: string, detail?: string) => {
+          sendEvent({ type: 'progress', phase, detail });
+        }
+      );
+
+      sendEvent({ type: 'done', data: result });
+    } catch (error) {
+      sendEvent({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Unknown import error',
+      });
+    } finally {
+      res.end();
+    }
   }
 
   @Post('duplicate')

@@ -15,7 +15,7 @@ import {
   PersonalViewProvider,
   ReactQueryKeys,
   useTables,
-  useIsTemplate,
+  useIsReadOnlyPreview,
 } from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
@@ -54,7 +54,7 @@ export const Table: React.FC<ITableProps> = ({
   const tables = useTables();
   const { undo, redo } = useUndoRedo();
   const queryClient = useQueryClient();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
 
   const table = tables.find((t) => t.id === tableId);
@@ -67,7 +67,8 @@ export const Table: React.FC<ITableProps> = ({
   const { brandName } = useBrand();
 
   useEffect(() => {
-    if (isTemplate) return;
+    // Skip last visit tracking in template or share mode
+    if (isReadOnlyPreview) return;
     updateUserLastVisit({
       resourceId: tableId,
       childResourceId: viewId,
@@ -76,7 +77,7 @@ export const Table: React.FC<ITableProps> = ({
     }).then(() => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.userLastVisitMap(baseId) });
     });
-  }, [tableId, viewId, baseId, queryClient, isTemplate]);
+  }, [tableId, viewId, baseId, queryClient, isReadOnlyPreview]);
 
   useViewErrorHandler(baseId, tableId, viewId);
   useHotkeys(`mod+z`, () => undo(), {
