@@ -53,6 +53,11 @@ type ExtraSeedRecordGroup = {
   recordIds: core.RecordId[];
 };
 
+type ActorIdentity = {
+  actorName?: string;
+  actorEmail?: string;
+};
+
 /**
  * Convert a TableRecord's fields to a Map<string, unknown> for use with RecordInsertBuilder.
  */
@@ -105,14 +110,18 @@ async function getViewOrderInfo(
   // Get all potential order column names
   const potentialColumns = views.map((view) => view.id().toRowOrderColumnName());
 
-  // First, check which columns actually exist in the table
-  // Query the information_schema to find existing columns
+  // Split db table name (schema.table) for information_schema lookup.
+  const splitIndex = tableName.indexOf('.');
+  const schemaName = splitIndex === -1 ? 'public' : tableName.slice(0, splitIndex);
+  const plainTableName = splitIndex === -1 ? tableName : tableName.slice(splitIndex + 1);
+
+  // First, check which columns actually exist in the table.
   try {
     const existingColumnsResult = await sql<{ column_name: string }>`
       SELECT column_name
       FROM information_schema.columns
-      WHERE table_name = ${tableName}
-      AND column_name = ANY(${sql.raw(`ARRAY[${potentialColumns.map((c) => `'${c}'`).join(',')}]`)})
+      WHERE table_schema = ${schemaName}
+      AND table_name = ${plainTableName}
     `.execute(db);
 
     const existingColumns = new Set(existingColumnsResult.rows.map((row) => row.column_name));
@@ -200,7 +209,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         const now = new Date().toISOString();
         const actorId = context.actorId.toString();
+        const actorContext = context as core.IExecutionContext & {
+          actorName?: string;
+          actorEmail?: string;
+        };
         const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        // Resolve actor identity outside transaction-scoped connection to avoid
+        // marking the current transaction as aborted when optional lookup fails.
+        const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
+        const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
 
         // Get view order info for all views in the table
         const views = table.views();
@@ -222,6 +239,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             recordId: record.id().toString(),
             actorId: context.actorId.toString(),
             now,
+            actorName: actorIdentity.actorName,
+            actorEmail: actorIdentity.actorEmail,
           },
         });
 
@@ -319,7 +338,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         const now = new Date().toISOString();
         const actorId = context.actorId.toString();
+        const actorContext = context as core.IExecutionContext & {
+          actorName?: string;
+          actorEmail?: string;
+        };
         const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        // Resolve actor identity outside transaction-scoped connection to avoid
+        // marking the current transaction as aborted when optional lookup fails.
+        const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
+        const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
 
         // Get view order info for all views in the table
         const views = table.views();
@@ -368,6 +395,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               recordId: record.id().toString(),
               actorId: context.actorId.toString(),
               now,
+              actorName: actorIdentity.actorName,
+              actorEmail: actorIdentity.actorEmail,
             },
           });
 
@@ -1032,6 +1061,41 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       })
       .where('id', '=', tableId)
       .execute();
+  }
+
+  private async resolveActorIdentity(
+    db: Kysely<DynamicDB>,
+    actorId: string,
+    actorContext: { actorName?: string; actorEmail?: string }
+  ): Promise<ActorIdentity> {
+    if (actorContext.actorName != null && actorContext.actorEmail != null) {
+      return { actorName: actorContext.actorName, actorEmail: actorContext.actorEmail };
+    }
+
+    try {
+      const row = await sql<{ name: string | null; email: string | null }>`
+        SELECT u.name, u.email
+        FROM public.users u
+        WHERE u.id = ${actorId}::text
+        LIMIT 1
+      `.execute(db);
+
+      const user = row.rows[0];
+      if (!user) {
+        return { actorName: actorContext.actorName, actorEmail: actorContext.actorEmail };
+      }
+
+      return {
+        actorName: actorContext.actorName ?? user.name ?? undefined,
+        actorEmail: actorContext.actorEmail ?? user.email ?? undefined,
+      };
+    } catch (error) {
+      this.logger.warn('record:resolve_actor_identity_failed', {
+        actorId,
+        error: describeError(error),
+      });
+      return { actorName: actorContext.actorName, actorEmail: actorContext.actorEmail };
+    }
   }
 
   private async runComputedUpdate(

@@ -22,6 +22,8 @@ export interface UploadAttachmentBaseProps {
 export interface UploadAttachmentLocalProps extends UploadAttachmentBaseProps {
   mode: 'local';
   attachmentManager?: AttachmentManager;
+  /** Optional fieldId, used when in pending upload context (prefilling row) */
+  fieldId?: string;
 }
 
 export interface UploadAttachmentCellProps extends UploadAttachmentBaseProps {

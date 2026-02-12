@@ -1,7 +1,6 @@
 import { HttpError, HttpErrorCode } from '@teable/core';
 import { toast } from '@teable/ui-lib';
-import { debounce } from 'lodash';
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Connection } from 'sharedb/lib/client';
 import type { ConnectionReceiveRequest, Socket } from 'sharedb/lib/sharedb';
 import { ReconnectingSockJS } from '../../utils/reconnectingSockJS';
@@ -34,8 +33,6 @@ export const useConnection = (path?: string) => {
   const [connected, setConnected] = useState(false);
   const [connection, setConnection] = useState<Connection>();
   const [socket, setSocket] = useState<ReconnectingSockJS | null>(null);
-  const [refreshTime, setRefreshTime] = useState(Date.now());
-
   useEffect(() => {
     const newSocket = new ReconnectingSockJS(path || getWsPath());
     setSocket(newSocket);
@@ -46,28 +43,9 @@ export const useConnection = (path?: string) => {
     };
   }, [path]);
 
-  const updateRefreshTime = useMemo(() => {
-    return debounce(() => setRefreshTime(Date.now()), 1000);
-  }, []);
-
-  // Cleanup debounce on unmount
-  useEffect(() => {
-    return () => {
-      updateRefreshTime.cancel();
-    };
-  }, [updateRefreshTime]);
-
-  const updateShareDb = useCallback(() => {
-    if (socket && isConnected(socket)) {
-      socket.close();
-    }
-    setConnection(undefined);
-    updateRefreshTime();
-  }, [socket, updateRefreshTime]);
-
-  useConnectionAutoManage(socket, updateShareDb, {
-    // 10 minutes, it will be closed when the user is leave the page for 1 hour
-    inactiveTimeout: 1000 * 60 * 60,
+  useConnectionAutoManage(socket, undefined, {
+    // 10 minutes, it will be closed when the user is leave the page for 10 minutes
+    inactiveTimeout: 10 * 60 * 1000,
     // reconnect when the browser is back for 2 seconds
     reconnectDelay: 2000,
   });
@@ -88,7 +66,6 @@ export const useConnection = (path?: string) => {
       pingInterval = setInterval(() => connection.ping(), 1000 * 10);
     };
     const onDisconnected = () => {
-      // setConnection(undefined);
       setConnected(false);
       pingInterval && clearInterval(pingInterval);
     };
@@ -117,7 +94,7 @@ export const useConnection = (path?: string) => {
         (connection as any).bindToSocket({});
       }
     };
-  }, [path, socket, refreshTime]);
+  }, [path, socket]);
 
   return useMemo(() => {
     return { connection, connected };
