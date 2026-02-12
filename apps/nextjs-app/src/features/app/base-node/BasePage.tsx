@@ -1,23 +1,14 @@
 import { dehydrate } from '@tanstack/react-query';
-import { getNodeUrl } from '@/features/app/blocks/base/base-node/hooks';
-import { redirect } from './helper';
+import { getDefaultNodeUrl, redirect } from './helper';
 import type { ISSRContext, SSRResult } from './types';
 
 export const getBaseServerSideProps = async (ctx: ISSRContext): Promise<SSRResult> => {
-  const { ssrApi, baseId, base } = ctx;
-  const [lastVisitNode, nodes] = await Promise.all([
-    ssrApi.getUserLastVisitBaseNode({ parentResourceId: baseId }),
-    ssrApi.getBaseNodeList(baseId),
-  ]);
+  const { base } = ctx;
 
-  const findNode = nodes.find((n) => n.resourceId === lastVisitNode?.resourceId) ?? nodes[0];
-  if (findNode) {
-    const url = getNodeUrl({
-      baseId,
-      resourceType: findNode.resourceType,
-      resourceId: findNode.resourceId,
-    });
-    if (url?.pathname) return redirect(url.pathname);
+  // Try to redirect to the default node (last visited or first non-folder node)
+  const defaultUrl = await getDefaultNodeUrl(ctx);
+  if (defaultUrl) {
+    return redirect(defaultUrl);
   }
 
   return {
