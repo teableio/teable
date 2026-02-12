@@ -114,12 +114,13 @@ export class ShareDbAdapter extends ShareDb.DB {
   private getAuthHeaders(options: any) {
     const cookie = options?.cookie || options?.agentCustom?.cookie;
     const shareId = options?.shareId || options?.agentCustom?.shareId;
+    const baseShareId = options?.baseShareId || options?.agentCustom?.baseShareId;
     const templateHeader = options?.templateHeader || options?.agentCustom?.templateHeader;
-    if (!cookie && !shareId && !templateHeader) {
+    if (!cookie && !shareId && !baseShareId && !templateHeader) {
       this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
       throw new UnauthorizedException('Unauthorized request not authorized');
     }
-    return { cookie, shareViewId: shareId, templateHeader };
+    return { cookie, shareViewId: shareId, baseShareId, templateHeader };
   }
 
   async queryPoll(

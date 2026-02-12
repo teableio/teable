@@ -2,7 +2,8 @@
   "auth": {
     "title": "Введіть свій пароль, щоб переглянути цю сторінку",
     "submit": "Відправити",
-    "password": "Пароль"
+    "password": "Пароль",
+    "passwordTooShort": "Пароль повинен містити не менше 3 символів"
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Виберіть..."

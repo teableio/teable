@@ -5,6 +5,7 @@ import {
   ViewColumnMetaUpdatedRealtimeProjection,
   RecordCreatedRealtimeProjection,
   RecordUpdatedRealtimeProjection,
+  RecordReorderedRealtimeProjection,
   RecordsBatchUpdatedRealtimeProjection,
   RecordsDeletedRealtimeProjection,
   v2CoreTokens,
@@ -66,6 +67,9 @@ export const registerV2BroadcastChannelRealtime = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(RecordUpdatedRealtimeProjection, RecordUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(RecordReorderedRealtimeProjection, RecordReorderedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(RecordsBatchUpdatedRealtimeProjection, RecordsBatchUpdatedRealtimeProjection, {

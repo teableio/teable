@@ -1,6 +1,7 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createBaseFromTemplate,
+  createSpace,
   getSpaceList,
   getUserLastVisit,
   LastVisitResourceType,
@@ -14,13 +15,14 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  Input,
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
 } from '@teable/ui-lib/shadcn';
-import { Loader } from 'lucide-react';
+import { ChevronDown, Loader, Plus } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useEffect, useImperativeHandle, useMemo, useState } from 'react';
@@ -40,10 +42,12 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
 >(({ templateId }, ref) => {
   const { t } = useTranslation(['common']);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>();
+  const [newSpaceName, setNewSpaceName] = useState('');
   const router = useRouter();
   const isUseTemplate = router.query.isUseTemplate === '1';
   const [open, setOpen] = useState(isUseTemplate);
   const [applyTemplateLoading, setApplyTemplateLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   useImperativeHandle(ref, () => ({
     setOpen,
@@ -67,6 +71,15 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
     },
     onError: () => {
       setApplyTemplateLoading(false);
+    },
+  });
+
+  const { mutate: createSpaceMutator, isPending: isCreatingSpace } = useMutation({
+    mutationFn: (name: string) => createSpace({ name: name || undefined }),
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+      setSelectedSpaceId(data.data.id);
+      setNewSpaceName('');
     },
   });
 
@@ -99,12 +112,18 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
     }
   }, [defaultSpaceId]);
 
+  const hasNoSpaces = !isLoadingSpaceList && spaceList?.length === 0;
+
   const useTemplateHandler = () => {
     if (!selectedSpaceId) {
       return;
     }
     setApplyTemplateLoading(true);
     applyTemplateMutator({ spaceId: selectedSpaceId, templateId });
+  };
+
+  const createSpaceHandler = () => {
+    createSpaceMutator(newSpaceName.trim());
   };
 
   return (
@@ -114,25 +133,62 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
           <DialogTitle>{t('common:template.useTemplateDialog.title')}</DialogTitle>
         </DialogHeader>
         <DialogDescription>{t('common:template.useTemplateDialog.description')}</DialogDescription>
-        <Select
-          value={selectedSpaceId}
-          onValueChange={setSelectedSpaceId}
-          disabled={applyTemplateLoading}
-        >
-          <SelectTrigger className="h-11 overflow-x-hidden">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="h-[250px]">
-            {spaceList?.map((space) => (
-              <SelectItem key={space.id} value={space.id}>
-                <span className="flex w-[400px] items-center gap-2 overflow-x-hidden">
-                  <SpaceAvatar name={space.name} className="size-8" />
-                  <span className="truncate">{space.name}</span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {hasNoSpaces ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-muted-foreground text-sm">
+              {t('common:template.useTemplateDialog.noSpaceDescription')}
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                className="h-9"
+                value={newSpaceName}
+                onChange={(e) => setNewSpaceName(e.target.value)}
+                disabled={isCreatingSpace}
+                placeholder={t('common:template.useTemplateDialog.newSpacePlaceholder')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    createSpaceHandler();
+                  }
+                }}
+              />
+              <Button
+                onClick={createSpaceHandler}
+                disabled={isCreatingSpace}
+                className="h-9 shrink-0"
+              >
+                {isCreatingSpace ? (
+                  <Loader className="size-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="size-4" />
+                    {t('common:template.useTemplateDialog.createSpace')}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Select
+            value={selectedSpaceId}
+            onValueChange={setSelectedSpaceId}
+            disabled={applyTemplateLoading}
+          >
+            <SelectTrigger className="h-9 overflow-hidden [&>svg:last-child]:hidden">
+              <SelectValue />
+              <ChevronDown className="size-4 shrink-0 opacity-50" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[250px]">
+              {spaceList?.map((space) => (
+                <SelectItem key={space.id} value={space.id} className="py-1">
+                  <span className="flex w-[400px] items-center gap-2 overflow-x-hidden">
+                    <SpaceAvatar name={space.name} className="size-6" />
+                    <span className="truncate">{space.name}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <DialogFooter>
           <Button className="min-w-16" size="sm" variant="outline" onClick={() => setOpen(false)}>
             {t('common:actions.cancel')}

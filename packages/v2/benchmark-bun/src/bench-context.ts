@@ -178,6 +178,14 @@ export type IBunBenchTargetsContext = {
   dispose: () => Promise<void>;
 };
 
+const shouldIncludeBunRpcTarget = (): boolean => {
+  if (!process.env.CI) {
+    return true;
+  }
+
+  return process.env.V2_BENCH_INCLUDE_BUN_RPC === '1';
+};
+
 export const createBunBenchContext = async (
   options: IV2BunTestContainerOptions = {}
 ): Promise<IBunBenchContext> => {
@@ -210,11 +218,17 @@ export const createBunBenchTargets = async (
   testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
 
   console.log('[bun-bench] test container ready');
-  const bunTarget = createBunRpcTarget(testContainer.container);
   const expressTarget = await setupExpress(testContainer.container);
   const fastifyTarget = await setupFastify(testContainer.container);
   const honoTarget = await setupHono(testContainer.container);
-  const targets = [bunTarget, expressTarget, fastifyTarget, honoTarget];
+  const targets: IBunBenchTarget[] = [expressTarget, fastifyTarget, honoTarget];
+
+  if (shouldIncludeBunRpcTarget()) {
+    const bunTarget = createBunRpcTarget(testContainer.container);
+    targets.unshift(bunTarget);
+  } else {
+    console.log('[bun-bench] CI mode: skip bun-rpc target');
+  }
 
   return {
     baseId: testContainer.baseId.toString(),

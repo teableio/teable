@@ -179,6 +179,35 @@ describe('ClearCommand', () => {
     expect(command.groupBy).toEqual([{ fieldId: 'fld3333333333333333', order: 'desc' }]);
   });
 
+  it('defaults ignoreViewQuery to false', () => {
+    const commandResult = ClearCommand.create({
+      tableId,
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.ignoreViewQuery).toBe(false);
+  });
+
+  it('includes ignoreViewQuery when provided', () => {
+    const commandResult = ClearCommand.create({
+      tableId,
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      ignoreViewQuery: true,
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.ignoreViewQuery).toBe(true);
+  });
+
   it('rejects invalid tableId', () => {
     const commandResult = ClearCommand.create({
       tableId: 'invalid',

@@ -15,6 +15,8 @@ export interface ICellUploadTask {
   status: 'pending' | 'uploading' | 'completed' | 'error';
   error?: string;
   code?: number;
+  /** Stored attachment data for pending uploads (not yet written to server) */
+  attachmentItem?: IAttachmentItem;
 }
 
 interface ICellUploadState {
@@ -24,6 +26,8 @@ interface ICellUploadState {
   baseId?: string;
   tasks: ICellUploadTask[];
   manager: AttachmentManager;
+  /** When true, completed uploads are held without calling insertAttachment */
+  isPending?: boolean;
 }
 
 export interface IGlobalUploadTask extends ICellUploadTask {
@@ -39,6 +43,11 @@ export interface IGlobalUploadProgress {
   progress: number;
 }
 
+export interface IConsumedPendingForCreate {
+  completedByField: Record<string, IAttachmentItem[]>;
+  consumedTaskIdsByCellKey: Record<string, Set<string>>;
+}
+
 interface ICellAttachmentUploadState {
   // Map of cellKey -> upload state
   cellUploads: Record<string, ICellUploadState>;
@@ -51,6 +60,39 @@ interface ICellAttachmentUploadState {
     files: File[],
     baseId?: string
   ) => void;
+
+  // Start upload in pending mode (no auto insertAttachment on completion)
+  startPendingUpload: (
+    tableId: string,
+    tempRecordId: string,
+    fieldId: string,
+    files: File[],
+    baseId?: string
+  ) => void;
+
+  // Get completed attachments for a pending record (keyed by fieldId)
+  getCompletedPendingAttachments: (
+    tableId: string,
+    tempRecordId: string
+  ) => Record<string, IAttachmentItem[]>;
+
+  // Atomically collect completed pending attachments before createRecords
+  consumePendingForCreate: (tableId: string, tempRecordId: string) => IConsumedPendingForCreate;
+
+  // Check if a pending record has any active uploads
+  hasPendingUploads: (tableId: string, tempRecordId: string) => boolean;
+
+  // Promote pending uploads to real cell uploads after record creation.
+  // Completed tasks consumed by createRecords are dropped; others are remapped to real recordId.
+  promoteToCell: (
+    tableId: string,
+    tempRecordId: string,
+    realRecordId: string,
+    consumedTaskIdsByCellKey?: Record<string, Set<string>>
+  ) => void;
+
+  // Cancel all uploads for a pending record (e.g. user cancels prefilling row)
+  cancelPendingUploads: (tableId: string, tempRecordId: string) => void;
 
   // Get tasks for a specific cell
   getCellTasks: (cellKey: string) => ICellUploadTask[];
@@ -101,6 +143,7 @@ const removeTask = (cellKey: string, taskId: string) => {
     // Clean up if no more tasks
     if (newTasks.length === 0) {
       const { [cellKey]: _, ...rest } = prev.cellUploads;
+      cleanupPromotedKeyMapByCellKey(cellKey);
       return { cellUploads: rest };
     }
 
@@ -215,6 +258,18 @@ const clearInsertBuffer = (cellKey: string) => {
   insertBuffers.delete(cellKey);
 };
 
+// Map from old (temp) cellKey to new (real) cellKey after promotion
+const promotedKeyMap = new Map<string, string>();
+
+// Remove any promoted mapping related to this key (as oldKey or newKey)
+const cleanupPromotedKeyMapByCellKey = (cellKey: string) => {
+  for (const [oldKey, newKey] of promotedKeyMap.entries()) {
+    if (oldKey === cellKey || newKey === cellKey) {
+      promotedKeyMap.delete(oldKey);
+    }
+  }
+};
+
 // Get or create AttachmentManager for a cell
 const getOrCreateManager = (cellKey: string): AttachmentManager => {
   const state = useCellAttachmentUploadStore.getState();
@@ -292,6 +347,241 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
     );
   },
 
+  startPendingUpload: (tableId, tempRecordId, fieldId, files, baseId) => {
+    if (files.length === 0) return;
+
+    const cellKey = buildCellKey(tableId, tempRecordId, fieldId);
+    const manager = getOrCreateManager(cellKey);
+
+    const uploadFiles: IFile[] = files.map((file) => ({
+      id: generateAttachmentId(),
+      instance: file,
+    }));
+
+    const newTasks: ICellUploadTask[] = uploadFiles.map(({ id, instance }) => ({
+      id,
+      file: instance,
+      progress: 0,
+      status: 'pending' as const,
+    }));
+
+    set((prev) => {
+      const existing = prev.cellUploads[cellKey];
+      return {
+        cellUploads: {
+          ...prev.cellUploads,
+          [cellKey]: {
+            tableId,
+            recordId: tempRecordId,
+            fieldId,
+            baseId,
+            tasks: [...(existing?.tasks || []), ...newTasks],
+            manager,
+            isPending: true,
+          },
+        },
+      };
+    });
+
+    manager.upload(
+      uploadFiles,
+      UploadType.Table,
+      {
+        successCallback: (file, attachment) => {
+          const attachmentItem: IAttachmentItem = {
+            id: file.id,
+            name: file.instance.name,
+            ...omit(attachment, ['url']),
+          };
+
+          // Check if this cell has been promoted to real cell mode
+          const promotedKey = promotedKeyMap.get(cellKey);
+          if (promotedKey) {
+            // Already promoted — use normal insert flow with the real recordId
+            const currentState = get().cellUploads[promotedKey];
+            if (currentState) {
+              enqueueInsert(
+                promotedKey,
+                currentState.tableId,
+                currentState.recordId,
+                currentState.fieldId,
+                file.id,
+                attachmentItem
+              );
+            }
+          } else {
+            // Still pending — store the attachment item without calling insertAttachment
+            updateTask(cellKey, file.id, {
+              status: 'completed',
+              progress: 100,
+              attachmentItem,
+            });
+          }
+        },
+        errorCallback: (file, error, code) => {
+          // Use promoted key if available (tasks may have been remapped)
+          const effectiveKey = promotedKeyMap.get(cellKey) ?? cellKey;
+          updateTask(effectiveKey, file.id, {
+            status: 'error',
+            error: error || 'Upload failed',
+            code,
+          });
+        },
+        progressCallback: (file, progress) => {
+          // Use promoted key if available (tasks may have been remapped)
+          const effectiveKey = promotedKeyMap.get(cellKey) ?? cellKey;
+          updateTask(effectiveKey, file.id, { progress, status: 'uploading' });
+        },
+      },
+      baseId
+    );
+  },
+
+  getCompletedPendingAttachments: (tableId, tempRecordId) => {
+    const { cellUploads } = get();
+    const result: Record<string, IAttachmentItem[]> = {};
+    const prefix = `${tableId}:${tempRecordId}:`;
+
+    Object.entries(cellUploads).forEach(([cellKey, cellState]) => {
+      if (!cellKey.startsWith(prefix) || !cellState.isPending) return;
+
+      const attachments: IAttachmentItem[] = [];
+      cellState.tasks.forEach((task) => {
+        if (task.status === 'completed' && task.attachmentItem) {
+          attachments.push(task.attachmentItem);
+        }
+      });
+      if (attachments.length > 0) {
+        result[cellState.fieldId] = attachments;
+      }
+    });
+    return result;
+  },
+
+  consumePendingForCreate: (tableId, tempRecordId) => {
+    const { cellUploads } = get();
+    const completedByField: Record<string, IAttachmentItem[]> = {};
+    const consumedTaskIdsByCellKey: Record<string, Set<string>> = {};
+    const prefix = `${tableId}:${tempRecordId}:`;
+
+    Object.entries(cellUploads).forEach(([cellKey, cellState]) => {
+      if (!cellKey.startsWith(prefix) || !cellState.isPending) return;
+
+      cellState.tasks.forEach((task) => {
+        if (task.status !== 'completed' || !task.attachmentItem) return;
+
+        if (!completedByField[cellState.fieldId]) {
+          completedByField[cellState.fieldId] = [];
+        }
+        completedByField[cellState.fieldId].push(task.attachmentItem);
+
+        if (!consumedTaskIdsByCellKey[cellKey]) {
+          consumedTaskIdsByCellKey[cellKey] = new Set<string>();
+        }
+        consumedTaskIdsByCellKey[cellKey].add(task.id);
+      });
+    });
+
+    return { completedByField, consumedTaskIdsByCellKey };
+  },
+
+  hasPendingUploads: (tableId, tempRecordId) => {
+    const { cellUploads } = get();
+    const prefix = `${tableId}:${tempRecordId}:`;
+
+    return Object.entries(cellUploads).some(([cellKey, cellState]) => {
+      if (!cellKey.startsWith(prefix) || !cellState.isPending) return false;
+      return cellState.tasks.some((t) => t.status === 'pending' || t.status === 'uploading');
+    });
+  },
+
+  promoteToCell: (tableId, tempRecordId, realRecordId, consumedTaskIdsByCellKey = {}) => {
+    set((prev) => {
+      const newCellUploads = { ...prev.cellUploads };
+      const prefix = `${tableId}:${tempRecordId}:`;
+
+      Object.keys(newCellUploads).forEach((oldKey) => {
+        if (!oldKey.startsWith(prefix)) return;
+        const cellState = newCellUploads[oldKey];
+        if (!cellState.isPending) return;
+        const consumedTaskIds = consumedTaskIdsByCellKey[oldKey];
+        const newKey = buildCellKey(tableId, realRecordId, cellState.fieldId);
+
+        const remainingTasks = cellState.tasks.filter((task) => {
+          // Completed tasks already consumed by createRecords can be safely removed.
+          if (task.status === 'completed' && consumedTaskIds?.has(task.id)) {
+            return false;
+          }
+          return true;
+        });
+
+        // Remove old key
+        delete newCellUploads[oldKey];
+        cleanupPromotedKeyMapByCellKey(oldKey);
+        clearInsertBuffer(oldKey);
+
+        // If there are still tasks, remap to real recordId.
+        // This keeps errors retryable and allows late completed tasks to be inserted.
+        if (remainingTasks.length > 0) {
+          cleanupPromotedKeyMapByCellKey(newKey);
+          newCellUploads[newKey] = {
+            ...cellState,
+            recordId: realRecordId,
+            tasks: remainingTasks,
+            isPending: false,
+          };
+          // Track mapping so in-flight callbacks can locate the real cell key.
+          promotedKeyMap.set(oldKey, newKey);
+
+          // Completed-but-not-consumed means they completed during createRecords flight.
+          // They must be inserted into the newly created record.
+          remainingTasks.forEach((task) => {
+            if (task.status === 'completed' && task.attachmentItem) {
+              enqueueInsert(
+                newKey,
+                tableId,
+                realRecordId,
+                cellState.fieldId,
+                task.id,
+                task.attachmentItem
+              );
+            }
+          });
+        }
+      });
+
+      return { cellUploads: newCellUploads };
+    });
+  },
+
+  cancelPendingUploads: (tableId, tempRecordId) => {
+    const { cellUploads } = get();
+    const prefix = `${tableId}:${tempRecordId}:`;
+
+    Object.entries(cellUploads).forEach(([cellKey, cellState]) => {
+      if (!cellKey.startsWith(prefix) || !cellState.isPending) return;
+      // Cancel all in-progress uploads
+      cellState.tasks.forEach((task) => {
+        if (task.status === 'pending' || task.status === 'uploading') {
+          cellState.manager.cancelTask(task.id);
+        }
+      });
+    });
+
+    // Remove all pending cells from store and clean up promoted key map
+    set((prev) => {
+      const newCellUploads = { ...prev.cellUploads };
+      Object.keys(newCellUploads).forEach((cellKey) => {
+        if (cellKey.startsWith(prefix) && newCellUploads[cellKey].isPending) {
+          clearInsertBuffer(cellKey);
+          cleanupPromotedKeyMapByCellKey(cellKey);
+          delete newCellUploads[cellKey];
+        }
+      });
+      return { cellUploads: newCellUploads };
+    });
+  },
+
   getCellTasks: (cellKey) => {
     return get().cellUploads[cellKey]?.tasks || [];
   },
@@ -367,6 +657,7 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
           newCellUploads[cellKey] = { ...cellState, tasks: remainingTasks };
         } else {
           clearInsertBuffer(cellKey);
+          cleanupPromotedKeyMapByCellKey(cellKey);
         }
       });
       return { cellUploads: newCellUploads };
@@ -382,6 +673,7 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
           newCellUploads[cellKey] = { ...cellState, tasks: remainingTasks };
         } else {
           clearInsertBuffer(cellKey);
+          cleanupPromotedKeyMapByCellKey(cellKey);
         }
       });
       return { cellUploads: newCellUploads };
@@ -404,6 +696,16 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
     const task = cellState.tasks.find((current) => current.id === taskId);
     if (!task) return;
     removeTask(cellKey, taskId);
+    if (cellState.isPending) {
+      get().startPendingUpload(
+        cellState.tableId,
+        cellState.recordId,
+        cellState.fieldId,
+        [task.file],
+        cellState.baseId
+      );
+      return;
+    }
     get().startUpload(
       cellState.tableId,
       cellState.recordId,

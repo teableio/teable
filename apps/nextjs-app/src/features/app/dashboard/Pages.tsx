@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, X } from '@teable/icons';
 import { getDashboardList, LastVisitResourceType, updateUserLastVisit } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBaseId, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -18,6 +18,7 @@ import { EmptyDashboard } from './EmptyDashboard';
 
 export function DashboardPage() {
   const baseId = useBaseId() as string;
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   const [showDeprecationBanner, setShowDeprecationBanner] = useState(true);
   useInitializationZodI18n();
@@ -29,6 +30,8 @@ export function DashboardPage() {
   });
   const { disallowDashboard } = useSetting();
   useEffect(() => {
+    // Skip last visit tracking in template or share mode
+    if (isReadOnlyPreview) return;
     if (dashboardQueryId) {
       updateUserLastVisit({
         resourceId: dashboardQueryId,
@@ -36,7 +39,7 @@ export function DashboardPage() {
         resourceType: LastVisitResourceType.Dashboard,
       });
     }
-  }, [dashboardQueryId, baseId]);
+  }, [dashboardQueryId, baseId, isReadOnlyPreview]);
 
   if (isLoading) {
     return (
