@@ -252,7 +252,9 @@ export type I18nTranslations = {
             "backToSpace": string;
             "switchBase": string;
             "getMore": string;
+            "copySuccess": string;
             "retry": string;
+            "copyToMySpace": string;
             "collapse": string;
             "viewDetails": string;
         };
@@ -296,6 +298,21 @@ export type I18nTranslations = {
             "useTemplateDialog": {
                 "title": string;
                 "description": string;
+                "noSpaceDescription": string;
+                "newSpacePlaceholder": string;
+                "createSpace": string;
+            };
+        };
+        "share": {
+            "copyToSpaceDialog": {
+                "title": string;
+                "description": string;
+                "baseName": string;
+                "baseNamePlaceholder": string;
+                "selectSpace": string;
+                "noSpaceDescription": string;
+                "newSpacePlaceholder": string;
+                "createSpace": string;
             };
         };
         "settings": {
@@ -2091,6 +2108,8 @@ export type I18nTranslations = {
             "autoSort": string;
             "selectASCLabel": string;
             "selectDESCLabel": string;
+            "dateASCLabel": string;
+            "dateDESCLabel": string;
         };
         "group": {
             "label": string;
@@ -2861,6 +2880,11 @@ export type I18nTranslations = {
                 "shareViewNotFound": string;
                 "linkFieldNotFound": string;
             };
+            "baseShare": {
+                "notFound": string;
+                "alreadyExists": string;
+                "copyNotAllowed": string;
+            };
             "shareSocket": {
                 "viewPermissionNotAllowed": string;
                 "fieldPermissionNotAllowed": string;
@@ -2980,6 +3004,14 @@ export type I18nTranslations = {
                 "notAttachment": string;
                 "isComputed": string;
                 "notFoundAICofig": string;
+                "foreignTableIdRequired": string;
+                "lookupFieldIdRequired": string;
+                "lookupFieldNotExist": string;
+                "lookupFieldNotBelongToTable": string;
+                "lookupFieldTypeNotMatch": string;
+                "conditionalRollupOptionsRequired": string;
+                "conditionalRollupParseError": string;
+                "conditionalLookupOptionsRequired": string;
                 "button": {
                     "clickCountReachedMaxCount": string;
                     "notSupportReset": string;
@@ -3219,6 +3251,7 @@ export type I18nTranslations = {
             "title": string;
             "submit": string;
             "password": string;
+            "passwordTooShort": string;
         };
         "toolbar": {
             "filterLinkSelectPlaceholder": string;
@@ -3443,6 +3476,11 @@ export type I18nTranslations = {
                     "cancel": string;
                     "save": string;
                     "requireLogin": string;
+                    "copyCode": string;
+                    "theme": string;
+                    "themeSystem": string;
+                    "themeLight": string;
+                    "themeDark": string;
                 };
                 "extensions": {
                     "label": string;
@@ -4222,6 +4260,63 @@ export type I18nTranslations = {
             "title": string;
             "resourceType": string;
             "deletedResource": string;
+        };
+        "baseShare": {
+            "title": string;
+            "shareTitle": string;
+            "shareToWeb": string;
+            "description": string;
+            "nodeShareDescription": string;
+            "shareLinks": string;
+            "newLink": string;
+            "noShareLinks": string;
+            "createFirstLink": string;
+            "editSettings": string;
+            "refreshLink": string;
+            "deleteLink": string;
+            "deleteConfirmTitle": string;
+            "deleteConfirmDescription": string;
+            "createSuccess": string;
+            "createFailed": string;
+            "updateSuccess": string;
+            "updateFailed": string;
+            "deleteSuccess": string;
+            "deleteFailed": string;
+            "refreshSuccess": string;
+            "refreshFailed": string;
+            "copied": string;
+            "shareLink": string;
+            "passwordProtection": string;
+            "enterPassword": string;
+            "selectNodes": string;
+            "shareEntireBase": string;
+            "shareSelectedNodes": string;
+            "shareEntireBaseDescription": string;
+            "noNodesSelectedWarning": string;
+            "allowSave": string;
+            "allowSaveDescription": string;
+            "allowCopy": string;
+            "allowCopyData": string;
+            "allowDuplicate": string;
+            "allowCopyDescription": string;
+            "selectedNodes": string;
+            "allNodes": string;
+            "sharedNode": string;
+            "sharedNodeDescription": string;
+            "publicShareTitle": string;
+            "publicShareCount": string;
+            "noPublicShare": string;
+            "security": string;
+            "restrictByPassword": string;
+            "advanced": string;
+            "embedConfig": string;
+            "appPublicLink": string;
+            "appNotPublished": string;
+            "goToPublish": string;
+            "publishSuccess": string;
+            "publishFailed": string;
+            "openLink": string;
+            "appPublished": string;
         };
         "aiChat": {
             "tool": {
