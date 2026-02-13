@@ -12,10 +12,15 @@ import {
   defaultNumberFormatting,
 } from '@teable/core';
 import type { IFieldRo, IUserCellValue } from '@teable/core';
-import type { ITableFullVo, IUserMeVo } from '@teable/openapi';
+import type { IPasteRo, IPasteVo, ITableFullVo, IUserMeVo } from '@teable/openapi';
 import {
   RangeType,
   IdReturnType,
+  CLEAR_URL,
+  DELETE_URL,
+  PASTE_URL,
+  X_CANARY_HEADER,
+  axios,
   getIdsFromRanges as apiGetIdsFromRanges,
   copy as apiCopy,
   paste as apiPaste,
@@ -30,6 +35,7 @@ import {
   createBase,
   emailSpaceInvitation,
   getRecords,
+  urlBuilder,
 } from '@teable/openapi';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
@@ -47,6 +53,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
   let app: INestApplication;
   let table: ITableFullVo;
   const baseId = globalThis.testConfig.baseId;
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -64,6 +71,63 @@ describe('OpenAPI SelectionController (e2e)', () => {
   afterAll(async () => {
     await app.close();
   });
+
+  const pasteWithCanary = async (tableId: string, pasteRo: IPasteRo, useV2: boolean) => {
+    return axios.patch<IPasteVo>(
+      urlBuilder(PASTE_URL, {
+        tableId,
+      }),
+      pasteRo,
+      {
+        headers: {
+          [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+        },
+      }
+    );
+  };
+
+  const clearWithCanary = async (
+    tableId: string,
+    clearRo: Parameters<typeof clear>[1],
+    useV2: boolean
+  ) => {
+    return axios.patch<null>(
+      urlBuilder(CLEAR_URL, {
+        tableId,
+      }),
+      clearRo,
+      {
+        headers: {
+          [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+        },
+      }
+    );
+  };
+
+  const deleteWithCanary = async (
+    tableId: string,
+    deleteRo: Parameters<typeof deleteSelection>[1],
+    useV2: boolean
+  ) => {
+    return axios.delete<{ ids: string[] }>(
+      urlBuilder(DELETE_URL, {
+        tableId,
+      }),
+      {
+        headers: {
+          [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+        },
+        params: {
+          ...deleteRo,
+          filter: JSON.stringify(deleteRo.filter),
+          orderBy: JSON.stringify(deleteRo.orderBy),
+          groupBy: JSON.stringify(deleteRo.groupBy),
+          ranges: JSON.stringify(deleteRo.ranges),
+          collapsedGroupIds: JSON.stringify(deleteRo.collapsedGroupIds),
+        },
+      }
+    );
+  };
 
   describe('getIdsFromRanges', () => {
     it('should return all ids for cell range ', async () => {
@@ -561,6 +625,129 @@ describe('OpenAPI SelectionController (e2e)', () => {
         await permanentDeleteTable(baseId, companyTable.id);
       }
     });
+
+    it.each(
+      isForceV2
+        ? [{ label: 'v2-forced', useV2: true, v2Header: 'true' }]
+        : [
+            { label: 'v1', useV2: false, v2Header: 'false' },
+            { label: 'v2', useV2: true, v2Header: 'true' },
+          ]
+    )(
+      'should clear correct row in $label when ignoreViewQuery+collapsed groups are provided',
+      async ({ useV2, v2Header }) => {
+        const clearTable = await createTable(baseId, {
+          name: `clear-ignore-range-${useV2 ? 'v2' : 'v1'}`,
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'GroupA', color: Colors.Blue },
+                  { name: 'GroupB', color: Colors.Green },
+                ],
+              },
+            },
+            { name: 'Marker', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Title: 'A-01', Status: 'GroupA', Marker: 'mA01' } },
+            { fields: { Title: 'A-02', Status: 'GroupA', Marker: 'mA02' } },
+            { fields: { Title: 'B-01', Status: 'GroupB', Marker: 'mB01' } },
+            { fields: { Title: 'B-02', Status: 'GroupB', Marker: 'mB02' } },
+          ],
+        });
+
+        try {
+          const viewId = clearTable.views[0].id;
+          const titleField = clearTable.fields.find((f) => f.name === 'Title')!;
+          const statusField = clearTable.fields.find((f) => f.name === 'Status')!;
+          const markerField = clearTable.fields.find((f) => f.name === 'Marker')!;
+
+          await updateViewSort(clearTable.id, viewId, {
+            sort: {
+              sortObjs: [{ fieldId: titleField.id, order: SortFunc.Desc }],
+              manualSort: false,
+            },
+          });
+          await updateViewFilter(clearTable.id, viewId, {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: 'GroupA',
+                },
+              ],
+            },
+          });
+
+          const groupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+          const orderBy = [{ fieldId: titleField.id, order: SortFunc.Asc }] as const;
+
+          const groupedResult = await getRecords(clearTable.id, {
+            viewId,
+            ignoreViewQuery: true,
+            groupBy: [...groupBy],
+            orderBy: [...orderBy],
+            fieldKeyType: FieldKeyType.Id,
+          });
+          const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
+            (point) => point.type === 0 && 'id' in point
+          );
+          expect(firstGroupHeader).toBeDefined();
+          const collapsedGroupIds = [(firstGroupHeader as { id: string }).id];
+
+          const clearRes = await clearWithCanary(
+            clearTable.id,
+            {
+              viewId,
+              ignoreViewQuery: true,
+              ranges: [
+                [0, 0],
+                [0, 0],
+              ],
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: statusField.id,
+                    operator: 'isAnyOf',
+                    value: ['GroupA', 'GroupB'],
+                  },
+                ],
+              },
+              orderBy: [...orderBy],
+              groupBy: [...groupBy],
+              projection: [markerField.id, statusField.id, titleField.id],
+              collapsedGroupIds,
+            },
+            useV2
+          );
+          expect(clearRes.status).toBe(200);
+          expect(clearRes.headers['x-teable-v2']).toBe(v2Header);
+
+          const allRecords = await getRecords(clearTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
+
+          const b01 = allRecords.data.records.find(
+            (record) => record.fields[titleField.id] === 'B-01'
+          );
+          const a01 = allRecords.data.records.find(
+            (record) => record.fields[titleField.id] === 'A-01'
+          );
+
+          expect(b01?.fields[markerField.id] ?? null).toBeNull();
+          expect(a01?.fields[markerField.id]).toBe('mA01');
+        } finally {
+          await permanentDeleteTable(baseId, clearTable.id);
+        }
+      }
+    );
   });
 
   describe('past expand col formula', () => {
@@ -870,6 +1057,122 @@ describe('OpenAPI SelectionController (e2e)', () => {
         await permanentDeleteTable(baseId, detailTable.id);
       }
     });
+
+    it.each(
+      isForceV2
+        ? [{ label: 'v2-forced', useV2: true, v2Header: 'true' }]
+        : [
+            { label: 'v1', useV2: false, v2Header: 'false' },
+            { label: 'v2', useV2: true, v2Header: 'true' },
+          ]
+    )(
+      'should delete correct row in $label when ignoreViewQuery+collapsed groups are provided',
+      async ({ useV2, v2Header }) => {
+        const deleteTable = await createTable(baseId, {
+          name: `delete-ignore-range-${useV2 ? 'v2' : 'v1'}`,
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'GroupA', color: Colors.Blue },
+                  { name: 'GroupB', color: Colors.Green },
+                ],
+              },
+            },
+          ],
+          records: [
+            { fields: { Title: 'A-01', Status: 'GroupA' } },
+            { fields: { Title: 'A-02', Status: 'GroupA' } },
+            { fields: { Title: 'B-01', Status: 'GroupB' } },
+            { fields: { Title: 'B-02', Status: 'GroupB' } },
+          ],
+        });
+
+        try {
+          const viewId = deleteTable.views[0].id;
+          const titleField = deleteTable.fields.find((f) => f.name === 'Title')!;
+          const statusField = deleteTable.fields.find((f) => f.name === 'Status')!;
+
+          await updateViewSort(deleteTable.id, viewId, {
+            sort: {
+              sortObjs: [{ fieldId: titleField.id, order: SortFunc.Desc }],
+              manualSort: false,
+            },
+          });
+          await updateViewFilter(deleteTable.id, viewId, {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: 'GroupA',
+                },
+              ],
+            },
+          });
+
+          const groupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+          const orderBy = [{ fieldId: titleField.id, order: SortFunc.Asc }] as const;
+
+          const groupedResult = await getRecords(deleteTable.id, {
+            viewId,
+            ignoreViewQuery: true,
+            groupBy: [...groupBy],
+            orderBy: [...orderBy],
+            fieldKeyType: FieldKeyType.Id,
+          });
+          const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
+            (point) => point.type === 0 && 'id' in point
+          );
+          expect(firstGroupHeader).toBeDefined();
+          const collapsedGroupIds = [(firstGroupHeader as { id: string }).id];
+
+          const deleteRes = await deleteWithCanary(
+            deleteTable.id,
+            {
+              viewId,
+              ignoreViewQuery: true,
+              ranges: [[0, 0]],
+              type: RangeType.Rows,
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: statusField.id,
+                    operator: 'isAnyOf',
+                    value: ['GroupA', 'GroupB'],
+                  },
+                ],
+              },
+              orderBy: [...orderBy],
+              groupBy: [...groupBy],
+              collapsedGroupIds,
+            },
+            useV2
+          );
+          expect(deleteRes.status).toBe(200);
+          expect(deleteRes.headers['x-teable-v2']).toBe(v2Header);
+          expect(deleteRes.data.ids).toHaveLength(1);
+
+          const recordsAfter = await getRecords(deleteTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
+
+          expect(
+            recordsAfter.data.records.some((record) => record.fields[titleField.id] === 'B-01')
+          ).toBe(false);
+          expect(
+            recordsAfter.data.records.some((record) => record.fields[titleField.id] === 'A-01')
+          ).toBe(true);
+        } finally {
+          await permanentDeleteTable(baseId, deleteTable.id);
+        }
+      }
+    );
   });
 
   describe('paste user', () => {
@@ -1625,5 +1928,148 @@ describe('OpenAPI SelectionController (e2e)', () => {
       // The updated record should have NULL status (was Bravo)
       expect(updatedRecord?.fields[statusField.id]).toBeUndefined();
     });
+  });
+
+  describe('paste with ignoreViewQuery and collapsed groups (v1/v2)', () => {
+    let groupedTable: ITableFullVo;
+
+    beforeEach(async () => {
+      groupedTable = await createTable(baseId, {
+        name: 'ignore-view-query-paste-table',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: 'GroupA', color: Colors.Blue },
+                { name: 'GroupB', color: Colors.Green },
+              ],
+            },
+          },
+        ],
+        records: [
+          { fields: { Name: 'A-01', Status: 'GroupA' } },
+          { fields: { Name: 'A-02', Status: 'GroupA' } },
+          { fields: { Name: 'A-03', Status: 'GroupA' } },
+          { fields: { Name: 'A-04', Status: 'GroupA' } },
+          { fields: { Name: 'A-05', Status: 'GroupA' } },
+          { fields: { Name: 'B-01', Status: 'GroupB' } },
+          { fields: { Name: 'B-02', Status: 'GroupB' } },
+          { fields: { Name: 'B-03', Status: 'GroupB' } },
+          { fields: { Name: 'B-04', Status: 'GroupB' } },
+          { fields: { Name: 'B-05', Status: 'GroupB' } },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, groupedTable.id);
+    });
+
+    it.each(
+      isForceV2
+        ? [{ label: 'v2-forced', useV2: true, v2Header: 'true' }]
+        : [
+            { label: 'v1', useV2: false, v2Header: 'false' },
+            { label: 'v2', useV2: true, v2Header: 'true' },
+          ]
+    )(
+      'should target the correct row in $label when client query overrides view defaults',
+      async ({ useV2, v2Header }) => {
+        const nameField = groupedTable.fields.find((f) => f.name === 'Name')!;
+        const statusField = groupedTable.fields.find((f) => f.name === 'Status')!;
+        const viewId = groupedTable.views[0].id;
+
+        // Deliberately keep a conflicting view default sort; request sort must win when ignoreViewQuery=true.
+        await updateViewSort(groupedTable.id, viewId, {
+          sort: {
+            sortObjs: [{ fieldId: nameField.id, order: SortFunc.Desc }],
+            manualSort: false,
+          },
+        });
+        await updateViewFilter(groupedTable.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: statusField.id,
+                operator: 'is',
+                value: 'GroupA',
+              },
+            ],
+          },
+        });
+
+        const groupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+        const orderBy = [{ fieldId: nameField.id, order: SortFunc.Asc }] as const;
+
+        const groupedResult = await getRecords(groupedTable.id, {
+          viewId,
+          ignoreViewQuery: true,
+          groupBy: [...groupBy],
+          orderBy: [...orderBy],
+          fieldKeyType: FieldKeyType.Id,
+        });
+
+        const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
+          (point) => point.type === 0 && 'id' in point
+        );
+        expect(firstGroupHeader).toBeDefined();
+
+        const collapsedGroupIds = [(firstGroupHeader as { id: string }).id];
+
+        const pasteRes = await pasteWithCanary(
+          groupedTable.id,
+          {
+            viewId,
+            ignoreViewQuery: true,
+            ranges: [
+              [0, 0],
+              [0, 0],
+            ],
+            content: 'Pasted-Target',
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'isAnyOf',
+                  value: ['GroupA', 'GroupB'],
+                },
+              ],
+            },
+            orderBy: [...orderBy],
+            groupBy: [...groupBy],
+            projection: [nameField.id, statusField.id],
+            collapsedGroupIds,
+          },
+          useV2
+        );
+        expect(pasteRes.status).toBe(200);
+        expect(pasteRes.headers['x-teable-v2']).toBe(v2Header);
+
+        const allRecords = await getRecords(groupedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+
+        expect(allRecords.data.records).toHaveLength(10);
+
+        const updated = allRecords.data.records.find((record) => {
+          return record.fields[nameField.id] === 'Pasted-Target';
+        });
+        expect(updated).toBeDefined();
+        expect(updated?.fields[statusField.id]).toBe('GroupB');
+
+        // If collapsed groups are ignored, GroupA rows are usually targeted first.
+        expect(
+          allRecords.data.records.some((record) => record.fields[nameField.id] === 'A-01')
+        ).toBe(true);
+        expect(
+          allRecords.data.records.some((record) => record.fields[nameField.id] === 'B-01')
+        ).toBe(false);
+      }
+    );
   });
 });

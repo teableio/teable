@@ -2,7 +2,8 @@
   "auth": {
     "title": "Bu sayfayı görüntülemek için şifrenizi girin",
     "submit": "Gönder",
-    "password": "Şifre"
+    "password": "Şifre",
+    "passwordTooShort": "Şifre en az 3 karakter olmalıdır"
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Seç..."

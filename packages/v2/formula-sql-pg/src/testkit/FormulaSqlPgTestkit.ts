@@ -78,6 +78,10 @@ export type FormulaTestTable = {
   fieldSnapshotCache: Map<string, Promise<FieldSnapshotValue>>;
 };
 
+type CreateFormulaTestTableOptions = {
+  formulaTimeZone?: string;
+};
+
 const TABLE_ALIAS = 't';
 const FORMULA_TYPE_FIELD_NAME = 'FormulaType';
 const DEFAULT_DATE_FORMATTING = { date: 'YYYY/MM/DD', time: 'HH:mm', timeZone: 'Asia/Shanghai' };
@@ -859,7 +863,8 @@ const createHostRecord = async (
 
 export const createFormulaTestTable = async (
   container: IV2NodeTestContainer,
-  formulaFields: ReadonlyArray<FormulaFieldDefinition>
+  formulaFields: ReadonlyArray<FormulaFieldDefinition>,
+  options?: CreateFormulaTestTableOptions
 ): Promise<FormulaTestTable> => {
   const formulaFieldDefinitions = [...formulaFields];
   if (!formulaFieldDefinitions.some((field) => field.name === FORMULA_TYPE_FIELD_NAME)) {
@@ -887,7 +892,7 @@ export const createFormulaTestTable = async (
     table: host.table,
     tableAlias: TABLE_ALIAS,
     typeValidationStrategy,
-    timeZone: 'utc',
+    timeZone: options?.formulaTimeZone ?? 'utc',
     resolveFieldSql: (field) =>
       field
         .dbFieldName()
