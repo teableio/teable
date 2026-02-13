@@ -80,8 +80,12 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         sort: command.sort,
         group: command.groupBy,
       });
-      const effectiveFilter = mergedDefaults.filter();
-      const effectiveSort = mergedDefaults.sort();
+      const effectiveFilter = command.ignoreViewQuery
+        ? command.filter ?? undefined
+        : mergedDefaults.filter();
+      const effectiveSort = command.ignoreViewQuery
+        ? command.sort ?? undefined
+        : mergedDefaults.sort();
 
       // 3. Build filter spec from effective view filter (if provided)
       let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
@@ -135,7 +139,9 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
 
       // 8. Build orderBy from group + sort for correct row mapping
       // If none provided, fall back to view row order column (__row_{viewId})
-      const effectiveGroup = mergedDefaults.group();
+      const effectiveGroup = command.ignoreViewQuery
+        ? command.groupBy ?? undefined
+        : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
       const orderBy = mergeOrderBy(groupByOrderBy, sortOrderBy, command.viewId.toString());
