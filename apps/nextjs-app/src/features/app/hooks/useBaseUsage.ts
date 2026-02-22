@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getBaseUsage } from '@teable/openapi';
 import { useBaseId } from '@teable/sdk/hooks';
-import { useIsTemplate } from '@teable/sdk/hooks/use-is-template';
+import { useIsReadOnlyPreview } from '@teable/sdk/hooks/use-is-readonly-preview';
 import { useIsCloud } from './useIsCloud';
 import { useIsEE } from './useIsEE';
 
@@ -9,12 +9,12 @@ export const useBaseUsage = (props?: { disabled?: boolean }) => {
   const isEE = useIsEE();
   const isCloud = useIsCloud();
   const baseId = useBaseId() as string;
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
 
   const { data: baseUsage } = useQuery({
     queryKey: ['base-usage', baseId],
     queryFn: ({ queryKey }) => getBaseUsage(queryKey[1]).then(({ data }) => data),
-    enabled: !props?.disabled && (isCloud || isEE) && !isTemplate,
+    enabled: !props?.disabled && (isCloud || isEE) && !isReadOnlyPreview,
   });
 
   return baseUsage;
