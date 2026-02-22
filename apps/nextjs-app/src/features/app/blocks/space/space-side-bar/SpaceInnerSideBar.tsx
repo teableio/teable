@@ -14,6 +14,7 @@ import {
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { ChangelogNotification } from '@/components/changelog';
 import { SpaceInnerTrashModal } from '@/features/app/blocks/trash/SpaceInnerTrashModal';
 import { TemplateModal } from '@/features/app/components/space/template';
 import { TemplateContext } from '@/features/app/components/space/template/context';
@@ -133,6 +134,7 @@ export const SpaceInnerSideBar = (props: {
         <PinList />
       </div>
       {renderWinFreeCredit && renderWinFreeCredit(spaceId)}
+      <ChangelogNotification />
     </>
   );
 };

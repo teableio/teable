@@ -16,7 +16,7 @@ import { EmitControllerEvent } from '../../event-emitter/decorators/emit-control
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
-import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
+import { AllowAnonymous, AllowAnonymousType } from '../auth/decorators/allow-anonymous.decorator';
 import { BaseNodePermissions } from '../auth/decorators/base-node-permissions.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { BaseNodePermissionGuard } from '../auth/guard/base-node-permission.guard';
@@ -26,7 +26,7 @@ import { BaseNodeAction } from './types';
 
 @Controller('api/base/:baseId/node')
 @UseGuards(BaseNodePermissionGuard)
-@AllowAnonymous()
+@AllowAnonymous(AllowAnonymousType.RESOURCE)
 export class BaseNodeController {
   constructor(
     private readonly baseNodeService: BaseNodeService,
@@ -38,13 +38,8 @@ export class BaseNodeController {
   async getList(@Param('baseId') baseId: string): Promise<IBaseNodeVo[]> {
     const permissionContext = await this.getPermissionContext(baseId);
     const nodeList = await this.baseNodeService.getList(baseId);
-    return nodeList.filter((node) =>
-      checkBaseNodePermission(
-        { resourceType: node.resourceType, resourceId: node.resourceId },
-        BaseNodeAction.Read,
-        permissionContext
-      )
-    );
+    const allowedNodeIds = this.getAllowedNodeIds(nodeList, permissionContext.shareNodeId);
+    return nodeList.filter((node) => this.filterNode(node, permissionContext, allowedNodeIds));
   }
 
   @Get('tree')
@@ -52,16 +47,63 @@ export class BaseNodeController {
   async getTree(@Param('baseId') baseId: string): Promise<IBaseNodeTreeVo> {
     const permissionContext = await this.getPermissionContext(baseId);
     const tree = await this.baseNodeService.getTree(baseId);
+    const allowedNodeIds = this.getAllowedNodeIds(tree.nodes, permissionContext.shareNodeId);
     return {
       ...tree,
-      nodes: tree.nodes.filter((node) =>
-        checkBaseNodePermission(
-          { resourceType: node.resourceType, resourceId: node.resourceId },
-          BaseNodeAction.Read,
-          permissionContext
-        )
-      ),
+      nodes: tree.nodes.filter((node) => this.filterNode(node, permissionContext, allowedNodeIds)),
     };
+  }
+
+  private filterNode(
+    node: IBaseNodeVo,
+    permissionContext: { permissionSet: Set<string>; shareNodeId?: string },
+    allowedNodeIds?: Set<string>
+  ): boolean {
+    if (allowedNodeIds && !allowedNodeIds.has(node.id)) {
+      return false;
+    }
+
+    // Then check standard permissions
+    return checkBaseNodePermission(
+      { resourceType: node.resourceType, resourceId: node.resourceId },
+      BaseNodeAction.Read,
+      permissionContext
+    );
+  }
+
+  protected getAllowedNodeIds(nodes: IBaseNodeVo[], shareNodeId?: string) {
+    if (!shareNodeId) {
+      return undefined;
+    }
+    const nodeIds = new Set(nodes.map((node) => node.id));
+    if (!nodeIds.has(shareNodeId)) {
+      return new Set<string>();
+    }
+    const childrenByParent = new Map<string, string[]>();
+    for (const node of nodes) {
+      if (!node.parentId) {
+        continue;
+      }
+      const current = childrenByParent.get(node.parentId) ?? [];
+      current.push(node.id);
+      childrenByParent.set(node.parentId, current);
+    }
+    const allowed = new Set<string>();
+    const queue = [shareNodeId];
+    while (queue.length) {
+      const current = queue.shift();
+      if (!current || allowed.has(current)) {
+        continue;
+      }
+      allowed.add(current);
+      const children = childrenByParent.get(current) ?? [];
+      for (const childId of children) {
+        if (!allowed.has(childId)) {
+          queue.push(childId);
+        }
+      }
+    }
+    return allowed;
   }
 
   @Get(':nodeId')
@@ -145,6 +187,10 @@ export class BaseNodeController {
   protected async getPermissionContext(_baseId: string) {
     const permissions = this.cls.get('permissions');
     const permissionSet = new Set(permissions);
-    return { permissionSet };
+    const baseShare = this.cls.get('baseShare');
+    return {
+      permissionSet,
+      shareNodeId: baseShare?.nodeId,
+    };
   }
 }
