@@ -7939,7 +7939,38 @@ exports[`date functions batch 2 > 'Workday' with 'attachment' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -7957,8 +7988,39 @@ exports[`date functions batch 2 > 'Workday' with 'autoNumber' 1`] = `
       "rawValue": "1",
     },
   },
-  "result": "1970-01-03 00:00:00",
-  "sql": "((to_timestamp(("t"."AutoNumber")::double precision)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "result": "1970-01-05 00:00:00",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((to_timestamp(("t"."AutoNumber")::double precision)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -7977,7 +8039,38 @@ exports[`date functions batch 2 > 'Workday' with 'button' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -7996,7 +8089,38 @@ exports[`date functions batch 2 > 'Workday' with 'checkbox' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_boolean_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_boolean_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_boolean_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8096,7 +8220,36 @@ exports[`date functions batch 2 > 'Workday' with 'conditionalLookup' 1`] = `
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
           WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
           ELSE lkp.elem #>> '{}'
         END
@@ -8141,7 +8294,9 @@ exports[`date functions batch 2 > 'Workday' with 'conditionalLookup' 1`] = `
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8163,7 +8318,38 @@ exports[`date functions batch 2 > 'Workday' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "((to_timestamp(("t"."ConditionalRollupType")::double precision)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((to_timestamp(("t"."ConditionalRollupType")::double precision)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -8182,7 +8368,38 @@ exports[`date functions batch 2 > 'Workday' with 'createdBy' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8205,7 +8422,38 @@ exports[`date functions batch 2 > 'Workday' with 'createdTime' 1`] = `
     },
   },
   "result": "0000-00-00 00:00:00.000",
-  "sql": "((("t"."CreatedTime")::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((("t"."CreatedTime")::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -8227,8 +8475,39 @@ exports[`date functions batch 2 > 'Workday' with 'date' 1`] = `
       "rawValue": "2024-02-03 00:00:00+00",
     },
   },
-  "result": "2024-02-05 00:00:00",
-  "sql": "((("t"."Date")::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "result": "2024-02-06 00:00:00",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((("t"."Date")::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -8249,8 +8528,39 @@ exports[`date functions batch 2 > 'Workday' with 'formula' 1`] = `
       "rawValue": null,
     },
   },
-  "result": "1970-01-03 00:00:00",
-  "sql": "((to_timestamp((10)::double precision)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "result": "1970-01-05 00:00:00",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((to_timestamp((10)::double precision)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -8269,7 +8579,38 @@ exports[`date functions batch 2 > 'Workday' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8292,7 +8633,38 @@ exports[`date functions batch 2 > 'Workday' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "0000-00-00 00:00:00.000",
-  "sql": "((("t"."LastModifiedTime")::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((("t"."LastModifiedTime")::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -8311,7 +8683,38 @@ exports[`date functions batch 2 > 'Workday' with 'link' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8330,12 +8733,43 @@ exports[`date functions batch 2 > 'Workday' with 'longText' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN NULL ELSE (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN NULL ELSE (SELECT (CASE
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN NULL ELSE (SELECT (CASE
         WHEN v.val IS NULL THEN NULL::timestamptz
         WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
         WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
         ELSE NULL::timestamptz
-      END) FROM (SELECT "t"."LongText" AS val) AS v) END)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+      END) FROM (SELECT "t"."LongText" AS val) AS v) END)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8441,7 +8875,36 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
         ELSE to_jsonb((("t"."LookupType")))
       END
     ELSE to_jsonb((("t"."LookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT (SELECT CASE
         WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
         ELSE lkp.elem #>> '{}'
       END
@@ -8486,7 +8949,9 @@ exports[`date functions batch 2 > 'Workday' with 'lookup' 1`] = `
         ELSE to_jsonb((("t"."LookupType")))
       END
     ELSE to_jsonb((("t"."LookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp) AS val) AS v) END)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8505,7 +8970,38 @@ exports[`date functions batch 2 > 'Workday' with 'multipleSelect' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8526,8 +9022,39 @@ exports[`date functions batch 2 > 'Workday' with 'number' 1`] = `
       "rawValue": "10",
     },
   },
-  "result": "1970-01-03 00:00:00",
-  "sql": "((to_timestamp(("t"."Number")::double precision)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "result": "1970-01-05 00:00:00",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((to_timestamp(("t"."Number")::double precision)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -8545,8 +9072,39 @@ exports[`date functions batch 2 > 'Workday' with 'rating' 1`] = `
       "rawValue": "4",
     },
   },
-  "result": "1970-01-03 00:00:00",
-  "sql": "((to_timestamp(("t"."Rating")::double precision)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "result": "1970-01-05 00:00:00",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((to_timestamp(("t"."Rating")::double precision)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -8568,7 +9126,38 @@ exports[`date functions batch 2 > 'Workday' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "((to_timestamp(("t"."RollupType")::double precision)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((to_timestamp(("t"."RollupType")::double precision)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -8587,12 +9176,43 @@ exports[`date functions batch 2 > 'Workday' with 'singleLineText' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN NULL ELSE (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN NULL ELSE (SELECT (CASE
+  "sql": "CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT (((CASE WHEN (SELECT (v.val IS NOT NULL AND NOT (__teable_input_is_valid((v.val)::text, 'timestamptz') OR __teable_input_is_valid((v.val)::text, 'timestamp'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN NULL ELSE (SELECT (CASE
         WHEN v.val IS NULL THEN NULL::timestamptz
         WHEN __teable_input_is_valid((v.val)::text, 'timestamptz') THEN ((v.val)::text)::timestamptz
         WHEN __teable_input_is_valid((v.val)::text, 'timestamp') THEN ((v.val)::text)::timestamp AT TIME ZONE 'UTC'
         ELSE NULL::timestamptz
-      END) FROM (SELECT "t"."SingleLineText" AS val) AS v) END)) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+      END) FROM (SELECT "t"."SingleLineText" AS val) AS v) END)) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8611,7 +9231,38 @@ exports[`date functions batch 2 > 'Workday' with 'singleSelect' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -8630,7 +9281,38 @@ exports[`date functions batch 2 > 'Workday' with 'user' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
-  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE ((NULL::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (2)::double precision END))::text END",
+  "sql": "CASE WHEN TRUE THEN CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:invalid_workday' END ELSE ((CASE WHEN TRUE THEN NULL ELSE (
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ((NULL::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((2)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    ) END))::text END",
 }
 `;
 
@@ -18853,6 +19535,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'autoNumber' 1`] = `
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
   "sql": "CASE WHEN (("t"."AutoNumber")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamp'))) THEN CASE WHEN (("t"."AutoNumber")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (("t"."AutoNumber")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN ("t"."AutoNumber")::text IS NULL THEN NULL
+      WHEN __teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamp') AND ((BTRIM(("t"."AutoNumber")::text::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM(("t"."AutoNumber")::text::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN (("t"."AutoNumber")::text::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamptz') THEN (("t"."AutoNumber")::text)::timestamptz
       WHEN __teable_input_is_valid(("t"."AutoNumber")::text::text, 'timestamp') THEN (("t"."AutoNumber")::text::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL
@@ -18896,6 +19579,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'checkbox' 1`] = `
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
   "sql": "CASE WHEN (("t"."Checkbox")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamp'))) THEN CASE WHEN (("t"."Checkbox")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (("t"."Checkbox")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN ("t"."Checkbox")::text IS NULL THEN NULL
+      WHEN __teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamp') AND ((BTRIM(("t"."Checkbox")::text::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM(("t"."Checkbox")::text::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN (("t"."Checkbox")::text::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamptz') THEN (("t"."Checkbox")::text)::timestamptz
       WHEN __teable_input_is_valid(("t"."Checkbox")::text::text, 'timestamp') THEN (("t"."Checkbox")::text::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL
@@ -19174,6 +19858,99 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalLookup' 1`] =
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+  )::text, 'timestamp') AND ((BTRIM((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+  )::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+  )::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN ((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+  )::text)::timestamp AT TIME ZONE 'UTC'
+      WHEN __teable_input_is_valid((
+    SELECT string_agg((CASE
+    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
+    WHEN jsonb_typeof(elem) = 'array' THEN NULL
+    ELSE elem #>> '{}'
+  END), ', ' ORDER BY ord)
+    FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
   )::text, 'timestamptz') THEN ((
     SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -19270,6 +20047,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'conditionalRollup' 1`] =
   "result": null,
   "sql": "CASE WHEN (trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamp'))) THEN CASE WHEN (trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) IS NULL THEN NULL
+      WHEN __teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamp') AND ((BTRIM(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN (trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamptz') THEN (trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')))::timestamptz
       WHEN __teable_input_is_valid(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text, 'timestamp') THEN (trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00'))::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL
@@ -19362,6 +20140,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'formula' 1`] = `
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
   "sql": "CASE WHEN (trim(to_char((10)::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamp'))) THEN CASE WHEN (trim(to_char((10)::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (trim(to_char((10)::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN trim(to_char((10)::numeric, '999999990D00')) IS NULL THEN NULL
+      WHEN __teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamp') AND ((BTRIM(trim(to_char((10)::numeric, '999999990D00'))::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM(trim(to_char((10)::numeric, '999999990D00'))::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN (trim(to_char((10)::numeric, '999999990D00'))::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamptz') THEN (trim(to_char((10)::numeric, '999999990D00')))::timestamptz
       WHEN __teable_input_is_valid(trim(to_char((10)::numeric, '999999990D00'))::text, 'timestamp') THEN (trim(to_char((10)::numeric, '999999990D00'))::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL
@@ -19447,6 +20226,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'longText' 1`] = `
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
   "sql": "CASE WHEN ("t"."LongText" IS NOT NULL AND NOT (__teable_input_is_valid("t"."LongText"::text, 'timestamptz') OR __teable_input_is_valid("t"."LongText"::text, 'timestamp'))) THEN CASE WHEN ("t"."LongText" IS NOT NULL AND NOT (__teable_input_is_valid("t"."LongText"::text, 'timestamptz') OR __teable_input_is_valid("t"."LongText"::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN ("t"."LongText" IS NOT NULL AND NOT (__teable_input_is_valid("t"."LongText"::text, 'timestamptz') OR __teable_input_is_valid("t"."LongText"::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN "t"."LongText" IS NULL THEN NULL
+      WHEN __teable_input_is_valid("t"."LongText"::text, 'timestamp') AND ((BTRIM("t"."LongText"::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM("t"."LongText"::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN ("t"."LongText"::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid("t"."LongText"::text, 'timestamptz') THEN ("t"."LongText")::timestamptz
       WHEN __teable_input_is_valid("t"."LongText"::text, 'timestamp') THEN ("t"."LongText"::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL
@@ -19687,6 +20467,83 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    )::text, 'timestamp') AND ((BTRIM((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    )::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    )::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN ((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
+    )::text)::timestamp AT TIME ZONE 'UTC'
+      WHEN __teable_input_is_valid((
+      SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."LookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."LookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."LookupType")))::text, 'jsonb') THEN (((("t"."LookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."LookupType")))
+      END
+    ELSE to_jsonb((("t"."LookupType")))
+  END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
     )::text, 'timestamptz') THEN ((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
@@ -19790,6 +20647,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'number' 1`] = `
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
   "sql": "CASE WHEN (trim(to_char(("t"."Number")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamp'))) THEN CASE WHEN (trim(to_char(("t"."Number")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (trim(to_char(("t"."Number")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN trim(to_char(("t"."Number")::numeric, '999999990D00')) IS NULL THEN NULL
+      WHEN __teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamp') AND ((BTRIM(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN (trim(to_char(("t"."Number")::numeric, '999999990D00'))::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamptz') THEN (trim(to_char(("t"."Number")::numeric, '999999990D00')))::timestamptz
       WHEN __teable_input_is_valid(trim(to_char(("t"."Number")::numeric, '999999990D00'))::text, 'timestamp') THEN (trim(to_char(("t"."Number")::numeric, '999999990D00'))::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL
@@ -19814,6 +20672,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'rating' 1`] = `
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
   "sql": "CASE WHEN (("t"."Rating")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."Rating")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."Rating")::text::text, 'timestamp'))) THEN CASE WHEN (("t"."Rating")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."Rating")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."Rating")::text::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (("t"."Rating")::text IS NOT NULL AND NOT (__teable_input_is_valid(("t"."Rating")::text::text, 'timestamptz') OR __teable_input_is_valid(("t"."Rating")::text::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN ("t"."Rating")::text IS NULL THEN NULL
+      WHEN __teable_input_is_valid(("t"."Rating")::text::text, 'timestamp') AND ((BTRIM(("t"."Rating")::text::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM(("t"."Rating")::text::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN (("t"."Rating")::text::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid(("t"."Rating")::text::text, 'timestamptz') THEN (("t"."Rating")::text)::timestamptz
       WHEN __teable_input_is_valid(("t"."Rating")::text::text, 'timestamp') THEN (("t"."Rating")::text::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL
@@ -19841,6 +20700,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'rollup' 1`] = `
   "result": null,
   "sql": "CASE WHEN (trim(to_char(("t"."RollupType")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamp'))) THEN CASE WHEN (trim(to_char(("t"."RollupType")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN (trim(to_char(("t"."RollupType")::numeric, '999999990D00')) IS NOT NULL AND NOT (__teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamptz') OR __teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN trim(to_char(("t"."RollupType")::numeric, '999999990D00')) IS NULL THEN NULL
+      WHEN __teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamp') AND ((BTRIM(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN (trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamptz') THEN (trim(to_char(("t"."RollupType")::numeric, '999999990D00')))::timestamptz
       WHEN __teable_input_is_valid(trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text, 'timestamp') THEN (trim(to_char(("t"."RollupType")::numeric, '999999990D00'))::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL
@@ -19865,6 +20725,7 @@ exports[`date functions batch 4 > 'DatetimeParse' with 'singleLineText' 1`] = `
   "result": "#ERROR:TYPE:cannot_cast_to_datetime",
   "sql": "CASE WHEN ("t"."SingleLineText" IS NOT NULL AND NOT (__teable_input_is_valid("t"."SingleLineText"::text, 'timestamptz') OR __teable_input_is_valid("t"."SingleLineText"::text, 'timestamp'))) THEN CASE WHEN ("t"."SingleLineText" IS NOT NULL AND NOT (__teable_input_is_valid("t"."SingleLineText"::text, 'timestamptz') OR __teable_input_is_valid("t"."SingleLineText"::text, 'timestamp'))) THEN '#ERROR:TYPE:cannot_cast_to_datetime' ELSE '#ERROR:TYPE:cannot_cast_to_datetime' END ELSE ((CASE WHEN ("t"."SingleLineText" IS NOT NULL AND NOT (__teable_input_is_valid("t"."SingleLineText"::text, 'timestamptz') OR __teable_input_is_valid("t"."SingleLineText"::text, 'timestamp'))) THEN NULL ELSE (CASE
       WHEN "t"."SingleLineText" IS NULL THEN NULL
+      WHEN __teable_input_is_valid("t"."SingleLineText"::text, 'timestamp') AND ((BTRIM("t"."SingleLineText"::text) ~ '[ T][0-9]{1,2}:[0-9]{2}') AND NOT (BTRIM("t"."SingleLineText"::text) ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')) THEN ("t"."SingleLineText"::text)::timestamp AT TIME ZONE 'UTC'
       WHEN __teable_input_is_valid("t"."SingleLineText"::text, 'timestamptz') THEN ("t"."SingleLineText")::timestamptz
       WHEN __teable_input_is_valid("t"."SingleLineText"::text, 'timestamp') THEN ("t"."SingleLineText"::text)::timestamp AT TIME ZONE 'UTC'
       ELSE NULL

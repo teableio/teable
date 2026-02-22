@@ -192,6 +192,7 @@ export class SpaceController {
   }
 
   @Patch(':spaceId/collaborators')
+  @Permissions('space|read')
   async updateCollaborator(
     @Param('spaceId') spaceId: string,
     @Body(new ZodValidationPipe(updateSpaceCollaborateRoSchema))
@@ -222,6 +223,7 @@ export class SpaceController {
   }
 
   @Delete(':spaceId/collaborators')
+  @Permissions('space|read')
   async deleteCollaborator(
     @Param('spaceId') spaceId: string,
     @Query(new ZodValidationPipe(deleteSpaceCollaboratorRoSchema))
@@ -257,6 +259,7 @@ export class SpaceController {
     return { spaceId, permanent: true };
   }
 
+  @Permissions('space|read')
   @Post(':spaceId/collaborator')
   async addCollaborators(
     @Param('spaceId') spaceId: string,

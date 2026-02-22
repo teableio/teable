@@ -39,6 +39,10 @@ export class TablePermissionService {
     if (this.cls.get('template')) {
       return this.getTablePermissionMapByPermissions(baseId, TemplateRolePermission, tableIds);
     }
+    // Handle base share access - use same read-only permissions as template
+    if (this.cls.get('baseShare')) {
+      return this.getTablePermissionMapByPermissions(baseId, TemplateRolePermission, tableIds);
+    }
     const userId = this.cls.get('user.id');
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     const base = await this.prismaService
