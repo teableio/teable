@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { getUserLastVisitMap, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useTables } from '@teable/sdk/hooks';
-import { useIsTemplate } from '@teable/sdk/hooks/use-is-template';
+import { useIsReadOnlyPreview } from '@teable/sdk/hooks/use-is-readonly-preview';
 import { useMemo } from 'react';
+import { useShareUrlPrefix } from '../../context/ShareContext';
 
 export const useTableHref = (): {
   hrefMap: Record<string, string>;
@@ -11,7 +12,8 @@ export const useTableHref = (): {
 } => {
   const baseId = useBaseId();
   const tables = useTables();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
+  const shareUrlPrefix = useShareUrlPrefix();
   const { data: userLastVisitMap } = useQuery({
     queryKey: ReactQueryKeys.userLastVisitMap(baseId as string),
     queryFn: ({ queryKey }) =>
@@ -19,7 +21,7 @@ export const useTableHref = (): {
         resourceType: LastVisitResourceType.Table,
         parentResourceId: queryKey[1],
       }).then((res) => res.data),
-    enabled: !isTemplate,
+    enabled: !isReadOnlyPreview && !shareUrlPrefix,
   });
 
   return useMemo(() => {
@@ -28,8 +30,9 @@ export const useTableHref = (): {
     tables.forEach((table) => {
       const viewId = userLastVisitMap?.[table.id]?.resourceId || table.defaultViewId;
       viewIdMap[table.id] = viewId;
-      hrefMap[table.id] = `/base/${baseId}/table/${table.id}/${viewId}`;
+      // Add share URL prefix if present
+      hrefMap[table.id] = `${shareUrlPrefix}/base/${baseId}/table/${table.id}/${viewId}`;
     });
     return { hrefMap, viewIdMap };
-  }, [baseId, tables, userLastVisitMap]);
+  }, [baseId, tables, userLastVisitMap, shareUrlPrefix]);
 };

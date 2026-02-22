@@ -4,13 +4,13 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import type { Table } from '../../domain/table/Table';
 import type { RecordCreateSource } from '../../domain/table/events/RecordFieldValuesDTO';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
+import type { Table } from '../../domain/table/Table';
 import * as EventBusPort from '../../ports/EventBus';
-import * as ExecutionContextPort from '../../ports/ExecutionContext';
+import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { IRecordCreateConstraintService } from '../../ports/RecordCreateConstraintService';
 import type { RecordMutationResult } from '../../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../../ports/TableRecordRepository';
