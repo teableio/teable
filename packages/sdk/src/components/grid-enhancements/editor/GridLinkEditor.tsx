@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
 import type { ILinkCellValue } from '@teable/core';
 import type { FC } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { type LinkField } from '../../../model';
 import type { ILinkEditorMainRef } from '../../editor/link/EditorMain';
@@ -14,6 +14,7 @@ import type { IWrapperEditorProps } from './type';
 
 const POPOVER_HEIGHT = 520;
 const POPOVER_WIDTH = 800;
+const POPOVER_MIN_WIDTH = 320;
 const SAFE_SPACING = 16;
 
 export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) => {
@@ -27,37 +28,44 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
   const containerRef = useRef<HTMLDivElement>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
   const [expandRecordId, setExpandRecordId] = useState<string>();
-  const initialRectRef = useRef(rect);
-  const editingSessionRef = useRef(false);
 
-  useEffect(() => {
-    if (isEditing && !editingSessionRef.current) {
-      initialRectRef.current = rect;
-      editingSessionRef.current = true;
-    }
-    if (!isEditing) {
-      editingSessionRef.current = false;
-    }
-  }, [isEditing, rect]);
+  const attachStyle = useGridPopupPosition(rect, POPOVER_HEIGHT);
 
-  const attachStyle = useGridPopupPosition(initialRectRef.current, POPOVER_HEIGHT);
-
-  // Calculate horizontal position to avoid overflow
-  const horizontalOffset = useMemo(() => {
+  // Calculate horizontal position and width to avoid overflow
+  const popupLayout = useMemo(() => {
     const { editorId } = rect;
     const editorElement = document.querySelector('#' + editorId);
     const gridElement = editorElement?.closest(`[${GRID_CONTAINER_ATTR}]`);
     const gridBound = gridElement?.getBoundingClientRect();
 
-    if (gridBound == null) return 0;
-
-    const gridRight = gridBound.right;
-    const popoverRight = gridBound.left + rect.x + POPOVER_WIDTH;
-
-    if (popoverRight > gridRight - SAFE_SPACING) {
-      return gridRight - SAFE_SPACING - popoverRight;
+    if (gridBound == null) {
+      return {
+        marginLeft: 0,
+        width: POPOVER_WIDTH,
+      };
     }
-    return 0;
+
+    const anchorLeft = gridBound.left + rect.x;
+    const visibleLeft = gridBound.left + SAFE_SPACING;
+    const visibleRight = gridBound.right - SAFE_SPACING;
+    const maxWidth = Math.max(0, visibleRight - visibleLeft);
+    const width =
+      maxWidth >= POPOVER_MIN_WIDTH
+        ? Math.max(POPOVER_MIN_WIDTH, Math.min(POPOVER_WIDTH, maxWidth))
+        : Math.max(1, Math.min(maxWidth, POPOVER_WIDTH));
+
+    let left = anchorLeft;
+    if (left + width > visibleRight) {
+      left = visibleRight - width;
+    }
+    if (left < visibleLeft) {
+      left = visibleLeft;
+    }
+
+    return {
+      marginLeft: left - anchorLeft,
+      width,
+    };
   }, [rect]);
 
   const onChange = (value: ILinkCellValue | ILinkCellValue[] | null) => {
@@ -87,9 +95,10 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
         ...style,
         ...attachStyle,
         height,
-        marginLeft: horizontalOffset,
+        width: popupLayout.width,
+        marginLeft: popupLayout.marginLeft,
       }}
-      className="absolute flex w-[800px] flex-col gap-2 rounded-md border bg-popover p-4 shadow-md"
+      className="absolute flex flex-col gap-2 rounded-md border bg-popover p-4 shadow-md"
       onMouseDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >

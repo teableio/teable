@@ -113,7 +113,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Le champ de recherche est requis",
       "lookupOptionsNotAllowed": "Les options de recherche ne sont pas autorisées lorsque l'attribut isLookup est vrai ou que le type de champ est rollup.",
-      "lookupOptionsRequired": "Les options de recherche sont requises lorsque l'attribut isLookup est vrai ou que le type de champ est rollup.",
+      "lookupOptionsRequired": "Les options de recherche sont requises",
       "refineOptionsError": "Erreur lors de l'analyse des options de recherche {{message}}"
     },
     "rollup": {
@@ -1059,6 +1059,11 @@
       "shareViewNotFound": "Vue partagée introuvable ou le partage est désactivé",
       "linkFieldNotFound": "Champ de liaison introuvable"
     },
+    "baseShare": {
+      "notFound": "Partage de base introuvable ou le partage est désactivé",
+      "alreadyExists": "Un partage existe déjà pour ce nœud",
+      "copyNotAllowed": "Ce partage ne permet pas la copie"
+    },
     "shareSocket": {
       "viewPermissionNotAllowed": "Vous n'avez pas la permission d'accéder à cette vue",
       "fieldPermissionNotAllowed": "Vous n'avez pas la permission d'accéder à ces champs",
@@ -1175,6 +1180,14 @@
       "notAttachment": "Le champ n'est pas un champ de pièce jointe",
       "isComputed": "Le champ est calculé et ne peut pas être modifié",
       "notFoundAICofig": "Le champ n'a pas de configuration IA",
+      "foreignTableIdRequired": "La table externe est requise",
+      "lookupFieldIdRequired": "Le champ de recherche est requis",
+      "lookupFieldNotExist": "Le champ de recherche {{lookupFieldId}} n'existe pas",
+      "lookupFieldNotBelongToTable": "Le champ de recherche {{lookupFieldId}} n'appartient pas à la table {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "Le type de champ actuel {{fieldType}} ne correspond pas au type de champ de recherche {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "Les options du champ de résumé conditionnel sont requises",
+      "conditionalRollupParseError": "Erreur d'analyse du résumé conditionnel : {{message}}",
+      "conditionalLookupOptionsRequired": "Les options du champ de recherche conditionnelle sont requises",
       "button": {
         "clickCountReachedMaxCount": "Le nombre de clics sur le bouton a atteint la limite maximale",
         "notSupportReset": "Le champ de bouton ne prend pas en charge la réinitialisation"

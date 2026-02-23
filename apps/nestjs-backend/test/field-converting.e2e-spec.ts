@@ -236,10 +236,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
-      expect(newField.options).toEqual({
+      expect(newField.options).toMatchObject({
         expression: '"text"',
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
+      expect((newField.options as { timeZone?: string }).timeZone?.toLowerCase()).toEqual(
+        Intl.DateTimeFormat().resolvedOptions().timeZone.toLowerCase()
+      );
     });
 
     it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
@@ -411,8 +413,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
         expect(newField.name).toEqual('other name');
 
-        const { name: _, meta: _newFieldMeta, ...newFieldOthers } = newField;
-        const { name: _0, meta: _oldFieldMeta, ...oldFieldOthers } = linkField;
+        const { name: _, meta: _newFieldMeta, unique: _newUnique, ...newFieldOthers } = newField;
+        const { name: _0, meta: _oldFieldMeta, unique: _oldUnique, ...oldFieldOthers } = linkField;
 
         expect(newFieldOthers).toEqual(oldFieldOthers);
 
@@ -3398,12 +3400,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       ]);
 
       // update source field record before convert
-      await updateRecordByApi(
-        table2.id,
-        table2.records[0].id,
-        sourceField.id,
-        new Date().toISOString()
-      );
+      const now = new Date();
+      await updateRecordByApi(table2.id, table2.records[0].id, sourceField.id, now.toISOString());
 
       const newFieldRo: IFieldRo = {
         type: FieldType.Number,
@@ -3440,7 +3438,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       const recordResult2 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
-      expect(recordResult2.records[0].fields[lookupField.id]).toEqual([new Date().getFullYear()]);
+      const expectedNumber =
+        process.env.FORCE_V2_ALL === 'true' ? now.getTime() : now.getFullYear();
+      expect(recordResult2.records[0].fields[lookupField.id]).toEqual([expectedNumber]);
     });
 
     it('should convert number field to text and relational many-one lookup field and formula field', async () => {

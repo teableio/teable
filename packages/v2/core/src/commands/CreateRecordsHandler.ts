@@ -18,7 +18,7 @@ import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
+import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
 import type { BatchRecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -158,22 +158,30 @@ export class CreateRecordsHandler
       const mutationResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
-          return safeTry<BatchRecordMutationResult, DomainError>(async function* () {
+          return safeTry<
+            {
+              mutation: BatchRecordMutationResult;
+              tableEvents: ReadonlyArray<IDomainEvent>;
+            },
+            DomainError
+          >(async function* () {
+            let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
-              yield* await handler.tableUpdateFlow.execute(
+              const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
                 transactionContext,
                 { table },
                 () => ok(tableUpdateResult),
                 { publishEvents: false }
               );
+              tableEvents = tableFlowResult.events;
             }
-            const result = yield* await handler.tableRecordRepository.insertMany(
+            const mutation = yield* await handler.tableRecordRepository.insertMany(
               transactionContext,
               tableForCreate,
               records,
               command.order ? { order: command.order } : undefined
             );
-            return ok(result);
+            return ok({ mutation, tableEvents });
           });
         }
       );
@@ -203,7 +211,7 @@ export class CreateRecordsHandler
           records: recordCreatedEvents.map((e) => ({
             recordId: e.recordId.toString(),
             fields: e.fieldValues,
-            orders: mutationResult.recordOrders?.get(e.recordId.toString()),
+            orders: mutationResult.mutation.recordOrders?.get(e.recordId.toString()),
           })),
           source,
         });
@@ -213,7 +221,8 @@ export class CreateRecordsHandler
         events = rawEvents;
       }
 
-      yield* await handler.eventBus.publishMany(context, events);
+      const mergedEvents = [...mutationResult.tableEvents, ...events];
+      yield* await handler.eventBus.publishMany(context, mergedEvents);
 
       const recordSnapshots = records.map((record) => {
         const fields: Record<string, unknown> = {};
@@ -248,9 +257,9 @@ export class CreateRecordsHandler
       return ok(
         CreateRecordsResult.create(
           records,
-          events,
+          mergedEvents,
           extendedFieldKeyMapping,
-          mutationResult.computedChangesByRecord
+          mutationResult.mutation.computedChangesByRecord
         )
       );
     });
