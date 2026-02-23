@@ -759,7 +759,12 @@ export class TableOpenApiService {
   }
 
   async getPermission(baseId: string, tableId: string): Promise<ITablePermissionVo> {
-    if (this.cls.get('template') || this.cls.get('template.baseId') === baseId) {
+    const baseShare = this.cls.get('baseShare');
+    if (
+      this.cls.get('template') ||
+      this.cls.get('template.baseId') === baseId ||
+      baseShare?.baseId === baseId
+    ) {
       return this.getPermissionByPermissionMap(
         TemplateRolePermission as Record<BasePermission, boolean>
       );
