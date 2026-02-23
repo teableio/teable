@@ -11,6 +11,7 @@ import {
   createFieldOkResponseSchema,
   createTableOkResponseSchema,
   deleteFieldOkResponseSchema,
+  updateFieldOkResponseSchema,
   pasteOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
@@ -431,6 +432,245 @@ describe('v2 realtime sharedb (e2e)', () => {
     expect(snapshot.id).toBe(fieldId);
     expect(snapshot.name).toBe('Status');
     expect(snapshot.type).toBe('singleLineText');
+  });
+
+  it('publishes field updates to ShareDB over websocket', async () => {
+    const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime Field Update',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      } satisfies ICreateTableCommandInput),
+    });
+
+    expect(createTableResponse.status).toBe(201);
+
+    const createTableRaw = await createTableResponse.json();
+    const createTableParsed = createTableOkResponseSchema.safeParse(createTableRaw);
+    expect(createTableParsed.success).toBe(true);
+    if (!createTableParsed.success || !createTableParsed.data.ok) return;
+
+    const tableId = createTableParsed.data.data.table.id;
+    const fieldId = createFieldId();
+
+    const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId,
+        field: {
+          type: 'singleLineText',
+          id: fieldId,
+          name: 'Amount Text',
+        },
+      }),
+    });
+
+    expect(createFieldResponse.status).toBe(200);
+
+    const createFieldRaw = await createFieldResponse.json();
+    const createFieldParsed = createFieldOkResponseSchema.safeParse(createFieldRaw);
+    expect(createFieldParsed.success).toBe(true);
+    if (!createFieldParsed.success || !createFieldParsed.data.ok) return;
+
+    const collection = `fld_${tableId}`;
+    const beforeUpdate = await fetchShareDbDoc<ITableFieldPersistenceDTO>({
+      url: shareDbUrl,
+      collection,
+      docId: fieldId,
+    });
+    expect(beforeUpdate.type).toBe('singleLineText');
+
+    const updateResponse = await fetch(`${baseUrl}/tables/updateField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId,
+        fieldId,
+        field: {
+          type: 'number',
+        },
+      }),
+    });
+
+    expect(updateResponse.status).toBe(200);
+    const updateRaw = await updateResponse.json();
+    const updateParsed = updateFieldOkResponseSchema.safeParse(updateRaw);
+    expect(updateParsed.success).toBe(true);
+    if (!updateParsed.success || !updateParsed.data.ok) return;
+
+    const afterUpdate = await fetchShareDbDoc<ITableFieldPersistenceDTO>({
+      url: shareDbUrl,
+      collection,
+      docId: fieldId,
+    });
+    expect(afterUpdate.type).toBe('number');
+  });
+
+  it('emits sequential conversion ops and increments field doc version', async () => {
+    const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime Field Conversion Version',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      } satisfies ICreateTableCommandInput),
+    });
+
+    expect(createTableResponse.status).toBe(201);
+    const createTableRaw = await createTableResponse.json();
+    const createTableParsed = createTableOkResponseSchema.safeParse(createTableRaw);
+    expect(createTableParsed.success).toBe(true);
+    if (!createTableParsed.success || !createTableParsed.data.ok) return;
+
+    const tableId = createTableParsed.data.data.table.id;
+    const fieldId = createFieldId();
+
+    const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId,
+        field: {
+          type: 'singleLineText',
+          id: fieldId,
+          name: 'Convertible',
+        },
+      }),
+    });
+
+    expect(createFieldResponse.status).toBe(200);
+    const createFieldRaw = await createFieldResponse.json();
+    const createFieldParsed = createFieldOkResponseSchema.safeParse(createFieldRaw);
+    expect(createFieldParsed.success).toBe(true);
+    if (!createFieldParsed.success || !createFieldParsed.data.ok) return;
+
+    const socket = new WebSocket(shareDbUrl);
+    const connection = new Connection(socket as Socket);
+    const doc = connection.get(`fld_${tableId}`, fieldId) as Doc<ITableFieldPersistenceDTO>;
+
+    const subscribeResult = await new Promise<Error | undefined>((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve(new Error('ShareDB field doc subscribe timed out'));
+      }, 5000);
+
+      doc.subscribe((error) => {
+        clearTimeout(timeout);
+        if (error) {
+          resolve(new Error(error.message));
+          return;
+        }
+        resolve(undefined);
+      });
+    });
+
+    expect(subscribeResult).toBeUndefined();
+    if (subscribeResult) {
+      doc.destroy();
+      connection.close();
+      return;
+    }
+
+    const getDocVersion = (): number => {
+      const version = doc.version;
+      if (version == null) {
+        throw new Error('ShareDB doc version is null');
+      }
+      return Number(version);
+    };
+
+    const initialVersion = getDocVersion();
+    expect(initialVersion).toBeGreaterThan(0);
+
+    const waitForTypeOp = async (
+      expectedType: string
+    ): Promise<ReadonlyArray<Record<string, unknown>>> => {
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          doc.removeListener('op', onOp);
+          reject(new Error(`ShareDB type op timed out: ${expectedType}`));
+        }, 5000);
+
+        const onOp = (ops: ReadonlyArray<Record<string, unknown>>, source: boolean) => {
+          if (source) return;
+          const matched = ops.some((op) => {
+            const path = op.p;
+            return (
+              Array.isArray(path) &&
+              path.length === 1 &&
+              path[0] === 'type' &&
+              op.oi === expectedType
+            );
+          });
+          if (!matched) return;
+
+          clearTimeout(timeout);
+          doc.removeListener('op', onOp);
+          resolve(ops);
+        };
+
+        doc.on('op', onOp);
+      });
+    };
+
+    try {
+      const firstOpPromise = waitForTypeOp('number');
+      const firstUpdateResponse = await fetch(`${baseUrl}/tables/updateField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId,
+          fieldId,
+          field: { type: 'number' },
+        }),
+      });
+      expect(firstUpdateResponse.status).toBe(200);
+      const firstUpdateRaw = await firstUpdateResponse.json();
+      const firstUpdateParsed = updateFieldOkResponseSchema.safeParse(firstUpdateRaw);
+      expect(firstUpdateParsed.success).toBe(true);
+      if (!firstUpdateParsed.success || !firstUpdateParsed.data.ok) return;
+
+      const firstOps = await firstOpPromise;
+      expect(
+        firstOps.some((op) => Array.isArray(op.p) && op.p[0] === 'type' && op.oi === 'number')
+      ).toBe(true);
+      const firstVersion = getDocVersion();
+      expect(firstVersion).toBe(initialVersion + 1);
+
+      const secondOpPromise = waitForTypeOp('singleLineText');
+      const secondUpdateResponse = await fetch(`${baseUrl}/tables/updateField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId,
+          fieldId,
+          field: { type: 'singleLineText' },
+        }),
+      });
+      expect(secondUpdateResponse.status).toBe(200);
+      const secondUpdateRaw = await secondUpdateResponse.json();
+      const secondUpdateParsed = updateFieldOkResponseSchema.safeParse(secondUpdateRaw);
+      expect(secondUpdateParsed.success).toBe(true);
+      if (!secondUpdateParsed.success || !secondUpdateParsed.data.ok) return;
+
+      const secondOps = await secondOpPromise;
+      expect(
+        secondOps.some(
+          (op) => Array.isArray(op.p) && op.p[0] === 'type' && op.oi === 'singleLineText'
+        )
+      ).toBe(true);
+      const secondVersion = getDocVersion();
+      expect(secondVersion).toBe(firstVersion + 1);
+    } finally {
+      doc.destroy();
+      connection.close();
+      socket.close();
+    }
   });
 
   it('removes initial fields from ShareDB queries on delete', async () => {

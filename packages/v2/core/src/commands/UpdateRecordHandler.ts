@@ -134,22 +134,30 @@ export class UpdateRecordHandler
       const mutationResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
-          return safeTry<RecordMutationResult, DomainError>(async function* () {
+          return safeTry<
+            {
+              mutation: RecordMutationResult;
+              tableEvents: ReadonlyArray<IDomainEvent>;
+            },
+            DomainError
+          >(async function* () {
+            let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
-              yield* await handler.tableUpdateFlow.execute(
+              const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
                 transactionContext,
                 { table },
                 () => ok(tableUpdateResult),
                 { publishEvents: false }
               );
+              tableEvents = tableFlowResult.events;
             }
-            const result = yield* await handler.tableRecordRepository.updateOne(
+            const mutation = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
               tableForUpdate,
               command.recordId,
               mutateSpec
             );
-            return ok(result);
+            return ok({ mutation, tableEvents });
           });
         }
       );
@@ -180,6 +188,7 @@ export class UpdateRecordHandler
       const oldVersion = currentRecord.version;
       const newVersion = oldVersion + 1;
       const events: IDomainEvent[] = [
+        ...mutationResult.tableEvents,
         RecordUpdated.create({
           tableId: table.id(),
           baseId: table.baseId(),
@@ -213,7 +222,7 @@ export class UpdateRecordHandler
           updatedRecord,
           events,
           extendedFieldKeyMapping,
-          mutationResult.computedChanges
+          mutationResult.mutation.computedChanges
         )
       );
     });

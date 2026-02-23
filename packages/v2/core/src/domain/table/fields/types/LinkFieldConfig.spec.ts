@@ -170,6 +170,7 @@ describe('LinkFieldConfig', () => {
       lookupFieldId: `fld${'b'.repeat(16)}`,
       filterByViewId: null,
       visibleFieldIds: null,
+      filter: null,
     });
     configResult._unsafeUnwrap();
 
@@ -177,6 +178,7 @@ describe('LinkFieldConfig', () => {
     expect(config.hasDbConfig()).toBe(false);
     expect(config.visibleFieldIds()).toBeNull();
     expect(config.filterByViewId()).toBeNull();
+    expect(config.filter()).toBeNull();
 
     const withIdsResult = LinkFieldConfig.create({
       relationship: 'manyOne',
@@ -184,12 +186,20 @@ describe('LinkFieldConfig', () => {
       lookupFieldId: `fld${'d'.repeat(16)}`,
       filterByViewId: `viw${'e'.repeat(16)}`,
       visibleFieldIds: [`fld${'d'.repeat(16)}`],
+      filter: {
+        conjunction: 'and',
+        filterSet: [{ fieldId: `fld${'d'.repeat(16)}`, operator: 'is', value: 'x' }],
+      },
     });
     withIdsResult._unsafeUnwrap();
 
     const withIds = withIdsResult._unsafeUnwrap();
     expect(withIds.visibleFieldIds()?.length).toBe(1);
     expect(withIds.filterByViewId()?.toString()).toBe(`viw${'e'.repeat(16)}`);
+    expect(withIds.filter()).toEqual({
+      conjunction: 'and',
+      filterSet: [{ fieldId: `fld${'d'.repeat(16)}`, operator: 'is', value: 'x' }],
+    });
   });
 
   it('rejects mismatched db config updates', () => {
@@ -272,5 +282,27 @@ describe('LinkFieldConfig', () => {
     const configB = configBResult._unsafeUnwrap();
     expect(configA.equals(configA)).toBe(true);
     expect(configA.equals(configB)).toBe(false);
+  });
+
+  it('preserves filter via value object semantics', () => {
+    const filter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: `fld${'z'.repeat(16)}`, operator: 'is', value: 'x' }],
+    };
+    const config = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: `tbl${'y'.repeat(16)}`,
+      lookupFieldId: `fld${'x'.repeat(16)}`,
+      fkHostTableName: 'schema.filter',
+      selfKeyName: '__id',
+      foreignKeyName: `__fk_fld${'x'.repeat(16)}`,
+      filter,
+    })._unsafeUnwrap();
+
+    expect(config.filter()).toEqual(filter);
+    expect(config.toDto()._unsafeUnwrap().filter).toEqual(filter);
+
+    const fromDto = LinkFieldConfig.create(config.toDto()._unsafeUnwrap())._unsafeUnwrap();
+    expect(fromDto.equals(config)).toBe(true);
   });
 });

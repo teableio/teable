@@ -6,7 +6,7 @@ import {
 } from '@teable/v2-table-templates';
 import { Bench } from 'tinybench';
 
-import type { IBunBenchTarget } from './bench-context';
+import type { IBunBenchTarget, IBunBenchTargetsContext } from './bench-context';
 import { createBunBenchTargets } from './bench-context';
 
 const benchOptions = {
@@ -22,8 +22,11 @@ const createTableName = (framework: string, scenario: string): string => {
   return `Bench_Bun_Get_${framework}_${scenario}_${Date.now()}_${random}`;
 };
 
-export const runGetTableByIdBench = async (): Promise<void> => {
-  const context = await createBunBenchTargets();
+export const runGetTableByIdBench = async (
+  sharedContext?: IBunBenchTargetsContext
+): Promise<void> => {
+  const context = sharedContext ?? (await createBunBenchTargets());
+  const ownsContext = !sharedContext;
 
   try {
     if (context.targets.length === 0) {
@@ -90,6 +93,8 @@ export const runGetTableByIdBench = async (): Promise<void> => {
     await runScenario('200 columns', 'columns200');
     await runScenario('1000 columns', 'columns1000');
   } finally {
-    await context.dispose();
+    if (ownsContext) {
+      await context.dispose();
+    }
   }
 };

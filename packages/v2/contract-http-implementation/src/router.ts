@@ -14,6 +14,7 @@ import {
 import { executeCreateBaseEndpoint } from './handlers/bases/createBase';
 import { executeListBasesEndpoint } from './handlers/bases/listBases';
 import { executeCreateFieldEndpoint } from './handlers/tables/createField';
+import { executeUpdateFieldEndpoint } from './handlers/tables/updateField';
 import { executeCreateRecordEndpoint } from './handlers/tables/createRecord';
 import { executeSubmitRecordEndpoint } from './handlers/tables/submitRecord';
 import { executeCreateRecordsEndpoint } from './handlers/tables/createRecords';
@@ -226,6 +227,34 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateFieldEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  const tablesUpdateField = os.tables.updateField.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeUpdateFieldEndpoint(executionContext, input, commandBus);
 
     if (result.status === 200) return result.body;
 
@@ -883,6 +912,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       create: tablesCreate,
       createTables: tablesCreateTables,
       createField: tablesCreateField,
+      updateField: tablesUpdateField,
       createRecord: tablesCreateRecord,
       submitRecord: tablesSubmitRecord,
       createRecords: tablesCreateRecords,

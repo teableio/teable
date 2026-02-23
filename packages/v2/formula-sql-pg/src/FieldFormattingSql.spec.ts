@@ -80,6 +80,19 @@ describe('FieldFormattingSql', () => {
     );
   });
 
+  it('formats number fields with JSON scalar compatibility when enabled', () => {
+    const field = createNumberFieldWithFormatting(
+      createNumberFormatting(NumberFormattingType.Decimal)
+    );
+    expect(
+      formatFieldValueAsStringSql(field, 'value', 'number', undefined, {
+        normalizeJsonScalar: true,
+      })
+    ).toBe(
+      "trim(to_char((CASE\n    WHEN value IS NULL THEN NULL\n    WHEN jsonb_typeof(to_jsonb(value)) = 'array' THEN NULLIF((to_jsonb(value) ->> 0), '')::numeric\n    WHEN jsonb_typeof(to_jsonb(value)) = 'null' THEN NULL\n    ELSE NULLIF((to_jsonb(value) #>> '{}'), '')::numeric\n  END), '999999990D00'))"
+    );
+  });
+
   it('formats field value SQL for datetime fields', () => {
     const field = createDateFieldWithFormatting(createDateFormatting());
     expect(formatFieldValueAsStringSql(field, 'value', 'datetime')).toBe(

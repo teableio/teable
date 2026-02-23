@@ -74,6 +74,7 @@ export class TableRecordQueryBuilderManager {
           : new ComputedTableRecordQueryBuilder(db, {
               typeValidationStrategy: this.typeValidationStrategy,
               preferStoredLastModifiedFormula: true,
+              forceLookupArrayOutput: false,
             }).from(table);
 
       const prepareSpan = context.tracer?.startSpan('teable.queryBuilder.prepare');

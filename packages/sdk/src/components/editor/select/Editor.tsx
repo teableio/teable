@@ -62,7 +62,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
     >
       {displayOptions?.map(({ value, label, backgroundColor, color }) => (
         <SelectTag
-          className="flex items-center"
+          className={cn('flex items-center', !readonly && 'pr-1.5')}
           key={value}
           label={label}
           color={color}
@@ -70,7 +70,8 @@ const SelectEditorBase: ForwardRefRenderFunction<
         >
           {!readonly && (
             <X
-              className="cursor-pointer opacity-50 hover:opacity-100"
+              className="size-[14px] shrink-0 cursor-pointer opacity-70 hover:opacity-100"
+              style={{ color: 'inherit' }}
               onClick={(e) => {
                 e.preventDefault();
                 onDelete(value);

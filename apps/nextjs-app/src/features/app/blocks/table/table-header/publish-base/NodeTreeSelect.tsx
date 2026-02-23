@@ -440,12 +440,33 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
                 const isExpanded = item.isExpanded();
                 const isSelected = item.isSelected();
 
+                // Check if this is an empty folder (folder with no children)
+                const isEmptyFolder = isFolder && (!node.children || node.children.length === 0);
+
+                // For empty folders, we need to manually handle checkbox since headless-tree
+                // doesn't support checking folders without children
+                const handleEmptyFolderCheckboxChange = () => {
+                  const itemId = item.getId();
+                  if (checkedItems.includes(itemId)) {
+                    setCheckedItems(checkedItems.filter((id) => id !== itemId));
+                  } else {
+                    setCheckedItems([...checkedItems, itemId]);
+                  }
+                };
+
                 return (
                   <div key={item.getId()} className="flex w-full min-w-0 items-center gap-0.5">
                     {showCheckbox && (
                       <input
                         type="checkbox"
-                        {...(item.getCheckboxProps ? item.getCheckboxProps() : {})}
+                        {...(isEmptyFolder
+                          ? {
+                              checked: checkedItems.includes(item.getId()),
+                              onChange: handleEmptyFolderCheckboxChange,
+                            }
+                          : item.getCheckboxProps
+                            ? item.getCheckboxProps()
+                            : {})}
                         className="size-4 shrink-0 cursor-pointer rounded border-gray-300 accent-black"
                         onClick={(e) => e.stopPropagation()}
                       />

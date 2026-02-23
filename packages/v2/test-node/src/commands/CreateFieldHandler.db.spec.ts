@@ -414,7 +414,7 @@ describe('CreateFieldHandler (db)', () => {
     expect(autoNumberRow.type).toBe('autoNumber');
     expect(autoNumberRow.cell_value_type).toBe('number');
     expect(autoNumberRow.is_multiple_cell_value).toBe(false);
-    expect(autoNumberRow.db_field_type).toBe('REAL');
+    expect(autoNumberRow.db_field_type).toBe('INTEGER');
     expect(autoNumberRow.is_computed).toBe(true);
     expect(autoNumberRow.db_field_name).toBe('Auto_Number');
     expect(parseMeta(autoNumberRow)?.persistedAsGeneratedColumn).toBe(true);

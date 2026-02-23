@@ -1099,11 +1099,11 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     const trustedDatetimeInput = this.hasTrustedDatetimeInput(0);
 
     if (format == null) {
-      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
+      return trustedDatetimeInput ? valueExpr : this.parseDatetimeParseWithoutFormat(valueExpr);
     }
     const trimmedFormat = format.trim();
     if (!trimmedFormat || trimmedFormat === 'undefined' || trimmedFormat.toLowerCase() === 'null') {
-      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
+      return trustedDatetimeInput ? valueExpr : this.parseDatetimeParseWithoutFormat(valueExpr);
     }
     if (trustedDatetimeInput) {
       return valueExpr;
@@ -1223,7 +1223,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `EXTRACT(DOW FROM ${this.castToTimestamp(date, 0)})`;
   }
 
-  workday(startDate: string, days: string): string {
+  workday(startDate: string, days: string, _holidayStr?: string): string {
     if (!this.isDateLikeOperand(0)) {
       return 'NULL';
     }
@@ -1507,6 +1507,29 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
     const pattern = getDefaultDatetimeParsePattern();
     return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} ~ '${pattern}' THEN ${valueExpr} ELSE NULL END)`;
+  }
+
+  private parseDatetimeParseWithoutFormat(valueExpr: string): string {
+    const textExpr = `${valueExpr}::text`;
+    const trimmedExpr = `NULLIF(BTRIM(${textExpr}), '')`;
+    const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
+    const pattern = getDefaultDatetimeParsePattern();
+    const hasClockTime = `(${sanitizedExpr} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
+    const hasExplicitTimeZone = `(${sanitizedExpr} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
+    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const localTimestampExpr = `(${sanitizedExpr})::timestamp AT TIME ZONE '${safeTz}'`;
+    const explicitZoneExpr = `(${sanitizedExpr})::timestamptz`;
+
+    return `(CASE
+      WHEN ${valueExpr} IS NULL THEN NULL
+      WHEN ${sanitizedExpr} IS NULL THEN NULL
+      WHEN ${sanitizedExpr} ~ '${pattern}' THEN
+        (CASE
+          WHEN ${hasClockTime} AND NOT ${hasExplicitTimeZone} THEN ${localTimestampExpr}
+          ELSE ${explicitZoneExpr}
+        END)
+      ELSE NULL
+    END)`;
   }
 
   private buildDatetimeParseGuardRegex(formatLiteral: string): string | null {

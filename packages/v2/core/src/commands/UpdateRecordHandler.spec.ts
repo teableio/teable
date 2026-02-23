@@ -15,6 +15,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
 import { RecordUpdated } from '../domain/table/events/RecordUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -488,6 +489,15 @@ describe('UpdateRecordHandler', () => {
       ._unsafeUnwrap() as MultipleSelectField;
     const multiNames = multiField.selectOptions().map((option) => option.name().toString());
     expect(multiNames).toContain('Tag B');
+
+    const fieldOptionEvents = eventBus.published.filter(
+      (event) => event instanceof FieldOptionsAdded
+    );
+    expect(fieldOptionEvents).toHaveLength(2);
+    expect(eventBus.published).toHaveLength(3);
+    expect(eventBus.published[0]).toBeInstanceOf(FieldOptionsAdded);
+    expect(eventBus.published[1]).toBeInstanceOf(FieldOptionsAdded);
+    expect(eventBus.published[eventBus.published.length - 1]).toBeInstanceOf(RecordUpdated);
   });
 
   it('returns error when record query fails', async () => {
