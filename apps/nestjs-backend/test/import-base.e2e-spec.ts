@@ -3,9 +3,9 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentItem, IConditionalRollupFieldOptions, IFilter } from '@teable/core';
-import { FieldKeyType, FieldType, SortFunc, ViewType } from '@teable/core';
+import { FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { INotifyVo, ITableFullVo } from '@teable/openapi';
+import type { IImportBaseSSEEvent, INotifyVo, ITableFullVo } from '@teable/openapi';
 import {
   createField,
   getFields,
@@ -28,6 +28,7 @@ import {
   getBaseNodeTree,
   moveBaseNode,
   BaseNodeResourceType,
+  IMPORT_BASE_STREAM,
 } from '@teable/openapi';
 import { pick } from 'lodash';
 import type { ClsStore } from 'nestjs-cls';
@@ -101,6 +102,7 @@ function getAttachmentService(app: INestApplication) {
 describe('OpenAPI BaseController for base import (e2e)', () => {
   let app: INestApplication;
   let appUrl: string;
+  let cookie: string;
   let sourceBaseId: string;
   const spaceId = globalThis.testConfig.spaceId;
   const userId = globalThis.testConfig.userId;
@@ -111,6 +113,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
     const appCtx = await initApp();
     app = appCtx.app;
     appUrl = appCtx.appUrl;
+    cookie = appCtx.cookie;
   });
 
   afterAll(async () => {
@@ -1045,6 +1048,262 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(importedDashboardList.map((d) => d.name).sort()).toEqual(
         [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort()
       );
+    });
+  });
+
+  describe('import base with multiple link fields targeting the same table', () => {
+    let multiLinkSourceBaseId: string;
+    let importedMultiLinkBaseId: string | undefined;
+    let awaitMultiLinkExport: <T>(fn: () => Promise<T>) => Promise<{ previewUrl: string }>;
+
+    beforeAll(async () => {
+      awaitMultiLinkExport = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+    });
+
+    afterAll(async () => {
+      if (importedMultiLinkBaseId) {
+        await permanentDeleteBase(importedMultiLinkBaseId);
+      }
+      if (multiLinkSourceBaseId) {
+        await permanentDeleteBase(multiLinkSourceBaseId);
+      }
+    });
+
+    it('should import base where multiple links point to the same foreign table without dbFieldName collision', async () => {
+      const sourceBase = (await createBase({ name: 'multi_link_source', spaceId, icon: '🔗' }))
+        .data;
+      multiLinkSourceBaseId = sourceBase.id;
+
+      const foreignTable = await createTable(multiLinkSourceBaseId, {
+        name: 'SharedTarget',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [{ fields: { Title: 'Target A' } }, { fields: { Title: 'Target B' } }],
+      });
+
+      const hostTable = await createTable(multiLinkSourceBaseId, {
+        name: 'MultiLinkHost',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Host 1' } }],
+      });
+
+      await createField(hostTable.id, {
+        name: 'Link1',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      await createField(hostTable.id, {
+        name: 'Link2',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      await createField(hostTable.id, {
+        name: 'Link3',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      // export & import
+      const { previewUrl } = await awaitMultiLinkExport(async () => {
+        await exportBase(multiLinkSourceBaseId);
+      });
+
+      const attachmentService = getAttachmentService(app);
+      const clsService = app.get(ClsService);
+      const notify = await clsService.runWith<Promise<IAttachmentItem>>(
+        {
+          user: { id: userId, name: 'Test', email: 'test@example.com', isAdmin: null },
+        } as unknown as ClsStore,
+        async () => attachmentService.uploadFromUrl(appUrl + previewUrl)
+      );
+
+      const { base: importedBase } = (
+        await importBase({ notify: notify as unknown as INotifyVo, spaceId })
+      ).data;
+      importedMultiLinkBaseId = importedBase.id;
+
+      const tableList = (await getTableList(importedMultiLinkBaseId)).data;
+      expect(tableList.length).toBe(2);
+
+      const importedHostMeta = tableList.find((t) => t.name === 'MultiLinkHost')!;
+      const importedForeignMeta = tableList.find((t) => t.name === 'SharedTarget')!;
+
+      const importedHostFields = (await getFields(importedHostMeta.id)).data;
+      const importedForeignFields = (await getFields(importedForeignMeta.id)).data;
+
+      const hostLinkFields = importedHostFields.filter((f) => f.type === FieldType.Link);
+      expect(hostLinkFields.length).toBe(3);
+
+      // the foreign table should have 3 symmetric link fields, each with a unique dbFieldName
+      const foreignLinkFields = importedForeignFields.filter((f) => f.type === FieldType.Link);
+      expect(foreignLinkFields.length).toBe(3);
+
+      const foreignDbFieldNames = foreignLinkFields.map((f) => f.dbFieldName);
+      const uniqueDbFieldNames = new Set(foreignDbFieldNames);
+      expect(uniqueDbFieldNames.size).toBe(3);
+    });
+  });
+
+  describe('import base via SSE stream endpoint', () => {
+    let streamSourceBaseId: string;
+    let importedStreamBaseId: string | undefined;
+    let streamTable: ITableFullVo;
+    let awaitStreamExport: <T>(fn: () => Promise<T>) => Promise<{ previewUrl: string }>;
+
+    beforeAll(async () => {
+      const sourceBase = (
+        await createBase({
+          name: 'stream_source_base',
+          spaceId,
+          icon: '🔄',
+        })
+      ).data;
+      streamSourceBaseId = sourceBase.id;
+
+      streamTable = await createTable(streamSourceBaseId, {
+        name: 'stream_test_table',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+
+      awaitStreamExport = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+    });
+
+    afterAll(async () => {
+      if (importedStreamBaseId) {
+        await permanentDeleteBase(importedStreamBaseId);
+      }
+      if (streamSourceBaseId) {
+        await permanentDeleteBase(streamSourceBaseId);
+      }
+    });
+
+    it('should import base via SSE stream and receive progress + done events', async () => {
+      // 1. Export the source base
+      const { previewUrl } = await awaitStreamExport(async () => {
+        await exportBase(streamSourceBaseId);
+      });
+
+      // 2. Upload the .tea file
+      const clsService = app.get(ClsService);
+      const attachmentService = getAttachmentService(app);
+
+      const notify = await clsService.runWith<Promise<IAttachmentItem>>(
+        {
+          user: {
+            id: userId,
+            name: 'Test User',
+            email: 'test@example.com',
+            isAdmin: null,
+          },
+        } as unknown as ClsStore,
+        async () => {
+          return await attachmentService.uploadFromUrl(appUrl + previewUrl);
+        }
+      );
+
+      // 3. Call import-stream SSE endpoint with raw fetch
+      const streamUrl = `${appUrl}/api${IMPORT_BASE_STREAM}`;
+
+      const response = await fetch(streamUrl, {
+        method: 'POST',
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          Cookie: cookie,
+        },
+        body: JSON.stringify({
+          notify: notify as unknown as INotifyVo,
+          spaceId,
+        }),
+      });
+
+      expect(response.ok).toBe(true);
+      expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+      // 4. Parse SSE events
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const progressEvents: { phase: string; detail?: string }[] = [];
+      let doneEvent: IImportBaseSSEEvent | null = null;
+      let errorEvent: IImportBaseSSEEvent | null = null;
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+
+          const event = JSON.parse(jsonStr) as IImportBaseSSEEvent;
+          if (event.type === 'progress') {
+            progressEvents.push({ phase: event.phase, detail: event.detail });
+          } else if (event.type === 'done') {
+            doneEvent = event;
+          } else if (event.type === 'error') {
+            errorEvent = event;
+          }
+        }
+      }
+
+      // 5. Verify: no error events
+      expect(errorEvent).toBeNull();
+
+      // 6. Verify: received progress events
+      expect(progressEvents.length).toBeGreaterThan(0);
+
+      // Verify some expected phases appear
+      const phases = progressEvents.map((e) => e.phase);
+      expect(phases).toContain('creating_base');
+      expect(phases).toContain('creating_table');
+      expect(phases).toContain('structure_created');
+
+      // 7. Verify: received done event with proper structure
+      expect(doneEvent).not.toBeNull();
+      expect(doneEvent!.type).toBe('done');
+      const result = (doneEvent as any).data;
+      expect(result.base).toBeDefined();
+      expect(result.base.spaceId).toBe(spaceId);
+      expect(result.tableIdMap).toBeDefined();
+      expect(result.fieldIdMap).toBeDefined();
+      expect(result.viewIdMap).toBeDefined();
+
+      importedStreamBaseId = result.base.id;
+
+      // 8. Verify: imported base is accessible and correct
+      const tableList = (await getTableList(importedStreamBaseId!)).data;
+      expect(tableList.length).toBe(1);
+      expect(tableList[0].name).toBe('stream_test_table');
+
+      const importedTable = await getTable(importedStreamBaseId!, tableList[0].id, {
+        includeContent: true,
+      });
+      expect(importedTable.fields!.length).toBe(streamTable.fields.length);
     });
   });
 });

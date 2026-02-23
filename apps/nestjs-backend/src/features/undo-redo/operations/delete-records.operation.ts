@@ -8,10 +8,10 @@ import type { RecordOpenApiService } from '../../record/open-api/record-open-api
 
 export interface IDeleteRecordsPayload {
   operationId: string;
-  windowId: string;
+  windowId?: string;
   tableId: string;
   userId: string;
-  records: (IRecord & { order: Record<string, number> })[];
+  records: (IRecord & { order?: Record<string, number> })[];
 }
 
 export class DeleteRecordsOperation {

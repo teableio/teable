@@ -1,4 +1,5 @@
 export * from './ComputedFieldBackfillService';
+export * from './ComputedFieldCascadeAfterSchemaUpdate';
 export * from './ComputedFieldUpdater';
 export * from './ComputedUpdateLock';
 export * from './ComputedUpdatePlanner';

@@ -149,12 +149,19 @@ export class ReferenceRule implements ISchemaRule {
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const fieldId = this.field.id().toString();
-    const deleteStatement = ctx.db
-      .deleteFrom('reference')
-      .where((eb) =>
-        eb.or([eb.eb('to_field_id', '=', fieldId), eb.eb('from_field_id', '=', fieldId)])
-      );
 
+    if (ctx.mode === 'delete') {
+      // Permanent deletion: clean up all references both TO and FROM this field
+      const deleteStatement = ctx.db
+        .deleteFrom('reference')
+        .where((eb) =>
+          eb.or([eb.eb('to_field_id', '=', fieldId), eb.eb('from_field_id', '=', fieldId)])
+        );
+      return ok([deleteStatement]);
+    }
+
+    // Update/convert (default): only remove references pointing TO this field
+    const deleteStatement = ctx.db.deleteFrom('reference').where('to_field_id', '=', fieldId);
     return ok([deleteStatement]);
   }
 }

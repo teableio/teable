@@ -15,6 +15,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
 import { RecordUpdated } from '../domain/table/events/RecordUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -25,7 +26,13 @@ import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
+import { SetUserValueByIdentifierSpec } from '../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
+import {
+  SetUserValueSpec,
+  type UserItem,
+} from '../domain/table/records/specs/values/SetUserValueSpec';
 import type { TableRecord } from '../domain/table/records/TableRecord';
+import { CellValue } from '../domain/table/records/values/CellValue';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -66,6 +73,7 @@ const buildTable = () => {
   const numberFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
   const singleSelectFieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
   const multiSelectFieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+  const userFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
   const openOption = SelectOption.create({ name: 'Open', color: 'blue' })._unsafeUnwrap();
   const tagOption = SelectOption.create({ name: 'Tag A', color: 'green' })._unsafeUnwrap();
 
@@ -97,6 +105,12 @@ const buildTable = () => {
     .withName(FieldName.create('Tags')._unsafeUnwrap())
     .withOptions([tagOption])
     .done();
+  builder
+    .field()
+    .user()
+    .withId(userFieldId)
+    .withName(FieldName.create('User')._unsafeUnwrap())
+    .done();
   builder.view().defaultGrid().done();
 
   return {
@@ -107,6 +121,7 @@ const buildTable = () => {
     numberFieldId,
     singleSelectFieldId,
     multiSelectFieldId,
+    userFieldId,
   };
 };
 
@@ -275,6 +290,7 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
 class FakeRecordMutationSpecResolverService {
   needsResolutionValue = false;
   resolveCalls: ICellValueSpec[] = [];
+  resolveImpl?: (spec: ICellValueSpec) => ICellValueSpec;
 
   needsResolution(_: ICellValueSpec): Result<boolean, DomainError> {
     return ok(this.needsResolutionValue);
@@ -285,7 +301,8 @@ class FakeRecordMutationSpecResolverService {
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     this.resolveCalls.push(spec);
-    return ok(spec);
+    const resolved = this.resolveImpl ? this.resolveImpl(spec) : spec;
+    return ok(resolved);
   }
 }
 
@@ -488,6 +505,15 @@ describe('UpdateRecordHandler', () => {
       ._unsafeUnwrap() as MultipleSelectField;
     const multiNames = multiField.selectOptions().map((option) => option.name().toString());
     expect(multiNames).toContain('Tag B');
+
+    const fieldOptionEvents = eventBus.published.filter(
+      (event) => event instanceof FieldOptionsAdded
+    );
+    expect(fieldOptionEvents).toHaveLength(2);
+    expect(eventBus.published).toHaveLength(3);
+    expect(eventBus.published[0]).toBeInstanceOf(FieldOptionsAdded);
+    expect(eventBus.published[1]).toBeInstanceOf(FieldOptionsAdded);
+    expect(eventBus.published[eventBus.published.length - 1]).toBeInstanceOf(RecordUpdated);
   });
 
   it('returns error when record query fails', async () => {
@@ -520,6 +546,84 @@ describe('UpdateRecordHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('Record missing');
+  });
+
+  it('event changes contain resolved values after typecast user field resolution', async () => {
+    const { table, tableId, textFieldId, userFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Title']]))
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'Title' },
+      version: 1,
+    };
+
+    const resolver = new FakeRecordMutationSpecResolverService();
+    resolver.needsResolutionValue = true;
+    resolver.resolveImpl = (spec) => {
+      if (spec instanceof SetUserValueByIdentifierSpec) {
+        const resolvedUser: UserItem = {
+          id: spec.identifiers[0]!,
+          title: 'Alice',
+          email: 'alice@example.com',
+          avatarUrl: `/api/attachments/read/public/avatar/${spec.identifiers[0]}`,
+        };
+        return new SetUserValueSpec(
+          spec.fieldId,
+          CellValue.fromValidated<UserItem[]>(resolvedUser as unknown as UserItem[] | null)
+        );
+      }
+      return spec;
+    };
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      resolver as unknown as RecordMutationSpecResolverService,
+      new RecordWriteSideEffectService(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      new FakeUndoRedoService() as unknown as UndoRedoService,
+      unitOfWork
+    );
+
+    const commandResult = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      typecast: true,
+      fields: {
+        [userFieldId.toString()]: 'usr-1',
+      },
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
+
+    const recordUpdatedEvent = eventBus.published.find(
+      (e) => e instanceof RecordUpdated
+    ) as RecordUpdated;
+    expect(recordUpdatedEvent).toBeDefined();
+
+    const userChange = recordUpdatedEvent.changes.find((c) => c.fieldId === userFieldId.toString());
+    expect(userChange).toBeDefined();
+    expect(userChange!.newValue).toEqual({
+      id: 'usr-1',
+      title: 'Alice',
+      email: 'alice@example.com',
+      avatarUrl: '/api/attachments/read/public/avatar/usr-1',
+    });
   });
 
   describe('field key mapping', () => {

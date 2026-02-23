@@ -888,6 +888,67 @@ describe('v2 http clear (e2e)', () => {
     });
   });
 
+  describe('clear with ignoreViewQuery', () => {
+    it('should ignore view default sort when ignoreViewQuery=true', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Clear Ignore View Query ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Value', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const localTableId = table.id;
+      const localViewId = table.views[0].id;
+      const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+      const valueFieldId = table.fields.find((f) => f.name === 'Value')?.id ?? '';
+
+      const recordA = await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordA',
+        [valueFieldId]: 100,
+      });
+      await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordB',
+        [valueFieldId]: 200,
+      });
+      const recordC = await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordC',
+        [valueFieldId]: 300,
+      });
+
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          sort: JSON.stringify({
+            sortObjs: [{ fieldId: valueFieldId, order: 'desc' }],
+          }),
+        })
+        .where('id', '=', localViewId)
+        .execute();
+
+      const result = await ctx.clear({
+        tableId: localTableId,
+        viewId: localViewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        ignoreViewQuery: true,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(localTableId);
+      const updatedA = records.find((record) => record.id === recordA.id);
+      const unchangedC = records.find((record) => record.id === recordC.id);
+
+      expect(updatedA?.fields[nameFieldId]).toBeNull();
+      expect(unchangedC?.fields[nameFieldId]).toBe('RecordC');
+    });
+  });
+
   describe('clear with large offset and stable tie-breaker', () => {
     let tieTableId: string;
     let tieViewId: string;

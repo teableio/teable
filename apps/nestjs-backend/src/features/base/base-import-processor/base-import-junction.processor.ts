@@ -174,7 +174,8 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
               csvParser.default({
                 // strict: true,
                 mapValues: ({ value }) => {
-                  return value;
+                  // deal with old junction order case
+                  return value === '' ? null : value;
                 },
                 mapHeaders: ({ header }) => {
                   return header
@@ -272,7 +273,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
         }
       }
 
-      // add foreign keys
+      // add foreign keys with NOT VALID to skip existing data validation
       for (const {
         constraint_name,
         column_name,
@@ -281,13 +282,20 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
         referenced_table_name: referencedTableName,
         referenced_column_name: referencedColumnName,
       } of allForeignKeyInfos) {
-        const addForeignKeyQuery = this.knex.schema
-          .alterTable(dbTableName, (table) => {
-            table
-              .foreign(column_name, constraint_name)
-              .references(referencedColumnName)
-              .inTable(`${referencedTableSchema}.${referencedTableName}`);
-          })
+        const [schema, tableName] = dbTableName.split('.');
+        const addForeignKeyQuery = this.knex
+          .raw(
+            'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(??) NOT VALID',
+            [
+              schema,
+              tableName,
+              constraint_name,
+              column_name,
+              referencedTableSchema,
+              referencedTableName,
+              referencedColumnName,
+            ]
+          )
           .toQuery();
         await prisma.$executeRawUnsafe(addForeignKeyQuery);
       }

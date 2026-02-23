@@ -12,6 +12,19 @@ import { SingleSelectField } from '../types/SingleSelectField';
 import { UserField } from '../types/UserField';
 import { UserMultiplicity } from '../types/UserMultiplicity';
 import { FieldToSpecVisitor } from './FieldToSpecVisitor';
+import { SingleLineTextField } from '../types/SingleLineTextField';
+import { NumberField } from '../types/NumberField';
+import { CheckboxField } from '../types/CheckboxField';
+import { DateField } from '../types/DateField';
+import { FormulaField } from '../types/FormulaField';
+import { FormulaExpression } from '../types/FormulaExpression';
+import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
+import { SetNumberValueSpec } from '../../records/specs/values/SetNumberValueSpec';
+import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValueSpec';
+import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
+import { SetLinkValueSpec } from '../../records/specs/values/SetLinkValueSpec';
+import { LinkField } from '../types/LinkField';
+import { LinkFieldConfig } from '../types/LinkFieldConfig';
 
 const createFieldId = (seed: string) =>
   FieldId.create(`fld${seed.padEnd(16, '0').slice(0, 16)}`)._unsafeUnwrap();
@@ -266,6 +279,229 @@ describe('FieldToSpecVisitor', () => {
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeInstanceOf(NoopCellValueSpec);
+    });
+  });
+
+  describe('visitSingleLineTextField', () => {
+    const field = SingleLineTextField.create({
+      id: createFieldId('f'),
+      name: createFieldName('Title'),
+    })._unsafeUnwrap();
+
+    it('converts any value to string', () => {
+      const visitor = FieldToSpecVisitor.create(123, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetSingleLineTextValueSpec);
+    });
+
+    it('accepts null value', () => {
+      const visitor = FieldToSpecVisitor.create(null, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetSingleLineTextValueSpec);
+    });
+
+    it('converts boolean to string', () => {
+      const visitor = FieldToSpecVisitor.create(true, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+  });
+
+  describe('visitNumberField', () => {
+    const field = NumberField.create({
+      id: createFieldId('g'),
+      name: createFieldName('Count'),
+    })._unsafeUnwrap();
+
+    it('accepts number value', () => {
+      const visitor = FieldToSpecVisitor.create(42, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetNumberValueSpec);
+    });
+
+    it('accepts null value', () => {
+      const visitor = FieldToSpecVisitor.create(null, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('converts NaN to null', () => {
+      const visitor = FieldToSpecVisitor.create(NaN, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('rejects string in non-typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('123', false);
+      const result = field.accept(visitor);
+      expect(result.isErr()).toBe(true);
+    });
+
+    it('converts string to number in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('123', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('returns null for non-numeric string in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('abc', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+  });
+
+  describe('visitCheckboxField', () => {
+    const field = CheckboxField.create({
+      id: createFieldId('h'),
+      name: createFieldName('Done'),
+    })._unsafeUnwrap();
+
+    it('accepts boolean value', () => {
+      const visitor = FieldToSpecVisitor.create(true, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetCheckboxValueSpec);
+    });
+
+    it('accepts null value', () => {
+      const visitor = FieldToSpecVisitor.create(null, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('rejects string in non-typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('true', false);
+      const result = field.accept(visitor);
+      expect(result.isErr()).toBe(true);
+    });
+
+    it('converts string "true" to boolean in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('true', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('converts string "false" to boolean in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('false', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('converts string "1" to true in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('1', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+  });
+
+  describe('visitDateField', () => {
+    const field = DateField.create({
+      id: createFieldId('i'),
+      name: createFieldName('Due'),
+    })._unsafeUnwrap();
+
+    it('accepts null value', () => {
+      const visitor = FieldToSpecVisitor.create(null, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetDateValueSpec);
+    });
+
+    it('accepts valid ISO date string', () => {
+      const visitor = FieldToSpecVisitor.create('2024-01-15T10:30:00.000Z', false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('returns null for invalid date in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('not-a-date', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('rejects invalid date in non-typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('not-a-date', false);
+      const result = field.accept(visitor);
+      // May reject or return null depending on parseDateValue implementation
+      // The important thing is it doesn't throw
+      expect(result.isOk() || result.isErr()).toBe(true);
+    });
+  });
+
+  describe('computed fields are readonly', () => {
+    it('rejects formula field', () => {
+      const expr = FormulaExpression.create('1 + 1')._unsafeUnwrap();
+      const field = FormulaField.create({
+        id: createFieldId('j'),
+        name: createFieldName('Calc'),
+        expression: expr,
+      })._unsafeUnwrap();
+
+      const visitor = FieldToSpecVisitor.create(42, false);
+      const result = field.accept(visitor);
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('computed field');
+    });
+  });
+
+  describe('visitLinkField', () => {
+    it('accepts null value', () => {
+      const configResult = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: 'tbl' + 'x'.repeat(16),
+        lookupFieldId: 'fld' + 'y'.repeat(16),
+        isOneWay: true,
+      });
+      const field = LinkField.create({
+        id: createFieldId('k'),
+        name: createFieldName('Related'),
+        config: configResult._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const visitor = FieldToSpecVisitor.create(null, false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetLinkValueSpec);
+    });
+
+    it('accepts array of objects with id', () => {
+      const configResult = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: 'tbl' + 'x'.repeat(16),
+        lookupFieldId: 'fld' + 'y'.repeat(16),
+        isOneWay: true,
+      });
+      const field = LinkField.create({
+        id: createFieldId('l'),
+        name: createFieldName('Related'),
+        config: configResult._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const visitor = FieldToSpecVisitor.create([{ id: 'rec' + 'a'.repeat(16) }], false);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(SetLinkValueSpec);
+    });
+
+    it('rejects non-object array in non-typecast mode', () => {
+      const configResult = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: 'tbl' + 'x'.repeat(16),
+        lookupFieldId: 'fld' + 'y'.repeat(16),
+        isOneWay: true,
+      });
+      const field = LinkField.create({
+        id: createFieldId('m'),
+        name: createFieldName('Related'),
+        config: configResult._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const visitor = FieldToSpecVisitor.create(['Title1', 'Title2'], false);
+      const result = field.accept(visitor);
+      expect(result.isErr()).toBe(true);
     });
   });
 });

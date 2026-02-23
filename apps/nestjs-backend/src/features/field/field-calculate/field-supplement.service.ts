@@ -909,7 +909,15 @@ export class FieldSupplementService {
     const rawOptions = field.options as IConditionalRollupFieldOptions | undefined;
     const options = { ...(rawOptions || {}) } as IConditionalRollupFieldOptions | undefined;
     if (!options) {
-      throw new BadRequestException('Conditional rollup field options are required');
+      throw new CustomHttpException(
+        'Conditional rollup field options are required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.conditionalRollupOptionsRequired',
+          },
+        }
+      );
     }
 
     if (!options.sort || options.sort.fieldId == null) {
@@ -922,11 +930,27 @@ export class FieldSupplementService {
     const { foreignTableId, lookupFieldId } = options;
 
     if (!foreignTableId) {
-      throw new BadRequestException('Conditional rollup field foreignTableId is required');
+      throw new CustomHttpException(
+        'Conditional rollup field foreignTableId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.foreignTableIdRequired',
+          },
+        }
+      );
     }
 
     if (!lookupFieldId) {
-      throw new BadRequestException('Conditional rollup field lookupFieldId is required');
+      throw new CustomHttpException(
+        'Conditional rollup field lookupFieldId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldIdRequired',
+          },
+        }
+      );
     }
 
     const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
@@ -934,12 +958,28 @@ export class FieldSupplementService {
     });
 
     if (!lookupFieldRaw) {
-      throw new BadRequestException(`Conditional rollup field ${lookupFieldId} is not exist`);
+      throw new CustomHttpException(
+        `Conditional rollup field ${lookupFieldId} is not exist`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldNotExist',
+            context: { lookupFieldId },
+          },
+        }
+      );
     }
 
     if (lookupFieldRaw.tableId !== foreignTableId) {
-      throw new BadRequestException(
-        `Conditional rollup field ${lookupFieldId} does not belong to table ${foreignTableId}`
+      throw new CustomHttpException(
+        `Conditional rollup field ${lookupFieldId} does not belong to table ${foreignTableId}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldNotBelongToTable',
+            context: { lookupFieldId, foreignTableId },
+          },
+        }
       );
     }
 
@@ -963,7 +1003,16 @@ export class FieldSupplementService {
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(`Conditional rollup parse error: ${e.message}`);
+      throw new CustomHttpException(
+        `Conditional rollup parse error: ${e.message}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.conditionalRollupParseError',
+            context: { message: e.message },
+          },
+        }
+      );
     }
 
     const { cellValueType, isMultipleCellValue } = valueType;
@@ -1008,17 +1057,41 @@ export class FieldSupplementService {
       ? (lookupOptions as IConditionalLookupOptions)
       : undefined;
     if (!conditionalLookup) {
-      throw new BadRequestException('Conditional lookup configuration is required');
+      throw new CustomHttpException(
+        'Conditional lookup configuration is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.conditionalLookupOptionsRequired',
+          },
+        }
+      );
     }
 
     const { foreignTableId, lookupFieldId } = conditionalLookup;
 
     if (!foreignTableId) {
-      throw new BadRequestException('Conditional lookup foreignTableId is required');
+      throw new CustomHttpException(
+        'Conditional lookup foreignTableId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.foreignTableIdRequired',
+          },
+        }
+      );
     }
 
     if (!lookupFieldId) {
-      throw new BadRequestException('Conditional lookup lookupFieldId is required');
+      throw new CustomHttpException(
+        'Conditional lookup lookupFieldId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldIdRequired',
+          },
+        }
+      );
     }
 
     const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
@@ -1026,18 +1099,41 @@ export class FieldSupplementService {
     });
 
     if (!lookupFieldRaw) {
-      throw new BadRequestException(`Conditional lookup field ${lookupFieldId} is not exist`);
+      throw new CustomHttpException(
+        `Conditional lookup field ${lookupFieldId} is not exist`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldNotExist',
+            context: { lookupFieldId },
+          },
+        }
+      );
     }
 
     if (lookupFieldRaw.tableId !== foreignTableId) {
-      throw new BadRequestException(
-        `Conditional lookup field ${lookupFieldId} does not belong to table ${foreignTableId}`
+      throw new CustomHttpException(
+        `Conditional lookup field ${lookupFieldId} does not belong to table ${foreignTableId}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldNotBelongToTable',
+            context: { lookupFieldId, foreignTableId },
+          },
+        }
       );
     }
 
     if (lookupFieldRaw.type !== field.type) {
-      throw new BadRequestException(
-        `Current field type ${field.type} is not equal to lookup field (${lookupFieldRaw.type})`
+      throw new CustomHttpException(
+        `Current field type ${field.type} is not equal to lookup field (${lookupFieldRaw.type})`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldTypeNotMatch',
+            context: { fieldType: field.type, lookupFieldType: lookupFieldRaw.type },
+          },
+        }
       );
     }
 
@@ -1708,14 +1804,21 @@ export class FieldSupplementService {
     fieldRo: IConvertFieldRo,
     oldFieldVo: IFieldVo
   ): Promise<IFieldVo> {
+    const normalizedFieldRo: IFieldRo = {
+      ...fieldRo,
+      options: fieldRo.options ?? undefined,
+    };
+
     const fieldVo = (await this.prepareUpdateFieldInner(
       tableId,
       {
-        ...fieldRo,
-        name: fieldRo.name ?? oldFieldVo.name,
-        dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
+        ...normalizedFieldRo,
+        name: normalizedFieldRo.name ?? oldFieldVo.name,
+        dbFieldName: normalizedFieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
         description:
-          fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
+          normalizedFieldRo.description === undefined
+            ? oldFieldVo.description
+            : normalizedFieldRo.description,
       }, // for convenience, we fallback name adn dbFieldName when it be undefined
       oldFieldVo
     )) as IFieldVo;
