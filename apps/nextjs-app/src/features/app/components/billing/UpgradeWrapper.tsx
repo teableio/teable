@@ -3,11 +3,12 @@ import { Role } from '@teable/core';
 import { BillingProductLevel, getSpaceById, getSubscriptionSummary } from '@teable/openapi';
 import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase } from '@teable/sdk/hooks';
+import { useBase, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import type { Base } from '@teable/sdk/model';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useCallback, type ReactElement, cloneElement } from 'react';
+import { useBaseUsage } from '../../hooks/useBaseUsage';
 import { useBillingLevel } from '../../hooks/useBillingLevel';
 import { useAppSumoTierConfig, useBillingLevelConfig } from '../../hooks/useBillingLevelConfig';
 import { useIsCloud } from '../../hooks/useIsCloud';
@@ -56,6 +57,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
   const isCloud = useIsCloud();
   const isCommunity = useIsCommunity();
   const isEE = useIsEE();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const base = useBase() as Base | undefined;
   const { t } = useTranslation('common');
   const { openModal } = useUsageLimitModalStore();
@@ -82,7 +84,8 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
     enabled: isCloud && Boolean(spaceId) && Boolean(!baseId),
   });
 
-  const appSumoTier = subscriptionSummary?.appSumoTier;
+  const baseUsage = useBaseUsage({ disabled: !baseId });
+  const appSumoTier = subscriptionSummary?.appSumoTier ?? baseUsage?.appSumoTier;
   const isAppSumo = Boolean(appSumoTier);
 
   // Get the target tier for AppSumo users based on target billing level
@@ -111,8 +114,14 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
     return space?.role === Role.Owner;
   }, [baseId, base?.role, space?.role]);
 
+  // In template/share preview mode, don't show upgrade prompts
+  // Allow all features to be displayed (similar to template preview)
   const needsUpgrade =
-    currentLevel && !isLevelSufficientMemo && !!targetBillingLevel && !isCommunity;
+    !isReadOnlyPreview &&
+    currentLevel &&
+    !isLevelSufficientMemo &&
+    !!targetBillingLevel &&
+    !isCommunity;
 
   const handleUpgradeClick = useCallback(() => {
     if (onUpgradeClick) {
@@ -195,6 +204,11 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
 
   if (!children) {
     return badge;
+  }
+
+  // In template/share preview mode, always show children without upgrade prompts
+  if (isReadOnlyPreview) {
+    return children;
   }
 
   if (isCommunity) {

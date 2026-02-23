@@ -45,6 +45,7 @@ import {
   SheetContent,
   SheetHeader,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useEffect, useRef, useState } from 'react';
@@ -219,14 +220,20 @@ export const FieldMenu = () => {
           const fieldId = fieldIds[0];
           const field = allFields.find((f) => f.id === fieldId);
           const newName = `${field?.name} ${t('common:noun.copy')}`;
-          await duplicateFieldFn({
-            tableId,
-            fieldId: fieldIds[0],
-            duplicateFieldRo: {
-              name: newName,
-              viewId: view.id,
-            },
-          });
+          const toastId = toast.loading(t('table:import.menu.duplicating'));
+          try {
+            await duplicateFieldFn({
+              tableId,
+              fieldId: fieldIds[0],
+              duplicateFieldRo: {
+                name: newName,
+                viewId: view.id,
+              },
+            });
+            toast.success(t('table:import.menu.duplicateSuccess'), { id: toastId });
+          } catch {
+            toast.error(t('table:import.menu.duplicateFailed'), { id: toastId });
+          }
         },
       },
     ],

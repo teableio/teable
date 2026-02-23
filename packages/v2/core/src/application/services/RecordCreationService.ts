@@ -4,13 +4,13 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import type { Table } from '../../domain/table/Table';
 import type { RecordCreateSource } from '../../domain/table/events/RecordFieldValuesDTO';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
+import type { Table } from '../../domain/table/Table';
 import * as EventBusPort from '../../ports/EventBus';
-import * as ExecutionContextPort from '../../ports/ExecutionContext';
+import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { IRecordCreateConstraintService } from '../../ports/RecordCreateConstraintService';
 import type { RecordMutationResult } from '../../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../../ports/TableRecordRepository';
@@ -105,25 +105,34 @@ export class RecordCreationService {
       }
 
       let mutationResult: RecordMutationResult | undefined;
+      let tableEvents: ReadonlyArray<IDomainEvent> = [];
       try {
         const runTransaction = () =>
           service.unitOfWork.withTransaction(context, async (transactionContext) => {
-            return safeTry<RecordMutationResult, DomainError>(async function* () {
+            return safeTry<
+              {
+                mutation: RecordMutationResult;
+                tableEvents: ReadonlyArray<IDomainEvent>;
+              },
+              DomainError
+            >(async function* () {
+              let transactionTableEvents: ReadonlyArray<IDomainEvent> = [];
               if (tableUpdateResult) {
-                yield* await service.tableUpdateFlow.execute(
+                const tableFlowResult = yield* await service.tableUpdateFlow.execute(
                   transactionContext,
                   { table: input.table },
                   () => ok(tableUpdateResult),
                   { publishEvents: false }
                 );
+                transactionTableEvents = tableFlowResult.events;
               }
-              const result = yield* await service.tableRecordRepository.insert(
+              const mutation = yield* await service.tableRecordRepository.insert(
                 transactionContext,
                 tableForCreate,
                 record,
                 input.order ? { order: input.order } : undefined
               );
-              return ok(result);
+              return ok({ mutation, tableEvents: transactionTableEvents });
             });
           });
         const transactionResult =
@@ -133,12 +142,14 @@ export class RecordCreationService {
         if (transactionResult.isErr()) {
           createRecordSpan?.recordError(transactionResult.error.toString());
         }
-        mutationResult = yield* transactionResult;
+        const persistedResult = yield* transactionResult;
+        mutationResult = persistedResult.mutation;
+        tableEvents = persistedResult.tableEvents;
       } finally {
         createRecordSpan?.end();
       }
 
-      const events = tableForCreate.pullDomainEvents();
+      const events = [...tableEvents, ...tableForCreate.pullDomainEvents()];
       yield* await service.eventBus.publishMany(context, events);
 
       const recordFields: Record<string, unknown> = {};

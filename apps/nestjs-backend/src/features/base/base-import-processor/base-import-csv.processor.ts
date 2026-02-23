@@ -2,7 +2,7 @@
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
-import { FieldType, generateAttachmentId } from '@teable/core';
+import { DbFieldType, FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
 import { CreateRecordAction, UploadType } from '@teable/openapi';
@@ -146,6 +146,19 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
             ...computedDbFieldNames,
           ];
 
+          const notNullFieldMap = new Map<
+            string,
+            { dbFieldType: string; isMultipleCellValue: boolean }
+          >();
+          table?.fields?.forEach(({ dbFieldName, notNull, dbFieldType, isMultipleCellValue }) => {
+            if (notNull) {
+              notNullFieldMap.set(dbFieldName, {
+                dbFieldType,
+                isMultipleCellValue: Boolean(isMultipleCellValue),
+              });
+            }
+          });
+
           const batchProcessor = new BatchProcessor<Record<string, unknown>>(async (chunk) => {
             totalRecordsCount += chunk.length;
             await this.handleChunk(
@@ -157,6 +170,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 viewIdMap,
                 fkMap,
                 attachmentsFields,
+                notNullFieldMap,
               },
               excludeDbFieldNames
             );
@@ -223,10 +237,11 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       viewIdMap: Record<string, string>;
       fkMap: Record<string, string>;
       attachmentsFields: { dbFieldName: string; id: string }[];
+      notNullFieldMap: Map<string, { dbFieldType: string; isMultipleCellValue: boolean }>;
     },
     excludeDbFieldNames: string[]
   ) {
-    const { tableId, userId, fieldIdMap, attachmentsFields, fkMap } = config;
+    const { tableId, userId, fieldIdMap, attachmentsFields, fkMap, notNullFieldMap } = config;
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: {
@@ -307,7 +322,15 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         const res = { ...result };
         Object.entries(res).forEach(([key, value]) => {
           if (res[key] === '') {
-            res[key] = null;
+            const notNullInfo = notNullFieldMap.get(key);
+            if (notNullInfo) {
+              res[key] = this.getNotNullDefault(
+                notNullInfo.dbFieldType,
+                notNullInfo.isMultipleCellValue
+              );
+            } else {
+              res[key] = null;
+            }
           }
 
           // filter unnecessary columns
@@ -361,7 +384,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       await this.updateAttachmentTable(userId, attachmentsTableData);
     });
 
-    // add foreign keys, do not in one transaction with deleting foreign keys
+    // restore foreign keys with NOT VALID
     for (const {
       constraint_name,
       column_name,
@@ -370,15 +393,39 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       referenced_table_name: referencedTableName,
       referenced_column_name: referencedColumnName,
     } of allForeignKeyInfos) {
-      const addForeignKeyQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          table
-            .foreign(column_name, constraint_name)
-            .references(referencedColumnName)
-            .inTable(`${referencedTableSchema}.${referencedTableName}`);
-        })
+      const [schema, tableName] = dbTableName.split('.');
+      const addForeignKeyQuery = this.knex
+        .raw(
+          'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(??) NOT VALID',
+          [
+            schema,
+            tableName,
+            constraint_name,
+            column_name,
+            referencedTableSchema,
+            referencedTableName,
+            referencedColumnName,
+          ]
+        )
         .toQuery();
       await this.prismaService.$executeRawUnsafe(addForeignKeyQuery);
+    }
+  }
+
+  private getNotNullDefault(dbFieldType: string, isMultipleCellValue: boolean): unknown {
+    switch (dbFieldType) {
+      case DbFieldType.Integer:
+      case DbFieldType.Real:
+        return 0;
+      case DbFieldType.Boolean:
+        return false;
+      case DbFieldType.DateTime:
+        return new Date(0).toISOString();
+      case DbFieldType.Json:
+        return isMultipleCellValue ? '[]' : '{}';
+      case DbFieldType.Text:
+      default:
+        return 'null';
     }
   }
 

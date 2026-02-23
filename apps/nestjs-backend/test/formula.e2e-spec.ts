@@ -6623,6 +6623,75 @@ describe('OpenAPI formula (e2e)', () => {
       expect(record.data.fields[field.name]).toEqual(expectedDay);
     });
 
+    it('should evaluate WORKDAY with weekend, holiday and negative offsets', async () => {
+      const dateAField = await createField(table.id, {
+        name: 'WORKDAY Date A',
+        type: FieldType.Date,
+      });
+      const dateBField = await createField(table.id, {
+        name: 'WORKDAY Date B',
+        type: FieldType.Date,
+      });
+      const dateCField = await createField(table.id, {
+        name: 'WORKDAY Date C',
+        type: FieldType.Date,
+      });
+
+      const scenarios = [
+        {
+          expression: `DATESTR(WORKDAY({${dateAField.id}}, 3))`,
+          expected: '2026-01-20',
+        },
+        {
+          expression: `DATESTR(WORKDAY({${dateAField.id}}, 3, "2026-01-16"))`,
+          expected: '2026-01-21',
+        },
+        {
+          expression: `DATESTR(WORKDAY({${dateAField.id}}, 3, "2026-01-16,2026-01-19"))`,
+          expected: '2026-01-22',
+        },
+        {
+          expression: `DATESTR(WORKDAY({${dateBField.id}}, 5))`,
+          expected: '2026-02-16',
+        },
+        {
+          expression: `DATESTR(WORKDAY({${dateCField.id}}, -1))`,
+          expected: '2026-02-13',
+        },
+      ] as const;
+
+      const createdFields = await Promise.all(
+        scenarios.map(({ expression }, index) =>
+          createField(table.id, {
+            name: `WORKDAY case ${index + 1}`,
+            type: FieldType.Formula,
+            options: {
+              expression,
+              timeZone: 'UTC',
+            },
+          })
+        )
+      );
+
+      const created = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [dateAField.id]: '2026-01-15T00:00:00.000Z',
+              [dateBField.id]: '2026-02-09T00:00:00.000Z',
+              [dateCField.id]: '2026-02-16T00:00:00.000Z',
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(table.id, created.records[0].id);
+      createdFields.forEach((field, index) => {
+        expect(record.data.fields[field.name]).toEqual(scenarios[index].expected);
+      });
+    });
+
     it('should bucket Created On records using NOW() formula', async () => {
       const createdOnField = await createField(table.id, {
         name: 'Created On',

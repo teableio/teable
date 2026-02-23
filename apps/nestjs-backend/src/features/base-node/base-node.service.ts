@@ -28,7 +28,10 @@ import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { LocalPresence } from 'sharedb/lib/client';
 import { CustomHttpException } from '../../custom.exception';
-import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
+import {
+  generateBaseNodeListCacheKey,
+  generateBaseShareListCacheKey,
+} from '../../performance-cache/generate-keys';
 import { PerformanceCacheService } from '../../performance-cache/service';
 import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
@@ -76,6 +79,20 @@ export class BaseNodeService {
 
   private setIgnoreBaseNodeListener() {
     this.cls.set('ignoreBaseNodeListener', true);
+  }
+
+  /**
+   * Delete all share records for a node and invalidate cache
+   */
+  private async deleteNodeShares(baseId: string, nodeId: string): Promise<void> {
+    const deleted = await this.prismaService.baseShare.deleteMany({
+      where: { baseId, nodeId },
+    });
+
+    // Invalidate cache if any shares were deleted
+    if (deleted.count > 0) {
+      await this.performanceCacheService.del(generateBaseShareListCacheKey(baseId));
+    }
   }
 
   private getSelect() {
@@ -693,6 +710,9 @@ export class BaseNodeService {
         );
       }
     }
+
+    // Clean up share records for this node before deletion
+    await this.deleteNodeShares(baseId, nodeId);
 
     await this.deleteResource(
       baseId,

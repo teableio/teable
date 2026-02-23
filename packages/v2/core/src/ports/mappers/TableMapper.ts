@@ -149,16 +149,17 @@ export type IRollupFieldConfigDTO = {
 export type IFilterItemDTO = {
   fieldId: string;
   operator: string;
-  value: unknown;
+  value?: unknown;
+  isSymbol?: boolean;
+};
+
+export type IFilterDTO = {
+  conjunction: 'and' | 'or';
+  filterSet: ReadonlyArray<IFilterItemDTO | IFilterDTO>;
 };
 
 export type IFieldConditionDTO = {
-  filter: {
-    conjunction: 'and' | 'or';
-    filterSet: ReadonlyArray<
-      IFilterItemDTO | { conjunction: 'and' | 'or'; filterSet: ReadonlyArray<IFilterItemDTO> }
-    >;
-  } | null;
+  filter: IFilterDTO | null;
   sort?: {
     fieldId: string;
     order: 'asc' | 'desc';
@@ -197,6 +198,7 @@ export type ILinkFieldOptionsDTO = {
   symmetricFieldId?: string;
   filterByViewId?: string | null;
   visibleFieldIds?: ReadonlyArray<string> | null;
+  filter?: IFieldConditionDTO['filter'];
 };
 
 export type ILinkFieldMetaDTO = {
@@ -215,6 +217,7 @@ export type ILookupOptionsDTO = {
 export type ITableFieldBaseDTO = {
   id: string;
   name: string;
+  description?: string | null;
   dbFieldName?: string;
   dbFieldType?: string;
   isComputed?: boolean;

@@ -48,6 +48,9 @@ export class BaseDuplicateService {
   ) {
     const { fromBaseId, spaceId, withRecords, name, baseId, nodes } = duplicateBaseRo;
 
+    // For CopyShareBase mode, don't collect parent nodes - the shared node becomes the root
+    const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;
+
     const { base, tableIdMap, fieldIdMap, viewIdMap, ...rest } = await this.duplicateStructure(
       fromBaseId,
       spaceId,
@@ -72,7 +75,8 @@ export class BaseDuplicateService {
     const disconnectedLinkFieldTableMap = await this.getDisconnectedLinkFieldTableMap(
       tableIdMap,
       fromBaseId,
-      nodes
+      nodes,
+      skipParentNodes
     );
 
     const mergedLinkFieldTableMap = mergeLinkFieldTableMaps(
@@ -83,7 +87,8 @@ export class BaseDuplicateService {
     const disconnectedLinkFieldIds = await this.getDisconnectedLinkFieldIds(
       tableIdMap,
       fromBaseId,
-      nodes
+      nodes,
+      skipParentNodes
     );
 
     let recordsLength = 0;
@@ -114,9 +119,14 @@ export class BaseDuplicateService {
   private async getDisconnectedLinkFieldIds(
     tableIdMap: Record<string, string>,
     fromBaseId: string,
-    nodes?: string[]
+    nodes?: string[],
+    skipParentNodes: boolean = false
   ) {
-    const { excludedTableIds } = await this.collectNodesAndResourceIds(fromBaseId, nodes);
+    const { excludedTableIds } = await this.collectNodesAndResourceIds(
+      fromBaseId,
+      nodes,
+      skipParentNodes
+    );
     if (!excludedTableIds?.length) {
       return [];
     }
@@ -155,6 +165,9 @@ export class BaseDuplicateService {
     });
     baseRaw.name = baseName || `${baseRaw.name} (Copy)`;
 
+    // For CopyShareBase mode, don't collect parent nodes - the shared node becomes the root
+    const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;
+
     // Get included table IDs if includeNodes is provided
     const {
       finalIncludeNodes,
@@ -164,7 +177,9 @@ export class BaseDuplicateService {
       includedWorkflowIds,
       includedAppIds,
       excludedTableIds,
-    } = await this.collectNodesAndResourceIds(fromBaseId, nodes);
+    } = await this.collectNodesAndResourceIds(fromBaseId, nodes, skipParentNodes);
+
+    const rootNodeIds = skipParentNodes ? [...(nodes || [])] : undefined;
 
     const tableRaws = await prisma.tableMeta.findMany({
       where: {
@@ -209,6 +224,7 @@ export class BaseDuplicateService {
       includedWorkflowIds,
       includedAppIds,
       excludedTableIds,
+      rootNodeIds,
     });
 
     this.logger.log(`base-duplicate-service: Start to getting base structure config successfully`);
@@ -232,10 +248,18 @@ export class BaseDuplicateService {
 
   /**
    * Collect nodes and their resource IDs by type
-   * This method processes the selected nodes and collects all their parent nodes
+   * This method processes the selected nodes and collects all their parent nodes (unless skipParentNodes is true)
    * Then extracts resource IDs grouped by resource type
+   *
+   * @param fromBaseId - The base ID to collect nodes from
+   * @param nodes - The selected node IDs
+   * @param skipParentNodes - If true, don't collect parent nodes (used for share base copy)
    */
-  private async collectNodesAndResourceIds(fromBaseId: string, nodes: string[] | undefined) {
+  private async collectNodesAndResourceIds(
+    fromBaseId: string,
+    nodes: string[] | undefined,
+    skipParentNodes: boolean = false
+  ) {
     const prisma = this.prismaService.txClient();
     let includedTableIds: string[] | undefined;
     let includedFolderIds: string[] | undefined;
@@ -278,10 +302,30 @@ export class BaseDuplicateService {
         }
       };
 
-      // Collect selected nodes and all their parent nodes
+      // Function to recursively collect descendant nodes (children)
+      const collectDescendantNodes = (nodeId: string, collected: Set<string>) => {
+        // Find all children of this node and collect them
+        for (const node of allNodes) {
+          if (node.parentId === nodeId && !collected.has(node.id)) {
+            collected.add(node.id);
+            collectDescendantNodes(node.id, collected);
+          }
+        }
+      };
+
+      // Collect selected nodes, all their parent nodes (unless skipParentNodes), and all their descendant nodes
       const allIncludedNodeIds = new Set<string>();
       for (const nodeId of nodes) {
-        collectParentNodes(nodeId, allIncludedNodeIds);
+        if (skipParentNodes) {
+          // Only add the node itself, no parent collection
+          allIncludedNodeIds.add(nodeId);
+        } else {
+          // Collect the node itself and its parents (for folder structure)
+          // Note: collectParentNodes already adds the nodeId itself
+          collectParentNodes(nodeId, allIncludedNodeIds);
+        }
+        // Collect all descendants (children, grandchildren, etc.)
+        collectDescendantNodes(nodeId, allIncludedNodeIds);
       }
 
       finalIncludeNodes = Array.from(allIncludedNodeIds);
@@ -345,13 +389,18 @@ export class BaseDuplicateService {
   private async getDisconnectedLinkFieldTableMap(
     tableIdMap: Record<string, string>,
     fromBaseId: string,
-    nodes?: string[]
+    nodes?: string[],
+    skipParentNodes: boolean = false
   ) {
     const tableId2DbFieldNameMap: Record<
       string,
       { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]
     > = {};
-    const { excludedTableIds } = await this.collectNodesAndResourceIds(fromBaseId, nodes);
+    const { excludedTableIds } = await this.collectNodesAndResourceIds(
+      fromBaseId,
+      nodes,
+      skipParentNodes
+    );
 
     if (!nodes?.length || !excludedTableIds?.length) {
       return tableId2DbFieldNameMap;
@@ -688,6 +737,22 @@ export class BaseDuplicateService {
         action: CreateRecordAction.TemplateApply,
         resourceId: baseId,
         recordCount: recordsLength,
+      });
+    });
+  }
+
+  async emitShareBaseCopyAuditLog(baseId: string, shareId: string, recordsLength?: number) {
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+
+    await this.cls.run(async () => {
+      this.cls.set('origin', origin!);
+      this.cls.set('user.id', userId!);
+      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action: CreateRecordAction.ShareBaseCopy,
+        resourceId: baseId,
+        recordCount: recordsLength,
+        params: { shareId },
       });
     });
   }
