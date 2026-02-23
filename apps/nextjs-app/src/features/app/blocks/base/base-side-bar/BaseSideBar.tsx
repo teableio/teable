@@ -1,6 +1,7 @@
 // import { TableList } from '../../table-list/TableList';
 import { CollaboratorType } from '@teable/openapi';
 import { useBase } from '@teable/sdk/hooks';
+import { ChangelogNotification } from '@/components/changelog';
 import { BaseNodeTree } from './BaseNodeTree';
 import { BasePageRouter } from './BasePageRouter';
 
@@ -18,6 +19,7 @@ export const BaseSideBar = (props: {
         <BaseNodeTree />
       </div>
       {isSpaceCollaborator && renderWinFreeCredit && renderWinFreeCredit(base.spaceId)}
+      <ChangelogNotification />
     </>
   );
 };

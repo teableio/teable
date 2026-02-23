@@ -12,13 +12,13 @@ import type { TableId } from '../../domain/table/TableId';
 import { ICommandBus } from '../../ports/CommandBus';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
-import { IUndoRedoStore } from '../../ports/UndoRedoStore';
 import type {
   UndoEntry,
   UndoRedoCommandData,
   UndoRedoUpdateCommandData,
   UndoScope,
 } from '../../ports/UndoRedoStore';
+import { IUndoRedoStore } from '../../ports/UndoRedoStore';
 
 export type RecordUpdateUndoRedoInput = {
   readonly tableId: TableId;

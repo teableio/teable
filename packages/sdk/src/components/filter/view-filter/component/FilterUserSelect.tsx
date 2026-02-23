@@ -6,7 +6,7 @@ import { cn } from '@teable/ui-lib';
 import { useCallback, useMemo, useState } from 'react';
 import { ReactQueryKeys } from '../../../../config/react-query-keys';
 import { useTranslation } from '../../../../context/app/i18n';
-import { useIsTemplate } from '../../../../hooks';
+import { useIsReadOnlyPreview } from '../../../../hooks';
 import { useBaseId } from '../../../../hooks/use-base-id';
 import { useSession } from '../../../../hooks/use-session';
 import type { UserField, CreatedByField, LastModifiedByField } from '../../../../model';
@@ -156,7 +156,7 @@ const FilterUserSelect = (props: IFilterUserProps) => {
   const { field } = props;
   const baseId = useBaseId();
   const [search, setSearch] = useState('');
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { data: collaboratorsData = defaultData } = useQuery({
     queryKey: ReactQueryKeys.baseCollaboratorListUser(baseId as string, {
       includeSystem: true,
@@ -166,7 +166,7 @@ const FilterUserSelect = (props: IFilterUserProps) => {
     }),
     queryFn: ({ queryKey }) =>
       getUserCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
-    enabled: !isTemplate,
+    enabled: !isReadOnlyPreview,
   });
 
   const { data: recordCollaboratorsData } = useQuery({
@@ -178,10 +178,10 @@ const FilterUserSelect = (props: IFilterUserProps) => {
     }),
     queryFn: ({ queryKey }) =>
       getRecordGetCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
-    enabled: isTemplate,
+    enabled: isReadOnlyPreview,
   });
 
-  const data = isTemplate
+  const data = isReadOnlyPreview
     ? recordCollaboratorsData
     : collaboratorsData?.users?.map((item) => ({
         userId: item.id,

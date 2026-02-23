@@ -8,6 +8,7 @@ import { FieldCreated } from '../../domain/table/events/FieldCreated';
 import { FieldDeleted } from '../../domain/table/events/FieldDeleted';
 import { FieldOptionsAdded } from '../../domain/table/events/FieldOptionsAdded';
 import { RecordCreated } from '../../domain/table/events/RecordCreated';
+import { RecordReordered } from '../../domain/table/events/RecordReordered';
 import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreated';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
 import { RecordsDeleted } from '../../domain/table/events/RecordsDeleted';
@@ -34,6 +35,7 @@ import { FieldCreatedRealtimeProjection } from './FieldCreatedRealtimeProjection
 import { FieldDeletedRealtimeProjection } from './FieldDeletedRealtimeProjection';
 import { FieldOptionsAddedRealtimeProjection } from './FieldOptionsAddedRealtimeProjection';
 import { RecordCreatedRealtimeProjection } from './RecordCreatedRealtimeProjection';
+import { RecordReorderedRealtimeProjection } from './RecordReorderedRealtimeProjection';
 import { RecordsBatchCreatedRealtimeProjection } from './RecordsBatchCreatedRealtimeProjection';
 import { RecordsBatchUpdatedRealtimeProjection } from './RecordsBatchUpdatedRealtimeProjection';
 import { RecordsDeletedRealtimeProjection } from './RecordsDeletedRealtimeProjection';
@@ -257,6 +259,51 @@ describe('Realtime projections', () => {
         value: 'New',
       },
     ]);
+  });
+
+  it('projects record reorder updates to row-order columns', async () => {
+    const table = buildTable('2', '4', '6');
+    const viewId = table.views()[0]!.id();
+    const recordA = RecordId.create(`rec${'q'.repeat(16)}`)._unsafeUnwrap();
+    const recordB = RecordId.create(`rec${'r'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordReorderedRealtimeProjection(engine);
+
+    const event = RecordReordered.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      viewId,
+      recordIds: [recordA, recordB],
+      ordersByRecordId: {
+        [recordA.toString()]: 101,
+        [recordB.toString()]: 102,
+      },
+      previousOrdersByRecordId: {
+        [recordA.toString()]: 11,
+        [recordB.toString()]: 12,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.ensures).toHaveLength(0);
+    expect(engine.changes).toHaveLength(2);
+
+    const collection = buildRecordCollection(table.id().toString());
+    const rowOrderColumnName = viewId.toRowOrderColumnName();
+    expect(engine.changes[0]?.docId.toString()).toBe(`${collection}/${recordA.toString()}`);
+    expect(engine.changes[0]?.change).toEqual({
+      type: 'set',
+      path: ['fields', rowOrderColumnName],
+      value: 101,
+    });
+    expect(engine.changes[1]?.docId.toString()).toBe(`${collection}/${recordB.toString()}`);
+    expect(engine.changes[1]?.change).toEqual({
+      type: 'set',
+      path: ['fields', rowOrderColumnName],
+      value: 102,
+    });
   });
 
   it('projects batch record creations', async () => {

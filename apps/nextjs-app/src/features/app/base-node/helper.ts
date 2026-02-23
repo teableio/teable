@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { BaseNodeResourceType } from '@teable/openapi';
 import { getNodeUrl } from '@/features/app/blocks/base/base-node/hooks';
 import type { SSRResult, ISSRContext } from './types';
 
@@ -8,7 +9,7 @@ export const redirect = (destination: string): SSRResult => ({
 
 /**
  * Get the default node URL when a specific node is not found
- * This function will redirect to the first available node in the base
+ * This function will redirect to the first available non-folder node in the base
  */
 export const getDefaultNodeUrl = async (ctx: ISSRContext): Promise<string | null> => {
   const { ssrApi, baseId } = ctx;
@@ -19,7 +20,17 @@ export const getDefaultNodeUrl = async (ctx: ISSRContext): Promise<string | null
       ssrApi.getBaseNodeList(baseId),
     ]);
 
-    const findNode = nodes.find((n) => n.resourceId === lastVisitNode?.resourceId) ?? nodes[0];
+    // Try to find the last visited node, but skip if it's a folder
+    let findNode = nodes.find(
+      (n) =>
+        n.resourceId === lastVisitNode?.resourceId && n.resourceType !== BaseNodeResourceType.Folder
+    );
+
+    // If not found, find the first non-folder node
+    if (!findNode) {
+      findNode = nodes.find((n) => n.resourceType !== BaseNodeResourceType.Folder);
+    }
+
     if (findNode) {
       const url = getNodeUrl({
         baseId,

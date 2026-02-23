@@ -124,7 +124,7 @@ describe('v2 http record ordering (e2e)', () => {
     const orderColumnName = `__row_${viewIdParam}`;
     const fullTableName = `${ctx.baseId}.${tableIdParam}`;
 
-    const result = await sql<{ __id: string; order_value: number }>`
+    const result = await sql<{ __id: string; order_value: number | null }>`
       SELECT __id, ${sql.ref(orderColumnName)} as order_value
       FROM ${sql.table(fullTableName)}
       ORDER BY ${sql.ref(orderColumnName)} ASC
@@ -163,6 +163,35 @@ describe('v2 http record ordering (e2e)', () => {
     tableId = table.id;
     viewId = table.views[0].id;
     textFieldId = table.fields.find((f) => f.name === 'Name')?.id ?? '';
+  });
+
+  describe('createRecord default row order', () => {
+    it('should write non-null view row order values when order is not provided', async () => {
+      const testTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'Default Row Order Test Table',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const testTableId = testTable.id;
+      const testViewId = testTable.views[0].id;
+      const testTextFieldId = testTable.fields.find((f) => f.name === 'Name')?.id ?? '';
+
+      const recordA = await createRecord(testTableId, { [testTextFieldId]: 'A' });
+      await createRecord(
+        testTableId,
+        { [testTextFieldId]: 'B' },
+        { viewId: testViewId, anchorId: recordA.id, position: 'before' }
+      );
+      const recordC = await createRecord(testTableId, { [testTextFieldId]: 'C' });
+
+      const orderedRows = await getRecordsInOrder(testTableId, testViewId);
+      expect(orderedRows).toHaveLength(3);
+      expect(orderedRows.every((row) => row.order_value != null)).toBe(true);
+
+      const createdWithoutOrder = orderedRows.find((row) => row.__id === recordC.id);
+      expect(createdWithoutOrder?.order_value).not.toBeNull();
+    });
   });
 
   describe('createRecord with order', () => {

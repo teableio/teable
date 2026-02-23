@@ -221,19 +221,19 @@ const httpClientActiveRequestsProcessor: SpanProcessor = {
   onStart(span): void {
     if (span.kind !== SpanKind.CLIENT) return;
     const host = String(
-      span.attributes['net.peer.name'] || span.attributes['server.address'] || ''
+      span.attributes['server.address'] || span.attributes['net.peer.name'] || ''
     );
     if (host) {
-      httpClientActiveRequests.add(1, { 'net.peer.name': host });
+      httpClientActiveRequests.add(1, { 'server.address': host });
     }
   },
   onEnd(span): void {
     if (span.kind !== SpanKind.CLIENT) return;
     const host = String(
-      span.attributes['net.peer.name'] || span.attributes['server.address'] || ''
+      span.attributes['server.address'] || span.attributes['net.peer.name'] || ''
     );
     if (host) {
-      httpClientActiveRequests.add(-1, { 'net.peer.name': host });
+      httpClientActiveRequests.add(-1, { 'server.address': host });
     }
   },
   shutdown: () => Promise.resolve(),

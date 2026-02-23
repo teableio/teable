@@ -1,4 +1,5 @@
 import * as core from '@teable/v2-core';
+import { tableI18nKeys } from '@teable/i18n-keys';
 import {
   domainError,
   type ILogger,
@@ -53,6 +54,11 @@ type ExtraSeedRecordGroup = {
   recordIds: core.RecordId[];
 };
 
+type ActorIdentity = {
+  actorName?: string;
+  actorEmail?: string;
+};
+
 /**
  * Convert a TableRecord's fields to a Map<string, unknown> for use with RecordInsertBuilder.
  */
@@ -105,14 +111,18 @@ async function getViewOrderInfo(
   // Get all potential order column names
   const potentialColumns = views.map((view) => view.id().toRowOrderColumnName());
 
-  // First, check which columns actually exist in the table
-  // Query the information_schema to find existing columns
+  // Split db table name (schema.table) for information_schema lookup.
+  const splitIndex = tableName.indexOf('.');
+  const schemaName = splitIndex === -1 ? 'public' : tableName.slice(0, splitIndex);
+  const plainTableName = splitIndex === -1 ? tableName : tableName.slice(splitIndex + 1);
+
+  // First, check which columns actually exist in the table.
   try {
     const existingColumnsResult = await sql<{ column_name: string }>`
       SELECT column_name
       FROM information_schema.columns
-      WHERE table_name = ${tableName}
-      AND column_name = ANY(${sql.raw(`ARRAY[${potentialColumns.map((c) => `'${c}'`).join(',')}]`)})
+      WHERE table_schema = ${schemaName}
+      AND table_name = ${plainTableName}
     `.execute(db);
 
     const existingColumns = new Set(existingColumnsResult.rows.map((row) => row.column_name));
@@ -200,7 +210,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         const now = new Date().toISOString();
         const actorId = context.actorId.toString();
+        const actorContext = context as core.IExecutionContext & {
+          actorName?: string;
+          actorEmail?: string;
+        };
         const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        // Resolve actor identity outside transaction-scoped connection to avoid
+        // marking the current transaction as aborted when optional lookup fails.
+        const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
+        const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
 
         // Get view order info for all views in the table
         const views = table.views();
@@ -222,6 +240,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             recordId: record.id().toString(),
             actorId: context.actorId.toString(),
             now,
+            actorName: actorIdentity.actorName,
+            actorEmail: actorIdentity.actorEmail,
           },
         });
 
@@ -262,7 +282,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         }));
 
         // Validate link exclusivity constraints for oneOne/oneMany relationships
-        yield* await validateInsertExclusivityConstraints(db, exclusivityConstraints);
+        yield* await validateInsertExclusivityConstraints(context, db, exclusivityConstraints);
 
         this.logger.debug(`insert:table=${tableName}`, { values: valuesWithViewOrder });
 
@@ -290,7 +310,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           const computedChanges = extractChangesForRecord(computedResult, record.id().toString());
           return ok({ computedChanges });
         } catch (error) {
-          return err(wrapDatabaseError(error, 'insert', { tableName }));
+          return err(wrapDatabaseError(error, 'insert', { tableName }, context.$t));
         }
       }.bind(this)
     );
@@ -319,7 +339,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         const now = new Date().toISOString();
         const actorId = context.actorId.toString();
+        const actorContext = context as core.IExecutionContext & {
+          actorName?: string;
+          actorEmail?: string;
+        };
         const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+        // Resolve actor identity outside transaction-scoped connection to avoid
+        // marking the current transaction as aborted when optional lookup fails.
+        const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
+        const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
 
         // Get view order info for all views in the table
         const views = table.views();
@@ -368,6 +396,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               recordId: record.id().toString(),
               actorId: context.actorId.toString(),
               now,
+              actorName: actorIdentity.actorName,
+              actorEmail: actorIdentity.actorEmail,
             },
           });
 
@@ -435,7 +465,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // Validate link exclusivity constraints:
         // 1. Check for cross-record duplicates within the same batch
         // 2. Check against existing database records
-        yield* await validateInsertExclusivityConstraints(db, allExclusivityConstraints);
+        yield* await validateInsertExclusivityConstraints(context, db, allExclusivityConstraints);
 
         this.logger.debug(`insertMany:table=${tableName}`, { count: records.length });
 
@@ -473,7 +503,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             recordOrders: recordOrdersMap.size > 0 ? recordOrdersMap : undefined,
           });
         } catch (error) {
-          return err(wrapDatabaseError(error, 'insert', { tableName }));
+          return err(wrapDatabaseError(error, 'insert', { tableName }, context.$t));
         }
       }.bind(this)
     );
@@ -600,7 +630,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // Validate link exclusivity constraints before persisting
         // This ensures that in oneMany/oneOne relationships, a foreign record
         // cannot be linked to multiple source records
-        yield* await validateLinkExclusivityConstraints(db, exclusivityConstraints);
+        yield* await validateLinkExclusivityConstraints(context, db, exclusivityConstraints);
 
         try {
           // Execute main UPDATE statement
@@ -629,7 +659,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           const computedChanges = extractChangesForRecord(computedResult, recordIdStr);
           return ok({ computedChanges });
         } catch (error) {
-          return err(wrapDatabaseError(error, 'update', { tableName, recordId: recordIdStr }));
+          return err(wrapDatabaseError(error, 'update', { tableName, recordId: recordIdStr }, context.$t));
         }
       }.bind(this)
     );
@@ -742,7 +772,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             });
             batchIndex++;
           } catch (error) {
-            return err(wrapDatabaseError(error, 'update', { tableName }));
+            return err(wrapDatabaseError(error, 'update', { tableName }, context.$t));
           }
         }
 
@@ -1011,7 +1041,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
           await this.touchTableMeta(db, table.id().toString(), actorId);
         } catch (error) {
-          return err(wrapDatabaseError(error, 'delete', { tableName, count: recordIds.length }));
+          return err(wrapDatabaseError(error, 'delete', { tableName, count: recordIds.length }, context.$t));
         }
 
         return ok(undefined);
@@ -1032,6 +1062,41 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       })
       .where('id', '=', tableId)
       .execute();
+  }
+
+  private async resolveActorIdentity(
+    db: Kysely<DynamicDB>,
+    actorId: string,
+    actorContext: { actorName?: string; actorEmail?: string }
+  ): Promise<ActorIdentity> {
+    if (actorContext.actorName != null && actorContext.actorEmail != null) {
+      return { actorName: actorContext.actorName, actorEmail: actorContext.actorEmail };
+    }
+
+    try {
+      const row = await sql<{ name: string | null; email: string | null }>`
+        SELECT u.name, u.email
+        FROM public.users u
+        WHERE u.id = ${actorId}::text
+        LIMIT 1
+      `.execute(db);
+
+      const user = row.rows[0];
+      if (!user) {
+        return { actorName: actorContext.actorName, actorEmail: actorContext.actorEmail };
+      }
+
+      return {
+        actorName: actorContext.actorName ?? user.name ?? undefined,
+        actorEmail: actorContext.actorEmail ?? user.email ?? undefined,
+      };
+    } catch (error) {
+      this.logger.warn('record:resolve_actor_identity_failed', {
+        actorId,
+        error: describeError(error),
+      });
+      return { actorName: actorContext.actorName, actorEmail: actorContext.actorEmail };
+    }
   }
 
   private async runComputedUpdate(
@@ -1822,11 +1887,27 @@ const acquireLinkedRecordLocks = async (
  * to ONE source record. This function checks if any of the foreign records
  * being newly linked are already linked to a different source record.
  *
+ * @param context - Execution context for i18n translation
  * @param db - Database connection
  * @param constraints - Array of exclusivity constraints to validate
  * @returns Ok if all constraints pass, Err with validation error if any fail
  */
+const i18nOrFallback = (
+  t: core.IExecutionContext['$t'],
+  key: Parameters<NonNullable<core.IExecutionContext['$t']>>[0],
+  fallback: string,
+  options?: Record<string, unknown>
+): string => {
+  if (!t) return fallback;
+  try {
+    return t(key, options);
+  } catch {
+    return fallback;
+  }
+};
+
 const validateLinkExclusivityConstraints = async (
+  context: core.IExecutionContext,
   db: Kysely<DynamicDB>,
   constraints: ReadonlyArray<LinkExclusivityConstraint>
 ): Promise<Result<void, DomainError>> => {
@@ -1840,6 +1921,7 @@ const validateLinkExclusivityConstraints = async (
   interface TwoWayQueryGroup {
     type: 'two-way';
     fkHostTableName: string;
+    foreignTableId: string;
     selfKeyName: string;
     // Map from foreignRecordId to sourceRecordId (to check each foreign record against its source)
     foreignRecordToSource: Map<string, string>;
@@ -1849,6 +1931,7 @@ const validateLinkExclusivityConstraints = async (
   interface OneWayQueryGroup {
     type: 'one-way';
     fkHostTableName: string; // junction table
+    foreignTableId: string;
     selfKeyName: string; // points to source
     foreignKeyName: string; // points to foreign
     // Map from foreignRecordId to sourceRecordId
@@ -1865,7 +1948,7 @@ const validateLinkExclusivityConstraints = async (
 
     if (constraint.usesJunctionTable) {
       // Junction table: query by foreignKeyName (oneMany isOneWay)
-      const groupKey = `junction::${constraint.fkHostTableName}::${constraint.foreignKeyName}`;
+      const groupKey = `junction::${constraint.fkHostTableName}::${constraint.foreignKeyName}::${constraint.foreignTableId.toString()}`;
       const existing = queryGroups.get(groupKey) as OneWayQueryGroup | undefined;
       if (existing) {
         for (const id of constraint.addedForeignRecordIds) {
@@ -1880,6 +1963,7 @@ const validateLinkExclusivityConstraints = async (
         queryGroups.set(groupKey, {
           type: 'one-way',
           fkHostTableName: constraint.fkHostTableName,
+          foreignTableId: constraint.foreignTableId.toString(),
           selfKeyName: constraint.selfKeyName,
           foreignKeyName: constraint.foreignKeyName,
           foreignRecordToSource,
@@ -1888,7 +1972,7 @@ const validateLinkExclusivityConstraints = async (
       }
     } else {
       // Two-way: query foreign table by __id
-      const groupKey = `two-way::${constraint.fkHostTableName}::${constraint.selfKeyName}`;
+      const groupKey = `two-way::${constraint.fkHostTableName}::${constraint.selfKeyName}::${constraint.foreignTableId.toString()}`;
       const existing = queryGroups.get(groupKey) as TwoWayQueryGroup | undefined;
       if (existing) {
         for (const id of constraint.addedForeignRecordIds) {
@@ -1903,6 +1987,7 @@ const validateLinkExclusivityConstraints = async (
         queryGroups.set(groupKey, {
           type: 'two-way',
           fkHostTableName: constraint.fkHostTableName,
+          foreignTableId: constraint.foreignTableId.toString(),
           selfKeyName: constraint.selfKeyName,
           foreignRecordToSource,
           constraints: [constraint],
@@ -1936,15 +2021,21 @@ const validateLinkExclusivityConstraints = async (
         });
 
         if (conflictingRecords.length > 0) {
-          const conflictingIds = conflictingRecords.map((r) => r.record_id).join(', ');
           const firstConstraint = group.constraints[0];
+          const conflictingIds = conflictingRecords.map((r) => r.record_id as string);
+          const message = i18nOrFallback(
+            context.$t,
+            tableI18nKeys.validation.link.one_many_duplicate,
+            'Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.',
+            undefined
+          );
           return err(
             domainError.validation({
-              message: `Cannot link record(s) [${conflictingIds}]: already linked to another record. In one-to-many relationships, each record can only belong to one parent.`,
+              message,
               code: 'validation.link.one_many_duplicate',
               details: {
                 fieldId: firstConstraint.fieldId.toString(),
-                conflictingRecordIds: conflictingRecords.map((r) => r.record_id),
+                conflictingRecordIds: conflictingIds,
                 existingLinks: conflictingRecords.map((r) => ({
                   recordId: r.record_id,
                   linkedTo: r.linked_to,
@@ -1972,15 +2063,21 @@ const validateLinkExclusivityConstraints = async (
         });
 
         if (conflictingRecords.length > 0) {
-          const conflictingIds = conflictingRecords.map((r) => r.foreign_id).join(', ');
           const firstConstraint = group.constraints[0];
+          const conflictingIds = conflictingRecords.map((r) => r.foreign_id as string);
+          const message = i18nOrFallback(
+            context.$t,
+            tableI18nKeys.validation.link.one_many_duplicate,
+            'Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.',
+            undefined
+          );
           return err(
             domainError.validation({
-              message: `Cannot link record(s) [${conflictingIds}]: already linked to another record. In one-to-many relationships, each record can only belong to one parent.`,
+              message,
               code: 'validation.link.one_many_duplicate',
               details: {
                 fieldId: firstConstraint.fieldId.toString(),
-                conflictingRecordIds: conflictingRecords.map((r) => r.foreign_id),
+                conflictingRecordIds: conflictingIds,
                 existingLinks: conflictingRecords.map((r) => ({
                   recordId: r.foreign_id,
                   linkedTo: r.linked_to,
@@ -2016,6 +2113,7 @@ const validateLinkExclusivityConstraints = async (
  * @returns Ok if all constraints pass, Err with validation error if any fail
  */
 const validateInsertExclusivityConstraints = async (
+  context: core.IExecutionContext,
   db: Kysely<DynamicDB>,
   constraints: ReadonlyArray<InsertExclusivityConstraint>
 ): Promise<Result<void, DomainError>> => {
@@ -2038,10 +2136,17 @@ const validateInsertExclusivityConstraints = async (
       for (const foreignRecordId of constraint.linkedForeignRecordIds) {
         const existingSourceId = seenForeignRecordIds.get(foreignRecordId);
         if (existingSourceId && existingSourceId !== constraint.sourceRecordId) {
+          const firstConstraint = fieldConstraints[0];
+          const message = i18nOrFallback(
+            context.$t,
+            tableI18nKeys.validation.link.batch_duplicate,
+            'Cannot link record(s): already linked by another record in the same batch. In one-to-many relationships, each record can only belong to one parent.',
+            undefined
+          );
           // Two different source records trying to link the same foreign record
           return err(
             domainError.validation({
-              message: `Cannot link record ${foreignRecordId}: already linked by another record in the same batch. In one-to-many relationships, each record can only belong to one parent.`,
+              message,
               code: 'validation.link.batch_duplicate',
               details: {
                 fieldId: fieldIdStr,
@@ -2065,6 +2170,7 @@ const validateInsertExclusivityConstraints = async (
   interface TwoWayQueryGroup {
     type: 'two-way';
     fkHostTableName: string;
+    foreignTableId: string;
     selfKeyName: string;
     foreignRecordIds: Set<string>;
     constraints: InsertExclusivityConstraint[];
@@ -2073,6 +2179,7 @@ const validateInsertExclusivityConstraints = async (
   interface OneWayQueryGroup {
     type: 'one-way';
     fkHostTableName: string; // junction table
+    foreignTableId: string;
     selfKeyName: string; // points to source
     foreignKeyName: string; // points to foreign
     foreignRecordIds: Set<string>;
@@ -2089,7 +2196,7 @@ const validateInsertExclusivityConstraints = async (
 
     if (constraint.usesJunctionTable) {
       // Junction table: query by foreignKeyName (oneMany isOneWay, manyMany)
-      const groupKey = `junction::${constraint.fkHostTableName}::${constraint.foreignKeyName}`;
+      const groupKey = `junction::${constraint.fkHostTableName}::${constraint.foreignKeyName}::${constraint.foreignTableId.toString()}`;
       const existing = queryGroups.get(groupKey) as OneWayQueryGroup | undefined;
       if (existing) {
         for (const id of constraint.linkedForeignRecordIds) {
@@ -2101,6 +2208,7 @@ const validateInsertExclusivityConstraints = async (
         queryGroups.set(groupKey, {
           type: 'one-way',
           fkHostTableName: constraint.fkHostTableName,
+          foreignTableId: constraint.foreignTableId.toString(),
           selfKeyName: constraint.selfKeyName,
           foreignKeyName: constraint.foreignKeyName,
           foreignRecordIds: new Set(constraint.linkedForeignRecordIds),
@@ -2110,7 +2218,7 @@ const validateInsertExclusivityConstraints = async (
       }
     } else {
       // Two-way: query foreign table by __id
-      const groupKey = `two-way::${constraint.fkHostTableName}::${constraint.selfKeyName}`;
+      const groupKey = `two-way::${constraint.fkHostTableName}::${constraint.selfKeyName}::${constraint.foreignTableId.toString()}`;
       const existing = queryGroups.get(groupKey) as TwoWayQueryGroup | undefined;
       if (existing) {
         for (const id of constraint.linkedForeignRecordIds) {
@@ -2121,6 +2229,7 @@ const validateInsertExclusivityConstraints = async (
         queryGroups.set(groupKey, {
           type: 'two-way',
           fkHostTableName: constraint.fkHostTableName,
+          foreignTableId: constraint.foreignTableId.toString(),
           selfKeyName: constraint.selfKeyName,
           foreignRecordIds: new Set(constraint.linkedForeignRecordIds),
           constraints: [constraint],
@@ -2147,15 +2256,21 @@ const validateInsertExclusivityConstraints = async (
           .execute();
 
         if (conflictingRecords.length > 0) {
-          const conflictingIds = conflictingRecords.map((r) => r.record_id).join(', ');
+          const conflictingIds = conflictingRecords.map((r) => r.record_id as string);
+          const message = i18nOrFallback(
+            context.$t,
+            tableI18nKeys.validation.link.one_many_duplicate,
+            'Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.',
+            undefined
+          );
           const firstConstraint = group.constraints[0];
           return err(
             domainError.validation({
-              message: `Cannot link record(s) [${conflictingIds}]: already linked to another record. In one-to-many relationships, each record can only belong to one parent.`,
+              message,
               code: 'validation.link.one_many_duplicate',
               details: {
                 fieldId: firstConstraint.fieldId.toString(),
-                conflictingRecordIds: conflictingRecords.map((r) => r.record_id),
+                conflictingRecordIds: conflictingIds,
                 existingLinks: conflictingRecords.map((r) => ({
                   recordId: r.record_id,
                   linkedTo: r.linked_to,
@@ -2178,15 +2293,21 @@ const validateInsertExclusivityConstraints = async (
           .execute();
 
         if (conflictingRecords.length > 0) {
-          const conflictingIds = conflictingRecords.map((r) => r.foreign_id).join(', ');
+          const conflictingIds = conflictingRecords.map((r) => r.foreign_id as string);
+          const message = i18nOrFallback(
+            context.$t,
+            tableI18nKeys.validation.link.one_many_duplicate,
+            'Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.',
+            undefined
+          );
           const firstConstraint = group.constraints[0];
           return err(
             domainError.validation({
-              message: `Cannot link record(s) [${conflictingIds}]: already linked to another record. In one-to-many relationships, each record can only belong to one parent.`,
+              message,
               code: 'validation.link.one_many_duplicate',
               details: {
                 fieldId: firstConstraint.fieldId.toString(),
-                conflictingRecordIds: conflictingRecords.map((r) => r.foreign_id),
+                conflictingRecordIds: conflictingIds,
                 existingLinks: conflictingRecords.map((r) => ({
                   recordId: r.foreign_id,
                   linkedTo: r.linked_to,
