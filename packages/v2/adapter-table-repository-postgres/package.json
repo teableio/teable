@@ -33,6 +33,7 @@
   "dependencies": {
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
+    "@teable/i18n-keys": "workspace:*",
     "@teable/v2-field-dependency-core": "workspace:*",
     "@teable/v2-formula-sql-pg": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",

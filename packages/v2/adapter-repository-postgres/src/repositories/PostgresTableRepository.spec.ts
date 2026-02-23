@@ -51,6 +51,7 @@ import {
   Table,
   TableName,
   TableByNameSpec,
+  TableUpdateFieldNameSpec,
   TableSortKey,
   createSingleSelectField,
   v2CoreTokens,
@@ -1501,6 +1502,81 @@ describe('PostgresTableRepository (pg)', () => {
       findResult._unsafeUnwrap();
 
       expect(findResult._unsafeUnwrap().name().toString()).toBe('After');
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('increments field version on repeated field metadata updates', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.generate()._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Version Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Version Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableName = TableName.create('Version Table')._unsafeUnwrap();
+      const fieldName = FieldName.create('Title')._unsafeUnwrap();
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder.field().singleLineText().withName(fieldName).primary().done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+
+      const inserted = (await repo.insert(context, table))._unsafeUnwrap();
+      const targetField = inserted.getFields()[0];
+      expect(targetField).toBeDefined();
+      if (!targetField) return;
+
+      const firstRename = FieldName.create('Title v2')._unsafeUnwrap();
+      const secondRename = FieldName.create('Title v3')._unsafeUnwrap();
+
+      (
+        await repo.updateOne(
+          context,
+          inserted,
+          TableUpdateFieldNameSpec.create(targetField.id(), targetField.name(), firstRename)
+        )
+      )._unsafeUnwrap();
+      (
+        await repo.updateOne(
+          context,
+          inserted,
+          TableUpdateFieldNameSpec.create(targetField.id(), firstRename, secondRename)
+        )
+      )._unsafeUnwrap();
+
+      const row = await db
+        .selectFrom('field')
+        .select(['version', 'name'])
+        .where('id', '=', targetField.id().toString())
+        .executeTakeFirst();
+
+      expect(row?.name).toBe('Title v3');
+      expect(row?.version).toBe(3);
     } finally {
       await db.destroy();
     }

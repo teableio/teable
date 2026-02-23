@@ -98,6 +98,7 @@ function OrderSelect(props: IOrderProps) {
         option = DEFAULTOPTIONS;
         break;
       case 'number':
+      case 'dateTime':
         option = NUMBEROPTIONS;
         break;
       case 'boolean':

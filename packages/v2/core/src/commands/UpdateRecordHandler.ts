@@ -134,22 +134,30 @@ export class UpdateRecordHandler
       const mutationResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
-          return safeTry<RecordMutationResult, DomainError>(async function* () {
+          return safeTry<
+            {
+              mutation: RecordMutationResult;
+              tableEvents: ReadonlyArray<IDomainEvent>;
+            },
+            DomainError
+          >(async function* () {
+            let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
-              yield* await handler.tableUpdateFlow.execute(
+              const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
                 transactionContext,
                 { table },
                 () => ok(tableUpdateResult),
                 { publishEvents: false }
               );
+              tableEvents = tableFlowResult.events;
             }
-            const result = yield* await handler.tableRecordRepository.updateOne(
+            const mutation = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
               tableForUpdate,
               command.recordId,
               mutateSpec
             );
-            return ok(result);
+            return ok({ mutation, tableEvents });
           });
         }
       );
@@ -167,19 +175,23 @@ export class UpdateRecordHandler
 
       // 2. Build changes array with old/new values (need to resolve field keys to IDs for event)
       const changes: RecordFieldChangeDTO[] = [];
+      const updatedFieldValues = new Map<string, unknown>();
+      for (const entry of updatedRecord.fields().entries()) {
+        updatedFieldValues.set(entry.fieldId.toString(), entry.value.toValue());
+      }
       for (const [fieldId] of recordUpdateResult.fieldKeyMapping) {
         changes.push({
           fieldId,
           oldValue: currentRecord.fields[fieldId],
-          newValue: resolvedFieldValues.get(fieldId),
+          newValue: updatedFieldValues.get(fieldId), // use updated record values
         });
       }
-
       // 3. Create and publish RecordUpdated event
       // Use the actual version from the current record for ShareDB sync
       const oldVersion = currentRecord.version;
       const newVersion = oldVersion + 1;
       const events: IDomainEvent[] = [
+        ...mutationResult.tableEvents,
         RecordUpdated.create({
           tableId: table.id(),
           baseId: table.baseId(),
@@ -213,7 +225,7 @@ export class UpdateRecordHandler
           updatedRecord,
           events,
           extendedFieldKeyMapping,
-          mutationResult.computedChanges
+          mutationResult.mutation.computedChanges
         )
       );
     });

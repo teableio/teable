@@ -966,6 +966,7 @@ export class LookupFieldBuilder {
   private innerField: Field | undefined;
   private dependencies: ReadonlyArray<FieldId> = [];
   private isPrimary = false;
+  private isMultipleCellValueValue: boolean | undefined;
 
   constructor(
     private readonly parent: TableBuilder,
@@ -1001,6 +1002,11 @@ export class LookupFieldBuilder {
     return this;
   }
 
+  withIsMultipleCellValue(isMultiple: boolean): LookupFieldBuilder {
+    this.isMultipleCellValueValue = isMultiple;
+    return this;
+  }
+
   primary(): LookupFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -1030,6 +1036,7 @@ export class LookupFieldBuilder {
         innerField,
         lookupOptions,
         dependencies: this.dependencies,
+        isMultipleCellValue: this.isMultipleCellValueValue,
       }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);

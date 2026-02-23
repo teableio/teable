@@ -13,7 +13,7 @@ import type {
 import { Button, Input, Label, cn, Switch } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Control } from 'react-hook-form';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { AIProviderCard } from './AIProviderCard';
@@ -58,6 +58,7 @@ interface ILLMApiConfigStepProps {
   showPricing?: boolean;
 }
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export function LLMApiConfigStep({
   mode,
   onModeChange,
@@ -88,11 +89,28 @@ export function LLMApiConfigStep({
     null
   );
 
-  const hasGatewayKey = Boolean(aiConfig?.aiGatewayApiKey);
+  // Local state for gateway fields — only persisted after a successful test
+  const [localGatewayKey, setLocalGatewayKey] = useState(aiConfig?.aiGatewayApiKey || '');
+  const [localGatewayBaseUrl, setLocalGatewayBaseUrl] = useState(aiConfig?.aiGatewayBaseUrl || '');
+
+  useEffect(() => {
+    setLocalGatewayKey(aiConfig?.aiGatewayApiKey || '');
+  }, [aiConfig?.aiGatewayApiKey]);
+
+  useEffect(() => {
+    setLocalGatewayBaseUrl(aiConfig?.aiGatewayBaseUrl || '');
+  }, [aiConfig?.aiGatewayBaseUrl]);
+
+  const hasLocalGatewayKey = Boolean(localGatewayKey);
   const hasProviders = llmProviders.length > 0;
 
-  // Determine if current mode is ready to proceed
-  const canProceed = mode === 'gateway' ? hasGatewayKey : hasProviders;
+  const isGatewayKeyVerified =
+    testResult === 'success' ||
+    (testResult !== 'error' &&
+      Boolean(aiConfig?.aiGatewayApiKey) &&
+      localGatewayKey === (aiConfig?.aiGatewayApiKey || ''));
+
+  const canProceed = mode === 'gateway' ? isGatewayKeyVerified : hasProviders;
 
   // Get saved attachment test from aiConfig
   const savedAttachmentTest = useMemo(() => aiConfig?.attachmentTest, [aiConfig?.attachmentTest]);
@@ -106,7 +124,7 @@ export function LLMApiConfigStep({
   }, [savedAttachmentTest?.testedOrigin, publicOrigin]);
 
   const handleTestGateway = useCallback(async () => {
-    if (!aiConfig?.aiGatewayApiKey) return;
+    if (!localGatewayKey) return;
 
     setIsTesting(true);
     setTestResult(null);
@@ -117,17 +135,29 @@ export function LLMApiConfigStep({
       const { testApiKey } = await import('@teable/openapi');
       const result = await testApiKey({
         type: 'aiGateway',
-        apiKey: aiConfig.aiGatewayApiKey,
-        baseUrl: aiConfig.aiGatewayBaseUrl,
-        testAttachment: true, // Also test attachment transfer modes
+        apiKey: localGatewayKey,
+        baseUrl: localGatewayBaseUrl || undefined,
+        testAttachment: true,
       });
 
       if (result.success) {
         setTestResult('success');
-        // Save attachment test result
+        const updates: Partial<NonNullable<ISettingVo['aiConfig']>> = {
+          ...aiConfig,
+          aiGatewayApiKey: localGatewayKey,
+          aiGatewayBaseUrl: localGatewayBaseUrl || undefined,
+        };
         if (result.attachmentTest) {
           setAttachmentTestResult(result.attachmentTest);
+          updates.attachmentTest = result.attachmentTest;
+          if (
+            !result.attachmentTest.urlMode?.success &&
+            result.attachmentTest.base64Mode?.success
+          ) {
+            updates.attachmentTransferMode = 'base64';
+          }
         }
+        onAiConfigChange?.(updates);
         return;
       }
 
@@ -158,7 +188,7 @@ export function LLMApiConfigStep({
     } finally {
       setIsTesting(false);
     }
-  }, [aiConfig?.aiGatewayApiKey, aiConfig?.aiGatewayBaseUrl, t]);
+  }, [localGatewayKey, localGatewayBaseUrl, aiConfig, onAiConfigChange, t]);
 
   // Handle manual mode switch
   const handleTransferModeChange = useCallback(
@@ -293,11 +323,10 @@ export function LLMApiConfigStep({
               <Input
                 id="gateway-key"
                 type="password"
-                value={aiConfig?.aiGatewayApiKey || ''}
+                value={localGatewayKey}
                 placeholder={t('admin.action.enterApiKey')}
                 onChange={(e) => {
-                  const value = e.target.value?.trim() || undefined;
-                  onAiConfigChange?.({ ...aiConfig, aiGatewayApiKey: value });
+                  setLocalGatewayKey(e.target.value?.trim() || '');
                   setTestResult(null);
                 }}
                 className="flex-1"
@@ -305,7 +334,7 @@ export function LLMApiConfigStep({
               <Button
                 variant="outline"
                 onClick={handleTestGateway}
-                disabled={!hasGatewayKey || isTesting}
+                disabled={!hasLocalGatewayKey || isTesting}
               >
                 {isTesting
                   ? t('admin.setting.ai.wizard.testing')
@@ -325,7 +354,7 @@ export function LLMApiConfigStep({
                 {testErrorMessage || t('admin.setting.ai.wizard.keyInvalid')}
               </div>
             )}
-            {hasGatewayKey && !testResult && (
+            {hasLocalGatewayKey && !testResult && (
               <p className="text-xs text-muted-foreground">
                 {t('admin.setting.ai.wizard.pleaseTest')}
               </p>
@@ -422,11 +451,11 @@ export function LLMApiConfigStep({
             <Input
               id="gateway-url"
               type="text"
-              value={aiConfig?.aiGatewayBaseUrl || ''}
+              value={localGatewayBaseUrl}
               placeholder="https://ai-gateway.vercel.sh/v1"
               onChange={(e) => {
-                const value = e.target.value?.trim() || undefined;
-                onAiConfigChange?.({ ...aiConfig, aiGatewayBaseUrl: value });
+                setLocalGatewayBaseUrl(e.target.value?.trim() || '');
+                setTestResult(null);
               }}
             />
           </div>

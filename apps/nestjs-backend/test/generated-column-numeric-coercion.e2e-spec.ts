@@ -430,7 +430,7 @@ describe('Generated column numeric coercion (e2e)', () => {
       await expect(updateRecordByApi(table.id, recordId, numberField.id, 3)).resolves.toBeDefined();
 
       const updatedRecord = await getRecord(table.id, recordId);
-      expect(updatedRecord.fields[workdayField.id]).toBe('2026-01-25');
+      expect(updatedRecord.fields[workdayField.id]).toBe('2026-01-27');
     });
   });
 

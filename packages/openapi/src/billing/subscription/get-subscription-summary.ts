@@ -28,11 +28,14 @@ export enum SubscriptionStatus {
   SeatLimitExceeded = 'seat_limit_exceeded',
 }
 
+export const appSumoTierSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+export type IAppSumoTier = z.infer<typeof appSumoTierSchema>;
+
 export const subscriptionSummaryVoSchema = z.object({
   spaceId: z.string(),
   status: z.enum(SubscriptionStatus),
   level: z.enum(BillingProductLevel),
-  appSumoTier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
+  appSumoTier: appSumoTierSchema.optional(),
 });
 
 export type ISubscriptionSummaryVo = z.infer<typeof subscriptionSummaryVoSchema>;

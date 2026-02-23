@@ -7,7 +7,7 @@ import {
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
-import type { DependencyContainer } from '@teable/v2-di' with { 'resolution-mode': 'import' };
+import type { DependencyContainer } from '@teable/v2-di';
 import { registerV2ImportServices } from '@teable/v2-import';
 import { PinoLogger } from 'nestjs-pino';
 import { ShareDbService } from '../../share-db/share-db.service';
@@ -58,7 +58,7 @@ export class V2ContainerService implements OnModuleDestroy {
         maxFreeRowLimit: this.configService.get<number>('MAX_FREE_ROW_LIMIT'),
       }).then((container) => {
         registerV2ShareDbRealtime(container, {
-          publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
+          publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub, this.shareDbService),
         });
         // Register V2 import services (csv, excel adapters)
         registerV2ImportServices(container);

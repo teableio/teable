@@ -17,6 +17,7 @@ import { List } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
+import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useBaseResource, type IBaseResourceTable } from '../../../hooks/useBaseResource';
 import { getNodeUrl } from '../../base/base-node/hooks';
@@ -32,6 +33,7 @@ export const ExpandViewList = () => {
   const permission = useTablePermission();
   const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
   const curViewId = useViewId();
+  const shareUrlPrefix = useShareUrlPrefix();
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
@@ -93,6 +95,7 @@ export const ExpandViewList = () => {
                         resourceType: BaseNodeResourceType.Table,
                         resourceId: tableId,
                         viewId: id,
+                        urlPrefix: shareUrlPrefix,
                       });
                       if (url) {
                         router.push(url, undefined, { shallow: true });
