@@ -649,6 +649,63 @@ describe('v2 http deleteByRange (e2e)', () => {
     });
   });
 
+  describe('deleteByRange with ignoreViewQuery', () => {
+    it('should ignore view default sort when ignoreViewQuery=true', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Delete Ignore View Query ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Value', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const localTableId = table.id;
+      const localViewId = table.views[0].id;
+      const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+      const valueFieldId = table.fields.find((f) => f.name === 'Value')?.id ?? '';
+
+      const recordA = await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordA',
+        [valueFieldId]: 100,
+      });
+      await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordB',
+        [valueFieldId]: 200,
+      });
+      const recordC = await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordC',
+        [valueFieldId]: 300,
+      });
+
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          sort: JSON.stringify({
+            sortObjs: [{ fieldId: valueFieldId, order: 'desc' }],
+          }),
+        })
+        .where('id', '=', localViewId)
+        .execute();
+
+      const result = await ctx.deleteByRange({
+        tableId: localTableId,
+        viewId: localViewId,
+        ranges: [[0, 0]],
+        type: 'rows',
+        ignoreViewQuery: true,
+      });
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.deletedRecordIds).toEqual([recordA.id]);
+
+      const records = await ctx.listRecords(localTableId);
+      expect(records.find((record) => record.id === recordA.id)).toBeUndefined();
+      expect(records.find((record) => record.id === recordC.id)).toBeDefined();
+    });
+  });
+
   describe('deleteByRange with large offset and stable tie-breaker', () => {
     let tieTableId: string;
     let tieViewId: string;

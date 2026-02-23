@@ -247,4 +247,37 @@ describe('PasteCommand', () => {
     const command = commandResult._unsafeUnwrap();
     expect(command.content).toEqual([['cell\twith\ttabs', 'normal']]);
   });
+
+  it('defaults ignoreViewQuery to false', () => {
+    const commandResult = PasteCommand.create({
+      tableId,
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      content: [['a']],
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.ignoreViewQuery).toBe(false);
+  });
+
+  it('includes groupBy and ignoreViewQuery when provided', () => {
+    const commandResult = PasteCommand.create({
+      tableId,
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      content: [['a']],
+      groupBy: [{ fieldId: 'fldGroupFieldId0001', order: 'desc' }],
+      ignoreViewQuery: true,
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.groupBy).toEqual([{ fieldId: 'fldGroupFieldId0001', order: 'desc' }]);
+    expect(command.ignoreViewQuery).toBe(true);
+  });
 });

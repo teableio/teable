@@ -5,6 +5,7 @@ import {
   createTableOkResponseSchema,
   getTableByIdOkResponseSchema,
   listTableRecordsOkResponseSchema,
+  updateFieldOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -90,6 +91,24 @@ describe('v2 http conditional lookup (e2e)', () => {
       throw new Error(`Failed to update record: ${JSON.stringify(rawBody)}`);
     }
     return parsed.data.data.record;
+  };
+
+  const updateField = async (tableId: string, fieldId: string, field: Record<string, unknown>) => {
+    const response = await fetch(`${ctx.baseUrl}/tables/updateField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tableId, fieldId, field }),
+    });
+    const rawBody = await response.json();
+    if (response.status !== 200) {
+      throw new Error(`UpdateField failed: ${JSON.stringify(rawBody)}`);
+    }
+    const parsed = updateFieldOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error(`Failed to update field: ${JSON.stringify(rawBody)}`);
+    }
+    return parsed.data.data.table;
   };
 
   const listRecords = async (tableId: string) => {
@@ -406,6 +425,182 @@ describe('v2 http conditional lookup (e2e)', () => {
       const ownedTasks = [...((assignedRecord!.fields[lookupFieldId] as string[]) ?? [])].sort();
       expect(ownedTasks).toEqual(['Task Alpha', 'Task Beta']);
       expect((emptyRecord!.fields[lookupFieldId] as string[] | undefined) ?? []).toEqual([]);
+    });
+  });
+
+  describe('field reference compatibility validation', () => {
+    it('marks conditional lookup field as errored when reference field type changes', async () => {
+      const taskFieldId = createFieldId();
+      const foreignOwnerFieldId = createFieldId();
+      const userCell = { id: ctx.testUser.id, title: ctx.testUser.name };
+
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_Compatibility_Foreign',
+        fields: [
+          { type: 'singleLineText', id: taskFieldId, name: 'Task' },
+          {
+            type: 'user',
+            id: foreignOwnerFieldId,
+            name: 'Owner',
+            options: { isMultiple: false },
+          },
+        ],
+        records: [
+          { fields: { [taskFieldId]: 'Task Alpha', [foreignOwnerFieldId]: userCell } },
+          { fields: { [taskFieldId]: 'Task Beta' } },
+        ],
+      });
+
+      const hostAssignedFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_Compatibility_Host',
+        fields: [
+          {
+            type: 'user',
+            id: hostAssignedFieldId,
+            name: 'Assigned',
+            options: { isMultiple: false },
+          },
+        ],
+        records: [{ fields: { [hostAssignedFieldId]: userCell } }],
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Owned Tasks',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: taskFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignOwnerFieldId,
+                  operator: 'is',
+                  value: hostAssignedFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const tableBefore = await getTableById(host.id);
+      const lookupBefore = tableBefore.fields.find((field) => field.id === lookupFieldId) as
+        | { hasError?: boolean }
+        | undefined;
+      expect(lookupBefore?.hasError).toBeFalsy();
+
+      await updateField(host.id, hostAssignedFieldId, {
+        type: 'singleLineText',
+        name: 'Assigned',
+        options: {},
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const tableAfter = await getTableById(host.id);
+      const lookupAfter = tableAfter.fields.find((field) => field.id === lookupFieldId) as
+        | { hasError?: boolean }
+        | undefined;
+      expect(lookupAfter?.hasError).toBe(true);
+    });
+
+    it('marks conditional lookup field as errored when foreign field type changes', async () => {
+      const taskFieldId = createFieldId();
+      const foreignOwnerFieldId = createFieldId();
+      const userCell = { id: ctx.testUser.id, title: ctx.testUser.name };
+
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_Compatibility_ForeignKey',
+        fields: [
+          { type: 'singleLineText', id: taskFieldId, name: 'Task' },
+          {
+            type: 'user',
+            id: foreignOwnerFieldId,
+            name: 'Owner',
+            options: { isMultiple: false },
+          },
+        ],
+        records: [
+          { fields: { [taskFieldId]: 'Task Alpha', [foreignOwnerFieldId]: userCell } },
+          { fields: { [taskFieldId]: 'Task Beta', [foreignOwnerFieldId]: userCell } },
+        ],
+      });
+
+      const hostAssignedFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_Compatibility_HostKey',
+        fields: [
+          {
+            type: 'user',
+            id: hostAssignedFieldId,
+            name: 'Assigned',
+            options: { isMultiple: false },
+          },
+        ],
+        records: [{ fields: { [hostAssignedFieldId]: userCell } }],
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Owned Tasks',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: taskFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignOwnerFieldId,
+                  operator: 'is',
+                  value: hostAssignedFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const tableBefore = await getTableById(host.id);
+      const lookupBefore = tableBefore.fields.find((field) => field.id === lookupFieldId) as
+        | { hasError?: boolean }
+        | undefined;
+      expect(lookupBefore?.hasError).toBeFalsy();
+
+      await updateField(foreign.id, foreignOwnerFieldId, {
+        type: 'singleLineText',
+        name: 'Owner',
+        options: {},
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const tableAfter = await getTableById(host.id);
+      const lookupAfter = tableAfter.fields.find((field) => field.id === lookupFieldId) as
+        | { hasError?: boolean }
+        | undefined;
+      expect(lookupAfter?.hasError).toBe(true);
     });
   });
 

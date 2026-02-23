@@ -9,7 +9,7 @@ export const isConnected = (socket: ReconnectingSockJS) => {
 
 export const useConnectionAutoManage = (
   connection: ReconnectingSockJS | null,
-  reconnect: () => void,
+  reconnect?: () => void,
   {
     inactiveTimeout,
     reconnectDelay,
@@ -49,7 +49,7 @@ export const useConnectionAutoManage = (
         // Use `ref` to obtain the latest connection and avoid closure expiration issues.
         const currentConnection = connectionRef.current;
         if (currentConnection && !isConnected(currentConnection)) {
-          reconnect();
+          reconnect ? reconnect() : currentConnection.reconnect();
         }
       }, reconnectDelay);
     }

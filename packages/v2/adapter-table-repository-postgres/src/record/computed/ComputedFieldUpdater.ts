@@ -236,10 +236,9 @@ export class ComputedFieldUpdater {
     run?: ComputedUpdateRunContext,
     options?: { collectChanges?: boolean }
   ): Promise<Result<ComputedUpdateResult, DomainError>> {
-    if (
-      plan.steps.length === 0 ||
-      (plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0)
-    ) {
+    const noSeedInput = plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0;
+    const shouldSeedAllForSchemaUpdate = noSeedInput && plan.changeType === 'update';
+    if (plan.steps.length === 0 || (noSeedInput && !shouldSeedAllForSchemaUpdate)) {
       return ok({ changesByStep: [] });
     }
 
@@ -448,10 +447,9 @@ export class ComputedFieldUpdater {
     plan: ComputedUpdatePlan,
     context: IExecutionContext
   ): Promise<Result<PreparedDirtyState, DomainError>> {
-    if (
-      plan.steps.length === 0 ||
-      (plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0)
-    ) {
+    const noSeedInput = plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0;
+    const shouldSeedAllForSchemaUpdate = noSeedInput && plan.changeType === 'update';
+    if (plan.steps.length === 0 || (noSeedInput && !shouldSeedAllForSchemaUpdate)) {
       const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
       return ok({
         db,
@@ -499,8 +497,20 @@ export class ComputedFieldUpdater {
         yield* await runWithSpan(
           'teable.ComputedFieldUpdater.seedDirtyRecords',
           async () => {
-            const result = await seedDirtyRecords(db, plan.seedTableId, plan.seedRecordIds);
-            if (result.isErr()) return result;
+            if (noSeedInput && shouldSeedAllForSchemaUpdate) {
+              const seedTable = tableById.get(plan.seedTableId.toString());
+              if (!seedTable) {
+                return err(
+                  domainError.notFound({
+                    message: `Missing seed table for full dirty seeding: ${plan.seedTableId.toString()}`,
+                  })
+                );
+              }
+              return seedAllDirtyRecordsForTable(db, seedTable);
+            }
+
+            const seedResult = await seedDirtyRecords(db, plan.seedTableId, plan.seedRecordIds);
+            if (seedResult.isErr()) return seedResult;
             return seedExtraDirtyRecords(db, plan.extraSeedRecords);
           },
           {
@@ -1260,6 +1270,37 @@ const seedExtraDirtyRecords = async (
   return ok(undefined);
 };
 
+const seedAllDirtyRecordsForTable = async (
+  db: Kysely<DynamicDB>,
+  table: Table
+): Promise<Result<void, DomainError>> => {
+  const tableNameResult = table.dbTableName().andThen((dbTableName) => dbTableName.value());
+  if (tableNameResult.isErr()) return err(tableNameResult.error);
+
+  try {
+    await db
+      .insertInto(DIRTY_TABLE)
+      .columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL])
+      .expression(
+        db
+          .selectFrom(tableNameResult.value as keyof DynamicDB)
+          .select([
+            sql.lit(table.id().toString()).as(DIRTY_TABLE_ID_COL),
+            sql.ref('__id').as(DIRTY_RECORD_ID_COL),
+          ])
+      )
+      .onConflict((oc) => oc.columns([DIRTY_TABLE_ID_COL, DIRTY_RECORD_ID_COL]).doNothing())
+      .execute();
+    return ok(undefined);
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to seed all dirty records: ${describeError(error)}`,
+      })
+    );
+  }
+};
+
 /**
  * Information about an edge for tracing purposes.
  */
@@ -1596,21 +1637,33 @@ const buildPropagationSelect = (
 
     if (edge.propagationMode === 'allTargetRecords') {
       const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-      const dirtyGate = db
-        .selectFrom(`${DIRTY_TABLE} as d`)
-        .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
-        .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-        .limit(1)
-        .as('dg');
+      const isSelfRefresh =
+        edge.fromTableId.equals(edge.toTableId) && edge.fromFieldId.equals(edge.toFieldId);
 
-      const select = db
-        .selectFrom(`${targetDbName} as t`)
-        .innerJoin(dirtyGate, (join) => join.onTrue())
-        .select([
-          sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-          sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-        ])
-        .distinct();
+      const select = isSelfRefresh
+        ? db
+            .selectFrom(`${targetDbName} as t`)
+            .select([
+              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+            ])
+            .distinct()
+        : db
+            .selectFrom(`${targetDbName} as t`)
+            .innerJoin(
+              db
+                .selectFrom(`${DIRTY_TABLE} as d`)
+                .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+                .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+                .limit(1)
+                .as('dg'),
+              (join) => join.onTrue()
+            )
+            .select([
+              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+            ])
+            .distinct();
 
       return ok(select as unknown as DirtySelectQuery);
     }
@@ -1678,7 +1731,30 @@ const buildPropagationSelect = (
       // Convert to RecordConditionSpec
       // For conditional lookups with field references (isSymbol), pass targetTable as hostTable
       // so field references can be resolved from the host (target) table
-      const specResult = yield* fieldCondition.toRecordConditionSpec(sourceTable, targetTable);
+      const conditionSpecResult = fieldCondition.toRecordConditionSpec(sourceTable, targetTable);
+      if (conditionSpecResult.isErr()) {
+        // Condition references a field that no longer exists (e.g., deleted field) -
+        // fallback to allTargetRecords so the field can still be recalculated/cleared
+        const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+        const dirtyGate = db
+          .selectFrom(`${DIRTY_TABLE} as d`)
+          .select(sql.ref(`d.${DIRTY_TABLE_ID_COL}`).as(DIRTY_TABLE_ID_COL))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .limit(1)
+          .as('dg');
+
+        const select = db
+          .selectFrom(`${targetDbName} as t`)
+          .innerJoin(dirtyGate, (join) => join.onTrue())
+          .select([
+            sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+            sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+          ])
+          .distinct();
+
+        return ok(select as unknown as DirtySelectQuery);
+      }
+      const specResult = conditionSpecResult.value;
       if (!specResult) {
         // No spec generated - fallback to allTargetRecords
         const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
@@ -1760,9 +1836,22 @@ const buildPropagationSelect = (
       );
     }
 
-    const linkField = yield* targetTable.getField((field): field is LinkField =>
+    const linkFieldResult = targetTable.getField((field): field is LinkField =>
       field.id().equals(edge.linkFieldId!)
     );
+    if (linkFieldResult.isErr()) {
+      // Schema updates/undo-redo may leave transient stale edges.
+      // Skip them instead of failing the whole computed run.
+      const select = db
+        .selectFrom(DIRTY_TABLE)
+        .select([
+          sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+          sql.ref(DIRTY_RECORD_ID_COL).as(DIRTY_RECORD_ID_COL),
+        ])
+        .where(sql<SqlBool>`false`);
+      return ok(select as unknown as DirtySelectQuery);
+    }
+    const linkField = linkFieldResult.value;
 
     if (!linkField.foreignTableId().equals(edge.fromTableId)) {
       const select = db
