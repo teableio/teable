@@ -6,4 +6,5 @@ export * from './upload-logo';
 export * from './test-llm';
 export * from './batch-test-llm';
 export * from './test-api-key';
+export * from './test-public-access';
 export * from './set-transport-config';

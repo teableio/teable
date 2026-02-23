@@ -370,7 +370,16 @@ exports[`binary comparison operators > 'Eq' 'conditionalLookup' '=' 'conditional
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -379,11 +388,12 @@ exports[`binary comparison operators > 'Eq' 'conditionalLookup' '=' 'conditional
   "operator": "=",
   "result": "true",
   "rightType": "conditionalLookup",
-  "sql": "(COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  "sql": "(CASE
+      WHEN ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -399,11 +409,11 @@ exports[`binary comparison operators > 'Eq' 'conditionalLookup' '=' 'conditional
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') = COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -419,7 +429,137 @@ exports[`binary comparison operators > 'Eq' 'conditionalLookup' '=' 'conditional
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) THEN (COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0) = COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0))
+      ELSE (COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, '') = COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, ''))
+    END)",
 }
 `;
 
@@ -3047,7 +3187,16 @@ exports[`binary comparison operators > 'Gt' 'conditionalLookup' '>' 'conditional
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -3056,11 +3205,12 @@ exports[`binary comparison operators > 'Gt' 'conditionalLookup' '>' 'conditional
   "operator": ">",
   "result": "false",
   "rightType": "conditionalLookup",
-  "sql": "(COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  "sql": "(CASE
+      WHEN ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -3076,11 +3226,11 @@ exports[`binary comparison operators > 'Gt' 'conditionalLookup' '>' 'conditional
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') > COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -3096,7 +3246,137 @@ exports[`binary comparison operators > 'Gt' 'conditionalLookup' '>' 'conditional
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) THEN (COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0) > COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0))
+      ELSE (COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, '') > COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, ''))
+    END)",
 }
 `;
 
@@ -5724,7 +6004,16 @@ exports[`binary comparison operators > 'Gte' 'conditionalLookup' '>=' 'condition
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -5733,11 +6022,12 @@ exports[`binary comparison operators > 'Gte' 'conditionalLookup' '>=' 'condition
   "operator": ">=",
   "result": "true",
   "rightType": "conditionalLookup",
-  "sql": "(COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  "sql": "(CASE
+      WHEN ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -5753,11 +6043,11 @@ exports[`binary comparison operators > 'Gte' 'conditionalLookup' '>=' 'condition
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') >= COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -5773,7 +6063,137 @@ exports[`binary comparison operators > 'Gte' 'conditionalLookup' '>=' 'condition
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) THEN (COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0) >= COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0))
+      ELSE (COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, '') >= COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, ''))
+    END)",
 }
 `;
 
@@ -8401,7 +8821,16 @@ exports[`binary comparison operators > 'Lt' 'conditionalLookup' '<' 'conditional
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -8410,11 +8839,12 @@ exports[`binary comparison operators > 'Lt' 'conditionalLookup' '<' 'conditional
   "operator": "<",
   "result": "false",
   "rightType": "conditionalLookup",
-  "sql": "(COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  "sql": "(CASE
+      WHEN ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -8430,11 +8860,11 @@ exports[`binary comparison operators > 'Lt' 'conditionalLookup' '<' 'conditional
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') < COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -8450,7 +8880,137 @@ exports[`binary comparison operators > 'Lt' 'conditionalLookup' '<' 'conditional
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) THEN (COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0) < COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0))
+      ELSE (COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, '') < COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, ''))
+    END)",
 }
 `;
 
@@ -11078,7 +11638,16 @@ exports[`binary comparison operators > 'Lte' 'conditionalLookup' '<=' 'condition
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -11087,11 +11656,12 @@ exports[`binary comparison operators > 'Lte' 'conditionalLookup' '<=' 'condition
   "operator": "<=",
   "result": "true",
   "rightType": "conditionalLookup",
-  "sql": "(COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  "sql": "(CASE
+      WHEN ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -11107,11 +11677,11 @@ exports[`binary comparison operators > 'Lte' 'conditionalLookup' '<=' 'condition
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') <= COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -11127,7 +11697,137 @@ exports[`binary comparison operators > 'Lte' 'conditionalLookup' '<=' 'condition
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) THEN (COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0) <= COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0))
+      ELSE (COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, '') <= COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, ''))
+    END)",
 }
 `;
 
@@ -13755,7 +14455,16 @@ exports[`binary comparison operators > 'Neq' 'conditionalLookup' '!=' 'condition
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -13764,11 +14473,12 @@ exports[`binary comparison operators > 'Neq' 'conditionalLookup' '!=' 'condition
   "operator": "!=",
   "result": "false",
   "rightType": "conditionalLookup",
-  "sql": "(COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  "sql": "(CASE
+      WHEN ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -13784,11 +14494,11 @@ exports[`binary comparison operators > 'Neq' 'conditionalLookup' '!=' 'condition
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), '') <> COALESCE((SELECT CASE
-          WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
-          ELSE lkp.elem #>> '{}'
-        END
-        FROM (SELECT ((SELECT CASE
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -13804,7 +14514,137 @@ exports[`binary comparison operators > 'Neq' 'conditionalLookup' '!=' 'condition
         ELSE to_jsonb((("t"."ConditionalLookupType")))
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp) -> 0) AS elem) AS lkp), ''))",
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v) OR (((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text IS NULL)) THEN (COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0) <> COALESCE((SELECT (CASE
+        WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
+        WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
+        ELSE NULL
+      END) FROM (SELECT ((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text AS val) AS v), 0))
+      ELSE (COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, '') <> COALESCE(((SELECT CASE
+        WHEN lkp.elem IS NULL OR jsonb_typeof(lkp.elem) = 'null' THEN NULL
+        ELSE (lkp.elem #>> '{}')::numeric
+      END
+      FROM (SELECT ((SELECT CASE
+        WHEN _lkp.v IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
+        WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
+        ELSE jsonb_build_array(_lkp.v)
+      END FROM (SELECT (CASE
+    WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+      CASE
+        WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
+        WHEN (LEFT(BTRIM(((("t"."ConditionalLookupType")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((("t"."ConditionalLookupType")))::text, 'jsonb') THEN (((("t"."ConditionalLookupType")))::text)::jsonb
+        ELSE to_jsonb((("t"."ConditionalLookupType")))
+      END
+    ELSE to_jsonb((("t"."ConditionalLookupType")))
+  END) AS v) AS _lkp) -> 0) AS elem) AS lkp))::text, ''))
+    END)",
 }
 `;
 

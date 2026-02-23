@@ -1,7 +1,7 @@
 import { IdPrefix, ViewType } from '@teable/core';
 import {
   useConnection,
-  useIsTemplate,
+  useIsReadOnlyPreview,
   usePersonalView,
   useTableId,
   useView,
@@ -26,14 +26,14 @@ export const View = (props: IViewBaseProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { connection } = useConnection();
   const tableId = useTableId();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { openPersonalView, isPersonalView } = usePersonalView();
 
   useEffect(() => {
-    if (isTemplate && !isPersonalView) {
+    if (isReadOnlyPreview && !isPersonalView) {
       openPersonalView?.();
     }
-  }, [isTemplate, openPersonalView, isPersonalView]);
+  }, [isReadOnlyPreview, openPersonalView, isPersonalView]);
 
   if (tableId && connection?.queries) {
     const query = Object.values(connection?.queries).find(

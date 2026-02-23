@@ -773,6 +773,90 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain(caseItem.expectedSql);
     });
 
+    test('falls back to foreign primary field when lookup field is checkbox', () => {
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+      const lookupFieldId = FieldId.create(LOOKUP_TARGET_FIELD_ID)._unsafeUnwrap();
+      const primaryFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignCheckboxTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(primaryFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .done();
+      foreignBuilder
+        .field()
+        .checkbox()
+        .withId(lookupFieldId)
+        .withName(FieldName.create('Flag')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_primary')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      foreignTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_flag')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_single_line_text')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const db = createTestDb();
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).toContain('("f"."col_primary")::text');
+      expect(sql).not.toContain('"f"."col_flag"');
+    });
+
     test('link title from scalar formula does not use jsonb_array_elements', () => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
@@ -911,6 +995,29 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toMatchInlineSnapshot(
         `"select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldkkkkkkkkkkkkkkkk_0"."col_lookup" as "col_lookup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(to_jsonb("f"."col_single_line_text")) FILTER (WHERE "f"."col_single_line_text" IS NOT NULL) as "col_lookup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__id" = "t"."__fk_fldkkkkkkkkkkkkkkkk") as "lat_fldkkkkkkkkkkkkkkkk_0" on true"`
       );
+    });
+
+    test('returns NULL lookup when lookup foreign table mismatches link foreign table', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createLookupTable();
+      const staleForeignTableId = TableId.create(`tbl${'g'.repeat(16)}`)._unsafeUnwrap();
+
+      const linkField = mainTable.getFields()[1] as unknown as {
+        foreignTableId: () => TableId;
+      };
+      linkField.foreignTableId = () => staleForeignTableId;
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const lookupField = mainTable.getFields()[2];
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select([lookupField.id()])
+      );
+
+      expect(sql).toContain('NULL::jsonb as "col_lookup"');
+      expect(sql).not.toContain('inner join lateral');
     });
   });
 
@@ -1307,6 +1414,121 @@ describe('ComputedTableRecordQueryBuilder', () => {
                       ) FROM flattened
                     ) as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk_0" on true"
       `);
+    });
+    test('returns NULL rollup when rollup foreign table mismatches link foreign table', () => {
+      const db = createTestDb();
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const staleForeignTableId = TableId.create(`tbl${'g'.repeat(16)}`)._unsafeUnwrap();
+      const lookupFieldId = FieldId.create(LOOKUP_TARGET_FIELD_ID)._unsafeUnwrap();
+      const staleLookupFieldId = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .number()
+        .withId(lookupFieldId)
+        .withName(FieldName.create('Amount')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_number')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const staleForeignBuilder = Table.builder()
+        .withId(staleForeignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('StaleForeignTable')._unsafeUnwrap());
+      staleForeignBuilder
+        .field()
+        .number()
+        .withId(staleLookupFieldId)
+        .withName(FieldName.create('StaleAmount')._unsafeUnwrap())
+        .done();
+      staleForeignBuilder.view().defaultGrid().done();
+      const staleForeignTable = staleForeignBuilder.build()._unsafeUnwrap();
+      staleForeignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_stale_number')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+
+      const rollupConfig = RollupFieldConfig.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: staleForeignTableId.toString(),
+        lookupFieldId: staleLookupFieldId.toString(),
+      })._unsafeUnwrap();
+
+      const rollupExpr = RollupExpression.create('sum({values})')._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      mainBuilder
+        .field()
+        .rollup()
+        .withName(FieldName.create('RollupAmount')._unsafeUnwrap())
+        .withConfig(rollupConfig)
+        .withExpression(rollupExpr)
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder
+        .build({ foreignTables: [foreignTable, staleForeignTable] })
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_single_line_text')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_rollup')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const foreignTables = new Map([
+        [foreignTableId.toString(), foreignTable],
+        [staleForeignTableId.toString(), staleForeignTable],
+      ]);
+      const rollupField = mainTable.getFields()[2];
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select([rollupField.id()])
+      );
+
+      expect(sql).toContain('NULL as "col_rollup"');
+      expect(sql).not.toContain('inner join lateral');
     });
   });
 

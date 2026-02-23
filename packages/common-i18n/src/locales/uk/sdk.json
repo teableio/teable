@@ -113,7 +113,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Поле пошуку обов'язкове",
       "lookupOptionsNotAllowed": "Опції пошуку не дозволені, коли атрибут isLookup істинний або тип поля rollup.",
-      "lookupOptionsRequired": "Опції пошуку обов'язкові, коли атрибут isLookup істинний або тип поля rollup.",
+      "lookupOptionsRequired": "Опції пошуку обов'язкові",
       "refineOptionsError": "Помилка парсингу опцій пошуку {{message}}"
     },
     "rollup": {
@@ -1059,6 +1059,11 @@
       "shareViewNotFound": "Спільне подання не знайдено або спільний доступ вимкнено",
       "linkFieldNotFound": "Поле зв'язку не знайдено"
     },
+    "baseShare": {
+      "notFound": "Спільний доступ до бази не знайдено або вимкнено",
+      "alreadyExists": "Спільний доступ для цього вузла вже існує",
+      "copyNotAllowed": "Цей спільний доступ не дозволяє копіювання"
+    },
     "shareSocket": {
       "viewPermissionNotAllowed": "У вас немає дозволу на доступ до цього подання",
       "fieldPermissionNotAllowed": "У вас немає дозволу на доступ до цих полів",
@@ -1175,6 +1180,14 @@
       "notAttachment": "Поле не є полем вкладення",
       "isComputed": "Поле обчислюється і не може бути змінене",
       "notFoundAICofig": "Поле не має конфігурації AI",
+      "foreignTableIdRequired": "Зовнішня таблиця обов'язкова",
+      "lookupFieldIdRequired": "Поле пошуку обов'язкове",
+      "lookupFieldNotExist": "Поле пошуку {{lookupFieldId}} не існує",
+      "lookupFieldNotBelongToTable": "Поле пошуку {{lookupFieldId}} не належить до таблиці {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "Поточний тип поля {{fieldType}} не відповідає типу поля пошуку {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "Параметри поля умовного підсумовування обов'язкові",
+      "conditionalRollupParseError": "Помилка парсингу умовного підсумовування: {{message}}",
+      "conditionalLookupOptionsRequired": "Параметри поля умовного пошуку обов'язкові",
       "button": {
         "clickCountReachedMaxCount": "Кількість натискань кнопки досягла максимальної межі",
         "notSupportReset": "Кнопка не підтримує скидання"

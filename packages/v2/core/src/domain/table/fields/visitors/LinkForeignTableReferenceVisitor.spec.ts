@@ -6,6 +6,7 @@ import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { LinkField } from '../types/LinkField';
 import { LinkFieldConfig } from '../types/LinkFieldConfig';
+import { SingleLineTextField } from '../types/SingleLineTextField';
 import { LinkForeignTableReferenceVisitor } from './LinkForeignTableReferenceVisitor';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
@@ -101,5 +102,61 @@ describe('LinkForeignTableReferenceVisitor', () => {
     expect(crossBase).toBeDefined();
     if (!crossBase) return;
     expect(crossBase.baseId?.equals(baseIdResult._unsafeUnwrap())).toBe(true);
+  });
+
+  it('returns empty for non-link fields', () => {
+    const fieldId = createFieldId('x');
+    const fieldName = FieldName.create('Text');
+
+    [fieldId, fieldName].forEach((r) => r._unsafeUnwrap());
+
+    const textFieldResult = SingleLineTextField.create({
+      id: fieldId._unsafeUnwrap(),
+      name: fieldName._unsafeUnwrap(),
+    });
+    textFieldResult._unsafeUnwrap();
+
+    const visitor = new LinkForeignTableReferenceVisitor();
+    const result = visitor.collect([textFieldResult._unsafeUnwrap()]);
+    expect(result._unsafeUnwrap()).toHaveLength(0);
+  });
+
+  it('returns empty for empty fields array', () => {
+    const visitor = new LinkForeignTableReferenceVisitor();
+    const result = visitor.collect([]);
+    expect(result._unsafeUnwrap()).toHaveLength(0);
+  });
+
+  it('collects reference without baseId for single link field', () => {
+    const foreignTableIdResult = createTableId('m');
+    const lookupFieldIdResult = createFieldId('n');
+    const linkFieldIdResult = createFieldId('o');
+    const linkFieldNameResult = FieldName.create('Link No Base');
+
+    [foreignTableIdResult, lookupFieldIdResult, linkFieldIdResult, linkFieldNameResult].forEach(
+      (r) => r._unsafeUnwrap()
+    );
+
+    const configResult = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: lookupFieldIdResult._unsafeUnwrap().toString(),
+    });
+    configResult._unsafeUnwrap();
+
+    const linkFieldResult = LinkField.create({
+      id: linkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config: configResult._unsafeUnwrap(),
+    });
+    linkFieldResult._unsafeUnwrap();
+
+    const visitor = new LinkForeignTableReferenceVisitor();
+    const result = visitor.collect([linkFieldResult._unsafeUnwrap()]);
+    const references = result._unsafeUnwrap();
+
+    expect(references).toHaveLength(1);
+    expect(references[0].foreignTableId.equals(foreignTableIdResult._unsafeUnwrap())).toBe(true);
+    expect(references[0].baseId).toBeUndefined();
   });
 });

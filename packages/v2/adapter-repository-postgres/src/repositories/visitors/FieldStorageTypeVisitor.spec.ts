@@ -31,6 +31,7 @@ describe('FieldStorageTypeVisitor', () => {
     const dueDateName = FieldName.create('Due Date')._unsafeUnwrap();
     const ownerName = FieldName.create('Owner')._unsafeUnwrap();
     const actionName = FieldName.create('Action')._unsafeUnwrap();
+    const autoNumName = FieldName.create('AutoNum')._unsafeUnwrap();
     const linkName = FieldName.create('Related')._unsafeUnwrap();
     const todoOption = SelectOption.create({ name: 'Todo', color: 'blue' })._unsafeUnwrap();
     const doneOption = SelectOption.create({ name: 'Done', color: 'red' })._unsafeUnwrap();
@@ -72,6 +73,7 @@ describe('FieldStorageTypeVisitor', () => {
     builder.field().date().withName(dueDateName).done();
     builder.field().user().withName(ownerName).done();
     builder.field().button().withName(actionName).done();
+    builder.field().autoNumber().withName(autoNumName).done();
     builder.field().link().withName(linkName).withConfig(linkConfig).done();
     builder.view().defaultGrid().done();
 
@@ -99,6 +101,7 @@ describe('FieldStorageTypeVisitor', () => {
       { cellValueType: 'dateTime', dbFieldType: 'DATETIME', isMultipleCellValue: false },
       { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: false },
       { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: false },
+      { cellValueType: 'number', dbFieldType: 'INTEGER', isMultipleCellValue: false },
       { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: false },
     ]);
   });

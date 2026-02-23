@@ -12,6 +12,7 @@ import { ButtonWorkflow } from '../../../domain/table/fields/types/ButtonWorkflo
 import { CellValueMultiplicity } from '../../../domain/table/fields/types/CellValueMultiplicity';
 import { CellValueType } from '../../../domain/table/fields/types/CellValueType';
 import { CheckboxField } from '../../../domain/table/fields/types/CheckboxField';
+import { ConditionalLookupField } from '../../../domain/table/fields/types/ConditionalLookupField';
 import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefaultValue';
 import { DateField } from '../../../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
@@ -19,6 +20,7 @@ import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
 import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
+import { LookupField } from '../../../domain/table/fields/types/LookupField';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
 import { NumberDefaultValue } from '../../../domain/table/fields/types/NumberDefaultValue';
 import { NumberField } from '../../../domain/table/fields/types/NumberField';
@@ -345,5 +347,144 @@ describe('DefaultTableMapper', () => {
     const formulaField = dtoResult._unsafeUnwrap().fields[0];
     expect(formulaField?.type).toBe('formula');
     expect(formulaField?.isComputed).toBe(true);
+  });
+
+  it('rehydrates conditional lookup inner field from innerType and innerOptions', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+
+    const conditionalLookupId = `fld${'z'.repeat(16)}`;
+    const withConditionalLookup = {
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: conditionalLookupId,
+          name: 'Conditional Currency Lookup',
+          type: 'conditionalLookup' as const,
+          options: {
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            lookupFieldId: `fld${'c'.repeat(16)}`,
+            condition: {
+              filter: {
+                conjunction: 'and' as const,
+                filterSet: [{ fieldId: `fld${'d'.repeat(16)}`, operator: 'is', value: 'open' }],
+              },
+            },
+          },
+          innerType: 'number',
+          innerOptions: {
+            formatting: {
+              type: 'currency',
+              precision: 1,
+              symbol: '¥',
+            },
+          },
+          isLookup: true,
+          isConditionalLookup: true,
+          isComputed: true,
+          isMultipleCellValue: true,
+        },
+      ],
+    };
+
+    const mapped = mapper.toDomain(withConditionalLookup)._unsafeUnwrap();
+    const conditionalLookupField = mapped
+      .getFields()
+      .find((field) => field.id().equals(FieldId.create(conditionalLookupId)._unsafeUnwrap()));
+
+    expect(conditionalLookupField).toBeInstanceOf(ConditionalLookupField);
+    expect((conditionalLookupField as ConditionalLookupField).isPending()).toBe(false);
+
+    const innerField = (conditionalLookupField as ConditionalLookupField)
+      .innerField()
+      ._unsafeUnwrap();
+    expect(innerField).toBeInstanceOf(NumberField);
+    expect((innerField as NumberField).formatting().toDto()).toEqual({
+      type: 'currency',
+      precision: 1,
+      symbol: '¥',
+    });
+  });
+
+  it('falls back to pending conditional lookup when inner field value type cannot be resolved', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+
+    const conditionalLookupId = `fld${'y'.repeat(16)}`;
+    const withPendingInner = {
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: conditionalLookupId,
+          name: 'Conditional Formula Lookup',
+          type: 'conditionalLookup' as const,
+          options: {
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            lookupFieldId: `fld${'c'.repeat(16)}`,
+            condition: {
+              filter: {
+                conjunction: 'and' as const,
+                filterSet: [{ fieldId: `fld${'d'.repeat(16)}`, operator: 'is', value: 'open' }],
+              },
+            },
+          },
+          innerType: 'formula',
+          innerOptions: {
+            expression: '1',
+          },
+          isLookup: true,
+          isConditionalLookup: true,
+          isComputed: true,
+          isMultipleCellValue: true,
+        },
+      ],
+    };
+
+    const mapped = mapper.toDomain(withPendingInner)._unsafeUnwrap();
+    const conditionalLookupField = mapped
+      .getFields()
+      .find((field) => field.id().equals(FieldId.create(conditionalLookupId)._unsafeUnwrap()));
+
+    expect(conditionalLookupField).toBeInstanceOf(ConditionalLookupField);
+    expect((conditionalLookupField as ConditionalLookupField).isPending()).toBe(true);
+  });
+
+  it('falls back to pending lookup when legacy link-lookup inner options are invalid', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+
+    const lookupId = `fld${'x'.repeat(16)}`;
+    const withBrokenLinkLookup = {
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: lookupId,
+          name: 'Legacy Link Lookup',
+          type: 'link' as const,
+          options: {},
+          lookupOptions: {
+            linkFieldId: `fld${'a'.repeat(16)}`,
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            lookupFieldId: `fld${'c'.repeat(16)}`,
+          },
+          isLookup: true,
+          isComputed: true,
+        },
+      ],
+    } as unknown as Parameters<DefaultTableMapper['toDomain']>[0];
+
+    const mapped = mapper.toDomain(withBrokenLinkLookup)._unsafeUnwrap();
+    const lookupField = mapped
+      .getFields()
+      .find((field) => field.id().equals(FieldId.create(lookupId)._unsafeUnwrap()));
+
+    expect(lookupField).toBeInstanceOf(LookupField);
+    expect((lookupField as LookupField).isPending()).toBe(true);
   });
 });

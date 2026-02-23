@@ -383,7 +383,48 @@ export interface ICreateTableFieldSpec {
   applyTo(builder: TableBuilder): void;
   createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError>;
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError>;
+  applyPostBuild?(table: Table): Result<void, DomainError>;
 }
+
+class CreateTableFieldWithDescriptionSpec implements ICreateTableFieldSpec {
+  constructor(
+    private readonly spec: ICreateTableFieldSpec,
+    private readonly description: string | null,
+    private readonly fieldName: string
+  ) {}
+
+  applyTo(builder: TableBuilder): void {
+    this.spec.applyTo(builder);
+  }
+
+  createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    return this.spec
+      .createField(params)
+      .andThen((field) => field.setDescription(this.description).map(() => field));
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    return this.spec.foreignTableReferences();
+  }
+
+  applyPostBuild(table: Table): Result<void, DomainError> {
+    const applyInner = this.spec.applyPostBuild ? this.spec.applyPostBuild(table) : ok(undefined);
+
+    return applyInner.andThen(() =>
+      table
+        .getField((field) => field.name().toString() === this.fieldName)
+        .andThen((field) => field.setDescription(this.description))
+    );
+  }
+}
+
+const withFieldDescription = (
+  spec: ICreateTableFieldSpec,
+  description: string | null | undefined,
+  fieldName: string
+): ICreateTableFieldSpec => {
+  return new CreateTableFieldWithDescriptionSpec(spec, description ?? null, fieldName);
+};
 
 const uniqueForeignTableReferences = (
   refs: ReadonlyArray<LinkForeignTableReference>
@@ -951,6 +992,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
     private readonly filter: unknown,
     private readonly sort: unknown,
     private readonly limit: number | undefined,
+    private readonly isMultipleCellValue: boolean | undefined,
     private readonly notNull: FieldNotNull,
     private readonly unique: FieldUnique
   ) {}
@@ -966,6 +1008,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
       filter?: unknown;
       sort?: unknown;
       limit?: number;
+      isMultipleCellValue?: boolean;
       notNull: FieldNotNull;
       unique: FieldUnique;
     }
@@ -979,6 +1022,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
       options.filter,
       options.sort,
       options.limit,
+      options.isMultipleCellValue,
       options.notNull,
       options.unique
     ).withPrimary(options.isPrimary);
@@ -1008,6 +1052,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
           id,
           name: this.name,
           lookupOptions,
+          isMultipleCellValue: this.isMultipleCellValue,
           notNull: this.notNull,
           unique: this.unique,
         })
@@ -2050,7 +2095,20 @@ const parseSelectOptions = (raw: unknown): Result<ParsedSelectOptions, DomainErr
   };
   const rawChoices = Array.isArray(rawOptions.choices) ? rawOptions.choices : [];
 
-  return sequence(rawChoices.map((choice) => SelectOption.create(choice))).andThen((options) =>
+  return sequence(
+    rawChoices.map((choice, index) => {
+      if (choice && typeof choice === 'object' && !Array.isArray(choice)) {
+        const rawChoice = choice as Record<string, unknown>;
+        if (rawChoice.color == null) {
+          return SelectOption.create({
+            ...rawChoice,
+            color: fieldColorValues[index % fieldColorValues.length],
+          });
+        }
+      }
+      return SelectOption.create(choice);
+    })
+  ).andThen((options) =>
     optional(rawOptions.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
       optional(rawOptions.preventAutoNewOptions, SelectAutoNewOptions.create).map(
         (preventAutoNewOptions) => ({
@@ -2251,6 +2309,10 @@ export const parseTableFieldSpec = (
                 filter: field.options.filter,
                 sort: field.options.sort,
                 limit: field.options.limit,
+                isMultipleCellValue:
+                  'isMultipleCellValue' in field && typeof field.isMultipleCellValue === 'boolean'
+                    ? field.isMultipleCellValue
+                    : undefined,
                 notNull: validation.notNull,
                 unique: validation.unique,
               })
@@ -2426,6 +2488,7 @@ export const parseTableFieldSpec = (
             )
           )
           .exhaustive()
+          .map((spec) => withFieldDescription(spec, field.description, field.name))
       )
     )
   );

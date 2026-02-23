@@ -52,7 +52,8 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
 > {
   private constructor(
     private readonly db: Kysely<V1TeableDatabase>,
-    private readonly rulesContext: FieldSchemaRulesContext
+    private readonly rulesContext: FieldSchemaRulesContext,
+    private readonly referenceMode: 'delete' | 'convert' = 'delete'
   ) {
     super();
   }
@@ -68,6 +69,28 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
       tableName: params.tableName,
       tableId: params.tableId,
     });
+  }
+
+  /**
+   * Creates a visitor for field conversion (drop+create) that preserves
+   * outbound references (from_field_id) so dependent fields keep their
+   * cascade edges. Only inbound references (to_field_id) are removed.
+   */
+  static forConversion(params: {
+    db: Kysely<V1TeableDatabase>;
+    schema: string | null;
+    tableName: string;
+    tableId: string;
+  }): PostgresTableSchemaFieldDeleteVisitor {
+    return new PostgresTableSchemaFieldDeleteVisitor(
+      params.db,
+      {
+        schema: params.schema,
+        tableName: params.tableName,
+        tableId: params.tableId,
+      },
+      'convert'
+    );
   }
 
   /**
@@ -87,6 +110,11 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
   /**
    * Generates DROP statements using the rules system.
    * Calls `downAll` which reverses the dependency order.
+   * Uses mode: 'delete' so rules know to fully clean up (e.g., ReferenceRule
+   * removes both to_field_id and from_field_id references).
+   * In 'convert' mode, uses default mode so ReferenceRule only removes
+   * inbound references (to_field_id), preserving outbound edges for
+   * dependent fields.
    */
   private generateDropStatementsFromRules(
     field: Field
@@ -97,8 +125,10 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
         const rules = yield* rulesResult;
 
         const ctx = this.createRuleContext(field);
-        const statementsResult = schemaRuleResolver.downAll(rules, ctx);
-        return statementsResult;
+        const deleteCtx: SchemaRuleContext =
+          this.referenceMode === 'convert' ? ctx : { ...ctx, mode: 'delete' };
+
+        return schemaRuleResolver.downAll(rules, deleteCtx);
       }.bind(this)
     );
   }

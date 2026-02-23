@@ -1334,11 +1334,11 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     const trustedDatetimeInput = this.hasTrustedDatetimeInput(0);
 
     if (format == null) {
-      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
+      return trustedDatetimeInput ? valueExpr : this.parseDatetimeParseWithoutFormat(valueExpr);
     }
     const trimmedFormat = format.trim();
     if (!trimmedFormat || trimmedFormat === 'undefined' || trimmedFormat.toLowerCase() === 'null') {
-      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
+      return trustedDatetimeInput ? valueExpr : this.parseDatetimeParseWithoutFormat(valueExpr);
     }
     if (trustedDatetimeInput) {
       return valueExpr;
@@ -1462,13 +1462,56 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `CASE WHEN ${normalizedStartDay} = 'monday' THEN ((${weekdaySql} + 6) % 7) ELSE ${weekdaySql} END`;
   }
 
-  workday(startDate: string, days: string): string {
+  workday(startDate: string, days: string, holidayStr?: string): string {
     if (!this.isDateLikeOperand(0)) {
       return 'NULL';
     }
-    // Simplified implementation in the target timezone; tzWrap sanitizes untrusted inputs
-    // Use interval multiplication so dynamic expressions (e.g. field references) are valid SQL.
-    return `(${this.tzWrap(startDate, 0)})::date + INTERVAL '1 day' * (${days})::double precision`;
+    const startDateSql = `(${this.tzWrap(startDate, 0)})::date`;
+    const dayCountSql = `COALESCE((${this.toNumericSafe(days, 1)})::integer, 0)`;
+    const holidayTextSql = holidayStr ? `COALESCE((${holidayStr})::text, '')` : `''`;
+
+    return `(
+      WITH params AS (
+        SELECT ${startDateSql} AS start_date, ${dayCountSql} AS day_count, ${holidayTextSql} AS holiday_text
+      ),
+      holiday_parts AS (
+        SELECT BTRIM(part) AS holiday_part
+        FROM params p
+        CROSS JOIN LATERAL regexp_split_to_table(p.holiday_text, ',') AS part
+      ),
+      holiday_dates AS (
+        SELECT DISTINCT TO_DATE(LEFT(holiday_part, 10), 'YYYY-MM-DD') AS holiday_date
+        FROM holiday_parts
+        WHERE holiday_part <> ''
+          AND holiday_part ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+          AND TO_CHAR(TO_DATE(LEFT(holiday_part, 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(holiday_part, 10)
+      ),
+      candidates AS (
+        SELECT
+          (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+          seq.n
+        FROM params p
+        CROSS JOIN LATERAL generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+      ),
+      workdays AS (
+        SELECT c.candidate_date, c.n
+        FROM candidates c
+        LEFT JOIN holiday_dates h ON h.holiday_date = c.candidate_date
+        WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+          AND h.holiday_date IS NULL
+        ORDER BY c.n
+      )
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT w.candidate_date::timestamp
+          FROM workdays w
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM params p
+    )`;
   }
 
   workdayDiff(startDate: string, endDate: string): string {
@@ -1953,6 +1996,29 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
     const pattern = getDefaultDatetimeParsePattern();
     return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} ~ '${pattern}' THEN ${valueExpr} ELSE NULL END)`;
+  }
+
+  private parseDatetimeParseWithoutFormat(valueExpr: string): string {
+    const textExpr = `${valueExpr}::text`;
+    const trimmedExpr = `NULLIF(BTRIM(${textExpr}), '')`;
+    const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
+    const pattern = getDefaultDatetimeParsePattern();
+    const hasClockTime = `(${sanitizedExpr} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
+    const hasExplicitTimeZone = `(${sanitizedExpr} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
+    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const localTimestampExpr = `(${sanitizedExpr})::timestamp AT TIME ZONE '${safeTz}'`;
+    const explicitZoneExpr = `(${sanitizedExpr})::timestamptz`;
+
+    return `(CASE
+      WHEN ${valueExpr} IS NULL THEN NULL
+      WHEN ${sanitizedExpr} IS NULL THEN NULL
+      WHEN ${sanitizedExpr} ~ '${pattern}' THEN
+        (CASE
+          WHEN ${hasClockTime} AND NOT ${hasExplicitTimeZone} THEN ${localTimestampExpr}
+          ELSE ${explicitZoneExpr}
+        END)
+      ELSE NULL
+    END)`;
   }
 
   private buildDatetimeParseGuardRegex(formatLiteral: string): string | null {
