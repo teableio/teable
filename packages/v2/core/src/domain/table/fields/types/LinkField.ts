@@ -3,8 +3,11 @@ import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../../base/BaseId';
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { DbTableName } from '../../DbTableName';
 import { ForeignTable } from '../../ForeignTable';
+import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
+import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import type { ViewId } from '../../views/ViewId';
@@ -18,7 +21,15 @@ import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
 } from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
+import {
+  buildFieldFilterSyncPlan,
+  hasFieldFilterSyncPlanChanges,
+  hasFieldReferenceInFilter,
+  isEquivalentFilter,
+  syncFilterByFieldChanges,
+} from '../filter-sync';
 import {
   LinkFieldConfig,
   type LinkFieldConfigValue,
@@ -27,7 +38,7 @@ import {
 import { LinkFieldMeta, type LinkFieldMetaValue } from './LinkFieldMeta';
 import type { LinkRelationship } from './LinkRelationship';
 
-export class LinkField extends Field implements ForeignTableRelatedField {
+export class LinkField extends Field implements ForeignTableRelatedField, OnTeableFieldUpdated {
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -167,6 +178,11 @@ export class LinkField extends Field implements ForeignTableRelatedField {
   }
 
   orderColumnName(): Result<string, DomainError> {
+    // One-way OneMany can keep a legacy ManyMany junction "__order" column during
+    // metadata-only relationship switches.
+    if (this.relationship().toString() === 'oneMany' && this.isOneWay() && this.hasOrderColumn()) {
+      return ok('__order');
+    }
     return this.configValue.orderColumnName();
   }
 
@@ -181,6 +197,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
         symmetricFieldId: undefined,
         filterByViewId: config.filterByViewId ?? undefined,
         visibleFieldIds: config.visibleFieldIds ?? undefined,
+        filter: config.filter ?? undefined,
       }).andThen((nextConfig) =>
         LinkField.createNew({
           id: params.newId,
@@ -261,8 +278,8 @@ export class LinkField extends Field implements ForeignTableRelatedField {
       symmetricFieldIdResult.andThen((symmetricFieldId) =>
         symmetricDbConfigResult.andThen((symmetricDbConfig) =>
           this.setSymmetricFieldId(symmetricFieldId).andThen(() =>
-            this.resolveSymmetricFieldName(hostTable, foreignTable).andThen((symmetricName) =>
-              LinkFieldConfig.create({
+            this.resolveSymmetricFieldName(hostTable, foreignTable).andThen((symmetricName) => {
+              return LinkFieldConfig.create({
                 baseId,
                 relationship: this.relationship().reverse().toString(),
                 foreignTableId: hostTable.id().toString(),
@@ -279,8 +296,8 @@ export class LinkField extends Field implements ForeignTableRelatedField {
                       meta: this.meta(),
                     })
                 )
-              )
-            )
+              );
+            })
           )
         )
       )
@@ -303,6 +320,29 @@ export class LinkField extends Field implements ForeignTableRelatedField {
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitLinkField(this);
+  }
+
+  onDependencyUpdated(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    _context: FieldUpdateContext
+  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+    const filter = this.configValue.filter();
+    if (filter == null) return ok([]);
+
+    const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
+    if (!hasFieldFilterSyncPlanChanges(plan)) return ok([]);
+    if (!hasFieldReferenceInFilter(filter, updatedField.id())) return ok([]);
+
+    const nextFilter = syncFilterByFieldChanges(filter, updatedField.id(), plan);
+    if (isEquivalentFilter(filter, nextFilter)) return ok([]);
+
+    return this.configDto().andThen((currentDto) =>
+      LinkFieldConfig.create({
+        ...currentDto,
+        filter: nextFilter,
+      }).map((nextConfig) => [UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig)])
+    );
   }
 
   setDbConfig(params: LinkFieldDbConfig): Result<void, DomainError> {

@@ -34,13 +34,15 @@ export abstract class Field extends Entity<FieldId> {
     private readonly typeValue: FieldType,
     dbFieldName?: DbFieldName,
     dependencies: ReadonlyArray<FieldId> = [],
-    computed?: FieldComputed
+    computed?: FieldComputed,
+    description: string | null = null
   ) {
     super(id);
     this.dbFieldNameValue = dbFieldName ?? DbFieldName.empty();
     this.dbFieldTypeValue = DbFieldType.empty();
     this.dependenciesValue = [...dependencies];
     this.computedValue = computed ?? FieldComputed.manual();
+    this.descriptionValue = description;
     this.hasErrorValue = FieldHasError.ok();
     this.notNullValue = FieldNotNull.optional();
     this.uniqueValue = FieldUnique.disabled();
@@ -51,6 +53,7 @@ export abstract class Field extends Entity<FieldId> {
   private dependenciesValue: ReadonlyArray<FieldId>;
   private dependentsValue: ReadonlyArray<FieldId> | undefined;
   private readonly computedValue: FieldComputed;
+  private descriptionValue: string | null;
   private hasErrorValue: FieldHasError;
   private notNullValue: FieldNotNull;
   private uniqueValue: FieldUnique;
@@ -69,6 +72,16 @@ export abstract class Field extends Entity<FieldId> {
 
   computed(): FieldComputed {
     return this.computedValue;
+  }
+
+  description(): string | null {
+    return this.descriptionValue;
+  }
+
+  setDescription(description: string | null): Result<void, DomainError> {
+    if (this.descriptionValue === description) return ok(undefined);
+    this.descriptionValue = description;
+    return ok(undefined);
   }
 
   hasError(): FieldHasError {

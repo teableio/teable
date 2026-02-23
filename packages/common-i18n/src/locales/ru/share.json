@@ -2,7 +2,8 @@
   "auth": {
     "title": "Введите пароль для просмотра этой страницы",
     "submit": "Отправить",
-    "password": "Пароль"
+    "password": "Пароль",
+    "passwordTooShort": "Пароль должен содержать не менее 3 символов"
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Выберите..."

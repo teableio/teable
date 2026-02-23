@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { IS_TEMPLATE_HEADER } from '@teable/openapi';
+import { IS_TEMPLATE_HEADER, BASE_SHARE_ID_HEADER } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -24,8 +24,10 @@ export class RecordReadonlyServiceAdapter
 
   getDocIdsByQuery(tableId: string, query: IGetRecordsRo = {}) {
     const shareId = this.cls.get('shareViewId');
+    const baseShareId = this.cls.get('baseShareId');
+    const useShareViewEndpoint = shareId && !baseShareId;
     const templateHeader = this.cls.get('templateHeader');
-    const url = shareId
+    const url = useShareViewEndpoint
       ? `/share/${shareId}/socket/record/doc-ids`
       : `/table/${tableId}/record/socket/doc-ids`;
     return this.axios
@@ -42,6 +44,7 @@ export class RecordReadonlyServiceAdapter
           headers: {
             cookie: this.cls.get('cookie'),
             [IS_TEMPLATE_HEADER]: templateHeader,
+            [BASE_SHARE_ID_HEADER]: baseShareId,
           },
         }
       )
@@ -53,8 +56,10 @@ export class RecordReadonlyServiceAdapter
     projection?: { [fieldNameOrId: string]: boolean }
   ) {
     const shareId = this.cls.get('shareViewId');
+    const baseShareId = this.cls.get('baseShareId');
+    const useShareViewEndpoint = shareId && !baseShareId;
     const templateHeader = this.cls.get('templateHeader');
-    const url = shareId
+    const url = useShareViewEndpoint
       ? `/share/${shareId}/socket/record/snapshot-bulk`
       : `/table/${tableId}/record/socket/snapshot-bulk`;
     return this.axios
@@ -62,6 +67,7 @@ export class RecordReadonlyServiceAdapter
         headers: {
           cookie: this.cls.get('cookie'),
           [IS_TEMPLATE_HEADER]: templateHeader,
+          [BASE_SHARE_ID_HEADER]: baseShareId,
         },
         params: {
           ids: recordIds,

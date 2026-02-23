@@ -104,6 +104,42 @@ describe('v2 http createTable (e2e)', () => {
     expect(values).toEqual(expect.arrayContaining(['Alpha', 'Beta']));
   });
 
+  it('persists field descriptions in createTable payload', async () => {
+    const nameFieldId = createFieldId();
+    const amountFieldId = createFieldId();
+    const payload: ICreateTableCommandInput = {
+      baseId: ctx.baseId,
+      name: 'Field Description Table',
+      fields: [
+        {
+          type: 'singleLineText',
+          id: nameFieldId,
+          name: 'Name',
+          description: 'primary description',
+          isPrimary: true,
+        },
+        {
+          type: 'number',
+          id: amountFieldId,
+          name: 'Amount',
+          description: 'amount description',
+        },
+      ],
+    };
+
+    const created = await ctx.createTable(payload);
+    const nameField = created.fields.find((field) => field.id === nameFieldId);
+    const amountField = created.fields.find((field) => field.id === amountFieldId);
+    expect(nameField?.description).toBe('primary description');
+    expect(amountField?.description).toBe('amount description');
+
+    const fetched = await ctx.getTableById(created.id);
+    const fetchedNameField = fetched.fields.find((field) => field.id === nameFieldId);
+    const fetchedAmountField = fetched.fields.find((field) => field.id === amountFieldId);
+    expect(fetchedNameField?.description).toBe('primary description');
+    expect(fetchedAmountField?.description).toBe('amount description');
+  });
+
   it('allows creating two tables with the same name', async () => {
     const first = await ctx.createTable(buildPayload('Same Name'));
     const second = await ctx.createTable(buildPayload('Same Name'));
@@ -228,6 +264,76 @@ describe('v2 http createTable (e2e)', () => {
     expect(recordsB).toHaveLength(1);
     expect(recordsA[0]?.fields[tableAPrimaryId]).toBe('A1');
     expect(recordsB[0]?.fields[tableBPrimaryId]).toBe('B1');
+  });
+
+  it('persists field descriptions in createTables payload', async () => {
+    const tableAId = `tbl${'p'.repeat(16)}`;
+    const tableBId = `tbl${'q'.repeat(16)}`;
+    const tableANameFieldId = createFieldId();
+    const tableANumberFieldId = createFieldId();
+    const tableBNameFieldId = createFieldId();
+
+    const tables = await ctx.createTables({
+      baseId: ctx.baseId,
+      tables: [
+        {
+          tableId: tableAId,
+          name: 'Description Table A',
+          fields: [
+            {
+              type: 'singleLineText',
+              id: tableANameFieldId,
+              name: 'Name',
+              description: 'table-a primary description',
+              isPrimary: true,
+            },
+            {
+              type: 'number',
+              id: tableANumberFieldId,
+              name: 'Amount',
+              description: 'table-a amount description',
+            },
+          ],
+        },
+        {
+          tableId: tableBId,
+          name: 'Description Table B',
+          fields: [
+            {
+              type: 'singleLineText',
+              id: tableBNameFieldId,
+              name: 'Name',
+              description: 'table-b primary description',
+              isPrimary: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    const tableA = tables.find((table) => table.id === tableAId);
+    const tableB = tables.find((table) => table.id === tableBId);
+    expect(tableA).toBeDefined();
+    expect(tableB).toBeDefined();
+
+    const tableANameField = tableA?.fields.find((field) => field.id === tableANameFieldId);
+    const tableANumberField = tableA?.fields.find((field) => field.id === tableANumberFieldId);
+    const tableBNameField = tableB?.fields.find((field) => field.id === tableBNameFieldId);
+    expect(tableANameField?.description).toBe('table-a primary description');
+    expect(tableANumberField?.description).toBe('table-a amount description');
+    expect(tableBNameField?.description).toBe('table-b primary description');
+
+    const fetchedTableA = await ctx.getTableById(tableAId);
+    const fetchedTableB = await ctx.getTableById(tableBId);
+    expect(fetchedTableA.fields.find((field) => field.id === tableANameFieldId)?.description).toBe(
+      'table-a primary description'
+    );
+    expect(
+      fetchedTableA.fields.find((field) => field.id === tableANumberFieldId)?.description
+    ).toBe('table-a amount description');
+    expect(fetchedTableB.fields.find((field) => field.id === tableBNameFieldId)?.description).toBe(
+      'table-b primary description'
+    );
   });
 
   it('creates tables when rollup and formula fields are declared before dependencies', async () => {

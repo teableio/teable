@@ -113,7 +113,7 @@
     "lookup": {
       "lookupFieldIdRequired": "ルックアップフィールドは必須です",
       "lookupOptionsNotAllowed": "isLookup属性がtrueまたはフィールドタイプがrollupの場合、ルックアップオプションは許可されません。",
-      "lookupOptionsRequired": "isLookup属性がtrueまたはフィールドタイプがrollupの場合、ルックアップオプションが必要です。",
+      "lookupOptionsRequired": "ルックアップオプションが必要です",
       "refineOptionsError": "ルックアップオプションの解析エラー {{message}}"
     },
     "rollup": {
@@ -1059,6 +1059,11 @@
       "shareViewNotFound": "共有ビューが見つからないか、共有が無効になっています",
       "linkFieldNotFound": "リンクフィールドが見つかりません"
     },
+    "baseShare": {
+      "notFound": "ベース共有が見つからないか、共有が無効になっています",
+      "alreadyExists": "このノードには既に共有が存在します",
+      "copyNotAllowed": "この共有ではコピーが許可されていません"
+    },
     "shareSocket": {
       "viewPermissionNotAllowed": "このビューにアクセスする権限がありません",
       "fieldPermissionNotAllowed": "これらのフィールドにアクセスする権限がありません",
@@ -1175,6 +1180,14 @@
       "notAttachment": "フィールドは添付ファイルフィールドではありません",
       "isComputed": "フィールドは計算されており、変更できません",
       "notFoundAICofig": "フィールドにAI設定がありません",
+      "foreignTableIdRequired": "外部テーブルは必須です",
+      "lookupFieldIdRequired": "参照フィールドは必須です",
+      "lookupFieldNotExist": "参照フィールド {{lookupFieldId}} が存在しません",
+      "lookupFieldNotBelongToTable": "参照フィールド {{lookupFieldId}} はテーブル {{foreignTableId}} に属していません",
+      "lookupFieldTypeNotMatch": "現在のフィールドタイプ {{fieldType}} は参照フィールドタイプ {{lookupFieldType}} と一致しません",
+      "conditionalRollupOptionsRequired": "条件付き集約フィールドのオプションは必須です",
+      "conditionalRollupParseError": "条件付き集約の解析エラー：{{message}}",
+      "conditionalLookupOptionsRequired": "条件付き検索フィールドのオプションは必須です",
       "button": {
         "clickCountReachedMaxCount": "ボタンのクリック数が最大制限に達しました",
         "notSupportReset": "ボタンはリセットをサポートしていません"
