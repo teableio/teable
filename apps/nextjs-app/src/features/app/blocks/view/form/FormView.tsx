@@ -1,12 +1,12 @@
-import { useIsTemplate } from '@teable/sdk/hooks';
+import { useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import { FormToolBar } from '../tool-bar/FormToolBar';
 import { FormViewBase } from './FormViewBase';
 
 export const FormView = () => {
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   return (
     <>
-      {!isTemplate && <FormToolBar />}
+      {!isReadOnlyPreview && <FormToolBar />}
       <div className="w-full grow overflow-hidden">
         <FormViewBase />
       </div>

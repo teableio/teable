@@ -200,13 +200,14 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
           )}
 
           {commentList?.length ? (
-            commentList.map((comment) => (
+            commentList.map((comment, index) => (
               <CommentItem
                 key={comment.id}
                 {...comment}
                 tableId={tableId}
                 recordId={recordId}
                 commentId={commentId}
+                index={index}
               />
             ))
           ) : (

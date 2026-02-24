@@ -58,8 +58,11 @@ export class LinkFieldDto extends LinkFieldCore implements FieldBase {
         return '__order';
 
       case Relationship.OneMany:
-        // OneMany relationships use the selfKeyName (foreign key in target table) + _order
-        // Note: one-way OneMany does not have an order column; callers must check getHasOrderColumn()
+        // One-way OneMany may reuse legacy ManyMany junction storage where order column is "__order".
+        if (this.options.isOneWay && this.getHasOrderColumn()) {
+          return '__order';
+        }
+        // Other OneMany relationships use selfKeyName + _order.
         return `${this.options.selfKeyName}_order`;
 
       case Relationship.ManyOne:

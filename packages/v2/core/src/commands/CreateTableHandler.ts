@@ -64,7 +64,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
           )
         : foreignTableReferences;
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
-        baseId: command.baseId,
+        // Foreign references can point to tables in other bases.
         references: referencesToLoad,
       });
       const includeSelf =

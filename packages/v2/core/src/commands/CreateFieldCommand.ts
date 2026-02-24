@@ -7,7 +7,6 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { TableId } from '../domain/table/TableId';
 import { tableFieldInputSchema } from '../schemas/field';
-import type { ITableFieldInput } from '../schemas/field';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
 import { TableUpdateCommand } from './TableUpdateCommand';
 
@@ -23,7 +22,7 @@ export class CreateFieldCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
-    readonly field: ITableFieldInput
+    readonly field: z.output<typeof tableFieldInputSchema>
   ) {
     super(baseId, tableId);
   }

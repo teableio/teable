@@ -70,7 +70,10 @@ export class SettingService {
       }
 
       if (setting.name === SettingKey.INSTANCE_ID) {
-        res.createdTime = setting.createdTime;
+        res.createdTime =
+          setting.createdTime instanceof Date
+            ? setting.createdTime.toISOString()
+            : setting.createdTime;
       }
     }
 

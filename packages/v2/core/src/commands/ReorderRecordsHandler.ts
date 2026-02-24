@@ -12,7 +12,7 @@ import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRo
 import { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';

@@ -31,17 +31,31 @@ import { UserFieldDto } from './field-dto/user-field.dto';
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
+  let options = fieldRaw.options && JSON.parse(fieldRaw.options as string);
+  if (
+    fieldRaw.type === FieldType.Link &&
+    options &&
+    typeof options === 'object' &&
+    (options as { isOneWay?: boolean }).isOneWay === true
+  ) {
+    delete (options as { symmetricFieldId?: string }).symmetricFieldId;
+  }
+
+  if (fieldRaw.isLookup && options == null) {
+    options = {};
+  }
+
   return {
     id: fieldRaw.id,
     dbFieldName: fieldRaw.dbFieldName,
     name: fieldRaw.name,
     type: fieldRaw.type as FieldType,
     description: fieldRaw.description || undefined,
-    options: fieldRaw.options && JSON.parse(fieldRaw.options as string),
+    options,
     meta: (fieldRaw.meta && JSON.parse(fieldRaw.meta as string)) || undefined,
     aiConfig: (fieldRaw.aiConfig && JSON.parse(fieldRaw.aiConfig as string)) || undefined,
     notNull: fieldRaw.notNull || undefined,
-    unique: fieldRaw.unique || undefined,
+    unique: fieldRaw.unique ?? false,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
     isPending: fieldRaw.isPending || undefined,
@@ -51,7 +65,7 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     lookupOptions:
       (fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string)) || undefined,
     cellValueType: fieldRaw.cellValueType as CellValueType,
-    isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
+    isMultipleCellValue: fieldRaw.isMultipleCellValue ?? undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
   };
 }
