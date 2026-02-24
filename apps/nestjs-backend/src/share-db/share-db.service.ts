@@ -18,6 +18,27 @@ import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachm
 import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
 
+const v2ProjectionOpSourcePrefix = '@@v2-projection:';
+const v2ProjectionSubmitSource = '@@v2-projection';
+
+const hasClientStream = (
+  agent: unknown
+): agent is { stream: { write?: unknown; send?: unknown } } => {
+  if (!agent || typeof agent !== 'object') {
+    return false;
+  }
+  if (!('stream' in agent)) {
+    return false;
+  }
+
+  const stream = (agent as { stream?: unknown }).stream;
+  if (!stream || typeof stream !== 'object') {
+    return false;
+  }
+
+  return 'write' in stream || 'send' in stream;
+};
+
 @Injectable()
 export class ShareDbService extends ShareDBClass {
   private logger = new Logger(ShareDbService.name);
@@ -173,6 +194,24 @@ export class ShareDbService extends ShareDBClass {
     const currentSpan = tracer.startSpan('submitOp');
 
     otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
+      const submitSource =
+        ((context as ShareDBClass.middleware.SubmitContext & { options?: { source?: unknown } })
+          .options?.source as unknown) ??
+        ((context as ShareDBClass.middleware.SubmitContext & { extra?: { source?: unknown } }).extra
+          ?.source as unknown);
+      if (submitSource === v2ProjectionSubmitSource) {
+        return next();
+      }
+
+      const opSource = typeof context.op.src === 'string' ? context.op.src : '';
+      if (opSource.startsWith(v2ProjectionOpSourcePrefix)) {
+        return next();
+      }
+
+      if (!hasClientStream(context.agent)) {
+        return next();
+      }
+
       const [docType] = context.collection.split('_');
 
       if (docType !== IdPrefix.Record || !context.op.op) {

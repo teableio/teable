@@ -1,3 +1,4 @@
+export * from './DependencyChangeDetectorVisitor';
 export * from './FieldValueDuplicateVisitor';
 export * from './LinkFieldValueDuplicateVisitor';
 export * from './PostgresTableSchemaFieldColumn';

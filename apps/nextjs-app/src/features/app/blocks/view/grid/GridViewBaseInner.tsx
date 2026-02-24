@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IAttachmentCellValue, IFieldVo, IGridViewOptions } from '@teable/core';
+import type { IAttachmentItem, IFieldVo, IGridViewOptions } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -9,7 +9,7 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { createRecords, stopFillField, UploadType, autoFillCell } from '@teable/openapi';
+import { createRecords, stopFillField, autoFillCell } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -58,6 +58,7 @@ import {
   useGridFileEvent,
   extractDefaultFieldsFromFilters,
   TaskStatusCollectionContext,
+  PendingUploadContext,
   isNeedPersistEditing,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
@@ -80,6 +81,11 @@ import {
   useButtonClickStatus,
   useTableListener,
 } from '@teable/sdk/hooks';
+import {
+  finalizePendingUploadAfterCreate,
+  mergePendingAttachmentsForCreate,
+} from '@teable/sdk/store/pending-upload-create';
+import { useCellAttachmentUploadStore } from '@teable/sdk/store/use-attachment-upload-store';
 import { useConfirm } from '@teable/ui-lib';
 import { toast, toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
@@ -91,8 +97,8 @@ import { usePrevious, useClickAway } from 'react-use';
 import { computeFrozenColumnCount } from '@/features/app/blocks/view/grid/utils/computeFrozenFields';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
+import { useShareAllowCopy, useShareContext } from '@/features/app/context/ShareContext';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
-import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
@@ -178,6 +184,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const columnHeaderHeight =
     GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
   const permission = useTablePermission();
+  const { shareId } = useShareContext();
+  const shareAllowCopy = useShareAllowCopy();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = permission['field|update'];
   const { undo, redo } = useUndoRedo();
@@ -251,6 +259,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     prefillingRowIndex,
     prefillingRowOrder,
     prefillingFieldValueMap,
+    tempRecordId,
     setPrefillingRowIndex,
     setPrefillingRowOrder,
     onPrefillingCellEdited,
@@ -260,6 +269,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const inPresorting = presortRecord != null;
   const inPrefilling = prefillingRowIndex != null;
+
+  const pendingUploadCtx = useMemo(
+    () => ({ tempRecordId, tableId: tableId! }),
+    [tempRecordId, tableId]
+  );
 
   const onValidation = useCallback(
     (cell: ICellItem) => {
@@ -276,34 +290,53 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     [fields, permission]
   );
 
+  const startUpload = useCellAttachmentUploadStore((s) => s.startUpload);
   const onCellDrop = useCallback(
-    async (cell: ICellItem, files: FileList) => {
-      const attachments = await uploadFiles(files, UploadType.Table, baseId);
-
+    (cell: ICellItem, files: FileList) => {
       const [columnIndex, rowIndex] = cell;
       const record = recordMap[rowIndex];
       const field = fields[columnIndex];
-      const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
-      await record.updateCell(field.id, [...oldCellValue, ...attachments]);
+      startUpload(tableId, record.id, field.id, Array.from(files), baseId);
     },
-    [baseId, fields, recordMap]
+    [baseId, fields, recordMap, startUpload, tableId]
   );
 
+  const startPendingUpload = useCellAttachmentUploadStore((s) => s.startPendingUpload);
   const onPrefillingCellDrop = useCallback(
-    async (cell: ICellItem, files: FileList) => {
-      if (!localRecord) return;
-
-      const attachments = await uploadFiles(files, UploadType.Table, baseId);
+    (cell: ICellItem, fileList: FileList) => {
+      if (!tableId || !tempRecordId) return;
       const [columnIndex] = cell;
       const field = fields[columnIndex];
-      const oldCellValue = (localRecord.getCellValue(field.id) as IAttachmentCellValue) || [];
-      setPrefillingFieldValueMap((prev) => ({
-        ...prev,
-        [field.id]: [...oldCellValue, ...attachments],
-      }));
+      if (!field) return;
+      const files = Array.from(fileList);
+      if (!files.length) return;
+
+      startPendingUpload(tableId, tempRecordId, field.id, files, baseId);
     },
-    [baseId, fields, localRecord, setPrefillingFieldValueMap]
+    [tableId, tempRecordId, fields, baseId, startPendingUpload]
   );
+
+  const completedPendingByField = useCellAttachmentUploadStore((s) =>
+    tableId ? s.getCompletedPendingAttachments(tableId, tempRecordId) : {}
+  );
+  useEffect(() => {
+    if (!prefillingFieldValueMap) return;
+
+    let changed = false;
+    const next = { ...prefillingFieldValueMap };
+
+    for (const [fieldId, pendingItems] of Object.entries(completedPendingByField)) {
+      const current = (next[fieldId] as IAttachmentItem[] | undefined) ?? [];
+      const ids = new Set(current.map((i) => i.id));
+      const additions = pendingItems.filter((i) => !ids.has(i.id));
+      if (additions.length) {
+        next[fieldId] = [...current, ...additions];
+        changed = true;
+      }
+    }
+
+    if (changed) setPrefillingFieldValueMap(next);
+  }, [completedPendingByField, prefillingFieldValueMap, setPrefillingFieldValueMap]);
 
   useGridFileEvent({
     gridRef: inPrefilling ? prefillingGridRef : gridRef,
@@ -311,16 +344,51 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     onCellDrop: inPrefilling ? onPrefillingCellDrop : onCellDrop,
   });
 
+  const consumePendingForCreate = useCellAttachmentUploadStore((s) => s.consumePendingForCreate);
+  const promoteToCell = useCellAttachmentUploadStore((s) => s.promoteToCell);
+  const cancelPendingUploads = useCellAttachmentUploadStore((s) => s.cancelPendingUploads);
+
   const { mutate: mutateCreateRecord, isPending: isCreatingRecord } = useMutation({
-    mutationFn: (records: ICreateRecordsRo['records']) =>
-      createRecords(tableId!, {
+    mutationFn: async (records: ICreateRecordsRo['records']) => {
+      // Safety net: merge any pending-completed attachments not yet consumed by onChange
+      if (records.length === 1 && tableId && tempRecordId) {
+        const { mergedFields, consumedTaskIdsByCellKey } = mergePendingAttachmentsForCreate({
+          fields: records[0].fields,
+          tableId,
+          tempRecordId,
+          consumePendingForCreate,
+        });
+        records = [{ ...records[0], fields: mergedFields }];
+
+        const result = await createRecords(tableId!, {
+          records,
+          fieldKeyType: FieldKeyType.Id,
+          order:
+            activeViewId && prefillingRowOrder
+              ? { ...prefillingRowOrder, viewId: activeViewId }
+              : undefined,
+        });
+
+        finalizePendingUploadAfterCreate({
+          tableId,
+          tempRecordId,
+          realRecordId: result.data.records[0]?.id,
+          consumedTaskIdsByCellKey,
+          promoteToCell,
+        });
+
+        return result;
+      }
+
+      return createRecords(tableId!, {
         records,
         fieldKeyType: FieldKeyType.Id,
         order:
           activeViewId && prefillingRowOrder
             ? { ...prefillingRowOrder, viewId: activeViewId }
             : undefined,
-      }),
+      });
+    },
     onSuccess: () => {
       resetNewRecords();
     },
@@ -728,7 +796,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   };
 
   const onCopy = (selection: CombinedSelection, e: React.ClipboardEvent) => {
-    if (!permission['record|copy']) {
+    // In share context, use shareAllowCopy; otherwise use permission
+    const canCopy = shareId ? shareAllowCopy : permission['record|copy'];
+    if (!canCopy) {
       sonnerToast.warning(t('table:table.actionTips.copyError.noPermission'));
       return;
     }
@@ -1404,45 +1474,50 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         />
       )}
       {inPrefilling && (
-        <PrefillingRowContainer
-          style={prefillingRowStyle}
-          isLoading={isCreatingRecord}
-          onClickOutside={async () => {
-            if (isCreatingRecord || newRecords?.length) return;
-            await mutateCreateRecord([{ fields: prefillingFieldValueMap! }]);
-          }}
-          onCancel={() => {
-            setPrefillingRowIndex(undefined);
-            setPrefillingFieldValueMap(undefined);
-          }}
-        >
-          <Grid
-            ref={prefillingGridRef}
-            theme={theme}
-            scrollBufferX={
-              permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
-            }
-            scrollBufferY={0}
-            scrollBarVisible={false}
-            rowCount={1}
-            rowHeight={rowHeight}
-            rowIndexVisible={false}
-            rowControls={rowControls}
-            draggable={DraggableType.None}
-            selectable={SelectableType.Cell}
-            columns={columns}
-            commentCountMap={commentCountMap}
-            columnHeaderHeight={0}
-            freezeColumnCount={frozenColumnCount}
-            customIcons={customIcons}
-            getCellContent={getPrefillingCellContent}
-            onScrollChanged={onPrefillingGridScrollChanged}
-            onCellEdited={onPrefillingCellEdited}
-            onCopy={(selection, e) => onCopyForSingleRow(e, selection, prefillingFieldValueMap)}
-            onPaste={onPasteForPrefilling}
-            onDelete={getAuthorizedFunction(onDeleteForPrefilling, 'record|update')}
-          />
-        </PrefillingRowContainer>
+        <PendingUploadContext.Provider value={pendingUploadCtx}>
+          <PrefillingRowContainer
+            style={prefillingRowStyle}
+            isLoading={isCreatingRecord}
+            onClickOutside={async () => {
+              if (isCreatingRecord || newRecords?.length) return;
+              await mutateCreateRecord([{ fields: prefillingFieldValueMap! }]);
+            }}
+            onCancel={() => {
+              if (tableId) {
+                cancelPendingUploads(tableId, tempRecordId);
+              }
+              setPrefillingRowIndex(undefined);
+              setPrefillingFieldValueMap(undefined);
+            }}
+          >
+            <Grid
+              ref={prefillingGridRef}
+              theme={theme}
+              scrollBufferX={
+                permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
+              }
+              scrollBufferY={0}
+              scrollBarVisible={false}
+              rowCount={1}
+              rowHeight={rowHeight}
+              rowIndexVisible={false}
+              rowControls={rowControls}
+              draggable={DraggableType.None}
+              selectable={SelectableType.Cell}
+              columns={columns}
+              commentCountMap={commentCountMap}
+              columnHeaderHeight={0}
+              freezeColumnCount={frozenColumnCount}
+              customIcons={customIcons}
+              getCellContent={getPrefillingCellContent}
+              onScrollChanged={onPrefillingGridScrollChanged}
+              onCellEdited={onPrefillingCellEdited}
+              onCopy={(selection, e) => onCopyForSingleRow(e, selection, prefillingFieldValueMap)}
+              onPaste={onPasteForPrefilling}
+              onDelete={getAuthorizedFunction(onDeleteForPrefilling, 'record|update')}
+            />
+          </PrefillingRowContainer>
+        </PendingUploadContext.Provider>
       )}
       {presortRecord && (
         <PresortRowContainer

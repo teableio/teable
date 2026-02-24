@@ -3,12 +3,14 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { TableUpdateCommand } from '../../commands/TableUpdateCommand';
+import type { BaseId } from '../../domain/base/BaseId';
 import { domainError, isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
+import type { TableId } from '../../domain/table/TableId';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as EventBusPort from '../../ports/EventBus';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -22,13 +24,22 @@ type TableUpdateFlowHook = (
   context: IExecutionContext,
   table: Table,
   mutateSpec: ISpecification<Table, ITableSpecVisitor>
-) => Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>>;
+) => Promise<Result<TableUpdateFlowHookResult | ReadonlyArray<IDomainEvent>, DomainError>>;
+
+type TableUpdateFlowHookResult = {
+  events: ReadonlyArray<IDomainEvent>;
+  table?: Table;
+};
 
 type TableUpdateTarget =
   | {
       table: Table;
     }
-  | TableUpdateCommand;
+  | TableUpdateCommand
+  | {
+      baseId?: BaseId;
+      tableId: TableId;
+    };
 
 type TableUpdateFlowOptions = {
   publishEvents?: boolean;
@@ -40,9 +51,57 @@ type TableUpdateFlowHooks = {
   afterPersist?: TableUpdateFlowHook;
 };
 
+type TableSchemaRepositoryRefresher = {
+  refreshInMemoryTableAfterUpdate(
+    context: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<Table, DomainError>>;
+};
+
+type TableSchemaRepositoryDeferredBackfillReplayer = {
+  replayDeferredBackfillAfterUpdate(
+    context: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, DomainError>>;
+};
+
 export type TableUpdateFlowResult = {
   table: Table;
   events: ReadonlyArray<IDomainEvent>;
+};
+
+const normalizeHookResult = (
+  result: TableUpdateFlowHookResult | ReadonlyArray<IDomainEvent>
+): TableUpdateFlowHookResult => {
+  if ('events' in result) {
+    return {
+      events: result.events,
+      table: result.table,
+    };
+  }
+  return { events: result };
+};
+
+const isTableSchemaRepositoryRefresher = (
+  repository: TableSchemaRepositoryPort.ITableSchemaRepository
+): repository is TableSchemaRepositoryPort.ITableSchemaRepository &
+  TableSchemaRepositoryRefresher => {
+  return (
+    typeof (repository as Partial<TableSchemaRepositoryRefresher>)
+      .refreshInMemoryTableAfterUpdate === 'function'
+  );
+};
+
+const isTableSchemaRepositoryDeferredBackfillReplayer = (
+  repository: TableSchemaRepositoryPort.ITableSchemaRepository
+): repository is TableSchemaRepositoryPort.ITableSchemaRepository &
+  TableSchemaRepositoryDeferredBackfillReplayer => {
+  return (
+    typeof (repository as Partial<TableSchemaRepositoryDeferredBackfillReplayer>)
+      .replayDeferredBackfillAfterUpdate === 'function'
+  );
 };
 
 @injectable()
@@ -76,40 +135,61 @@ export class TableUpdateFlow {
       const updated = yield* mutate(table);
       span?.end();
 
-      const updatedTable = updated.table;
-      const hostEvents = updatedTable.pullDomainEvents();
+      let latestTable = updated.table;
+      const hostEvents = latestTable.pullDomainEvents();
       events.push(...hostEvents);
 
       const mutateSpec = updated.mutateSpec;
       yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
         return safeTry<void, DomainError>(async function* () {
           if (options?.hooks?.prepare) {
-            const prepareEvents = yield* await options.hooks.prepare(
+            const prepareHookResult = yield* await options.hooks.prepare(
               transactionContext,
-              updatedTable,
+              latestTable,
               mutateSpec
             );
-            events.push(...prepareEvents);
+            const normalizedResult = normalizeHookResult(prepareHookResult);
+            events.push(...normalizedResult.events);
+            latestTable = normalizedResult.table ?? latestTable;
           }
 
           yield* await handler.tableRepository.updateOne(
             transactionContext,
-            updatedTable,
+            latestTable,
             mutateSpec
           );
           yield* await handler.tableSchemaRepository.update(
             transactionContext,
-            updatedTable,
+            latestTable,
             mutateSpec
           );
 
+          if (isTableSchemaRepositoryRefresher(handler.tableSchemaRepository)) {
+            latestTable =
+              yield* await handler.tableSchemaRepository.refreshInMemoryTableAfterUpdate(
+                transactionContext,
+                latestTable,
+                mutateSpec
+              );
+          }
+
           if (options?.hooks?.afterPersist) {
-            const afterPersistEvents = yield* await options.hooks.afterPersist(
+            const afterPersistHookResult = yield* await options.hooks.afterPersist(
               transactionContext,
-              updatedTable,
+              latestTable,
               mutateSpec
             );
-            events.push(...afterPersistEvents);
+            const normalizedResult = normalizeHookResult(afterPersistHookResult);
+            events.push(...normalizedResult.events);
+            latestTable = normalizedResult.table ?? latestTable;
+          }
+
+          if (isTableSchemaRepositoryDeferredBackfillReplayer(handler.tableSchemaRepository)) {
+            yield* await handler.tableSchemaRepository.replayDeferredBackfillAfterUpdate(
+              transactionContext,
+              latestTable,
+              mutateSpec
+            );
           }
           return ok(undefined);
         });
@@ -119,7 +199,7 @@ export class TableUpdateFlow {
         // Publish events directly; projections fetch data themselves
         yield* await handler.eventBus.publishMany(context, events);
       }
-      return ok({ table: updatedTable, events });
+      return ok({ table: latestTable, events });
     });
   }
 
@@ -131,6 +211,7 @@ export class TableUpdateFlow {
 
     const tableRepository = this.tableRepository;
     const result = await safeTry<Table, DomainError>(async function* () {
+      // baseId is optional - can query by tableId alone
       const whereSpec = yield* TableAggregate.specs(target.baseId).byId(target.tableId).build();
       const tableResult = await tableRepository.findOne(context, whereSpec);
       if (tableResult.isErr()) {

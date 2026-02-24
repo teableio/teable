@@ -67,6 +67,10 @@ export const deleteByRangeCommandInputSchema = z.object({
    * When provided, records are ordered by group before applying range selection.
    */
   groupBy: z.array(recordGroupBySchema).optional(),
+  /**
+   * Ignore view-level query defaults (filter/sort/group) and use only request parameters.
+   */
+  ignoreViewQuery: z.boolean().optional().default(false),
 });
 
 export type IDeleteByRangeCommandInput = z.input<typeof deleteByRangeCommandInputSchema>;
@@ -80,7 +84,8 @@ export class DeleteByRangeCommand {
     readonly filter: RecordFilter | undefined,
     readonly sort: ReadonlyArray<RecordSortValue> | undefined,
     readonly search: RecordSearchValue | undefined,
-    readonly groupBy: ReadonlyArray<RecordGroupByValue> | undefined
+    readonly groupBy: ReadonlyArray<RecordGroupByValue> | undefined,
+    readonly ignoreViewQuery: boolean
   ) {}
 
   static create(raw: unknown): Result<DeleteByRangeCommand, DomainError> {
@@ -111,7 +116,8 @@ export class DeleteByRangeCommand {
           parsed.data.filter ?? undefined,
           parsed.data.sort ?? undefined,
           parsed.data.search ?? undefined,
-          parsed.data.groupBy ?? undefined
+          parsed.data.groupBy ?? undefined,
+          parsed.data.ignoreViewQuery ?? false
         );
       })
     );

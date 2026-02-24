@@ -88,7 +88,28 @@
     "importing": "导入中",
     "importWayTip": "点击或拖拽文件到此区域上传",
     "baseImportTips": "点击或者拖拽 .tea 文件到此区域上传",
-    "confirm": "确认并继续"
+    "confirm": "确认并继续",
+    "phase": {
+      "parsingStructure": "正在解析结构",
+      "creatingBase": "正在创建数据库: {{detail}}",
+      "creatingTable": "正在创建表: {{detail}}",
+      "creatingCommonFields": "正在为 {{table}} 创建基础字段：{{fields}}",
+      "creatingButtonFields": "正在为 {{table}} 创建按钮字段：{{fields}}",
+      "creatingFormulaFields": "正在为 {{table}} 创建公式字段：{{fields}}",
+      "creatingLinkFields": "正在为 {{table}} 创建关联字段：{{fields}}",
+      "creatingLookupFields": "正在为 {{table}} 创建引用字段：{{fields}}",
+      "creatingTableViews": "正在为 {{table}} 创建视图：{{fields}}",
+      "creatingPlugins": "正在创建插件",
+      "creatingFolders": "正在创建文件夹",
+      "creatingWorkflows": "正在创建工作流",
+      "creatingApps": "正在创建应用",
+      "creatingAuthorityMatrix": "正在创建权限矩阵",
+      "queuingAttachments": "正在提交附件上传任务",
+      "uploadingAppFiles": "正在上传应用文件",
+      "queuingDataImport": "正在提交数据导入任务",
+      "done": "导入完成",
+      "clickToView": "点击查看"
+    }
   },
   "template": {
     "title": "模板中心",

@@ -60,6 +60,13 @@ export type UpdateFromSelectParams = {
    * only affect records that have been marked as dirty.
    */
   dirtyFilter?: DirtyFilterConfig;
+  /**
+   * When true, skip the IS DISTINCT FROM optimisation and update all rows
+   * unconditionally.  Use after a field type conversion where the stored
+   * column type differs from the newly-computed value type, making a safe
+   * type-aware comparison impossible.
+   */
+  skipDistinctFilter?: boolean;
 };
 
 /**
@@ -117,11 +124,9 @@ export class UpdateFromSelectBuilder {
         if (fieldMappingsResult.isErr()) return err(fieldMappingsResult.error);
         const setValuesResult = buildSetValues(fieldMappingsResult.value, selectAlias, tableAlias);
         if (setValuesResult.isErr()) return err(setValuesResult.error);
-        const distinctFilter = buildDistinctFilter(
-          fieldMappingsResult.value,
-          selectAlias,
-          tableAlias
-        );
+        const distinctFilter = params.skipDistinctFilter
+          ? undefined
+          : buildDistinctFilter(fieldMappingsResult.value, selectAlias, tableAlias);
 
         // Apply dirty filter to the SELECT query if provided
         // Use INNER JOIN instead of IN subquery for better query planning.
@@ -194,11 +199,9 @@ export class UpdateFromSelectBuilder {
         if (fieldMappingsResult.isErr()) return err(fieldMappingsResult.error);
         const setValuesResult = buildSetValues(fieldMappingsResult.value, selectAlias, tableAlias);
         if (setValuesResult.isErr()) return err(setValuesResult.error);
-        const distinctFilter = buildDistinctFilter(
-          fieldMappingsResult.value,
-          selectAlias,
-          tableAlias
-        );
+        const distinctFilter = params.skipDistinctFilter
+          ? undefined
+          : buildDistinctFilter(fieldMappingsResult.value, selectAlias, tableAlias);
 
         // Build column to fieldId mapping for RETURNING
         const columnMapping = buildColumnMapping(fieldMappingsResult.value);
@@ -273,6 +276,7 @@ type FieldMapping = {
   column: string;
   fieldId: FieldId;
   isLookup: boolean;
+  isLookupMultiValue: boolean;
   dbFieldType: string;
 };
 
@@ -378,6 +382,26 @@ const normalizeDbFieldType = (value: string): string => {
   }
 };
 
+const isNumericDbFieldType = (value: string): boolean => {
+  return (
+    value === 'double precision' ||
+    value === 'numeric' ||
+    value === 'decimal' ||
+    value === 'integer' ||
+    value === 'bigint' ||
+    value === 'smallint'
+  );
+};
+
+const buildNumericCastExpression = (expression: ReturnType<typeof sql>, columnType: string) => {
+  return sql`CASE
+    WHEN (${expression}) IS NULL THEN NULL
+    WHEN BTRIM((${expression})::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
+      THEN BTRIM((${expression})::text)::${sql.raw(columnType)}
+    ELSE NULL
+  END`;
+};
+
 const buildLookupScalarCast = (expression: ReturnType<typeof sql>, columnType: string) => {
   switch (columnType) {
     case 'double precision':
@@ -386,7 +410,7 @@ const buildLookupScalarCast = (expression: ReturnType<typeof sql>, columnType: s
     case 'integer':
     case 'bigint':
     case 'smallint':
-      return sql`NULLIF(${expression}, '')::${sql.raw(columnType)}`;
+      return buildNumericCastExpression(expression, columnType);
     case 'boolean':
       return sql`${expression}::boolean`;
     case 'timestamptz':
@@ -406,12 +430,17 @@ const buildLookupAssignment = (
   eb: ExpressionBuilder<DynamicDB, string>,
   selectAlias: string,
   column: string,
-  lookupDbFieldType: string
+  lookupDbFieldType: string,
+  isLookupMultiValue: boolean
 ) => {
   const normalizedType = normalizeDbFieldType(lookupDbFieldType);
   const ref = eb.ref(`${selectAlias}.${column}`);
   if (normalizedType === 'jsonb') {
-    return sql`to_jsonb(${ref})`;
+    const refJson = sql`to_jsonb(${ref})`;
+    if (isLookupMultiValue) {
+      return refJson;
+    }
+    return sql`(CASE WHEN jsonb_typeof(${refJson}) = 'array' THEN ${refJson} -> 0 ELSE ${refJson} END)`;
   }
   const scalarText = sql`(${ref} ->> 0)`;
   return buildLookupScalarCast(scalarText, normalizedType);
@@ -445,6 +474,7 @@ const buildFieldMappings = (
         field.type().equals(FieldType.conditionalLookup());
 
       const valueType = yield* field.accept(valueTypeVisitor);
+      const isLookupMultiValue = isLookup && valueType.isMultipleCellValue.toBoolean();
       const derivedDbFieldType = resolveDbFieldType(
         field,
         valueType.cellValueType.toString(),
@@ -457,6 +487,11 @@ const buildFieldMappings = (
         ? persistedDbFieldTypeResult.value
         : undefined;
       let dbFieldType = persistedDbFieldType ?? derivedDbFieldType;
+
+      // V1 parity: autoNumber fields use INTEGER, not REAL
+      if (field.type().equals(FieldType.autoNumber())) {
+        dbFieldType = 'INTEGER';
+      }
 
       // Created/LastModified time fields are stored as TEXT columns even though their
       // semantic value type is DATETIME. Use TEXT here to align DISTINCT comparisons
@@ -481,7 +516,13 @@ const buildFieldMappings = (
         dbFieldType = yield* resolveLookupScalarDbFieldType(field, valueType);
       }
 
-      mappings.push({ column: columnName, fieldId, isLookup, dbFieldType });
+      mappings.push({
+        column: columnName,
+        fieldId,
+        isLookup,
+        isLookupMultiValue,
+        dbFieldType,
+      });
     }
 
     return ok(mappings);
@@ -494,7 +535,13 @@ const buildAssignmentValue = (
   mapping: FieldMapping
 ) => {
   if (mapping.isLookup) {
-    return buildLookupAssignment(eb, selectAlias, mapping.column, mapping.dbFieldType);
+    return buildLookupAssignment(
+      eb,
+      selectAlias,
+      mapping.column,
+      mapping.dbFieldType,
+      mapping.isLookupMultiValue
+    );
   }
 
   const normalizedType = normalizeDbFieldType(mapping.dbFieldType);
@@ -503,7 +550,11 @@ const buildAssignmentValue = (
     return sql`to_jsonb(${ref})`;
   }
 
-  return ref;
+  if (isNumericDbFieldType(normalizedType)) {
+    return buildNumericCastExpression(sql`${ref}`, normalizedType);
+  }
+
+  return sql`${ref}::${sql.raw(normalizedType)}`;
 };
 
 const buildComparisonValue = (
@@ -511,12 +562,7 @@ const buildComparisonValue = (
   selectAlias: string,
   mapping: FieldMapping
 ) => {
-  const assigned = buildAssignmentValue(eb, selectAlias, mapping);
-  const normalizedType = normalizeDbFieldType(mapping.dbFieldType);
-  if (normalizedType === 'jsonb') {
-    return assigned;
-  }
-  return sql`${assigned}::${sql.raw(normalizedType)}`;
+  return buildAssignmentValue(eb, selectAlias, mapping);
 };
 
 const buildSetValues = (
