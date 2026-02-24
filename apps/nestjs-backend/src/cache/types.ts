@@ -98,6 +98,7 @@ export enum OperationName {
   UpdateRecordsOrder = 'updateRecordsOrder',
   CreateFields = 'createFields',
   ConvertField = 'convertField',
+  ConvertFieldV2 = 'convertFieldV2',
   DeleteFields = 'deleteFields',
   PasteSelection = 'pasteSelection',
 }
@@ -177,6 +178,19 @@ export interface IConvertFieldOperation extends IUndoRedoOperationBase {
   };
 }
 
+export interface IConvertFieldV2Operation extends IUndoRedoOperationBase {
+  name: OperationName.ConvertFieldV2;
+  params: {
+    tableId: string;
+  };
+  result: {
+    oldField: IFieldVo;
+    newField: IFieldVo;
+    modifiedOps?: IOpsMap;
+    references?: string[];
+  };
+}
+
 export interface ICreateFieldsOperation extends IUndoRedoOperationBase {
   name: OperationName.CreateFields;
   params: {
@@ -253,6 +267,7 @@ export type IUndoRedoOperation =
   | ICreateFieldsOperation
   | IDeleteFieldsOperation
   | IConvertFieldOperation
+  | IConvertFieldV2Operation
   | IPasteSelectionOperation
   | ICreateViewOperation
   | IDeleteViewOperation

@@ -116,6 +116,14 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
     }
 
     const { cellValueType, isMultipleCellValue } = typeResult.value;
+
+    const currentCellValueType = formulaField.cellValueType();
+    const currentMultiplicity = formulaField.isMultipleCellValue();
+    if (currentCellValueType.isOk() && currentMultiplicity.isOk()) {
+      valueTypes.push({ id: field.id(), valueType: typeResult.value });
+      continue;
+    }
+
     const setTypeResult = formulaField.setResultType(cellValueType, isMultipleCellValue);
     if (setTypeResult.isErr()) return err(setTypeResult.error);
 

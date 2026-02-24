@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type {
   IFieldPropertyKey,
   IFieldVo,
@@ -20,6 +26,7 @@ import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
+import { FieldService } from '../features/field/field.service';
 import { TableService } from '../features/table/table.service';
 import type { IClsStore } from '../types/cls';
 import { exceptionParse } from '../utils/exception-parse';
@@ -54,7 +61,8 @@ export class ShareDbAdapter extends ShareDb.DB {
     private readonly recordService: RecordReadonlyServiceAdapter,
     private readonly fieldService: FieldReadonlyServiceAdapter,
     private readonly viewService: ViewReadonlyServiceAdapter,
-    private readonly tableServiceInner: TableService
+    private readonly tableServiceInner: TableService,
+    @Optional() private readonly fieldServiceInner?: FieldService
   ) {
     super();
     this.closed = false;
@@ -114,12 +122,13 @@ export class ShareDbAdapter extends ShareDb.DB {
   private getAuthHeaders(options: any) {
     const cookie = options?.cookie || options?.agentCustom?.cookie;
     const shareId = options?.shareId || options?.agentCustom?.shareId;
+    const baseShareId = options?.baseShareId || options?.agentCustom?.baseShareId;
     const templateHeader = options?.templateHeader || options?.agentCustom?.templateHeader;
-    if (!cookie && !shareId && !templateHeader) {
+    if (!cookie && !shareId && !baseShareId && !templateHeader) {
       this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
       throw new UnauthorizedException('Unauthorized request not authorized');
     }
-    return { cookie, shareViewId: shareId, templateHeader };
+    return { cookie, shareViewId: shareId, baseShareId, templateHeader };
   }
 
   async queryPoll(
@@ -200,7 +209,27 @@ export class ShareDbAdapter extends ShareDb.DB {
     try {
       const [docType, collectionId] = collection.split('_');
 
-      const authHeaders = this.getAuthHeaders(options);
+      let authHeaders;
+      try {
+        authHeaders = this.getAuthHeaders(options);
+      } catch {
+        // For internal (server-side) connections without auth, resolve field docs directly
+        if (docType === IdPrefix.Field && this.fieldServiceInner) {
+          const snapshotData = await this.fieldServiceInner.getSnapshotBulk(collectionId, ids);
+          if (snapshotData.length) {
+            const snapshots = snapshotData.map(
+              (snapshot) =>
+                new Snapshot(snapshot.id, snapshot.v, snapshot.type, snapshot.data, null)
+            );
+            callback(null, this.snapshots2Map(snapshots));
+          } else {
+            const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, null));
+            callback(null, this.snapshots2Map(snapshots));
+          }
+          return;
+        }
+        throw new UnauthorizedException('Unauthorized request not authorized');
+      }
       const snapshotData = await this.cls.runWith(
         {
           ...this.cls.get(),

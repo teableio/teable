@@ -1,5 +1,5 @@
 import { ArrowUpRight, Code2, MoreHorizontal } from '@teable/icons';
-import { useIsTemplate, useTablePermission } from '@teable/sdk/hooks';
+import { useIsReadOnlyPreview, useTablePermission } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { SearchButton } from '../search/SearchButton';
 import { APIDialog } from './APIDialog';
@@ -69,11 +69,11 @@ const OthersMenu = ({ className }: { className?: string }) => {
 };
 
 export const Others: React.FC = () => {
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   return (
     <div className="flex flex-1 items-center justify-end @container/toolbar-others md:gap-0">
       <SearchButton />
-      {!isTemplate && (
+      {!isReadOnlyPreview && (
         <>
           <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
           <UndoRedoButtons />

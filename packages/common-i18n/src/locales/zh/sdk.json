@@ -143,9 +143,9 @@
       "choicesNameRequired": "选项名称不能为空"
     },
     "lookup": {
-      "lookupFieldIdRequired": "查找字段不能为空",
+      "lookupFieldIdRequired": "必须选择查找字段",
       "lookupOptionsNotAllowed": "非从关联的表中查找或者汇总时，不能配置查找选项",
-      "lookupOptionsRequired": "从关联的表中查找或者汇总时，必须配置查找选项",
+      "lookupOptionsRequired": "必须配置查找选项",
       "refineOptionsError": "解析查找选项配置错误 {{message}}"
     },
     "rollup": {
@@ -1072,9 +1072,14 @@
       "viewTypeNotAllowed": "此视图类型不允许执行该操作"
     },
     "shareAuth": {
-      "passwordRestrictionNotEnabled": "此共享视图未启用密码限制",
+      "passwordRestrictionNotEnabled": "此共享未启用密码限制",
       "shareViewNotFound": "共享视图不存在或已禁用分享",
       "linkFieldNotFound": "关联字段不存在"
+    },
+    "baseShare": {
+      "notFound": "Base 分享不存在或分享已禁用",
+      "alreadyExists": "此节点已存在分享",
+      "copyNotAllowed": "此分享不允许复制"
     },
     "shareSocket": {
       "viewPermissionNotAllowed": "您没有权限访问此视图",
@@ -1195,6 +1200,14 @@
       "notAttachment": "字段不是附件字段",
       "isComputed": "字段为计算字段，无法修改",
       "notFoundAICofig": "字段没有AI配置",
+      "foreignTableIdRequired": "必须指定关联表",
+      "lookupFieldIdRequired": "必须选择查找字段",
+      "lookupFieldNotExist": "查找字段 {{lookupFieldId}} 不存在",
+      "lookupFieldNotBelongToTable": "查找字段 {{lookupFieldId}} 不属于表 {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "当前字段类型 {{fieldType}} 与查找字段类型 {{lookupFieldType}} 不匹配",
+      "conditionalRollupOptionsRequired": "条件汇总字段选项是必需的",
+      "conditionalRollupParseError": "条件汇总解析错误：{{message}}",
+      "conditionalLookupOptionsRequired": "条件查找字段选项是必需的",
       "button": {
         "clickCountReachedMaxCount": "按钮点击次数已达到最大限制",
         "notSupportReset": "按钮不支持重置"

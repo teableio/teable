@@ -85,6 +85,56 @@ describe('Formula DATETIME_PARSE update semantics (e2e)', () => {
   });
 
   /**
+   * Test DATETIME_PARSE without format and timezone.
+   * This test verifies Asia/Shanghai local time is used when no format is provided.
+   */
+  it('parses DATETIME_PARSE without format as local timezone', async () => {
+    let tableId: string | undefined;
+    const textFieldId = generateFieldId();
+
+    try {
+      const table = await createTable(baseId, {
+        name: 'formula-datetime-parse-timezone',
+        fields: [
+          { id: textFieldId, name: 'TextDate', type: FieldType.SingleLineText },
+          {
+            name: 'ParsedDate',
+            type: FieldType.Formula,
+            options: {
+              expression: `DATETIME_PARSE({${textFieldId}})`,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        ],
+      });
+      tableId = table.id;
+
+      const formulaFieldId =
+        table.fields.find((f) => f.name === 'ParsedDate')?.id ??
+        (() => {
+          throw new Error('ParsedDate field not found');
+        })();
+
+      const { records } = await createRecords(tableId, {
+        fieldKeyType: FieldKeyType.Name,
+        typecast: true,
+        records: [{ fields: { TextDate: '2026-01-15 08:30:00' } }],
+      });
+
+      const record = await getRecord(tableId, records[0].id);
+      const formulaValue = record.fields?.[formulaFieldId as string];
+
+      expect(formulaValue).not.toBeNull();
+      expect(formulaValue).not.toBeUndefined();
+      expect(new Date(formulaValue as string).toISOString()).toBe('2026-01-15T00:30:00.000Z');
+    } finally {
+      if (tableId) {
+        await permanentDeleteTable(baseId, tableId);
+      }
+    }
+  });
+
+  /**
    * Test DATETIME_PARSE with single-digit month format.
    * This test verifies that single-digit months are correctly parsed.
    */

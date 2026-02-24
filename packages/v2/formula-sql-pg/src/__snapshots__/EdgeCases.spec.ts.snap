@@ -7,7 +7,7 @@ exports[`edge cases > 'ConcatBlank': 'Concat with blank value' 1`] = `
   "funcId": "ConcatBlank",
   "inputs": {},
   "result": "prefixsuffix",
-  "sql": "(COALESCE((COALESCE('prefix', '') || COALESCE(NULL, '')), '') || COALESCE('suffix', ''))",
+  "sql": "(COALESCE((((COALESCE((('prefix')::text), '') || COALESCE(((NULL)::text), '')))::text), '') || COALESCE((('suffix')::text), ''))",
 }
 `;
 
@@ -206,7 +206,38 @@ exports[`edge cases > 'WorkdayNegative': 'Workday with negative days' 1`] = `
   "funcId": "WorkdayNegative",
   "inputs": {},
   "result": "0000-00-00 00:00:00",
-  "sql": "(((NOW())::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * ((-((1)::double precision)))::double precision",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT (((NOW())::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE((((-((1)::double precision)))::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;
 
@@ -217,6 +248,37 @@ exports[`edge cases > 'WorkdayZero': 'Workday with zero days' 1`] = `
   "funcId": "WorkdayZero",
   "inputs": {},
   "result": "0000-00-00 00:00:00",
-  "sql": "(((NOW())::timestamptz) AT TIME ZONE 'UTC')::date + INTERVAL '1 day' * (0)::double precision",
+  "sql": "(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT (((NOW())::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((0)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
+      ) p
+    )",
 }
 `;

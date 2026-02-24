@@ -2,7 +2,11 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { ForeignTable } from '../../ForeignTable';
+import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import { Field } from '../Field';
@@ -14,6 +18,7 @@ import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
 } from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
 import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import type { CellValueMultiplicity } from './CellValueMultiplicity';
@@ -21,7 +26,7 @@ import { CellValueType } from './CellValueType';
 import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
-import type { LinkField } from './LinkField';
+import { LinkField } from './LinkField';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import type { NumberFormatting } from './NumberFormatting';
 import { NumberShowAs as NumberShowAsValue } from './NumberShowAs';
@@ -46,7 +51,7 @@ type RollupValuesType = {
   isMultipleCellValue: CellValueMultiplicity;
 };
 
-export class RollupField extends Field implements ForeignTableRelatedField {
+export class RollupField extends Field implements ForeignTableRelatedField, OnTeableFieldUpdated {
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -371,11 +376,98 @@ export class RollupField extends Field implements ForeignTableRelatedField {
       if (resolveResult.isErr()) return err(resolveResult.error);
     }
 
-    return this.setDependencies([linkFieldId]);
+    return this.ensureDependencies([linkFieldId]);
+  }
+
+  private ensureDependencies(nextDependencies: ReadonlyArray<FieldId>): Result<void, DomainError> {
+    const deduped = nextDependencies.filter(
+      (fieldId, index, array) => array.findIndex((candidate) => candidate.equals(fieldId)) === index
+    );
+    const current = this.dependencies();
+
+    if (current.length === 0) {
+      return this.setDependencies(deduped);
+    }
+
+    const isSameSet =
+      current.length === deduped.length &&
+      current.every((fieldId) => deduped.some((candidate) => candidate.equals(fieldId)));
+    if (isSameSet) {
+      return ok(undefined);
+    }
+
+    return err(
+      domainError.invariant({
+        message: 'RollupField dependencies conflict with resolved foreign-table dependencies',
+      })
+    );
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitRollupField(this);
+  }
+
+  /**
+   * Respond to updates of fields this rollup depends on.
+   *
+   * This rollup field depends on:
+   * - The link field (linkFieldId) in the same table
+   * - The lookup field (lookupFieldId) in the foreign table
+   *
+   * When either is updated, this method is called to allow the rollup to respond.
+   *
+   * If the link field is type-converted to a non-link type, or the lookup field
+   * is type-converted to a type incompatible with the rollup expression,
+   * this rollup becomes invalid and should be marked with hasError.
+   */
+  onDependencyUpdated(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    _context: FieldUpdateContext
+  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+    const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
+
+    // Check if the updated field is our link field or lookup field
+    const isRelatedField =
+      updatedField.id().equals(this.linkFieldId()) ||
+      updatedField.id().equals(this.lookupFieldId());
+
+    if (!isRelatedField) {
+      // Not our dependency, no response needed
+      return ok(specs);
+    }
+
+    // Check if the field is being type-converted
+    const hasTypeConversion = updateSpecs.some(
+      (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
+    );
+
+    if (hasTypeConversion) {
+      if (updatedField.id().equals(this.linkFieldId())) {
+        const convertedLinkField = updateSpecs.find(
+          (spec): spec is TableUpdateFieldTypeSpec =>
+            spec instanceof TableUpdateFieldTypeSpec &&
+            (spec.oldField().id().equals(this.linkFieldId()) ||
+              spec.newField().id().equals(this.linkFieldId()))
+        );
+        const convertedNextField = convertedLinkField?.newField();
+        const shouldSetError =
+          !(convertedNextField instanceof LinkField) ||
+          !convertedNextField.foreignTableId().equals(this.foreignTableId());
+        if (shouldSetError && !this.hasError().isError()) {
+          specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+        }
+        if (!shouldSetError && this.hasError().isError()) {
+          specs.push(TableUpdateFieldHasErrorSpec.clearError(this.id(), this.hasError()));
+        }
+      } else if (!this.hasError().isError()) {
+        // A dependency is being converted to a different type
+        // This rollup is now potentially invalid - mark as error
+        specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+      }
+    }
+
+    return ok(specs);
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

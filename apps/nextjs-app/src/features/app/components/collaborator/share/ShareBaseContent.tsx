@@ -51,7 +51,8 @@ export const ShareBaseContent = ({
 }) => {
   const router = useRouter();
   const { user } = useSession();
-  const { t } = useTranslation(['common', 'space']);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { t } = useTranslation(['common', 'space', 'table']) as any;
 
   const [tabType, setTabType] = useState<
     'email' | 'link' | 'collaborators' | 'organization' | undefined
@@ -236,6 +237,7 @@ export const ShareBaseContent = ({
       />
     );
   }
+
   const getPermissions = (item: CollaboratorItem) => {
     const canManage = canManageRole(userRole, item.role);
     const isMe = item.type === PrincipalType.User && item.userId === user.id;
