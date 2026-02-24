@@ -90,18 +90,23 @@ exports[`text functions > 'Concatenate' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": "-x",
   "sql": "CONCAT((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -118,7 +123,7 @@ exports[`text functions > 'Concatenate' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ), '-x')",
+    ), '-x')",
 }
 `;
 
@@ -666,18 +671,23 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "(CASE WHEN (
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -694,7 +704,7 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ) IS NULL THEN NULL ELSE COALESCE((SELECT string_agg(
+    ) IS NULL THEN NULL ELSE COALESCE((SELECT string_agg(
       CASE
         WHEN byte_val BETWEEN 48 AND 57
           OR byte_val BETWEEN 65 AND 90
@@ -709,12 +719,8 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalLookup' 1`] = `
     FROM (
       SELECT ord, get_byte(src.bytes, ord) AS byte_val
       FROM (SELECT convert_to(((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -731,7 +737,7 @@ exports[`text functions > 'EncodeUrlComponent' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ))::text, 'UTF8') AS bytes) AS src
+    ))::text, 'UTF8') AS bytes) AS src
       CROSS JOIN generate_series(0, octet_length(src.bytes) - 1) AS ord
     ) AS utf8_bytes), '') END)",
 }
@@ -1519,18 +1525,23 @@ exports[`text functions > 'Find' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "POSITION('1' IN SUBSTRING((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -1547,7 +1558,7 @@ exports[`text functions > 'Find' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+    ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -2046,18 +2057,23 @@ exports[`text functions > 'Left' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "LEFT((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -2074,7 +2090,7 @@ exports[`text functions > 'Left' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ), (1)::double precision::integer)",
+    ), (1)::double precision::integer)",
 }
 `;
 
@@ -2555,18 +2571,23 @@ exports[`text functions > 'Len' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "LENGTH((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -2583,7 +2604,7 @@ exports[`text functions > 'Len' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ))",
+    ))",
 }
 `;
 
@@ -3064,18 +3085,23 @@ exports[`text functions > 'Lower' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "LOWER((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -3092,7 +3118,7 @@ exports[`text functions > 'Lower' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ))",
+    ))",
 }
 `;
 
@@ -3573,18 +3599,23 @@ exports[`text functions > 'Mid' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "SUBSTRING((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -3601,7 +3632,7 @@ exports[`text functions > 'Mid' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ) FROM (1)::double precision::integer FOR (2)::double precision::integer)",
+    ) FROM (1)::double precision::integer FOR (2)::double precision::integer)",
 }
 `;
 
@@ -4082,18 +4113,23 @@ exports[`text functions > 'RegExpReplace' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "REGEXP_REPLACE((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -4110,7 +4146,7 @@ exports[`text functions > 'RegExpReplace' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ), '1', 'x', 'g')",
+    ), '1', 'x', 'g')",
 }
 `;
 
@@ -4591,18 +4627,23 @@ exports[`text functions > 'Replace' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "OVERLAY((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -4619,7 +4660,7 @@ exports[`text functions > 'Replace' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ) PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
+    ) PLACING 'x' FROM (1)::double precision::integer FOR (1)::double precision::integer)",
 }
 `;
 
@@ -5100,18 +5141,23 @@ exports[`text functions > 'Rept' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "REPEAT((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -5128,7 +5174,7 @@ exports[`text functions > 'Rept' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ), (2)::double precision::integer)",
+    ), (2)::double precision::integer)",
 }
 `;
 
@@ -5609,18 +5655,23 @@ exports[`text functions > 'Right' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "RIGHT((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -5637,7 +5688,7 @@ exports[`text functions > 'Right' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ), (1)::double precision::integer)",
+    ), (1)::double precision::integer)",
 }
 `;
 
@@ -6118,18 +6169,23 @@ exports[`text functions > 'Search' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -6146,7 +6202,7 @@ exports[`text functions > 'Search' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+    ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6645,18 +6701,23 @@ exports[`text functions > 'Substitute' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "REPLACE((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -6673,7 +6734,7 @@ exports[`text functions > 'Substitute' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ), '1', 'x')",
+    ), '1', 'x')",
 }
 `;
 
@@ -7154,18 +7215,23 @@ exports[`text functions > 'T' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "(
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -7182,7 +7248,7 @@ exports[`text functions > 'T' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  )",
+    )",
 }
 `;
 
@@ -7655,18 +7721,23 @@ exports[`text functions > 'Trim' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "TRIM((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -7683,7 +7754,7 @@ exports[`text functions > 'Trim' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ))",
+    ))",
 }
 `;
 
@@ -8164,18 +8235,23 @@ exports[`text functions > 'Upper' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "UPPER((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -8192,7 +8268,7 @@ exports[`text functions > 'Upper' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ))",
+    ))",
 }
 `;
 

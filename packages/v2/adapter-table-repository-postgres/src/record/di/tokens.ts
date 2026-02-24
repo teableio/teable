@@ -26,4 +26,7 @@ export const v2RecordRepositoryPostgresTokens = {
     'v2.adapter.recordRepositoryPostgres.computedFieldBackfillService'
   ),
   fieldBackfillConfig: Symbol('v2.adapter.recordRepositoryPostgres.fieldBackfillConfig'),
+  computedFieldCascadeService: Symbol(
+    'v2.adapter.recordRepositoryPostgres.computedFieldCascadeService'
+  ),
 } as const;
