@@ -2,7 +2,8 @@
   "auth": {
     "title": "Geben Sie Ihr Passwort ein, um diese Seite zu sehen",
     "submit": "Abschicken",
-    "password": "Passwort"
+    "password": "Passwort",
+    "passwordTooShort": "Das Passwort muss mindestens 3 Zeichen lang sein"
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Auswählen..."

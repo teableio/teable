@@ -326,11 +326,13 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
-            2025-01-01T00:00:00.000Z,
             "usr_test",
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "update "table_meta" set "last_modified_time" = $1, "last_modified_by" = $2 where "id" = $3",
+          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
+                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
+                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
+              END, "last_modified_by" = $1 where "id" = $2",
         },
       ]
     `);
@@ -436,11 +438,13 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
-            2025-01-01T00:00:00.000Z,
             "usr_test",
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "update "table_meta" set "last_modified_time" = $1, "last_modified_by" = $2 where "id" = $3",
+          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
+                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
+                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
+              END, "last_modified_by" = $1 where "id" = $2",
         },
       ]
     `);

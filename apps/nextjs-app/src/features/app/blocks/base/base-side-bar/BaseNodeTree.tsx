@@ -38,6 +38,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
+import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { useIsCommunity } from '@/features/app/hooks/useIsCommunity';
@@ -57,6 +58,7 @@ import type { TreeItemData } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeAddResourceButton } from './BaseNodeAddResourceButton';
 import { BaseNodeMore } from './BaseNodeMore';
+import { BaseNodeShareIndicator, useSharedNodeIds } from './BaseNodeShareIndicator';
 import { BaseNodeStarButton } from './BaseNodeStarButton';
 
 const INDENTATION_WIDTH = 24;
@@ -147,6 +149,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { disallowDashboard } = useSetting();
   const pinMap = usePinMap();
   const isCommunity = useIsCommunity();
+  const shareUrlPrefix = useShareUrlPrefix();
   const canCreateTable = Boolean(permission?.['table|create']);
   const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
@@ -160,6 +163,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
     );
   const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
+  const sharedNodeIds = useSharedNodeIds();
 
   const { isLoading, maxFolderDepth, treeItems, setTreeItems } = useBaseNodeContext();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -205,13 +209,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         baseId,
         resourceType,
         resourceId,
+        urlPrefix: shareUrlPrefix,
       });
       if (!url) return;
       router.push(url, undefined, {
         shallow: true,
       });
     },
-    [baseId, router, tableHrefMap, tableViewIdsMap, onPrimaryAction]
+    [baseId, router, tableHrefMap, tableViewIdsMap, onPrimaryAction, shareUrlPrefix]
   );
 
   const handleDrop = (items: ItemInstance<TreeItemData>[], target: DragTarget<TreeItemData>) => {
@@ -317,6 +322,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         resourceType,
         resourceId,
         viewId,
+        urlPrefix: shareUrlPrefix,
       });
       if (url) {
         if (resourceType === BaseNodeResourceType.Table) {
@@ -331,7 +337,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       }
       setSelectedItems([node.id]);
     },
-    [baseId, router, setExpandedItems, setSelectedItems]
+    [baseId, router, setExpandedItems, setSelectedItems, shareUrlPrefix]
   );
 
   const updateSuccefulyCallback = useCallback(
@@ -728,6 +734,15 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                               </BaseNodeMore>
                             </div>
                           }
+                          {!shareUrlPrefix && (
+                            <div className="group-hover:hidden group-has-[[data-state=open]]:hidden">
+                              <BaseNodeShareIndicator
+                                nodeId={nodeId}
+                                sharedNodeIds={sharedNodeIds}
+                                node={node}
+                              />
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

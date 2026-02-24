@@ -2,8 +2,10 @@ import { PGlite } from '@electric-sql/pglite';
 import {
   ActorId,
   BaseId,
+  createLinkField,
   createSingleLineTextField,
   FieldId,
+  LinkFieldConfig,
   FieldName,
   type Field,
   type IExecutionContext,
@@ -123,7 +125,11 @@ class PGliteDialect implements Dialect {
 }
 
 class FakeComputedFieldBackfillService {
-  calls: Array<{ table: Table; fields: ReadonlyArray<Field> }> = [];
+  calls: Array<{
+    table: Table;
+    fields: ReadonlyArray<Field>;
+    includeOneManyTwoWay?: boolean;
+  }> = [];
 
   async backfill() {
     return ok(undefined);
@@ -131,9 +137,17 @@ class FakeComputedFieldBackfillService {
 
   async backfillMany(
     _context: IExecutionContext,
-    input: { table: Table; fields: ReadonlyArray<Field> }
+    input: {
+      table: Table;
+      fields: ReadonlyArray<Field>;
+      includeOneManyTwoWay?: boolean;
+    }
   ) {
-    this.calls.push({ table: input.table, fields: input.fields });
+    this.calls.push({
+      table: input.table,
+      fields: input.fields,
+      includeOneManyTwoWay: input.includeOneManyTwoWay,
+    });
     return ok(undefined);
   }
 
@@ -146,6 +160,18 @@ class FakeComputedFieldBackfillService {
   }
 }
 
+class FakeComputedFieldCascadeService {
+  async cascade() {
+    return ok(undefined);
+  }
+}
+
+class FakeFieldDependencyGraph {
+  async load() {
+    return ok({ fieldsById: new Map(), edges: [] });
+  }
+}
+
 describe('PostgresTableSchemaRepository', () => {
   let pglite: PGlite;
   let db: Kysely<V1TeableDatabase>;
@@ -155,6 +181,15 @@ describe('PostgresTableSchemaRepository', () => {
     db = new Kysely<V1TeableDatabase>({
       dialect: new PGliteDialect(pglite),
     });
+
+    await db.schema
+      .createTable('reference')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('to_field_id', 'text')
+      .addColumn('from_field_id', 'text')
+      .addUniqueConstraint('reference_to_from_unique', ['to_field_id', 'from_field_id'])
+      .execute();
   });
 
   afterAll(async () => {
@@ -175,7 +210,12 @@ describe('PostgresTableSchemaRepository', () => {
     const table = builder.build()._unsafeUnwrap();
 
     const backfillService = new FakeComputedFieldBackfillService();
-    const repository = new PostgresTableSchemaRepository(db, backfillService);
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      backfillService,
+      new FakeComputedFieldCascadeService(),
+      new FakeFieldDependencyGraph() as never
+    );
 
     const insertResult = await repository.insert(context, table);
     insertResult._unsafeUnwrap();
@@ -199,5 +239,84 @@ describe('PostgresTableSchemaRepository', () => {
 
     expect(backfillService.calls).toHaveLength(1);
     expect(backfillService.calls[0]?.fields[0]?.id().equals(newFieldId)).toBe(true);
+    expect(backfillService.calls[0]?.includeOneManyTwoWay).toBe(false);
+  });
+
+  it('passes includeOneManyTwoWay=true when adding two-way oneMany link field', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const context: IExecutionContext = { actorId };
+
+    const hostTableBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(TableId.generate()._unsafeUnwrap())
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostTableBuilder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .done();
+    hostTableBuilder.view().defaultGrid().done();
+    const hostTable = hostTableBuilder.build()._unsafeUnwrap();
+
+    const foreignTableBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(TableId.generate()._unsafeUnwrap())
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignTableBuilder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .done();
+    foreignTableBuilder.view().defaultGrid().done();
+    const foreignTable = foreignTableBuilder.build()._unsafeUnwrap();
+    const foreignPrimaryFieldId = foreignTable.getFields()[0]?.id();
+    if (!foreignPrimaryFieldId) {
+      throw new Error('Foreign table primary field missing');
+    }
+
+    const backfillService = new FakeComputedFieldBackfillService();
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      backfillService,
+      new FakeComputedFieldCascadeService(),
+      new FakeFieldDependencyGraph() as never
+    );
+
+    (await repository.insert(context, hostTable))._unsafeUnwrap();
+    (await repository.insert(context, foreignTable))._unsafeUnwrap();
+
+    const linkFieldId = FieldId.generate()._unsafeUnwrap();
+    const symmetricFieldId = FieldId.generate()._unsafeUnwrap();
+    const linkFieldName = FieldName.create('Parent')._unsafeUnwrap();
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'oneMany',
+      foreignTableId: foreignTable.id().toString(),
+      lookupFieldId: foreignPrimaryFieldId.toString(),
+      isOneWay: false,
+      symmetricFieldId: symmetricFieldId.toString(),
+      fkHostTableName: `junction_${linkFieldId.toString()}_${symmetricFieldId.toString()}`,
+      selfKeyName: `__fk_${symmetricFieldId.toString()}`,
+      foreignKeyName: '__id',
+    })._unsafeUnwrap();
+    const newLinkField = createLinkField({
+      id: linkFieldId,
+      name: linkFieldName,
+      config: linkConfig,
+    })._unsafeUnwrap();
+
+    const updateResult = hostTable.update((mutator) => mutator.addField(newLinkField));
+    updateResult._unsafeUnwrap();
+
+    const updateCall = await repository.update(
+      context,
+      updateResult._unsafeUnwrap().table,
+      updateResult._unsafeUnwrap().mutateSpec
+    );
+    updateCall._unsafeUnwrap();
+
+    expect(backfillService.calls).toHaveLength(1);
+    expect(backfillService.calls[0]?.fields[0]?.id().equals(linkFieldId)).toBe(true);
+    expect(backfillService.calls[0]?.includeOneManyTwoWay).toBe(true);
   });
 });

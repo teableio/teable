@@ -4,7 +4,7 @@ import { ChevronsLeft, ChevronDown, Database, HelpCircle, Pencil } from '@teable
 import { CollaboratorType, getBaseList, getSharedBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
-import { useIsTemplate } from '@teable/sdk/hooks/use-is-template';
+import { useIsReadOnlyPreview } from '@teable/sdk/hooks/use-is-readonly-preview';
 import {
   cn,
   DropdownMenu,
@@ -167,7 +167,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
   const [baseName, setBaseName] = useState<string>(base.name);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { mutateAsync: updateBaseMutator } = useMutation({
     mutationFn: updateBase,
     onSuccess: () => {
@@ -195,7 +195,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
 
   const backSpace = () => {
-    if (isTemplate) {
+    if (isReadOnlyPreview) {
       return;
     }
     if (base.collaboratorType === CollaboratorType.Base) {
@@ -225,7 +225,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
       >
         <div
           className={cn('absolute top-0 size-6 transition-all group-hover/sidebar:opacity-0', {
-            'group-hover/sidebar:opacity-100': isTemplate,
+            'group-hover/sidebar:opacity-100': isReadOnlyPreview,
           })}
         >
           {base.icon ? (
@@ -238,7 +238,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
           className={cn(
             'absolute top-0 size-6 opacity-0 transition-all group-hover/sidebar:opacity-100',
             {
-              'group-hover/sidebar:opacity-0': isTemplate,
+              'group-hover/sidebar:opacity-0': isReadOnlyPreview,
             }
           )}
         />
@@ -269,20 +269,20 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
             creditUsage={creditUsage}
             collaboratorType={base.collaboratorType}
             currentBaseId={base.id}
-            disabled={isTemplate}
+            disabled={isReadOnlyPreview}
           >
             <div
               className={cn(
                 'flex h-7 max-w-full overflow-hidden px-2 py-1 hover:bg-accent hover:cursor-pointer rounded-md items-center gap-2',
                 {
-                  'cursor-default': isTemplate,
+                  'cursor-default': isReadOnlyPreview,
                 }
               )}
             >
               <span className="min-w-0 shrink truncate text-sm" title={base.name}>
                 {base.name}
               </span>
-              {!isTemplate && <ChevronDown className="size-4 shrink-0" />}
+              {!isReadOnlyPreview && <ChevronDown className="size-4 shrink-0" />}
             </div>
           </BaseDropdownMenu>
         )}

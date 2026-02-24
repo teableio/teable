@@ -465,6 +465,15 @@ const buildIsCondition = (
       }
     }
 
+    if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
+      const referenceField = value.field();
+      const rightColumnRef = sql.ref(operand.column);
+
+      if (fieldIsJson(field) || fieldIsJson(referenceField)) {
+        return ok(sql`to_jsonb(${columnRef}) = to_jsonb(${rightColumnRef})`);
+      }
+    }
+
     const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
     return ok(sql`${columnRef} = ${right}`);
   });
@@ -516,6 +525,15 @@ const buildIsNotCondition = (
       }
     }
 
+    if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
+      const referenceField = value.field();
+      const rightColumnRef = sql.ref(operand.column);
+
+      if (fieldIsJson(field) || fieldIsJson(referenceField)) {
+        return ok(sql`to_jsonb(${columnRef}) is distinct from to_jsonb(${rightColumnRef})`);
+      }
+    }
+
     const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
     // Use IS DISTINCT FROM to match v1 behavior: NULL values should pass "isNot" checks.
     // Plain `!=` returns NULL when the column is NULL, silently excluding those rows.
@@ -562,6 +580,9 @@ const buildNumericComparisonCondition = (
   tableAlias?: string,
   hostTableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
+  const buildNumericOperand = (expr: RecordConditionWhere): RecordConditionWhere =>
+    sql`NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::double precision`;
+
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
@@ -573,7 +594,10 @@ const buildNumericComparisonCondition = (
       );
     }
     const columnRef = sql.ref(column);
-    const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
+    const right =
+      operand.kind === 'field'
+        ? buildNumericOperand(sql.ref(operand.column))
+        : sql`${operand.value}`;
     if (operator === '>') return ok(sql`${columnRef} > ${right}`);
     if (operator === '>=') return ok(sql`${columnRef} >= ${right}`);
     if (operator === '<') return ok(sql`${columnRef} < ${right}`);

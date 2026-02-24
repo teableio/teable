@@ -46,6 +46,7 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
           type: 'set' as const,
           path: ['fields', change.fieldId],
           value: change.newValue,
+          ...(change.oldValue === undefined ? {} : { oldValue: change.oldValue }),
         }));
 
         if (batchedChanges.length === 0) continue;

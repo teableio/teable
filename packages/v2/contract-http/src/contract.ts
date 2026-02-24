@@ -23,6 +23,7 @@ import {
   pasteCommandInputSchema,
   clearCommandInputSchema,
   renameTableInputSchema,
+  updateFieldInputSchema,
   updateRecordInputSchema,
   reorderRecordsInputSchema,
 } from '@teable/v2-core';
@@ -56,6 +57,7 @@ import { pasteOkResponseSchema } from './table/paste';
 import { renameTableOkResponseSchema } from './table/renameTable';
 import { reorderRecordsOkResponseSchema } from './table/reorderRecords';
 import { submitRecordOkResponseSchema } from './table/submitRecord';
+import { updateFieldOkResponseSchema } from './table/updateField';
 import { updateRecordOkResponseSchema } from './table/updateRecord';
 
 const BASES_CREATE_PATH = '/bases/create';
@@ -82,6 +84,7 @@ const TABLES_PASTE_PATH = '/tables/paste';
 const TABLES_CLEAR_PATH = '/tables/clear';
 const TABLES_DELETE_BY_RANGE_PATH = '/tables/deleteByRange';
 const TABLES_RENAME_PATH = '/tables/rename';
+const TABLES_UPDATE_FIELD_PATH = '/tables/updateField';
 const TABLES_UPDATE_RECORD_PATH = '/tables/updateRecord';
 const TABLES_REORDER_RECORDS_PATH = '/tables/reorderRecords';
 const TABLES_DUPLICATE_RECORD_PATH = '/tables/duplicateRecord';
@@ -140,6 +143,16 @@ export const v2Contract: AnyContractRouter = {
       })
       .input(createFieldInputSchema)
       .output(createFieldOkResponseSchema),
+    updateField: oc
+      .route({
+        method: 'POST',
+        path: TABLES_UPDATE_FIELD_PATH,
+        successStatus: 200,
+        summary: 'Update field',
+        tags: ['tables'],
+      })
+      .input(updateFieldInputSchema)
+      .output(updateFieldOkResponseSchema),
     createRecord: oc
       .route({
         method: 'POST',

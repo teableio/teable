@@ -28,6 +28,7 @@ import {
   defaultPollingConfig,
   ComputedUpdateWorker,
 } from '../computed';
+import { ComputedFieldCascadeAfterSchemaUpdate } from '../computed/ComputedFieldCascadeAfterSchemaUpdate';
 import { TableRecordQueryBuilderManager } from '../query-builder';
 import { PostgresTableRecordQueryRepository, PostgresTableRecordRepository } from '../repository';
 import { v2RecordRepositoryPostgresTokens } from './tokens';
@@ -72,7 +73,6 @@ export const registerV2RecordRepositoryPostgresAdapter = (
       lifecycle: Lifecycle.Singleton,
     }
   );
-
   c.register(v2RecordRepositoryPostgresTokens.computedDependencyGraph, FieldDependencyGraph, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -88,6 +88,14 @@ export const registerV2RecordRepositoryPostgresAdapter = (
   c.register(
     v2RecordRepositoryPostgresTokens.computedFieldBackfillService,
     ComputedFieldBackfillService,
+    {
+      lifecycle: Lifecycle.Singleton,
+    }
+  );
+
+  c.register(
+    v2RecordRepositoryPostgresTokens.computedFieldCascadeService,
+    ComputedFieldCascadeAfterSchemaUpdate,
     {
       lifecycle: Lifecycle.Singleton,
     }
