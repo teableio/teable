@@ -22,6 +22,7 @@ export * from './table/importRecords';
 export * from './table/listTableRecords';
 export * from './table/listTables';
 export * from './table/renameTable';
+export * from './table/updateField';
 export * from './table/updateRecord';
 export * from './table/reorderRecords';
 export * from './table/duplicateRecord';

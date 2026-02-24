@@ -246,7 +246,7 @@ const refineOptions = (
     isLookup?: boolean;
     isConditionalLookup?: boolean;
     lookupOptions?: ILookupOptionsRo;
-    options?: IFieldOptionsRo;
+    options?: IFieldOptionsRo | null;
     aiConfig?: IFieldAIConfig | null;
   },
   ctx: RefinementCtx
@@ -314,7 +314,11 @@ const baseFieldRoSchema = fieldVoSchema
     }),
   });
 
-export const convertFieldRoSchema = baseFieldRoSchema.superRefine(refineOptions);
+export const convertFieldRoSchema = baseFieldRoSchema
+  .extend({
+    options: baseFieldRoSchema.shape.options.nullable().optional(),
+  })
+  .superRefine(refineOptions);
 export const createFieldRoSchema = baseFieldRoSchema
   .extend({
     id: z.string().startsWith(IdPrefix.Field).optional().meta({

@@ -18,6 +18,15 @@ import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { CollaboratorModel } from '../model/collaborator';
 import { TemplateModel } from '../model/template';
 
+interface IBaseNodeCacheItem {
+  id: string;
+  parentId: string | null;
+  resourceType: string;
+  resourceId: string | null;
+}
+
+const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
+
 @Injectable()
 export class PermissionService {
   private readonly logger = new Logger(PermissionService.name);
@@ -139,7 +148,7 @@ export class PermissionService {
       const { spaceIds: spaceIdsByOAuth, baseIds: baseIdsByOAuth } =
         await this.getOAuthAccessBy(userId);
       return {
-        scopes,
+        scopes: scopes.concat('base|read_all'),
         spaceIds: spaceIdsByOAuth,
         baseIds: baseIdsByOAuth,
       };
@@ -438,7 +447,7 @@ export class PermissionService {
       HttpErrorCode.RESTRICTED_RESOURCE,
       {
         localization: {
-          i18nKey: 'httpErrors.permission.notAllowedOperation',
+          i18nKey: notAllowedOperationI18nKey,
         },
       }
     );
@@ -519,7 +528,7 @@ export class PermissionService {
       HttpErrorCode.RESTRICTED_RESOURCE,
       {
         localization: {
-          i18nKey: 'httpErrors.permission.notAllowedOperation',
+          i18nKey: notAllowedOperationI18nKey,
         },
       }
     );
@@ -535,5 +544,441 @@ export class PermissionService {
 
   generateTemplateHeader(templateId: string) {
     return this.jwtService.sign({ templateId }, { expiresIn: '1d' });
+  }
+
+  // Base share permission methods
+  async getBaseShareInfo(shareId: string) {
+    const baseShare = await this.prismaService.baseShare.findFirst({
+      where: { shareId, enabled: true },
+    });
+    if (!baseShare) {
+      return null;
+    }
+    return baseShare;
+  }
+
+  async baseShareRequiresPassword(shareId: string) {
+    const baseShare = await this.prismaService.baseShare.findFirst({
+      where: { shareId, enabled: true },
+      select: { password: true },
+    });
+    return !!baseShare?.password;
+  }
+
+  async validateBaseSharePasswordToken(shareId: string, token: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync<{ shareId: string; password: string }>(
+        token
+      );
+      if (payload.shareId !== shareId) {
+        return false;
+      }
+      const baseShare = await this.prismaService.baseShare.findFirst({
+        where: { shareId, enabled: true },
+        select: { password: true },
+      });
+      if (!baseShare?.password) {
+        return false;
+      }
+      return payload.password === baseShare.password;
+    } catch {
+      return false;
+    }
+  }
+
+  async getBaseSharePermissions(shareId: string, resourceId: string) {
+    const baseShare = await this.getBaseShareInfo(shareId);
+    if (!baseShare) {
+      throw new CustomHttpException(
+        `Base share ${shareId} is not found`,
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
+    }
+
+    const { baseId, nodeId } = baseShare;
+
+    if (!nodeId) {
+      throw new CustomHttpException(
+        `Base share ${shareId} has no nodeId`,
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
+    }
+
+    this.logger.debug(
+      `[BaseShare] Checking permission for resource ${resourceId}, shareId: ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
+    );
+
+    const resourceBelongsToShare = await this.checkResourceBelongsToShare(
+      resourceId,
+      baseId,
+      nodeId
+    );
+
+    if (!resourceBelongsToShare) {
+      this.logger.warn(
+        `[BaseShare] Resource ${resourceId} is not accessible via share ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
+      );
+      throw new CustomHttpException(
+        `Resource ${resourceId} is not accessible via share ${shareId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
+    }
+
+    // Set base share in cls for downstream services to use
+    this.cls.set('baseShare', { baseId, nodeId });
+
+    // Return template permissions (read-only), with record|copy if allowCopy is enabled
+    const permissions = [...TemplatePermissions];
+    if (baseShare.allowCopy) {
+      permissions.push('record|copy');
+    }
+    return permissions;
+  }
+
+  /**
+   * Check if a resource belongs to the shared base.
+   * Dispatches to specific check methods based on resource type.
+   */
+  private async checkResourceBelongsToShare(
+    resourceId: string,
+    baseId: string,
+    nodeId: string
+  ): Promise<boolean> {
+    const prefix = resourceId.substring(0, 3);
+
+    switch (prefix) {
+      case IdPrefix.Base:
+        return resourceId === baseId;
+      case IdPrefix.Table:
+        return this.checkTableBelongsToShare(resourceId, baseId, nodeId);
+      case IdPrefix.View:
+        return this.checkViewBelongsToShare(resourceId, baseId, nodeId);
+      case IdPrefix.Field:
+        return this.checkFieldBelongsToShare(resourceId, baseId, nodeId);
+      case IdPrefix.App:
+        return this.checkAppBelongsToShare(resourceId, baseId, nodeId);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Check if a table belongs to the shared base and is allowed by nodeId.
+   */
+  private async checkTableBelongsToShare(
+    tableId: string,
+    baseId: string,
+    nodeId: string
+  ): Promise<boolean> {
+    const table = await this.prismaService.tableMeta.findUnique({
+      where: { id: tableId, deletedTime: null },
+      select: { baseId: true },
+    });
+
+    this.logger.debug(
+      `[BaseShare] Table ${tableId} baseId: ${table?.baseId}, share baseId: ${baseId}`
+    );
+
+    if (!table || table.baseId !== baseId) {
+      return false;
+    }
+
+    const result = await this.isTableAllowedByNodeId(baseId, tableId, nodeId);
+    if (result) {
+      this.logger.debug(`[BaseShare] Table belongs check: nodeId=${nodeId}, result=${result}`);
+      return true;
+    }
+
+    // Fallback: check if the table is a foreign table of a link field in a shared table.
+    // This allows link field targets to be accessible even when they are outside the shared node.
+    const linkedResult = await this.isTableLinkedFromSharedNode(baseId, tableId, nodeId);
+    this.logger.debug(
+      `[BaseShare] Table linked from shared node check: tableId=${tableId}, result=${linkedResult}`
+    );
+    return linkedResult;
+  }
+
+  /**
+   * Check if a table is referenced as a foreign table by any link field
+   * in the shared node's tables. This allows link field foreign tables
+   * to be accessible even if they're not directly under the shared node.
+   */
+  private async isTableLinkedFromSharedNode(
+    baseId: string,
+    foreignTableId: string,
+    nodeId: string
+  ): Promise<boolean> {
+    // Get all nodes (cached)
+    const allNodes = await this.getBaseNodesWithCache(baseId);
+    const allowedNodeIds = this.collectDescendantNodeIds(allNodes, nodeId);
+
+    // Collect table IDs that are under the shared node
+    const sharedTableIds: string[] = [];
+    for (const node of allNodes) {
+      if (
+        allowedNodeIds.has(node.id) &&
+        node.resourceType.toLowerCase() === 'table' &&
+        node.resourceId
+      ) {
+        sharedTableIds.push(node.resourceId);
+      }
+    }
+
+    if (sharedTableIds.length === 0) {
+      return false;
+    }
+
+    // Find link fields in shared tables
+    const linkFields = await this.prismaService.field.findMany({
+      where: {
+        tableId: { in: sharedTableIds },
+        type: 'link',
+        deletedTime: null,
+      },
+      select: {
+        options: true,
+      },
+    });
+
+    // Check if any link field references the target foreign table
+    return linkFields.some((field) => {
+      try {
+        const options = field.options ? JSON.parse(field.options) : null;
+        return options?.foreignTableId === foreignTableId;
+      } catch {
+        return false;
+      }
+    });
+  }
+
+  /**
+   * Check if a view belongs to the shared base and is allowed by nodeId.
+   */
+  private async checkViewBelongsToShare(
+    viewId: string,
+    baseId: string,
+    nodeId: string
+  ): Promise<boolean> {
+    const view = await this.prismaService.view.findUnique({
+      where: { id: viewId, deletedTime: null },
+      select: { tableId: true },
+    });
+
+    if (!view) {
+      return false;
+    }
+
+    return this.checkTableBelongsToShare(view.tableId, baseId, nodeId);
+  }
+
+  /**
+   * Check if a field belongs to the shared base and is allowed by nodeId.
+   */
+  private async checkFieldBelongsToShare(
+    fieldId: string,
+    baseId: string,
+    nodeId: string
+  ): Promise<boolean> {
+    const field = await this.prismaService.field.findUnique({
+      where: { id: fieldId, deletedTime: null },
+      select: { tableId: true },
+    });
+
+    if (!field) {
+      return false;
+    }
+
+    return this.checkTableBelongsToShare(field.tableId, baseId, nodeId);
+  }
+
+  /**
+   * Check if an app belongs to the shared base and is allowed by nodeId.
+   */
+  private async checkAppBelongsToShare(
+    appId: string,
+    baseId: string,
+    nodeId: string
+  ): Promise<boolean> {
+    const appNode = await this.prismaService.baseNode.findFirst({
+      where: {
+        baseId,
+        resourceType: { equals: 'app', mode: 'insensitive' },
+        resourceId: appId,
+      },
+    });
+
+    this.logger.debug(`[BaseShare] App ${appId} node found: ${!!appNode}, share baseId: ${baseId}`);
+
+    if (!appNode) {
+      return false;
+    }
+
+    const result = await this.isNodeAllowedByNodeId(baseId, appNode.id, nodeId);
+    this.logger.debug(`[BaseShare] App belongs check: nodeId=${nodeId}, result=${result}`);
+    return result;
+  }
+
+  /**
+   * Get base nodes with caching within the same request cycle.
+   * Uses cls to cache node data to avoid repeated database queries.
+   */
+  private async getBaseNodesWithCache(baseId: string) {
+    // Check if we have cached nodes for this base
+    const cache = this.cls.get('baseShareNodeCache') ?? new Map<string, IBaseNodeCacheItem[]>();
+    if (cache.has(baseId)) {
+      return cache.get(baseId)!;
+    }
+
+    // Query and cache the nodes
+    const allNodes = await this.prismaService.baseNode.findMany({
+      where: { baseId },
+      select: {
+        id: true,
+        parentId: true,
+        resourceType: true,
+        resourceId: true,
+      },
+    });
+
+    cache.set(baseId, allNodes);
+    this.cls.set('baseShareNodeCache', cache);
+    return allNodes;
+  }
+
+  /**
+   * Collect all descendant node IDs from a given nodeId (including the nodeId itself).
+   * Returns a Set of allowed node IDs.
+   */
+  private collectDescendantNodeIds(
+    allNodes: { id: string; parentId: string | null }[],
+    nodeId: string
+  ): Set<string> {
+    const allowedNodeIds = new Set<string>();
+    const collectDescendants = (currentNodeId: string) => {
+      allowedNodeIds.add(currentNodeId);
+      for (const node of allNodes) {
+        if (node.parentId === currentNodeId) {
+          collectDescendants(node.id);
+        }
+      }
+    };
+    collectDescendants(nodeId);
+    return allowedNodeIds;
+  }
+
+  /**
+   * Check if a node (by its BaseNode id) is allowed by nodeId (the shared node and its descendants).
+   * This determines if a resource is accessible via a base share with a specific nodeId.
+   */
+  private async isNodeAllowedByNodeId(
+    baseId: string,
+    targetNodeId: string,
+    nodeId: string
+  ): Promise<boolean> {
+    this.logger.log(
+      `[BaseShare] isNodeAllowedByNodeId: targetNodeId=${targetNodeId}, nodeId=${nodeId}`
+    );
+
+    // Get all nodes in the base (with caching)
+    const allNodes = await this.getBaseNodesWithCache(baseId);
+
+    // Collect all descendant node IDs from the shared nodeId
+    const allowedNodeIds = this.collectDescendantNodeIds(allNodes, nodeId);
+
+    this.logger.log(
+      `[BaseShare] Allowed node IDs (shared + descendants): ${JSON.stringify([...allowedNodeIds])}`
+    );
+
+    // Check if the target node is in the allowed list
+    if (allowedNodeIds.has(targetNodeId)) {
+      this.logger.log(`[BaseShare] targetNodeId found in allowed nodes`);
+      return true;
+    }
+
+    this.logger.log(`[BaseShare] targetNodeId not found in allowed nodes`);
+    return false;
+  }
+
+  /**
+   * Check if a table is allowed by the given nodeId (the shared node and its descendants).
+   * nodeId is a base node ID (bno...) which have a mapping to tableIds via base_node.resourceId
+   */
+  private async isTableAllowedByNodeId(
+    baseId: string,
+    tableId: string,
+    nodeId: string
+  ): Promise<boolean> {
+    this.logger.log(`[BaseShare] isTableAllowedByNodeId: tableId=${tableId}, nodeId=${nodeId}`);
+
+    // Get all nodes in the base (with caching)
+    const allNodes = await this.getBaseNodesWithCache(baseId);
+
+    // Build a map for quick lookup
+    const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
+
+    // Collect all descendant node IDs from the shared nodeId
+    const allowedNodeIds = this.collectDescendantNodeIds(allNodes, nodeId);
+
+    this.logger.log(
+      `[BaseShare] Allowed node IDs (shared + descendants): ${JSON.stringify([...allowedNodeIds])}`
+    );
+
+    // Check if the shared node itself is a table with the target tableId
+    const sharedNode = nodeMap.get(nodeId);
+    if (
+      sharedNode &&
+      sharedNode.resourceType.toLowerCase() === 'table' &&
+      sharedNode.resourceId === tableId
+    ) {
+      this.logger.log(`[BaseShare] Shared node is the target table`);
+      return true;
+    }
+
+    // Check if tableId belongs to any of the allowed nodes
+    for (const allowedId of allowedNodeIds) {
+      const node = nodeMap.get(allowedId);
+      if (node && node.resourceType.toLowerCase() === 'table' && node.resourceId === tableId) {
+        this.logger.log(`[BaseShare] tableId found in allowed descendant nodes`);
+        return true;
+      }
+    }
+
+    this.logger.log(`[BaseShare] tableId not found in allowed nodes`);
+    return false;
+  }
+
+  async validBaseSharePermissions(shareId: string, resourceId: string, permissions: Action[]) {
+    const sharePermissions = await this.getBaseSharePermissions(shareId, resourceId);
+    if (permissions.every((permission) => sharePermissions.includes(permission))) {
+      return sharePermissions;
+    }
+    throw new CustomHttpException(
+      `Base share access denied, not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
+      HttpErrorCode.RESTRICTED_RESOURCE,
+      {
+        localization: {
+          i18nKey: notAllowedOperationI18nKey,
+        },
+      }
+    );
+  }
+
+  /**
+   * Extract the shareId from the X-Tea-Base-Share header.
+   * The header contains the plain shareId set by the frontend (initAxios / SsrApi).
+   *
+   * Note: Password authentication is handled separately via JWT cookie:
+   * - When a share has a password, the user authenticates via POST /share/:shareId/base/auth
+   * - A JWT cookie containing { shareId, password } is set for 7 days
+   * - On subsequent requests, ensureBaseShareAuth validates the cookie by comparing the
+   *   password in the JWT with the current DB password (see validateBaseSharePasswordToken).
+   * - If the admin changes the password, the old JWT cookie's password won't match,
+   *   causing the user to be redirected to the auth page automatically.
+   */
+  getBaseShareIdByHeader(shareHeader: string): string | null {
+    if (!shareHeader || !shareHeader.startsWith('shr')) {
+      return null;
+    }
+    return shareHeader;
   }
 }
