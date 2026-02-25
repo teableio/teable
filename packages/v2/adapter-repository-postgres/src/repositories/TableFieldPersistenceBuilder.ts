@@ -27,7 +27,7 @@ import {
 export type TableFieldRow = {
   id: string;
   name: string;
-  description: null;
+  description: string | null;
   options: string | null;
   meta: string | null;
   ai_config: null;
@@ -258,7 +258,7 @@ export class TableFieldPersistenceBuilder {
     return {
       id: params.fieldDto.id,
       name: params.fieldDto.name,
-      description: null,
+      description: params.fieldDto.description ?? null,
       options: this.serializeFieldOptions(params.fieldDto),
       meta: this.serializeFieldMeta(params.fieldDto),
       ai_config: null,

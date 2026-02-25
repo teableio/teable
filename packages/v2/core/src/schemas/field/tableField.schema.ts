@@ -114,6 +114,7 @@ export const linkOptionsSchema = z
     symmetricFieldId: z.string().optional(),
     filterByViewId: z.string().nullable().optional(),
     visibleFieldIds: z.array(z.string()).nullable().optional(),
+    filter: fieldConditionSchema.shape.filter,
   })
   .strict();
 
@@ -200,224 +201,117 @@ export const conditionalLookupOptionsSchema = z
     }
   );
 
+const tableFieldCommonShape = {
+  id: z.string().optional(),
+  name: z.string().optional(),
+  description: z.string().nullable().optional(),
+  isPrimary: z.boolean().optional(),
+  notNull: z.boolean().optional(),
+  unique: z.boolean().optional(),
+} satisfies z.ZodRawShape;
+
+const tableFieldSchema = <T extends z.ZodRawShape>(shape: T) =>
+  z.object({
+    ...tableFieldCommonShape,
+    ...shape,
+  });
+
 // Main tableFieldInputSchema - discriminated union of all field types
 export const tableFieldInputSchema = z.discriminatedUnion('type', [
-  z.object({
+  tableFieldSchema({
     type: z.literal('singleLineText'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: singleLineTextOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('longText'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: longTextOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('number'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: numberOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('rating'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     max: z.number().optional(),
     options: ratingOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('singleSelect'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('multipleSelect'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('checkbox'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: checkboxOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('attachment'),
-    id: z.string().optional(),
-    name: z.string().optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('date'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: dateOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('createdTime'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: createdTimeOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('lastModifiedTime'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: lastModifiedTimeOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('user'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: userOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('createdBy'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: createdByOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('lastModifiedBy'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: lastModifiedByOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('autoNumber'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: autoNumberOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z.object({
+  tableFieldSchema({
     type: z.literal('button'),
-    id: z.string().optional(),
-    name: z.string().optional(),
     options: buttonOptionsSchema.optional(),
-    isPrimary: z.boolean().optional(),
-    notNull: z.boolean().optional(),
-    unique: z.boolean().optional(),
   }),
-  z
-    .object({
-      type: z.literal('formula'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: formulaOptionsSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('link'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: linkOptionsSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('rollup'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: rollupOptionsSchema,
-      config: rollupConfigSchema,
-      cellValueType: cellValueTypeSchema.optional(),
-      isMultipleCellValue: z.boolean().optional(),
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('lookup'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: lookupOptionsSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('conditionalRollup'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: conditionalRollupOptionsSchema,
-      config: conditionalRollupConfigSchema,
-      cellValueType: cellValueTypeSchema.optional(),
-      isMultipleCellValue: z.boolean().optional(),
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal('conditionalLookup'),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      options: conditionalLookupOptionsSchema,
-      isPrimary: z.boolean().optional(),
-      notNull: z.boolean().optional(),
-      unique: z.boolean().optional(),
-    })
-    .strict(),
+  tableFieldSchema({
+    type: z.literal('formula'),
+    options: formulaOptionsSchema,
+  }).strict(),
+  tableFieldSchema({
+    type: z.literal('link'),
+    options: linkOptionsSchema,
+  }).strict(),
+  tableFieldSchema({
+    type: z.literal('rollup'),
+    options: rollupOptionsSchema,
+    config: rollupConfigSchema,
+    cellValueType: cellValueTypeSchema.optional(),
+    isMultipleCellValue: z.boolean().optional(),
+  }).strict(),
+  tableFieldSchema({
+    type: z.literal('lookup'),
+    options: lookupOptionsSchema,
+  }).strict(),
+  tableFieldSchema({
+    type: z.literal('conditionalRollup'),
+    options: conditionalRollupOptionsSchema,
+    config: conditionalRollupConfigSchema,
+    cellValueType: cellValueTypeSchema.optional(),
+    isMultipleCellValue: z.boolean().optional(),
+  }).strict(),
+  tableFieldSchema({
+    type: z.literal('conditionalLookup'),
+    options: conditionalLookupOptionsSchema,
+  }).strict(),
 ]);
 
 export type ITableFieldInput = z.output<typeof tableFieldInputSchema>;

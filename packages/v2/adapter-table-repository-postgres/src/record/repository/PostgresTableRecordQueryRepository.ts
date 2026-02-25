@@ -18,6 +18,8 @@ import {
   type TableRecordReadModel,
   type TableRecord,
   type TableRecordQueryMode,
+  type ITableRecordStreamPagination,
+  type ITableRecordStreamPaginationStrategy,
   OffsetPagination,
   PageLimit,
   PageOffset,
@@ -38,6 +40,8 @@ import type {
   FieldOutputColumn,
   DynamicDB,
 } from '../query-builder';
+import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
+import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
 import { TableRecordConditionWhereVisitor } from '../visitors';
 
 const RECORD_ID_COLUMN = '__id';
@@ -53,6 +57,9 @@ type OrderColumnExistsCacheEntry = {
 @injectable()
 export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepository {
   private readonly orderColumnExistsCache = new Map<string, OrderColumnExistsCacheEntry>();
+  private readonly defaultStreamPaginationStrategy = new OffsetStreamPaginationStrategy();
+  private readonly streamPaginationStrategies: ReadonlyArray<ITableRecordStreamPaginationStrategy> =
+    [new CursorStreamPaginationStrategy(), this.defaultStreamPaginationStrategy];
 
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.tableRecordQueryBuilderManager)
@@ -79,6 +86,11 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: resolveQueryMode(table, options?.mode),
           });
+
+          if (options?.projectionFieldIds?.length) {
+            queryBuilder.select(options.projectionFieldIds);
+          }
+
           const dbTableName = yield* table.dbTableName();
           const tableName = yield* dbTableName.value();
           const [schemaName, tableNameOnly] = tableName.split('.');
@@ -166,8 +178,11 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             parameters: compiled.parameters,
           });
 
-          // Collect field column mappings
-          const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
+          // Collect field column mappings (respect projection when provided)
+          const fieldColumns = yield* new FieldOutputColumnVisitor().collect(
+            table,
+            options?.projectionFieldIds
+          );
 
           try {
             const shouldQueryTotal = options?.includeTotal !== false;
@@ -190,11 +205,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             return ok({ records, total });
           } catch (error) {
             span?.recordError(describeError(error));
-            return err(
-              domainError.unexpected({
-                message: `Failed to load table records: ${describeError(error)}`,
-              })
-            );
+            return err(buildUnexpectedQueryError('Failed to load table records', error));
           }
         }.bind(this)
       );
@@ -258,11 +269,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             return ok(records[0]);
           } catch (error) {
             span?.recordError(describeError(error));
-            return err(
-              domainError.unexpected({
-                message: `Failed to load record: ${describeError(error)}`,
-              })
-            );
+            return err(buildUnexpectedQueryError('Failed to load record', error));
           }
         }.bind(this)
       );
@@ -287,42 +294,49 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
   ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
     const DEFAULT_BATCH_SIZE = 500;
     const batchSize = options?.batchSize ?? DEFAULT_BATCH_SIZE;
-    let currentOffset = options?.pagination?.offset ?? 0;
-    const maxLimit = options?.pagination?.limit ?? Infinity;
     let yieldedCount = 0;
+    let lastBatchCount: number | undefined;
+    let lastCursor: string | undefined;
+    const paginationStrategy =
+      options?.paginationStrategy ?? this.resolvePaginationStrategy(options?.pagination);
 
-    while (yieldedCount < maxLimit) {
-      const remainingLimit = maxLimit - yieldedCount;
-      const currentBatchSize = Math.min(batchSize, remainingLimit);
-
-      // Create PageLimit and PageOffset value objects
-      const pageLimitResult = PageLimit.create(currentBatchSize);
-      if (pageLimitResult.isErr()) {
-        yield err(pageLimitResult.error);
-        return;
-      }
-      const pageOffsetResult = PageOffset.create(currentOffset);
-      if (pageOffsetResult.isErr()) {
-        yield err(pageOffsetResult.error);
-        return;
-      }
-
-      // Use the existing find method for batched queries
-      const pagination = OffsetPagination.create(pageLimitResult.value, pageOffsetResult.value);
-
-      const result = await this.find(context, table, spec, {
-        mode: options?.mode,
-        pagination,
-        orderBy: options?.orderBy,
-        includeTotal: false,
+    while (true) {
+      const nextPage = paginationStrategy.next({
+        pagination: options?.pagination,
+        batchSize,
+        yieldedCount,
+        lastBatchCount,
+        lastCursor,
       });
+      if (!nextPage) {
+        break;
+      }
+      const result =
+        nextPage.type === 'offset'
+          ? await this.findByOffsetPage(
+              context,
+              table,
+              spec,
+              options,
+              nextPage.limit,
+              nextPage.offset
+            )
+          : await this.findByCursorPage(
+              context,
+              table,
+              spec,
+              options,
+              nextPage.limit,
+              nextPage.cursor
+            );
 
       if (result.isErr()) {
         yield err(result.error);
         return;
       }
 
-      const { records } = result.value;
+      const records = result.value;
+      lastBatchCount = records.length;
       if (records.length === 0) {
         // No more records
         break;
@@ -334,14 +348,132 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
         yieldedCount++;
       }
 
-      // Move to next batch
-      currentOffset += records.length;
+      if (nextPage.type === 'cursor') {
+        const nextCursor = getLastAutoNumberCursor(records);
+        if (!nextCursor) {
+          this.logger.warn(
+            'findStream: cursor pagination cannot advance because last record has no autoNumber'
+          );
+          break;
+        }
+        lastCursor = nextCursor;
+      }
 
       // If we got fewer records than requested, we've reached the end
-      if (records.length < currentBatchSize) {
+      if (records.length < nextPage.limit) {
         break;
       }
     }
+  }
+
+  private async findByOffsetPage(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordQueryStreamOptions | undefined,
+    limit: number,
+    offset: number
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
+    const pageLimitResult = PageLimit.create(limit);
+    if (pageLimitResult.isErr()) {
+      return err(pageLimitResult.error);
+    }
+    const pageOffsetResult = PageOffset.create(offset);
+    if (pageOffsetResult.isErr()) {
+      return err(pageOffsetResult.error);
+    }
+
+    const pagination = OffsetPagination.create(pageLimitResult.value, pageOffsetResult.value);
+    const result = await this.find(context, table, spec, {
+      mode: options?.mode,
+      pagination,
+      orderBy: options?.orderBy,
+      includeTotal: false,
+      projectionFieldIds: options?.projectionFieldIds,
+    });
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    return ok(result.value.records);
+  }
+
+  private async findByCursorPage(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordQueryStreamOptions | undefined,
+    limit: number,
+    cursor: string | undefined
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
+    return await safeTry<ReadonlyArray<TableRecordReadModel>, DomainError>(
+      async function* (this: PostgresTableRecordQueryRepository) {
+        const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+          mode: resolveQueryMode(table, options?.mode),
+        });
+
+        if (!isCursorOrderBySupported(options?.orderBy)) {
+          return err(
+            domainError.validation({
+              message: 'Cursor pagination only supports orderBy __auto_number asc',
+            })
+          );
+        }
+
+        if (options?.projectionFieldIds?.length) {
+          queryBuilder.select(options.projectionFieldIds);
+        }
+
+        queryBuilder.orderBy('__auto_number', 'asc');
+        queryBuilder.limit(limit);
+
+        if (spec) {
+          queryBuilder.where(spec);
+        }
+
+        let builtQuery = yield* queryBuilder.build();
+
+        const parsedCursor = parseCursorToken(cursor);
+        if (cursor != null && parsedCursor == null) {
+          this.logger.warn('findStream: invalid cursor token, fallback to stream start', {
+            cursor,
+          });
+        }
+        if (parsedCursor != null) {
+          builtQuery = builtQuery.where(
+            sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor}` as Expression<SqlBool>
+          );
+        }
+
+        const compiled = builtQuery.compile();
+        this.logger.debug(`findStream:mode:${queryBuilder.mode}:cursor:sql\n${compiled.sql}`, {
+          parameters: compiled.parameters,
+        });
+
+        const fieldColumns = yield* new FieldOutputColumnVisitor().collect(
+          table,
+          options?.projectionFieldIds
+        );
+
+        try {
+          const rows = await builtQuery.execute();
+          const records = mapRowsToReadModels(fieldColumns, rows, []);
+          return ok(records);
+        } catch (error) {
+          return err(buildUnexpectedQueryError('Failed to load table records by cursor', error));
+        }
+      }.bind(this)
+    );
+  }
+
+  private resolvePaginationStrategy(
+    pagination: ITableRecordStreamPagination | undefined
+  ): ITableRecordStreamPaginationStrategy {
+    return (
+      this.streamPaginationStrategies.find((strategy) => strategy.accepts(pagination)) ??
+      this.defaultStreamPaginationStrategy
+    );
   }
 
   private async getOrderColumnExists(
@@ -467,6 +599,46 @@ const describeError = (error: unknown): string => {
   }
 };
 
+const extractDatabaseErrorDetails = (
+  error: unknown
+): Readonly<Record<string, unknown>> | undefined => {
+  if (!error || typeof error !== 'object') {
+    return undefined;
+  }
+
+  const candidate = error as Record<string, unknown>;
+  const details: Record<string, unknown> = {};
+
+  if (typeof candidate.code === 'string') {
+    details.pgCode = candidate.code;
+  }
+  if (typeof candidate.column === 'string') {
+    details.column = candidate.column;
+  }
+  if (typeof candidate.table === 'string') {
+    details.table = candidate.table;
+  }
+  if (typeof candidate.schema === 'string') {
+    details.schema = candidate.schema;
+  }
+  if (typeof candidate.constraint === 'string') {
+    details.constraint = candidate.constraint;
+  }
+
+  return Object.keys(details).length > 0 ? details : undefined;
+};
+
+const buildUnexpectedQueryError = (prefix: string, error: unknown): DomainError => {
+  const details = extractDatabaseErrorDetails(error);
+  const pgCode = details?.pgCode;
+
+  return domainError.unexpected({
+    ...(pgCode === '42703' ? { code: 'db.undefined_column' } : {}),
+    ...(details ? { details } : {}),
+    message: `${prefix}: ${describeError(error)}`,
+  });
+};
+
 const buildWhereClause = (
   spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
 ): Result<Expression<SqlBool> | null, DomainError> => {
@@ -480,6 +652,42 @@ const buildWhereClause = (
     return err(whereResult.error);
   }
   return ok(whereResult.value as unknown as Expression<SqlBool>);
+};
+
+const parseCursorToken = (cursor: string | undefined): number | undefined => {
+  if (!cursor) {
+    return undefined;
+  }
+  const parsed = Number(cursor);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return undefined;
+  }
+  return Math.floor(parsed);
+};
+
+const getLastAutoNumberCursor = (
+  records: ReadonlyArray<TableRecordReadModel>
+): string | undefined => {
+  const lastRecord = records[records.length - 1];
+  if (
+    !lastRecord ||
+    typeof lastRecord.autoNumber !== 'number' ||
+    !Number.isFinite(lastRecord.autoNumber)
+  ) {
+    return undefined;
+  }
+  return String(Math.floor(lastRecord.autoNumber));
+};
+
+const isCursorOrderBySupported = (orderBy: ITableRecordQueryStreamOptions['orderBy']): boolean => {
+  if (!orderBy?.length) {
+    return true;
+  }
+
+  return orderBy.every(
+    (sort) =>
+      isSystemColumnOrderBy(sort) && sort.column === '__auto_number' && sort.direction === 'asc'
+  );
 };
 
 const resolveQueryMode = (

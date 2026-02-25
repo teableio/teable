@@ -4,15 +4,20 @@ import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import type { ITableTrashItemVo } from '@teable/openapi';
 import {
+  RangeType,
+  SettingKey,
   createRecords,
   deleteFields,
   deleteRecords,
+  deleteSelection,
   deleteView,
   getTrashItems,
   resetTrashItems,
   ResourceType,
   restoreTrash,
+  updateSetting,
 } from '@teable/openapi';
+import { vi } from 'vitest';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createAwaitWithEvent } from './utils/event-promise';
@@ -60,6 +65,20 @@ const tableVo = {
   })),
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForTableTrashItems = async (tableId: string, expectedCount = 1, maxRetries = 100) => {
+  for (let i = 0; i < maxRetries; i++) {
+    const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+    if (result.data.trashItems.length >= expectedCount) {
+      return result;
+    }
+    await sleep(100);
+  }
+
+  return await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+};
+
 describe('Trash (e2e)', () => {
   let app: INestApplication;
   let eventEmitterService: EventEmitterService;
@@ -68,7 +87,6 @@ describe('Trash (e2e)', () => {
 
   let awaitWithViewEvent: <T>(fn: () => Promise<T>) => Promise<T>;
   let awaitWithFieldEvent: <T>(fn: () => Promise<T>) => Promise<T>;
-  let awaitWithRecordEvent: <T>(fn: () => Promise<T>) => Promise<T>;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -78,10 +96,6 @@ describe('Trash (e2e)', () => {
 
     awaitWithViewEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_VIEW_DELETE);
     awaitWithFieldEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_FIELDS_DELETE);
-    awaitWithRecordEvent = createAwaitWithEvent(
-      eventEmitterService,
-      Events.OPERATION_RECORDS_DELETE
-    );
   });
 
   afterAll(async () => {
@@ -105,7 +119,7 @@ describe('Trash (e2e)', () => {
 
       await awaitWithViewEvent(() => deleteView(tableId, deletedViewId));
 
-      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      const result = await waitForTableTrashItems(tableId, 1);
 
       expect(result.data.trashItems.length).toBe(1);
       expect((result.data.trashItems[0] as ITableTrashItemVo).resourceIds[0]).toBe(deletedViewId);
@@ -127,14 +141,127 @@ describe('Trash (e2e)', () => {
       const recordsData = await getRecords(tableId);
       const deletedRecordIds = recordsData.records.map((r) => r.id);
 
-      await awaitWithRecordEvent(() => deleteRecords(tableId, deletedRecordIds));
+      await deleteRecords(tableId, deletedRecordIds);
 
-      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      const result = await waitForTableTrashItems(tableId, 1);
 
       expect(result.data.trashItems.length).toBe(1);
       expect((result.data.trashItems[0] as ITableTrashItemVo).resourceIds).toEqual(
         deletedRecordIds
       );
+    });
+
+    it('should add V2-created records to table trash when deleting by range', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      try {
+        const createRes = await createRecords(tableId, {
+          records: [
+            {
+              fields: {
+                SingleLineText: `v2-trash-${Date.now()}`,
+              },
+            },
+          ],
+        });
+        expect(createRes.headers['x-teable-v2']).toBe('true');
+
+        const createdRecordId = createRes.data.records[0].id;
+        const recordsData = await getRecords(tableId);
+        const rowIndex = recordsData.records.findIndex((record) => record.id === createdRecordId);
+
+        expect(rowIndex).toBeGreaterThanOrEqual(0);
+
+        const deleteRes = await deleteSelection(tableId, {
+          type: RangeType.Rows,
+          ranges: [[rowIndex, rowIndex]],
+        });
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        const trashRes = await getTrashItems({
+          resourceId: tableId,
+          resourceType: ResourceType.Table,
+        });
+        expect(trashRes.data.trashItems.length).toBe(1);
+        const recordTrash = trashRes.data.trashItems.find(
+          (item) => (item as ITableTrashItemVo).resourceType === ResourceType.Record
+        ) as ITableTrashItemVo | undefined;
+
+        expect(recordTrash).toBeTruthy();
+        expect(recordTrash?.resourceIds).toContain(createdRecordId);
+      } finally {
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
+      }
+    });
+
+    it('should rely on V2 projection for record-id delete without emitting OPERATION_RECORDS_DELETE', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      const emitSpy = vi.spyOn(eventEmitterService, 'emitAsync');
+      let hasOperationDeleteEvent = false;
+
+      try {
+        const createRes = await createRecords(tableId, {
+          records: [
+            {
+              fields: {
+                SingleLineText: `v2-trash-delete-${Date.now()}`,
+              },
+            },
+            {
+              fields: {
+                SingleLineText: `v2-trash-delete-${Date.now()}-2`,
+              },
+            },
+          ],
+        });
+        expect(createRes.headers['x-teable-v2']).toBe('true');
+
+        const createdRecordIds = createRes.data.records.map((record) => record.id);
+        const deleteRes = await deleteRecords(tableId, createdRecordIds);
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        hasOperationDeleteEvent = emitSpy.mock.calls.some(
+          ([eventName]) => eventName === Events.OPERATION_RECORDS_DELETE
+        );
+
+        const trashRes = await getTrashItems({
+          resourceId: tableId,
+          resourceType: ResourceType.Table,
+        });
+        expect(trashRes.data.trashItems.length).toBe(1);
+
+        const recordTrash = trashRes.data.trashItems.find(
+          (item) => (item as ITableTrashItemVo).resourceType === ResourceType.Record
+        ) as ITableTrashItemVo | undefined;
+        expect(recordTrash).toBeTruthy();
+        expect(recordTrash?.resourceIds).toEqual(createdRecordIds);
+      } finally {
+        emitSpy.mockRestore();
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
+      }
+
+      expect(hasOperationDeleteEvent).toBe(false);
     });
   });
 
@@ -213,12 +340,9 @@ describe('Trash (e2e)', () => {
 
       await awaitWithFieldEvent(async () => deleteFields(tableId, [field.id]));
 
-      await awaitWithRecordEvent(async () => deleteRecords(tableId, [createdRecordIds[0]]));
+      await deleteRecords(tableId, [createdRecordIds[0]]);
 
-      const itemsRes = await getTrashItems({
-        resourceId: tableId,
-        resourceType: ResourceType.Table,
-      });
+      const itemsRes = await waitForTableTrashItems(tableId, 2);
       const fieldTrashItem = itemsRes.data.trashItems.find(
         (t) => (t as ITableTrashItemVo).resourceType === ResourceType.Field
       ) as ITableTrashItemVo | undefined;
@@ -236,9 +360,9 @@ describe('Trash (e2e)', () => {
       const recordsData = await getRecords(tableId);
       const deletedRecordIds = recordsData.records.map((r) => r.id);
 
-      await awaitWithRecordEvent(() => deleteRecords(tableId, deletedRecordIds));
+      await deleteRecords(tableId, deletedRecordIds);
 
-      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      const result = await waitForTableTrashItems(tableId, 1);
       const restored = await restoreTrash(result.data.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
@@ -267,9 +391,9 @@ describe('Trash (e2e)', () => {
 
       await awaitWithViewEvent(() => deleteView(tableId, deletedViewId));
       await awaitWithFieldEvent(async () => deleteFields(tableId, deletedFieldIds));
-      await awaitWithRecordEvent(() => deleteRecords(tableId, deletedRecordIds));
+      await deleteRecords(tableId, deletedRecordIds);
 
-      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      const result = await waitForTableTrashItems(tableId, 3);
 
       expect(result.data.trashItems.length).toEqual(3);
 
