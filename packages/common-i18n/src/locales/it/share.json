@@ -2,7 +2,8 @@
   "auth": {
     "title": "Inserisci la tua password per visualizzare questa pagina",
     "submit": "Invia",
-    "password": "Password"
+    "password": "Password",
+    "passwordTooShort": "La password deve contenere almeno 3 caratteri"
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Seleziona..."

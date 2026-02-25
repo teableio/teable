@@ -493,6 +493,8 @@ export const v2FeatureSchema = z.enum([
   'paste',
   'clear',
   'importRecords',
+  'updateField',
+  'convertField',
 ]);
 
 export type V2Feature = z.infer<typeof v2FeatureSchema>;

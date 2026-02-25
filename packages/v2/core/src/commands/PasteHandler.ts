@@ -76,6 +76,7 @@ export interface PasteResult {
 }
 
 interface CollectedEventData {
+  tableEvents: IDomainEvent[];
   updates: RecordUpdateDTO[];
   createdRecords: RecordValuesDTO[];
 }
@@ -158,9 +159,14 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       const mergedDefaults = viewDefaults.merge({
         filter: command.filter,
         sort: command.sort,
+        group: command.groupBy,
       });
-      const effectiveFilter = mergedDefaults.filter();
-      const effectiveSort = mergedDefaults.sort();
+      const effectiveFilter = command.ignoreViewQuery
+        ? command.filter ?? undefined
+        : mergedDefaults.filter();
+      const effectiveSort = command.ignoreViewQuery
+        ? command.sort ?? undefined
+        : mergedDefaults.sort();
 
       // 3. Build filter spec from effective view filter (if provided) - needed early for row count
       let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined =
@@ -232,7 +238,9 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       // 10. Build orderBy from group + sort for correct row mapping
       // If none provided, fall back to view row order column (__row_{viewId})
-      const effectiveGroup = mergedDefaults.group();
+      const effectiveGroup = command.ignoreViewQuery
+        ? command.groupBy ?? undefined
+        : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
       const sortOrderBy = yield* resolveOrderBy(effectiveSort);
       const orderBy = mergeOrderBy(groupByOrderBy, sortOrderBy, command.viewId.toString());
@@ -270,7 +278,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       );
 
       // 12. Execute paste within transaction
-      const eventData: CollectedEventData = { updates: [], createdRecords: [] };
+      const eventData: CollectedEventData = { tableEvents: [], updates: [], createdRecords: [] };
 
       yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
         return handler.executePasteStream(
@@ -284,7 +292,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       });
 
       // 13. Publish events AFTER transaction commits
-      const events: IDomainEvent[] = [];
+      const events: IDomainEvent[] = [...eventData.tableEvents];
 
       if (eventData.updates.length > 0) {
         events.push(
@@ -775,6 +783,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           if (updateResult.isErr()) {
             return err(updateResult.error);
           }
+          eventData.tableEvents.push(...updateResult.value.events);
         }
       } finally {
         sideEffectsSpan?.end();
@@ -910,32 +919,26 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
           const batch = batchResult.value;
           const resolvedBatch: RecordUpdateResult[] = [];
+          const originalMutateSpecs = batch.map((updateResult) => updateResult.mutateSpec);
+          let resolvedMutateSpecs: ReadonlyArray<(typeof originalMutateSpecs)[number] | null> =
+            originalMutateSpecs;
 
-          for (const updateResult of batch) {
-            let mutateSpec = updateResult.mutateSpec;
-
-            // Resolve values that require external lookups (user/link)
-            if (typecast) {
-              const needsResolutionResult = mutateSpec
-                ? handler.recordMutationSpecResolver.needsResolution(mutateSpec)
-                : ok(false);
-              if (needsResolutionResult.isErr()) {
-                yield err(needsResolutionResult.error);
-                return;
-              }
-              if (needsResolutionResult.value) {
-                const resolveResult = await handler.recordMutationSpecResolver.resolveAndReplace(
-                  context,
-                  mutateSpec
-                );
-                if (resolveResult.isErr()) {
-                  yield err(resolveResult.error);
-                  return;
-                }
-                mutateSpec = resolveResult.value;
-              }
+          if (typecast) {
+            const resolveManyResult =
+              await handler.recordMutationSpecResolver.resolveAndReplaceMany(
+                context,
+                resolvedMutateSpecs
+              );
+            if (resolveManyResult.isErr()) {
+              yield err(resolveManyResult.error);
+              return;
             }
+            resolvedMutateSpecs = [...resolveManyResult.value];
+          }
 
+          for (let index = 0; index < batch.length; index++) {
+            const updateResult = batch[index]!;
+            const mutateSpec = resolvedMutateSpecs[index] ?? updateResult.mutateSpec;
             resolvedBatch.push(
               RecordUpdateResult.create(
                 updateResult.record,
@@ -1042,30 +1045,25 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       let records = createResult.value.records;
 
       if (typecast) {
+        const resolveManyResult = await handler.recordMutationSpecResolver.resolveAndReplaceMany(
+          context,
+          createResult.value.mutateSpecs.map((spec) => spec ?? null)
+        );
+        if (resolveManyResult.isErr()) {
+          return err(resolveManyResult.error);
+        }
+
+        const resolvedMutateSpecs = resolveManyResult.value;
         const resolvedRecords: TableRecord[] = [];
         for (let index = 0; index < records.length; index++) {
           let record = records[index]!;
-          const mutateSpec = createResult.value.mutateSpecs[index] ?? null;
+          const mutateSpec = resolvedMutateSpecs[index] ?? null;
           if (mutateSpec) {
-            const needsResolutionResult =
-              handler.recordMutationSpecResolver.needsResolution(mutateSpec);
-            if (needsResolutionResult.isErr()) {
-              return err(needsResolutionResult.error);
+            const mutateResult = mutateSpec.mutate(record);
+            if (mutateResult.isErr()) {
+              return err(mutateResult.error);
             }
-            if (needsResolutionResult.value) {
-              const resolveResult = await handler.recordMutationSpecResolver.resolveAndReplace(
-                context,
-                mutateSpec
-              );
-              if (resolveResult.isErr()) {
-                return err(resolveResult.error);
-              }
-              const mutateResult = resolveResult.value.mutate(record);
-              if (mutateResult.isErr()) {
-                return err(mutateResult.error);
-              }
-              record = mutateResult.value;
-            }
+            record = mutateResult.value;
           }
           resolvedRecords.push(record);
         }

@@ -260,11 +260,9 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
               : yield* field.foreignKeyNameString();
           const hasOrderColumn = field.hasOrderColumn();
 
-          // FK column rule
           const fkColumnRule = FkColumnRule.forField(field, keyName, foreignTableId);
           rules.push(fkColumnRule);
 
-          // Index on FK column
           const indexRule =
             relationship === 'oneOne'
               ? UniqueIndexRule.forFkColumn(field, keyName, fkColumnRule, 'one-to-one')
@@ -287,8 +285,6 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
 
           if (hasOrderColumn) {
             const orderColumnName = yield* field.orderColumnName();
-
-            // Order column
             const orderRule = OrderColumnRule.forField(
               field,
               orderColumnName,
@@ -330,13 +326,18 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
     // ConditionalRollup fields are computed fields that aggregate values from a foreign table
     // based on a condition. Unlike regular RollupField, they don't have a linkFieldId.
-    // They only reference the lookupFieldId in the foreign table.
+    // They reference the lookupFieldId and all field IDs used in the condition (filter/sort).
     const lookupFieldId = field.lookupFieldId().toString();
+    const condition = field.config().condition();
+    const conditionFieldIds = condition.referencedFieldIds().map((id) => id.toString());
+    const sortFieldId = condition.sort()?.fieldId().toString();
+    const allFromFieldIds = Array.from(
+      new Set([lookupFieldId, ...conditionFieldIds, ...(sortFieldId ? [sortFieldId] : [])])
+    );
 
     return ok([
       ...ColumnExistsRule.createRulesFromField(field),
-      // Reference only the lookup field - conditional rollup doesn't depend on a link field
-      ReferenceRule.single(field, lookupFieldId, {
+      ReferenceRule.multiple(field, allFromFieldIds, {
         fieldType: 'conditionalRollup',
         required: false,
       }),
@@ -348,13 +349,18 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
     // ConditionalLookup fields are computed fields that lookup values from a foreign table
     // based on a condition. Unlike regular LookupField, they don't have a linkFieldId.
-    // They only reference the lookupFieldId in the foreign table.
+    // They reference the lookupFieldId and all field IDs used in the condition (filter/sort).
     const lookupFieldId = field.lookupFieldId().toString();
+    const condition = field.conditionalLookupOptions().condition();
+    const conditionFieldIds = condition.referencedFieldIds().map((id) => id.toString());
+    const sortFieldId = condition.sort()?.fieldId().toString();
+    const allFromFieldIds = Array.from(
+      new Set([lookupFieldId, ...conditionFieldIds, ...(sortFieldId ? [sortFieldId] : [])])
+    );
 
     return ok([
       ...ColumnExistsRule.createRulesFromField(field),
-      // Reference only the lookup field - conditional lookup doesn't depend on a link field
-      ReferenceRule.single(field, lookupFieldId, {
+      ReferenceRule.multiple(field, allFromFieldIds, {
         fieldType: 'conditionalLookup',
         required: false,
       }),

@@ -117,7 +117,9 @@ export class FieldCreatingService {
       (field) => field.type === FieldType.Link && !field.isLookup
     ) as LinkFieldDto[];
 
-    const symmetricByTable = new Map<string, LinkFieldDto[]>();
+    // Generate and create symmetric fields one-by-one so that each subsequent
+    // generateSymmetricField can see the previously created field records and
+    // PostgreSQL columns, avoiding duplicate dbFieldName collisions.
     for (const linkField of linkFields) {
       if (!linkField.options.symmetricFieldId) continue;
       const symmetricField = await this.fieldSupplementService.generateSymmetricField(
@@ -125,14 +127,8 @@ export class FieldCreatingService {
         linkField
       );
       const foreignTableId = linkField.options.foreignTableId;
-      const list = symmetricByTable.get(foreignTableId) ?? [];
-      list.push(symmetricField);
-      symmetricByTable.set(foreignTableId, list);
-    }
-
-    for (const [foreignTableId, symmetricFields] of symmetricByTable.entries()) {
-      await this.createFieldItemsBatch(foreignTableId, symmetricFields, undefined, true);
-      symmetricFields.forEach((field) => created.push({ tableId: foreignTableId, field }));
+      await this.createFieldItemsBatch(foreignTableId, [symmetricField], undefined, true);
+      created.push({ tableId: foreignTableId, field: symmetricField });
     }
 
     return created;
@@ -186,7 +182,8 @@ export class FieldCreatingService {
         : undefined;
       await this.createFieldItemsBatch(tableId, linkFields, initViewColumnMapList);
 
-      const symmetricByTable = new Map<string, LinkFieldDto[]>();
+      // Generate and create symmetric fields one-by-one to avoid duplicate
+      // dbFieldName collisions when multiple links target the same foreign table.
       for (const field of linkFields) {
         if (!field.options.symmetricFieldId) continue;
         const symmetricField = await this.fieldSupplementService.generateSymmetricField(
@@ -194,14 +191,8 @@ export class FieldCreatingService {
           field
         );
         const foreignTableId = field.options.foreignTableId;
-        const list = symmetricByTable.get(foreignTableId) ?? [];
-        list.push(symmetricField);
-        symmetricByTable.set(foreignTableId, list);
+        await this.createFieldItemsBatch(foreignTableId, [symmetricField], undefined, true);
         newFields.push({ tableId: foreignTableId, field: symmetricField });
-      }
-
-      for (const [foreignTableId, symmetricFields] of symmetricByTable.entries()) {
-        await this.createFieldItemsBatch(foreignTableId, symmetricFields, undefined, true);
       }
     }
 
