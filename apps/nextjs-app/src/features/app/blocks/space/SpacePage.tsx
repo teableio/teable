@@ -76,6 +76,7 @@ export const SpacePage: FC = () => {
             <NoBasesPlaceholder space={orderedSpaceList[0]} />
           )}
         </div>
+        {isHydrated && <FreshSettingGuideDialog />}
       </div>
     );
   }

@@ -56,6 +56,30 @@ function isISODateString(dateString: string) {
   return isoDatePattern.test(dateString);
 }
 
+const normalizeDateTimeParseInput = (isoStr: string) =>
+  isoStr.trim().replace(/\//g, '-').replace('T', ' ');
+
+const inferDateTimeParseFormat = (isoStr: string) => {
+  if (!/^\d{4}-\d{1,2}-\d{1,2}(?: \d{1,2}:\d{1,2}(?::\d{1,2}(?:\.\d{1,3})?)?)?$/.test(isoStr)) {
+    return null;
+  }
+
+  const timePart = isoStr.split(' ')[1];
+  if (!timePart) return 'YYYY-M-D';
+
+  const timeSegments = timePart.split(':');
+  if (timeSegments.length < 2 || timeSegments.length > 3) return null;
+  if (!/^\d{1,2}$/.test(timeSegments[0]) || !/^\d{1,2}$/.test(timeSegments[1])) return null;
+  if (timeSegments.length === 2) return 'YYYY-M-D H:m';
+
+  const [second, fractional] = timeSegments[2].split('.');
+  if (!/^\d{1,2}$/.test(second)) return null;
+
+  if (!fractional) return 'YYYY-M-D H:m:s';
+  const msToken = 'S'.repeat(Math.max(1, Math.min(3, fractional.length)));
+  return `YYYY-M-D H:m:s.${msToken}`;
+};
+
 export const getDayjs = (isoStr: string | null, timeZone: string, customFormat?: string) => {
   if (isoStr == null) return null;
   if (isDayjs(isoStr)) return isoStr;
@@ -69,8 +93,12 @@ export const getDayjs = (isoStr: string | null, timeZone: string, customFormat?:
     // If it's a valid ISO string, convert to the specified timezone
     date = dayjs(isoStr).tz(timeZone);
   } else {
-    // For other formats, assume it's in the specified timezone
-    date = dayjs.tz(isoStr, timeZone);
+    // For other formats (including local date-time text), interpret as local time in target timezone.
+    const normalizedInput = normalizeDateTimeParseInput(isoStr);
+    const format = inferDateTimeParseFormat(normalizedInput);
+    date = format
+      ? dayjs.tz(normalizedInput, format, timeZone)
+      : dayjs.tz(normalizedInput, timeZone);
   }
 
   if (!date.isValid()) throw new FormulaBaseError();

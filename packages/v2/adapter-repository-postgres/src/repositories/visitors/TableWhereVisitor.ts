@@ -6,6 +6,7 @@ import {
   TableDuplicateFieldSpec,
   TableRemoveFieldSpec,
   TableUpdateViewColumnMetaSpec,
+  TableUpdateViewQueryDefaultsSpec,
   TableRenameSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
@@ -14,6 +15,53 @@ import {
   TableByNameSpec,
   domainError,
   type DomainError,
+  // Common field update specs
+  type TableUpdateFieldNameSpec,
+  type TableUpdateFieldTypeSpec,
+  type TableUpdateFieldConstraintsSpec,
+  type TableUpdateFieldDbFieldNameSpec,
+  type TableUpdateFieldAiConfigSpec,
+  type TableUpdateFieldDescriptionSpec,
+  type TableUpdateFieldHasErrorSpec,
+  // Field-type-specific update specs
+  type UpdateSingleLineTextShowAsSpec,
+  type UpdateSingleLineTextDefaultValueSpec,
+  type UpdateLongTextDefaultValueSpec,
+  type UpdateNumberFormattingSpec,
+  type UpdateNumberShowAsSpec,
+  type UpdateNumberDefaultValueSpec,
+  type UpdateDateFormattingSpec,
+  type UpdateDateDefaultValueSpec,
+  type UpdateCheckboxDefaultValueSpec,
+  type UpdateRatingMaxSpec,
+  type UpdateRatingIconSpec,
+  type UpdateRatingColorSpec,
+  type UpdateUserMultiplicitySpec,
+  type UpdateUserNotificationSpec,
+  type UpdateUserDefaultValueSpec,
+  type UpdateButtonLabelSpec,
+  type UpdateButtonColorSpec,
+  type UpdateButtonMaxCountSpec,
+  type UpdateButtonWorkflowSpec,
+  type UpdateSingleSelectOptionsSpec,
+  type UpdateSingleSelectDefaultValueSpec,
+  type UpdateSingleSelectAutoNewOptionsSpec,
+  type UpdateMultipleSelectOptionsSpec,
+  type UpdateMultipleSelectDefaultValueSpec,
+  type UpdateMultipleSelectAutoNewOptionsSpec,
+  type UpdateFormulaExpressionSpec,
+  type UpdateFormulaFormattingSpec,
+  type UpdateFormulaShowAsSpec,
+  type UpdateFormulaTimeZoneSpec,
+  type UpdateLinkConfigSpec,
+  type UpdateLinkRelationshipSpec,
+  type UpdateLookupOptionsSpec,
+  type UpdateRollupConfigSpec,
+  type UpdateRollupExpressionSpec,
+  type UpdateRollupFormattingSpec,
+  type UpdateRollupShowAsSpec,
+  type UpdateRollupTimeZoneSpec,
+  type RemoveSymmetricLinkFieldSpec,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Expression, ExpressionBuilder, SqlBool } from 'kysely';
@@ -93,6 +141,16 @@ export class TableWhereVisitor
     );
   }
 
+  visitTableUpdateViewQueryDefaults(
+    _: TableUpdateViewQueryDefaultsSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableUpdateViewQueryDefaultsSpec is not supported for table filters',
+      })
+    );
+  }
+
   visitTableRename(_: TableRenameSpec): Result<ITableMetaWhere, DomainError> {
     return err(
       domainError.validation({ message: 'TableRenameSpec is not supported for table filters' })
@@ -131,6 +189,447 @@ export class TableWhereVisitor
     const cond: ITableMetaWhere = (eb) => eb.eb('name', 'like', pattern);
     this.mergeSpecInfo({ specName: 'TableByNameLikeSpec', nameLike: spec.tableName().toString() });
     return this.addCond(cond).map(() => cond);
+  }
+
+  // ============ Common Field Update specs ============
+  // All field update specs are not supported for table filters
+
+  visitTableUpdateFieldDbFieldName(
+    _spec: TableUpdateFieldDbFieldNameSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableUpdateFieldDbFieldNameSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitTableUpdateFieldName(_spec: TableUpdateFieldNameSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableUpdateFieldNameSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitTableUpdateFieldType(_spec: TableUpdateFieldTypeSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableUpdateFieldTypeSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitTableUpdateFieldConstraints(
+    _spec: TableUpdateFieldConstraintsSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableUpdateFieldConstraintsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitTableUpdateFieldAiConfig(
+    _spec: TableUpdateFieldAiConfigSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableUpdateFieldAiConfigSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitTableUpdateFieldDescription(
+    _spec: TableUpdateFieldDescriptionSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableUpdateFieldDescriptionSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitTableUpdateFieldHasError(
+    _spec: TableUpdateFieldHasErrorSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableUpdateFieldHasErrorSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ SingleLineText Update specs ============
+
+  visitUpdateSingleLineTextShowAs(
+    _spec: UpdateSingleLineTextShowAsSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateSingleLineTextShowAsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateSingleLineTextDefaultValue(
+    _spec: UpdateSingleLineTextDefaultValueSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateSingleLineTextDefaultValueSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ LongText Update specs ============
+
+  visitUpdateLongTextDefaultValue(
+    _spec: UpdateLongTextDefaultValueSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateLongTextDefaultValueSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Number Update specs ============
+
+  visitUpdateNumberFormatting(
+    _spec: UpdateNumberFormattingSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateNumberFormattingSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateNumberShowAs(_spec: UpdateNumberShowAsSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateNumberShowAsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateNumberDefaultValue(
+    _spec: UpdateNumberDefaultValueSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateNumberDefaultValueSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Date Update specs ============
+
+  visitUpdateDateFormatting(_spec: UpdateDateFormattingSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateDateFormattingSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateDateDefaultValue(
+    _spec: UpdateDateDefaultValueSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateDateDefaultValueSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Checkbox Update specs ============
+
+  visitUpdateCheckboxDefaultValue(
+    _spec: UpdateCheckboxDefaultValueSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateCheckboxDefaultValueSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Rating Update specs ============
+
+  visitUpdateRatingMax(_spec: UpdateRatingMaxSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({ message: 'UpdateRatingMaxSpec is not supported for table filters' })
+    );
+  }
+
+  visitUpdateRatingIcon(_spec: UpdateRatingIconSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({ message: 'UpdateRatingIconSpec is not supported for table filters' })
+    );
+  }
+
+  visitUpdateRatingColor(_spec: UpdateRatingColorSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateRatingColorSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ User Update specs ============
+
+  visitUpdateUserMultiplicity(
+    _spec: UpdateUserMultiplicitySpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateUserMultiplicitySpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateUserNotification(
+    _spec: UpdateUserNotificationSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateUserNotificationSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateUserDefaultValue(
+    _spec: UpdateUserDefaultValueSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateUserDefaultValueSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Button Update specs ============
+
+  visitUpdateButtonLabel(_spec: UpdateButtonLabelSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateButtonLabelSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateButtonColor(_spec: UpdateButtonColorSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateButtonColorSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateButtonMaxCount(_spec: UpdateButtonMaxCountSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateButtonMaxCountSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateButtonWorkflow(_spec: UpdateButtonWorkflowSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateButtonWorkflowSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ SingleSelect Update specs ============
+
+  visitUpdateSingleSelectOptions(
+    _spec: UpdateSingleSelectOptionsSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateSingleSelectOptionsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateSingleSelectDefaultValue(
+    _spec: UpdateSingleSelectDefaultValueSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateSingleSelectDefaultValueSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateSingleSelectAutoNewOptions(
+    _spec: UpdateSingleSelectAutoNewOptionsSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateSingleSelectAutoNewOptionsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ MultipleSelect Update specs ============
+
+  visitUpdateMultipleSelectOptions(
+    _spec: UpdateMultipleSelectOptionsSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateMultipleSelectOptionsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateMultipleSelectDefaultValue(
+    _spec: UpdateMultipleSelectDefaultValueSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateMultipleSelectDefaultValueSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateMultipleSelectAutoNewOptions(
+    _spec: UpdateMultipleSelectAutoNewOptionsSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateMultipleSelectAutoNewOptionsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Formula Update specs ============
+
+  visitUpdateFormulaExpression(
+    _spec: UpdateFormulaExpressionSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateFormulaExpressionSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateFormulaFormatting(
+    _spec: UpdateFormulaFormattingSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateFormulaFormattingSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateFormulaShowAs(_spec: UpdateFormulaShowAsSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateFormulaShowAsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateFormulaTimeZone(
+    _spec: UpdateFormulaTimeZoneSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateFormulaTimeZoneSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Link Update specs ============
+
+  visitUpdateLinkConfig(_spec: UpdateLinkConfigSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({ message: 'UpdateLinkConfigSpec is not supported for table filters' })
+    );
+  }
+
+  visitUpdateLinkRelationship(
+    _spec: UpdateLinkRelationshipSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateLinkRelationshipSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Lookup Update specs ============
+
+  visitUpdateLookupOptions(_spec: UpdateLookupOptionsSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateLookupOptionsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  // ============ Rollup Update specs ============
+
+  visitUpdateRollupConfig(_spec: UpdateRollupConfigSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateRollupConfigSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateRollupExpression(
+    _spec: UpdateRollupExpressionSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateRollupExpressionSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateRollupFormatting(
+    _spec: UpdateRollupFormattingSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateRollupFormattingSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateRollupShowAs(_spec: UpdateRollupShowAsSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateRollupShowAsSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateRollupTimeZone(_spec: UpdateRollupTimeZoneSpec): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateRollupTimeZoneSpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitRemoveSymmetricLinkField(
+    _spec: RemoveSymmetricLinkFieldSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'RemoveSymmetricLinkFieldSpec is not supported for table filters',
+      })
+    );
   }
 
   clone(): this {

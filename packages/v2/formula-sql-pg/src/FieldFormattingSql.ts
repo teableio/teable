@@ -59,6 +59,24 @@ export const formatNumberStringSql = (valueSql: string, formatting: NumberFormat
   const maskSql = sqlStringLiteral(mask);
   const baseValue = `(${valueSql})::numeric`;
 
+  return formatNumberStringSqlWithBaseValue(baseValue, formatting, maskSql);
+};
+
+const buildJsonScalarNumericSql = (valueSql: string): string => {
+  const jsonValue = `to_jsonb(${valueSql})`;
+  return `(CASE
+    WHEN ${valueSql} IS NULL THEN NULL
+    WHEN jsonb_typeof(${jsonValue}) = 'array' THEN NULLIF((${jsonValue} ->> 0), '')::numeric
+    WHEN jsonb_typeof(${jsonValue}) = 'null' THEN NULL
+    ELSE NULLIF((${jsonValue} #>> '{}'), '')::numeric
+  END)`;
+};
+
+const formatNumberStringSqlWithBaseValue = (
+  baseValue: string,
+  formatting: NumberFormatting,
+  maskSql: string
+): string => {
   switch (formatting.type()) {
     case NumberFormattingType.Percent: {
       const percentValue = `(${baseValue} * 100)`;
@@ -73,6 +91,10 @@ export const formatNumberStringSql = (valueSql: string, formatting: NumberFormat
     default:
       return `trim(to_char(${baseValue}, ${maskSql}))`;
   }
+};
+
+type NumberFormatOptions = {
+  normalizeJsonScalar?: boolean;
 };
 
 export const formatDatetimeStringSql = (
@@ -128,13 +150,25 @@ export const formatFieldValueAsStringSql = (
   field: Field | undefined,
   valueSql: string,
   valueType?: SqlValueType,
-  timeZoneOverride?: string
+  timeZoneOverride?: string,
+  options?: NumberFormatOptions
 ): string | undefined => {
   const formatting = resolveFormatting(field);
   if (!formatting) return undefined;
 
   if (formatting instanceof NumberFormatting) {
     if (valueType && valueType !== 'number') return undefined;
+    if (options?.normalizeJsonScalar) {
+      const precision = formatting.precision().toNumber();
+      const decimalPart = precision > 0 ? `D${'0'.repeat(precision)}` : '';
+      const mask = `999999990${decimalPart}`;
+      const maskSql = sqlStringLiteral(mask);
+      return formatNumberStringSqlWithBaseValue(
+        buildJsonScalarNumericSql(valueSql),
+        formatting,
+        maskSql
+      );
+    }
     return formatNumberStringSql(valueSql, formatting);
   }
 

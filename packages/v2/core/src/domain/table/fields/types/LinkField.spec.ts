@@ -7,13 +7,18 @@ import { ForeignTable } from '../../ForeignTable';
 import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
+import { DbFieldName } from '../DbFieldName';
 import { ViewId } from '../../views/ViewId';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
+import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
+import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { LinkField } from './LinkField';
 import { LinkFieldConfig } from './LinkFieldConfig';
 import { LinkFieldMeta } from './LinkFieldMeta';
 import { LinkRelationship } from './LinkRelationship';
+import { SelectOption } from './SelectOption';
+import { SingleSelectField } from './SingleSelectField';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
@@ -674,5 +679,116 @@ describe('LinkField', () => {
       hostTableId: hostTableIdResult._unsafeUnwrap(),
     });
     result._unsafeUnwrapErr();
+  });
+
+  describe('onDependencyUpdated', () => {
+    it('creates UpdateLinkConfigSpec when referenced select option names change', () => {
+      const foreignTableId = createTableId('h')._unsafeUnwrap();
+      const lookupFieldId = createFieldId('i')._unsafeUnwrap();
+      const statusFieldId = createFieldId('j')._unsafeUnwrap();
+      const linkFieldId = createFieldId('k')._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        fkHostTableName: 'link_table',
+        selfKeyName: '__id',
+        foreignKeyName: '__fk_link',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' }],
+        },
+      })._unsafeUnwrap();
+      const linkField = LinkField.create({
+        id: linkFieldId,
+        name: FieldName.create('Link')._unsafeUnwrap(),
+        config: linkConfig,
+      })._unsafeUnwrap();
+
+      const statusField = SingleSelectField.create({
+        id: statusFieldId,
+        name: FieldName.create('Status')._unsafeUnwrap(),
+        options: [
+          SelectOption.create({ id: 'cho_active', name: 'Active', color: 'green' })._unsafeUnwrap(),
+          SelectOption.create({ id: 'cho_closed', name: 'Closed', color: 'red' })._unsafeUnwrap(),
+        ],
+      })._unsafeUnwrap();
+
+      const optionsSpec = UpdateSingleSelectOptionsSpec.create(
+        statusFieldId,
+        DbFieldName.rehydrate('status')._unsafeUnwrap(),
+        statusField.selectOptions(),
+        [
+          SelectOption.create({
+            id: 'cho_active',
+            name: 'Active Plus',
+            color: 'green',
+          })._unsafeUnwrap(),
+          SelectOption.create({ id: 'cho_closed', name: 'Closed', color: 'red' })._unsafeUnwrap(),
+        ]
+      );
+
+      const result = linkField.onDependencyUpdated(statusField, [optionsSpec], {} as never);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toHaveLength(1);
+      expect(result._unsafeUnwrap()[0]).toBeInstanceOf(UpdateLinkConfigSpec);
+
+      const updateSpec = result._unsafeUnwrap()[0] as UpdateLinkConfigSpec;
+      const nextFilter = updateSpec.nextConfig().filter() as {
+        filterSet: Array<{ value?: unknown }>;
+      };
+      expect(nextFilter.filterSet[0]?.value).toBe('Active Plus');
+    });
+
+    it('does nothing when updated field is not referenced in link filter', () => {
+      const foreignTableId = createTableId('l')._unsafeUnwrap();
+      const lookupFieldId = createFieldId('m')._unsafeUnwrap();
+      const statusFieldId = createFieldId('n')._unsafeUnwrap();
+      const otherFieldId = createFieldId('o')._unsafeUnwrap();
+      const linkFieldId = createFieldId('p')._unsafeUnwrap();
+
+      const linkField = LinkField.create({
+        id: linkFieldId,
+        name: FieldName.create('Link')._unsafeUnwrap(),
+        config: LinkFieldConfig.create({
+          relationship: 'manyOne',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: 'link_table',
+          selfKeyName: '__id',
+          foreignKeyName: '__fk_link',
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const otherField = SingleSelectField.create({
+        id: otherFieldId,
+        name: FieldName.create('Other')._unsafeUnwrap(),
+        options: [
+          SelectOption.create({ id: 'cho_other', name: 'Other', color: 'blue' })._unsafeUnwrap(),
+        ],
+      })._unsafeUnwrap();
+
+      const optionsSpec = UpdateSingleSelectOptionsSpec.create(
+        otherFieldId,
+        DbFieldName.rehydrate('other')._unsafeUnwrap(),
+        otherField.selectOptions(),
+        [
+          SelectOption.create({
+            id: 'cho_other',
+            name: 'Other Plus',
+            color: 'blue',
+          })._unsafeUnwrap(),
+        ]
+      );
+
+      const result = linkField.onDependencyUpdated(otherField, [optionsSpec], {} as never);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual([]);
+    });
   });
 });

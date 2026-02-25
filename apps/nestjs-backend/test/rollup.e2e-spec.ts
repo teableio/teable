@@ -1320,4 +1320,63 @@ describe('OpenAPI Rollup field (e2e)', () => {
       expect(record1.fields[rollup1.id]).toEqual(0);
     });
   });
+
+  describe('v2 update field hasError propagation', () => {
+    const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+    const itV2Only = isForceV2 ? it : it.skip;
+
+    itV2Only(
+      'marks rollup as errored when foreign lookup field type becomes incompatible via v2 convert',
+      async () => {
+        const foreign = await createTable(baseId, {
+          name: 'V2RollupHasError_Foreign',
+          fields: [{ name: 'Amount', type: FieldType.Number } as IFieldRo],
+        });
+        const host = await createTable(baseId, {
+          name: 'V2RollupHasError_Host',
+          fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
+        });
+        const amountFieldId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+
+        try {
+          const linkField = await createField(host.id, {
+            name: 'Link to Foreign',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.OneMany,
+              foreignTableId: foreign.id,
+            },
+          } as IFieldRo);
+
+          const rollupField = await createField(host.id, {
+            name: 'Sum Amount',
+            type: FieldType.Rollup,
+            options: {
+              expression: 'sum({values})',
+            },
+            lookupOptions: {
+              foreignTableId: foreign.id,
+              linkFieldId: linkField.id,
+              lookupFieldId: amountFieldId,
+            } as ILookupOptionsRo,
+          } as IFieldRo);
+
+          expect((await getField(host.id, rollupField.id)).hasError).toBeFalsy();
+
+          // Convert the foreign lookup field to an incompatible type via v2
+          await convertField(foreign.id, amountFieldId, {
+            name: 'Amount',
+            type: FieldType.SingleLineText,
+            options: {},
+          } as IFieldRo);
+
+          const afterConvert = await getField(host.id, rollupField.id);
+          expect(afterConvert.hasError).toBe(true);
+        } finally {
+          await permanentDeleteTable(baseId, host.id);
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    );
+  });
 });

@@ -62,15 +62,6 @@ export class ConditionalRollupConfig extends ValueObject {
     return TableId.create(data.foreignTableId).andThen((foreignTableId) =>
       FieldId.create(data.lookupFieldId).andThen((lookupFieldId) =>
         FieldCondition.create(data.condition).andThen((condition) => {
-          // Validate that condition has at least one filter item
-          if (!condition.hasFilter()) {
-            return err(
-              domainError.validation({
-                code: 'conditional_rollup.config.condition_required',
-                message: 'ConditionalRollupConfig condition must have at least one filter item',
-              })
-            );
-          }
           return ok(new ConditionalRollupConfig(foreignTableId, lookupFieldId, condition));
         })
       )

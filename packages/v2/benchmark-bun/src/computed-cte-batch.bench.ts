@@ -3,7 +3,7 @@ import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
 import { FieldId } from '@teable/v2-core';
 import { Bench } from 'tinybench';
 
-import type { IBunBenchTarget } from './bench-context';
+import type { IBunBenchTarget, IBunBenchTargetsContext } from './bench-context';
 import { createBunBenchTargets } from './bench-context';
 
 const benchOptions = {
@@ -95,8 +95,11 @@ type SeededChain = {
   recordIds: string[];
 };
 
-export const runComputedCteBatchBench = async (): Promise<void> => {
-  const context = await createBunBenchTargets();
+export const runComputedCteBatchBench = async (
+  sharedContext?: IBunBenchTargetsContext
+): Promise<void> => {
+  const context = sharedContext ?? (await createBunBenchTargets());
+  const ownsContext = !sharedContext;
 
   try {
     if (context.targets.length === 0) {
@@ -215,6 +218,8 @@ export const runComputedCteBatchBench = async (): Promise<void> => {
     await runScenario('100 records: 5-level chain', 'chain5Hundred', pickRoundRobin);
     await runScenario('100 records: 10-level chain', 'chain10Hundred', pickRoundRobin);
   } finally {
-    await context.dispose();
+    if (ownsContext) {
+      await context.dispose();
+    }
   }
 };

@@ -119,6 +119,7 @@ export interface ComputedFieldSelectExpressionVisitorOptions {
    * Foreign table IDs that are missing (e.g., deleted) and should be skipped.
    */
   missingForeignTableIds?: ReadonlySet<string>;
+  forceLookupArrayOutput?: boolean;
 }
 
 export class ComputedFieldSelectExpressionVisitor
@@ -128,6 +129,7 @@ export class ComputedFieldSelectExpressionVisitor
   private readonly fieldReferenceVisitor: FieldReferenceSqlVisitor;
   private readonly preferStoredLastModifiedFormula: boolean;
   private readonly missingForeignTableIds: ReadonlySet<string>;
+  private readonly forceLookupArrayOutput: boolean;
 
   constructor(
     private readonly table: Table,
@@ -138,6 +140,7 @@ export class ComputedFieldSelectExpressionVisitor
   ) {
     this.preferStoredLastModifiedFormula = options?.preferStoredLastModifiedFormula ?? false;
     this.missingForeignTableIds = options?.missingForeignTableIds ?? new Set();
+    this.forceLookupArrayOutput = options?.forceLookupArrayOutput ?? true;
     this.fieldReferenceVisitor = new FieldReferenceSqlVisitor({
       table,
       tableAlias,
@@ -479,13 +482,15 @@ export class ComputedFieldSelectExpressionVisitor
       const linkFieldResult = field.linkField(this.table);
       if (linkFieldResult.isErr()) return err(linkFieldResult.error);
       const linkField = linkFieldResult.value;
-      const multiplicityResult = field
-        .isMultipleCellValue()
-        .map((multiplicity) => multiplicity.isMultiple());
-      if (multiplicityResult.isErr()) return err(multiplicityResult.error);
-      const isMultiValue = multiplicityResult.value;
+      if (linkField.foreignTableId().toString() !== field.foreignTableId().toString()) {
+        return ok(sql.raw('NULL::jsonb').as(colAlias));
+      }
       const orderByResult = this.getLinkOrderBy(linkField);
       if (orderByResult.isErr()) return err(orderByResult.error);
+      const isMultiValueResult = field
+        .isMultipleCellValue()
+        .map((multiplicity) => multiplicity.isMultiple());
+      if (isMultiValueResult.isErr()) return err(isMultiValueResult.error);
       const condition = field.lookupOptions().condition();
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
@@ -494,7 +499,7 @@ export class ComputedFieldSelectExpressionVisitor
         {
           type: 'lookup',
           foreignFieldId: field.lookupFieldId(),
-          isMultiValue,
+          isMultiValue: this.forceLookupArrayOutput ? true : isMultiValueResult.value,
           orderBy: orderByResult.value,
           condition,
         }
@@ -513,9 +518,13 @@ export class ComputedFieldSelectExpressionVisitor
         return ok(sql.raw('NULL').as(colAlias));
       }
       const expression = field.expression().toString();
-      const orderByResult = field
-        .linkField(this.table)
-        .andThen((linkField) => this.getLinkOrderBy(linkField));
+      const linkFieldResult = field.linkField(this.table);
+      if (linkFieldResult.isErr()) return err(linkFieldResult.error);
+      const linkField = linkFieldResult.value;
+      if (linkField.foreignTableId().toString() !== field.foreignTableId().toString()) {
+        return ok(sql.raw('NULL').as(colAlias));
+      }
+      const orderByResult = this.getLinkOrderBy(linkField);
       if (orderByResult.isErr()) return err(orderByResult.error);
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
@@ -641,14 +650,12 @@ export class ComputedFieldSelectExpressionVisitor
       );
     }
 
-    // For foreign-based relationships (oneMany two-way)
     if (field.hasOrderColumn()) {
       const orderColumnResult = field.orderColumnName();
       if (orderColumnResult.isErr()) return err(orderColumnResult.error);
       return ok({ source: 'foreign' as const, column: orderColumnResult.value });
     }
 
-    // No order column - return LinkOrderBy without column to trigger default ordering
     return ok({ source: 'foreign' as const, column: undefined });
   }
 }

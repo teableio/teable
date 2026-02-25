@@ -750,6 +750,9 @@ export class FormulaFieldBuilder {
   private timeZone: TimeZone | undefined;
   private formatting: FormulaFormatting | undefined;
   private showAs: FormulaShowAs | undefined;
+  private resultType:
+    | { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }
+    | undefined;
   private dependencies: ReadonlyArray<FieldId> = [];
   private isPrimary = false;
 
@@ -788,6 +791,14 @@ export class FormulaFieldBuilder {
     return this;
   }
 
+  withResultType(resultType: {
+    cellValueType: CellValueType;
+    isMultipleCellValue: CellValueMultiplicity;
+  }): FormulaFieldBuilder {
+    this.resultType = resultType;
+    return this;
+  }
+
   withDependencies(dependencies: ReadonlyArray<FieldId>): FormulaFieldBuilder {
     this.dependencies = [...dependencies];
     return this;
@@ -818,6 +829,7 @@ export class FormulaFieldBuilder {
         timeZone: this.timeZone,
         formatting: this.formatting,
         showAs: this.showAs,
+        resultType: this.resultType,
         dependencies: this.dependencies,
       }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
@@ -966,6 +978,7 @@ export class LookupFieldBuilder {
   private innerField: Field | undefined;
   private dependencies: ReadonlyArray<FieldId> = [];
   private isPrimary = false;
+  private isMultipleCellValueValue: boolean | undefined;
 
   constructor(
     private readonly parent: TableBuilder,
@@ -1001,6 +1014,11 @@ export class LookupFieldBuilder {
     return this;
   }
 
+  withIsMultipleCellValue(isMultiple: boolean): LookupFieldBuilder {
+    this.isMultipleCellValueValue = isMultiple;
+    return this;
+  }
+
   primary(): LookupFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -1030,6 +1048,7 @@ export class LookupFieldBuilder {
         innerField,
         lookupOptions,
         dependencies: this.dependencies,
+        isMultipleCellValue: this.isMultipleCellValueValue,
       }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
