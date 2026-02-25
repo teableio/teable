@@ -3,6 +3,7 @@ import { BaseNodeResourceType } from '@teable/openapi';
 import { useBaseId, useTable, useViews } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
+import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { getNodeUrl } from '../../base/base-node/hooks';
 
 export function useAddView() {
@@ -10,6 +11,7 @@ export function useAddView() {
   const baseId = useBaseId() as string;
   const views = useViews();
   const router = useRouter();
+  const shareUrlPrefix = useShareUrlPrefix();
   const viewName = views?.[views.length - 1]?.name + ' ' + views?.length;
 
   return useCallback(
@@ -31,11 +33,12 @@ export function useAddView() {
         resourceType: BaseNodeResourceType.Table,
         resourceId: table.id,
         viewId,
+        urlPrefix: shareUrlPrefix,
       });
       if (url) {
         router.push(url, undefined, { shallow: true });
       }
     },
-    [router, table, viewName, baseId]
+    [router, table, viewName, baseId, shareUrlPrefix]
   );
 }

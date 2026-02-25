@@ -2,7 +2,7 @@ import { LaptopIcon } from '@radix-ui/react-icons';
 import { Moon, Search, Settings, Sun } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
 import { BaseNodeResourceType } from '@teable/openapi';
-import { useBaseId, useIsAnonymous, useIsTemplate } from '@teable/sdk/hooks';
+import { useBaseId, useIsAnonymous, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import {
   CommandDialog,
   CommandInput,
@@ -37,7 +37,7 @@ export const QuickAction = () => {
   const theme = useTheme();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const isAnonymous = useIsAnonymous();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const modKeyStr = useModKeyStr();
   useHotkeys(
     `mod+k`,
@@ -192,7 +192,7 @@ export const QuickAction = () => {
             </CommandItem>
           </CommandGroup>
           <CommandSeparator />
-          {!isAnonymous && !isTemplate && (
+          {!isAnonymous && !isReadOnlyPreview && (
             <CommandGroup heading={t('common:settings.nav.settings')}>
               <CommandItem
                 className="flex h-8 gap-2"

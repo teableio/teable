@@ -174,6 +174,7 @@ export const createLookupFieldPending = (params: {
   id: FieldId;
   name: FieldName;
   lookupOptions: LookupOptions;
+  isMultipleCellValue?: boolean;
   dependencies?: ReadonlyArray<FieldId>;
   notNull?: FieldNotNull;
   unique?: FieldUnique;

@@ -330,6 +330,88 @@ export class FieldCondition extends ValueObject {
     return this.filterItemsValue.map((item) => item.fieldId);
   }
 
+  referencedFieldIds(): ReadonlyArray<FieldId> {
+    const idMap = new Map<string, FieldId>();
+    for (const fieldId of this.filterFieldIds()) {
+      idMap.set(fieldId.toString(), fieldId);
+    }
+
+    const filter = this.rawFilterValue;
+    if (!filter) return [...idMap.values()];
+
+    const collect = (node: IFilterDTO | IFilterItemDTO): void => {
+      if ('filterSet' in node) {
+        node.filterSet.forEach((entry) => collect(entry as IFilterDTO | IFilterItemDTO));
+        return;
+      }
+
+      const rawValue = node.value;
+      if (node.isSymbol && typeof rawValue === 'string') {
+        const fieldIdResult = FieldId.create(rawValue);
+        if (fieldIdResult.isOk()) {
+          idMap.set(rawValue, fieldIdResult.value);
+        }
+      }
+
+      if (
+        rawValue &&
+        typeof rawValue === 'object' &&
+        'type' in rawValue &&
+        (rawValue as { type?: unknown }).type === 'field' &&
+        'fieldId' in rawValue &&
+        typeof (rawValue as { fieldId?: unknown }).fieldId === 'string'
+      ) {
+        const refFieldId = (rawValue as { fieldId: string }).fieldId;
+        const fieldIdResult = FieldId.create(refFieldId);
+        if (fieldIdResult.isOk()) {
+          idMap.set(refFieldId, fieldIdResult.value);
+        }
+      }
+    };
+
+    collect(filter);
+    return [...idMap.values()];
+  }
+
+  referencesField(fieldId: FieldId): boolean {
+    return this.referencesFieldId(fieldId.toString());
+  }
+
+  referencesFieldId(fieldId: string): boolean {
+    const filter = this.rawFilterValue;
+    if (!filter) return false;
+
+    const visit = (node: IFilterDTO | IFilterItemDTO): boolean => {
+      if ('filterSet' in node) {
+        return node.filterSet.some((entry) => visit(entry as IFilterDTO | IFilterItemDTO));
+      }
+
+      if (node.fieldId === fieldId) {
+        return true;
+      }
+
+      const rawValue = node.value;
+      if (node.isSymbol && typeof rawValue === 'string' && rawValue === fieldId) {
+        return true;
+      }
+
+      if (
+        rawValue &&
+        typeof rawValue === 'object' &&
+        'type' in rawValue &&
+        (rawValue as { type?: unknown }).type === 'field' &&
+        'fieldId' in rawValue &&
+        (rawValue as { fieldId?: unknown }).fieldId === fieldId
+      ) {
+        return true;
+      }
+
+      return false;
+    };
+
+    return visit(filter);
+  }
+
   /**
    * Converts this FieldCondition to a DTO format.
    */

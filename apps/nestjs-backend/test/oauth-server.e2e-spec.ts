@@ -21,6 +21,7 @@ import {
 import type {
   ICreateBaseVo,
   ICreateSpaceVo,
+  IGetBaseAllVo,
   ITableListVo,
   ITableVo,
   ITrashVo,
@@ -366,6 +367,14 @@ describe('OpenAPI OAuthController (e2e)', () => {
       )
     );
     expect(error?.status).toBe(403);
+    // base|read_all
+    const baseListRes = await anonymousAxios.get<IGetBaseAllVo>(`/base/access/all`, {
+      headers: {
+        Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
+      },
+    });
+    expect(baseListRes.status).toBe(200);
+    expect(baseListRes.data).toEqual(expect.any(Array));
   });
 
   it('/api/oauth/access_token (POST) - scope [trash]', async () => {

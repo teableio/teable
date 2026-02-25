@@ -3,8 +3,11 @@ import { Lifecycle } from '@teable/v2-di';
 
 import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { FieldCrossTableUpdateSideEffectService } from '../application/services/FieldCrossTableUpdateSideEffectService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
+import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { LinkFieldUpdateSideEffectService } from '../application/services/LinkFieldUpdateSideEffectService';
 import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import { RecordCreateConstraintService } from '../application/services/RecordCreateConstraintService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
@@ -15,9 +18,9 @@ import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { UserValueResolverService } from '../application/services/UserValueResolverService';
-import type { IRecordCreateConstraint } from '../ports/RecordCreateConstraintService';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
+import type { IRecordCreateConstraint } from '../ports/RecordCreateConstraintService';
 import { v2CoreTokens } from '../ports/tokens';
 
 /**
@@ -42,6 +45,7 @@ import { v2CoreTokens } from '../ports/tokens';
  * | tableQueryService                | TableQueryService              | Common table lookup operations               |
  * | fieldCreationSideEffectService   | FieldCreationSideEffectService | Cross-table field creation side effects      |
  * | fieldDeletionSideEffectService   | FieldDeletionSideEffectService | Cross-table field deletion side effects      |
+ * | fieldUpdateSideEffectService     | FieldUpdateSideEffectService   | Cascading field updates for dependent fields |
  * | foreignTableLoaderService        | ForeignTableLoaderService      | Load and validate foreign table references   |
  * | linkTitleResolverService         | LinkTitleResolverService       | Resolve link titles to record IDs            |
  * | attachmentValueResolverService   | AttachmentValueResolverService | Resolve attachment values on writes          |
@@ -124,6 +128,33 @@ export const registerV2CoreServices = (
       {
         lifecycle,
       }
+    );
+  }
+
+  // FieldUpdateSideEffectService - cascading field updates for dependent fields
+  if (!container.isRegistered(v2CoreTokens.fieldUpdateSideEffectService)) {
+    container.register(v2CoreTokens.fieldUpdateSideEffectService, FieldUpdateSideEffectService, {
+      lifecycle,
+    });
+  }
+
+  // FieldCrossTableUpdateSideEffectService - cross-table update side effects for field updates
+  if (!container.isRegistered(v2CoreTokens.fieldCrossTableUpdateSideEffectService)) {
+    container.register(
+      v2CoreTokens.fieldCrossTableUpdateSideEffectService,
+      FieldCrossTableUpdateSideEffectService,
+      {
+        lifecycle,
+      }
+    );
+  }
+
+  // LinkFieldUpdateSideEffectService - symmetric field creation/deletion for link fields
+  if (!container.isRegistered(v2CoreTokens.linkFieldUpdateSideEffectService)) {
+    container.register(
+      v2CoreTokens.linkFieldUpdateSideEffectService,
+      LinkFieldUpdateSideEffectService,
+      { lifecycle }
     );
   }
 

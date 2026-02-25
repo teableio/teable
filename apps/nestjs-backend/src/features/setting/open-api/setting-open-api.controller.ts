@@ -19,6 +19,7 @@ import type {
   IUploadLogoVo,
   IBatchTestLLMVo,
   ITestApiKeyVo,
+  ITestPublicAccessVo,
 } from '@teable/openapi';
 import {
   IUpdateSettingRo,
@@ -153,6 +154,12 @@ export class SettingOpenApiController {
     @Body(new ZodValidationPipe(testApiKeyRoSchema)) testApiKeyRo: ITestApiKeyRo
   ): Promise<ITestApiKeyVo> {
     return await this.settingOpenApiService.testApiKey(testApiKeyRo);
+  }
+
+  @Permissions('instance|update')
+  @Get('test-public-access')
+  async testPublicAccess(): Promise<ITestPublicAccessVo> {
+    return await this.settingOpenApiService.testPublicAccess();
   }
 
   @Permissions('instance|update')

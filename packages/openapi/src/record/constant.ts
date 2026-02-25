@@ -6,6 +6,7 @@ export enum CreateRecordAction {
   BaseDuplicate = 'base.duplicate',
 
   TemplateApply = 'template.apply',
+  ShareBaseCopy = 'share.base.copy',
 
   RecordPaste = 'table.record.paste.create',
 

@@ -43,6 +43,7 @@ import {
   listTableRecordsOkResponseSchema,
   listTablesOkResponseSchema,
   renameTableOkResponseSchema,
+  updateFieldOkResponseSchema,
   updateRecordOkResponseSchema,
   clearOkResponseSchema,
   pasteOkResponseSchema,
@@ -58,6 +59,7 @@ import type {
   IPasteCommandInput,
   IImportCsvCommandInput,
   IImportRecordsCommandInput,
+  IUpdateFieldCommandInput,
   RecordFilter,
 } from '@teable/v2-core';
 import { ActorId, MemoryUndoRedoStore, v2CoreTokens } from '@teable/v2-core';
@@ -87,6 +89,9 @@ export interface SharedTestContext {
   createField: (
     payload: ICreateFieldCommandInput
   ) => Promise<ReturnType<typeof parseCreateFieldResponse>>;
+  updateField: (
+    payload: IUpdateFieldCommandInput
+  ) => Promise<ReturnType<typeof parseUpdateFieldResponse>>;
   deleteField: (payload: { tableId: string; fieldId: string }) => Promise<void>;
   deleteTable: (tableId: string) => Promise<void>;
   renameTable: (
@@ -141,6 +146,7 @@ export interface SharedTestContext {
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     projection?: string[];
+    ignoreViewQuery?: boolean;
   }) => Promise<ReturnType<typeof parseClearResponse>>;
   deleteByRange: (payload: {
     tableId: string;
@@ -148,6 +154,10 @@ export interface SharedTestContext {
     ranges: [number, number][];
     type?: 'columns' | 'rows';
     filter?: RecordFilter;
+    sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    search?: [string, string, boolean?];
+    groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    ignoreViewQuery?: boolean;
   }) => Promise<ReturnType<typeof parseDeleteByRangeResponse>>;
   paste: (payload: IPasteCommandInput) => Promise<ReturnType<typeof parsePasteResponse>>;
   importCsv: (
@@ -179,6 +189,14 @@ const parseCreateFieldResponse = (rawBody: unknown) => {
   const parsed = createFieldOkResponseSchema.safeParse(rawBody);
   if (!parsed.success || !parsed.data.ok) {
     throw new Error('Failed to parse create field response');
+  }
+  return parsed.data.data.table;
+};
+
+const parseUpdateFieldResponse = (rawBody: unknown) => {
+  const parsed = updateFieldOkResponseSchema.safeParse(rawBody);
+  if (!parsed.success || !parsed.data.ok) {
+    throw new Error('Failed to parse update field response');
   }
   return parsed.data.data.table;
 };
@@ -363,6 +381,19 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
       throw new Error(`Failed to create field: ${errorText}`);
     }
     return parseCreateFieldResponse(await response.json());
+  };
+
+  const updateField = async (payload: IUpdateFieldCommandInput) => {
+    const response = await fetch(`${baseUrl}/tables/updateField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to update field: ${errorText}`);
+    }
+    return parseUpdateFieldResponse(await response.json());
   };
 
   const createTables = async (payload: ICreateTablesCommandInput) => {
@@ -600,6 +631,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     projection?: string[];
+    ignoreViewQuery?: boolean;
   }) => {
     const response = await fetch(`${baseUrl}/tables/clear`, {
       method: 'POST',
@@ -622,6 +654,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
     search?: [string, string, boolean?];
     groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    ignoreViewQuery?: boolean;
   }) => {
     const response = await fetch(`${baseUrl}/tables/deleteByRange`, {
       method: 'DELETE',
@@ -682,6 +715,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     createTable,
     createTables,
     createField,
+    updateField,
     deleteField,
     deleteTable,
     renameTable,
