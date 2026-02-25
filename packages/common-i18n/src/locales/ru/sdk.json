@@ -113,7 +113,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Поле поиска обязательно",
       "lookupOptionsNotAllowed": "Опции поиска не разрешены, когда атрибут isLookup истинный или тип поля rollup.",
-      "lookupOptionsRequired": "Опции поиска обязательны, когда атрибут isLookup истинный или тип поля rollup.",
+      "lookupOptionsRequired": "Опции поиска обязательны",
       "refineOptionsError": "Ошибка парсинга опций поиска {{message}}"
     },
     "rollup": {
@@ -1059,6 +1059,11 @@
       "shareViewNotFound": "Общее представление не найдено или общий доступ отключен",
       "linkFieldNotFound": "Поле связи не найдено"
     },
+    "baseShare": {
+      "notFound": "Общий доступ к базе не найден или отключен",
+      "alreadyExists": "Общий доступ для этого узла уже существует",
+      "copyNotAllowed": "Этот общий доступ не разрешает копирование"
+    },
     "shareSocket": {
       "viewPermissionNotAllowed": "У вас нет разрешения на доступ к этому представлению",
       "fieldPermissionNotAllowed": "У вас нет разрешения на доступ к этим полям",
@@ -1175,6 +1180,14 @@
       "notAttachment": "Поле не является полем вложения",
       "isComputed": "Поле вычисляется и не может быть изменено",
       "notFoundAICofig": "Поле не имеет конфигурации AI",
+      "foreignTableIdRequired": "Внешняя таблица обязательна",
+      "lookupFieldIdRequired": "Поле поиска обязательно",
+      "lookupFieldNotExist": "Поле поиска {{lookupFieldId}} не существует",
+      "lookupFieldNotBelongToTable": "Поле поиска {{lookupFieldId}} не принадлежит таблице {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "Текущий тип поля {{fieldType}} не соответствует типу поля поиска {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "Параметры поля условного свертывания обязательны",
+      "conditionalRollupParseError": "Ошибка парсинга условного свертывания: {{message}}",
+      "conditionalLookupOptionsRequired": "Параметры поля условного поиска обязательны",
       "button": {
         "clickCountReachedMaxCount": "Количество нажатий кнопки достигло максимального предела",
         "notSupportReset": "Кнопка не поддерживает сброс"

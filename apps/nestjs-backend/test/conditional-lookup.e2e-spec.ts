@@ -2402,6 +2402,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
   });
 
   describe('conditional lookup referencing derived field types', () => {
+    let derivedBaseId: string;
     let suppliers: ITableFullVo;
     let products: ITableFullVo;
     let host: ITableFullVo;
@@ -2424,7 +2425,13 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let subscriptionProductId: string;
 
     beforeAll(async () => {
-      suppliers = await createTable(baseId, {
+      const createdBase = await createBase({
+        spaceId: globalThis.testConfig.spaceId,
+        name: 'Conditional Lookup Derived Types',
+      });
+      derivedBaseId = createdBase.id;
+
+      suppliers = await createTable(derivedBaseId, {
         name: 'ConditionalLookup_Supplier',
         fields: [
           { name: 'SupplierName', type: FieldType.SingleLineText } as IFieldRo,
@@ -2441,7 +2448,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         (record) => record.fields.SupplierName === 'Supplier B'
       )!.id;
 
-      products = await createTable(baseId, {
+      products = await createTable(derivedBaseId, {
         name: 'ConditionalLookup_Product',
         fields: [
           { name: 'ProductName', type: FieldType.SingleLineText } as IFieldRo,
@@ -2584,7 +2591,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         options: supplierRatingConditionalRollupOptions,
       } as IFieldRo);
 
-      host = await createTable(baseId, {
+      host = await createTable(derivedBaseId, {
         name: 'ConditionalLookup_Derived_Host',
         fields: [{ name: 'Summary', type: FieldType.SingleLineText } as IFieldRo],
         records: [{ fields: { Summary: 'Global' } }],
@@ -2701,9 +2708,10 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     });
 
     afterAll(async () => {
-      await permanentDeleteTable(baseId, host.id);
-      await permanentDeleteTable(baseId, products.id);
-      await permanentDeleteTable(baseId, suppliers.id);
+      await permanentDeleteTable(derivedBaseId, host.id);
+      await permanentDeleteTable(derivedBaseId, products.id);
+      await permanentDeleteTable(derivedBaseId, suppliers.id);
+      await deleteBase(derivedBaseId);
     });
 
     describe('standard lookup source', () => {

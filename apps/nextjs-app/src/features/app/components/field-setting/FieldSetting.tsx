@@ -451,7 +451,11 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
     if (result.success) {
       setIsSaving(true);
       try {
-        await onConfirm?.(result.data);
+        const confirmField: IFieldRo = {
+          ...(result.data as IFieldRo),
+          options: (result.data as IFieldRo).options ?? undefined,
+        };
+        await onConfirm?.(confirmField);
       } finally {
         setIsSaving(false);
       }

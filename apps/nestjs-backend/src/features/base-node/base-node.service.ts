@@ -27,8 +27,12 @@ import { isString, keyBy, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { LocalPresence } from 'sharedb/lib/client';
+import { type IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
-import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
+import {
+  generateBaseNodeListCacheKey,
+  generateBaseShareListCacheKey,
+} from '../../performance-cache/generate-keys';
 import { PerformanceCacheService } from '../../performance-cache/service';
 import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
@@ -52,9 +56,6 @@ type IBaseNodeEntry = {
   parent: { id: string } | null;
 };
 
-// max depth is maxFolderDepth + 1
-const maxFolderDepth = 2;
-
 @Injectable()
 export class BaseNodeService {
   private readonly logger = new Logger(BaseNodeService.name);
@@ -63,6 +64,7 @@ export class BaseNodeService {
     private readonly shareDbService: ShareDbService,
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>,
     private readonly baseNodeFolderService: BaseNodeFolderService,
     private readonly tableOpenApiService: TableOpenApiService,
@@ -74,8 +76,29 @@ export class BaseNodeService {
     return this.cls.get('user.id');
   }
 
+  /**
+   * max depth is maxFolderDepth + 1
+   */
+  private get maxFolderDepth() {
+    return this.thresholdConfig.baseNodeMaxFolderDepth;
+  }
+
   private setIgnoreBaseNodeListener() {
     this.cls.set('ignoreBaseNodeListener', true);
+  }
+
+  /**
+   * Delete all share records for a node and invalidate cache
+   */
+  private async deleteNodeShares(baseId: string, nodeId: string): Promise<void> {
+    const deleted = await this.prismaService.baseShare.deleteMany({
+      where: { baseId, nodeId },
+    });
+
+    // Invalidate cache if any shares were deleted
+    if (deleted.count > 0) {
+      await this.performanceCacheService.del(generateBaseShareListCacheKey(baseId));
+    }
   }
 
   private getSelect() {
@@ -342,7 +365,7 @@ export class BaseNodeService {
 
     return {
       nodes,
-      maxFolderDepth,
+      maxFolderDepth: this.maxFolderDepth,
     };
   }
 
@@ -694,6 +717,9 @@ export class BaseNodeService {
       }
     }
 
+    // Clean up share records for this node before deletion
+    await this.deleteNodeShares(baseId, nodeId);
+
     await this.deleteResource(
       baseId,
       node.resourceType as BaseNodeResourceType,
@@ -1025,7 +1051,7 @@ export class BaseNodeService {
 
   private async assertFolderDepth(baseId: string, id: string) {
     const folderDepth = await this.getFolderDepth(baseId, id);
-    if (folderDepth >= maxFolderDepth) {
+    if (folderDepth >= this.maxFolderDepth) {
       throw new CustomHttpException('Folder depth limit exceeded', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.baseNode.folderDepthLimitExceeded',

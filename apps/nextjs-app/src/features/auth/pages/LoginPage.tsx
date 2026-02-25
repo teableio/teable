@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { useAutoFavicon } from '@/features/app/hooks/useAutoFavicon';
 import { useBrand } from '@/features/app/hooks/useBrand';
@@ -27,6 +27,14 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
   const { passwordLoginDisabled } = useEnv();
   const disallowSignUp = useDisallowSignUp();
+  const hasInvitationRedirect = useMemo(() => {
+    try {
+      const url = new URL(redirect, window.location.origin);
+      return url.searchParams.has('invitationId') && url.searchParams.has('invitationCode');
+    } catch {
+      return false;
+    }
+  }, [redirect]);
   const onSuccess = useCallback(() => {
     if (redirect) {
       router.push(redirect);
@@ -54,7 +62,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
                 <Link href={{ pathname: '/auth/login', query: { ...router.query } }} shallow>
                   <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
                 </Link>
-                {!disallowSignUp && (
+                {(!disallowSignUp || hasInvitationRedirect) && (
                   <Link href={{ pathname: '/auth/signup', query: { ...router.query } }} shallow>
                     <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
                   </Link>

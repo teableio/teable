@@ -275,5 +275,15 @@ export function buildTable(
     viewSpec.applyTo(builder);
   }
 
-  return builder.build(options);
+  return builder.build(options).andThen((table) => {
+    for (const fieldSpec of command.fields) {
+      if (!fieldSpec.applyPostBuild) continue;
+      const postBuildResult = fieldSpec.applyPostBuild(table);
+      if (postBuildResult.isErr()) {
+        return err(postBuildResult.error);
+      }
+    }
+
+    return ok(table);
+  });
 }

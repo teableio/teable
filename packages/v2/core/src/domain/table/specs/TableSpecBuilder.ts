@@ -19,13 +19,17 @@ export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Tabl
   private includeBaseId = true;
 
   private constructor(
-    private readonly baseIdValue: BaseId,
+    private readonly baseIdValue: BaseId | undefined,
     mode: SpecBuilderMode = 'and'
   ) {
     super(mode);
+    // If no baseId provided, don't include it in the query
+    if (!baseIdValue) {
+      this.includeBaseId = false;
+    }
   }
 
-  static create(baseId: BaseId): TableSpecBuilder {
+  static create(baseId?: BaseId): TableSpecBuilder {
     return new TableSpecBuilder(baseId, 'and');
   }
 
@@ -34,9 +38,12 @@ export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Tabl
     return this;
   }
 
-  byBaseId(baseId: BaseId = this.baseIdValue): TableSpecBuilder {
-    this.includeBaseId = false;
-    this.addSpec(TableByBaseIdSpec.create(baseId));
+  byBaseId(baseId?: BaseId): TableSpecBuilder {
+    const id = baseId ?? this.baseIdValue;
+    if (id) {
+      this.includeBaseId = false;
+      this.addSpec(TableByBaseIdSpec.create(id));
+    }
     return this;
   }
 
@@ -81,9 +88,10 @@ export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Tabl
   }
 
   build(): Result<ISpecification<Table, ITableSpecVisitor>, DomainError> {
-    const specs = this.includeBaseId
-      ? [TableByBaseIdSpec.create(this.baseIdValue), ...this.specs]
-      : [...this.specs];
+    const specs =
+      this.includeBaseId && this.baseIdValue
+        ? [TableByBaseIdSpec.create(this.baseIdValue), ...this.specs]
+        : [...this.specs];
     return this.buildFrom(specs);
   }
 

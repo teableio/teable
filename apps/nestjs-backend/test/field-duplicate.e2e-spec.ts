@@ -732,7 +732,7 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
       const copiedRollupField = fields.find((f) => f.name.endsWith('_copy'))!;
 
       const expectedRollupField = {
-        ...omit(copiedRollupField, ['name', 'dbFieldName', 'id', 'isPrimary']),
+        ...omit(copiedRollupField, ['name', 'dbFieldName', 'id', 'isPrimary', 'unique']),
         options: {
           ...rollupField.options,
           expression: 'countall({values})',
@@ -740,7 +740,7 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
         isPending: true,
       };
       const assertRollupField = {
-        ...omit(rollupField, ['name', 'dbFieldName', 'id', 'isPrimary']),
+        ...omit(rollupField, ['name', 'dbFieldName', 'id', 'isPrimary', 'unique']),
       };
 
       expect(expectedRollupField).toEqual(assertRollupField);

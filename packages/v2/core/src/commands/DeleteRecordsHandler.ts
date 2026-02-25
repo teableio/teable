@@ -8,7 +8,7 @@ import { isNotFoundError, type DomainError } from '../domain/shared/DomainError'
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { IDeletedRecordSnapshot } from '../domain/table/events/RecordsDeleted';
 import { RecordsDeleted } from '../domain/table/events/RecordsDeleted';
-import { TableRecord } from '../domain/table/records/TableRecord';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -59,11 +59,7 @@ export class DeleteRecordsHandler
     return safeTry<DeleteRecordsResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
-      const specBuilder = TableRecord.specs('or');
-      for (const recordId of command.recordIds) {
-        specBuilder.recordId(recordId);
-      }
-      const deleteSpec = yield* specBuilder.build();
+      const deleteSpec = RecordByIdsSpec.create(command.recordIds);
 
       // Query records before deletion to capture snapshots for undo/redo support
       const queryResult = yield* await handler.tableRecordQueryRepository.find(
