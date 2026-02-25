@@ -1,8 +1,10 @@
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../base/BaseId';
 import { DbTableName } from './DbTableName';
 import { FieldDeleted } from './events/FieldDeleted';
+import { FieldUpdated } from './events/FieldUpdated';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
@@ -10,11 +12,14 @@ import { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
+import { CheckboxField } from './fields/types/CheckboxField';
 import { FormulaExpression } from './fields/types/FormulaExpression';
+import { LongTextField } from './fields/types/LongTextField';
 import { NumberDefaultValue } from './fields/types/NumberDefaultValue';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
 import { TextDefaultValue } from './fields/types/TextDefaultValue';
 import { RecordId } from './records/RecordId';
+import { TableUpdateFieldNameSpec } from './specs/TableUpdateFieldNameSpec';
 import { Table } from './Table';
 import { TableId } from './TableId';
 import { TableName } from './TableName';
@@ -365,6 +370,165 @@ describe('Table', () => {
     const conflictResult = table.generateFieldName(fieldNameResult._unsafeUnwrap());
     conflictResult._unsafeUnwrap();
     expect(conflictResult._unsafeUnwrap().toString()).toBe('Generate (linked 2)');
+  });
+
+  it('allows converting primary field type to supported target', () => {
+    const builder = Table.builder()
+      .withBaseId(createBaseId('p')._unsafeUnwrap())
+      .withName(TableName.create('Primary Conversion')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const primaryField = table.primaryField()._unsafeUnwrap();
+    const nextPrimary = LongTextField.create({
+      id: primaryField.id(),
+      name: primaryField.name(),
+    })._unsafeUnwrap();
+
+    const replaced = table.replaceField(primaryField.id(), nextPrimary);
+    expect(replaced.isOk()).toBe(true);
+    expect(replaced._unsafeUnwrap().primaryField()._unsafeUnwrap().type().toString()).toBe(
+      'longText'
+    );
+  });
+
+  it('rejects converting primary field type to unsupported target', () => {
+    const builder = Table.builder()
+      .withBaseId(createBaseId('q')._unsafeUnwrap())
+      .withName(TableName.create('Primary Conversion Rejected')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const primaryField = table.primaryField()._unsafeUnwrap();
+    const nextPrimary = CheckboxField.create({
+      id: primaryField.id(),
+      name: primaryField.name(),
+    })._unsafeUnwrap();
+
+    const replaced = table.replaceField(primaryField.id(), nextPrimary);
+    expect(replaced.isErr()).toBe(true);
+    expect(replaced._unsafeUnwrapErr().message).toBe(
+      'Field type checkbox is not supported as primary field'
+    );
+  });
+
+  it('allows unsupported target conversion for non-primary field', () => {
+    const statusFieldId = createFieldId('s')._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withBaseId(createBaseId('r')._unsafeUnwrap())
+      .withName(TableName.create('Non Primary Conversion')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleLineText()
+      .withId(statusFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const nextField = CheckboxField.create({
+      id: statusFieldId,
+      name: FieldName.create('Status')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const replaced = table.replaceField(statusFieldId, nextField);
+    expect(replaced.isOk()).toBe(true);
+    const updatedField = replaced
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(statusFieldId))
+      ._unsafeUnwrap();
+    expect(updatedField.type().toString()).toBe('checkbox');
+  });
+
+  it('updates field through aggregate updateField API', () => {
+    const statusFieldId = createFieldId('u')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('u')._unsafeUnwrap())
+      .withName(TableName.create('Update Field Aggregate')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleLineText()
+      .withId(statusFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table.pullDomainEvents();
+
+    const result = table.updateField(statusFieldId, (currentField) =>
+      ok([
+        TableUpdateFieldNameSpec.create(
+          currentField.id(),
+          currentField.name(),
+          FieldName.create('Status Updated')._unsafeUnwrap()
+        ),
+      ])
+    );
+
+    expect(result.isOk()).toBe(true);
+    const payload = result._unsafeUnwrap();
+    expect(payload.previousField.name().toString()).toBe('Status');
+    expect(payload.updatedField.name().toString()).toBe('Status Updated');
+    expect(payload.specs.length).toBe(1);
+
+    const updatedField = payload.updateResult.table
+      .getField((field) => field.id().equals(statusFieldId))
+      ._unsafeUnwrap();
+    expect(updatedField.name().toString()).toBe('Status Updated');
+
+    const events = payload.updateResult.table.pullDomainEvents();
+    expect(events.some((event) => event instanceof FieldUpdated)).toBe(true);
+  });
+
+  it('rejects empty specs in aggregate updateField API', () => {
+    const statusFieldId = createFieldId('v')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('v')._unsafeUnwrap())
+      .withName(TableName.create('Update Field Empty')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleLineText()
+      .withId(statusFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const result = table.updateField(statusFieldId, () => ok([]));
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toBe('No changes to apply');
   });
 
   it('exposes copies of fields and views', () => {

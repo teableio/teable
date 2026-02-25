@@ -2,26 +2,42 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { ForeignTable } from '../../ForeignTable';
+import { UpdateLookupOptionsSpec } from '../../specs/field-updates/UpdateLookupOptionsSpec';
+import { UpdateMultipleSelectOptionsSpec } from '../../specs/field-updates/UpdateMultipleSelectOptionsSpec';
+import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { UpdateLinkRelationshipSpec } from '../../specs/field-updates/UpdateLinkRelationshipSpec';
+import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
-import type { DbFieldName } from '../DbFieldName';
+import { DbFieldName } from '../DbFieldName';
 import { Field } from '../Field';
 import type { FieldDuplicateParams } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
+import {
+  buildFieldFilterSyncPlan,
+  hasFieldFilterSyncPlanChanges,
+  hasFieldReferenceInFilter,
+  isEquivalentFilter,
+  syncFilterByFieldChanges,
+} from '../filter-sync';
 import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
 } from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
 import { FieldValueTypeVisitor, type FieldValueType } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { FieldComputed } from './FieldComputed';
-import type { LinkField } from './LinkField';
-import type { LookupOptions, LookupOptionsValue } from './LookupOptions';
+import { LinkField } from './LinkField';
+import { LookupOptions, type LookupOptionsValue } from './LookupOptions';
 
 /**
  * LookupField is a wrapper field that retrieves values from a linked table.
@@ -35,7 +51,7 @@ import type { LookupOptions, LookupOptionsValue } from './LookupOptions';
  * - Can be single or multiple cell values depending on link relationship type
  * - The inner field determines cellValueType, formatting, showAs, etc.
  */
-export class LookupField extends Field implements ForeignTableRelatedField {
+export class LookupField extends Field implements ForeignTableRelatedField, OnTeableFieldUpdated {
   private innerFieldValue: Field | undefined;
   /**
    * Override for isMultipleCellValue. When set, this value is used instead of
@@ -44,6 +60,17 @@ export class LookupField extends Field implements ForeignTableRelatedField {
    * a single-value field like AutoNumber would result in an INTEGER column).
    */
   private isMultipleCellValueOverride: boolean | undefined;
+
+  private static fallbackDbFieldName(name: string): string {
+    let normalized = name.replace(/\W+/g, '_').replace(/^_+|_+$/g, '');
+    if (!normalized) {
+      normalized = 'unnamed';
+    }
+    if (!/^[a-z]/i.test(normalized)) {
+      normalized = `t${normalized}`;
+    }
+    return normalized.slice(0, 40);
+  }
 
   private constructor(
     id: FieldId,
@@ -54,14 +81,7 @@ export class LookupField extends Field implements ForeignTableRelatedField {
     dependencies?: ReadonlyArray<FieldId>,
     isMultipleCellValue?: boolean
   ) {
-    super(
-      id,
-      name,
-      FieldType.lookup(),
-      dbFieldName,
-      dependencies ?? [lookupOptionsValue.linkFieldId()],
-      FieldComputed.computed()
-    );
+    super(id, name, FieldType.lookup(), dbFieldName, dependencies ?? [], FieldComputed.computed());
     this.innerFieldValue = innerField;
     this.isMultipleCellValueOverride = isMultipleCellValue;
   }
@@ -84,7 +104,7 @@ export class LookupField extends Field implements ForeignTableRelatedField {
         params.innerField,
         params.lookupOptions,
         params.dbFieldName,
-        params.dependencies,
+        params.dependencies ?? [params.lookupOptions.linkFieldId()],
         params.isMultipleCellValue
       )
     );
@@ -256,13 +276,52 @@ export class LookupField extends Field implements ForeignTableRelatedField {
   }
 
   duplicate(_params: FieldDuplicateParams): Result<Field, DomainError> {
-    return err(
-      domainError.validation({
-        code: 'field.lookup_cannot_duplicate',
-        message:
-          'Lookup fields cannot be duplicated. Please duplicate the underlying link field instead.',
-      })
+    // Renaming uses duplicate with the same field id.
+    // Allow that path while still blocking true duplication.
+    if (!_params.newId.equals(this.id())) {
+      return err(
+        domainError.validation({
+          code: 'field.lookup_cannot_duplicate',
+          message:
+            'Lookup fields cannot be duplicated. Please duplicate the underlying link field instead.',
+        })
+      );
+    }
+
+    const isMultipleResult = this.isMultipleCellValue();
+    const isMultipleCellValue = isMultipleResult.isOk()
+      ? isMultipleResult.value.isMultiple()
+      : undefined;
+    const dbFieldNameResult = this.dbFieldName();
+    const fallbackDbFieldNameResult = DbFieldName.rehydrate(
+      LookupField.fallbackDbFieldName(this.name().toString())
     );
+    const dbFieldName = dbFieldNameResult.isOk()
+      ? dbFieldNameResult.value
+      : fallbackDbFieldNameResult.isOk()
+        ? fallbackDbFieldNameResult.value
+        : undefined;
+
+    if (this.innerFieldValue) {
+      return LookupField.create({
+        id: _params.newId,
+        name: _params.newName,
+        innerField: this.innerFieldValue,
+        lookupOptions: this.lookupOptionsValue,
+        dbFieldName,
+        isMultipleCellValue,
+        dependencies: this.dependencies(),
+      });
+    }
+
+    return LookupField.createPending({
+      id: _params.newId,
+      name: _params.newName,
+      lookupOptions: this.lookupOptionsValue,
+      dbFieldName,
+      isMultipleCellValue,
+      dependencies: this.dependencies(),
+    });
   }
 
   validateForeignTables(context: ForeignTableValidationContext): Result<void, DomainError> {
@@ -301,12 +360,225 @@ export class LookupField extends Field implements ForeignTableRelatedField {
     // Nested lookups are supported - enables lookups across 3+ tables (e.g., Table A -> Table B -> Table C)
     this.innerFieldValue = lookupFieldResult.value;
 
-    // 6. Set dependencies to include link field
-    return this.setDependencies([this.linkFieldId()]);
+    // 6. Set dependencies to include link field and referenced host fields in filter values.
+    const hostFieldIds = new Set(
+      context.hostTable.getFields().map((field) => field.id().toString())
+    );
+    const conditionFieldIds = this.lookupOptionsValue
+      .condition()
+      ?.referencedFieldIds()
+      .filter(
+        (fieldId) => !fieldId.equals(this.linkFieldId()) && hostFieldIds.has(fieldId.toString())
+      );
+    return this.ensureDependencies([this.linkFieldId(), ...(conditionFieldIds ?? [])]);
+  }
+
+  private ensureDependencies(nextDependencies: ReadonlyArray<FieldId>): Result<void, DomainError> {
+    const deduped = nextDependencies.filter(
+      (fieldId, index, array) => array.findIndex((candidate) => candidate.equals(fieldId)) === index
+    );
+    const current = this.dependencies();
+
+    if (current.length === 0) {
+      return this.setDependencies(deduped);
+    }
+
+    const isSameSet =
+      current.length === deduped.length &&
+      current.every((fieldId) => deduped.some((candidate) => candidate.equals(fieldId)));
+    if (isSameSet) {
+      return ok(undefined);
+    }
+
+    return ok(undefined);
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitLookupField(this);
+  }
+
+  /**
+   * Respond to updates of fields this lookup depends on.
+   *
+   * This lookup field depends on the link field (linkFieldId) in the same table.
+   * When the link field is updated (e.g., relationship type changes), this method
+   * is called to allow the lookup to respond.
+   *
+   * If the link field is type-converted to a non-link type, this lookup becomes
+   * invalid and should be marked with hasError.
+   *
+   * Note: Cross-table dependencies (lookup target field changes in foreign table)
+   * are handled separately by the cross-table update flow.
+   */
+  onDependencyUpdated(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    context: FieldUpdateContext
+  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+    const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
+    const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
+    const hasTypeConversion = updateSpecs.some(
+      (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
+    );
+    const isLookupTargetUpdated = updatedField.id().equals(this.lookupFieldId());
+    const hasLookupTargetSelectOptionChanges = this.hasLookupTargetSelectOptionChanges(updateSpecs);
+
+    if (isLookupTargetUpdated && (hasTypeConversion || hasLookupTargetSelectOptionChanges)) {
+      let nextInnerField: Field = updatedField;
+      const foreignTable = context.foreignTables.find((candidate) =>
+        candidate.id().equals(this.foreignTableId())
+      );
+      if (foreignTable) {
+        const foreignTableResult = ForeignTable.from(foreignTable).fieldById(this.lookupFieldId());
+        if (foreignTableResult.isOk()) {
+          nextInnerField = foreignTableResult.value;
+        }
+      }
+
+      const isMultipleResult = this.isMultipleCellValue();
+      if (isMultipleResult.isErr()) {
+        return err(isMultipleResult.error);
+      }
+      const dbFieldNameResult = this.dbFieldName();
+      const nextLookupFieldResult = LookupField.create({
+        id: this.id(),
+        name: this.name(),
+        innerField: nextInnerField,
+        lookupOptions: this.lookupOptionsValue,
+        dbFieldName: dbFieldNameResult.isOk() ? dbFieldNameResult.value : undefined,
+        isMultipleCellValue: isMultipleResult.value.isMultiple(),
+        dependencies: this.dependencies(),
+      });
+      if (nextLookupFieldResult.isErr()) {
+        return err(nextLookupFieldResult.error);
+      }
+      specs.push(TableUpdateFieldTypeSpec.create(this, nextLookupFieldResult.value));
+      if (hasTypeConversion) {
+        return ok(specs);
+      }
+    }
+
+    // When the link field's relationship type changes (e.g. ManyMany → ManyOne),
+    // the lookup's isMultipleCellValue may need to change (array → scalar or vice versa).
+    // Detect this via UpdateLinkRelationshipSpec and emit a TableUpdateFieldTypeSpec.
+    if (updatedField.id().equals(this.linkFieldId()) && updatedField instanceof LinkField) {
+      const relationshipSpec = updateSpecs.find(
+        (spec): spec is UpdateLinkRelationshipSpec =>
+          spec instanceof UpdateLinkRelationshipSpec &&
+          spec.fieldId().equals(this.linkFieldId()) &&
+          spec.isRelationshipTypeChanging()
+      );
+      if (relationshipSpec) {
+        const currentMultipleResult = this.isMultipleCellValue();
+        if (currentMultipleResult.isErr()) return err(currentMultipleResult.error);
+
+        const newIsMultiple = updatedField.isMultipleValue();
+        const currentIsMultiple = currentMultipleResult.value.isMultiple();
+
+        if (newIsMultiple !== currentIsMultiple) {
+          const dbFieldNameResult = this.dbFieldName();
+          const innerField = this.innerFieldValue;
+          const nextLookupFieldResult = innerField
+            ? LookupField.create({
+                id: this.id(),
+                name: this.name(),
+                innerField,
+                lookupOptions: this.lookupOptionsValue,
+                dbFieldName: dbFieldNameResult.isOk() ? dbFieldNameResult.value : undefined,
+                isMultipleCellValue: newIsMultiple,
+                dependencies: this.dependencies(),
+              })
+            : LookupField.createPending({
+                id: this.id(),
+                name: this.name(),
+                lookupOptions: this.lookupOptionsValue,
+                dbFieldName: dbFieldNameResult.isOk() ? dbFieldNameResult.value : undefined,
+                isMultipleCellValue: newIsMultiple,
+                dependencies: this.dependencies(),
+              });
+          if (nextLookupFieldResult.isErr()) return err(nextLookupFieldResult.error);
+          specs.push(TableUpdateFieldTypeSpec.create(this, nextLookupFieldResult.value));
+          return ok(specs);
+        }
+      }
+    }
+
+    const condition = this.lookupOptionsValue.condition();
+    const referencesUpdatedField =
+      updatedField.id().equals(this.linkFieldId()) ||
+      Boolean(condition?.referencesField(updatedField.id()));
+
+    if (referencesUpdatedField) {
+      if (hasTypeConversion) {
+        if (updatedField.id().equals(this.linkFieldId())) {
+          const convertedLinkField = updateSpecs.find(
+            (spec): spec is TableUpdateFieldTypeSpec =>
+              spec instanceof TableUpdateFieldTypeSpec &&
+              (spec.oldField().id().equals(this.linkFieldId()) ||
+                spec.newField().id().equals(this.linkFieldId()))
+          );
+          const convertedNextField = convertedLinkField?.newField();
+          const shouldSetError =
+            !(convertedNextField instanceof LinkField) ||
+            !convertedNextField.foreignTableId().equals(this.foreignTableId());
+          if (shouldSetError && !this.hasError().isError()) {
+            specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+          }
+          if (!shouldSetError && this.hasError().isError()) {
+            specs.push(TableUpdateFieldHasErrorSpec.clearError(this.id(), this.hasError()));
+          }
+        } else if (!this.hasError().isError()) {
+          specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+        }
+      }
+    }
+
+    if (!condition) return ok(specs);
+    const filter = condition.toDto().filter;
+    if (filter == null) return ok(specs);
+    if (!hasFieldFilterSyncPlanChanges(plan)) return ok(specs);
+    if (!hasFieldReferenceInFilter(filter, updatedField.id())) return ok(specs);
+
+    const nextFilter = syncFilterByFieldChanges(filter, updatedField.id(), plan);
+    if (isEquivalentFilter(filter, nextFilter)) {
+      return ok(specs);
+    }
+
+    const nextOptionsResult = LookupOptions.create({
+      ...this.lookupOptionsValue.toDto(),
+      filter: nextFilter === null ? undefined : nextFilter,
+    });
+    if (nextOptionsResult.isErr()) {
+      return err(nextOptionsResult.error);
+    }
+    const nextOptions = nextOptionsResult.value;
+    if (!nextOptions.equals(this.lookupOptionsValue)) {
+      specs.push(UpdateLookupOptionsSpec.create(this.id(), this.lookupOptionsValue, nextOptions));
+    }
+
+    return ok(specs);
+  }
+
+  private hasLookupTargetSelectOptionChanges(
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
+  ): boolean {
+    return updateSpecs.some((spec) => {
+      if (
+        spec instanceof UpdateSingleSelectOptionsSpec ||
+        spec instanceof UpdateMultipleSelectOptionsSpec
+      ) {
+        if (!spec.fieldId().equals(this.lookupFieldId())) {
+          return false;
+        }
+        return (
+          spec.addedOptions().length > 0 ||
+          spec.removedOptions().length > 0 ||
+          spec.modifiedOptions().length > 0
+        );
+      }
+
+      return false;
+    });
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

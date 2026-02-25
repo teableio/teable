@@ -1,5 +1,5 @@
 import type { Prisma } from '@teable/db-main-prisma';
-import { IS_TEMPLATE_HEADER, type IUserMeVo } from '@teable/openapi';
+import { IS_TEMPLATE_HEADER, BASE_SHARE_ID_HEADER, type IUserMeVo } from '@teable/openapi';
 import type { Request } from 'express';
 import { pick } from 'lodash';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -25,4 +25,10 @@ export const getTemplateHeader = (request: Request): string | undefined => {
   const templateHeader =
     request.headers[IS_TEMPLATE_HEADER.toLowerCase()] || request.headers[IS_TEMPLATE_HEADER];
   return typeof templateHeader === 'string' ? templateHeader : undefined;
+};
+
+export const getBaseShareHeader = (request: Request): string | undefined => {
+  const baseShareHeader =
+    request.headers[BASE_SHARE_ID_HEADER.toLowerCase()] || request.headers[BASE_SHARE_ID_HEADER];
+  return typeof baseShareHeader === 'string' ? baseShareHeader : undefined;
 };

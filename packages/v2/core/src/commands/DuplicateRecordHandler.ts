@@ -15,7 +15,7 @@ import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
+import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -147,29 +147,38 @@ export class DuplicateRecordHandler
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
-          return safeTry<RecordMutationResult, DomainError>(async function* () {
+          return safeTry<
+            {
+              mutation: RecordMutationResult;
+              tableEvents: ReadonlyArray<IDomainEvent>;
+            },
+            DomainError
+          >(async function* () {
+            let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
-              yield* await handler.tableUpdateFlow.execute(
+              const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
                 transactionContext,
                 { table },
                 () => ok(tableUpdateResult),
                 { publishEvents: false }
               );
+              tableEvents = tableFlowResult.events;
             }
-            const result = yield* await handler.tableRecordRepository.insert(
+            const mutation = yield* await handler.tableRecordRepository.insert(
               transactionContext,
               tableForCreate,
               record,
               command.order ? { order: command.order } : undefined
             );
-            return ok(result);
+            return ok({ mutation, tableEvents });
           });
         }
       );
-      const mutationResult = yield* transactionResult;
+      const persistedResult = yield* transactionResult;
+      const mutationResult = persistedResult.mutation;
 
       // 9. Pull and publish events
-      const events = tableForCreate.pullDomainEvents();
+      const events = [...persistedResult.tableEvents, ...tableForCreate.pullDomainEvents()];
       yield* await handler.eventBus.publishMany(context, events);
 
       const recordFields: Record<string, unknown> = {};

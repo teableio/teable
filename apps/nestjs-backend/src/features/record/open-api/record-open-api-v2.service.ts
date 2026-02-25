@@ -2,14 +2,15 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
-import { FieldKeyType, generateOperationId, parseClipboardText } from '@teable/core';
-import type { IFilterSet } from '@teable/core';
+import { FieldKeyType, parseClipboardText } from '@teable/core';
+import type { IFilter, IFilterSet } from '@teable/core';
 import type {
   IUpdateRecordRo,
   IFormSubmitRo,
   IRecord,
   ICreateRecordsRo,
   ICreateRecordsVo,
+  IGetRecordsRo,
   IPasteRo,
   IPasteVo,
   IRangesRo,
@@ -40,14 +41,11 @@ import type {
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
-import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
-import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
 import { FieldService } from '../../field/field.service';
 import { SelectionService } from '../../selection/selection.service';
 import { TableService } from '../../table/table.service';
-import { TableDomainQueryService } from '../../table-domain';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { RecordService } from '../record.service';
@@ -82,8 +80,6 @@ export class RecordOpenApiV2Service {
     private readonly cls: ClsService<IClsStore>,
     private readonly fieldService: FieldService,
     private readonly aggregationService: AggregationService,
-    private readonly eventEmitterService: EventEmitterService,
-    private readonly tableDomainQueryService: TableDomainQueryService,
     @Inject(forwardRef(() => SelectionService))
     private readonly selectionService: SelectionService
   ) {}
@@ -385,7 +381,20 @@ export class RecordOpenApiV2Service {
     // - columns: [[startCol, endCol]] - single element array
     // - rows: [[startRow, endRow]] - single element array
     // v2 now supports type parameter directly and handles the conversion internally
-    const { ranges, content, viewId, header, type, projection, filter, orderBy } = pasteRo;
+    const {
+      ranges,
+      content,
+      viewId,
+      header,
+      type,
+      projection,
+      filter,
+      orderBy,
+      groupBy,
+      collapsedGroupIds,
+      search,
+      ignoreViewQuery,
+    } = pasteRo;
 
     let fallbackRanges: IPasteVo['ranges'] | null = null;
     let v2Input: unknown;
@@ -406,11 +415,28 @@ export class RecordOpenApiV2Service {
         const hasRecordCreatePermission = permissions.includes('record|create');
 
         // Get table size to calculate expansion needs
-        const resolvedViewId = await this.resolveViewId(tableId, viewId);
-        const queryRo = { viewId: resolvedViewId, filter, projection, orderBy };
+        const rangeQuery = await this.normalizeRangeQuery(tableId, {
+          viewId,
+          filter,
+          search,
+          groupBy,
+          orderBy,
+          collapsedGroupIds,
+          ignoreViewQuery,
+        });
+        const queryRo = {
+          viewId: rangeQuery.viewId,
+          ignoreViewQuery: rangeQuery.ignoreViewQuery,
+          filter: rangeQuery.filter,
+          projection,
+          orderBy: rangeQuery.orderBy,
+          groupBy: rangeQuery.groupBy,
+          collapsedGroupIds,
+          search,
+        };
 
         const fields = await this.fieldService.getFieldInstances(tableId, {
-          viewId: resolvedViewId,
+          viewId: rangeQuery.viewId,
           filterHidden: true,
           projection,
         });
@@ -505,13 +531,17 @@ export class RecordOpenApiV2Service {
           options: field.options,
         }));
 
-        const normalizedFilter = this.mapV1FilterToV2(filter);
+        const normalizedFilter = this.mapV1FilterToV2(queryRo.filter);
         const normalizedUpdateFilter = options?.updateFilter
           ? this.mapV1FilterToV2(options.updateFilter)
           : undefined;
+        const sortWithGroupFallback = this.mergeGroupByIntoSort(
+          rangeQuery.groupBy,
+          rangeQuery.orderBy
+        );
         v2Input = {
           tableId,
-          viewId: resolvedViewId,
+          viewId: rangeQuery.viewId,
           ranges: adjustedRanges,
           content: finalContent,
           typecast: true,
@@ -520,7 +550,12 @@ export class RecordOpenApiV2Service {
           projection,
           filter: normalizedFilter,
           updateFilter: normalizedUpdateFilter,
-          sort: orderBy,
+          sort: sortWithGroupFallback,
+          groupBy: rangeQuery.groupBy?.map((item) => ({
+            fieldId: item.fieldId,
+            order: item.order,
+          })),
+          ignoreViewQuery: rangeQuery.ignoreViewQuery,
         };
       } finally {
         span.end();
@@ -653,23 +688,25 @@ export class RecordOpenApiV2Service {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
 
-    // Convert v1 input format to v2 format
-    const { ranges, viewId, type, filter, projection, orderBy, groupBy } = rangesRo;
-
-    const resolvedViewId = await this.resolveViewId(tableId, viewId);
-    const normalizedFilter = this.mapV1FilterToV2(filter);
+    const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
+    const normalizedFilter = this.mapV1FilterToV2(rangeQuery.filter);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(
+      rangeQuery.groupBy,
+      rangeQuery.orderBy
+    );
     const v2Input = {
       tableId,
-      viewId: resolvedViewId,
-      ranges,
-      type,
-      projection,
+      viewId: rangeQuery.viewId,
+      ranges: rangesRo.ranges,
+      type: rangesRo.type,
+      projection: rangesRo.projection,
       filter: normalizedFilter,
-      sort: orderBy,
-      groupBy: groupBy?.map((item) => ({
+      sort: sortWithGroupFallback,
+      groupBy: rangeQuery.groupBy?.map((item) => ({
         fieldId: item.fieldId,
         order: item.order,
       })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
     };
 
     const result = await executeClearEndpoint(context, v2Input, commandBus);
@@ -691,16 +728,54 @@ export class RecordOpenApiV2Service {
    * This method queries the record IDs that will be affected by a range-based operation.
    */
   async getRecordIdsFromRanges(tableId: string, rangesRo: IRangesRo): Promise<string[]> {
-    const { ranges, type, viewId, filter, orderBy, search, groupBy, collapsedGroupIds } = rangesRo;
-
-    const baseQuery = {
+    const {
+      ranges,
+      type,
       viewId,
       filter,
       orderBy,
       search,
       groupBy,
       collapsedGroupIds,
+      ignoreViewQuery,
+    } = rangesRo;
+
+    const baseQuery = {
+      viewId,
+      ignoreViewQuery,
+      filter,
+      orderBy,
+      search,
+      groupBy,
+      collapsedGroupIds,
       fieldKeyType: FieldKeyType.Id,
+    };
+    const maxBatchSize = 1000;
+
+    const fetchRecordIdsByRange = async (start: number, end: number): Promise<string[]> => {
+      const total = end - start + 1;
+      if (total <= 0) {
+        return [];
+      }
+
+      let recordIds: string[] = [];
+      for (let offset = 0; offset < total; offset += maxBatchSize) {
+        const take = Math.min(maxBatchSize, total - offset);
+        const result = await this.recordService.getDocIdsByQuery(
+          tableId,
+          {
+            ...baseQuery,
+            skip: start + offset,
+            take,
+          },
+          true
+        );
+        recordIds = recordIds.concat(result.ids);
+        if (result.ids.length < take) {
+          break;
+        }
+      }
+      return recordIds;
     };
 
     if (type === RangeType.Columns) {
@@ -717,24 +792,14 @@ export class RecordOpenApiV2Service {
       // For rows selection, iterate through each range [start, end]
       let recordIds: string[] = [];
       for (const [start, end] of ranges) {
-        const result = await this.recordService.getDocIdsByQuery(
-          tableId,
-          { ...baseQuery, skip: start, take: end - start + 1 },
-          true
-        );
-        recordIds = recordIds.concat(result.ids);
+        recordIds = recordIds.concat(await fetchRecordIdsByRange(start, end));
       }
       return recordIds;
     }
 
     // Default: cell range - ranges is [[startCol, startRow], [endCol, endRow]]
     const [start, end] = ranges;
-    const result = await this.recordService.getDocIdsByQuery(
-      tableId,
-      { ...baseQuery, skip: start[1], take: end[1] - start[1] + 1 },
-      true
-    );
-    return result.ids;
+    return fetchRecordIdsByRange(start[1], end[1]);
   }
 
   async deleteByRange(
@@ -746,25 +811,29 @@ export class RecordOpenApiV2Service {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
 
-    // Resolve viewId (required for v2 deleteByRange)
-    const viewId = await this.resolveViewId(tableId, rangesRo.viewId);
+    const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(
+      rangeQuery.groupBy,
+      rangeQuery.orderBy
+    );
 
     // Build v2 deleteByRange input
     const v2Input = {
       tableId,
-      viewId,
+      viewId: rangeQuery.viewId,
       ranges: rangesRo.ranges,
       type: rangesRo.type,
-      filter: this.mapV1FilterToV2(rangesRo.filter),
-      sort: rangesRo.orderBy?.map((item) => ({
+      filter: this.mapV1FilterToV2(rangeQuery.filter),
+      sort: sortWithGroupFallback?.map((item) => ({
         fieldId: item.fieldId,
         order: item.order,
       })),
       search: rangesRo.search,
-      groupBy: rangesRo.groupBy?.map((item) => ({
+      groupBy: rangeQuery.groupBy?.map((item) => ({
         fieldId: item.fieldId,
         order: item.order,
       })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
     };
 
     const result = await executeDeleteByRangeEndpoint(context, v2Input, commandBus);
@@ -785,12 +854,11 @@ export class RecordOpenApiV2Service {
   async deleteRecords(
     tableId: string,
     recordIds: string[],
-    windowId?: string
+    _windowId?: string
   ): Promise<IRecordsVo> {
     const container = await this.v2ContainerService.getContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
-    const userId = this.cls.get('user.id');
 
     // Query records before deletion to return them in V1 format
     const recordSnapshots = await this.recordService.getSnapshotBulkWithPermission(
@@ -802,13 +870,6 @@ export class RecordOpenApiV2Service {
       true
     );
 
-    // Get record orders for undo/redo support (only if windowId is provided)
-    let orders: Record<string, number>[] | undefined;
-    if (windowId) {
-      const table = await this.tableDomainQueryService.getTableDomainById(tableId);
-      orders = await this.recordService.getRecordIndexes(table, recordIds);
-    }
-
     const v2Input = {
       tableId,
       recordIds,
@@ -817,29 +878,6 @@ export class RecordOpenApiV2Service {
     const result = await executeDeleteRecordsEndpoint(context, v2Input, commandBus);
 
     if (result.status === 200 && result.body.ok) {
-      // TODO: Migrate to pure V2 undo/redo - see v2-undo-redo.service.ts for details.
-      //
-      // Currently emitting V1 event because V2's RecordsDeleted projection cannot
-      // handle undo/redo correctly:
-      // 1. V2's stored query returns incomplete field data (primary field value missing)
-      // 2. V2 doesn't track record order in views (required for restoring position)
-      // 3. V1's getSnapshotBulkWithPermission + getRecordIndexes provides complete data
-      //
-      // When V2 stored query is fixed and order tracking is added, this should be
-      // replaced by proper V2 projection handling in V2RecordsDeletedUndoRedoProjection.
-      const records = recordSnapshots.map((snapshot, index) => ({
-        ...(snapshot.data as IRecord),
-        order: orders?.[index],
-      }));
-
-      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
-        operationId: generateOperationId(),
-        windowId,
-        tableId,
-        userId,
-        records,
-      });
-
       // Return records that were deleted (V1 format)
       return {
         records: recordSnapshots.map((snapshot) => snapshot.data as IRecord),
@@ -866,6 +904,111 @@ export class RecordOpenApiV2Service {
     }
     const defaultView = await this.tableService.getDefaultViewId(tableId);
     return defaultView.id;
+  }
+
+  private async normalizeRangeQuery(
+    tableId: string,
+    query: Pick<
+      IRangesRo,
+      | 'viewId'
+      | 'filter'
+      | 'search'
+      | 'groupBy'
+      | 'orderBy'
+      | 'collapsedGroupIds'
+      | 'ignoreViewQuery'
+    >
+  ): Promise<{
+    viewId: string;
+    filter: IFilter | null | undefined;
+    orderBy: IRangesRo['orderBy'];
+    groupBy: IRangesRo['groupBy'];
+    ignoreViewQuery: boolean;
+  }> {
+    const resolvedViewId = await this.resolveViewId(tableId, query.viewId);
+    const filterWithCollapsed = await this.buildRangeFilter(tableId, {
+      viewId: resolvedViewId,
+      filter: query.filter,
+      search: query.search,
+      groupBy: query.groupBy,
+      collapsedGroupIds: query.collapsedGroupIds,
+      ignoreViewQuery: query.ignoreViewQuery,
+    });
+
+    return {
+      viewId: resolvedViewId,
+      filter: filterWithCollapsed,
+      orderBy: query.orderBy,
+      groupBy: query.groupBy,
+      ignoreViewQuery: query.ignoreViewQuery ?? false,
+    };
+  }
+
+  /**
+   * V1 selection APIs derive row offsets from `groupBy + orderBy`.
+   * Keep the same effective sort in v2 input so row targeting remains stable
+   * even when intermediate adapters fail to carry `groupBy`.
+   */
+  private mergeGroupByIntoSort(
+    groupBy?: IRangesRo['groupBy'],
+    orderBy?: IRangesRo['orderBy']
+  ): IRangesRo['orderBy'] {
+    const merged = [...(groupBy ?? []), ...(orderBy ?? [])];
+    if (!merged.length) {
+      return undefined;
+    }
+
+    const deduplicated = merged.filter(
+      (item, index, list) =>
+        list.findIndex((candidate) => candidate.fieldId === item.fieldId) === index
+    );
+
+    return deduplicated.length ? deduplicated : undefined;
+  }
+
+  private async buildRangeFilter(
+    tableId: string,
+    query: {
+      viewId: string;
+      filter?: IFilter | null;
+      search?: IRangesRo['search'];
+      groupBy?: IRangesRo['groupBy'];
+      collapsedGroupIds?: string[];
+      ignoreViewQuery?: boolean;
+    }
+  ): Promise<IFilter | null | undefined> {
+    const normalizedGroupBy = query.groupBy ?? undefined;
+    if (!normalizedGroupBy?.length || !query.collapsedGroupIds?.length) {
+      return query.filter;
+    }
+    const normalizedSearch = this.normalizeGroupRelatedSearch(query.search);
+    const normalizedFilter = query.filter ?? undefined;
+
+    const { filter } = await this.recordService.getGroupRelatedData(tableId, {
+      viewId: query.viewId,
+      ignoreViewQuery: query.ignoreViewQuery ?? false,
+      filter: normalizedFilter,
+      search: normalizedSearch,
+      groupBy: normalizedGroupBy,
+      collapsedGroupIds: query.collapsedGroupIds,
+    });
+
+    return filter;
+  }
+
+  private normalizeGroupRelatedSearch(search?: IRangesRo['search']): IGetRecordsRo['search'] {
+    if (!search) {
+      return undefined;
+    }
+
+    const [searchValue, fieldId, hideNotMatch] = search;
+    if (fieldId == null) {
+      return [searchValue];
+    }
+    if (hideNotMatch == null) {
+      return [searchValue, fieldId];
+    }
+    return [searchValue, fieldId, hideNotMatch];
   }
 
   private mapV1FilterToV2(filter: unknown): RecordFilter | undefined | null {

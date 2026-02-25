@@ -47,6 +47,7 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
     return {
       mode: 'local',
       attachmentManager: attachmentManager.current,
+      fieldId,
     } as const;
   }, [tableId, recordId, fieldId]);
   return (

@@ -10,6 +10,7 @@ import type { ISpecVisitor } from '../shared/specification/ISpecVisitor';
 import { NotSpec } from '../shared/specification/NotSpec';
 
 import { DbTableName } from './DbTableName';
+import type { RecordCreateSource } from './events/RecordFieldValuesDTO';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import type { Field } from './fields/Field';
@@ -18,6 +19,9 @@ import { FieldName } from './fields/FieldName';
 import { FieldType } from './fields/FieldType';
 import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
 import { FieldIsComputedSpec } from './fields/specs/FieldIsComputedSpec';
+import type { FieldHasError } from './fields/types/FieldHasError';
+import type { FieldNotNull } from './fields/types/FieldNotNull';
+import type { FieldUnique } from './fields/types/FieldUnique';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
 import type { SelectOption } from './fields/types/SelectOption';
 import { SingleSelectField } from './fields/types/SingleSelectField';
@@ -30,7 +34,6 @@ import {
   getOrderedVisibleFieldIds as getOrderedVisibleFieldIdsMethod,
   type GetOrderedVisibleFieldIdsOptions,
 } from './methods/getOrderedVisibleFieldIds';
-import { validateFormSubmission as validateFormSubmissionMethod } from './methods/validateFormSubmission';
 import {
   createRecord as createRecordMethod,
   createRecords as createRecordsMethod,
@@ -43,12 +46,13 @@ import {
   type UpdateRecordItem,
 } from './methods/records';
 import { rename as renameMethod } from './methods/rename';
+import { validateFormSubmission as validateFormSubmissionMethod } from './methods/validateFormSubmission';
 import type { RecordCreateResult } from './records/RecordCreateResult';
 import type { RecordId } from './records/RecordId';
 import type { RecordUpdateResult } from './records/RecordUpdateResult';
 import type { TableRecord } from './records/TableRecord';
-import type { RecordCreateSource } from './events/RecordFieldValuesDTO';
 import { resolveFormulaFields } from './resolveFormulaFields';
+import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
 import { TableBuilder } from './TableBuilder';
@@ -104,7 +108,7 @@ export class Table extends AggregateRoot<TableId> {
     return TableBuilder.create(factory);
   }
 
-  static specs(baseId: BaseId): TableSpecBuilder {
+  static specs(baseId?: BaseId): TableSpecBuilder {
     return TableSpecBuilder.create(baseId);
   }
 
@@ -579,6 +583,74 @@ export class Table extends AggregateRoot<TableId> {
     return mutator.apply();
   }
 
+  updateField(
+    fieldId: FieldId,
+    buildSpecs: (
+      currentField: Field
+    ) => Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError>,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<
+    {
+      previousField: Field;
+      updatedField: Field;
+      specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>;
+      updateResult: TableUpdateResult;
+    },
+    DomainError
+  > {
+    const currentFieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (currentFieldResult.isErr()) return err(currentFieldResult.error);
+    const previousField = currentFieldResult.value;
+
+    const specsResult = buildSpecs(previousField);
+    if (specsResult.isErr()) return err(specsResult.error);
+    const appliedSpecs = specsResult.value;
+
+    const updateResult = this.update((mutator) =>
+      mutator.updateField(fieldId, appliedSpecs, options)
+    );
+    if (updateResult.isErr()) return err(updateResult.error);
+
+    const updatedFieldResult = updateResult.value.table.getField((field) =>
+      field.id().equals(fieldId)
+    );
+    if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+
+    return ok({
+      previousField,
+      updatedField: updatedFieldResult.value,
+      specs: appliedSpecs,
+      updateResult: updateResult.value,
+    });
+  }
+
+  updateFieldWithSpecs(
+    fieldId: FieldId,
+    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<
+    {
+      updatedField: Field;
+      specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>;
+      updateResult: TableUpdateResult;
+    },
+    DomainError
+  > {
+    const updateResult = this.update((mutator) => mutator.updateField(fieldId, specs, options));
+    if (updateResult.isErr()) return err(updateResult.error);
+
+    const updatedFieldResult = updateResult.value.table.getField((field) =>
+      field.id().equals(fieldId)
+    );
+    if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+
+    return ok({
+      updatedField: updatedFieldResult.value,
+      specs,
+      updateResult: updateResult.value,
+    });
+  }
+
   rename(nextName: TableName): Result<Table, DomainError> {
     return renameMethod.call(this, nextName);
   }
@@ -721,6 +793,201 @@ export class Table extends AggregateRoot<TableId> {
     }
 
     return Table.rehydrate(props);
+  }
+
+  /**
+   * Update a field's name.
+   * @param fieldId - The field to update
+   * @param nextName - The new name
+   * @returns Result containing the updated table or an error
+   */
+  updateFieldName(fieldId: FieldId, nextName: FieldName): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+
+    // Check for name uniqueness (excluding the current field)
+    const nameConflict = this.fieldsValue.some(
+      (f) => !f.id().equals(fieldId) && f.name().equals(nextName)
+    );
+    if (nameConflict) {
+      return err(domainError.conflict({ message: 'Field names must be unique' }));
+    }
+
+    // Create updated field using duplicate with new name
+    const updatedFieldResult = field.duplicate({
+      newId: field.id(),
+      newName: nextName,
+      baseId: this.baseIdValue,
+      tableId: this.id(),
+    });
+    if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+
+    const updatedField = updatedFieldResult.value;
+
+    const descriptionResult = updatedField.setDescription(field.description());
+    if (descriptionResult.isErr()) return err(descriptionResult.error);
+
+    const dbFieldNameResult = field.dbFieldName();
+    if (dbFieldNameResult.isOk()) {
+      const setDbFieldNameResult = updatedField.setDbFieldName(dbFieldNameResult.value);
+      if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+    }
+
+    const dbFieldTypeResult = field.dbFieldType();
+    if (dbFieldTypeResult.isOk()) {
+      const setDbFieldTypeResult = updatedField.setDbFieldType(dbFieldTypeResult.value);
+      if (setDbFieldTypeResult.isErr()) return err(setDbFieldTypeResult.error);
+    }
+
+    const nextFields = this.fieldsValue.map((f) => (f.id().equals(fieldId) ? updatedField : f));
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: this.viewsValue,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props);
+  }
+
+  updateFieldDescription(fieldId: FieldId, description: string | null): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+    const setDescriptionResult = field.setDescription(description);
+    if (setDescriptionResult.isErr()) return err(setDescriptionResult.error);
+
+    return ok(this);
+  }
+
+  /**
+   * Replace a field with a new field (for type conversion).
+   * The new field must have the same ID as the old field.
+   * @param fieldId - The field to replace
+   * @param newField - The new field instance
+   * @returns Result containing the updated table or an error
+   */
+  replaceField(
+    fieldId: FieldId,
+    newField: Field,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<Table, DomainError> {
+    if (!fieldId.equals(newField.id())) {
+      return err(
+        domainError.validation({ message: 'New field must have the same ID as the old field' })
+      );
+    }
+
+    const oldFieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (oldFieldResult.isErr()) return err(oldFieldResult.error);
+    const oldField = oldFieldResult.value;
+
+    const oldDbFieldNameResult = oldField.dbFieldName();
+    if (oldDbFieldNameResult.isOk() && newField.dbFieldName().isErr()) {
+      const setDbFieldNameResult = newField.setDbFieldName(oldDbFieldNameResult.value);
+      if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+    }
+
+    // Primary field conversion aligns with v1: conversion is allowed but target type is restricted.
+    if (this.primaryFieldIdValue.equals(fieldId)) {
+      if (!oldField.type().equals(newField.type())) {
+        const nextType = newField.type().toString();
+        if (!newField.type().isPrimarySupported()) {
+          return err(
+            domainError.validation({
+              message: `Field type ${nextType} is not supported as primary field`,
+            })
+          );
+        }
+      }
+    }
+
+    // Check for name uniqueness if name changed (excluding the current field)
+    const nameConflict = this.fieldsValue.some(
+      (f) => !f.id().equals(fieldId) && f.name().equals(newField.name())
+    );
+    if (nameConflict) {
+      return err(domainError.conflict({ message: 'Field names must be unique' }));
+    }
+
+    const nextFields = this.fieldsValue.map((f) => (f.id().equals(fieldId) ? newField : f));
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: this.viewsValue,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props).andThen((nextTable) => {
+      const resolved = newField.type().equals(FieldType.formula())
+        ? resolveFormulaFields(nextTable)
+        : ok(undefined);
+      if (resolved.isErr()) return err(resolved.error);
+      return ok(nextTable);
+    });
+  }
+
+  /**
+   * Update a field's constraints (notNull, unique).
+   * @param fieldId - The field to update
+   * @param notNull - The new notNull constraint
+   * @param unique - The new unique constraint
+   * @returns Result containing the updated table or an error
+   */
+  updateFieldConstraints(
+    fieldId: FieldId,
+    notNull: FieldNotNull,
+    unique: FieldUnique
+  ): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+
+    // Apply constraints to the field
+    const setNotNullResult = field.setNotNull(notNull);
+    if (setNotNullResult.isErr()) return err(setNotNullResult.error);
+
+    const setUniqueResult = field.setUnique(unique);
+    if (setUniqueResult.isErr()) return err(setUniqueResult.error);
+
+    // Table structure doesn't change, just field state
+    return ok(this);
+  }
+
+  /**
+   * Update a field's error state.
+   * Used when computed fields have broken references.
+   * @param fieldId - The field to update
+   * @param hasError - The new error state
+   * @returns Result containing the updated table or an error
+   */
+  updateFieldHasError(fieldId: FieldId, hasError: FieldHasError): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+    field.setHasError(hasError);
+
+    // Table structure doesn't change, just field state
+    return ok(this);
   }
 
   private validateForeignTables(

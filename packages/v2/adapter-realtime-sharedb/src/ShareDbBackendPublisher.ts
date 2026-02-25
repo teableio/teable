@@ -7,6 +7,10 @@ import type { Doc } from 'sharedb/lib/client';
 
 import type { IShareDbOpPublisher, ShareDbOp } from './ShareDbPublisher';
 
+const projectionSubmitOptions = {
+  source: '@@v2-projection',
+};
+
 export class ShareDbBackendPublisher implements IShareDbOpPublisher {
   private readonly logger: ILogger;
 
@@ -79,7 +83,7 @@ export class ShareDbBackendPublisher implements IShareDbOpPublisher {
             done();
             return;
           }
-          doc.create(op.create.data, op.create.type, {}, done);
+          doc.create(op.create.data, op.create.type, projectionSubmitOptions, done);
         });
         return;
       }
@@ -91,16 +95,16 @@ export class ShareDbBackendPublisher implements IShareDbOpPublisher {
             return;
           }
           if (!doc.type) {
-            doc.create({}, 'json0', {}, (createError) => {
+            doc.create({}, 'json0', projectionSubmitOptions, (createError) => {
               if (createError && !isAlreadyExistsError(createError)) {
                 done(createError);
                 return;
               }
-              doc.del(done);
+              doc.del(projectionSubmitOptions, done);
             });
             return;
           }
-          doc.del(done);
+          doc.del(projectionSubmitOptions, done);
         });
         return;
       }
@@ -111,7 +115,7 @@ export class ShareDbBackendPublisher implements IShareDbOpPublisher {
             done(fetchError);
             return;
           }
-          doc.submitOp(op.op, {}, done);
+          doc.submitOp(op.op, projectionSubmitOptions, done);
         });
         return;
       }
