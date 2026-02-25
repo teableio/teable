@@ -8,13 +8,11 @@ import type {
 // Recommended model IDs - all details fetched from API
 export const RECOMMENDED_MODEL_IDS = [
   // Language models
-  'anthropic/claude-sonnet-4.5', // Best quality
-  'anthropic/claude-haiku-4.5', // Fast & cheap
-  'openai/gpt-5.2', // OpenAI flagship
-  'google/gemini-3-pro-preview', // Google flagship
+  'anthropic/claude-opus-4.6', // Best quality
+  'openai/gpt-5.2-chat', // OpenAI flagship
+  'google/gemini-3.1-pro-preview', // Google flagship
   // Image generation
   'google/gemini-3-pro-image', // Multimodal image generation
-  'xai/grok-4', // Grok
 ];
 
 // API response model structure from backend (camelCase, converted from Vercel AI Gateway snake_case)

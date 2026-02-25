@@ -61,3 +61,7 @@ export function generateTemplatePermalinkCacheKey(identifier: string) {
 export function generateInstanceBillableUserCountCacheKey() {
   return 'instance-billable-count' as const;
 }
+
+export function generateBaseShareListCacheKey(baseId: string) {
+  return `base-share-list:${baseId}` as const;
+}

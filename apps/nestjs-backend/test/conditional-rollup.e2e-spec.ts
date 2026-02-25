@@ -4113,4 +4113,138 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(bobSummary.fields[sumWithoutExcludedField.id]).toEqual(7);
     });
   });
+
+  describe('v2 update field hasError propagation', () => {
+    const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+    const itV2Only = isForceV2 ? it : it.skip;
+
+    itV2Only('marks conditional rollup as errored when filter field is deleted', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'V2CondRollupFilterDel_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Alpha', Amount: 2, Status: 'Active' } },
+          { fields: { Title: 'Beta', Amount: 4, Status: 'Active' } },
+          { fields: { Title: 'Gamma', Amount: 6, Status: 'Inactive' } },
+        ],
+      });
+      const host = await createTable(baseId, {
+        name: 'V2CondRollupFilterDel_Host',
+        fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Label: 'Row 1' } }],
+      });
+      const amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+
+      try {
+        // Create conditional rollup without filter
+        let rollupField = await createField(host.id, {
+          name: 'Filtered Sum',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: amountId,
+            expression: 'sum({values})',
+          },
+        } as IFieldRo);
+
+        // Convert to add a filter referencing statusId
+        rollupField = await convertField(host.id, rollupField.id, {
+          name: 'Filtered Sum',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: amountId,
+            expression: 'sum({values})',
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: statusId, operator: 'is', value: 'Active' }],
+            },
+          },
+        } as IFieldRo);
+
+        const hostRecord = await getRecord(host.id, host.records[0].id);
+        expect(hostRecord.fields[rollupField.id]).toEqual(6);
+
+        // Delete the filter field from the foreign table
+        await deleteField(foreign.id, statusId);
+
+        const hostFields = await getFields(host.id);
+        const erroredField = hostFields.find((f) => f.id === rollupField.id)!;
+        expect(erroredField.hasError).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, host.id);
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
+    itV2Only(
+      'marks conditional rollup as errored when lookup field type becomes incompatible',
+      async () => {
+        const foreign = await createTable(baseId, {
+          name: 'V2CondRollupTypeErr_Foreign',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Amount', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            { fields: { Title: 'Alpha', Amount: 2 } },
+            { fields: { Title: 'Beta', Amount: 4 } },
+            { fields: { Title: 'Gamma', Amount: 6 } },
+          ],
+        });
+        const host = await createTable(baseId, {
+          name: 'V2CondRollupTypeErr_Host',
+          fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Label: 'Row 1' } }],
+        });
+        const amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+        const hostRecordId = host.records[0].id;
+
+        try {
+          const rollupField = await createField(host.id, {
+            name: 'Sum Amount',
+            type: FieldType.ConditionalRollup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: amountId,
+              expression: 'sum({values})',
+            },
+          } as IFieldRo);
+
+          const baseline = await getRecord(host.id, hostRecordId);
+          expect(baseline.fields[rollupField.id]).toEqual(12);
+
+          // Convert numeric lookup field to SingleSelect (incompatible with sum)
+          await convertField(foreign.id, amountId, {
+            name: 'Amount (Select)',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: '2', color: Colors.Blue },
+                { name: '4', color: Colors.Green },
+                { name: '6', color: Colors.Orange },
+              ],
+            },
+          } as IFieldRo);
+
+          let erroredField: IFieldVo | undefined;
+          for (let attempt = 0; attempt < 10; attempt++) {
+            const fieldsAfterConversion = await getFields(host.id);
+            erroredField = fieldsAfterConversion.find((f) => f.id === rollupField.id);
+            if (erroredField?.hasError) break;
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          }
+          expect(erroredField?.hasError).toBe(true);
+        } finally {
+          await permanentDeleteTable(baseId, host.id);
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    );
+  });
 });

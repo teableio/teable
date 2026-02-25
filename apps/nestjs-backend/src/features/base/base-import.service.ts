@@ -107,10 +107,15 @@ export class BaseImportService {
     });
   }
 
-  async importBase(importBaseRo: ImportBaseRo) {
+  async importBase(
+    importBaseRo: ImportBaseRo,
+    onProgress?: (phase: string, detail?: string) => void
+  ) {
     const {
       notify: { path },
     } = importBaseRo;
+
+    onProgress?.('parsing_structure');
 
     // 1. create base structure from json
     const structureStream = await this.storageAdapter.downloadFile(
@@ -121,17 +126,22 @@ export class BaseImportService {
     const { base, tableIdMap, viewIdMap, fieldIdMap, fkMap, structure, ...rest } =
       await this.prismaService.$tx(
         async () => {
-          return await this.processStructure(structureStream, importBaseRo);
+          return await this.processStructure(structureStream, importBaseRo, onProgress);
         },
         {
           timeout: this.thresholdConfig.bigTransactionTimeout,
         }
       );
 
-    // 2. upload attachments
+    // Structure created successfully, notify with baseId
+    onProgress?.('structure_created', base.id);
+
+    // 2. upload attachments (queued)
+    onProgress?.('queuing_attachments');
     this.uploadAttachments(path);
 
-    // 3. create import table data task
+    // 3. create import table data task (queued)
+    onProgress?.('queuing_data_import');
     this.appendTableData(
       base.id,
       importBaseRo,
@@ -161,7 +171,8 @@ export class BaseImportService {
 
   private async processStructure(
     zipStream: Readable,
-    importBaseRo: ImportBaseRo
+    importBaseRo: ImportBaseRo,
+    onProgress?: (phase: string, detail?: string) => void
   ): Promise<{
     base: ICreateBaseVo;
     tableIdMap: Record<string, string>;
@@ -191,7 +202,14 @@ export class BaseImportService {
               }
 
               try {
-                const result = await this.createBaseStructure(spaceId, structureObject!, undefined);
+                const result = await this.createBaseStructure(
+                  spaceId,
+                  structureObject!,
+                  undefined,
+                  undefined,
+                  undefined,
+                  onProgress
+                );
                 resolve(result);
               } catch (error) {
                 reject(error);
@@ -265,11 +283,13 @@ export class BaseImportService {
     structure: IBaseJson,
     baseId?: string,
     skipCreateBaseNodes?: boolean,
-    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal
+    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
+    onProgress?: (phase: string, detail?: string) => void
   ) {
     const { name, icon, tables, plugins, folders } = structure;
 
     // create base
+    onProgress?.('creating_base', name);
     const newBase = baseId
       ? await this.prismaService.base.findUniqueOrThrow({
           where: { id: baseId },
@@ -297,12 +317,17 @@ export class BaseImportService {
     // create table
     const { tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
       newBase.id,
-      tables
+      tables,
+      onProgress
     );
 
     this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 
     // create plugins
+    const hasPlugins = Object.values(plugins).some((arr) => Array.isArray(arr) && arr.length > 0);
+    if (hasPlugins) {
+      onProgress?.('creating_plugins');
+    }
     const { dashboardIdMap } = await this.createPlugins(
       newBase.id,
       plugins,
@@ -313,6 +338,9 @@ export class BaseImportService {
     this.logger.log(`base-duplicate-service: Duplicate base plugins successfully`);
 
     // create folders
+    if (Array.isArray(folders) && folders.length > 0) {
+      onProgress?.('creating_folders');
+    }
     const { folderIdMap } = await this.createFolders(newBase.id, folders);
     this.logger.log(`base-duplicate-service: Duplicate base folders successfully`);
 
@@ -345,11 +373,19 @@ export class BaseImportService {
     };
   }
 
-  private async createTables(baseId: string, tables: IBaseJson['tables']) {
+  private async createTables(
+    baseId: string,
+    tables: IBaseJson['tables'],
+    onProgress?: (phase: string, detail?: string) => void
+  ) {
     const tableIdMap: Record<string, string> = {};
+    // Build a name lookup: oldTableId → tableName
+    const tableNameMap: Record<string, string> = {};
 
     for (const table of tables) {
       const { name, icon, description, id: tableId, dbTableName } = table;
+      tableNameMap[tableId] = name;
+      onProgress?.('creating_table', name);
       const newTableVo = await this.tableService.createTable(baseId, {
         name,
         icon,
@@ -360,10 +396,15 @@ export class BaseImportService {
       this.logger.log(`base-duplicate-service: duplicate table item successfully`);
     }
 
-    const { fieldMap: fieldIdMap, fkMap } = await this.createFields(tables, tableIdMap);
+    const { fieldMap: fieldIdMap, fkMap } = await this.createFields(
+      tables,
+      tableIdMap,
+      tableNameMap,
+      onProgress
+    );
     this.logger.log(`base-duplicate-service: Duplicate table fields successfully`);
 
-    const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap);
+    const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap, onProgress);
     this.logger.log(`base-duplicate-service: Duplicate table views successfully`);
 
     await this.fieldDuplicateService.repairFieldOptions(tables, tableIdMap, fieldIdMap, viewIdMap);
@@ -371,7 +412,12 @@ export class BaseImportService {
     return { tableIdMap, fieldIdMap, viewIdMap, fkMap };
   }
 
-  private async createFields(tables: IBaseJson['tables'], tableIdMap: Record<string, string>) {
+  private async createFields(
+    tables: IBaseJson['tables'],
+    tableIdMap: Record<string, string>,
+    tableNameMap?: Record<string, string>,
+    onProgress?: (phase: string, detail?: string) => void
+  ) {
     const fieldMap: Record<string, string> = {};
     const fkMap: Record<string, string> = {};
 
@@ -421,17 +467,39 @@ export class BaseImportService {
           .includes(id)
     );
 
+    // helper: emit per-table progress with field names
+    const emitFieldProgress = (
+      phase: string,
+      fields: { sourceTableId: string; name: string }[]
+    ) => {
+      if (!fields.length || !onProgress) return;
+      const byTable = new Map<string, string[]>();
+      for (const f of fields) {
+        const tableName = tableNameMap?.[f.sourceTableId] ?? f.sourceTableId;
+        if (!byTable.has(tableName)) byTable.set(tableName, []);
+        byTable.get(tableName)!.push(f.name);
+      }
+      for (const [table, fieldNames] of byTable) {
+        onProgress(phase, JSON.stringify({ table, fields: fieldNames.join(', ') }));
+      }
+    };
+
+    emitFieldProgress('creating_common_fields', commonFields);
     await this.fieldDuplicateService.createCommonFields(commonFields, fieldMap);
 
+    emitFieldProgress('creating_button_fields', buttonFields);
     await this.fieldDuplicateService.createButtonFields(buttonFields, fieldMap);
 
+    emitFieldProgress('creating_formula_fields', primaryFormulaFields);
     await this.fieldDuplicateService.createTmpPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
     // main fix formula dbField type
     await this.fieldDuplicateService.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
+    emitFieldProgress('creating_link_fields', linkFields);
     await this.fieldDuplicateService.createLinkFields(linkFields, tableIdMap, fieldMap, fkMap);
 
+    emitFieldProgress('creating_lookup_fields', dependencyFields);
     await this.fieldDuplicateService.createDependencyFields(dependencyFields, tableIdMap, fieldMap);
 
     // fix formula expression' field map
@@ -451,12 +519,20 @@ export class BaseImportService {
   private async createViews(
     tables: IBaseJson['tables'],
     tableIdMap: Record<string, string>,
-    fieldMap: Record<string, string>
+    fieldMap: Record<string, string>,
+    onProgress?: (phase: string, detail?: string) => void
   ) {
     const viewMap: Record<string, string> = {};
     for (const table of tables) {
-      const { views: originalViews, id: tableId } = table;
+      const { views: originalViews, id: tableId, name: tableName } = table;
       const views = originalViews.filter((view) => view.type !== ViewType.Plugin);
+      if (views.length) {
+        const viewNames = views.map((v) => v.name).join(', ');
+        onProgress?.(
+          'creating_table_views',
+          JSON.stringify({ table: tableName, fields: viewNames })
+        );
+      }
       for (const view of views) {
         const {
           name,

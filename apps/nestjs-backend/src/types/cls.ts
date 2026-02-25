@@ -29,6 +29,11 @@ export interface IClsStore extends ClsStore {
     id: string;
     baseId: string;
   };
+  // for base share context (truthy = share mode, baseId for permission check, nodeId for node filtering)
+  baseShare?: {
+    baseId: string;
+    nodeId: string;
+  };
   entry?: {
     type: string;
     id: string;
@@ -72,4 +77,9 @@ export interface IClsStore extends ClsStore {
   v2Reason?: V2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check
   windowId?: string; // Window ID from x-window-id header for undo/redo tracking
+  // cache for base share node tree (to avoid repeated queries within same request)
+  baseShareNodeCache?: Map<
+    string,
+    { id: string; parentId: string | null; resourceType: string; resourceId: string | null }[]
+  >;
 }

@@ -3,7 +3,7 @@ import type { ICellItem, ICell } from '@teable/sdk';
 import { useSession } from '@teable/sdk';
 import { SelectionRegionType } from '@teable/sdk/components/grid';
 import type { ICollaborator, CombinedSelection } from '@teable/sdk/components/grid';
-import { useConnection, useTableId, useViewId } from '@teable/sdk/hooks';
+import { useConnection, useIsReadOnlyPreview, useTableId, useViewId } from '@teable/sdk/hooks';
 import { useEffect, useState, useMemo } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
 
@@ -15,6 +15,7 @@ export const useCollaborate = (
   const { user } = useSession();
   const viewId = useViewId();
   const { connection } = useConnection();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const [presence, setPresence] = useState<Presence>();
   const [collaborators, setCollaborators] = useState<ICollaborator>([]);
   const activeCell = useMemo(() => {
@@ -25,23 +26,27 @@ export const useCollaborate = (
   }, [selection]);
 
   const localPresence = useMemo(() => {
-    if (presence && connection?.id) {
-      return presence.create(`${tableId}_${user.id}_${connection.id}`);
+    if (isReadOnlyPreview || !presence || !connection?.id) {
+      return null;
     }
-    return null;
-  }, [connection?.id, presence, tableId, user.id]);
+    return presence.create(`${tableId}_${user.id}_${connection.id}`);
+  }, [isReadOnlyPreview, connection?.id, presence, tableId, user.id]);
 
   useEffect(() => {
-    if (!tableId || !connection || !viewId) {
+    if (isReadOnlyPreview || !tableId || !connection || !viewId) {
       return;
     }
     // reset collaborators when table or view have been changed
     setCollaborators([]);
     const channel = getCellCollaboratorsChannel(tableId);
     setPresence(connection.getPresence(channel));
-  }, [connection, tableId, viewId]);
+  }, [isReadOnlyPreview, connection, tableId, viewId]);
 
   useEffect(() => {
+    if (isReadOnlyPreview) {
+      return;
+    }
+
     const receiveHandler = () => {
       if (presence?.remotePresences) {
         setCollaborators(Object.values(presence.remotePresences));
@@ -57,10 +62,10 @@ export const useCollaborate = (
       presence?.unsubscribe();
       presence?.removeListener('receive', receiveHandler);
     };
-  }, [presence]);
+  }, [isReadOnlyPreview, presence]);
 
   useEffect(() => {
-    if (!localPresence) {
+    if (isReadOnlyPreview || !localPresence) {
       return;
     }
     if (!activeCell) {
@@ -93,7 +98,7 @@ export const useCollaborate = (
     }
     // not include getCellContent, because it will be changed frequently
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCell, localPresence, tableId, user]);
+  }, [isReadOnlyPreview, activeCell, localPresence, tableId, user]);
 
   return collaborators;
 };

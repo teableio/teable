@@ -19,5 +19,6 @@ export * from './clear';
 export * from './deleteByRange';
 export * from './renameTable';
 export * from './updateRecord';
+export * from './updateField';
 export * from './reorderRecords';
 export * from './duplicateRecord';

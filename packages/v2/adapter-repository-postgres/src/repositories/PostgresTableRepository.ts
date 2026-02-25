@@ -541,6 +541,7 @@ export class PostgresTableRepository implements core.ITableRepository {
               .select([
                 'id',
                 'name',
+                'description',
                 'type',
                 'options',
                 'meta',
@@ -635,6 +636,7 @@ export class PostgresTableRepository implements core.ITableRepository {
               .select([
                 'id',
                 'name',
+                'description',
                 'type',
                 'options',
                 'meta',
@@ -825,6 +827,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       ? (row.fields as Array<{
           id: string;
           name: string;
+          description: string | null;
           type: string;
           options: string | null;
           meta: string | null;
@@ -888,6 +891,7 @@ export class PostgresTableRepository implements core.ITableRepository {
   private deserializeFieldDto(row: {
     id: string;
     name: string;
+    description: string | null;
     type: string;
     options: string | null;
     meta: string | null;
@@ -912,13 +916,47 @@ export class PostgresTableRepository implements core.ITableRepository {
     const asLookupOptions = <T>(): T | undefined =>
       hasLookupOptions ? (lookupParsed as T) : undefined;
     const resolveLookupOptions = (): core.ILookupOptionsDTO | undefined => {
-      if (!row.is_lookup || row.is_conditional_lookup || !hasLookupOptions) return undefined;
-      const candidate = asLookupOptions<core.ILookupOptionsDTO>();
-      if (!candidate) return undefined;
+      if (!row.is_lookup || row.is_conditional_lookup) return undefined;
+
+      // v2 stores lookup options in `lookup_options`, while legacy rows can still keep
+      // link/lookup/filter data in `options`. Prefer `lookup_options`, then fallback.
+      const source = hasLookupOptions ? lookupParsed : parsed;
+      const candidate: core.ILookupOptionsDTO = {
+        linkFieldId:
+          typeof source.linkFieldId === 'string'
+            ? source.linkFieldId
+            : row.lookup_linked_field_id || '',
+        lookupFieldId: typeof source.lookupFieldId === 'string' ? source.lookupFieldId : '',
+        foreignTableId: typeof source.foreignTableId === 'string' ? source.foreignTableId : '',
+        ...(source.filter !== undefined
+          ? { filter: source.filter as core.ILookupOptionsDTO['filter'] }
+          : {}),
+        ...(source.sort !== undefined
+          ? { sort: source.sort as core.ILookupOptionsDTO['sort'] }
+          : {}),
+        ...(typeof source.limit === 'number' ? { limit: source.limit } : {}),
+      };
+
       if (core.FieldId.create(candidate.linkFieldId).isErr()) return undefined;
       if (core.FieldId.create(candidate.lookupFieldId).isErr()) return undefined;
       if (core.TableId.create(candidate.foreignTableId).isErr()) return undefined;
-      return candidate;
+
+      const fallbackFilter = parsed.filter as core.ILookupOptionsDTO['filter'] | undefined;
+      const fallbackSort = parsed.sort as core.ILookupOptionsDTO['sort'] | undefined;
+      const fallbackLimit = typeof parsed.limit === 'number' ? (parsed.limit as number) : undefined;
+
+      return {
+        ...candidate,
+        ...(candidate.filter === undefined && fallbackFilter !== undefined
+          ? { filter: fallbackFilter }
+          : {}),
+        ...(candidate.sort === undefined && fallbackSort !== undefined
+          ? { sort: fallbackSort }
+          : {}),
+        ...(candidate.limit === undefined && fallbackLimit !== undefined
+          ? { limit: fallbackLimit }
+          : {}),
+      };
     };
     const buildConditionalLookupOptions = (
       value: Record<string, unknown>
@@ -948,6 +986,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const baseCommon = {
       id: row.id,
       name: row.name,
+      ...(row.description !== null ? { description: row.description } : { description: null }),
       dbFieldName,
       dbFieldType,
       ...(row.not_null ? { notNull: true } : {}),
@@ -1157,7 +1196,9 @@ export class PostgresTableRepository implements core.ITableRepository {
           typeof v1Options.foreignTableId === 'string' ? v1Options.foreignTableId : '',
         lookupFieldId: typeof v1Options.lookupFieldId === 'string' ? v1Options.lookupFieldId : '',
         condition: {
-          filter: v1Options.filter as core.IConditionalRollupFieldConfigDTO['condition']['filter'],
+          filter:
+            (v1Options.filter as core.IConditionalRollupFieldConfigDTO['condition']['filter']) ??
+            null,
           sort: v1Options.sort as { fieldId: string; order: 'asc' | 'desc' } | undefined,
           limit: typeof v1Options.limit === 'number' ? v1Options.limit : undefined,
         },
@@ -1328,6 +1369,12 @@ export class PostgresTableRepository implements core.ITableRepository {
       filter.isSymbol
     ) as core.RecordFilterOperator;
     const rawValue = 'value' in filter ? filter.value : null;
+    const legacyDateRangeCondition = this.mapLegacyDateRangeCondition(
+      filter.fieldId,
+      operator,
+      rawValue
+    );
+    if (legacyDateRangeCondition) return legacyDateRangeCondition;
 
     const operatorsExpectingNull: ReadonlySet<core.RecordFilterOperator> = new Set([
       'isEmpty',
@@ -1377,6 +1424,53 @@ export class PostgresTableRepository implements core.ITableRepository {
     };
   }
 
+  private mapLegacyDateRangeCondition(
+    fieldId: string,
+    operator: core.RecordFilterOperator,
+    value: unknown
+  ): core.RecordFilterNode | null {
+    if (operator !== 'is' && operator !== 'isWithIn') return null;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+    const record = value as Record<string, unknown>;
+    if (record.mode !== 'dateRange') return null;
+
+    const exactDate = record.exactDate;
+    const exactDateEnd = record.exactDateEnd;
+    const timeZone = record.timeZone;
+    if (
+      typeof exactDate !== 'string' ||
+      typeof exactDateEnd !== 'string' ||
+      typeof timeZone !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      conjunction: 'and',
+      items: [
+        {
+          fieldId,
+          operator: 'isOnOrAfter',
+          value: {
+            mode: 'exactDate',
+            exactDate,
+            timeZone,
+          } as core.RecordFilterDateValue,
+        },
+        {
+          fieldId,
+          operator: 'isOnOrBefore',
+          value: {
+            mode: 'exactDate',
+            exactDate: exactDateEnd,
+            timeZone,
+          } as core.RecordFilterDateValue,
+        },
+      ],
+    };
+  }
+
   private normalizeV1Operator(operator: string, isSymbol?: boolean): string {
     const mapped = v1SymbolOperatorMap[operator];
     if (mapped) return mapped;
@@ -1401,6 +1495,12 @@ export class PostgresTableRepository implements core.ITableRepository {
 
     const operator = filter.operator as core.RecordFilterOperator;
     const value = filter.value as core.RecordFilterValue;
+    const legacyDateRangeCondition = this.mapLegacyDateRangeCondition(
+      filter.fieldId,
+      operator,
+      value
+    );
+    if (legacyDateRangeCondition) return legacyDateRangeCondition;
     const operatorsExpectingNull: ReadonlySet<core.RecordFilterOperator> = new Set([
       'isEmpty',
       'isNotEmpty',

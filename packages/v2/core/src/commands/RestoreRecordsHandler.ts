@@ -97,23 +97,35 @@ export class RestoreRecordsHandler
         records.push(tableRecord);
       }
 
-      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
-        return safeTry<BatchRecordMutationResult, DomainError>(async function* () {
-          if (tableUpdateResult) {
-            yield* await handler.tableUpdateFlow.execute(
+      const persistedResult = yield* await handler.unitOfWork.withTransaction(
+        context,
+        async (transactionContext) => {
+          return safeTry<
+            {
+              mutation: BatchRecordMutationResult;
+              tableEvents: ReadonlyArray<IDomainEvent>;
+            },
+            DomainError
+          >(async function* () {
+            let tableEvents: ReadonlyArray<IDomainEvent> = [];
+            if (tableUpdateResult) {
+              const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
+                transactionContext,
+                { table },
+                () => ok(tableUpdateResult),
+                { publishEvents: false }
+              );
+              tableEvents = tableFlowResult.events;
+            }
+            const mutation = yield* await handler.tableRecordRepository.insertMany(
               transactionContext,
-              { table },
-              () => ok(tableUpdateResult),
-              { publishEvents: false }
+              tableForInsert,
+              records
             );
-          }
-          return handler.tableRecordRepository.insertMany(
-            transactionContext,
-            tableForInsert,
-            records
-          );
-        });
-      });
+            return ok({ mutation, tableEvents });
+          });
+        }
+      );
 
       const eventRecords: RecordValuesDTO[] = command.records.map((record) => {
         const fields: RecordFieldValueDTO[] = Object.entries(record.fields).map(
@@ -125,16 +137,16 @@ export class RestoreRecordsHandler
         return { recordId: record.recordId, fields, orders: record.orders };
       });
 
-      const events: IDomainEvent[] =
-        eventRecords.length > 0
-          ? [
-              RecordsBatchCreated.create({
-                tableId: tableForInsert.id(),
-                baseId: tableForInsert.baseId(),
-                records: eventRecords,
-              }),
-            ]
-          : [];
+      const events: IDomainEvent[] = [...persistedResult.tableEvents];
+      if (eventRecords.length > 0) {
+        events.push(
+          RecordsBatchCreated.create({
+            tableId: tableForInsert.id(),
+            baseId: tableForInsert.baseId(),
+            records: eventRecords,
+          })
+        );
+      }
 
       if (events.length > 0) {
         yield* await handler.eventBus.publishMany(context, events);

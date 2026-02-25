@@ -18,18 +18,29 @@ interface IAppProviderProps {
   dehydratedState?: DehydratedState;
   disabledWs?: boolean;
   template?: IGetBaseVo['template'];
+  shareId?: string;
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
-  const { forcedTheme, children, wsPath, lang, locale, disabledWs, dehydratedState, template } =
-    props;
+  const {
+    forcedTheme,
+    children,
+    wsPath,
+    lang,
+    locale,
+    disabledWs,
+    dehydratedState,
+    template,
+    shareId,
+  } = props;
   const value = useMemo(
     () => ({
       lang,
       locale: isObject(locale) ? merge(defaultLocale, locale) : defaultLocale,
       template,
+      shareId,
     }),
-    [lang, locale, template]
+    [lang, locale, template, shareId]
   );
 
   if (disabledWs) {
