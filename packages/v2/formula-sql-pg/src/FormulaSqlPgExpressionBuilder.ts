@@ -399,8 +399,8 @@ export class FormulaSqlPgExpressionBuilder {
       buildErrorLiteral('TYPE', 'cannot_cast_to_text')
     );
     const emptyText = sqlStringLiteral('');
-    const leftValue = `COALESCE(${leftText.valueSql}, ${emptyText})`;
-    const rightValue = `COALESCE(${rightText.valueSql}, ${emptyText})`;
+    const leftValue = `COALESCE(((${leftText.valueSql})::text), ${emptyText})`;
+    const rightValue = `COALESCE(((${rightText.valueSql})::text), ${emptyText})`;
     const valueSql = guardValueSql(`(${leftValue} || ${rightValue})`, errorCondition);
     return makeExpr(valueSql, 'string', false, errorCondition, errorMessage);
   }
@@ -971,11 +971,13 @@ export class FormulaSqlPgExpressionBuilder {
   }
 
   protected formatScalarForString(expr: SqlExpr, timeZoneOverride?: string): string | undefined {
+    const normalizeJsonScalar = expr.valueType === 'number' && expr.storageKind === 'json';
     return formatFieldValueAsStringSql(
       expr.field,
       expr.valueSql,
       expr.valueType,
-      timeZoneOverride ?? this.formulaTimeZone()
+      timeZoneOverride ?? this.formulaTimeZone(),
+      { normalizeJsonScalar }
     );
   }
 

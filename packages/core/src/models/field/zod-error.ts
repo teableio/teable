@@ -26,7 +26,7 @@ interface IValidateFieldOptionProps {
   type: FieldType;
   isLookup?: boolean;
   isConditionalLookup?: boolean;
-  options?: IFieldOptionsRo;
+  options?: IFieldOptionsRo | null;
   aiConfig?: IFieldAIConfig | null;
   lookupOptions?: ILookupOptionsRo;
   meta?: IFieldMetaVo;

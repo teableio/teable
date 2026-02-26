@@ -1,0 +1,134 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TableSchemaUpdateVisitor > visitUpdateLinkRelationship > should generate FK → junction migration SQL (oneMany twoWay → manyMany twoWay) 1`] = `
+[
+  "CREATE TABLE IF NOT EXISTS "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" ("__id" serial PRIMARY KEY, "__fk_fldSymField00000001" text, "__fk_fldSrcField00000001" text, "__order" double precision)",
+  "INSERT INTO "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" ("__fk_fldSymField00000001", "__fk_fldSrcField00000001") SELECT "__fk_fldSymField00000001", "__id" FROM "bseTestBase000000001"."tblForeignTbl000001" WHERE "__fk_fldSymField00000001" IS NOT NULL",
+  "ALTER TABLE "bseTestBase000000001"."tblForeignTbl000001" DROP COLUMN IF EXISTS "__fk_fldSymField00000001"",
+  "ALTER TABLE "bseTestBase000000001"."tblForeignTbl000001" DROP COLUMN IF EXISTS "__fk_fldSymField00000001_order"",
+]
+`;
+
+exports[`TableSchemaUpdateVisitor > visitUpdateLinkRelationship > should generate junction → FK migration SQL (manyMany twoWay → oneMany twoWay) 1`] = `
+[
+  "ALTER TABLE "bseTestBase000000001"."tblForeignTbl000001" ADD COLUMN IF NOT EXISTS "__fk_fldSymField00000001" text",
+  "ALTER TABLE "bseTestBase000000001"."tblForeignTbl000001" ADD COLUMN IF NOT EXISTS "__fk_fldSymField00000001_order" double precision",
+  "UPDATE "bseTestBase000000001"."tblForeignTbl000001" AS h
+                SET "__fk_fldSymField00000001" = (
+                  SELECT j."__fk_fldSymField00000001"
+                  FROM "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" AS j
+                  WHERE j."__fk_fldSrcField00000001" = h."__id"
+                  ORDER BY j."__order", j."__id"
+                  LIMIT 1
+                )
+                WHERE EXISTS (
+                  SELECT 1
+                  FROM "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" AS j
+                  WHERE j."__fk_fldSrcField00000001" = h."__id"
+                )",
+  "DROP TABLE IF EXISTS "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" CASCADE",
+  "
+DO $v2_link_trim$
+DECLARE
+  sym_col text;
+  foreign_tbl text;
+  foreign_schema text;
+  foreign_name text;
+BEGIN
+  IF to_regclass('public.field') IS NULL OR to_regclass('public.table_meta') IS NULL THEN
+    RETURN;
+  END IF;
+
+  SELECT db_field_name INTO sym_col
+  FROM field
+  WHERE id = 'fldSymField00000001' AND deleted_time IS NULL
+  LIMIT 1;
+
+  SELECT db_table_name INTO foreign_tbl
+  FROM table_meta
+  WHERE id = 'tblForeignTbl000001' AND deleted_time IS NULL
+  LIMIT 1;
+
+  IF sym_col IS NULL OR foreign_tbl IS NULL THEN
+    RETURN;
+  END IF;
+
+  IF strpos(foreign_tbl, '.') > 0 THEN
+    foreign_schema := split_part(foreign_tbl, '.', 1);
+    foreign_name := split_part(foreign_tbl, '.', 2);
+  ELSE
+    foreign_schema := 'public';
+    foreign_name := foreign_tbl;
+  END IF;
+
+  IF FALSE THEN
+    EXECUTE format(
+      'UPDATE %I.%I AS f
+       SET %I = (
+         SELECT CASE
+           WHEN filtered.value IS NULL OR jsonb_array_length(filtered.value) = 0 THEN NULL
+           ELSE filtered.value
+         END
+         FROM (
+           SELECT jsonb_agg(elem) AS value
+           FROM jsonb_array_elements(
+             CASE
+               WHEN f.%I IS NULL THEN ''[]''::jsonb
+               WHEN jsonb_typeof(f.%I::jsonb) = ''array'' THEN f.%I::jsonb
+               ELSE jsonb_build_array(f.%I::jsonb)
+             END
+           ) AS elem
+           WHERE EXISTS (
+             SELECT 1
+             FROM "bseTestBase000000001"."tblForeignTbl000001" AS h
+             WHERE h.%I = f.__id
+               AND h.__id = elem->>''id''
+           )
+         ) AS filtered
+       )',
+      foreign_schema,
+      foreign_name,
+      sym_col,
+      sym_col,
+      sym_col,
+      sym_col,
+      sym_col,
+      '__fk_fldSymField00000001'
+    );
+  ELSE
+    EXECUTE format(
+      'UPDATE %I.%I AS f
+       SET %I = (
+         SELECT filtered.elem
+         FROM (
+           SELECT elem
+           FROM jsonb_array_elements(
+             CASE
+               WHEN f.%I IS NULL THEN ''[]''::jsonb
+               WHEN jsonb_typeof(f.%I::jsonb) = ''array'' THEN f.%I::jsonb
+               ELSE jsonb_build_array(f.%I::jsonb)
+             END
+           ) AS elem
+           WHERE EXISTS (
+             SELECT 1
+             FROM "bseTestBase000000001"."tblForeignTbl000001" AS h
+             WHERE h.%I = f.__id
+               AND h.__id = elem->>''id''
+           )
+           LIMIT 1
+         ) AS filtered
+       )',
+      foreign_schema,
+      foreign_name,
+      sym_col,
+      sym_col,
+      sym_col,
+      sym_col,
+      sym_col,
+      '__fk_fldSymField00000001'
+    );
+  END IF;
+END
+$v2_link_trim$;",
+]
+`;

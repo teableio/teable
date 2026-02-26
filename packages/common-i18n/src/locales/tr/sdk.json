@@ -113,7 +113,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Arama alanı gereklidir",
       "lookupOptionsNotAllowed": "isLookup özniteliği doğru olduğunda veya alan türü rollup olduğunda arama seçenekleri izin verilmez.",
-      "lookupOptionsRequired": "isLookup özniteliği doğru olduğunda veya alan türü rollup olduğunda arama seçenekleri gereklidir.",
+      "lookupOptionsRequired": "Arama seçenekleri gereklidir",
       "refineOptionsError": "Arama seçenekleri ayrıştırma hatası {{message}}"
     },
     "rollup": {
@@ -1059,6 +1059,11 @@
       "shareViewNotFound": "Paylaşılan görünüm bulunamadı veya paylaşım devre dışı",
       "linkFieldNotFound": "Bağlantı alanı bulunamadı"
     },
+    "baseShare": {
+      "notFound": "Taban paylaşımı bulunamadı veya paylaşım devre dışı",
+      "alreadyExists": "Bu düğüm için zaten bir paylaşım mevcut",
+      "copyNotAllowed": "Bu paylaşım kopyalamaya izin vermiyor"
+    },
     "shareSocket": {
       "viewPermissionNotAllowed": "Bu görünüme erişim izniniz yok",
       "fieldPermissionNotAllowed": "Bu alanlara erişim izniniz yok",
@@ -1175,6 +1180,14 @@
       "notAttachment": "Alan bir ek alanı değil",
       "isComputed": "Alan hesaplanmış ve değiştirilemez",
       "notFoundAICofig": "Alan AI yapılandırmasına sahip değil",
+      "foreignTableIdRequired": "Dış tablo gereklidir",
+      "lookupFieldIdRequired": "Arama alanı gereklidir",
+      "lookupFieldNotExist": "Arama alanı {{lookupFieldId}} mevcut değil",
+      "lookupFieldNotBelongToTable": "Arama alanı {{lookupFieldId}}, {{foreignTableId}} tablosuna ait değil",
+      "lookupFieldTypeNotMatch": "Geçerli alan türü {{fieldType}}, arama alanı türü {{lookupFieldType}} ile eşleşmiyor",
+      "conditionalRollupOptionsRequired": "Koşullu toplama alanı seçenekleri gereklidir",
+      "conditionalRollupParseError": "Koşullu toplama ayrıştırma hatası: {{message}}",
+      "conditionalLookupOptionsRequired": "Koşullu arama alanı seçenekleri gereklidir",
       "button": {
         "clickCountReachedMaxCount": "Düğme tıklama sayısı maksimum sınıra ulaştı",
         "notSupportReset": "Düğme sıfırlamayı desteklemiyor"

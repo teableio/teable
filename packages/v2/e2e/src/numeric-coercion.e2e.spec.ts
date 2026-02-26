@@ -531,7 +531,7 @@ describe('v2 numeric coercion (e2e)', () => {
       await ctx.updateRecord(table.id, record.id, { [numberFieldId]: 3 });
       await ctx.drainOutbox();
       records = await ctx.listRecords(table.id);
-      expect(records[0].fields[workdayFieldId]).toBe('2026-01-25');
+      expect(records[0].fields[workdayFieldId]).toBe('2026-01-27');
     });
   });
 

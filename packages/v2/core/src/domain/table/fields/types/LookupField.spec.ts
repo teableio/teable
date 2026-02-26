@@ -3,9 +3,15 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../base/BaseId';
 import type { DomainError } from '../../../shared/DomainError';
+import { DbFieldName } from '../DbFieldName';
 import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
+import { UpdateLookupOptionsSpec } from '../../specs/field-updates/UpdateLookupOptionsSpec';
+import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { UpdateLinkRelationshipSpec } from '../../specs/field-updates/UpdateLinkRelationshipSpec';
 import type { Field } from '../Field';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
@@ -908,6 +914,426 @@ describe('LookupField', () => {
       expect(dto.linkFieldId).toBe(linkFieldIdResult._unsafeUnwrap().toString());
       expect(dto.foreignTableId).toBe(foreignTableIdResult._unsafeUnwrap().toString());
       expect(dto.lookupFieldId).toBe(lookupFieldIdResult._unsafeUnwrap().toString());
+    });
+  });
+
+  describe('onDependencyUpdated', () => {
+    it('sets hasError when link dependency is type-converted', () => {
+      const linkFieldId = createFieldId('u')._unsafeUnwrap();
+      const foreignTableId = createTableId('v')._unsafeUnwrap();
+      const lookupTargetId = createFieldId('w')._unsafeUnwrap();
+
+      const lookupField = LookupField.create({
+        id: createFieldId('x')._unsafeUnwrap(),
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        innerField: SingleLineTextField.create({
+          id: createFieldId('y')._unsafeUnwrap(),
+          name: FieldName.create('Title')._unsafeUnwrap(),
+        })._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const oldLinkField = LinkField.create({
+        id: linkFieldId,
+        name: FieldName.create('Link')._unsafeUnwrap(),
+        config: LinkFieldConfig.create({
+          relationship: LinkRelationship.manyOne().toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const convertedField = SingleLineTextField.create({
+        id: linkFieldId,
+        name: FieldName.create('Link Text')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      const conversionSpec = TableUpdateFieldTypeSpec.create(oldLinkField, convertedField);
+
+      const result = lookupField.onDependencyUpdated(oldLinkField, [conversionSpec], {} as never);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toHaveLength(1);
+      expect(result._unsafeUnwrap()[0]).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    });
+
+    it('updates lookup filter values when referenced select option names change', () => {
+      const linkFieldId = createFieldId('z')._unsafeUnwrap();
+      const foreignTableId = createTableId('a')._unsafeUnwrap();
+      const lookupTargetId = createFieldId('b')._unsafeUnwrap();
+      const statusFieldId = createFieldId('c')._unsafeUnwrap();
+
+      const lookupField = LookupField.create({
+        id: createFieldId('d')._unsafeUnwrap(),
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        innerField: SingleLineTextField.create({
+          id: createFieldId('e')._unsafeUnwrap(),
+          name: FieldName.create('Title')._unsafeUnwrap(),
+        })._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const statusField = SingleSelectField.create({
+        id: statusFieldId,
+        name: FieldName.create('Status')._unsafeUnwrap(),
+        options: [
+          SelectOption.create({ id: 'cho_active', name: 'Active', color: 'green' })._unsafeUnwrap(),
+          SelectOption.create({ id: 'cho_closed', name: 'Closed', color: 'red' })._unsafeUnwrap(),
+        ],
+      })._unsafeUnwrap();
+
+      const optionsSpec = UpdateSingleSelectOptionsSpec.create(
+        statusFieldId,
+        DbFieldName.rehydrate('status')._unsafeUnwrap(),
+        statusField.selectOptions(),
+        [
+          SelectOption.create({
+            id: 'cho_active',
+            name: 'Active Plus',
+            color: 'green',
+          })._unsafeUnwrap(),
+          SelectOption.create({ id: 'cho_closed', name: 'Closed', color: 'red' })._unsafeUnwrap(),
+        ]
+      );
+
+      const result = lookupField.onDependencyUpdated(statusField, [optionsSpec], {} as never);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toHaveLength(1);
+      expect(result._unsafeUnwrap()[0]).toBeInstanceOf(UpdateLookupOptionsSpec);
+
+      const updateSpec = result._unsafeUnwrap()[0] as UpdateLookupOptionsSpec;
+      const nextFilter = updateSpec.nextOptions().condition()?.toDto().filter as {
+        filterSet: Array<{ value?: unknown }>;
+      };
+      expect(nextFilter.filterSet[0]?.value).toBe('Active Plus');
+    });
+
+    it('emits TableUpdateFieldTypeSpec when lookup target select options are changed', () => {
+      const linkFieldId = createFieldId('l')._unsafeUnwrap();
+      const foreignTableId = createTableId('m')._unsafeUnwrap();
+      const lookupTargetId = createFieldId('n')._unsafeUnwrap();
+
+      const previousInnerField = SingleSelectField.create({
+        id: lookupTargetId,
+        name: FieldName.create('Status')._unsafeUnwrap(),
+        options: [SelectOption.create({ id: 'cho_x', name: 'x', color: 'cyan' })._unsafeUnwrap()],
+      })._unsafeUnwrap();
+
+      const lookupField = LookupField.create({
+        id: createFieldId('o')._unsafeUnwrap(),
+        name: FieldName.create('Lookup Status')._unsafeUnwrap(),
+        innerField: previousInnerField,
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const updatedInnerField = SingleSelectField.create({
+        id: lookupTargetId,
+        name: FieldName.create('Status')._unsafeUnwrap(),
+        options: [
+          SelectOption.create({ id: 'cho_x', name: 'x', color: 'cyan' })._unsafeUnwrap(),
+          SelectOption.create({ id: 'cho_y', name: 'y', color: 'blue' })._unsafeUnwrap(),
+        ],
+      })._unsafeUnwrap();
+
+      const optionsSpec = UpdateSingleSelectOptionsSpec.create(
+        lookupTargetId,
+        DbFieldName.rehydrate('status')._unsafeUnwrap(),
+        previousInnerField.selectOptions(),
+        updatedInnerField.selectOptions()
+      );
+
+      const result = lookupField.onDependencyUpdated(updatedInnerField, [optionsSpec], {
+        table: {} as Table,
+        foreignTables: [],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const specs = result._unsafeUnwrap();
+      expect(specs).toHaveLength(1);
+      expect(specs[0]).toBeInstanceOf(TableUpdateFieldTypeSpec);
+
+      const typeSpec = specs[0] as TableUpdateFieldTypeSpec;
+      const nextLookup = typeSpec.newField() as LookupField;
+      const nextInner = nextLookup.innerField()._unsafeUnwrap() as SingleSelectField;
+      expect(nextInner.selectOptions()).toHaveLength(2);
+      expect(nextInner.selectOptions()[1]?.name().toString()).toBe('y');
+    });
+
+    it('sets hasError when value-referenced field in filter is type-converted', () => {
+      const linkFieldId = createFieldId('f')._unsafeUnwrap();
+      const foreignTableId = createTableId('g')._unsafeUnwrap();
+      const lookupTargetId = createFieldId('h')._unsafeUnwrap();
+      const foreignStatusFieldId = createFieldId('i')._unsafeUnwrap();
+      const hostStatusFieldId = createFieldId('j')._unsafeUnwrap();
+
+      const lookupField = LookupField.create({
+        id: createFieldId('k')._unsafeUnwrap(),
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        innerField: SingleLineTextField.create({
+          id: createFieldId('l')._unsafeUnwrap(),
+          name: FieldName.create('Title')._unsafeUnwrap(),
+        })._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: foreignStatusFieldId.toString(),
+                operator: 'is',
+                value: { type: 'field', fieldId: hostStatusFieldId.toString() },
+              },
+            ],
+          },
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const updatedField = SingleSelectField.create({
+        id: hostStatusFieldId,
+        name: FieldName.create('Host Status')._unsafeUnwrap(),
+        options: [
+          SelectOption.create({ id: 'cho_a', name: 'Active', color: 'green' })._unsafeUnwrap(),
+        ],
+      })._unsafeUnwrap();
+      const convertedField = SingleLineTextField.create({
+        id: hostStatusFieldId,
+        name: FieldName.create('Host Status')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      const conversionSpec = TableUpdateFieldTypeSpec.create(updatedField, convertedField);
+
+      const result = lookupField.onDependencyUpdated(updatedField, [conversionSpec], {} as never);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toHaveLength(1);
+      expect(result._unsafeUnwrap()[0]).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    });
+
+    it('emits TableUpdateFieldTypeSpec when link relationship changes multiplicity', () => {
+      const linkFieldId = createFieldId('f')._unsafeUnwrap();
+      const foreignTableId = createTableId('g')._unsafeUnwrap();
+      const lookupTargetId = createFieldId('h')._unsafeUnwrap();
+
+      const lookupField = LookupField.create({
+        id: createFieldId('k')._unsafeUnwrap(),
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        innerField: SingleLineTextField.create({
+          id: createFieldId('l')._unsafeUnwrap(),
+          name: FieldName.create('Title')._unsafeUnwrap(),
+        })._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+        })._unsafeUnwrap(),
+        isMultipleCellValue: true, // ManyMany → multiple
+      })._unsafeUnwrap();
+
+      // Convert link field from ManyMany to ManyOne
+      const manyManyConfig = LinkFieldConfig.create({
+        relationship: LinkRelationship.manyMany().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupTargetId.toString(),
+        fkHostTableName: 'junction',
+        selfKeyName: '__id',
+        foreignKeyName: '__fk',
+      })._unsafeUnwrap();
+      const manyOneConfig = LinkFieldConfig.create({
+        relationship: LinkRelationship.manyOne().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupTargetId.toString(),
+      })._unsafeUnwrap();
+
+      const updatedLinkField = LinkField.create({
+        id: linkFieldId,
+        name: FieldName.create('Link')._unsafeUnwrap(),
+        config: manyOneConfig,
+      })._unsafeUnwrap();
+
+      const dbFieldName = DbFieldName.rehydrate('link_col')._unsafeUnwrap();
+      const relationshipSpec = UpdateLinkRelationshipSpec.create({
+        fieldId: linkFieldId,
+        dbFieldName,
+        previousConfig: manyManyConfig,
+        nextConfig: manyOneConfig,
+      });
+
+      const result = lookupField.onDependencyUpdated(
+        updatedLinkField,
+        [relationshipSpec],
+        {} as never
+      );
+      expect(result.isOk()).toBe(true);
+      const specs = result._unsafeUnwrap();
+      expect(specs).toHaveLength(1);
+      expect(specs[0]).toBeInstanceOf(TableUpdateFieldTypeSpec);
+
+      // The new lookup field should have isMultipleCellValue = false (ManyOne)
+      const typeSpec = specs[0] as TableUpdateFieldTypeSpec;
+      const newField = typeSpec.newField() as LookupField;
+      const isMultiple = newField.isMultipleCellValue()._unsafeUnwrap();
+      expect(isMultiple.isMultiple()).toBe(false);
+    });
+
+    it('does not emit specs when link relationship changes but multiplicity stays same', () => {
+      const linkFieldId = createFieldId('f')._unsafeUnwrap();
+      const foreignTableId = createTableId('g')._unsafeUnwrap();
+      const lookupTargetId = createFieldId('h')._unsafeUnwrap();
+
+      // Lookup with isMultipleCellValue = false (ManyOne)
+      const lookupField = LookupField.create({
+        id: createFieldId('k')._unsafeUnwrap(),
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        innerField: SingleLineTextField.create({
+          id: createFieldId('l')._unsafeUnwrap(),
+          name: FieldName.create('Title')._unsafeUnwrap(),
+        })._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+        })._unsafeUnwrap(),
+        isMultipleCellValue: false, // ManyOne → single
+      })._unsafeUnwrap();
+
+      // Convert link field from ManyOne to OneOne (both single)
+      const manyOneConfig = LinkFieldConfig.create({
+        relationship: LinkRelationship.manyOne().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupTargetId.toString(),
+      })._unsafeUnwrap();
+      const oneOneConfig = LinkFieldConfig.create({
+        relationship: LinkRelationship.oneOne().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupTargetId.toString(),
+      })._unsafeUnwrap();
+
+      const updatedLinkField = LinkField.create({
+        id: linkFieldId,
+        name: FieldName.create('Link')._unsafeUnwrap(),
+        config: oneOneConfig,
+      })._unsafeUnwrap();
+
+      const dbFieldName = DbFieldName.rehydrate('link_col')._unsafeUnwrap();
+      const relationshipSpec = UpdateLinkRelationshipSpec.create({
+        fieldId: linkFieldId,
+        dbFieldName,
+        previousConfig: manyOneConfig,
+        nextConfig: oneOneConfig,
+      });
+
+      const result = lookupField.onDependencyUpdated(
+        updatedLinkField,
+        [relationshipSpec],
+        {} as never
+      );
+      expect(result.isOk()).toBe(true);
+      // Both ManyOne and OneOne are single-value, no multiplicity change
+      expect(result._unsafeUnwrap()).toHaveLength(0);
+    });
+  });
+
+  describe('UpdateLookupOptionsSpec preserves isMultipleCellValue', () => {
+    it('preserves isMultipleCellValue=false from the original field', () => {
+      const baseId = createBaseId('a')._unsafeUnwrap();
+      const tableId = createTableId('b')._unsafeUnwrap();
+      const primaryFieldId = createFieldId('c')._unsafeUnwrap();
+      const linkFieldId = createFieldId('d')._unsafeUnwrap();
+      const lookupFieldId = createFieldId('e')._unsafeUnwrap();
+      const foreignTableId = createTableId('f')._unsafeUnwrap();
+      const lookupTargetFieldId1 = createFieldId('g')._unsafeUnwrap();
+      const lookupTargetFieldId2 = createFieldId('h')._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: LinkRelationship.manyOne().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupTargetFieldId1.toString(),
+      })._unsafeUnwrap();
+
+      const builder = Table.builder()
+        .withId(tableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Test')._unsafeUnwrap());
+
+      builder
+        .field()
+        .singleLineText()
+        .withId(primaryFieldId)
+        .withName(FieldName.create('Primary')._unsafeUnwrap())
+        .primary()
+        .done();
+
+      builder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+
+      builder
+        .field()
+        .lookup()
+        .withId(lookupFieldId)
+        .withName(FieldName.create('Lookup')._unsafeUnwrap())
+        .withInnerField(
+          SingleLineTextField.create({
+            id: createFieldId('i')._unsafeUnwrap(),
+            name: FieldName.create('Inner')._unsafeUnwrap(),
+          })._unsafeUnwrap()
+        )
+        .withLookupOptions(
+          LookupOptions.create({
+            linkFieldId: linkFieldId.toString(),
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: lookupTargetFieldId1.toString(),
+          })._unsafeUnwrap()
+        )
+        .withIsMultipleCellValue(false)
+        .done();
+
+      builder.view().defaultGrid().done();
+
+      const table = builder.build()._unsafeUnwrap();
+
+      // Change lookupFieldId
+      const prevOptions = LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupTargetFieldId1.toString(),
+      })._unsafeUnwrap();
+      const nextOptions = LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupTargetFieldId2.toString(),
+      })._unsafeUnwrap();
+
+      const spec = UpdateLookupOptionsSpec.create(lookupFieldId, prevOptions, nextOptions);
+      const result = spec.mutate(table);
+      expect(result.isOk()).toBe(true);
+
+      const updatedTable = result._unsafeUnwrap();
+      const updatedField = updatedTable
+        .getField((f) => f.id().equals(lookupFieldId))
+        ._unsafeUnwrap() as LookupField;
+
+      // isMultipleCellValue should be preserved as false
+      const isMultiple = updatedField.isMultipleCellValue()._unsafeUnwrap();
+      expect(isMultiple.isMultiple()).toBe(false);
     });
   });
 });
