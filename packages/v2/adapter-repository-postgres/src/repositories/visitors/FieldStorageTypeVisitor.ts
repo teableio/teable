@@ -135,7 +135,17 @@ export class FieldStorageTypeVisitor extends AbstractFieldVisitor<IFieldStorageT
   }
 
   visitAutoNumberField(field: AutoNumberField): Result<IFieldStorageType, DomainError> {
-    return this.setTypeFromValueType(field);
+    const valueTypeResult = field.accept(this.valueTypeVisitor);
+    if (valueTypeResult.isErr()) return err(valueTypeResult.error);
+    const { cellValueType, isMultipleCellValue } = valueTypeResult.value;
+    // V1 parity: autoNumber uses INTEGER, not REAL
+    const type: IFieldStorageType = {
+      cellValueType: cellValueType.toString(),
+      isMultipleCellValue: isMultipleCellValue.toBoolean(),
+      dbFieldType: isMultipleCellValue.toBoolean() ? 'JSON' : 'INTEGER',
+    };
+    this.typesByFieldId.set(field.id().toString(), type);
+    return ok(type);
   }
 
   visitButtonField(field: ButtonField): Result<IFieldStorageType, DomainError> {

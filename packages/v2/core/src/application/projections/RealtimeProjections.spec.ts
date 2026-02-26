@@ -7,7 +7,9 @@ import { domainError } from '../../domain/shared/DomainError';
 import { FieldCreated } from '../../domain/table/events/FieldCreated';
 import { FieldDeleted } from '../../domain/table/events/FieldDeleted';
 import { FieldOptionsAdded } from '../../domain/table/events/FieldOptionsAdded';
+import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
 import { RecordCreated } from '../../domain/table/events/RecordCreated';
+import { RecordReordered } from '../../domain/table/events/RecordReordered';
 import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreated';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
 import { RecordsDeleted } from '../../domain/table/events/RecordsDeleted';
@@ -19,6 +21,7 @@ import { FieldName } from '../../domain/table/fields/FieldName';
 import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { RecordId } from '../../domain/table/records/RecordId';
 import { TableAddSelectOptionsSpec } from '../../domain/table/specs/TableAddSelectOptionsSpec';
+import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
 import { TableEventGeneratingSpecVisitor } from '../../domain/table/specs/visitors/TableEventGeneratingSpecVisitor';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
@@ -28,12 +31,14 @@ import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 import type { RealtimeDocId } from '../../ports/RealtimeDocId';
-import type { IRealtimeEngine } from '../../ports/RealtimeEngine';
+import type { IRealtimeEngine, RealtimeApplyChangeOptions } from '../../ports/RealtimeEngine';
 import type { ITableRepository } from '../../ports/TableRepository';
 import { FieldCreatedRealtimeProjection } from './FieldCreatedRealtimeProjection';
 import { FieldDeletedRealtimeProjection } from './FieldDeletedRealtimeProjection';
 import { FieldOptionsAddedRealtimeProjection } from './FieldOptionsAddedRealtimeProjection';
+import { FieldUpdatedRealtimeProjection } from './FieldUpdatedRealtimeProjection';
 import { RecordCreatedRealtimeProjection } from './RecordCreatedRealtimeProjection';
+import { RecordReorderedRealtimeProjection } from './RecordReorderedRealtimeProjection';
 import { RecordsBatchCreatedRealtimeProjection } from './RecordsBatchCreatedRealtimeProjection';
 import { RecordsBatchUpdatedRealtimeProjection } from './RecordsBatchUpdatedRealtimeProjection';
 import { RecordsDeletedRealtimeProjection } from './RecordsDeletedRealtimeProjection';
@@ -92,6 +97,7 @@ class FakeRealtimeEngine implements IRealtimeEngine {
   changes: Array<{
     docId: RealtimeDocId;
     change: RealtimeChange | ReadonlyArray<RealtimeChange>;
+    options?: RealtimeApplyChangeOptions;
   }> = [];
   deletes: RealtimeDocId[] = [];
 
@@ -103,9 +109,10 @@ class FakeRealtimeEngine implements IRealtimeEngine {
   async applyChange(
     _context: IExecutionContext,
     docId: RealtimeDocId,
-    change: RealtimeChange | ReadonlyArray<RealtimeChange>
+    change: RealtimeChange | ReadonlyArray<RealtimeChange>,
+    options?: RealtimeApplyChangeOptions
   ) {
-    this.changes.push({ docId, change });
+    this.changes.push({ docId, change, options });
     return ok(undefined);
   }
 
@@ -215,6 +222,7 @@ describe('Realtime projections', () => {
       type: 'set',
       path: ['fields', table.primaryFieldId().toString()],
       value: 'New',
+      oldValue: 'Old',
     });
   });
 
@@ -255,8 +263,56 @@ describe('Realtime projections', () => {
         type: 'set',
         path: ['fields', table.primaryFieldId().toString()],
         value: 'New',
+        oldValue: 'Old',
       },
     ]);
+  });
+
+  it('projects record reorder updates to row-order columns', async () => {
+    const table = buildTable('2', '4', '6');
+    const viewId = table.views()[0]!.id();
+    const recordA = RecordId.create(`rec${'q'.repeat(16)}`)._unsafeUnwrap();
+    const recordB = RecordId.create(`rec${'r'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordReorderedRealtimeProjection(engine);
+
+    const event = RecordReordered.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      viewId,
+      recordIds: [recordA, recordB],
+      ordersByRecordId: {
+        [recordA.toString()]: 101,
+        [recordB.toString()]: 102,
+      },
+      previousOrdersByRecordId: {
+        [recordA.toString()]: 11,
+        [recordB.toString()]: 12,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.ensures).toHaveLength(0);
+    expect(engine.changes).toHaveLength(2);
+
+    const collection = buildRecordCollection(table.id().toString());
+    const rowOrderColumnName = viewId.toRowOrderColumnName();
+    expect(engine.changes[0]?.docId.toString()).toBe(`${collection}/${recordA.toString()}`);
+    expect(engine.changes[0]?.change).toEqual({
+      type: 'set',
+      path: ['fields', rowOrderColumnName],
+      value: 101,
+      oldValue: 11,
+    });
+    expect(engine.changes[1]?.docId.toString()).toBe(`${collection}/${recordB.toString()}`);
+    expect(engine.changes[1]?.change).toEqual({
+      type: 'set',
+      path: ['fields', rowOrderColumnName],
+      value: 102,
+      oldValue: 12,
+    });
   });
 
   it('projects batch record creations', async () => {
@@ -491,6 +547,8 @@ describe('Realtime projections', () => {
       tableId: table.id(),
       fieldId,
       options: newOptions,
+      oldVersion: 7,
+      newVersion: 8,
     });
 
     const result = await projection.handle(createContext(), event);
@@ -510,6 +568,7 @@ describe('Realtime projections', () => {
         ],
       },
     });
+    expect(engine.changes[0]?.options).toEqual({ version: 7 });
   });
 
   it('handles missing field gracefully for field options added', async () => {
@@ -534,6 +593,187 @@ describe('Realtime projections', () => {
     result._unsafeUnwrap();
 
     // Should skip silently without errors
+    expect(engine.ensures).toHaveLength(0);
+    expect(engine.changes).toHaveLength(0);
+  });
+
+  it('projects field updates by replacing field document snapshot', async () => {
+    const table = buildTable('2', '3', '4');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Renamed',
+          type: 'singleLineText',
+          notNull: true,
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['name', 'notNull'],
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.ensures).toHaveLength(0);
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.change).toEqual([
+      { type: 'set', path: ['name'], value: 'Renamed' },
+      { type: 'set', path: ['notNull'], value: true },
+    ]);
+  });
+
+  it('applies field update with event oldVersion', async () => {
+    const table = buildTable('f', 'g', 'h');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Renamed',
+          type: 'singleLineText',
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['name'],
+      changes: {
+        name: { oldValue: 'Title', newValue: 'Renamed' },
+      },
+      oldVersion: 4,
+      newVersion: 5,
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.options).toEqual({ version: 4 });
+  });
+
+  it('projects field updates using snapshot value when event changes provided', async () => {
+    const table = buildTable('2', '3', '4');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Renamed',
+          type: 'singleSelect',
+          options: { choices: [{ id: 'opt1', name: 'Open', color: 'yellowBright' }] },
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['type'],
+      changes: {
+        type: { oldValue: 'singleLineText', newValue: 'singleSelect' },
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.change).toEqual([
+      { type: 'set', path: ['type'], value: 'singleSelect', oldValue: 'singleLineText' },
+    ]);
+  });
+
+  it('uses hydrated snapshot options instead of stale event options change', async () => {
+    const table = buildTable('7', '8', '9');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Status',
+          type: 'singleSelect',
+          options: {
+            choices: [{ id: 'opt1', name: 'Open', color: 'yellowBright' }],
+          },
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['type', 'options'],
+      changes: {
+        type: { oldValue: 'singleLineText', newValue: 'singleSelect' },
+        options: { oldValue: {}, newValue: {} },
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.change).toEqual([
+      { type: 'set', path: ['type'], value: 'singleSelect', oldValue: 'singleLineText' },
+      {
+        type: 'set',
+        path: ['options'],
+        value: {
+          choices: [{ id: 'opt1', name: 'Open', color: 'yellowBright' }],
+        },
+        oldValue: {},
+      },
+    ]);
+  });
+
+  it('skips field updated projection when field is missing in snapshot', async () => {
+    const table = buildTable('5', '6', '7');
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId: table.primaryFieldId(),
+      updatedProperties: ['name'],
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
     expect(engine.ensures).toHaveLength(0);
     expect(engine.changes).toHaveLength(0);
   });
@@ -571,6 +811,151 @@ describe('Realtime projections', () => {
       { id: 'opt1', name: 'Alpha', color: 'blue' },
       { id: 'opt2', name: 'Beta', color: 'red' },
     ]);
+  });
+
+  it('generates FieldUpdated event with type AND options changes for type conversion', () => {
+    const baseId = BaseId.create(`bse${'m'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'n'.repeat(16)}`)._unsafeUnwrap();
+    const tableName = TableName.create('Table N')._unsafeUnwrap();
+    const fieldId = FieldId.create(`fld${'o'.repeat(16)}`)._unsafeUnwrap();
+    const fieldName = FieldName.create('Category')._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldName = FieldName.create('Title')._unsafeUnwrap();
+
+    const options = [
+      SelectOption.create({ id: 'opt1', name: 'Alpha', color: 'blue' })._unsafeUnwrap(),
+      SelectOption.create({ id: 'opt2', name: 'Beta', color: 'red' })._unsafeUnwrap(),
+    ];
+
+    // Build a table with a singleSelect field (the old field)
+    const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(primaryFieldName)
+      .primary()
+      .done();
+    builder.field().singleSelect().withId(fieldId).withName(fieldName).withOptions(options).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    // Get the old field (singleSelect)
+    const oldField = table.getField((f) => f.id().equals(fieldId))._unsafeUnwrap();
+
+    // Build a new singleLineText field to convert to
+    const newFieldBuilder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+    newFieldBuilder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(primaryFieldName)
+      .primary()
+      .done();
+    newFieldBuilder.field().singleLineText().withId(fieldId).withName(fieldName).done();
+    newFieldBuilder.view().defaultGrid().done();
+    const newTable = newFieldBuilder.build()._unsafeUnwrap();
+    const newField = newTable.getField((f) => f.id().equals(fieldId))._unsafeUnwrap();
+
+    // Create the type conversion spec and visit
+    const spec = TableUpdateFieldTypeSpec.create(oldField, newField);
+    const visitor = new TableEventGeneratingSpecVisitor(table);
+    spec.accept(visitor)._unsafeUnwrap();
+
+    const events = visitor.getEvents();
+    expect(events).toHaveLength(1);
+
+    const event = events[0] as FieldUpdated;
+    expect(event.name.toString()).toBe('FieldUpdated');
+    expect(event.updatedProperties).toContain('type');
+    expect(event.updatedProperties).toContain('options');
+
+    // Verify type change has old/new values
+    expect(event.changes.type).toEqual({
+      oldValue: 'singleSelect',
+      newValue: 'singleLineText',
+    });
+
+    // Verify options change has old/new values (critical for action trigger alignment with v1)
+    expect(event.changes.options).toBeDefined();
+    expect(event.changes.options.oldValue).toEqual({
+      choices: [
+        { id: 'opt1', name: 'Alpha', color: 'blue' },
+        { id: 'opt2', name: 'Beta', color: 'red' },
+      ],
+    });
+    expect(event.changes.options.newValue).toEqual({});
+  });
+
+  it('projects field type conversion with incremental property-level changes', async () => {
+    const table = buildTable('8', '9', 'a');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Category',
+          type: 'singleLineText',
+          dbFieldName: 'Category',
+          dbFieldType: 'TEXT',
+          options: {},
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    // Simulate a singleSelect → singleLineText type conversion event
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['type', 'options'],
+      changes: {
+        type: { oldValue: 'singleSelect', newValue: 'singleLineText' },
+        options: {
+          oldValue: {
+            choices: [{ id: 'opt1', name: 'Alpha', color: 'blue' }],
+          },
+          newValue: {},
+        },
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    // Must produce incremental property-level changes, NOT a full doc replace
+    expect(engine.ensures).toHaveLength(0);
+    expect(engine.changes).toHaveLength(1);
+
+    const changes = engine.changes[0]?.change;
+    expect(Array.isArray(changes)).toBe(true);
+    const changeArray = changes as Array<{
+      type: string;
+      path: string[];
+      value: unknown;
+      oldValue?: unknown;
+    }>;
+
+    // Verify property-level paths (p:['type'], p:['options']) — NOT p:[] full doc replace
+    expect(changeArray).toHaveLength(2);
+    expect(changeArray[0]).toEqual({
+      type: 'set',
+      path: ['type'],
+      value: 'singleLineText',
+      oldValue: 'singleSelect',
+    });
+    expect(changeArray[1]).toEqual({
+      type: 'set',
+      path: ['options'],
+      value: {},
+      oldValue: {
+        choices: [{ id: 'opt1', name: 'Alpha', color: 'blue' }],
+      },
+    });
   });
 
   it('does not generate event when options are empty', () => {

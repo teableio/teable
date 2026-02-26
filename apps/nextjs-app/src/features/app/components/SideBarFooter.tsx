@@ -1,5 +1,5 @@
 import { useSession } from '@teable/sdk';
-import { useIsAnonymous, useIsTemplate } from '@teable/sdk/hooks';
+import { useIsAnonymous, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { Trans } from 'next-i18next';
@@ -18,10 +18,10 @@ import { UserNav } from './user/UserNav';
 export const SideBarFooter: React.FC = () => {
   const { user } = useSession();
   const isAnonymous = useIsAnonymous();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { brandName } = useBrand();
 
-  if (isAnonymous || isTemplate) {
+  if (isAnonymous || isReadOnlyPreview) {
     return (
       <div className="mx-4 my-3 flex flex-col items-center gap-4">
         <PublicOperateButton />

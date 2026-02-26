@@ -660,7 +660,17 @@ describe('ComputedFieldUpdater', () => {
           "parameters": [
             "tblllllllllllllllll",
           ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "__version" = "u"."__version" + 1, "col_lookup_b" = to_jsonb("c"."col_lookup_b"), "col_rollup_b" = "c"."col_rollup_b" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldpppppppppppppppp_0"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp_0"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) FILTER (WHERE "f"."col_source_name" IS NOT NULL) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp_0" on true) as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_b" IS DISTINCT FROM to_jsonb("c"."col_lookup_b") OR "u"."col_rollup_b" IS DISTINCT FROM "c"."col_rollup_b"::double precision)",
+          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "u" set "__version" = "u"."__version" + 1, "col_lookup_b" = to_jsonb("c"."col_lookup_b"), "col_rollup_b" = CASE
+          WHEN ("c"."col_rollup_b") IS NULL THEN NULL
+          WHEN BTRIM(("c"."col_rollup_b")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
+            THEN BTRIM(("c"."col_rollup_b")::text)::double precision
+          ELSE NULL
+        END from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldpppppppppppppppp_0"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp_0"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) FILTER (WHERE "f"."col_source_name" IS NOT NULL) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp_0" on true) as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_b" IS DISTINCT FROM to_jsonb("c"."col_lookup_b") OR "u"."col_rollup_b" IS DISTINCT FROM CASE
+          WHEN ("c"."col_rollup_b") IS NULL THEN NULL
+          WHEN BTRIM(("c"."col_rollup_b")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
+            THEN BTRIM(("c"."col_rollup_b")::text)::double precision
+          ELSE NULL
+        END)",
         },
         {
           "parameters": [

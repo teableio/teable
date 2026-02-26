@@ -4,7 +4,7 @@ import { Pencil, Trash2, Export, Copy, Lock, Star } from '@teable/icons';
 import { BaseNodeResourceType, duplicateView } from '@teable/openapi';
 import {
   useBaseId,
-  useIsTemplate,
+  useIsReadOnlyPreview,
   usePersonalView,
   useTableId,
   useTablePermission,
@@ -26,6 +26,7 @@ import { Unlock } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, Fragment, useEffect, useCallback, useMemo } from 'react';
+import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useIsInIframe } from '@/features/app/hooks/useIsInIframe';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { getNodeUrl } from '../../base/base-node/hooks';
@@ -55,18 +56,19 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const viewItemRef = useRef<HTMLDivElement>(null);
   const { highlightedViewId } = useGridSearchStore();
   const isHighlighted = highlightedViewId === view.id;
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { personalViewCommonQuery } = usePersonalView();
   const viewData = useView();
+  const shareUrlPrefix = useShareUrlPrefix();
 
   const setOpen = useCallback(
     (value: boolean) => {
-      if (value && isTemplate) {
+      if (value && isReadOnlyPreview) {
         return;
       }
       _setOpen(value);
     },
-    [isTemplate, _setOpen]
+    [isReadOnlyPreview, _setOpen]
   );
   const { mutateAsync: duplicateViewFn, isPending: isDuplicateViewLoading } = useMutation({
     mutationFn: () => duplicateView(tableId, view.id),
@@ -80,6 +82,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
         resourceType: BaseNodeResourceType.Table,
         resourceId: tableId,
         viewId: id,
+        urlPrefix: shareUrlPrefix,
       });
       if (url) {
         router.push(url, undefined, { shallow: true });
@@ -146,6 +149,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
       resourceType: BaseNodeResourceType.Table,
       resourceId: tableId,
       viewId: view.id,
+      urlPrefix: shareUrlPrefix,
     });
     if (url) {
       router.push(url, undefined, { shallow: true });

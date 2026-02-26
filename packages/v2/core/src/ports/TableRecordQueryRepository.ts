@@ -10,6 +10,10 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
 import type { TableRecordReadModel } from './TableRecordReadModel';
+import type {
+  ITableRecordStreamPagination,
+  ITableRecordStreamPaginationStrategy,
+} from './TableRecordStreamPaginationStrategy';
 
 /** Query mode determines how computed fields are resolved */
 export type TableRecordQueryMode = 'computed' | 'stored';
@@ -58,6 +62,13 @@ export interface ITableRecordQueryOptions {
    * Useful for streaming/chunked read paths that don't need total rows.
    */
   readonly includeTotal?: boolean;
+
+  /**
+   * Optional field projection for user fields.
+   * When provided, repository should only read these field columns
+   * (system columns needed by the read model may still be included).
+   */
+  readonly projectionFieldIds?: ReadonlyArray<FieldId>;
 }
 
 /**
@@ -92,13 +103,9 @@ export interface ITableRecordQueryStreamOptions {
 
   /**
    * Pagination range for streaming.
-   * - offset: Starting row index
-   * - limit: Maximum number of records to stream
+   * Supports offset- or cursor-based pagination.
    */
-  readonly pagination?: {
-    readonly offset: number;
-    readonly limit: number;
-  };
+  readonly pagination?: ITableRecordStreamPagination;
 
   /**
    * Sort records by fields or system columns.
@@ -112,6 +119,18 @@ export interface ITableRecordQueryStreamOptions {
    * @default 500
    */
   readonly batchSize?: number;
+
+  /**
+   * Optional field projection for user fields in stream mode.
+   * Useful for snapshot/read-heavy paths that only need a subset of fields.
+   */
+  readonly projectionFieldIds?: ReadonlyArray<FieldId>;
+
+  /**
+   * Optional stream pagination strategy.
+   * When omitted, repository uses its default strategy.
+   */
+  readonly paginationStrategy?: ITableRecordStreamPaginationStrategy;
 }
 
 /** Result type for paginated record queries */

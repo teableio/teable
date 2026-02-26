@@ -6,6 +6,10 @@ import type { ISpecification } from '../shared/specification/ISpecification';
 import { SpecBuilder, type SpecBuilderMode } from '../shared/specification/SpecBuilder';
 import { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
+import {
+  isForeignTableRelatedField,
+  validateForeignTablesForFields,
+} from './fields/ForeignTableRelatedField';
 import type { SelectOption } from './fields/types/SelectOption';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
@@ -159,6 +163,77 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     return this;
   }
 
+  updateField(
+    fieldId: FieldId,
+    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): TableMutateSpecBuilder {
+    if (specs.length === 0) {
+      this.recordError(domainError.validation({ message: 'No changes to apply' }));
+      return this;
+    }
+
+    const beforeErrorCount = this.errors.length;
+    this.applySpecs(specs);
+    if (this.errors.length > beforeErrorCount) {
+      return this;
+    }
+
+    if (options?.foreignTables?.length) {
+      const touchedFieldIds = new Set<string>([fieldId.toString()]);
+      for (const spec of specs) {
+        const maybeFieldSpec = spec as {
+          fieldId?: () => {
+            toString: () => string;
+          };
+        };
+        if (typeof maybeFieldSpec.fieldId === 'function') {
+          touchedFieldIds.add(maybeFieldSpec.fieldId().toString());
+        }
+      }
+
+      const fieldsNeedingForeignValidation = this.currentTable.getFields().filter((field) => {
+        if (!isForeignTableRelatedField(field)) {
+          return false;
+        }
+        return touchedFieldIds.has(field.id().toString());
+      });
+
+      if (fieldsNeedingForeignValidation.length > 0) {
+        const validationResult = validateForeignTablesForFields(fieldsNeedingForeignValidation, {
+          hostTable: this.currentTable,
+          foreignTables: options.foreignTables,
+        });
+        if (validationResult.isErr()) {
+          this.recordError(validationResult.error);
+        }
+      }
+    }
+
+    return this;
+  }
+
+  applySpecs(
+    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
+  ): TableMutateSpecBuilder {
+    if (specs.length === 0) {
+      return this;
+    }
+
+    for (const spec of specs) {
+      const nextTableResult = spec.mutate(this.currentTable);
+      if (nextTableResult.isErr()) {
+        this.recordError(nextTableResult.error);
+        return this;
+      }
+
+      this.addSpec(spec);
+      this.currentTable = nextTableResult.value;
+    }
+
+    return this;
+  }
+
   build(): Result<ISpecification<Table, ITableSpecVisitor>, DomainError> {
     return this.buildFrom(this.specs);
   }
@@ -223,6 +298,26 @@ export class TableMutator {
 
   duplicateField(sourceField: Field, newField: Field, includeRecordValues: boolean): TableMutator {
     this.builder.duplicateField(sourceField, newField, includeRecordValues);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  updateField(
+    fieldId: FieldId,
+    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): TableMutator {
+    this.builder.updateField(fieldId, specs, options);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  applySpecs(specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>): TableMutator {
+    if (specs.length === 0) {
+      return this;
+    }
+
+    this.builder.applySpecs(specs);
     this.hasUpdates = true;
     return this;
   }
