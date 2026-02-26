@@ -55,11 +55,18 @@ export class FieldOptionsAddedRealtimeProjection implements IEventHandler<FieldO
       ).safeUnwrap();
 
       // Apply incremental change to update options
-      return realtimeEngine.applyChange(context, fieldDocId, {
-        type: 'set',
-        path: ['options'],
-        value: fieldDto.options,
-      });
+      return realtimeEngine.applyChange(
+        context,
+        fieldDocId,
+        {
+          type: 'set',
+          path: ['options'],
+          value: fieldDto.options,
+        },
+        {
+          version: event.oldVersion,
+        }
+      );
     });
   }
 }

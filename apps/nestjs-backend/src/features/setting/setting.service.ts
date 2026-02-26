@@ -48,6 +48,7 @@ export class SettingService {
     private readonly performanceCacheService: PerformanceCacheService
   ) {}
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async getSetting(names?: string[]): Promise<ISettingVo> {
     const settings = await this.settingModel.getSetting();
     const res: Record<string, unknown> = {
@@ -70,7 +71,10 @@ export class SettingService {
       }
 
       if (setting.name === SettingKey.INSTANCE_ID) {
-        res.createdTime = setting.createdTime;
+        res.createdTime =
+          setting.createdTime instanceof Date
+            ? setting.createdTime.toISOString()
+            : setting.createdTime;
       }
     }
 

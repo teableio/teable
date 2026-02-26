@@ -49,6 +49,33 @@ describe('CreateFieldCommand', () => {
     expect(command.field.type).toBe('singleLineText');
   });
 
+  it('accepts description on strict variants (formula)', () => {
+    const commandResult = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'formula',
+        name: 'Score',
+        description: 'formula description',
+        options: { expression: '1 + 1' },
+      },
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.field.description).toBe('formula description');
+
+    const resolvedInput = resolveTableFieldInputName(command.field, [])._unsafeUnwrap();
+    const spec = parseTableFieldSpec(resolvedInput, { isPrimary: false })._unsafeUnwrap();
+    const field = spec
+      .createField({
+        baseId: BaseId.create(baseId)._unsafeUnwrap(),
+        tableId: TableId.create(tableId)._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap();
+
+    expect(field.description()).toBe('formula description');
+  });
+
   it('accepts field input without name', () => {
     const commandResult = CreateFieldCommand.create({
       baseId,

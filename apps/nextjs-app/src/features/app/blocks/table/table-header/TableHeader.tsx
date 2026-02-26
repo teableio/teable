@@ -3,8 +3,9 @@ import { BaseNodeResourceType } from '@teable/openapi';
 import {
   useBase,
   useIsHydrated,
-  useIsTemplate,
+  useIsReadOnlyPreview,
   useIsTouchDevice,
+  useTemplate,
   useView,
 } from '@teable/sdk/hooks';
 import {
@@ -209,7 +210,10 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
 export const TableHeader: React.FC = () => {
   const view = useView();
   const { visible } = useLockedViewTipStore();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
+  const template = useTemplate();
+  // Only show PublicOperateButton for real templates, not for share mode
+  const isRealTemplate = !!template;
   const tipVisible = view?.isLocked && visible;
   const [isEditing, setIsEditing] = useState(false);
   return (
@@ -230,8 +234,8 @@ export const TableHeader: React.FC = () => {
         </ScrollArea>
         <AddView />
         <div className="grow basis-0"></div>
-        {!isTemplate && <RightActions setIsEditing={setIsEditing} />}
-        {isTemplate && (
+        {!isReadOnlyPreview && <RightActions setIsEditing={setIsEditing} />}
+        {isRealTemplate && (
           <div className="min-w-20">
             <PublicOperateButton />
           </div>

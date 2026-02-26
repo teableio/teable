@@ -5278,4 +5278,68 @@ describe('OpenAPI link (e2e)', () => {
       expect(t4Res.records[0].fields[t4RollupField.name]).toEqual(24);
     });
   });
+
+  describe('link filter sync on foreign field update', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+
+    beforeEach(async () => {
+      table1 = await createTable(baseId, {
+        name: 'LinkFilterSync_Host',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+      });
+      table2 = await createTable(baseId, {
+        name: 'LinkFilterSync_Foreign',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+      });
+    });
+
+    afterEach(async () => {
+      table1 && (await permanentDeleteTable(baseId, table1.id));
+      table2 && (await permanentDeleteTable(baseId, table2.id));
+    });
+
+    it('should update link filter option values when referenced select option names change', async () => {
+      const statusField = await createField(table2.id, {
+        name: 'Status',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'cho_active', name: 'Active', color: Colors.Green },
+            { id: 'cho_closed', name: 'Closed', color: Colors.Blue },
+          ],
+        },
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'Filtered Link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusField.id, operator: 'is', value: 'Active' }],
+          },
+        },
+      });
+
+      await convertField(table2.id, statusField.id, {
+        name: 'Status',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'cho_active', name: 'Active Plus', color: Colors.Green },
+            { id: 'cho_closed', name: 'Closed', color: Colors.Blue },
+          ],
+        },
+      });
+
+      const refreshed = await getField(table1.id, linkField.id);
+      const filter = (refreshed.options as ILinkFieldOptions | undefined)?.filter as
+        | { filterSet?: Array<{ value?: unknown }> }
+        | undefined;
+      expect(filter?.filterSet?.[0]?.value).toBe('Active Plus');
+    });
+  });
 });

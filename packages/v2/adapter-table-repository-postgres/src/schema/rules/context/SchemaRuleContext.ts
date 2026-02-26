@@ -31,6 +31,14 @@ export interface SchemaRuleContext {
 
   /** Optional: The full table aggregate, for rules that need table-level info */
   readonly table?: Table;
+
+  /**
+   * Operation mode that controls rule behavior.
+   * - 'delete': field is being permanently removed — rules should clean up all related data
+   * - 'update': field is being converted/renamed — rules should only clean up owned data
+   * Defaults to 'update' when not specified.
+   */
+  readonly mode?: 'delete' | 'update';
 }
 
 /**
@@ -44,6 +52,7 @@ export const createSchemaRuleContext = (params: {
   tableId: string;
   field: Field;
   table?: Table;
+  mode?: 'delete' | 'update';
 }): SchemaRuleContext => ({
   db: params.db,
   introspector: params.introspector,
@@ -52,4 +61,5 @@ export const createSchemaRuleContext = (params: {
   tableId: params.tableId,
   field: params.field,
   table: params.table,
+  mode: params.mode,
 });

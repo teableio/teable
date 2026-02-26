@@ -96,7 +96,16 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -827,7 +836,16 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -1493,18 +1511,23 @@ exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": null,
   "sql": "((
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -1521,7 +1544,7 @@ exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ) LIKE '#ERROR:%')",
+    ) LIKE '#ERROR:%')",
 }
 `;
 
@@ -2008,7 +2031,16 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -2680,7 +2712,16 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
@@ -3346,18 +3387,23 @@ exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
   "result": "other",
   "sql": "(CASE WHEN (
-    SELECT string_agg((CASE
-    WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-    WHEN jsonb_typeof(elem) = 'array' THEN NULL
-    ELSE elem #>> '{}'
-  END), ', ' ORDER BY ord)
-    FROM jsonb_array_elements((SELECT CASE
+      SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -3374,7 +3420,7 @@ exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-  ) = (10)::text THEN 'ten' ELSE 'other' END)",
+    ) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
 
@@ -3861,7 +3907,16 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },
