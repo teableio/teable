@@ -18,6 +18,7 @@ import { Reaction, ReactionPicker } from './reaction';
 
 interface ICommentItemProps extends ICommentVo, IBaseQueryParams {
   commentId?: string;
+  index: number;
 }
 
 export const CommentItem = (props: ICommentItemProps) => {
@@ -32,6 +33,7 @@ export const CommentItem = (props: ICommentItemProps) => {
     lastModifiedTime,
     reaction,
     commentId,
+    index,
   } = props;
   const dayjs = useLanDayjs();
   const { t } = useTranslation();
@@ -136,10 +138,11 @@ export const CommentItem = (props: ICommentItemProps) => {
         </div>
         <div
           className={cn(
-            'invisible absolute -top-3 flex items-center rounded-md border border-border-high bg-popover p-0.5 shadow-sm group-hover:visible',
+            'invisible absolute -top-3 z-10 flex items-center rounded-md border border-border-high bg-popover p-0.5 shadow-sm group-hover:visible',
             {
               'left-8': !isMe,
               'right-8': isMe,
+              'top-0': index === 0,
             },
             emojiPickOpen && 'visible'
           )}

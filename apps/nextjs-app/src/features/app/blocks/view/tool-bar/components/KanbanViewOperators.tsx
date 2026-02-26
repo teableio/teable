@@ -19,7 +19,7 @@ import {
   FieldCreateOrSelectModal,
   useTablePermission,
   CreateRecordModal,
-  useIsTemplate,
+  useIsReadOnlyPreview,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
@@ -41,7 +41,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { stackFieldId, coverFieldId, isCoverFit, isEmptyStackHidden, isFieldNameHidden } =
     view?.options ?? {};
 
@@ -84,7 +84,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
 
   return (
     <div className="flex items-center gap-1">
-      {!isTemplate && (
+      {!isReadOnlyPreview && (
         <>
           <CreateRecordModal>
             <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
@@ -175,8 +175,8 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
-            <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
-              <Share2 className="mr-4 size-4 shrink-0" />
+            <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
+              <Share2 className="mr-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )

@@ -50,8 +50,9 @@ export class DateFieldCore extends FieldCore {
   }
 
   private defaultTzFormat(value: string) {
+    const { timeZone } = this.getDatetimeFormatting();
     try {
-      const formatValue = dayjs.tz(value, this.options.formatting.timeZone);
+      const formatValue = dayjs.tz(value, timeZone);
       if (!formatValue.isValid()) return null;
       return formatValue.toISOString();
     } catch {
@@ -60,18 +61,16 @@ export class DateFieldCore extends FieldCore {
   }
 
   private parseUsingFieldFormatting(value: string): string | null {
+    const formatting = this.getDatetimeFormatting();
     const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
-    const dateFormat = this.options.formatting.date;
-    const timeFormat =
-      hasTime && this.options.formatting.time !== TimeFormatting.None
-        ? this.options.formatting.time
-        : null;
+    const dateFormat = formatting.date;
+    const timeFormat = hasTime && formatting.time !== TimeFormatting.None ? formatting.time : null;
     const format = timeFormat ? `${dateFormat} ${timeFormat}` : dateFormat;
 
     try {
       const check = dayjs(value, format, true).isValid();
       if (!check) return null;
-      const formatValue = dayjs.tz(value, format, this.options.formatting.timeZone);
+      const formatValue = dayjs.tz(value, format, formatting.timeZone);
       if (!formatValue.isValid()) return null;
       const isoString = formatValue.toISOString();
       if (isoString.startsWith('-')) return null;
@@ -105,7 +104,7 @@ export class DateFieldCore extends FieldCore {
   }
 
   item2String(item?: unknown) {
-    return formatDateToString(item as string, this.options.formatting);
+    return formatDateToString(item as string, this.getDatetimeFormatting());
   }
 
   repair(value: unknown) {

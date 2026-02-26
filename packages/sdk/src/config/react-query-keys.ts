@@ -188,6 +188,11 @@ export const ReactQueryKeys = {
 
   getSharedBase: () => ['shared-base-list'] as const,
 
+  baseShareList: (baseId: string) => ['base-share-list', baseId] as const,
+
+  baseShareByNodeId: (baseId: string, nodeId: string) =>
+    ['base-share-by-node-id', baseId, nodeId] as const,
+
   getSpaceTrash: (resourceType: TrashType, spaceId?: string) =>
     ['space-trash', resourceType, spaceId] as const,
 

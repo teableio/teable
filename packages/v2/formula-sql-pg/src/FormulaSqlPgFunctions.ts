@@ -1520,16 +1520,51 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const start = params[0];
     const days = params[1];
     if (!start || !days) return makeExpr('NULL', 'datetime', false);
+    const holiday = params[2];
     const startDt = this.coerceToDatetime(start);
     const dayCount = this.coerceToNumber(days, 'workday');
-    const errorCondition = combineErrorConditions([startDt, dayCount]);
+    const holidayText = holiday
+      ? this.coerceToString(holiday, false)
+      : makeExpr(sqlStringLiteral(''), 'string', false);
+    const errorCondition = combineErrorConditions([startDt, dayCount, holidayText]);
     const errorMessage = buildErrorMessageSql(
-      [startDt, dayCount],
+      [startDt, dayCount, holidayText],
       buildErrorLiteral('TYPE', 'invalid_workday')
     );
-    const valueSql = `(${this.applyFormulaTimeZone(
-      startDt.valueSql
-    )})::date + INTERVAL '1 day' * ${dayCount.valueSql}`;
+    const startDateSql = `(${this.applyFormulaTimeZone(startDt.valueSql)})::date`;
+    const dayCountSql = `COALESCE((${dayCount.valueSql})::integer, 0)`;
+    const valueSql = `(
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT c.candidate_date::timestamp
+          FROM (
+            SELECT
+              (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+              seq.n
+            FROM generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+          ) c
+          WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+            AND NOT EXISTS (
+              SELECT 1
+              FROM (
+                SELECT DISTINCT TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD') AS holiday_date
+                FROM regexp_split_to_table(p.holiday_text, ',') AS part
+                WHERE BTRIM(part) <> ''
+                  AND BTRIM(part) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                  AND TO_CHAR(TO_DATE(LEFT(BTRIM(part), 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(BTRIM(part), 10)
+              ) holidays
+              WHERE holidays.holiday_date = c.candidate_date
+            )
+          ORDER BY c.n
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM (
+        SELECT ${startDateSql} AS start_date, ${dayCountSql} AS day_count, COALESCE(${holidayText.valueSql}, '') AS holiday_text
+      ) p
+    )`;
     return makeExpr(
       guardValueSql(valueSql, errorCondition),
       'datetime',
@@ -1543,6 +1578,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const start = params[0];
     const end = params[1];
     if (!start || !end) return makeExpr('NULL::double precision', 'number', false);
+    const holiday = params[2];
 
     // Match v1 behavior: if either operand is a numeric type (not datetime),
     // return NULL instead of attempting to convert numeric values to timestamps.
@@ -1556,14 +1592,54 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
 
     const startDt = this.coerceToDatetime(start);
     const endDt = this.coerceToDatetime(end);
-    const errorCondition = combineErrorConditions([startDt, endDt]);
+    const holidayText = holiday
+      ? this.coerceToString(holiday, false)
+      : makeExpr(sqlStringLiteral(''), 'string', false);
+    const errorCondition = combineErrorConditions([startDt, endDt, holidayText]);
     const errorMessage = buildErrorMessageSql(
-      [startDt, endDt],
+      [startDt, endDt, holidayText],
       buildErrorLiteral('TYPE', 'invalid_workday_diff')
     );
-    const valueSql = `(${this.applyFormulaTimeZone(
-      endDt.valueSql
-    )})::date - (${this.applyFormulaTimeZone(startDt.valueSql)})::date`;
+    const startDateSql = `(${this.applyFormulaTimeZone(startDt.valueSql)})::date`;
+    const endDateSql = `(${this.applyFormulaTimeZone(endDt.valueSql)})::date`;
+    const valueSql = `(
+      WITH params AS (
+        SELECT ${startDateSql} AS start_date, ${endDateSql} AS end_date, COALESCE(${holidayText.valueSql}, '') AS holiday_text
+      ),
+      holiday_parts AS (
+        SELECT BTRIM(part) AS holiday_part
+        FROM params p
+        CROSS JOIN LATERAL regexp_split_to_table(p.holiday_text, ',') AS part
+      ),
+      holiday_dates AS (
+        SELECT DISTINCT TO_DATE(LEFT(holiday_part, 10), 'YYYY-MM-DD') AS holiday_date
+        FROM holiday_parts
+        WHERE holiday_part <> ''
+          AND holiday_part ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+          AND TO_CHAR(TO_DATE(LEFT(holiday_part, 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(holiday_part, 10)
+      ),
+      bounds AS (
+        SELECT
+          LEAST(p.start_date, p.end_date) AS min_date,
+          GREATEST(p.start_date, p.end_date) AS max_date,
+          CASE WHEN p.end_date >= p.start_date THEN 1 ELSE -1 END AS direction
+        FROM params p
+      ),
+      candidates AS (
+        SELECT d::date AS candidate_date
+        FROM bounds b
+        CROSS JOIN LATERAL generate_series(b.min_date + 1, b.max_date, INTERVAL '1 day') AS d
+      ),
+      workdays AS (
+        SELECT c.candidate_date
+        FROM candidates c
+        LEFT JOIN holiday_dates h ON h.holiday_date = c.candidate_date
+        WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+          AND h.holiday_date IS NULL
+      )
+      SELECT (b.direction * (SELECT COUNT(*) FROM workdays))::integer
+      FROM bounds b
+    )`;
     return makeExpr(
       guardValueSql(valueSql, errorCondition),
       'number',
@@ -1968,10 +2044,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     }
     const textValue = this.coerceToString(value);
     const textSql = `${textValue.valueSql}::text`;
+    const trimmedTextSql = `BTRIM(${textSql})`;
     const validTimestamptz = this.typeValidation.isValidForType(textSql, 'timestamptz');
     const validTimestamp = this.typeValidation.isValidForType(textSql, 'timestamp');
+    const hasClockTime = `(${trimmedTextSql} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
+    const hasExplicitTimeZone = `(${trimmedTextSql} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
+    const shouldInterpretAsLocal = `(${hasClockTime} AND NOT ${hasExplicitTimeZone})`;
     const valueSql = `(CASE
       WHEN ${textValue.valueSql} IS NULL THEN NULL
+      WHEN ${validTimestamp} AND ${shouldInterpretAsLocal} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}
       WHEN ${validTimestamptz} THEN (${textValue.valueSql})::timestamptz
       WHEN ${validTimestamp} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}
       ELSE NULL

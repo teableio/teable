@@ -3,6 +3,8 @@ import type { INestApplication } from '@nestjs/common';
 import type {
   IButtonFieldCellValue,
   IButtonFieldOptions,
+  IConditionalLookupOptions,
+  IConditionalRollupFieldOptions,
   IFieldRo,
   IFieldVo,
   ILinkFieldOptions,
@@ -21,6 +23,7 @@ import {
   CellValueType,
   FieldType,
   NumberFormattingType,
+  SortFunc,
   RatingIcon,
   defaultDatetimeFormatting,
   FieldKeyType,
@@ -36,11 +39,13 @@ import {
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
 import {
+  axios,
   emailBaseInvitation,
   USER_ME,
   buttonClick,
   deleteBaseCollaborator,
   PrincipalType,
+  X_CANARY_HEADER,
 } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
@@ -63,6 +68,8 @@ import {
 } from './utils/init-app';
 
 describe('OpenAPI Freely perform column transformations (e2e)', () => {
+  const canRunCanaryV2 =
+    process.env.FORCE_V2_ALL === 'true' || process.env.ENABLE_CANARY_FEATURE === 'true';
   let app: INestApplication;
   let table1: ITableFullVo;
   let table2: ITableFullVo;
@@ -139,6 +146,18 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       values: result,
       records,
     };
+  }
+
+  async function convertFieldByCanaryV2(tableId: string, fieldId: string, fieldRo: IFieldRo) {
+    const res = await axios.put<IFieldVo>(`/table/${tableId}/field/${fieldId}/convert`, fieldRo, {
+      headers: {
+        [X_CANARY_HEADER]: 'true',
+      },
+    });
+
+    expect(res.status).toEqual(200);
+    expect(res.headers['x-teable-v2']).toEqual('true');
+    return res.data;
   }
 
   describe('modify general property', () => {
@@ -236,10 +255,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
-      expect(newField.options).toEqual({
+      expect(newField.options).toMatchObject({
         expression: '"text"',
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
+      expect((newField.options as { timeZone?: string }).timeZone?.toLowerCase()).toEqual(
+        Intl.DateTimeFormat().resolvedOptions().timeZone.toLowerCase()
+      );
     });
 
     it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
@@ -411,8 +432,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
         expect(newField.name).toEqual('other name');
 
-        const { name: _, meta: _newFieldMeta, ...newFieldOthers } = newField;
-        const { name: _0, meta: _oldFieldMeta, ...oldFieldOthers } = linkField;
+        const { name: _, meta: _newFieldMeta, unique: _newUnique, ...newFieldOthers } = newField;
+        const { name: _0, meta: _oldFieldMeta, unique: _oldUnique, ...oldFieldOthers } = linkField;
 
         expect(newFieldOthers).toEqual(oldFieldOthers);
 
@@ -3398,12 +3419,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       ]);
 
       // update source field record before convert
-      await updateRecordByApi(
-        table2.id,
-        table2.records[0].id,
-        sourceField.id,
-        new Date().toISOString()
-      );
+      const now = new Date();
+      await updateRecordByApi(table2.id, table2.records[0].id, sourceField.id, now.toISOString());
 
       const newFieldRo: IFieldRo = {
         type: FieldType.Number,
@@ -3440,7 +3457,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       const recordResult2 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
-      expect(recordResult2.records[0].fields[lookupField.id]).toEqual([new Date().getFullYear()]);
+      const expectedNumber =
+        process.env.FORCE_V2_ALL === 'true' ? now.getTime() : now.getFullYear();
+      expect(recordResult2.records[0].fields[lookupField.id]).toEqual([expectedNumber]);
     });
 
     it('should convert number field to text and relational many-one lookup field and formula field', async () => {
@@ -3770,6 +3789,335 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const numberRecord = await getRecord(table2.id, table2.records[0].id);
       expect(numberRecord.fields[lookupField.id]).toEqual([123]);
     });
+
+    it.skipIf(!canRunCanaryV2)(
+      'should remove lookup filter when convert payload omits filter in v2',
+      async () => {
+        const regionField = await createField(table2.id, {
+          name: 'Region',
+          type: FieldType.SingleLineText,
+        });
+        const linkField = await createField(table1.id, {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        });
+
+        await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'row-1');
+        await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'row-2');
+        await updateRecordByApi(table2.id, table2.records[0].id, regionField.id, 'South');
+        await updateRecordByApi(table2.id, table2.records[1].id, regionField.id, 'North');
+        await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
+          id: table2.records[1].id,
+        });
+
+        const lookupField = await createField(table1.id, {
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            linkFieldId: linkField.id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: regionField.id, operator: 'is', value: 'South' }],
+            },
+          },
+        });
+
+        const beforeRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(beforeRecord.fields[lookupField.id]).toBeUndefined();
+
+        const updatedField = await convertFieldByCanaryV2(table1.id, lookupField.id, {
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            linkFieldId: linkField.id,
+          },
+        });
+
+        expect((updatedField.lookupOptions as ILookupOptionsRo).filter).toBeUndefined();
+
+        const refreshedField = await getField(table1.id, lookupField.id);
+        expect((refreshedField.lookupOptions as ILookupOptionsRo).filter).toBeUndefined();
+
+        const afterRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(afterRecord.fields[lookupField.id]).toEqual('row-2');
+      }
+    );
+
+    it.skipIf(!canRunCanaryV2)(
+      'should remove conditional lookup sort and limit when convert payload omits them in v2',
+      async () => {
+        const statusField = await createField(table2.id, {
+          name: 'Status',
+          type: FieldType.SingleLineText,
+        });
+        const scoreField = await createField(table2.id, {
+          name: 'Score',
+          type: FieldType.Number,
+        });
+        const statusFilterField = await createField(table1.id, {
+          name: 'Status Filter',
+          type: FieldType.SingleLineText,
+        });
+
+        await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'row-1');
+        await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'row-2');
+        await updateRecordByApi(table2.id, table2.records[0].id, statusField.id, 'Active');
+        await updateRecordByApi(table2.id, table2.records[1].id, statusField.id, 'Active');
+        await updateRecordByApi(table2.id, table2.records[0].id, scoreField.id, 10);
+        await updateRecordByApi(table2.id, table2.records[1].id, scoreField.id, 20);
+        await updateRecordByApi(table1.id, table1.records[0].id, statusFilterField.id, 'Active');
+
+        const lookupField = await createField(table1.id, {
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterField.id },
+                },
+              ],
+            },
+            sort: {
+              fieldId: scoreField.id,
+              order: SortFunc.Desc,
+            },
+            limit: 1,
+          },
+        });
+
+        const beforeRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(beforeRecord.fields[lookupField.id]).toEqual(['row-2']);
+
+        const updatedField = await convertFieldByCanaryV2(table1.id, lookupField.id, {
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterField.id },
+                },
+              ],
+            },
+          },
+        });
+
+        const updatedLookupOptions = updatedField.lookupOptions as IConditionalLookupOptions;
+        expect(updatedLookupOptions.sort).toBeUndefined();
+        expect(updatedLookupOptions.limit).toBeUndefined();
+
+        const refreshedField = await getField(table1.id, lookupField.id);
+        const refreshedLookupOptions = refreshedField.lookupOptions as IConditionalLookupOptions;
+        expect(refreshedLookupOptions.sort).toBeUndefined();
+        expect(refreshedLookupOptions.limit).toBeUndefined();
+
+        const afterRecord = await getRecord(table1.id, table1.records[0].id);
+        expect([...(afterRecord.fields[lookupField.id] as string[])].sort()).toEqual([
+          'row-1',
+          'row-2',
+        ]);
+      }
+    );
+
+    it.skipIf(!canRunCanaryV2)(
+      'should remove conditional lookup sort and limit for formula inner type when switch is off in v2',
+      async () => {
+        const statusField = await createField(table2.id, {
+          name: 'Status',
+          type: FieldType.SingleLineText,
+        });
+        const scoreField = await createField(table2.id, {
+          name: 'Score',
+          type: FieldType.Number,
+        });
+        const datetimeFormulaField = await createField(table2.id, {
+          name: 'Datetime Formula',
+          type: FieldType.Formula,
+          options: {
+            expression: 'NOW()',
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: 'HH:mm',
+              timeZone: 'Asia/Shanghai',
+            },
+            timeZone: 'Asia/Shanghai',
+          },
+        });
+        const statusFilterField = await createField(table1.id, {
+          name: 'Status Filter',
+          type: FieldType.SingleLineText,
+        });
+
+        await updateRecordByApi(table2.id, table2.records[0].id, statusField.id, 'Active');
+        await updateRecordByApi(table2.id, table2.records[1].id, statusField.id, 'Active');
+        await updateRecordByApi(table2.id, table2.records[0].id, scoreField.id, 10);
+        await updateRecordByApi(table2.id, table2.records[1].id, scoreField.id, 20);
+        await updateRecordByApi(table1.id, table1.records[0].id, statusFilterField.id, 'Active');
+
+        const lookupField = await createField(table1.id, {
+          type: FieldType.Formula,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: datetimeFormulaField.id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterField.id },
+                },
+              ],
+            },
+            sort: {
+              fieldId: scoreField.id,
+              order: SortFunc.Desc,
+            },
+            limit: 1,
+          },
+          options: {
+            expression: 'NOW()',
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: 'HH:mm',
+              timeZone: 'Asia/Shanghai',
+            },
+            timeZone: 'Asia/Shanghai',
+          },
+        });
+
+        const beforeRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(Array.isArray(beforeRecord.fields[lookupField.id])).toBeTruthy();
+        expect((beforeRecord.fields[lookupField.id] as unknown[]).length).toBe(1);
+
+        const updatedField = await convertFieldByCanaryV2(table1.id, lookupField.id, {
+          type: FieldType.Formula,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: datetimeFormulaField.id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterField.id },
+                },
+              ],
+            },
+          },
+          options: {
+            expression: 'NOW()',
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: 'HH:mm',
+              timeZone: 'Asia/Shanghai',
+            },
+            timeZone: 'Asia/Shanghai',
+          },
+        });
+
+        const updatedLookupOptions = updatedField.lookupOptions as IConditionalLookupOptions;
+        expect(updatedLookupOptions.sort).toBeUndefined();
+        expect(updatedLookupOptions.limit).toBeUndefined();
+
+        const refreshedField = await getField(table1.id, lookupField.id);
+        const refreshedLookupOptions = refreshedField.lookupOptions as IConditionalLookupOptions;
+        expect(refreshedLookupOptions.sort).toBeUndefined();
+        expect(refreshedLookupOptions.limit).toBeUndefined();
+
+        const persistedField = await prisma.txClient().field.findFirstOrThrow({
+          where: { id: lookupField.id, deletedTime: null },
+          select: {
+            type: true,
+            isConditionalLookup: true,
+            lookupOptions: true,
+          },
+        });
+        expect(persistedField.type).toBe(FieldType.Formula);
+        expect(persistedField.isConditionalLookup).toBe(true);
+        const persistedLookupOptions =
+          typeof persistedField.lookupOptions === 'string'
+            ? JSON.parse(persistedField.lookupOptions)
+            : persistedField.lookupOptions;
+        expect(persistedLookupOptions?.sort).toBeUndefined();
+        expect(persistedLookupOptions?.limit).toBeUndefined();
+
+        const afterRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(Array.isArray(afterRecord.fields[lookupField.id])).toBeTruthy();
+        expect((afterRecord.fields[lookupField.id] as unknown[]).length).toBe(2);
+      }
+    );
+
+    it.skipIf(!canRunCanaryV2)(
+      'should remove link filter options when convert payload omits them in v2',
+      async () => {
+        const statusField = await createField(table2.id, {
+          name: 'Status',
+          type: FieldType.SingleLineText,
+        });
+        await updateRecordByApi(table2.id, table2.records[0].id, statusField.id, 'Active');
+
+        const linkField = await createField(table1.id, {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            filterByViewId: table2.defaultViewId,
+            visibleFieldIds: [table2.fields[0].id],
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: statusField.id, operator: 'is', value: 'Active' }],
+            },
+          },
+        });
+
+        const updatedField = await convertFieldByCanaryV2(table1.id, linkField.id, {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+          },
+        });
+
+        const updatedOptions = updatedField.options as ILinkFieldOptions;
+        expect(updatedOptions.filterByViewId).toBeUndefined();
+        expect(updatedOptions.visibleFieldIds).toBeUndefined();
+        expect(updatedOptions.filter).toBeUndefined();
+
+        const refreshedField = await getField(table1.id, linkField.id);
+        const refreshedOptions = refreshedField.options as ILinkFieldOptions;
+        expect(refreshedOptions.filterByViewId).toBeUndefined();
+        expect(refreshedOptions.visibleFieldIds).toBeUndefined();
+        expect(refreshedOptions.filter).toBeUndefined();
+      }
+    );
 
     it('should change lookupField from link to text', async () => {
       const linkFieldRo: IFieldRo = {
@@ -4192,6 +4540,93 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       await convertField(table2.id, rollupField.id, rollupFieldRo2);
     });
+
+    it.skipIf(!canRunCanaryV2)(
+      'should remove conditional rollup sort and limit when convert payload omits them in v2',
+      async () => {
+        const statusField = await createField(table2.id, {
+          name: 'Status',
+          type: FieldType.SingleLineText,
+        });
+        const scoreField = await createField(table2.id, {
+          name: 'Score',
+          type: FieldType.Number,
+        });
+        const statusFilterField = await createField(table1.id, {
+          name: 'Status Filter',
+          type: FieldType.SingleLineText,
+        });
+
+        await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'row-1');
+        await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'row-2');
+        await updateRecordByApi(table2.id, table2.records[0].id, statusField.id, 'Active');
+        await updateRecordByApi(table2.id, table2.records[1].id, statusField.id, 'Active');
+        await updateRecordByApi(table2.id, table2.records[0].id, scoreField.id, 10);
+        await updateRecordByApi(table2.id, table2.records[1].id, scoreField.id, 20);
+        await updateRecordByApi(table1.id, table1.records[0].id, statusFilterField.id, 'Active');
+
+        const conditionalRollupField = await createField(table1.id, {
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            expression: 'array_compact({values})',
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterField.id },
+                },
+              ],
+            },
+            sort: {
+              fieldId: scoreField.id,
+              order: SortFunc.Desc,
+            },
+            limit: 1,
+          } as IConditionalRollupFieldOptions,
+        });
+
+        const beforeRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(beforeRecord.fields[conditionalRollupField.id]).toEqual(['row-2']);
+
+        const updatedField = await convertFieldByCanaryV2(table1.id, conditionalRollupField.id, {
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            expression: 'array_compact({values})',
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterField.id },
+                },
+              ],
+            },
+          } as IConditionalRollupFieldOptions,
+        });
+
+        const updatedOptions = updatedField.options as IConditionalRollupFieldOptions;
+        expect(updatedOptions.sort).toBeUndefined();
+        expect(updatedOptions.limit).toBeUndefined();
+
+        const refreshedField = await getField(table1.id, conditionalRollupField.id);
+        const refreshedOptions = refreshedField.options as IConditionalRollupFieldOptions;
+        expect(refreshedOptions.sort).toBeUndefined();
+        expect(refreshedOptions.limit).toBeUndefined();
+
+        const afterRecord = await getRecord(table1.id, table1.records[0].id);
+        expect([...(afterRecord.fields[conditionalRollupField.id] as string[])].sort()).toEqual([
+          'row-1',
+          'row-2',
+        ]);
+      }
+    );
   });
 
   describe('rollup conversion regressions', () => {

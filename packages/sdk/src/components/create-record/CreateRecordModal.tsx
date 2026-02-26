@@ -1,14 +1,20 @@
 import { useMutation } from '@tanstack/react-query';
-import { FieldKeyType } from '@teable/core';
+import { FieldKeyType, generateAttachmentId } from '@teable/core';
 import { createRecords } from '@teable/openapi';
 import { Dialog, DialogTrigger, DialogContent, Spin, Button } from '@teable/ui-lib';
 import { isEqual, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
+import { PendingUploadContext } from '../../context/pending-upload';
 import { useBaseId, useFields, useSession, useTableId, useView, useViewId } from '../../hooks';
 import type { IFieldInstance, Record as IRecord } from '../../model';
 import { createRecordInstance, recordInstanceFieldMap } from '../../model';
+import {
+  finalizePendingUploadAfterCreate,
+  mergePendingAttachmentsForCreate,
+} from '../../store/pending-upload-create';
+import { useCellAttachmentUploadStore } from '../../store/use-attachment-upload-store';
 import { extractDefaultFieldsFromFilters } from '../../utils/filterWithDefaultValue';
 import { RecordEditor } from '../expand-record/RecordEditor';
 
@@ -34,12 +40,48 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const filter = view?.filter;
   const userId = user.id;
 
+  // Pending upload support
+  const [pendingRecordId, setPendingRecordId] = useState(() => generateAttachmentId());
+  const consumePendingForCreate = useCellAttachmentUploadStore((s) => s.consumePendingForCreate);
+  const promoteToCell = useCellAttachmentUploadStore((s) => s.promoteToCell);
+  const cancelPendingUploads = useCellAttachmentUploadStore((s) => s.cancelPendingUploads);
+
+  // Reset tempRecordId when dialog opens
+  useEffect(() => {
+    if (open) {
+      setPendingRecordId(generateAttachmentId());
+    }
+  }, [open]);
+
+  const pendingUploadCtx = useMemo(
+    () => ({ tempRecordId: pendingRecordId, tableId: tableId! }),
+    [pendingRecordId, tableId]
+  );
+
   const { mutate: createRecord, isPending } = useMutation({
-    mutationFn: (fields: { [fieldId: string]: unknown }) =>
-      createRecords(tableId!, {
-        records: [{ fields }],
+    mutationFn: async (fields: { [fieldId: string]: unknown }) => {
+      const { mergedFields, consumedTaskIdsByCellKey } = mergePendingAttachmentsForCreate({
+        fields,
+        tableId: tableId ?? undefined,
+        tempRecordId: pendingRecordId,
+        consumePendingForCreate,
+      });
+
+      const result = await createRecords(tableId!, {
+        records: [{ fields: mergedFields }],
         fieldKeyType: FieldKeyType.Id,
-      }),
+      });
+
+      finalizePendingUploadAfterCreate({
+        tableId: tableId ?? undefined,
+        tempRecordId: pendingRecordId,
+        realRecordId: result.data.records[0]?.id,
+        consumedTaskIdsByCellKey,
+        promoteToCell,
+      });
+
+      return result;
+    },
     onSuccess: (data) => {
       setOpen(false);
       callback?.(data.data.records[0].id);
@@ -157,6 +199,13 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
     record?.updateCell(fieldId, newValue);
   };
 
+  const handleCancel = useCallback(() => {
+    if (tableId) {
+      cancelPendingUploads(tableId, pendingRecordId);
+    }
+    setOpen(false);
+  }, [cancelPendingUploads, pendingRecordId, tableId]);
+
   return (
     <Dialog open={open} onOpenChange={(val) => val && setOpen(val)}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -167,30 +216,32 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
-        <div className="flex-1 overflow-y-auto p-10 pt-4">
-          <RecordEditor
-            record={record}
-            fields={fields}
-            hiddenFields={hiddenFields}
-            onChange={onChange}
-          />
-        </div>
-        <div className="flex justify-end gap-4 border-t p-3">
-          <Button variant={'outline'} size={'sm'} onClick={() => setOpen(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            className="relative overflow-hidden"
-            size={'sm'}
-            disabled={!tableId || isPending}
-            onClick={() => {
-              createRecord(record?.fields ?? {});
-            }}
-          >
-            {isPending && <Spin className="size-4" />}
-            {t('common.create')}
-          </Button>
-        </div>
+        <PendingUploadContext.Provider value={pendingUploadCtx}>
+          <div className="flex-1 overflow-y-auto p-10 pt-4">
+            <RecordEditor
+              record={record}
+              fields={fields}
+              hiddenFields={hiddenFields}
+              onChange={onChange}
+            />
+          </div>
+          <div className="flex justify-end gap-4 border-t p-3">
+            <Button variant={'outline'} size={'sm'} onClick={handleCancel}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              className="relative overflow-hidden"
+              size={'sm'}
+              disabled={!tableId || isPending}
+              onClick={() => {
+                createRecord(record?.fields ?? {});
+              }}
+            >
+              {isPending && <Spin className="size-4" />}
+              {t('common.create')}
+            </Button>
+          </div>
+        </PendingUploadContext.Provider>
       </DialogContent>
     </Dialog>
   );
