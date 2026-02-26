@@ -1,18 +1,19 @@
 import { useMutation } from '@tanstack/react-query';
 import { RefreshCcw } from '@teable/icons';
 import { autoFillCell } from '@teable/openapi';
-import { Button, cn } from '@teable/ui-lib';
-import { useCallback, useContext, useState } from 'react';
-import { TaskStatusCollectionContext } from '../../context';
+import { Button, cn, sonner } from '@teable/ui-lib';
+import { useCallback, useEffect, useState } from 'react';
 import { useTableListener } from '../../hooks';
+
+const { toast } = sonner;
 
 export const AiFieldGenerateButton = (props: {
   tableId: string;
   recordId: string;
   fieldId: string;
+  isInTaskQueue: boolean;
 }) => {
-  const { tableId, recordId, fieldId } = props;
-  const taskStatusCollection = useContext(TaskStatusCollectionContext);
+  const { tableId, recordId, fieldId, isInTaskQueue } = props;
   const [pendingCell, setPendingCell] = useState<{
     recordId: string;
     fieldId: string;
@@ -26,22 +27,25 @@ export const AiFieldGenerateButton = (props: {
     },
   });
 
-  const handleTaskEvent = useCallback(() => {
-    if (!pendingCell) return;
-    setPendingCell(null);
-  }, [pendingCell]);
-
-  useTableListener(
-    tableId,
-    ['taskProcessing', 'taskCompleted', 'taskCancelled', 'taskFailed'],
-    handleTaskEvent
+  const handleTaskFailed = useCallback(
+    (_actionKey: string, payload?: { recordId: string; fieldId: string; errorMsg: string }) => {
+      if (!payload) return;
+      if (payload.recordId === recordId && payload.fieldId === fieldId) {
+        setPendingCell(null);
+        toast.error(payload.errorMsg);
+      }
+    },
+    [recordId, fieldId, setPendingCell]
   );
 
-  const isCellInTaskQueue =
-    taskStatusCollection?.cells?.some((c) => c.recordId === recordId && c.fieldId === fieldId) ??
-    false;
-  const isLocalPending = pendingCell?.recordId === recordId && pendingCell?.fieldId === fieldId;
-  const isPending = isLocalPending || isCellInTaskQueue;
+  useTableListener(tableId, ['taskFailed'], handleTaskFailed);
+
+  useEffect(() => {
+    if (isInTaskQueue) {
+      setPendingCell(null);
+    }
+  }, [setPendingCell, isInTaskQueue]);
+  const isPending = Boolean(pendingCell) || isInTaskQueue;
 
   const onGenerate = () => {
     if (isPending) return;
@@ -51,11 +55,11 @@ export const AiFieldGenerateButton = (props: {
 
   return (
     <Button
-      className="mt-0.5 shrink-0"
       variant="outline"
       size="xs"
       onClick={onGenerate}
       disabled={!!isPending}
+      aria-label="Generate by AI"
     >
       <RefreshCcw className={cn('size-3.5', isPending && 'animate-spin')} />
     </Button>

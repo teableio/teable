@@ -68,13 +68,23 @@ export const mergeOrderBy = (
   viewId: string | undefined
 ): ReadonlyArray<TableRecordQueryRepositoryPort.TableRecordOrderBy> | undefined => {
   const result: TableRecordQueryRepositoryPort.TableRecordOrderBy[] = [];
-  if (groupByOrderBy) result.push(...groupByOrderBy);
-  if (sortOrderBy) result.push(...sortOrderBy);
+  const seen = new Set<string>();
+
+  const pushUnique = (item: TableRecordQueryRepositoryPort.TableRecordOrderBy) => {
+    const key =
+      'fieldId' in item ? `field:${item.fieldId.toString()}` : `column:${String(item.column)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(item);
+  };
+
+  groupByOrderBy?.forEach(pushUnique);
+  sortOrderBy?.forEach(pushUnique);
 
   // Always append stable row order to match v1 pagination behavior.
   // The repository will fall back to __auto_number if the view order column doesn't exist.
   if (viewId) {
-    result.push({ column: `__row_${viewId}`, direction: 'asc' });
+    pushUnique({ column: `__row_${viewId}`, direction: 'asc' });
   }
 
   return result.length > 0 ? result : undefined;

@@ -15,6 +15,7 @@ export class ShareDbPubSubPublisher implements IShareDbOpPublisher {
     op: ShareDbOp
   ): Promise<Result<void, DomainError>> {
     const channelList = [...channels];
+
     return new Promise((resolve) => {
       this.pubsub.publish(channelList, op, (error) => {
         if (!error) {

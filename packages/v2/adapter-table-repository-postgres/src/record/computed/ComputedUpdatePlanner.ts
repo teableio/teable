@@ -439,6 +439,39 @@ export class ComputedUpdatePlanner {
           }
         }
 
+        // Fallback for incomplete dependency graph: if a formula expression directly
+        // references any seed field from this mutation, force it into affected set.
+        if (context.changeType !== 'delete' && context.table) {
+          const seedFieldIdSet = new Set<string>([
+            ...valueSeedFieldIds.keys(),
+            ...linkSeedFieldIds.keys(),
+          ]);
+          for (const field of context.table.getFields()) {
+            if (field.type().toString() !== 'formula') continue;
+            const formulaField = field as FormulaField;
+            const refsResult = formulaField.expression().getReferencedFieldIds();
+            if (refsResult.isErr() || refsResult.value.length === 0) continue;
+            const referencesSeedField = refsResult.value.some((id) =>
+              seedFieldIdSet.has(id.toString())
+            );
+            if (!referencesSeedField) continue;
+
+            const fieldId = field.id().toString();
+            if (!fieldsById.has(fieldId)) {
+              fieldsById.set(fieldId, {
+                id: field.id(),
+                tableId: context.seedTableId,
+                type: 'formula',
+                isComputed: true,
+                options: null,
+                lookupOptions: null,
+                conditionalOptions: null,
+              });
+            }
+            affectedFieldIds.add(fieldId);
+          }
+        }
+
         const includeValueEdges = impact.includesValueChange || impact.includesLinkRelation;
         let relevantEdges = edges.filter(
           (edge) =>
@@ -480,7 +513,7 @@ export class ComputedUpdatePlanner {
           });
         }
 
-        const { ordered, levels } = topoSort(relevantEdges, computedFieldIds);
+        let { ordered, levels } = topoSort(relevantEdges, computedFieldIds);
         if (ordered.length !== computedFieldIds.size) {
           // Find which fields couldn't be sorted (potential cycle participants)
           const orderedSet = new Set(ordered);
@@ -561,7 +594,10 @@ export class ComputedUpdatePlanner {
             return `${id}(${meta.type}${symId ? `, sym=${symId}` : ''})`;
           });
 
-          const message = `Computed field dependency cycle detected. Total unsorted: ${unsortedFieldIds.length}. Cycle: [${cycleInfoText}]. Sample fields: [${sampleFields.join(', ')}]`;
+          const cycleFieldIds = findCycleParticipantFieldIds(relevantEdges, computedFieldIds);
+          const skippedFieldIdSet = cycleFieldIds.size > 0 ? cycleFieldIds : new Set(unsortedFieldIds);
+          const skippedFieldIds = [...skippedFieldIdSet];
+          const message = `Computed field dependency cycle detected. Total unsorted: ${unsortedFieldIds.length}. Skipped cycle fields: ${skippedFieldIds.length}. Cycle: [${cycleInfoText}]. Sample fields: [${sampleFields.join(', ')}]`;
           const allowSkip = context.cyclePolicy === 'skip';
           if (!allowSkip) {
             return err(
@@ -571,12 +607,13 @@ export class ComputedUpdatePlanner {
             );
           }
 
-          computedFieldIds = orderedSet;
+          computedFieldIds = new Set([...computedFieldIds].filter((id) => !skippedFieldIdSet.has(id)));
           relevantEdges = relevantEdges.filter(
             (edge) =>
-              orderedSet.has(edge.fromFieldId.toString()) &&
-              orderedSet.has(edge.toFieldId.toString())
+              computedFieldIds.has(edge.fromFieldId.toString()) &&
+              computedFieldIds.has(edge.toFieldId.toString())
           );
+          ({ ordered, levels } = topoSort(relevantEdges, computedFieldIds));
           cycleInfo = {
             mode: 'skip',
             unsortedFieldIds,
@@ -618,7 +655,8 @@ export class ComputedUpdatePlanner {
           levels,
           symmetricLinkEdges,
           context.changedFieldIds,
-          context.changeType
+          context.changeType,
+          countSeedRecords(context.seedRecordIds, context.extraSeedRecords) > 0
         );
 
         // Build same-table batches for CTE optimization
@@ -989,6 +1027,82 @@ const topoSort = (
   return { ordered, levels };
 };
 
+const findCycleParticipantFieldIds = (
+  edges: ReadonlyArray<FieldDependencyEdge>,
+  fieldIdSet: Set<string>
+): Set<string> => {
+  const adjacency = new Map<string, string[]>();
+  for (const id of fieldIdSet) {
+    adjacency.set(id, []);
+  }
+
+  for (const edge of edges) {
+    const from = edge.fromFieldId.toString();
+    const to = edge.toFieldId.toString();
+    if (!fieldIdSet.has(from) || !fieldIdSet.has(to)) continue;
+    adjacency.get(from)?.push(to);
+  }
+
+  let index = 0;
+  const indexMap = new Map<string, number>();
+  const lowLinkMap = new Map<string, number>();
+  const stack: string[] = [];
+  const inStack = new Set<string>();
+  const cycleParticipants = new Set<string>();
+
+  const strongConnect = (node: string): void => {
+    indexMap.set(node, index);
+    lowLinkMap.set(node, index);
+    index += 1;
+    stack.push(node);
+    inStack.add(node);
+
+    for (const neighbor of adjacency.get(node) ?? []) {
+      if (!indexMap.has(neighbor)) {
+        strongConnect(neighbor);
+        lowLinkMap.set(
+          node,
+          Math.min(lowLinkMap.get(node) ?? Number.POSITIVE_INFINITY, lowLinkMap.get(neighbor) ?? 0)
+        );
+      } else if (inStack.has(neighbor)) {
+        lowLinkMap.set(
+          node,
+          Math.min(lowLinkMap.get(node) ?? Number.POSITIVE_INFINITY, indexMap.get(neighbor) ?? 0)
+        );
+      }
+    }
+
+    if (lowLinkMap.get(node) !== indexMap.get(node)) return;
+
+    const component: string[] = [];
+    while (stack.length > 0) {
+      const candidate = stack.pop()!;
+      inStack.delete(candidate);
+      component.push(candidate);
+      if (candidate === node) break;
+    }
+
+    if (component.length > 1) {
+      component.forEach((fieldId) => cycleParticipants.add(fieldId));
+      return;
+    }
+
+    const onlyNode = component[0];
+    const hasSelfLoop = (adjacency.get(onlyNode) ?? []).includes(onlyNode);
+    if (hasSelfLoop) {
+      cycleParticipants.add(onlyNode);
+    }
+  };
+
+  for (const node of fieldIdSet) {
+    if (!indexMap.has(node)) {
+      strongConnect(node);
+    }
+  }
+
+  return cycleParticipants;
+};
+
 const buildSteps = (
   ordered: ReadonlyArray<string>,
   levels: Map<string, number>,
@@ -1033,10 +1147,19 @@ const buildPropagationEdges = (
     toTableId: TableId;
   }>,
   changedFieldIds: ReadonlyArray<FieldId>,
-  changeType: 'insert' | 'update' | 'delete'
+  changeType: 'insert' | 'update' | 'delete',
+  hasSeedRecords: boolean
 ): Result<ReadonlyArray<ComputedDependencyEdge>, DomainError> => {
   const result: ComputedDependencyEdge[] = [];
   const changedFieldIdSet = new Set(changedFieldIds.map((id) => id.toString()));
+  const existingEdgeKeys = new Set<string>();
+  const edgeKey = (edge: {
+    fromFieldId: FieldId;
+    toFieldId: FieldId;
+    fromTableId: TableId;
+    toTableId: TableId;
+  }) =>
+    `${edge.fromTableId.toString()}:${edge.fromFieldId.toString()}->${edge.toTableId.toString()}:${edge.toFieldId.toString()}`;
 
   for (const edge of edges) {
     const toId = edge.toFieldId.toString();
@@ -1081,6 +1204,7 @@ const buildPropagationEdges = (
           propagationMode: 'allTargetRecords',
           order: levels.get(toId) ?? 0,
         });
+        existingEdgeKeys.add(edgeKey(edge));
       } else {
         // Filter fields not changed - can use precise filtering
         result.push({
@@ -1095,6 +1219,7 @@ const buildPropagationEdges = (
           },
           order: levels.get(toId) ?? 0,
         });
+        existingEdgeKeys.add(edgeKey(edge));
       }
       continue;
     }
@@ -1141,6 +1266,7 @@ const buildPropagationEdges = (
             propagationMode: 'allTargetRecords',
             order: levels.get(toId) ?? 0,
           });
+          existingEdgeKeys.add(edgeKey(edge));
           continue;
         }
 
@@ -1155,6 +1281,7 @@ const buildPropagationEdges = (
           filterCondition: filterDto ? { foreignTableId: edge.fromTableId, filterDto } : undefined,
           order: levels.get(toId) ?? 0,
         });
+        existingEdgeKeys.add(edgeKey(edge));
         continue;
       }
     }
@@ -1168,10 +1295,42 @@ const buildPropagationEdges = (
       propagationMode: 'linkTraversal',
       order: levels.get(toId) ?? 0,
     });
+    existingEdgeKeys.add(edgeKey(edge));
+  }
+
+  // Schema-level link updates have no seed records, so link fields would otherwise
+  // never become dirty. Add a self edge to force a full-table refresh.
+  if (!hasSeedRecords) {
+    for (const changedFieldId of changedFieldIds) {
+      const meta = fieldsById.get(changedFieldId.toString());
+      if (!meta || meta.type !== 'link') continue;
+      const fieldIdStr = meta.id.toString();
+      if (!computedFieldIds.has(fieldIdStr)) continue;
+
+      const selfEdge = {
+        fromFieldId: meta.id,
+        toFieldId: meta.id,
+        fromTableId: meta.tableId,
+        toTableId: meta.tableId,
+      };
+      const key = edgeKey(selfEdge);
+      if (existingEdgeKeys.has(key)) continue;
+
+      result.push({
+        ...selfEdge,
+        linkFieldId: meta.id,
+        propagationMode: 'allTargetRecords',
+        order: levels.get(fieldIdStr) ?? 0,
+      });
+      existingEdgeKeys.add(key);
+    }
   }
 
   result.sort((a, b) => a.order - b.order);
 
+  const symmetricPropagationMode: DirtyPropagationMode = hasSeedRecords
+    ? 'linkTraversal'
+    : 'allTargetRecords';
   for (const edge of symmetricLinkEdges) {
     const toId = edge.toFieldId.toString();
     const order = levels.get(toId) ?? 0;
@@ -1181,9 +1340,10 @@ const buildPropagationEdges = (
       fromTableId: edge.fromTableId,
       toTableId: edge.toTableId,
       linkFieldId: edge.toFieldId,
-      propagationMode: 'linkTraversal',
+      propagationMode: symmetricPropagationMode,
       order,
     });
+    existingEdgeKeys.add(edgeKey(edge));
   }
 
   result.sort((a, b) => a.order - b.order);

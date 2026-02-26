@@ -2039,6 +2039,164 @@ describe('v2 http paste (e2e)', () => {
     });
   });
 
+  describe('paste row mapping in computed mode with group + user sort', () => {
+    let hostTableId: string;
+    let hostViewId: string;
+    let hostNameFieldId: string;
+    let hostSegmentFieldId: string;
+    let hostPriorityFieldId: string;
+    let hostNotesFieldId: string;
+    let hostOwnerFieldId: string;
+    let hostDbTableName: string;
+    let hostOwnerDbFieldName: string;
+    let rowNullOwnerId: string;
+    let rowAlphaOwnerId: string;
+    let rowBetaOwnerId: string;
+
+    beforeAll(async () => {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Computed Ref ${Date.now()}`,
+        fields: [{ name: 'Label', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const foreignPrimaryFieldId = foreignTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      await ctx.createRecord(foreignTable.id, { [foreignPrimaryFieldId]: 'Ref-1' });
+
+      const linkFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Computed Group Sort ${linkFieldId}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Segment', type: 'singleSelect', options: ['A', 'B'] },
+          { name: 'Priority', type: 'number' },
+          { name: 'Notes', type: 'longText' },
+          { name: 'Owner', type: 'user', options: { isMultiple: false } },
+          {
+            name: `Ref ${linkFieldId}`,
+            type: 'link',
+            id: linkFieldId,
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      hostTableId = hostTable.id;
+      hostViewId = hostTable.views[0].id;
+      hostNameFieldId = hostTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      hostSegmentFieldId = hostTable.fields.find((f) => f.name === 'Segment')?.id ?? '';
+      hostPriorityFieldId = hostTable.fields.find((f) => f.name === 'Priority')?.id ?? '';
+      hostNotesFieldId = hostTable.fields.find((f) => f.name === 'Notes')?.id ?? '';
+      hostOwnerFieldId = hostTable.fields.find((f) => f.name === 'Owner')?.id ?? '';
+
+      rowNullOwnerId = (
+        await ctx.createRecord(hostTableId, {
+          [hostNameFieldId]: 'A-NullOwner',
+          [hostSegmentFieldId]: 'A',
+          [hostPriorityFieldId]: 10,
+          [hostNotesFieldId]: 'same-notes',
+        })
+      ).id;
+
+      rowAlphaOwnerId = (
+        await ctx.createRecord(hostTableId, {
+          [hostNameFieldId]: 'A-AlphaOwner',
+          [hostSegmentFieldId]: 'A',
+          [hostPriorityFieldId]: 10,
+          [hostNotesFieldId]: 'same-notes',
+        })
+      ).id;
+
+      rowBetaOwnerId = (
+        await ctx.createRecord(hostTableId, {
+          [hostNameFieldId]: 'A-BetaOwner',
+          [hostSegmentFieldId]: 'A',
+          [hostPriorityFieldId]: 10,
+          [hostNotesFieldId]: 'same-notes',
+        })
+      ).id;
+
+      await ctx.createRecord(hostTableId, {
+        [hostNameFieldId]: 'B-OtherGroup',
+        [hostSegmentFieldId]: 'B',
+        [hostPriorityFieldId]: 10,
+        [hostNotesFieldId]: 'same-notes',
+      });
+
+      const tableMeta = await ctx.testContainer.db
+        .selectFrom('table_meta')
+        .select('db_table_name')
+        .where('id', '=', hostTableId)
+        .executeTakeFirst();
+      hostDbTableName = tableMeta?.db_table_name ?? '';
+
+      const ownerFieldMeta = await ctx.testContainer.db
+        .selectFrom('field')
+        .select('db_field_name')
+        .where('id', '=', hostOwnerFieldId)
+        .executeTakeFirst();
+      hostOwnerDbFieldName = ownerFieldMeta?.db_field_name ?? '';
+
+      await sql`
+        UPDATE ${sql.table(hostDbTableName)}
+        SET ${sql.ref(hostOwnerDbFieldName)} = ${JSON.stringify({ id: 'usr_alpha', title: 'Alpha' })}::jsonb
+        WHERE "__id" = ${rowAlphaOwnerId}
+      `.execute(ctx.testContainer.db);
+
+      await sql`
+        UPDATE ${sql.table(hostDbTableName)}
+        SET ${sql.ref(hostOwnerDbFieldName)} = ${JSON.stringify({ id: 'usr_beta', title: 'Beta' })}::jsonb
+        WHERE "__id" = ${rowBetaOwnerId}
+      `.execute(ctx.testContainer.db);
+
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          group: JSON.stringify([{ fieldId: hostSegmentFieldId, order: 'asc' }]),
+          sort: JSON.stringify({
+            sortObjs: [
+              { fieldId: hostPriorityFieldId, order: 'desc' },
+              { fieldId: hostNotesFieldId, order: 'desc' },
+              { fieldId: hostOwnerFieldId, order: 'asc' },
+            ],
+            manualSort: false,
+          }),
+        })
+        .where('id', '=', hostViewId)
+        .execute();
+    }, 30000);
+
+    it('should paste to the same visible row index under computed mode', async () => {
+      const result = await ctx.paste({
+        tableId: hostTableId,
+        viewId: hostViewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [['ComputedRowIndex1']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(hostTableId, { limit: 20 });
+      const nullOwner = records.find((record) => record.id === rowNullOwnerId);
+      const alphaOwner = records.find((record) => record.id === rowAlphaOwnerId);
+      const betaOwner = records.find((record) => record.id === rowBetaOwnerId);
+
+      expect(alphaOwner?.fields[hostNameFieldId]).toBe('ComputedRowIndex1');
+      expect(nullOwner?.fields[hostNameFieldId]).toBe('A-NullOwner');
+      expect(betaOwner?.fields[hostNameFieldId]).toBe('A-BetaOwner');
+    });
+  });
+
   describe('paste with multi-column sort', () => {
     let multiSortTableId: string;
     let multiSortViewId: string;
@@ -2715,17 +2873,20 @@ describe('v2 http paste (e2e)', () => {
 
         const latestTable = await ctx.getTableById(table.id);
         const latestSelectField = latestTable.fields.find((field) => field.id === selectFieldId);
-        const optionNames = (latestSelectField?.options?.choices ?? []).map(
-          (choice) => choice.name
-        );
+        const selectOptions = ((
+          latestSelectField?.options as unknown as { choices?: Array<{ name: string }> }
+        )?.choices ?? []) as Array<{ name: string }>;
+        const optionNames = selectOptions.map((choice: { name: string }) => choice.name);
 
         expect(optionNames).not.toContain('[object Object]');
         expect(optionNames).toContain(expectedDisplay);
 
         const expectedCount =
-          testCase.existingOptions?.filter((name) => name === expectedDisplay).length ?? 0;
+          testCase.existingOptions?.filter((name: string) => name === expectedDisplay).length ?? 0;
         if (expectedCount > 0) {
-          expect(optionNames.filter((name) => name === expectedDisplay).length).toBe(expectedCount);
+          expect(optionNames.filter((name: string) => name === expectedDisplay).length).toBe(
+            expectedCount
+          );
         }
       });
     });
@@ -3139,6 +3300,68 @@ describe('v2 http paste (e2e)', () => {
 
       // Row200 should be updated (row 3 in ASC NULLS FIRST order)
       expect(r200?.fields[nullSortNameFieldId]).toBe('PastedMiddle');
+    });
+  });
+
+  describe('paste with ignoreViewQuery', () => {
+    it('should ignore view default sort when ignoreViewQuery=true', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Ignore View Query ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Value', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const localTableId = table.id;
+      const localViewId = table.views[0].id;
+      const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+      const valueFieldId = table.fields.find((f) => f.name === 'Value')?.id ?? '';
+
+      const recordA = await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordA',
+        [valueFieldId]: 100,
+      });
+      await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordB',
+        [valueFieldId]: 200,
+      });
+      const recordC = await ctx.createRecord(localTableId, {
+        [nameFieldId]: 'RecordC',
+        [valueFieldId]: 300,
+      });
+
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          sort: JSON.stringify({
+            sortObjs: [{ fieldId: valueFieldId, order: 'desc' }],
+          }),
+        })
+        .where('id', '=', localViewId)
+        .execute();
+
+      const result = await ctx.paste({
+        tableId: localTableId,
+        viewId: localViewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['PastedIgnore']],
+        ignoreViewQuery: true,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(localTableId);
+      const updatedA = records.find((record) => record.id === recordA.id);
+      const unchangedC = records.find((record) => record.id === recordC.id);
+
+      expect(updatedA?.fields[nameFieldId]).toBe('PastedIgnore');
+      expect(unchangedC?.fields[nameFieldId]).toBe('RecordC');
     });
   });
 

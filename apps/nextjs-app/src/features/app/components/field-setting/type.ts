@@ -15,8 +15,8 @@ export interface IFieldSetting {
   onCancel?: () => void;
 }
 
-export type IFieldSettingBase = IFieldSetting & {
-  onConfirm?: (field: IFieldRo) => void;
+export type IFieldSettingBase = Omit<IFieldSetting, 'onConfirm'> & {
+  onConfirm?: (field?: IFieldRo) => void;
 };
 
 export type IFieldEditorRo = Partial<IFieldRo> & {

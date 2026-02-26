@@ -22,6 +22,7 @@ import { err, ok, safeTry } from 'neverthrow';
 
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
 import type { DynamicDB, QB } from '../ITableRecordQueryBuilder';
+import { CteLevelSqlPlan, FormulaFieldSqlFragment } from './SameTableBatchSqlPlan';
 
 /**
  * A level of same-table fields to compute.
@@ -122,7 +123,7 @@ export class SameTableBatchQueryBuilder {
         const fieldsByLevel = yield* this.collectFieldsByLevel(config.table, config.fieldLevels);
 
         // Build the CTE chain
-        const cteChain = yield* this.buildCteChain(config.table, tableName, fieldsByLevel);
+        const cteChain = yield* this.buildCteChain(config.table, fieldsByLevel);
 
         // Build the final UPDATE statement
         const updateQuery = yield* this.buildUpdateQuery(
@@ -170,12 +171,11 @@ export class SameTableBatchQueryBuilder {
    */
   private buildCteChain(
     table: Table,
-    tableName: string,
     fieldsByLevel: Map<number, Field[]>
   ): Result<CteChain, DomainError> {
     return safeTry<CteChain, DomainError>(
       function* (this: SameTableBatchQueryBuilder) {
-        const ctes: CteDefinition[] = [];
+        const ctes: CteLevelSqlPlan[] = [];
         const levels = [...fieldsByLevel.keys()].sort((a, b) => a - b);
 
         // Track which columns are available from previous CTEs
@@ -186,29 +186,34 @@ export class SameTableBatchQueryBuilder {
           if (fields.length === 0) continue;
 
           const cteName = `level_${level}`;
-          const selectExprs: Array<{ alias: string; expr: RawBuilder<unknown> }> = [];
+          const fragments: FormulaFieldSqlFragment[] = [];
 
           // Build select expressions for each field in this level
           for (const field of fields) {
             const columnName = yield* this.getColumnName(field);
-            const expr = yield* this.buildFieldExpression(
-              table,
-              field,
-              tableName,
-              previousCteColumns
+            const expr = yield* this.buildFieldExpression(table, field, previousCteColumns);
+
+            fragments.push(
+              FormulaFieldSqlFragment.create({
+                fieldId: field.id().toString(),
+                columnAlias: columnName,
+                expressionSql: expr.compile(this.db).sql,
+                cseEligible: field.type().equals(FieldType.formula()),
+              })
             );
-            selectExprs.push({ alias: columnName, expr });
 
             // Register this column for future levels
             previousCteColumns.set(field.id().toString(), { cteName, columnName });
           }
 
-          ctes.push({
-            name: cteName,
-            level,
-            selectExprs,
-            previousCteName: ctes.length > 0 ? ctes[ctes.length - 1].name : undefined,
-          });
+          ctes.push(
+            CteLevelSqlPlan.create({
+              name: cteName,
+              level,
+              fragments,
+              previousCteName: ctes.length > 0 ? ctes[ctes.length - 1].name : undefined,
+            })
+          );
         }
 
         return ok({
@@ -225,7 +230,6 @@ export class SameTableBatchQueryBuilder {
   private buildFieldExpression(
     table: Table,
     field: Field,
-    tableName: string,
     previousCteColumns: Map<string, { cteName: string; columnName: string }>
   ): Result<RawBuilder<unknown>, DomainError> {
     // Only formula fields can have same-table dependencies
@@ -243,7 +247,7 @@ export class SameTableBatchQueryBuilder {
       table,
       tableAlias: T,
       resolveFieldSql: (refField: Field) =>
-        this.resolveFieldSqlWithCte(refField, previousCteColumns, tableName),
+        this.resolveFieldSqlWithCte(refField, previousCteColumns),
       skipFormulaExpansion: true,
       typeValidationStrategy: this.typeValidationStrategy,
       timeZone: formulaField.timeZone()?.toString(),
@@ -264,8 +268,7 @@ export class SameTableBatchQueryBuilder {
    */
   private resolveFieldSqlWithCte(
     field: Field,
-    previousCteColumns: Map<string, { cteName: string; columnName: string }>,
-    _tableName: string
+    previousCteColumns: Map<string, { cteName: string; columnName: string }>
   ): Result<SqlExpr, DomainError> {
     const fieldIdStr = field.id().toString();
     const cteInfo = previousCteColumns.get(fieldIdStr);
@@ -352,9 +355,9 @@ export class SameTableBatchQueryBuilder {
     // Build the field mappings for the UPDATE SET clause
     const fieldMappings: FieldMapping[] = [];
     for (const cte of ctes) {
-      for (const selectExpr of cte.selectExprs) {
+      for (const fragment of cte.fragments) {
         fieldMappings.push({
-          columnName: selectExpr.alias,
+          columnName: fragment.columnAlias,
           cteName: cte.name,
         });
       }
@@ -363,10 +366,6 @@ export class SameTableBatchQueryBuilder {
     // Build CTEs as raw SQL
     const cteDefinitions: string[] = [];
     for (const cte of ctes) {
-      const selectCols = cte.selectExprs.map(
-        (se) => `(${se.expr.compile(this.db).sql}) as "${se.alias}"`
-      );
-
       let fromClause: string;
       if (cte.previousCteName) {
         // Join with main table and previous CTE
@@ -385,7 +384,7 @@ export class SameTableBatchQueryBuilder {
         fromClause = `FROM "${tableName}" AS "${T}"${dirtyJoin}`;
       }
 
-      const cteDef = `"${cte.name}" AS (SELECT "${T}"."__id", ${selectCols.join(', ')} ${fromClause})`;
+      const cteDef = cte.buildCteSql(fromClause);
       cteDefinitions.push(cteDef);
     }
 
@@ -420,15 +419,8 @@ export class SameTableBatchQueryBuilder {
   }
 }
 
-type CteDefinition = {
-  name: string;
-  level: number;
-  selectExprs: Array<{ alias: string; expr: RawBuilder<unknown> }>;
-  previousCteName?: string;
-};
-
 type CteChain = {
-  ctes: CteDefinition[];
+  ctes: CteLevelSqlPlan[];
   previousCteColumns: Map<string, { cteName: string; columnName: string }>;
 };
 

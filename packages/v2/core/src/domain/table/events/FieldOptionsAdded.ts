@@ -12,6 +12,14 @@ export interface SelectOptionDTO {
   readonly color: string;
 }
 
+const isSelectOptionDto = (option: SelectOption | SelectOptionDTO): option is SelectOptionDTO => {
+  return (
+    typeof option.id === 'string' &&
+    typeof option.name === 'string' &&
+    typeof option.color === 'string'
+  );
+};
+
 export class FieldOptionsAdded extends AbstractTableUpdatedEvent {
   readonly name = DomainEventName.fieldOptionsAdded();
   readonly occurredAt = OccurredAt.now();
@@ -20,7 +28,9 @@ export class FieldOptionsAdded extends AbstractTableUpdatedEvent {
     tableId: TableId,
     baseId: BaseId,
     readonly fieldId: FieldId,
-    readonly options: ReadonlyArray<SelectOptionDTO>
+    readonly options: ReadonlyArray<SelectOptionDTO>,
+    readonly oldVersion?: number,
+    readonly newVersion?: number
   ) {
     super(tableId, baseId);
   }
@@ -29,9 +39,20 @@ export class FieldOptionsAdded extends AbstractTableUpdatedEvent {
     tableId: TableId;
     baseId: BaseId;
     fieldId: FieldId;
-    options: ReadonlyArray<SelectOption>;
+    options: ReadonlyArray<SelectOption | SelectOptionDTO>;
+    oldVersion?: number;
+    newVersion?: number;
   }): FieldOptionsAdded {
-    const optionDtos = params.options.map((opt) => opt.toDto());
-    return new FieldOptionsAdded(params.tableId, params.baseId, params.fieldId, optionDtos);
+    const optionDtos: SelectOptionDTO[] = params.options.map((opt) =>
+      isSelectOptionDto(opt) ? opt : opt.toDto()
+    );
+    return new FieldOptionsAdded(
+      params.tableId,
+      params.baseId,
+      params.fieldId,
+      optionDtos,
+      params.oldVersion,
+      params.newVersion
+    );
   }
 }

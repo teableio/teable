@@ -12,7 +12,7 @@ export const TooltipWrap: FC<PropsWithChildren<{ description: string; disabled?:
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent>
+        <TooltipContent className="pointer-events-none whitespace-pre-line">
           <p>{description}</p>
         </TooltipContent>
       </Tooltip>

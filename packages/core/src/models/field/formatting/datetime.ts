@@ -55,13 +55,13 @@ export const defaultDatetimeFormatting: IDatetimeFormatting = {
 
 export const formatDateToString = (
   cellValue: string | undefined,
-  formatting: IDatetimeFormatting
+  formatting?: IDatetimeFormatting
 ) => {
   if (cellValue == null) {
     return '';
   }
 
-  const { date, time, timeZone } = formatting;
+  const { date, time, timeZone } = formatting ?? defaultDatetimeFormatting;
   const format = time === TimeFormatting.None ? date : `${date} ${time}`;
 
   try {
