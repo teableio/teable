@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import { IS_TEMPLATE_HEADER } from '@teable/openapi';
+import { IS_TEMPLATE_HEADER, BASE_SHARE_ID_HEADER } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IShareDbReadonlyAdapterService, RawOpType } from '../interface';
 import { ReadonlyService } from './readonly.service';
@@ -20,8 +20,10 @@ export class ViewReadonlyServiceAdapter
 
   getDocIdsByQuery(tableId: string) {
     const shareId = this.cls.get('shareViewId');
+    const baseShareId = this.cls.get('baseShareId');
+    const useShareViewEndpoint = shareId && !baseShareId;
     const templateHeader = this.cls.get('templateHeader');
-    const url = shareId
+    const url = useShareViewEndpoint
       ? `/share/${shareId}/socket/view/doc-ids`
       : `/table/${tableId}/view/socket/doc-ids`;
     return this.axios
@@ -29,14 +31,17 @@ export class ViewReadonlyServiceAdapter
         headers: {
           cookie: this.cls.get('cookie'),
           [IS_TEMPLATE_HEADER]: templateHeader,
+          [BASE_SHARE_ID_HEADER]: baseShareId,
         },
       })
       .then((res) => res.data);
   }
   getSnapshotBulk(tableId: string, ids: string[]) {
     const shareId = this.cls.get('shareViewId');
+    const baseShareId = this.cls.get('baseShareId');
+    const useShareViewEndpoint = shareId && !baseShareId;
     const templateHeader = this.cls.get('templateHeader');
-    const url = shareId
+    const url = useShareViewEndpoint
       ? `/share/${shareId}/socket/view/snapshot-bulk`
       : `/table/${tableId}/view/socket/snapshot-bulk`;
     return this.axios
@@ -44,6 +49,7 @@ export class ViewReadonlyServiceAdapter
         headers: {
           cookie: this.cls.get('cookie'),
           [IS_TEMPLATE_HEADER]: templateHeader,
+          [BASE_SHARE_ID_HEADER]: baseShareId,
         },
         params: {
           ids,

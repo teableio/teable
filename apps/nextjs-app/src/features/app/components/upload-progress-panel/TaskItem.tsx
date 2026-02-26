@@ -22,7 +22,6 @@ export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) 
   const isUploading = task.status === 'uploading' || task.status === 'pending';
   const shouldShowRemove = isError || isCompleted;
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
-  console.log('isUploading', isUploading);
   // Use ref to avoid resetting timers when parent re-renders with new callback references
   const onRemoveRef = useRef(onRemove);
   onRemoveRef.current = onRemove;

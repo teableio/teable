@@ -37,6 +37,7 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
       // The record already exists in the client, so we should NOT call ensure()
       // which would broadcast a create op with empty fields and overwrite client data.
       for (const change of event.changes) {
+        const oldValue = change.oldValue;
         yield* (
           await realtimeEngine.applyChange(
             context,
@@ -45,6 +46,7 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
               type: 'set',
               path: ['fields', change.fieldId],
               value: change.newValue,
+              ...(oldValue === undefined ? {} : { oldValue }),
             },
             { version: event.oldVersion }
           )

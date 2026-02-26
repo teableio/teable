@@ -34,6 +34,23 @@ const fieldTypeSchema = z.enum(fieldTypeValues);
 type IFieldTypeLiteral = z.infer<typeof fieldTypeSchema>;
 
 export class FieldType extends ValueObject {
+  private static readonly primarySupportedTypes = new Set<IFieldTypeLiteral>([
+    'singleLineText',
+    'longText',
+    'user',
+    'multipleSelect',
+    'singleSelect',
+    'date',
+    'number',
+    'rating',
+    'formula',
+    'createdTime',
+    'lastModifiedTime',
+    'createdBy',
+    'lastModifiedBy',
+    'autoNumber',
+  ]);
+
   private constructor(private readonly value: IFieldTypeLiteral) {
     super();
   }
@@ -138,5 +155,9 @@ export class FieldType extends ValueObject {
 
   toString(): IFieldTypeLiteral {
     return this.value;
+  }
+
+  isPrimarySupported(): boolean {
+    return FieldType.primarySupportedTypes.has(this.value);
   }
 }

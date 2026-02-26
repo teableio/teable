@@ -15,6 +15,7 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
@@ -287,6 +288,46 @@ describe('DeleteRecordsHandler', () => {
     expect(deletedEvent?.recordSnapshots).toHaveLength(2);
     expect(deletedEvent?.recordSnapshots[0].id).toBe(`rec${'a'.repeat(16)}`);
     expect(deletedEvent?.recordSnapshots[0].fields).toEqual({ title: 'Record A' });
+  });
+
+  it('uses RecordByIdsSpec for large recordIds deletion to avoid deep OR spec trees', async () => {
+    const { table, tableId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordCount = 12000;
+    const recordIds = Array.from(
+      { length: recordCount },
+      (_, idx) => `rec${idx.toString(36).padStart(16, '0').slice(-16)}`
+    );
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = recordIds.map((id, idx) => ({
+      id,
+      fields: { title: `Record ${idx}` },
+      version: 1,
+    }));
+
+    const recordRepository = new FakeTableRecordRepository();
+    const handler = new DeleteRecordsHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      queryRepository,
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const commandResult = DeleteRecordsCommand.create({
+      tableId: tableId.toString(),
+      recordIds,
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.deletedRecordIds).toHaveLength(recordCount);
+    expect(recordRepository.lastSpec).toBeInstanceOf(RecordByIdsSpec);
   });
 
   it('continues when delete returns not found', async () => {

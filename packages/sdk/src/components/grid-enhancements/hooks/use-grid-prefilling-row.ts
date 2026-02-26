@@ -1,3 +1,4 @@
+import { generateAttachmentId } from '@teable/core';
 import type { IUpdateOrderRo } from '@teable/openapi';
 import { isEqual, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -23,6 +24,14 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
   const [prefillingFieldValueMap, setPrefillingFieldValueMap] = useState<
     { [fieldId: string]: unknown } | undefined
   >();
+  const [tempRecordId, setTempRecordId] = useState(() => generateAttachmentId());
+
+  // Reset tempRecordId for each prefilling row session
+  useEffect(() => {
+    if (prefillingRowIndex != null) {
+      setTempRecordId(generateAttachmentId());
+    }
+  }, [prefillingRowIndex]);
 
   const localRecord = useMemo(() => {
     if (prefillingFieldValueMap == null) {
@@ -128,6 +137,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
       prefillingRowIndex,
       prefillingRowOrder,
       prefillingFieldValueMap,
+      tempRecordId,
       setPrefillingRowIndex,
       setPrefillingRowOrder,
       onPrefillingCellEdited,
@@ -139,6 +149,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
     prefillingRowIndex,
     prefillingRowOrder,
     prefillingFieldValueMap,
+    tempRecordId,
     setPrefillingRowIndex,
     setPrefillingRowOrder,
     onPrefillingCellEdited,

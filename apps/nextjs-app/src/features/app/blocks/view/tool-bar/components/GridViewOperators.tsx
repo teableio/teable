@@ -61,8 +61,8 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
-            <div className="flex max-w-full items-center justify-start rounded-t bg-surface px-4 py-2 text-[11px]">
-              <Share2 className="mr-4 size-4 shrink-0" />
+            <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
+              <Share2 className="mr-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )
