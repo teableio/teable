@@ -129,7 +129,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Lookup field is required",
       "lookupOptionsNotAllowed": "Lookup options are not allowed when isLookup attribute is true or field type is rollup.",
-      "lookupOptionsRequired": "Lookup options are required when isLookup attribute is true or field type is rollup.",
+      "lookupOptionsRequired": "Lookup options are required",
       "refineOptionsError": "Parse lookup options error {{message}}"
     },
     "rollup": {
@@ -1072,9 +1072,14 @@
       "viewTypeNotAllowed": "This view type is not allowed for this operation"
     },
     "shareAuth": {
-      "passwordRestrictionNotEnabled": "Password restriction is not enabled for this shared view",
+      "passwordRestrictionNotEnabled": "Password restriction is not enabled for this share",
       "shareViewNotFound": "Shared view not found or sharing is disabled",
       "linkFieldNotFound": "Link field not found"
+    },
+    "baseShare": {
+      "notFound": "Base share not found or sharing is disabled",
+      "alreadyExists": "A share already exists for this node",
+      "copyNotAllowed": "This share does not allow copying"
     },
     "shareSocket": {
       "viewPermissionNotAllowed": "You do not have permission to access this view",
@@ -1195,6 +1200,14 @@
       "notAttachment": "Field is not an attachment field",
       "isComputed": "Field is computed and cannot be modified",
       "notFoundAICofig": "Field does not have AI configuration",
+      "foreignTableIdRequired": "Foreign table is required",
+      "lookupFieldIdRequired": "Lookup field is required",
+      "lookupFieldNotExist": "Lookup field {{lookupFieldId}} does not exist",
+      "lookupFieldNotBelongToTable": "Lookup field {{lookupFieldId}} does not belong to table {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "Current field type {{fieldType}} does not match lookup field type {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "Conditional rollup field options are required",
+      "conditionalRollupParseError": "Conditional rollup parse error: {{message}}",
+      "conditionalLookupOptionsRequired": "Conditional lookup field options are required",
       "button": {
         "clickCountReachedMaxCount": "Button click count has reached the maximum limit",
         "notSupportReset": "Button field does not support reset"

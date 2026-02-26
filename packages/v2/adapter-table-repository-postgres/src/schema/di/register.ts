@@ -27,6 +27,12 @@ class NoopComputedFieldBackfillService {
   }
 }
 
+class NoopComputedFieldCascadeService {
+  async cascade() {
+    return ok(undefined);
+  }
+}
+
 export const registerV2PostgresDdlAdapter = async (
   c: DependencyContainer = container,
   rawConfig: Partial<IV2PostgresDdlAdapterConfig> = {}
@@ -46,6 +52,13 @@ export const registerV2PostgresDdlAdapter = async (
     c.registerInstance(
       v2RecordRepositoryPostgresTokens.computedFieldBackfillService,
       new NoopComputedFieldBackfillService()
+    );
+  }
+
+  if (!c.isRegistered(v2RecordRepositoryPostgresTokens.computedFieldCascadeService)) {
+    c.registerInstance(
+      v2RecordRepositoryPostgresTokens.computedFieldCascadeService,
+      new NoopComputedFieldCascadeService()
     );
   }
 

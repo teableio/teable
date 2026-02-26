@@ -1,18 +1,22 @@
 import {
   Field,
+  FieldType,
+  TableByIdSpec,
+  domainError,
   generatePrefixedId,
   type DomainError,
   type IExecutionContext,
   type IHasher,
   type ILogger,
   type ITableRepository,
+  type LinkField,
   type Table,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { formulaSqlPgTokens, type IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Kysely, Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -115,7 +119,7 @@ export class ComputedFieldBackfillService {
     input: ComputedFieldBackfillInput
   ): Promise<Result<void, DomainError>> {
     // Only computed fields need backfill
-    if (!this.isComputedField(input.field)) {
+    if (!this.needsBackfill(input.field)) {
       return ok(undefined);
     }
 
@@ -139,9 +143,18 @@ export class ComputedFieldBackfillService {
    */
   async backfillMany(
     context: IExecutionContext,
-    input: { table: Table; fields: ReadonlyArray<Field> }
+    input: {
+      table: Table;
+      fields: ReadonlyArray<Field>;
+      skipDistinctFilter?: boolean;
+      includeOneManyTwoWay?: boolean;
+    }
   ): Promise<Result<void, DomainError>> {
-    const computedFields = input.fields.filter((f) => this.isComputedField(f));
+    const computedFieldsResult = await this.collectBackfillFields(context, input);
+    if (computedFieldsResult.isErr()) {
+      return err(computedFieldsResult.error);
+    }
+    const computedFields = computedFieldsResult.value;
     if (computedFields.length === 0) {
       return ok(undefined);
     }
@@ -150,10 +163,19 @@ export class ComputedFieldBackfillService {
     const shouldAsync = await this.shouldUseAsyncMode(context, input.table);
 
     if (shouldAsync) {
-      return this.enqueueMany(context, { table: input.table, fields: computedFields });
+      return this.enqueueMany(context, {
+        table: input.table,
+        fields: computedFields,
+        includeOneManyTwoWay: input.includeOneManyTwoWay,
+      });
     }
 
-    return this.executeSyncMany(context, { table: input.table, fields: computedFields });
+    return this.executeSyncMany(context, {
+      table: input.table,
+      fields: computedFields,
+      skipDistinctFilter: input.skipDistinctFilter,
+      includeOneManyTwoWay: input.includeOneManyTwoWay,
+    });
   }
 
   /**
@@ -164,7 +186,7 @@ export class ComputedFieldBackfillService {
     context: IExecutionContext,
     input: ComputedFieldBackfillInput
   ): Promise<Result<void, DomainError>> {
-    if (!this.isComputedField(input.field)) {
+    if (!this.needsBackfill(input.field)) {
       return ok(undefined);
     }
 
@@ -201,9 +223,11 @@ export class ComputedFieldBackfillService {
    */
   async enqueueMany(
     context: IExecutionContext,
-    input: { table: Table; fields: ReadonlyArray<Field> }
+    input: { table: Table; fields: ReadonlyArray<Field>; includeOneManyTwoWay?: boolean }
   ): Promise<Result<void, DomainError>> {
-    const computedFields = input.fields.filter((f) => this.isComputedField(f));
+    const computedFields = input.fields.filter((f) =>
+      this.needsBackfill(f, input.includeOneManyTwoWay)
+    );
     if (computedFields.length === 0) {
       return ok(undefined);
     }
@@ -244,7 +268,7 @@ export class ComputedFieldBackfillService {
     context: IExecutionContext,
     input: ComputedFieldBackfillInput
   ): Promise<Result<void, DomainError>> {
-    if (!this.isComputedField(input.field)) {
+    if (!this.needsBackfill(input.field)) {
       return ok(undefined);
     }
 
@@ -300,14 +324,23 @@ export class ComputedFieldBackfillService {
         });
 
         // Execute the UPDATE
-        const { numAffectedRows, numChangedRows } = await db.executeQuery(compiled);
+        try {
+          const { numAffectedRows, numChangedRows } = await db.executeQuery(compiled);
 
-        this.logger.debug('computed:backfill:done', {
-          tableId: input.table.id().toString(),
-          fieldId: fieldId.toString(),
-          numAffectedRows,
-          numChangedRows,
-        });
+          this.logger.debug('computed:backfill:done', {
+            tableId: input.table.id().toString(),
+            fieldId: fieldId.toString(),
+            numAffectedRows,
+            numChangedRows,
+          });
+        } catch (error) {
+          const dbFieldName = input.field.dbFieldName().andThen((n) => n.value());
+          return err(
+            domainError.infrastructure({
+              message: `Failed to backfill computed field ${fieldId.toString()} (dbFieldName=${dbFieldName.isOk() ? dbFieldName.value : 'unknown'}, table=${input.table.id().toString()}): ${error instanceof Error ? error.message : String(error)}`,
+            })
+          );
+        }
 
         return ok(undefined);
       }.bind(this)
@@ -319,9 +352,16 @@ export class ComputedFieldBackfillService {
    */
   async executeSyncMany(
     context: IExecutionContext,
-    input: { table: Table; fields: ReadonlyArray<Field> }
+    input: {
+      table: Table;
+      fields: ReadonlyArray<Field>;
+      skipDistinctFilter?: boolean;
+      includeOneManyTwoWay?: boolean;
+    }
   ): Promise<Result<void, DomainError>> {
-    const computedFields = input.fields.filter((f) => this.isComputedField(f));
+    const computedFields = input.fields.filter((f) =>
+      this.needsBackfill(f, input.includeOneManyTwoWay)
+    );
     if (computedFields.length === 0) {
       return ok(undefined);
     }
@@ -363,6 +403,7 @@ export class ComputedFieldBackfillService {
           table: input.table,
           fieldIds,
           selectQuery,
+          skipDistinctFilter: input.skipDistinctFilter,
         });
 
         this.logger.debug('computed:backfillMany:sql', {
@@ -371,7 +412,21 @@ export class ComputedFieldBackfillService {
           sql: compiled.sql,
         });
 
-        await db.executeQuery(compiled);
+        try {
+          await db.executeQuery(compiled);
+        } catch (error) {
+          const fieldDetails = filtered
+            .map((f) => {
+              const dbName = f.dbFieldName().andThen((n) => n.value());
+              return `${f.id().toString()}(dbFieldName=${dbName.isOk() ? dbName.value : 'unknown'})`;
+            })
+            .join(', ');
+          return err(
+            domainError.infrastructure({
+              message: `Failed to backfill computed fields [${fieldDetails}] (table=${input.table.id().toString()}): ${error instanceof Error ? error.message : String(error)}`,
+            })
+          );
+        }
 
         this.logger.debug('computed:backfillMany:done', {
           tableId: input.table.id().toString(),
@@ -384,12 +439,168 @@ export class ComputedFieldBackfillService {
   }
 
   /**
-   * Check if a field is a computed field that requires backfill.
+   * Check if a field requires backfill when added to a table.
+   * This includes computed fields (formula, lookup, rollup, etc.) and
+   * link fields (which store JSONB values derived from FK/junction relationships).
    */
-  private isComputedField(field: Field): boolean {
+  private needsBackfill(field: Field, includeOneManyTwoWay = false): boolean {
+    // Computed fields (formula, lookup, rollup, conditionalLookup, conditionalRollup)
     const specResult = Field.specs().isComputed().build();
-    if (specResult.isErr()) return false;
-    return specResult.value.isSatisfiedBy(field);
+    if (specResult.isOk() && specResult.value.isSatisfiedBy(field)) {
+      return true;
+    }
+    // Link fields store JSONB values computed from FK/junction relationships.
+    // When a symmetric link field is created (oneWay -> twoWay), it needs
+    // backfill to populate its JSONB column from the existing relationship data.
+    if (field.type().equals(FieldType.link())) {
+      const linkField = field as unknown as LinkField;
+      if (linkField.relationship().toString() === 'oneMany' && !linkField.isOneWay()) {
+        return includeOneManyTwoWay;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private async collectBackfillFields(
+    context: IExecutionContext,
+    input: {
+      table: Table;
+      fields: ReadonlyArray<Field>;
+      includeOneManyTwoWay?: boolean;
+    }
+  ): Promise<Result<Field[], DomainError>> {
+    const service = this;
+    return safeTry<Field[], DomainError>(async function* () {
+      const fields: Field[] = [];
+      for (const field of input.fields) {
+        if (!service.needsBackfill(field, input.includeOneManyTwoWay)) {
+          continue;
+        }
+        if (field.type().toString() !== 'link') {
+          fields.push(field);
+          continue;
+        }
+
+        const linkField = field as unknown as LinkField;
+        const isTwoWayOneMany =
+          linkField.relationship().toString() === 'oneMany' && !linkField.isOneWay();
+        const { schema, tableName } = yield* linkField
+          .fkHostTableName()
+          .split({ defaultSchema: null });
+        let resolvedSchema = schema;
+        let resolvedTableName = tableName;
+
+        const selfKeyColumn = yield* linkField.selfKeyNameString();
+        if (selfKeyColumn !== '__id') {
+          let selfKeyExistsResult = yield* await service.columnExists(
+            context,
+            resolvedSchema,
+            resolvedTableName,
+            selfKeyColumn
+          );
+
+          if (!selfKeyExistsResult && isTwoWayOneMany) {
+            let oneManyForeignLocation = {
+              schema: (linkField.baseId() ?? input.table.baseId()).toString(),
+              tableName: linkField.foreignTableId().toString(),
+            };
+
+            const foreignTableSpec = TableByIdSpec.create(linkField.foreignTableId());
+            const foreignTableResult = await service.tableRepository.findOne(
+              context,
+              foreignTableSpec
+            );
+            if (foreignTableResult.isOk()) {
+              const dbTableNameResult = foreignTableResult.value
+                .dbTableName()
+                .andThen((name) => name.split({ defaultSchema: null }));
+              if (dbTableNameResult.isOk()) {
+                oneManyForeignLocation = {
+                  schema: dbTableNameResult.value.schema ?? oneManyForeignLocation.schema,
+                  tableName: dbTableNameResult.value.tableName,
+                };
+              }
+            }
+
+            const isFallbackDifferent =
+              oneManyForeignLocation.schema !== resolvedSchema ||
+              oneManyForeignLocation.tableName !== resolvedTableName;
+            if (isFallbackDifferent) {
+              const fallbackExistsResult = yield* await service.columnExists(
+                context,
+                oneManyForeignLocation.schema,
+                oneManyForeignLocation.tableName,
+                selfKeyColumn
+              );
+              if (fallbackExistsResult) {
+                selfKeyExistsResult = true;
+                resolvedSchema = oneManyForeignLocation.schema;
+                resolvedTableName = oneManyForeignLocation.tableName;
+              }
+            }
+          }
+
+          if (!selfKeyExistsResult) {
+            service.logger.debug('computed:backfillMany:skip_missing_self_key_column', {
+              tableId: input.table.id().toString(),
+              fieldId: field.id().toString(),
+              selfKeyColumn,
+            });
+            continue;
+          }
+        }
+
+        if (isTwoWayOneMany && linkField.hasOrderColumn()) {
+          const orderColumn = yield* linkField.orderColumnName();
+          const columnExistsResult = yield* await service.columnExists(
+            context,
+            resolvedSchema,
+            resolvedTableName,
+            orderColumn
+          );
+          if (!columnExistsResult) {
+            service.logger.debug('computed:backfillMany:skip_missing_order_column', {
+              tableId: input.table.id().toString(),
+              fieldId: field.id().toString(),
+              orderColumn,
+            });
+            continue;
+          }
+        }
+
+        fields.push(field);
+      }
+
+      return ok(fields);
+    });
+  }
+
+  private async columnExists(
+    context: IExecutionContext,
+    schema: string | null,
+    tableName: string,
+    columnName: string
+  ): Promise<Result<boolean, DomainError>> {
+    const db = this.resolveDb(context);
+    try {
+      const schemaName = schema ?? 'public';
+      const result = await sql<{ exists: boolean }>`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = ${schemaName}
+          AND table_name = ${tableName}
+          AND column_name = ${columnName}
+        ) as exists
+      `.execute(db);
+      return ok(result.rows[0]?.exists ?? false);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to check column existence for ${schema ?? 'public'}.${tableName}.${columnName}: ${error instanceof Error ? error.message : String(error)}`,
+        })
+      );
+    }
   }
 
   /**

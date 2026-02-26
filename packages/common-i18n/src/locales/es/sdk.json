@@ -113,7 +113,7 @@
     "lookup": {
       "lookupFieldIdRequired": "El campo de búsqueda es obligatorio",
       "lookupOptionsNotAllowed": "Las opciones de búsqueda no están permitidas cuando el atributo isLookup es verdadero o el tipo de campo es rollup.",
-      "lookupOptionsRequired": "Las opciones de búsqueda son obligatorias cuando el atributo isLookup es verdadero o el tipo de campo es rollup.",
+      "lookupOptionsRequired": "Las opciones de búsqueda son obligatorias",
       "refineOptionsError": "Error al analizar las opciones de búsqueda {{message}}"
     },
     "rollup": {
@@ -1059,6 +1059,11 @@
       "shareViewNotFound": "Vista compartida no encontrada o el uso compartido está deshabilitado",
       "linkFieldNotFound": "Campo de enlace no encontrado"
     },
+    "baseShare": {
+      "notFound": "Compartición de base no encontrada o el uso compartido está deshabilitado",
+      "alreadyExists": "Ya existe una compartición para este nodo",
+      "copyNotAllowed": "Esta compartición no permite copiar"
+    },
     "shareSocket": {
       "viewPermissionNotAllowed": "No tiene permiso para acceder a esta vista",
       "fieldPermissionNotAllowed": "No tiene permiso para acceder a estos campos",
@@ -1175,6 +1180,14 @@
       "notAttachment": "El campo no es un campo de adjunto",
       "isComputed": "El campo es calculado y no se puede modificar",
       "notFoundAICofig": "El campo no tiene configuración de AI",
+      "foreignTableIdRequired": "La tabla externa es obligatoria",
+      "lookupFieldIdRequired": "El campo de búsqueda es obligatorio",
+      "lookupFieldNotExist": "El campo de búsqueda {{lookupFieldId}} no existe",
+      "lookupFieldNotBelongToTable": "El campo de búsqueda {{lookupFieldId}} no pertenece a la tabla {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "El tipo de campo actual {{fieldType}} no coincide con el tipo de campo de búsqueda {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "Las opciones del campo de resumen condicional son obligatorias",
+      "conditionalRollupParseError": "Error al analizar el resumen condicional: {{message}}",
+      "conditionalLookupOptionsRequired": "Las opciones del campo de búsqueda condicional son obligatorias",
       "button": {
         "clickCountReachedMaxCount": "El conteo de clics del botón ha alcanzado el límite máximo",
         "notSupportReset": "El campo de botón no admite restablecimiento"

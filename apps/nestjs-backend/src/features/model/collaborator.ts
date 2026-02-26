@@ -28,6 +28,11 @@ export class CollaboratorModel {
           const resourceIds = resourceId.in as string[];
           clearCacheKeys.push(...resourceIds.map(generateCollaboratorCacheKey));
         }
+        const compositeResourceId =
+          params.args?.where?.resourceType_resourceId_principalId_principalType?.resourceId;
+        if (compositeResourceId) {
+          clearCacheKeys.push(generateCollaboratorCacheKey(compositeResourceId));
+        }
       }
 
       if (params.model === 'Collaborator' && params.action.includes('create')) {

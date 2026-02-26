@@ -84,7 +84,29 @@
     "importing": "Importieren",
     "importWayTip": "Klicken oder ziehen Sie die Datei in diesen Bereich zum Hochladen",
     "baseImportTips": "Klicken oder ziehen Sie die .tea-Datei in diesen Bereich zum Hochladen",
-    "confirm": "Bestätigen und fortfahren"
+    "confirm": "Bestätigen und fortfahren",
+
+    "phase": {
+      "parsingStructure": "Parsing structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{detail}}",
+      "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
+      "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
+      "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
+      "creatingLinkFields": "Creating link fields for {{table}}: {{fields}}",
+      "creatingLookupFields": "Creating lookup fields for {{table}}: {{fields}}",
+      "creatingTableViews": "Creating views for {{table}}: {{fields}}",
+      "creatingPlugins": "Creating plugins",
+      "creatingFolders": "Creating folders",
+      "creatingWorkflows": "Creating workflows",
+      "creatingApps": "Creating apps",
+      "creatingAuthorityMatrix": "Creating authority matrix",
+      "queuingAttachments": "Queuing attachment uploads",
+      "uploadingAppFiles": "Uploading app files",
+      "queuingDataImport": "Queuing data import",
+      "done": "Import completed",
+      "clickToView": "Klicken zum Anzeigen"
+    }
   },
   "template": {
     "title": "Vorlage",

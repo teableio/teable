@@ -28,17 +28,17 @@ describe('workday with dynamic day count field', () => {
     await container.dispose();
   });
 
-  it('generates SQL that multiplies day interval by numeric field expression', async () => {
+  it('generates SQL that iterates workday candidates with numeric day expression', async () => {
     const context = await buildFormulaSnapshotContext(testTable, 'WorkdayDateWithNumber');
 
     expect(context.formula).toBe('WORKDAY({Date}, {Number})');
-    expect(context.sql).toContain("INTERVAL '1 day' *");
+    expect(context.sql).toContain('generate_series');
     expect(context.sql).toContain('"t"."Number"');
   });
 
   it('computes value from pglite with date + number field', async () => {
     const context = await buildFormulaSnapshotContext(testTable, 'WorkdayDateWithNumber');
 
-    expect(context.result).toBe('2024-02-13 00:00:00');
+    expect(context.result).toBe('2024-02-16 00:00:00');
   });
 });

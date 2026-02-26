@@ -12,7 +12,7 @@ import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 
 export type ForeignTableLoaderInput = {
-  baseId: BaseId;
+  baseId?: BaseId;
   references: ReadonlyArray<LinkForeignTableReference>;
 };
 
@@ -32,8 +32,8 @@ export class ForeignTableLoaderService {
     const result = await safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
       if (input.references.length === 0) return ok([]);
 
+      // baseId is optional - query by table IDs directly
       const spec = yield* TableAggregate.specs(input.baseId)
-        .withoutBaseId()
         .byIds(input.references.map((reference) => reference.foreignTableId))
         .build();
 

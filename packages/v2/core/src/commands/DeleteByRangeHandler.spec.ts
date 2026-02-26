@@ -17,6 +17,7 @@ import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateRes
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -377,6 +378,44 @@ describe('DeleteByRangeHandler', () => {
 
     expect(payload.deletedCount).toBe(3);
     expect(payload.events).toHaveLength(1);
+  });
+
+  it('uses RecordByIdsSpec for large rows deletion to avoid deep OR spec trees', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordCount = 12000;
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = Array.from({ length: recordCount }, (_, idx) => ({
+      id: `rec${idx.toString(36).padStart(16, '0').slice(-16)}`,
+      fields: { title: `Record ${idx}` },
+      version: 1,
+    }));
+    queryRepository.total = recordCount;
+
+    const recordRepository = new FakeTableRecordRepository();
+    const handler = new DeleteByRangeHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      queryRepository,
+      new FakeEventBus(),
+      noopUndoRedoService,
+      new FakeUnitOfWork()
+    );
+
+    const commandResult = DeleteByRangeCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, recordCount - 1]],
+      type: 'rows',
+    });
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.deletedCount).toBe(recordCount);
+    expect(recordRepository.lastSpec).toBeInstanceOf(RecordByIdsSpec);
   });
 
   it('continues when delete returns not found', async () => {

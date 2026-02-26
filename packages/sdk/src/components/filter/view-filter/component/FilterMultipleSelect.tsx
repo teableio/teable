@@ -35,16 +35,14 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     return (
       <div
         key={value?.value}
-        className={cn(
-          'px-2 h-5 flex items-center justify-center rounded-full flex-1 text-xs font-normal'
-        )}
+        className="flex h-5 max-w-32 shrink-0 items-center rounded-full px-2 text-xs font-normal"
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
         }}
         title={value.label}
       >
-        {value.label}
+        <span className="truncate">{value.label}</span>
       </div>
     );
   };
@@ -52,14 +50,14 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     return (
       <div
         key={value?.value}
-        className={cn('px-2 h-5 flex items-center justify-center rounded-full text-xs font-normal')}
+        className="flex h-5 max-w-full items-center overflow-hidden rounded-full px-2 text-xs font-normal"
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
         }}
         title={value.label}
       >
-        {value.label}
+        <span className="truncate">{value.label}</span>
       </div>
     );
   };

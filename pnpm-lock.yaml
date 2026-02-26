@@ -3073,6 +3073,9 @@ importers:
 
   packages/v2/adapter-table-repository-postgres:
     dependencies:
+      '@teable/i18n-keys':
+        specifier: workspace:*
+        version: link:../../i18n-keys
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
