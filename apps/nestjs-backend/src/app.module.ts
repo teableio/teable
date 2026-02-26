@@ -40,6 +40,7 @@ import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { AdminOpenApiModule } from './features/setting/open-api/admin-open-api.module';
 import { SettingOpenApiModule } from './features/setting/open-api/setting-open-api.module';
+import { BaseShareModule } from './features/base-share/base-share.module';
 import { ShareModule } from './features/share/share.module';
 import { SpaceModule } from './features/space/space.module';
 import { TemplateOpenApiModule } from './features/template/template-open-api.module';
@@ -83,6 +84,7 @@ export const appModules = {
     CollaboratorModule,
     InvitationModule,
     ShareModule,
+    BaseShareModule,
     NotificationModule,
     AccessTokenModule,
     ImportOpenApiModule,

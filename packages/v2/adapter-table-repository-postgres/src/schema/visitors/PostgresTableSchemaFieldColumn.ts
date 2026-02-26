@@ -136,7 +136,7 @@ const columnTypeVisitor = new (class extends AbstractFieldVisitor<TableColumnDat
   }
 
   visitAutoNumberField(_field: AutoNumberField): Result<TableColumnDataType, DomainError> {
-    return ok('double precision');
+    return ok('integer');
   }
 
   visitButtonField(_field: ButtonField): Result<TableColumnDataType, DomainError> {

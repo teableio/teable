@@ -44,6 +44,9 @@ export interface IPerformanceCacheStore {
 
   // AI Gateway models cache, format: ai-gateway:models
   'ai-gateway:models': unknown;
+
+  // Base share list cache, format: base-share-list:base_id
+  [key: `base-share-list:${string}`]: { nodeId: string }[];
 }
 
 /**

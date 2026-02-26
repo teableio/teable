@@ -370,7 +370,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             value={value as string[]}
             onSelect={(newValue) => onSelect(newValue as IFilterItem['value'])}
             className="h-8 min-w-40 max-w-64"
-            popoverClassName="w-40"
+            popoverClassName="min-w-40 max-w-64"
           />
         ) : (
           <FilterSingleSelect

@@ -8,6 +8,16 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IExecutionContext } from './ExecutionContext';
 import type { IFindOptions } from './RepositoryQuery';
 
+export type FieldVersionChange = {
+  fieldId: string;
+  oldVersion: number;
+  newVersion: number;
+};
+
+export type TableUpdatePersistResult = {
+  fieldVersionChanges?: ReadonlyArray<FieldVersionChange>;
+};
+
 export interface ITableRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>>;
   insertMany(
@@ -28,6 +38,6 @@ export interface ITableRepository {
     context: IExecutionContext,
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>>;
+  ): Promise<Result<TableUpdatePersistResult | void, DomainError>>;
   delete(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
 }

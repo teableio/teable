@@ -30,6 +30,7 @@ type ResolvedOrderBy = {
   column: string;
   direction: 'asc' | 'desc';
   userLikeMode?: 'single' | 'multiple';
+  userLikeSource?: 'field' | 'system';
 };
 
 /**
@@ -154,7 +155,8 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
               query,
               orderBy.column,
               orderBy.direction,
-              orderBy.userLikeMode
+              orderBy.userLikeMode,
+              orderBy.userLikeSource ?? 'field'
             );
           } else {
             // Align null ordering with v1: ASC => nulls first, DESC => nulls last.
@@ -218,10 +220,20 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
             return ok({ column: '__last_modified_time', direction });
           }
           if (fieldType.equals(FieldType.createdBy())) {
-            return ok({ column: '__created_by', direction, userLikeMode: 'single' });
+            return ok({
+              column: '__created_by',
+              direction,
+              userLikeMode: 'single',
+              userLikeSource: 'system',
+            });
           }
           if (fieldType.equals(FieldType.lastModifiedBy())) {
-            return ok({ column: '__last_modified_by', direction, userLikeMode: 'single' });
+            return ok({
+              column: '__last_modified_by',
+              direction,
+              userLikeMode: 'single',
+              userLikeSource: 'system',
+            });
           }
           if (fieldType.equals(FieldType.autoNumber())) {
             return ok({ column: '__auto_number', direction });
@@ -237,6 +249,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
                       ResolvedOrderBy['userLikeMode'],
                       undefined
                     >,
+                    userLikeSource: 'field' as const,
                   }
                 : {}),
             }))
@@ -257,14 +270,19 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     query: QB,
     column: string,
     direction: 'asc' | 'desc',
-    mode: 'single' | 'multiple'
+    mode: 'single' | 'multiple',
+    source: 'field' | 'system'
   ): QB {
     const columnRef = sql.ref(`${T}.${column}`);
-    const columnJson = sql`to_jsonb(${columnRef})`;
+    // Keep v1 parity for user/link fields: cast stored value to jsonb and sort by title.
+    // System fields (createdBy/lastModifiedBy) may be scalar strings, so keep to_jsonb().
+    const columnJson = source === 'field' ? sql`${columnRef}::jsonb` : sql`to_jsonb(${columnRef})`;
     const titleExpr =
       mode === 'multiple'
         ? sql`jsonb_path_query_array(CASE WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson} ELSE '[]'::jsonb END, '$[*].title')::text`
-        : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;
+        : source === 'field'
+          ? sql`${columnJson} ->> 'title'`
+          : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;
 
     const nullOrderDirection: 'asc' | 'desc' = direction === 'asc' ? 'desc' : 'asc';
 

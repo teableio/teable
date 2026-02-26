@@ -948,7 +948,13 @@ export class FieldConvertingService {
   }
 
   private getOriginFieldKeys(newField: IFieldInstance, oldField: FieldCore) {
-    return FIELD_VO_PROPERTIES.filter((key) => !isEqual(newField[key], oldField[key]));
+    return FIELD_VO_PROPERTIES.filter((key) => {
+      // For boolean constraint properties, treat undefined/null/false as equivalent (no constraint)
+      if (key === 'unique' || key === 'notNull') {
+        return Boolean(newField[key]) !== Boolean(oldField[key]);
+      }
+      return !isEqual(newField[key], oldField[key]);
+    });
   }
 
   private getOriginFieldOps(newField: IFieldInstance, oldField: FieldCore) {

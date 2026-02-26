@@ -415,6 +415,132 @@ describe('ComputedUpdatePlanner', () => {
     }
   );
 
+  it('keeps non-cycle downstream fields when cyclePolicy is skip', async () => {
+    const baseId = BaseId.create(`bse${'1'.repeat(16)}`)._unsafeUnwrap();
+    const seedTableId = TableId.create(`tbl${'2'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'3'.repeat(16)}`)._unsafeUnwrap();
+    const sourceValueFieldId = FieldId.create(`fld${'4'.repeat(16)}`)._unsafeUnwrap();
+    const cycleAFieldId = FieldId.create(`fld${'5'.repeat(16)}`)._unsafeUnwrap();
+    const cycleBFieldId = FieldId.create(`fld${'6'.repeat(16)}`)._unsafeUnwrap();
+    const downstreamFieldId = FieldId.create(`fld${'7'.repeat(16)}`)._unsafeUnwrap();
+    const recordId = RecordId.create(`rec${'8'.repeat(16)}`)._unsafeUnwrap();
+
+    const fields: FieldMeta[] = [
+      {
+        id: sourceValueFieldId,
+        tableId: foreignTableId,
+        type: 'singleLineText',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: cycleAFieldId,
+        tableId: seedTableId,
+        type: 'link',
+        isComputed: true,
+        options: {
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: sourceValueFieldId.toString(),
+        },
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: cycleBFieldId,
+        tableId: foreignTableId,
+        type: 'formula',
+        isComputed: true,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: downstreamFieldId,
+        tableId: seedTableId,
+        type: 'lookup',
+        isComputed: true,
+        options: null,
+        lookupOptions: {
+          linkFieldId: cycleAFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: sourceValueFieldId.toString(),
+        },
+        conditionalOptions: null,
+      },
+    ];
+
+    const edges: FieldDependencyEdge[] = [
+      {
+        fromFieldId: cycleBFieldId,
+        toFieldId: cycleAFieldId,
+        fromTableId: foreignTableId,
+        toTableId: seedTableId,
+        kind: 'cross_record',
+        semantic: 'link_title',
+      },
+      {
+        fromFieldId: cycleAFieldId,
+        toFieldId: cycleBFieldId,
+        fromTableId: seedTableId,
+        toTableId: foreignTableId,
+        kind: 'same_record',
+        semantic: 'formula_ref',
+      },
+      {
+        fromFieldId: cycleAFieldId,
+        toFieldId: downstreamFieldId,
+        fromTableId: seedTableId,
+        toTableId: seedTableId,
+        kind: 'same_record',
+        semantic: 'lookup_link',
+      },
+      {
+        fromFieldId: sourceValueFieldId,
+        toFieldId: downstreamFieldId,
+        fromTableId: foreignTableId,
+        toTableId: seedTableId,
+        kind: 'cross_record',
+        semantic: 'lookup_source',
+      },
+    ];
+
+    const fieldsById = new Map<string, FieldMeta>(
+      fields.map((field) => [field.id.toString(), field])
+    );
+    const graphData: FieldDependencyGraphData = { fieldsById, edges };
+    const graph = { load: vi.fn().mockResolvedValue(ok(graphData)) };
+    const planner = new ComputedUpdatePlanner(graph as never);
+
+    const planResult = await planner.planStage({
+      baseId,
+      seedTableId,
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      changedFieldIds: [cycleAFieldId],
+      changeType: 'update',
+      cyclePolicy: 'skip',
+      impact: {
+        valueFieldIds: [cycleAFieldId],
+        linkFieldIds: [cycleAFieldId],
+      },
+    });
+
+    expect(planResult.isOk()).toBe(true);
+    const plan = planResult._unsafeUnwrap();
+    const plannedFieldIds = new Set(
+      plan.steps.flatMap((step) => step.fieldIds.map((id) => id.toString()))
+    );
+
+    expect(plannedFieldIds.has(cycleAFieldId.toString())).toBe(false);
+    expect(plannedFieldIds.has(cycleBFieldId.toString())).toBe(false);
+    expect(plannedFieldIds.has(downstreamFieldId.toString())).toBe(true);
+    expect(plan.cycleInfo?.unsortedFieldIds).toEqual(
+      expect.arrayContaining([cycleAFieldId.toString(), cycleBFieldId.toString()])
+    );
+  });
+
   describe('conditionalFiltered propagation mode', () => {
     /**
      * Setup:

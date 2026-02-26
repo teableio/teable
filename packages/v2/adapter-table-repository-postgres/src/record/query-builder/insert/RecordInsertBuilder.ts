@@ -18,6 +18,7 @@ const CREATED_BY_COLUMN = '__created_by';
 const LAST_MODIFIED_TIME_COLUMN = '__last_modified_time';
 const LAST_MODIFIED_BY_COLUMN = '__last_modified_by';
 const VERSION_COLUMN = '__version';
+const USER_AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
 
 /**
  * A compiled SQL statement with description.
@@ -122,6 +123,8 @@ export interface RecordInsertBuilderContext {
   recordId: string;
   actorId: string;
   now: string;
+  actorName?: string;
+  actorEmail?: string;
 }
 
 /**
@@ -217,8 +220,8 @@ export class RecordInsertBuilder {
             continue;
           }
 
-          // CreatedBy and LastModifiedBy fields need to be populated with full user object
-          // We set them directly in INSERT values using a subquery to fetch user info
+          // CreatedBy and LastModifiedBy fields store user snapshot JSON.
+          // Build it once from execution context to avoid per-row user subqueries in batch INSERT.
           if (isCreatedBy || isLastModifiedBy) {
             const dbFieldNameResult = field.dbFieldName();
             if (dbFieldNameResult.isErr()) {
@@ -231,29 +234,7 @@ export class RecordInsertBuilder {
             const dbFieldName = dbFieldNameValueResult.value;
             const systemColumn = isCreatedBy ? CREATED_BY_COLUMN : LAST_MODIFIED_BY_COLUMN;
             userFieldColumns.push({ dbFieldName, systemColumn });
-
-            // Set user field value directly in INSERT using subquery
-            // Use COALESCE to provide a fallback when user doesn't exist in users table
-            const avatarPrefix = '/api/attachments/read/public/avatar/';
-            const userSubquery = sql`COALESCE(
-              (
-                SELECT jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', ${avatarPrefix} || u.id
-                )
-                FROM public.users u
-                WHERE u.id = ${context.actorId}::text
-              ),
-              jsonb_build_object(
-                'id', ${context.actorId}::text,
-                'title', ${context.actorId}::text,
-                'email', NULL::text,
-                'avatarUrl', ${avatarPrefix}::text || ${context.actorId}::text
-              )
-            )`;
-            values[dbFieldName] = userSubquery;
+            values[dbFieldName] = buildUserFieldJsonValue(context);
             continue;
           }
 
@@ -600,7 +581,7 @@ export class RecordInsertBuilder {
     // Build SET clause with subqueries for each user field
     // Use COALESCE to provide a fallback when user doesn't exist in users table
     const setValues: Record<string, unknown> = {};
-    const avatarPrefix = '/api/attachments/read/public/avatar/';
+    const avatarPrefix = USER_AVATAR_PREFIX;
 
     for (const { dbFieldName, systemColumn } of userFieldColumns) {
       // Use raw SQL to build the subquery expression for user object
@@ -635,4 +616,13 @@ export class RecordInsertBuilder {
       compiled: updateQuery.compile(),
     };
   }
+}
+
+function buildUserFieldJsonValue(context: RecordInsertBuilderContext): string {
+  return JSON.stringify({
+    id: context.actorId,
+    title: context.actorName ?? context.actorId,
+    email: context.actorEmail ?? null,
+    avatarUrl: `${USER_AVATAR_PREFIX}${context.actorId}`,
+  });
 }

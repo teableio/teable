@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
@@ -18,6 +19,7 @@ import type {
   LLMProvider,
   ITestApiKeyRo,
   ITestApiKeyVo,
+  ITestPublicAccessVo,
   GatewayModelType,
   GatewayModelTag,
   GatewayModelProvider,
@@ -30,6 +32,7 @@ import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
+import { type IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
@@ -59,6 +62,7 @@ export class SettingOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
+    @StorageConfig() private readonly storageConfig: IStorageConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly cls: ClsService<IClsStore>,
     private readonly settingService: SettingService,
@@ -818,9 +822,108 @@ export class SettingOpenApiService {
       };
     } else if (type === 'v0') {
       return this.testV0Key(apiKey, baseUrl);
+    } else if (type === 'vercel') {
+      return this.testVercelToken(apiKey, baseUrl);
     }
 
     return { success: false, error: { code: 'unknown', message: 'Unknown API type' } };
+  }
+
+  private static readonly URL_CHECKER_ENDPOINT = 'https://access-checker.teable.ai/check';
+  private static readonly URL_CHECKER_KEY = 'teable-checker-sk-2026xYz9Kw3mN7pQ';
+
+  private getStorageTestFileUrl(): string | undefined {
+    const { provider } = this.storageConfig;
+    if (provider === 'local') {
+      return undefined;
+    }
+    const logoPath = join(StorageAdapter.getDir(UploadType.Logo), EMAIL_LOGO_TOKEN);
+    return getPublicFullStorageUrl(logoPath);
+  }
+
+  private async checkUrlAccessible(
+    url: string,
+    setting: { instanceId?: string; createdTime?: string | number | Date }
+  ): Promise<{
+    success: boolean;
+    statusCode?: number;
+    error?: string;
+    checkedFrom?: string;
+  }> {
+    const deployedAt = String(setting.createdTime || '');
+    const resp = await axios.get<{
+      success: boolean;
+      statusCode?: number;
+      latencyMs: number;
+      error?: string;
+      checkedFrom: string;
+    }>(SettingOpenApiService.URL_CHECKER_ENDPOINT, {
+      timeout: 20000,
+      params: {
+        url,
+        instanceId: setting.instanceId || '',
+        version: process.env.NEXT_PUBLIC_BUILD_VERSION || '',
+        deployedAt,
+      },
+      headers: {
+        Authorization: `Bearer ${SettingOpenApiService.URL_CHECKER_KEY}`,
+      },
+    });
+    return resp.data;
+  }
+
+  private async checkStorageAccess(setting: {
+    instanceId?: string;
+    createdTime?: string | number | Date;
+  }): Promise<ITestPublicAccessVo['storageCheck']> {
+    const storageUrl = this.getStorageTestFileUrl();
+    if (!storageUrl) {
+      return undefined;
+    }
+
+    try {
+      const data = await this.checkUrlAccessible(storageUrl, setting);
+      if (data.success) {
+        return { success: true, storageUrl };
+      }
+      return {
+        success: false,
+        storageUrl,
+        error: data.error || `Not reachable (HTTP ${data.statusCode}) from ${data.checkedFrom}`,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Storage check failed';
+      this.logger.warn(`Storage access check failed: ${msg}`);
+      return { success: false, storageUrl, error: msg };
+    }
+  }
+
+  async testPublicAccess(): Promise<ITestPublicAccessVo> {
+    const publicOrigin = this.baseConfig.publicOrigin;
+
+    if (!publicOrigin) {
+      return { success: false, error: 'PUBLIC_ORIGIN not set' };
+    }
+
+    try {
+      const setting = await this.settingService.getSetting();
+
+      const originData = await this.checkUrlAccessible(`${publicOrigin}/health`, setting);
+      const originOk = originData.success;
+      const originError = originOk
+        ? undefined
+        : originData.error ||
+          `Not reachable (HTTP ${originData.statusCode}) from ${originData.checkedFrom}`;
+
+      const storageCheck = await this.checkStorageAccess(setting);
+      const allOk = originOk && (storageCheck?.success ?? true);
+
+      return { success: allOk, publicOrigin, error: originError, storageCheck };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Check failed';
+      this.logger.warn(`Public access check failed: ${message}`);
+      return { success: false, publicOrigin, error: message };
+    }
   }
 
   /**
@@ -1067,6 +1170,36 @@ export class SettingOpenApiService {
 
       const code = this.getV0ErrorCode(status, data, detailedMessage);
       return { success: false, error: { code, message: detailedMessage } };
+    }
+  }
+
+  private async testVercelToken(token: string, baseUrl?: string): Promise<ITestApiKeyVo> {
+    const apiBase = baseUrl || 'https://api.vercel.com';
+
+    const url = `${apiBase}/v2/user`;
+    try {
+      await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
+      return { success: true };
+    } catch (error) {
+      if (!axios.isAxiosError(error)) {
+        return this.parseApiKeyError(error, 'vercel');
+      }
+
+      const status = error.response?.status;
+      const detailedMessage =
+        (error.response?.data as { error?: { message?: string } })?.error?.message || error.message;
+
+      this.logger.error('Vercel token test failed: status=%s, message=%s', status, detailedMessage);
+
+      if (!error.response) {
+        return { success: false, error: { code: 'network_error', message: detailedMessage } };
+      }
+
+      if (status === 401 || status === 403) {
+        return { success: false, error: { code: 'unauthorized', message: detailedMessage } };
+      }
+
+      return { success: false, error: { code: 'unknown', message: detailedMessage } };
     }
   }
 
