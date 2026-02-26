@@ -51,6 +51,7 @@ import {
   Table,
   TableName,
   TableByNameSpec,
+  TableUpdateFieldNameSpec,
   TableSortKey,
   createSingleSelectField,
   v2CoreTokens,
@@ -550,6 +551,118 @@ describe('PostgresTableRepository (pg)', () => {
 
       const viewDefaults = fetched.views()[0]?.queryDefaults()._unsafeUnwrap();
       expect(viewDefaults?.filter()).toBeNull();
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('normalizes legacy dateRange filter values in view filters', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${'w'.repeat(16)}`)._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Test Space', created_by: actorId.toString() })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Test Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableName = TableName.create('Legacy Date Range Filter Table')._unsafeUnwrap();
+      const nameField = FieldName.create('Name')._unsafeUnwrap();
+      const dateField = FieldName.create('Sign Up Date')._unsafeUnwrap();
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder.field().singleLineText().withName(nameField).primary().done();
+      builder.field().date().withName(dateField).done();
+      builder.view().defaultGrid().done();
+
+      const table = builder.build()._unsafeUnwrap();
+      (await repo.insert(context, table))._unsafeUnwrap();
+
+      const viewId = table.views()[0]?.id().toString();
+      const dateFieldId = table
+        .getFields()
+        .find((field) => field.name().equals(dateField))
+        ?.id()
+        .toString();
+      expect(viewId).toBeDefined();
+      expect(dateFieldId).toBeDefined();
+      if (!viewId || !dateFieldId) return;
+
+      await db
+        .updateTable('view')
+        .set({
+          filter: JSON.stringify({
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: dateFieldId,
+                operator: 'is',
+                value: {
+                  mode: 'dateRange',
+                  exactDate: '2025-12-31T16:00:00.000Z',
+                  exactDateEnd: '2026-01-31T15:59:59.999Z',
+                  timeZone: 'Asia/Shanghai',
+                },
+              },
+            ],
+          }),
+        })
+        .where('id', '=', viewId)
+        .execute();
+
+      const specResult = Table.specs(baseId).byId(table.id()).build();
+      specResult._unsafeUnwrap();
+      const fetched = (await repo.findOne(context, specResult._unsafeUnwrap()))._unsafeUnwrap();
+
+      const viewDefaults = fetched.views()[0]?.queryDefaults()._unsafeUnwrap();
+      expect(viewDefaults?.filter()).toEqual({
+        conjunction: 'and',
+        items: [
+          {
+            conjunction: 'and',
+            items: [
+              {
+                fieldId: dateFieldId,
+                operator: 'isOnOrAfter',
+                value: {
+                  mode: 'exactDate',
+                  exactDate: '2025-12-31T16:00:00.000Z',
+                  timeZone: 'Asia/Shanghai',
+                },
+              },
+              {
+                fieldId: dateFieldId,
+                operator: 'isOnOrBefore',
+                value: {
+                  mode: 'exactDate',
+                  exactDate: '2026-01-31T15:59:59.999Z',
+                  timeZone: 'Asia/Shanghai',
+                },
+              },
+            ],
+          },
+        ],
+      });
     } finally {
       await db.destroy();
     }
@@ -1501,6 +1614,100 @@ describe('PostgresTableRepository (pg)', () => {
       findResult._unsafeUnwrap();
 
       expect(findResult._unsafeUnwrap().name().toString()).toBe('After');
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('increments field version on repeated field metadata updates', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.generate()._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Version Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Version Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableName = TableName.create('Version Table')._unsafeUnwrap();
+      const fieldName = FieldName.create('Title')._unsafeUnwrap();
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder.field().singleLineText().withName(fieldName).primary().done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+
+      const inserted = (await repo.insert(context, table))._unsafeUnwrap();
+      const targetField = inserted.getFields()[0];
+      expect(targetField).toBeDefined();
+      if (!targetField) return;
+
+      const firstRename = FieldName.create('Title v2')._unsafeUnwrap();
+      const secondRename = FieldName.create('Title v3')._unsafeUnwrap();
+
+      const firstUpdatePersist = (
+        await repo.updateOne(
+          context,
+          inserted,
+          TableUpdateFieldNameSpec.create(targetField.id(), targetField.name(), firstRename)
+        )
+      )._unsafeUnwrap();
+      expect(firstUpdatePersist).toEqual({
+        fieldVersionChanges: [
+          {
+            fieldId: targetField.id().toString(),
+            oldVersion: 1,
+            newVersion: 2,
+          },
+        ],
+      });
+
+      const secondUpdatePersist = (
+        await repo.updateOne(
+          context,
+          inserted,
+          TableUpdateFieldNameSpec.create(targetField.id(), firstRename, secondRename)
+        )
+      )._unsafeUnwrap();
+      expect(secondUpdatePersist).toEqual({
+        fieldVersionChanges: [
+          {
+            fieldId: targetField.id().toString(),
+            oldVersion: 2,
+            newVersion: 3,
+          },
+        ],
+      });
+
+      const row = await db
+        .selectFrom('field')
+        .select(['version', 'name'])
+        .where('id', '=', targetField.id().toString())
+        .executeTakeFirst();
+
+      expect(row?.name).toBe('Title v3');
+      expect(row?.version).toBe(3);
     } finally {
       await db.destroy();
     }

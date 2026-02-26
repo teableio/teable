@@ -2,7 +2,12 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { ForeignTable } from '../../ForeignTable';
+import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
+import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import type { DbFieldName } from '../DbFieldName';
 import { Field } from '../Field';
@@ -14,13 +19,21 @@ import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
 } from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
 import { FieldValueTypeVisitor, type FieldValueType } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
+import {
+  buildFieldFilterSyncPlan,
+  hasFieldReferenceInFilter,
+  hasSelectOptionValueChanges,
+  isEquivalentFilter,
+  syncFilterByFieldChanges,
+} from '../filter-sync';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
-import type {
+import {
   ConditionalLookupOptions,
-  ConditionalLookupOptionsValue,
+  type ConditionalLookupOptionsValue,
 } from './ConditionalLookupOptions';
 import { FieldComputed } from './FieldComputed';
 
@@ -44,7 +57,10 @@ import { FieldComputed } from './FieldComputed';
  * - Can be single or multiple cell values depending on configuration
  * - The inner field determines cellValueType, formatting, showAs, etc.
  */
-export class ConditionalLookupField extends Field implements ForeignTableRelatedField {
+export class ConditionalLookupField
+  extends Field
+  implements ForeignTableRelatedField, OnTeableFieldUpdated
+{
   private innerFieldValue: Field | undefined;
   /**
    * Override for isMultipleCellValue. When set, this value is used instead of
@@ -267,13 +283,46 @@ export class ConditionalLookupField extends Field implements ForeignTableRelated
       );
     }
 
-    // 3. Resolve the inner field from the foreign table's lookup field
-    // Nested lookups are supported - enables lookups across 3+ tables
-    this.innerFieldValue = lookupFieldResult.value;
+    const resolvedInnerField = lookupFieldResult.value;
+    if (!this.innerFieldValue || !this.innerFieldValue.type().equals(resolvedInnerField.type())) {
+      this.innerFieldValue = resolvedInnerField;
+    }
 
-    // 4. Set dependencies to include field IDs referenced in the condition filter and the lookup field
-    const conditionFieldIds = this.conditionalLookupOptionsValue.condition().filterFieldIds();
-    return this.setDependencies([...conditionFieldIds, this.lookupFieldId()]);
+    // 4. Set dependencies to host fields referenced by condition value expressions.
+    // Foreign-table predicate fields are not same-table dependencies.
+    const hostFieldIds = new Set(
+      context.hostTable.getFields().map((field) => field.id().toString())
+    );
+    const conditionFieldIds = this.conditionalLookupOptionsValue
+      .condition()
+      .referencedFieldIds()
+      .filter((fieldId) => hostFieldIds.has(fieldId.toString()));
+    return this.ensureDependencies(conditionFieldIds);
+  }
+
+  private ensureDependencies(nextDependencies: ReadonlyArray<FieldId>): Result<void, DomainError> {
+    const deduped = nextDependencies.filter(
+      (fieldId, index, array) => array.findIndex((candidate) => candidate.equals(fieldId)) === index
+    );
+    const current = this.dependencies();
+
+    if (current.length === 0) {
+      return this.setDependencies(deduped);
+    }
+
+    const isSameSet =
+      current.length === deduped.length &&
+      current.every((fieldId) => deduped.some((candidate) => candidate.equals(fieldId)));
+    if (isSameSet) {
+      return ok(undefined);
+    }
+
+    return err(
+      domainError.invariant({
+        message:
+          'ConditionalLookupField dependencies conflict with resolved foreign-table dependencies',
+      })
+    );
   }
 
   duplicate(params: FieldDuplicateParams): Result<Field, DomainError> {
@@ -305,6 +354,105 @@ export class ConditionalLookupField extends Field implements ForeignTableRelated
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitConditionalLookupField(this);
+  }
+
+  /**
+   * Respond to updates of fields referenced by this conditional lookup filter.
+   *
+   * When a referenced field is type-converted, filter semantics may become invalid
+   * (for example, user-field comparison converted to text). Mark the lookup as errored.
+   */
+  onDependencyUpdated(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    _context: FieldUpdateContext
+  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+    const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
+
+    const condition = this.conditionalLookupOptionsValue.condition();
+    const referencesUpdatedField = condition.referencesField(updatedField.id());
+    if (!referencesUpdatedField) {
+      return ok(specs);
+    }
+
+    const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
+    const hasTypeConversion = updateSpecs.some(
+      (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
+    );
+    if (hasTypeConversion && !this.hasError().isError()) {
+      specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+      return ok(specs);
+    }
+
+    if (!hasSelectOptionValueChanges(plan)) {
+      return ok(specs);
+    }
+
+    const optionsDto = this.conditionalLookupOptionsValue.toDto();
+    const conditionDto = optionsDto.condition;
+    const currentFilter = conditionDto.filter;
+    if (currentFilter == null) {
+      return ok(specs);
+    }
+
+    if (!hasFieldReferenceInFilter(currentFilter, updatedField.id())) {
+      return ok(specs);
+    }
+
+    const nextFilter = syncFilterByFieldChanges(currentFilter, updatedField.id(), plan);
+    if (isEquivalentFilter(currentFilter, nextFilter)) {
+      return ok(specs);
+    }
+
+    if (nextFilter == null) {
+      if (!this.hasError().isError()) {
+        specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+      }
+      return ok(specs);
+    }
+
+    const nextOptionsResult = ConditionalLookupOptions.create({
+      ...optionsDto,
+      condition: {
+        ...conditionDto,
+        filter: nextFilter,
+      },
+    });
+    if (nextOptionsResult.isErr()) {
+      return err(nextOptionsResult.error);
+    }
+
+    const multiplicityResult = this.isMultipleCellValue();
+    if (multiplicityResult.isErr()) {
+      return err(multiplicityResult.error);
+    }
+
+    const nextFieldResult = this.innerField()
+      .andThen((innerField) =>
+        ConditionalLookupField.create({
+          id: this.id(),
+          name: this.name(),
+          innerField,
+          conditionalLookupOptions: nextOptionsResult.value,
+          isMultipleCellValue: multiplicityResult.value.isMultiple(),
+          dependencies: this.dependencies(),
+        })
+      )
+      .orElse(() =>
+        ConditionalLookupField.createPending({
+          id: this.id(),
+          name: this.name(),
+          conditionalLookupOptions: nextOptionsResult.value,
+          isMultipleCellValue: multiplicityResult.value.isMultiple(),
+          dependencies: this.dependencies(),
+        })
+      );
+    if (nextFieldResult.isErr()) {
+      return err(nextFieldResult.error);
+    }
+
+    specs.push(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
+    return ok(specs);
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

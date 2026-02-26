@@ -9,6 +9,8 @@ import type {
   GetServerSideProps as NextGetServerSideProps,
 } from 'next';
 import { SsrApi } from '@/backend/api/rest/ssr-api';
+import { systemConfig } from '@/features/i18n/system.config';
+import { getTranslationsProps } from '@/lib/i18n/getTranslationsProps';
 
 export type SSRHttpError = { httpError: IHttpError };
 
@@ -56,6 +58,7 @@ export default function withAuthSSR<
         context.res.statusCode = error.status;
         return {
           props: {
+            ...(await getTranslationsProps(context, systemConfig.i18nNamespaces)),
             httpError: omitBy(
               {
                 message: error.message,

@@ -696,6 +696,86 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
+     * Scenario: should parse local datetime string without format
+     * Formula:DATETIME_PARSE({textDate})
+     * Expect: interpreted with formula timeZone Asia/Shanghai
+     */
+    it('should parse DATETIME_PARSE without format using formula timeZone', async () => {
+      const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: 'Formula Datetime Parse Test',
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'singleLineText', name: 'TextDate' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const textFieldId = table.fields.find((f) => f.name === 'TextDate')?.id ?? '';
+
+      const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'ParsedDate',
+            options: {
+              expression: `DATETIME_PARSE({${textFieldId}})`,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'ParsedDate')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [textFieldId]: '2026-01-15 08:30:00',
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      expect(record.fields[formulaFieldId]).toBe('2026-01-15T00:30:00.000Z');
+    });
+
+    /**
      * Scenario:Formula references rating field
      * Formula:{ratingField} + 1
      * Expect: rating plus 1
@@ -7651,6 +7731,126 @@ describe('v2 http formula (e2e)', () => {
       expect(new Date(addedValue).toISOString().slice(0, 10)).toBe(
         expected.toISOString().slice(0, 10)
       );
+    });
+
+    it('should evaluate WORKDAY with weekend, holiday and negative offsets', async () => {
+      const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('WORKDAY Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'date', name: 'DateA' },
+            { type: 'date', name: 'DateB' },
+            { type: 'date', name: 'DateC' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+      const table = tableParsed.data.data.table;
+
+      const dateAFieldId = table.fields.find((f) => f.name === 'DateA')?.id ?? '';
+      const dateBFieldId = table.fields.find((f) => f.name === 'DateB')?.id ?? '';
+      const dateCFieldId = table.fields.find((f) => f.name === 'DateC')?.id ?? '';
+
+      const formulaCases = [
+        {
+          fieldName: 'WorkdayWeekend',
+          expression: `DATESTR(WORKDAY({${dateAFieldId}}, 3))`,
+          expected: '2026-01-20',
+        },
+        {
+          fieldName: 'WorkdayHolidayOne',
+          expression: `DATESTR(WORKDAY({${dateAFieldId}}, 3, "2026-01-16"))`,
+          expected: '2026-01-21',
+        },
+        {
+          fieldName: 'WorkdayHolidayList',
+          expression: `DATESTR(WORKDAY({${dateAFieldId}}, 3, "2026-01-16,2026-01-19"))`,
+          expected: '2026-01-22',
+        },
+        {
+          fieldName: 'WorkdayPlusFive',
+          expression: `DATESTR(WORKDAY({${dateCFieldId}}, 5))`,
+          expected: '2026-02-16',
+        },
+        {
+          fieldName: 'WorkdayNegative',
+          expression: `DATESTR(WORKDAY({${dateBFieldId}}, -1))`,
+          expected: '2026-02-13',
+        },
+      ] as const;
+
+      const formulaFieldIds: Record<string, string> = {};
+      for (const formulaCase of formulaCases) {
+        const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId: table.id,
+            field: {
+              type: 'formula',
+              name: formulaCase.fieldName,
+              options: {
+                expression: formulaCase.expression,
+                timeZone: 'Etc/GMT-8',
+              },
+            },
+          }),
+        });
+        if (createFieldResponse.status !== 200) {
+          const errorText = await createFieldResponse.text();
+          throw new Error(
+            `WORKDAY field creation failed [${formulaCase.fieldName}] ${formulaCase.expression}: ${errorText}`
+          );
+        }
+        const fieldRaw = await createFieldResponse.json();
+        const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+        expect(fieldParsed.success).toBe(true);
+        if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+        formulaFieldIds[formulaCase.fieldName] =
+          fieldParsed.data.data.table.fields.find((f) => f.name === formulaCase.fieldName)?.id ??
+          '';
+      }
+
+      const createRecordResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            Name: 'WORKDAY seed',
+            [dateAFieldId]: '2026-01-15T00:00:00.000Z',
+            [dateBFieldId]: '2026-02-16T00:00:00.000Z',
+            [dateCFieldId]: '2026-02-09T00:00:00.000Z',
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      formulaCases.forEach((formulaCase) => {
+        expect(record.fields[formulaFieldIds[formulaCase.fieldName]]).toBe(formulaCase.expected);
+      });
     });
 
     /**

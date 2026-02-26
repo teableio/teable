@@ -8,7 +8,6 @@ import {
   LinkForeignTableReferenceVisitor,
   LinkRelationship,
   type DomainError,
-  type Field,
   type FieldCondition,
   type ITableRecordConditionSpecVisitor,
   type ISpecification,
@@ -56,6 +55,13 @@ const T = COMPUTED_TABLE_ALIAS; // main table alias
 const F = 'f'; // foreign table alias in lateral
 const DEFAULT_CONDITIONAL_ORDER_BY = { column: '__auto_number', direction: 'asc' } as const;
 
+type ResolvedOrderBy = {
+  column: string;
+  direction: 'asc' | 'desc';
+  userLikeMode?: 'single' | 'multiple';
+  userLikeSource?: 'field' | 'system';
+};
+
 /**
  * Configuration for dirty record filtering.
  * When provided, the query will INNER JOIN with the dirty table early
@@ -79,6 +85,7 @@ export interface IComputedQueryBuilderOptions {
   readonly typeValidationStrategy: IPgTypeValidationStrategy;
   /** Prefer stored values for non-deterministic formulas like LAST_MODIFIED_TIME(field) */
   readonly preferStoredLastModifiedFormula?: boolean;
+  readonly forceLookupArrayOutput?: boolean;
 }
 
 /**
@@ -97,6 +104,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private dirtyFilterConfig: IDirtyFilterConfig | null = null;
   private readonly typeValidationStrategy: IPgTypeValidationStrategy;
   private readonly preferStoredLastModifiedFormula: boolean;
+  private readonly forceLookupArrayOutput: boolean;
 
   readonly mode: QueryMode = 'computed';
 
@@ -107,6 +115,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     this.foreignTables = options.foreignTables ?? new Map();
     this.typeValidationStrategy = options.typeValidationStrategy;
     this.preferStoredLastModifiedFormula = options.preferStoredLastModifiedFormula ?? false;
+    this.forceLookupArrayOutput = options.forceLookupArrayOutput ?? true;
   }
 
   from(table: Table): this {
@@ -244,11 +253,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         const selectColumns = [idColumn, versionColumn, ...fieldSelectColumns];
 
         // Resolve orderBy columns
-        const resolvedOrderBy: Array<{ column: string; direction: 'asc' | 'desc' }> = [];
+        const resolvedOrderBy: ResolvedOrderBy[] = [];
         for (const orderBy of this.orderByValues) {
           const columnResult = yield* this.resolveOrderByColumn(table, orderBy.column);
           if (columnResult !== null) {
-            resolvedOrderBy.push({ column: columnResult, direction: orderBy.direction });
+            resolvedOrderBy.push({
+              column: columnResult.column,
+              direction: orderBy.direction,
+              userLikeMode: columnResult.userLikeMode,
+              userLikeSource: columnResult.userLikeSource,
+            });
           }
         }
 
@@ -274,7 +288,21 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           );
 
         for (const orderBy of resolvedOrderBy) {
-          query = query.orderBy(sql`${sql.ref(`${T}.${orderBy.column}`)}`, orderBy.direction);
+          if (orderBy.userLikeMode) {
+            query = this.applyUserLikeOrderBy(
+              query,
+              orderBy.column,
+              orderBy.direction,
+              orderBy.userLikeMode,
+              orderBy.userLikeSource ?? 'field'
+            );
+          } else {
+            const columnRef = sql`${sql.ref(`${T}.${orderBy.column}`)}`;
+            const nullOrderDirection: 'asc' | 'desc' = orderBy.direction === 'asc' ? 'desc' : 'asc';
+            query = query
+              .orderBy(sql`${columnRef} is null`, nullOrderDirection)
+              .orderBy(columnRef, orderBy.direction);
+          }
         }
 
         query = query
@@ -420,6 +448,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           {
             preferStoredLastModifiedFormula: this.preferStoredLastModifiedFormula,
             missingForeignTableIds: this.missingForeignTableIds,
+            forceLookupArrayOutput: this.forceLookupArrayOutput,
           }
         );
         const columns: AliasedRawBuilder<unknown, string>[] = [];
@@ -672,7 +701,15 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     const hostTable = this.table ?? undefined;
     return safeTry<Expression<SqlBool> | null, DomainError>(function* () {
       // For conditional lookups, pass the host table to resolve field references (isSymbol)
-      const spec = yield* condition.toRecordConditionSpec(foreignTable, hostTable);
+      const conditionSpecResult = yield* ok(
+        condition.toRecordConditionSpec(foreignTable, hostTable)
+      );
+      if (conditionSpecResult.isErr()) {
+        // Condition references a field that no longer exists (e.g., deleted field) -
+        // return null to skip filtering (field should be in error state)
+        return ok(null);
+      }
+      const spec = conditionSpecResult.value;
       if (!spec) {
         return ok(null);
       }
@@ -797,32 +834,44 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         .with({ type: 'link' }, ({ lookupFieldId, isMultiValue, orderBy }) =>
           foreignTable
             .getField((f) => f.id().equals(lookupFieldId))
-            .andThen((field) =>
-              field
+            .andThen((lookupField) => {
+              // Keep v1-compatible link title behavior: when the configured lookup field
+              // becomes a checkbox via type conversion, fall back to foreign primary field.
+              const titleField = lookupField.type().equals(FieldType.checkbox())
+                ? (() => {
+                    const primaryFieldResult = foreignTable.getField((f) =>
+                      f.id().equals(foreignTable.primaryFieldId())
+                    );
+                    return primaryFieldResult.isOk() ? primaryFieldResult.value : lookupField;
+                  })()
+                : lookupField;
+
+              return titleField
                 .dbFieldName()
                 .andThen((dbFieldName) => dbFieldName.value())
                 .map((columnName) => {
                   const columnRef = sql.ref(`${F}.${columnName}`);
                   const qualifiedRef = this.buildQualifiedRef(F, columnName);
-                  const formattedSql = formatFieldValueAsStringSql(field, qualifiedRef);
-
-                  // For JSON-stored fields (User, Attachment, etc.), extract the 'title' property
-                  // Check if field is stored as JSON by checking dbFieldType
-                  const dbFieldTypeResult = field.dbFieldType().andThen((t) => t.value());
-                  const isJsonbStorage =
-                    dbFieldTypeResult.isOk() && dbFieldTypeResult.value.toUpperCase() === 'JSON';
-
-                  // Check if the field is a multi-value field that needs array-to-string conversion
-                  const isMultiValueResult = field
+                  const isMultiValueResult = titleField
                     .isMultipleCellValue()
                     .map((multiplicity) => multiplicity.isMultiple());
                   const isMultiValueField = isMultiValueResult.isOk() && isMultiValueResult.value;
+                  const formattedSql = !isMultiValueField
+                    ? formatFieldValueAsStringSql(titleField, qualifiedRef, undefined, undefined, {
+                        normalizeJsonScalar:
+                          titleField.type().equals(FieldType.formula()) ||
+                          titleField.type().equals(FieldType.conditionalRollup()),
+                      })
+                    : undefined;
+
+                  // For JSON-stored fields (User, Attachment, etc.), extract the 'title' property
+                  // Check if field is stored as JSON by checking dbFieldType
+                  const dbFieldTypeResult = titleField.dbFieldType().andThen((t) => t.value());
+                  const isJsonbStorage =
+                    dbFieldTypeResult.isOk() && dbFieldTypeResult.value.toUpperCase() === 'JSON';
 
                   let titleTextRef: RawBuilder<unknown>;
-                  if (formattedSql) {
-                    // Use formatted SQL if available (for Number/DateTime formatting)
-                    titleTextRef = sql.raw(formattedSql);
-                  } else if (isMultiValueField) {
+                  if (isMultiValueField) {
                     // For multi-value fields (e.g., formula returning array like ['A'] or ['B', 'C']),
                     // convert JSONB array to comma-separated string
                     // This matches v1's formatStringArray behavior
@@ -833,17 +882,27 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                       WHEN jsonb_typeof(${columnJson}) = 'null' THEN '[]'::jsonb
                       ELSE jsonb_build_array(${columnJson})
                     END)`;
+                    const formattedElemSql = formatFieldValueAsStringSql(
+                      titleField,
+                      `elem #>> '{}'`,
+                      undefined,
+                      undefined,
+                      { normalizeJsonScalar: false }
+                    );
                     titleTextRef = sql`(
                       SELECT string_agg(
                         CASE
                           WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-                          ELSE elem #>> '{}'
+                          ELSE ${formattedElemSql ? sql.raw(formattedElemSql) : sql`elem #>> '{}'`}
                         END,
                         ', '
                         ORDER BY ord
                       )
                       FROM jsonb_array_elements(${normalizedColumnJson}) WITH ORDINALITY AS t(elem, ord)
                     )`;
+                  } else if (formattedSql) {
+                    // Use formatted SQL if available (for Number/DateTime formatting)
+                    titleTextRef = sql.raw(formattedSql);
                   } else if (isJsonbStorage) {
                     // For JSON-stored fields, extract a display-friendly scalar
                     titleTextRef = sql.raw(extractJsonScalarText(qualifiedRef));
@@ -875,8 +934,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                       ? sql`(jsonb_agg(${jsonObj} ORDER BY ${orderByExpr}))[0]`.as(outputAlias)
                       : sql`(jsonb_agg(${jsonObj}))[0]`.as(outputAlias);
                   }
-                })
-            )
+                });
+            })
         )
         .with({ type: 'lookup' }, ({ foreignFieldId, orderBy, isMultiValue }) =>
           this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias, {
@@ -1120,7 +1179,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               foreignField.type().equals(FieldType.formula()) ||
               foreignField.type().equals(FieldType.conditionalRollup());
             const formattedSql = shouldUseFormatted
-              ? formatFieldValueAsStringSql(foreignField, qualifiedRef)
+              ? formatFieldValueAsStringSql(foreignField, qualifiedRef, undefined, undefined, {
+                  normalizeJsonScalar:
+                    foreignField.type().equals(FieldType.formula()) ||
+                    foreignField.type().equals(FieldType.conditionalRollup()),
+                })
               : undefined;
             return ok(
               sql`STRING_AGG(${formattedSql ? sql.raw(formattedSql) : sql`${colRef}::text`}, ', '${orderBySql})`
@@ -1297,24 +1360,87 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private resolveOrderByColumn(
     table: Table,
     orderByColumn: OrderByColumn
-  ): Result<string | null, DomainError> {
+  ): Result<
+    {
+      column: string;
+      userLikeMode?: 'single' | 'multiple';
+      userLikeSource?: 'field' | 'system';
+    } | null,
+    DomainError
+  > {
     // If it's a FieldId, resolve to dbFieldName
     if (orderByColumn instanceof FieldId) {
       return table
         .getField((f) => f.id().equals(orderByColumn as FieldId))
         .andThen((field) => {
           const fieldType = field.type();
-          if (fieldType.equals(FieldType.createdTime())) return ok('__created_time');
-          if (fieldType.equals(FieldType.lastModifiedTime())) return ok('__last_modified_time');
-          if (fieldType.equals(FieldType.createdBy())) return ok('__created_by');
-          if (fieldType.equals(FieldType.lastModifiedBy())) return ok('__last_modified_by');
-          if (fieldType.equals(FieldType.autoNumber())) return ok('__auto_number');
-          return field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
+          const isUserLike =
+            fieldType.equals(FieldType.user()) ||
+            fieldType.equals(FieldType.link()) ||
+            fieldType.equals(FieldType.createdBy()) ||
+            fieldType.equals(FieldType.lastModifiedBy());
+
+          if (fieldType.equals(FieldType.createdTime())) return ok({ column: '__created_time' });
+          if (fieldType.equals(FieldType.lastModifiedTime())) {
+            return ok({ column: '__last_modified_time' });
+          }
+          if (fieldType.equals(FieldType.createdBy())) {
+            return ok({
+              column: '__created_by',
+              userLikeMode: 'single',
+              userLikeSource: 'system',
+            });
+          }
+          if (fieldType.equals(FieldType.lastModifiedBy())) {
+            return ok({
+              column: '__last_modified_by',
+              userLikeMode: 'single',
+              userLikeSource: 'system',
+            });
+          }
+          if (fieldType.equals(FieldType.autoNumber())) return ok({ column: '__auto_number' });
+          return field.dbFieldName().andThen((dbFieldName) =>
+            dbFieldName.value().map((column) => ({
+              column,
+              ...(isUserLike
+                ? {
+                    userLikeMode: (field.isMultipleCellValue() ? 'multiple' : 'single') as Exclude<
+                      ResolvedOrderBy['userLikeMode'],
+                      undefined
+                    >,
+                    userLikeSource: 'field' as const,
+                  }
+                : {}),
+            }))
+          );
         });
     }
 
     // System column - use as-is
-    return ok(orderByColumn);
+    return ok({ column: orderByColumn });
+  }
+
+  private applyUserLikeOrderBy(
+    query: QB,
+    column: string,
+    direction: 'asc' | 'desc',
+    mode: 'single' | 'multiple',
+    source: 'field' | 'system'
+  ): QB {
+    const columnRef = sql.ref(`${T}.${column}`);
+    const columnJson = source === 'field' ? sql`${columnRef}::jsonb` : sql`to_jsonb(${columnRef})`;
+    const titleExpr =
+      mode === 'multiple'
+        ? sql`jsonb_path_query_array(CASE WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson} ELSE '[]'::jsonb END, '$[*].title')::text`
+        : source === 'field'
+          ? sql`${columnJson} ->> 'title'`
+          : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;
+
+    const nullOrderDirection: 'asc' | 'desc' = direction === 'asc' ? 'desc' : 'asc';
+
+    return query
+      .orderBy(sql`${titleExpr} is null`, nullOrderDirection)
+      .orderBy(titleExpr, direction);
   }
 }
 

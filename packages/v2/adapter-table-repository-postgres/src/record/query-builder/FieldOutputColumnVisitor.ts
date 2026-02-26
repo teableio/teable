@@ -46,10 +46,21 @@ export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn
   /**
    * Collect output column mappings for all fields in a table.
    */
-  collect(table: Table): Result<ReadonlyArray<FieldOutputColumn>, DomainError> {
+  collect(
+    table: Table,
+    projection?: ReadonlyArray<FieldId>
+  ): Result<ReadonlyArray<FieldOutputColumn>, DomainError> {
     return safeTry<ReadonlyArray<FieldOutputColumn>, DomainError>(
       function* (this: FieldOutputColumnVisitor) {
+        const projectionFieldIdSet =
+          projection && projection.length
+            ? new Set(projection.map((fieldId) => fieldId.toString()))
+            : undefined;
+
         for (const field of table.getFields()) {
+          if (projectionFieldIdSet && !projectionFieldIdSet.has(field.id().toString())) {
+            continue;
+          }
           yield* field.accept(this);
         }
         return ok([...this.columns]);

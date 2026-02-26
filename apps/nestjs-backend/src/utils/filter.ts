@@ -13,6 +13,7 @@ import { fromZonedTime } from 'date-fns-tz';
 import type { IFieldInstance } from '../features/field/model/factory';
 
 const SPECIAL_OPERATOR_FIELD_TYPE_SET = new Set([
+  FieldType.SingleSelect,
   FieldType.MultipleSelect,
   FieldType.User,
   FieldType.CreatedBy,

@@ -123,11 +123,13 @@ const conditionalRollupConfigSchema = z.object({
 const baseFieldDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
+  description: z.string().nullable().optional(),
   dbFieldName: z.string().optional(),
   isPrimary: z.boolean(),
   notNull: z.boolean().optional(),
   unique: z.boolean().optional(),
   isComputed: z.boolean().optional(),
+  hasError: z.boolean().optional(),
   isLookup: z.boolean().optional(),
   lookupOptions: lookupOptionsSchema.optional(),
   conditionalLookupOptions: conditionalLookupOptionsSchema.optional(),
@@ -299,6 +301,7 @@ const linkOptionsSchema = z.object({
   symmetricFieldId: z.string().optional(),
   filterByViewId: z.string().nullable().optional(),
   visibleFieldIds: z.array(z.string()).readonly().nullable().optional(),
+  filter: fieldConditionSchema.shape.filter,
 });
 
 type SingleLineTextOptionsDto = z.infer<typeof singleLineTextOptionsSchema>;
@@ -408,6 +411,9 @@ export const fieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({
     type: z.literal('link'),
     options: linkOptionsSchema,
+    // NOTE: Do NOT add `meta` here. `meta` (e.g. hasOrderColumn) is an internal property
+    // managed entirely by domain logic — it must never be exposed in the public API contract
+    // or be settable via API updates. Test meta via DB-level queries or raw responses instead.
   }),
 ]);
 
@@ -435,24 +441,29 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   private baseField(field: Field): {
     id: string;
     name: string;
+    description?: string | null;
     dbFieldName?: string;
     isPrimary: boolean;
     notNull?: boolean;
     unique?: boolean;
     isComputed?: boolean;
+    hasError?: boolean;
   } {
     const notNull = field.notNull().toBoolean();
     const unique = field.unique().toBoolean();
     const isComputed = field.computed().toBoolean();
+    const hasError = field.hasError().isError();
 
     return {
       id: field.id().toString(),
       name: field.name().toString(),
+      ...(field.description() != null ? { description: field.description() } : {}),
       dbFieldName: this.optionalDbFieldName(field),
       isPrimary: field.id().equals(this.primaryFieldId),
       ...(notNull ? { notNull } : {}),
       ...(unique ? { unique } : {}),
       ...(isComputed ? { isComputed } : {}),
+      ...(hasError ? { hasError } : {}),
     };
   }
 
@@ -780,12 +791,25 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   }
 
   visitLinkField(field: LinkField): Result<IFieldDto, DomainError> {
-    return field.configDto().map((options) => ({
-      ...this.baseField(field),
-      type: 'link',
-      options,
-      meta: field.metaDto(),
-    }));
+    return field.configDto().map((options) => {
+      // Strip symmetricFieldId from API responses for oneWay links —
+      // it's an internal implementation detail not relevant to consumers.
+      if (options.isOneWay) {
+        const { symmetricFieldId: _, ...rest } = options;
+        return {
+          ...this.baseField(field),
+          type: 'link' as const,
+          options: rest,
+          meta: field.metaDto(),
+        };
+      }
+      return {
+        ...this.baseField(field),
+        type: 'link' as const,
+        options,
+        meta: field.metaDto(),
+      };
+    });
   }
 
   visitLookupField(field: LookupField): Result<IFieldDto, DomainError> {

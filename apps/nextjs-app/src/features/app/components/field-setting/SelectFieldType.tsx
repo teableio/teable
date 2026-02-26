@@ -23,6 +23,7 @@ import { Check, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useBaseUsage } from '../../hooks/useBaseUsage';
 
 type InnerFieldType = FieldType | 'lookup' | 'conditionalLookup';
 
@@ -32,6 +33,8 @@ interface ISelectorItem {
   icon?: React.ReactNode;
   description?: string;
   tag?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export const FIELD_TYPE_ORDER1 = [
@@ -92,7 +95,7 @@ const fieldTypeItem = (
   setOpen: (open: boolean) => void,
   onChange?: (type: InnerFieldType) => void
 ) => {
-  const { id, name, icon, description, tag } = item;
+  const { id, name, icon, description, tag, disabled, disabledReason } = item;
 
   const content = (
     <div className="flex w-full min-w-0 items-center gap-2">
@@ -108,6 +111,7 @@ const fieldTypeItem = (
       key={id}
       value={id}
       onSelect={() => {
+        if (disabled) return;
         onChange?.(id);
         setOpen(false);
       }}
@@ -117,7 +121,7 @@ const fieldTypeItem = (
         <Tooltip delayDuration={50}>
           <TooltipTrigger asChild>{content}</TooltipTrigger>
           <TooltipContent side="right" sideOffset={8} className="max-w-56 text-xs leading-snug">
-            {description}
+            {disabled && disabledReason ? disabledReason : description}
           </TooltipContent>
         </Tooltip>
       ) : (
@@ -133,6 +137,8 @@ export const SelectFieldType = (props: {
   onChange?: (type: InnerFieldType) => void;
 }) => {
   const { isPrimary, value = FieldType.SingleLineText, onChange } = props;
+  const usage = useBaseUsage();
+  const { buttonFieldEnable = false } = usage?.limit ?? {};
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [open, setOpen] = useState(false);
@@ -158,7 +164,7 @@ export const SelectFieldType = (props: {
         tag: type === FieldType.Attachment ? '🍌' : undefined,
       };
     });
-  }, [getFieldStatic, isPrimary, t]);
+  }, [getFieldStatic, isPrimary]);
 
   const advancedGroup = useMemo((): ISelectorItem[] => {
     const fieldTypes = isPrimary
@@ -169,11 +175,16 @@ export const SelectFieldType = (props: {
         isLookup: false,
         hasAiConfig: false,
       });
+      const isButton = type === FieldType.Button;
+      const disabled = isButton ? !buttonFieldEnable : false;
+      const disabledReason = isButton && disabled ? t('billing.unavailableInPlanTips') : undefined;
       return {
         id: type,
         name: title,
         description,
         icon: <Icon className="size-4" />,
+        disabled,
+        disabledReason,
       };
     });
     if (!isPrimary) {
@@ -191,7 +202,7 @@ export const SelectFieldType = (props: {
       });
     }
     return list;
-  }, [getFieldStatic, isPrimary, t]);
+  }, [getFieldStatic, isPrimary, t, buttonFieldEnable]);
 
   const systemGroup = useMemo((): ISelectorItem[] => {
     const fieldTypes = isPrimary

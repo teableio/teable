@@ -96,7 +96,7 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   toNow(date: string, unit?: string): TReturn;
   weekNum(date: string): TReturn;
   weekday(date: string, startDayOfWeek?: string): TReturn;
-  workday(startDate: string, days: string): TReturn;
+  workday(startDate: string, days: string, holidayStr?: string): TReturn;
   workdayDiff(startDate: string, endDate: string): TReturn;
   year(date: string): TReturn;
   createdTime(): TReturn;

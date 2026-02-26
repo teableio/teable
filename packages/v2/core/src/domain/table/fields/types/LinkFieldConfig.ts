@@ -11,6 +11,7 @@ import { TableId } from '../../TableId';
 import { ViewId } from '../../views/ViewId';
 import { DbFieldName } from '../DbFieldName';
 import { FieldId } from '../FieldId';
+import { FieldCondition, type FieldConditionDTO } from './FieldCondition';
 import { LinkRelationship, type LinkRelationshipValue } from './LinkRelationship';
 
 const linkFieldConfigSchema = z
@@ -26,6 +27,7 @@ const linkFieldConfigSchema = z
     symmetricFieldId: z.string().optional(),
     filterByViewId: z.string().nullable().optional(),
     visibleFieldIds: z.array(z.string()).nullable().optional(),
+    filter: z.unknown().nullable().optional(),
   })
   .strip();
 
@@ -41,6 +43,7 @@ export type LinkFieldConfigValue = {
   symmetricFieldId?: string;
   filterByViewId?: string | null;
   visibleFieldIds?: ReadonlyArray<string> | null;
+  filter?: FieldConditionDTO['filter'];
 };
 
 export type LinkFieldDbConfig = {
@@ -91,7 +94,8 @@ export class LinkFieldConfig extends ValueObject {
     private readonly foreignKeyNameValue: DbFieldName,
     private readonly symmetricFieldIdValue: FieldId | undefined,
     private readonly filterByViewIdValue: ViewId | null | undefined,
-    private readonly visibleFieldIdsValue: ReadonlyArray<FieldId> | null | undefined
+    private readonly visibleFieldIdsValue: ReadonlyArray<FieldId> | null | undefined,
+    private readonly filterConditionValue: FieldCondition | null | undefined
   ) {
     super();
   }
@@ -122,6 +126,13 @@ export class LinkFieldConfig extends ValueObject {
       const symmetricFieldId = yield* optional(data.symmetricFieldId, FieldId.create);
       const filterByViewId = yield* optionalNullable(data.filterByViewId, ViewId.create);
       const visibleFieldIds = yield* optionalNullableArray(data.visibleFieldIds, FieldId.create);
+      const filterConditionResult =
+        data.filter === undefined
+          ? ok<FieldCondition | null | undefined, DomainError>(undefined)
+          : data.filter === null
+            ? ok<FieldCondition | null | undefined, DomainError>(null)
+            : FieldCondition.create({ filter: data.filter });
+      const filterCondition = yield* filterConditionResult;
 
       return ok(
         new LinkFieldConfig(
@@ -135,7 +146,8 @@ export class LinkFieldConfig extends ValueObject {
           foreignKeyName,
           symmetricFieldId,
           filterByViewId,
-          visibleFieldIds
+          visibleFieldIds,
+          filterCondition
         )
       );
     });
@@ -226,7 +238,8 @@ export class LinkFieldConfig extends ValueObject {
       this.foreignKeyNameValue.equals(other.foreignKeyNameValue) &&
       this.equalOptional(this.symmetricFieldIdValue, other.symmetricFieldIdValue) &&
       this.equalNullable(this.filterByViewIdValue, other.filterByViewIdValue) &&
-      this.equalNullableArray(this.visibleFieldIdsValue, other.visibleFieldIdsValue)
+      this.equalNullableArray(this.visibleFieldIdsValue, other.visibleFieldIdsValue) &&
+      this.equalNullableCondition(this.filterConditionValue, other.filterConditionValue)
     );
   }
 
@@ -293,6 +306,12 @@ export class LinkFieldConfig extends ValueObject {
     return [...this.visibleFieldIdsValue];
   }
 
+  filter(): FieldConditionDTO['filter'] | null | undefined {
+    if (this.filterConditionValue === null) return null;
+    if (this.filterConditionValue === undefined) return undefined;
+    return this.filterConditionValue.toDto().filter;
+  }
+
   isCrossBase(): boolean {
     return !!this.baseIdValue;
   }
@@ -338,8 +357,26 @@ export class LinkFieldConfig extends ValueObject {
         params.foreignKeyName,
         this.symmetricFieldIdValue,
         this.filterByViewIdValue,
-        this.visibleFieldIdsValue
+        this.visibleFieldIdsValue,
+        this.filterConditionValue
       )
+    );
+  }
+
+  replaceDbConfig(params: LinkFieldDbConfig): LinkFieldConfig {
+    return new LinkFieldConfig(
+      this.baseIdValue,
+      this.relationshipValue,
+      this.foreignTableIdValue,
+      this.lookupFieldIdValue,
+      this.isOneWayValue,
+      params.fkHostTableName,
+      params.selfKeyName,
+      params.foreignKeyName,
+      this.symmetricFieldIdValue,
+      this.filterByViewIdValue,
+      this.visibleFieldIdsValue,
+      this.filterConditionValue
     );
   }
 
@@ -365,7 +402,8 @@ export class LinkFieldConfig extends ValueObject {
         this.foreignKeyNameValue,
         symmetricFieldId,
         this.filterByViewIdValue,
-        this.visibleFieldIdsValue
+        this.visibleFieldIdsValue,
+        this.filterConditionValue
       )
     );
   }
@@ -398,6 +436,7 @@ export class LinkFieldConfig extends ValueObject {
             this.visibleFieldIdsValue === null
               ? null
               : this.visibleFieldIdsValue?.map((id) => id.toString()),
+          filter: this.filter(),
         }))
       )
     );
@@ -428,5 +467,15 @@ export class LinkFieldConfig extends ValueObject {
     if (!left || !right) return false;
     if (left.length !== right.length) return false;
     return left.every((value, index) => value.equals(right[index]!));
+  }
+
+  private equalNullableCondition(
+    left: FieldCondition | null | undefined,
+    right: FieldCondition | null | undefined
+  ): boolean {
+    if (left === null && right === null) return true;
+    if (left === undefined && right === undefined) return true;
+    if (left == null || right == null) return false;
+    return left.equals(right);
   }
 }
