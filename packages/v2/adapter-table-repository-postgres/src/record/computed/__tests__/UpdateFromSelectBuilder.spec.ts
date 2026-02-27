@@ -104,7 +104,14 @@ describe('UpdateFromSelectBuilder', () => {
     if (updateResult.isErr()) return;
 
     expect(updateResult.value.sql).toMatchInlineSnapshot(
-      `"update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_score" = "c"."col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", 1 as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."col_score"::double precision)"`
+      `
+      "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_score" = "c"."__set_col_score" from (select "c_src"."__id" as "__id", CASE
+          WHEN ("c_src"."col_score") IS NULL THEN NULL
+          WHEN BTRIM(("c_src"."col_score")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
+            THEN BTRIM(("c_src"."col_score")::text)::double precision
+          ELSE NULL
+        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", 1 as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
+    `
     );
   });
 
@@ -176,8 +183,52 @@ describe('UpdateFromSelectBuilder', () => {
     }
 
     expect(updateResult.value.sql).toMatchInlineSnapshot(
-      `"update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_score" = "c"."col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", 1 as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1) as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."col_score"::double precision)"`
+      `
+      "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_score" = "c"."__set_col_score" from (select "c_src"."__id" as "__id", CASE
+          WHEN ("c_src"."col_score") IS NULL THEN NULL
+          WHEN BTRIM(("c_src"."col_score")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
+            THEN BTRIM(("c_src"."col_score")::text)::double precision
+          ELSE NULL
+        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", 1 as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
+    `
     );
+  });
+
+  it('omits IS DISTINCT FROM filter when skipDistinctFilter is true', () => {
+    const db = createTestDb();
+    const { table, formulaFieldId } = createFormulaTable();
+
+    const selectBuilder = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+      .from(table)
+      .select([formulaFieldId]);
+    const selectResult = selectBuilder.build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const builder = new UpdateFromSelectBuilder(db);
+
+    // Without skipDistinctFilter (default) - should include IS DISTINCT FROM
+    const withDistinct = builder.build({
+      table,
+      fieldIds: [formulaFieldId],
+      selectQuery: selectResult.value,
+    });
+    expect(withDistinct.isOk()).toBe(true);
+    if (withDistinct.isErr()) return;
+    expect(withDistinct.value.sql).toContain('IS DISTINCT FROM');
+
+    // With skipDistinctFilter=true - should NOT include IS DISTINCT FROM
+    const withoutDistinct = builder.build({
+      table,
+      fieldIds: [formulaFieldId],
+      selectQuery: selectResult.value,
+      skipDistinctFilter: true,
+    });
+    expect(withoutDistinct.isOk()).toBe(true);
+    if (withoutDistinct.isErr()) return;
+    expect(withoutDistinct.value.sql).not.toContain('IS DISTINCT FROM');
+    // Should still have the basic WHERE clause joining on __id
+    expect(withoutDistinct.value.sql).toContain('"u"."__id" = "c"."__id"');
   });
 
   describe('buildWithReturning', () => {

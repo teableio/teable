@@ -117,6 +117,45 @@ const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<Rea
 const fieldCases = createFieldTypeCases();
 const dateFunctionChunks = chunkArray(dateFunctionCases, 7);
 
+describe('DATETIME_PARSE without custom format uses formula time zone', () => {
+  let container: IV2NodeTestContainer;
+  let testTable: FormulaTestTable;
+
+  beforeAll(async () => {
+    container = await createFormulaTestContainer();
+    const formulaFields: FormulaFieldDefinition[] = [
+      {
+        name: 'DatetimeParseWithoutFormat',
+        expression: 'DATETIME_PARSE("2026-01-15 08:30:00")',
+      },
+    ];
+    testTable = await createFormulaTestTable(container, formulaFields, {
+      formulaTimeZone: 'Asia/Shanghai',
+    });
+  });
+
+  afterAll(async () => {
+    await container.dispose();
+  });
+
+  it('renders SQL with Asia/Shanghai and keeps correct conversion', async () => {
+    const context = await buildFormulaSnapshotContext(testTable, 'DatetimeParseWithoutFormat');
+    expect(context.sql).toContain("AT TIME ZONE 'Asia/Shanghai'");
+    expect(context.result).toBe('2026-01-15 00:30:00+00');
+    expect({
+      formula: context.formula,
+      hasFormulaTimeZone: context.sql.includes('Asia/Shanghai'),
+      result: context.result,
+    }).toMatchInlineSnapshot(`
+{
+  "formula": "DATETIME_PARSE("2026-01-15 08:30:00")",
+  "hasFormulaTimeZone": true,
+  "result": "2026-01-15 00:30:00+00",
+}
+`);
+  });
+});
+
 const runDateFunctionSuite = (label: string, cases: ReadonlyArray<DateFunctionCase>) => {
   describe(label, () => {
     const matrix = cases.flatMap((fn) =>

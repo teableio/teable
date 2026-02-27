@@ -32,13 +32,14 @@ function FilterSingleSelect(props: ISingleSelect) {
     return (
       <div
         key={value}
-        className="flex h-5 items-center justify-center rounded-full px-2 text-xs"
+        className="flex h-5 max-w-full items-center overflow-hidden rounded-full px-2 text-xs"
         style={{
           backgroundColor: ColorUtils.getHexForColor(color),
           color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
         }}
+        title={label}
       >
-        {label}
+        <span className="truncate">{label}</span>
       </div>
     );
   };

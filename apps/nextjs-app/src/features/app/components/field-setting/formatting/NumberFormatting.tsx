@@ -22,14 +22,12 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
   const { t } = useTranslation(['table']);
 
   const onFormattingTypeChange = (type: NumberFormattingType) => {
-    const newFormatting =
-      type === NumberFormattingType.Currency && (formatting as ICurrencyFormatting).symbol == null
-        ? {
-            type,
-            symbol: t('field.default.number.defaultSymbol'),
-          }
-        : { type };
-    onChange?.({ ...formatting, ...newFormatting } as INumberFormatting);
+    const { symbol: _symbol, ...rest } = formatting as ICurrencyFormatting;
+    if (type === NumberFormattingType.Currency) {
+      onChange?.({ ...rest, type, symbol: _symbol ?? t('field.default.number.defaultSymbol') });
+    } else {
+      onChange?.({ ...rest, type } as INumberFormatting);
+    }
   };
 
   const onPrecisionChange = (value: string) => {

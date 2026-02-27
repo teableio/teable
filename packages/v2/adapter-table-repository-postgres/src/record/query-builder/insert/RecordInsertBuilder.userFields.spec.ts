@@ -1,7 +1,7 @@
 /**
  * Integration tests for CreatedBy/LastModifiedBy fields in RecordInsertBuilder.
  *
- * These fields should be populated during INSERT using a subquery to fetch user info.
+ * These fields should be populated during INSERT using context user snapshot JSON.
  * The system columns (__created_by, __last_modified_by) store user IDs.
  * The user-facing columns (col_created_by, col_last_modified_by) store full user objects as JSONB.
  */
@@ -98,7 +98,7 @@ const createTableWithUserFields = () => {
 };
 
 describe('RecordInsertBuilder with CreatedBy/LastModifiedBy fields', () => {
-  it('should include CreatedBy/LastModifiedBy field values in INSERT with subquery expressions', () => {
+  it('should include CreatedBy/LastModifiedBy field values in INSERT with JSON snapshot values', () => {
     const db = createTestDb();
     const table = createTableWithUserFields();
     const builder = new RecordInsertBuilder(db);
@@ -122,10 +122,15 @@ describe('RecordInsertBuilder with CreatedBy/LastModifiedBy fields', () => {
     expect(values['__last_modified_by']).toBe(ACTOR_ID);
     expect(values['__version']).toBe(1);
 
-    // User-facing CreatedBy/LastModifiedBy fields should be in INSERT values
-    // They contain SQL subquery expressions to fetch user info
-    expect(values['col_created_by']).toBeDefined();
-    expect(values['col_last_modified_by']).toBeDefined();
+    // User-facing CreatedBy/LastModifiedBy fields should be pre-built JSON snapshots
+    const expectedUserSnapshot = JSON.stringify({
+      id: ACTOR_ID,
+      title: ACTOR_ID,
+      email: null,
+      avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
+    });
+    expect(values['col_created_by']).toBe(expectedUserSnapshot);
+    expect(values['col_last_modified_by']).toBe(expectedUserSnapshot);
 
     // userFieldColumns should track which columns are user fields
     expect(userFieldColumns).toHaveLength(2);
@@ -142,7 +147,7 @@ describe('RecordInsertBuilder with CreatedBy/LastModifiedBy fields', () => {
     expect(values['col_name']).toBe('Test Value');
   });
 
-  it('should generate INSERT SQL with CreatedBy/LastModifiedBy field columns using subquery', () => {
+  it('should generate INSERT SQL with CreatedBy/LastModifiedBy field columns without user subquery', () => {
     const db = createTestDb();
     const table = createTableWithUserFields();
     const tableName = `${BASE_ID}.${TABLE_ID}`;
@@ -163,13 +168,13 @@ describe('RecordInsertBuilder with CreatedBy/LastModifiedBy fields', () => {
     const { mainInsert } = result._unsafeUnwrap();
     const sql = mainInsert.compiled.sql;
 
-    // SQL should include col_created_by and col_last_modified_by with subquery
+    // SQL should include col_created_by and col_last_modified_by as regular values
     expect(sql).toContain('col_created_by');
     expect(sql).toContain('col_last_modified_by');
 
-    // SQL should contain the jsonb_build_object subquery for user info
-    expect(sql).toContain('jsonb_build_object');
-    expect(sql).toContain('public.users');
+    // SQL should not contain subquery-based user lookup
+    expect(sql).not.toContain('jsonb_build_object');
+    expect(sql).not.toContain('public.users');
 
     // SQL should include system columns
     expect(sql).toContain('__created_by');
@@ -177,5 +182,35 @@ describe('RecordInsertBuilder with CreatedBy/LastModifiedBy fields', () => {
 
     // SQL should include the text field
     expect(sql).toContain('col_name');
+  });
+
+  it('should use actorName and actorEmail when provided in execution context', () => {
+    const db = createTestDb();
+    const table = createTableWithUserFields();
+    const builder = new RecordInsertBuilder(db);
+
+    const result = builder.buildInsertData({
+      table,
+      fieldValues: new Map([[TEXT_FIELD_ID, 'Test Value']]),
+      context: {
+        recordId: RECORD_ID,
+        actorId: ACTOR_ID,
+        actorName: 'Nee',
+        actorEmail: 'nee@teable.io',
+        now: '2025-01-01T00:00:00.000Z',
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    const { values } = result._unsafeUnwrap();
+
+    const expectedUserSnapshot = JSON.stringify({
+      id: ACTOR_ID,
+      title: 'Nee',
+      email: 'nee@teable.io',
+      avatarUrl: `/api/attachments/read/public/avatar/${ACTOR_ID}`,
+    });
+    expect(values['col_created_by']).toBe(expectedUserSnapshot);
+    expect(values['col_last_modified_by']).toBe(expectedUserSnapshot);
   });
 });

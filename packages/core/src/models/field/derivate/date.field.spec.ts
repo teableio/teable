@@ -65,6 +65,17 @@ describe('DateFieldCore', () => {
     ).toBe('2023/06/19 06:50, 2023/06/19 06:50');
   });
 
+  it('should fallback to default formatting when formatting is missing', () => {
+    const fieldWithoutFormatting = plainToInstance(DateFieldCore, {
+      ...json,
+      options: {},
+    });
+
+    const formatted = fieldWithoutFormatting.cellValue2String('2023-06-19T06:50:48.017Z');
+    expect(formatted).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(() => fieldWithoutFormatting.convertStringToCellValue('2023-06-19')).not.toThrow();
+  });
+
   it('should convert string to cellValue', () => {
     expect(field.convertStringToCellValue('2023/06/19 06:50')).toBe('2023-06-19T06:50:00.000Z');
     expect(field.convertStringToCellValue('abc')).toBeNull();
