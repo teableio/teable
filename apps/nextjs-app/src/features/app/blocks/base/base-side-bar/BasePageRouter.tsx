@@ -1,6 +1,6 @@
 import { Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
 import { BillingProductLevel } from '@teable/openapi';
-import { useBasePermission, useIsTemplate } from '@teable/sdk/hooks';
+import { useBasePermission, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,7 +82,7 @@ export const BasePageRouter = () => {
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
 
   const pageRoutes: {
     href: string;
@@ -103,7 +103,7 @@ export const BasePageRouter = () => {
     [baseId, basePermission, t]
   );
 
-  if (isTemplate) {
+  if (isReadOnlyPreview) {
     return null;
   }
 

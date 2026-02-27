@@ -1,25 +1,226 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable, Logger } from '@nestjs/common';
-import type { IRecord } from '@teable/core';
+import type { IFieldVo, IOtOperation, IRecord } from '@teable/core';
 import {
-  RecordUpdated,
-  RecordsBatchUpdated,
-  RecordsBatchCreated,
-  RecordsDeleted,
-  RecordReordered,
+  FieldUpdated,
   ProjectionHandler,
+  RecordReordered,
+  RecordUpdated,
+  RecordsBatchCreated,
+  RecordsBatchUpdated,
+  RecordsDeleted,
+  TableQueryService,
   ok,
+  v2CoreTokens,
+  ITableMapper,
 } from '@teable/v2-core';
-import type { IExecutionContext, IEventHandler, DomainError, Result } from '@teable/v2-core';
+import type { DomainError, IEventHandler, IExecutionContext, Result } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import {
   OperationName,
-  type IUpdateRecordsOperation,
-  type IUpdateRecordsOrderOperation,
+  type IConvertFieldV2Operation,
   type ICreateRecordsOperation,
   type IDeleteRecordsOperation,
+  type IUpdateRecordsOperation,
+  type IUpdateRecordsOrderOperation,
 } from '../../cache/types';
 import type { ICellContext } from '../calculation/utils/changes';
 import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
+import {
+  V2_FIELD_CONVERT_UNDO_CONTEXT_KEY,
+  type IV2FieldConvertUndoContext,
+} from './v2-undo-redo.constants';
+
+type IOpsMap = {
+  [tableId: string]: {
+    [recordId: string]: IOtOperation[];
+  };
+};
+
+class V2FieldConvertUndoTracker {
+  private readonly stateByKey = new Map<string, { expiresAt: number; pendingOps?: IOpsMap }>();
+  private readonly ttlMs = 60 * 1000;
+
+  private getState(key: string) {
+    const now = Date.now();
+    const current = this.stateByKey.get(key);
+    if (current && current.expiresAt > now) {
+      current.expiresAt = now + this.ttlMs;
+      return current;
+    }
+
+    const next: { expiresAt: number; pendingOps?: IOpsMap } = { expiresAt: now + this.ttlMs };
+    this.stateByKey.set(key, next);
+    return next;
+  }
+
+  private pruneExpired() {
+    const now = Date.now();
+    for (const [key, state] of this.stateByKey.entries()) {
+      if (state.expiresAt <= now) {
+        this.stateByKey.delete(key);
+      }
+    }
+  }
+
+  appendPending(keys: ReadonlyArray<string>, ops: IOpsMap) {
+    this.pruneExpired();
+    for (const key of new Set(keys.filter((key) => key.length > 0))) {
+      const state = this.getState(key);
+      state.pendingOps = mergeOpsMap(state.pendingOps, ops);
+    }
+  }
+
+  consumePending(keys: ReadonlyArray<string>): IOpsMap | undefined {
+    this.pruneExpired();
+    let mergedOps: IOpsMap | undefined;
+    for (const key of new Set(keys.filter((key) => key.length > 0))) {
+      const state = this.stateByKey.get(key);
+      if (!state?.pendingOps) continue;
+      mergedOps = mergeOpsMap(mergedOps, state.pendingOps);
+      this.stateByKey.delete(key);
+    }
+
+    return mergedOps;
+  }
+}
+
+const buildFieldConvertPendingKeys = (params: {
+  userId: string;
+  tableId: string;
+  windowId: string;
+  fieldId: string;
+  requestId?: string;
+}) => {
+  const scopeKey = `scope:${params.userId}:${params.tableId}:${params.windowId}:${params.fieldId}`;
+  const requestKey = params.requestId ? `request:${params.requestId}` : undefined;
+  return requestKey ? [requestKey, scopeKey] : [scopeKey];
+};
+
+const getFieldConvertUndoContext = (
+  context: IExecutionContext,
+  tableId: string,
+  fieldId?: string
+): IV2FieldConvertUndoContext | undefined => {
+  const ctx = context as IExecutionContext & {
+    [V2_FIELD_CONVERT_UNDO_CONTEXT_KEY]?: IV2FieldConvertUndoContext;
+  };
+  const convertContext = ctx[V2_FIELD_CONVERT_UNDO_CONTEXT_KEY];
+  if (!convertContext) return undefined;
+  if (convertContext.tableId !== tableId) return undefined;
+  if (fieldId && convertContext.fieldId !== fieldId) return undefined;
+  return convertContext;
+};
+
+const buildSetRecordOp = (
+  fieldId: string,
+  newCellValue: unknown,
+  oldCellValue: unknown
+): IOtOperation => {
+  const next = newCellValue ?? null;
+  const prev = oldCellValue ?? null;
+
+  if (next == null || (Array.isArray(next) && next.length === 0)) {
+    return {
+      p: ['fields', fieldId],
+      od: prev,
+      oi: null,
+    };
+  }
+
+  if (prev == null) {
+    return {
+      p: ['fields', fieldId],
+      oi: next,
+    };
+  }
+
+  return {
+    p: ['fields', fieldId],
+    od: prev,
+    oi: next,
+  };
+};
+
+const mergeOpsMap = (base: IOpsMap | undefined, patch: IOpsMap): IOpsMap => {
+  if (!base) return patch;
+
+  const result: IOpsMap = { ...base };
+  for (const [tableId, records] of Object.entries(patch)) {
+    const baseRecords = result[tableId] ?? {};
+    result[tableId] = {
+      ...baseRecords,
+      ...records,
+    };
+  }
+
+  return result;
+};
+
+const buildModifiedOps = (
+  tableId: string,
+  fieldId: string,
+  cellContexts: ICellContext[]
+): IOpsMap => {
+  const mergedByRecord = new Map<string, { oldValue: unknown; newValue: unknown }>();
+
+  for (const cell of cellContexts) {
+    const current = mergedByRecord.get(cell.recordId);
+    if (!current) {
+      mergedByRecord.set(cell.recordId, { oldValue: cell.oldValue, newValue: cell.newValue });
+      continue;
+    }
+
+    current.newValue = cell.newValue;
+  }
+
+  const recordOps = Array.from(mergedByRecord.entries()).reduce<IOpsMap[string]>(
+    (acc, [recordId, value]) => {
+      acc[recordId] = [buildSetRecordOp(fieldId, value.newValue, value.oldValue)];
+      return acc;
+    },
+    {}
+  );
+
+  return {
+    [tableId]: recordOps,
+  };
+};
+
+const mergeConvertOperationModifiedOps = async (
+  undoRedoStackService: UndoRedoStackService,
+  userId: string,
+  tableId: string,
+  windowId: string,
+  fieldId: string,
+  modifiedOps: IOpsMap
+) => {
+  return undoRedoStackService.mergeLastOperation(userId, tableId, windowId, (operation) => {
+    if (operation.name !== OperationName.ConvertFieldV2) {
+      return null;
+    }
+
+    if (operation.params.tableId !== tableId) {
+      return null;
+    }
+
+    const convertOperation = operation as IConvertFieldV2Operation;
+    if (convertOperation.result.newField.id !== fieldId) {
+      return null;
+    }
+
+    return {
+      ...convertOperation,
+      result: {
+        ...convertOperation.result,
+        modifiedOps: mergeOpsMap(
+          convertOperation.result.modifiedOps as IOpsMap | undefined,
+          modifiedOps
+        ),
+      },
+    };
+  });
+};
 
 /**
  * V2 projection handler that pushes update operations to undo/redo stack
@@ -27,16 +228,70 @@ import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service
  */
 @ProjectionHandler(RecordUpdated)
 class V2RecordUpdatedUndoRedoProjection implements IEventHandler<RecordUpdated> {
-  constructor(private readonly undoRedoStackService: UndoRedoStackService) {}
+  constructor(
+    private readonly undoRedoStackService: UndoRedoStackService,
+    private readonly fieldConvertUndoTracker: V2FieldConvertUndoTracker
+  ) {}
 
   async handle(
     context: IExecutionContext,
     event: RecordUpdated
   ): Promise<Result<void, DomainError>> {
-    const { windowId, actorId } = context;
+    const { windowId, actorId, requestId } = context;
 
     // Skip if no windowId - undo/redo requires window context
     if (!windowId) {
+      return ok(undefined);
+    }
+
+    const userId = actorId.toString();
+    const tableId = event.tableId.toString();
+    const recordId = event.recordId.toString();
+
+    const convertContext = getFieldConvertUndoContext(context, tableId);
+
+    const convertCellContexts: ICellContext[] = [];
+    const normalCellContexts: ICellContext[] = [];
+
+    for (const change of event.changes) {
+      const cellContext: ICellContext = {
+        recordId,
+        fieldId: change.fieldId,
+        oldValue: change.oldValue,
+        newValue: change.newValue,
+      };
+
+      if (convertContext && change.fieldId === convertContext.fieldId) {
+        convertCellContexts.push(cellContext);
+      } else {
+        normalCellContexts.push(cellContext);
+      }
+    }
+
+    if (convertContext && convertCellContexts.length) {
+      const modifiedOps = buildModifiedOps(tableId, convertContext.fieldId, convertCellContexts);
+      const merged = await mergeConvertOperationModifiedOps(
+        this.undoRedoStackService,
+        userId,
+        tableId,
+        windowId,
+        convertContext.fieldId,
+        modifiedOps
+      );
+
+      if (!merged) {
+        const pendingKeys = buildFieldConvertPendingKeys({
+          userId,
+          tableId,
+          windowId,
+          fieldId: convertContext.fieldId,
+          requestId,
+        });
+        this.fieldConvertUndoTracker.appendPending(pendingKeys, modifiedOps);
+      }
+    }
+
+    if (normalCellContexts.length === 0) {
       return ok(undefined);
     }
 
@@ -45,19 +300,7 @@ class V2RecordUpdatedUndoRedoProjection implements IEventHandler<RecordUpdated> 
       return ok(undefined);
     }
 
-    const userId = actorId.toString();
-    const tableId = event.tableId.toString();
-    const recordId = event.recordId.toString();
-
-    // Convert V2 changes to V1 cell contexts
-    const cellContexts: ICellContext[] = event.changes.map((change) => ({
-      recordId,
-      fieldId: change.fieldId,
-      oldValue: change.oldValue,
-      newValue: change.newValue,
-    }));
-
-    const fieldIds = event.changes.map((c) => c.fieldId);
+    const fieldIds = Array.from(new Set(normalCellContexts.map((cell) => cell.fieldId)));
 
     const operation: IUpdateRecordsOperation = {
       name: OperationName.UpdateRecords,
@@ -67,7 +310,7 @@ class V2RecordUpdatedUndoRedoProjection implements IEventHandler<RecordUpdated> 
         fieldIds,
       },
       result: {
-        cellContexts,
+        cellContexts: normalCellContexts,
       },
     };
 
@@ -81,16 +324,76 @@ class V2RecordUpdatedUndoRedoProjection implements IEventHandler<RecordUpdated> 
  */
 @ProjectionHandler(RecordsBatchUpdated)
 class V2RecordsBatchUpdatedUndoRedoProjection implements IEventHandler<RecordsBatchUpdated> {
-  constructor(private readonly undoRedoStackService: UndoRedoStackService) {}
+  constructor(
+    private readonly undoRedoStackService: UndoRedoStackService,
+    private readonly fieldConvertUndoTracker: V2FieldConvertUndoTracker
+  ) {}
 
   async handle(
     context: IExecutionContext,
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
-    const { windowId, actorId } = context;
+    const { windowId, actorId, requestId } = context;
 
     // Skip if no windowId - undo/redo requires window context
     if (!windowId) {
+      return ok(undefined);
+    }
+
+    const userId = actorId.toString();
+    const tableId = event.tableId.toString();
+    const convertContext = getFieldConvertUndoContext(context, tableId);
+
+    const convertCellContexts: ICellContext[] = [];
+    const recordIds = new Set<string>();
+    const fieldIdSet = new Set<string>();
+    const cellContexts: ICellContext[] = [];
+
+    for (const update of event.updates) {
+      const recordId = update.recordId;
+      for (const change of update.changes) {
+        const cellContext: ICellContext = {
+          recordId,
+          fieldId: change.fieldId,
+          oldValue: change.oldValue,
+          newValue: change.newValue,
+        };
+
+        if (convertContext && change.fieldId === convertContext.fieldId) {
+          convertCellContexts.push(cellContext);
+          continue;
+        }
+
+        recordIds.add(recordId);
+        fieldIdSet.add(change.fieldId);
+        cellContexts.push(cellContext);
+      }
+    }
+
+    if (convertContext && convertCellContexts.length) {
+      const modifiedOps = buildModifiedOps(tableId, convertContext.fieldId, convertCellContexts);
+      const merged = await mergeConvertOperationModifiedOps(
+        this.undoRedoStackService,
+        userId,
+        tableId,
+        windowId,
+        convertContext.fieldId,
+        modifiedOps
+      );
+
+      if (!merged) {
+        const pendingKeys = buildFieldConvertPendingKeys({
+          userId,
+          tableId,
+          windowId,
+          fieldId: convertContext.fieldId,
+          requestId,
+        });
+        this.fieldConvertUndoTracker.appendPending(pendingKeys, modifiedOps);
+      }
+    }
+
+    if (!cellContexts.length) {
       return ok(undefined);
     }
 
@@ -99,37 +402,12 @@ class V2RecordsBatchUpdatedUndoRedoProjection implements IEventHandler<RecordsBa
       return ok(undefined);
     }
 
-    const userId = actorId.toString();
-    const tableId = event.tableId.toString();
-
-    // Collect all record IDs, field IDs, and cell contexts
-    const recordIds: string[] = [];
-    const fieldIdSet = new Set<string>();
-    const cellContexts: ICellContext[] = [];
-
-    for (const update of event.updates) {
-      const recordId = update.recordId;
-      recordIds.push(recordId);
-
-      for (const change of update.changes) {
-        fieldIdSet.add(change.fieldId);
-        cellContexts.push({
-          recordId,
-          fieldId: change.fieldId,
-          oldValue: change.oldValue,
-          newValue: change.newValue,
-        });
-      }
-    }
-
-    const fieldIds = Array.from(fieldIdSet);
-
     const operation: IUpdateRecordsOperation = {
       name: OperationName.UpdateRecords,
       params: {
         tableId,
-        recordIds,
-        fieldIds,
+        recordIds: Array.from(recordIds),
+        fieldIds: Array.from(fieldIdSet),
       },
       result: {
         cellContexts,
@@ -137,6 +415,116 @@ class V2RecordsBatchUpdatedUndoRedoProjection implements IEventHandler<RecordsBa
     };
 
     await this.undoRedoStackService.push(userId, tableId, windowId, operation);
+    return ok(undefined);
+  }
+}
+
+/**
+ * V2 projection handler that captures field type-conversion events and pushes
+ * convert-field operations to undo/redo stack.
+ */
+@ProjectionHandler(FieldUpdated)
+class V2FieldUpdatedUndoRedoProjection implements IEventHandler<FieldUpdated> {
+  constructor(
+    private readonly undoRedoStackService: UndoRedoStackService,
+    private readonly fieldConvertUndoTracker: V2FieldConvertUndoTracker,
+    private readonly tableQueryService: TableQueryService,
+    private readonly tableMapper: ITableMapper
+  ) {}
+
+  async handle(
+    context: IExecutionContext,
+    event: FieldUpdated
+  ): Promise<Result<void, DomainError>> {
+    const { windowId, actorId, requestId } = context;
+
+    if (!windowId) {
+      return ok(undefined);
+    }
+
+    const tableId = event.tableId.toString();
+    const fieldId = event.fieldId.toString();
+    const convertContext = getFieldConvertUndoContext(context, tableId, fieldId);
+
+    if (!convertContext) {
+      return ok(undefined);
+    }
+
+    const tableResult = await this.tableQueryService.getById(context, event.tableId);
+    if (tableResult.isErr()) {
+      return ok(undefined);
+    }
+
+    const tableDtoResult = this.tableMapper.toDTO(tableResult.value);
+    if (tableDtoResult.isErr()) {
+      return ok(undefined);
+    }
+
+    const newField = tableDtoResult.value.fields.find((item) => item.id === fieldId);
+    if (!newField) {
+      return ok(undefined);
+    }
+
+    const pendingKeys = buildFieldConvertPendingKeys({
+      userId: actorId.toString(),
+      tableId,
+      windowId,
+      fieldId,
+      requestId,
+    });
+    let modifiedOps = this.fieldConvertUndoTracker.consumePending(pendingKeys);
+
+    const merged = await this.undoRedoStackService.mergeLastOperation(
+      actorId.toString(),
+      tableId,
+      windowId,
+      (operation) => {
+        if (operation.name !== OperationName.ConvertFieldV2) {
+          return null;
+        }
+
+        const convertOperation = operation as IConvertFieldV2Operation;
+        if (convertOperation.params.tableId !== tableId) {
+          return null;
+        }
+        if (convertOperation.result.newField.id !== fieldId) {
+          return null;
+        }
+        return {
+          ...convertOperation,
+          result: {
+            ...convertOperation.result,
+            oldField: convertContext.oldField,
+            newField: newField as unknown as IFieldVo,
+            ...(modifiedOps
+              ? {
+                  modifiedOps: mergeOpsMap(
+                    convertOperation.result.modifiedOps as IOpsMap | undefined,
+                    modifiedOps
+                  ),
+                }
+              : {}),
+          },
+        };
+      }
+    );
+    if (merged) {
+      return ok(undefined);
+    }
+
+    const operation: IConvertFieldV2Operation = {
+      name: OperationName.ConvertFieldV2,
+      params: {
+        tableId,
+      },
+      result: {
+        oldField: convertContext.oldField,
+        newField: newField as unknown as IFieldVo,
+        ...(modifiedOps ? { modifiedOps } : {}),
+      },
+    };
+
+    await this.undoRedoStackService.push(actorId.toString(), tableId, windowId, operation);
     return ok(undefined);
   }
 }
@@ -362,16 +750,29 @@ export class V2UndoRedoService {
     this.logger.log('Registering V2 undo/redo projections');
 
     const undoRedoStackService = this.undoRedoStackService;
+    const fieldConvertUndoTracker = new V2FieldConvertUndoTracker();
+    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
+    const tableMapper = container.resolve<ITableMapper>(v2CoreTokens.tableMapper);
 
     // Register projection instances directly since they depend on NestJS UndoRedoStackService
     container.registerInstance(
       V2RecordUpdatedUndoRedoProjection,
-      new V2RecordUpdatedUndoRedoProjection(undoRedoStackService)
+      new V2RecordUpdatedUndoRedoProjection(undoRedoStackService, fieldConvertUndoTracker)
     );
 
     container.registerInstance(
       V2RecordsBatchUpdatedUndoRedoProjection,
-      new V2RecordsBatchUpdatedUndoRedoProjection(undoRedoStackService)
+      new V2RecordsBatchUpdatedUndoRedoProjection(undoRedoStackService, fieldConvertUndoTracker)
+    );
+
+    container.registerInstance(
+      V2FieldUpdatedUndoRedoProjection,
+      new V2FieldUpdatedUndoRedoProjection(
+        undoRedoStackService,
+        fieldConvertUndoTracker,
+        tableQueryService,
+        tableMapper
+      )
     );
 
     container.registerInstance(

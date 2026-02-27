@@ -82,7 +82,16 @@ exports[`direct field references > direct reference to 'conditionalLookup' field
       "fieldType": "conditionalLookup",
       "formattedValue": "",
       "formatting": undefined,
-      "innerField": null,
+      "innerField": {
+        "fieldName": "ConditionalLookupType",
+        "fieldType": "number",
+        "formattedValue": null,
+        "formatting": {
+          "precision": 2,
+          "type": "decimal",
+        },
+        "rawValue": null,
+      },
       "rawValue": null,
     },
   },

@@ -22,6 +22,7 @@ export const AttachmentEditorMain = (props: IAttachmentEditorMain) => {
         onChange={onChange}
         readonly={readonly}
         showDownloadAll
+        fieldId={fieldId}
       />
     );
   }

@@ -63,7 +63,8 @@
     "continue": "Continuer",
     "export": "Exporter",
     "import": "Importer",
-    "getMore": "Obtenir plus"
+    "getMore": "Obtenir plus",
+    "copySuccess": "Copie réussie"
   },
   "quickAction": {
     "title": "Actions rapides",
@@ -91,7 +92,10 @@
     "createTemplate": "Créer un Modèle",
     "useTemplateDialog": {
       "title": "Sélectionner un espace",
-      "description": "Veuillez sélectionner un espace pour le modèle"
+      "description": "Veuillez sélectionner un espace pour le modèle",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Créez votre application métier avec Teable",
@@ -105,6 +109,24 @@
         "guide6": "Créez un planificateur de contenu avec publications et dates de publication",
         "guide7": "Collez des CV → Demandez à Teable d'organiser et présélectionner les candidats"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Copier vers l'espace",
+      "description": "Veuillez sélectionner un espace pour copier cette base",
+      "baseName": "Nom de la base",
+      "baseNamePlaceholder": "Entrez le nom de la base",
+      "selectSpace": "Sélectionner l'espace",
+      "noSpaceDescription": "Aucun espace gérable. Veuillez créer un nouvel espace pour continuer.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "Aucune base gérable dans cet espace. Veuillez sélectionner \"Nouvelle base\"."
     }
   },
   "settings": {
@@ -469,7 +491,7 @@
       "allowSignUp": "Autoriser la création de nouveaux comptes",
       "allowSignUpDescription": "Désactiver cette option interdira les nouvelles inscriptions d'utilisateur, et le bouton d'inscription n'apparaîtra plus sur la page de connexion.",
       "allowSpaceInvitation": "Autoriser l'envoi d'invitations à des espaces",
-      "allowSpaceInvitationDescription": "Désactiver cette option empêchera les utilisateurs autres que les administrateurs d'inviter d'autres personnes à rejoindre des espaces. Activer cette option permettra aux utilisateurs invités directement de créer un compte même si l'inscription de nouveaux comptes est désactivée.",
+      "allowSpaceInvitationDescription": "Désactiver cette option empêchera les utilisateurs autres que les administrateurs d'inviter d'autres personnes à rejoindre des espaces. Lorsqu'elle est activée, les nouveaux utilisateurs invités par e-mail peuvent compléter leur inscription en cliquant sur le lien d'invitation dans l'e-mail, mais les liens d'invitation partagés ne fonctionneront pas.",
       "allowSpaceCreation": "Autoriser tout le monde à créer de nouveaux espaces",
       "allowSpaceCreationDescription": "Désactiver cette option empêchera les utilisateurs autres que les administrateurs de créer de nouveaux espaces.",
       "enableEmailVerification": "Activer la vérification par email",
@@ -892,8 +914,8 @@
   "credit": {
     "title": "Crédit",
     "leftAmount": "Crédits restants",
-    "winFreeCredits": "Gagnez des crédits gratuits",
-    "getCredits": "Obtenir 1000 crédits",
+    "winFreeCredits": "Partager son expérience",
+    "getCredits": "Obtenir 1000 crédits gratuits",
     "winCredit": {
       "title": "Partagez un avis positif pour gagner",
       "freeCredits": "1000 crédits gratuits",
@@ -947,8 +969,10 @@
       "allSpaces": "Tous les espaces",
       "user": "Utilisateur",
       "creator": "Créateur",
+      "sourceType": "Type de source",
       "platform": "Plateforme",
       "allStatuses": "Tous les statuts",
+      "allSourceTypes": "Tous les types de source",
       "allPlatforms": "Toutes les plateformes",
       "pendingCount": "Nombre en attente",
       "approvedCount": "Nombre approuvé",
@@ -1007,5 +1031,11 @@
       "title": "Une erreur s'est produite",
       "description": "Une erreur inattendue s'est produite. Veuillez réessayer plus tard."
     }
+  },
+  "changelog": {
+    "newUpdate": "NOUVELLE MISE À JOUR",
+    "title": "Claude Opus 4.6 + 171 modèles lancés",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

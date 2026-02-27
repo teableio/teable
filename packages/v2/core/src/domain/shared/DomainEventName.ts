@@ -38,6 +38,10 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('FieldDeleted');
   }
 
+  static fieldUpdated(): DomainEventName {
+    return new DomainEventName('FieldUpdated');
+  }
+
   static fieldDuplicated(): DomainEventName {
     return new DomainEventName('FieldDuplicated');
   }

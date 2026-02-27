@@ -63,7 +63,8 @@
     "continue": "Продолжить",
     "export": "Экспорт",
     "import": "Импорт",
-    "getMore": "Получить больше"
+    "getMore": "Получить больше",
+    "copySuccess": "Копирование успешно"
   },
   "quickAction": {
     "title": "Быстрые действия",
@@ -91,7 +92,10 @@
     "createTemplate": "Создать Шаблон",
     "useTemplateDialog": {
       "title": "Выберите пространство",
-      "description": "Выберите пространство для шаблона"
+      "description": "Выберите пространство для шаблона",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Создайте бизнес-приложение с Teable",
@@ -105,6 +109,24 @@
         "guide6": "Создайте планировщик контента с постами и датами публикации",
         "guide7": "Вставьте резюме → Попросите Teable организовать и отобрать кандидатов"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Копировать в пространство",
+      "description": "Выберите пространство для копирования этой базы",
+      "baseName": "Название базы",
+      "baseNamePlaceholder": "Введите название базы",
+      "selectSpace": "Выбрать пространство",
+      "noSpaceDescription": "Нет доступных пространств. Создайте новое пространство, чтобы продолжить.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "В этом пространстве нет доступных баз. Выберите «Новая база»."
     }
   },
   "settings": {
@@ -441,7 +463,7 @@
       "allowSignUp": "Разрешить создание новых аккаунтов",
       "allowSignUpDescription": "Отключение этой опции запретит регистрацию новых пользователей, и кнопка регистрации больше не будет отображаться на странице входа.",
       "allowSpaceInvitation": "Разрешить приглашения в пространство",
-      "allowSpaceInvitationDescription": "Отключение этой опции запретит пользователям, кроме администраторов, приглашать других в пространство. Включение позволит приглашённым создавать аккаунт, даже если регистрация новых аккаунтов отключена.",
+      "allowSpaceInvitationDescription": "Отключение этой опции запретит пользователям, кроме администраторов, приглашать других в пространство. При включении новые пользователи, приглашённые по электронной почте, могут завершить регистрацию, нажав на ссылку-приглашение в письме, но общие ссылки-приглашения не будут работать.",
       "allowSpaceCreation": "Разрешить всем создавать новые пространства",
       "allowSpaceCreationDescription": "Отключение этой опции запретит пользователям, кроме администраторов, создавать новые пространства.",
       "enableEmailVerification": "Включить проверку электронной почты",
@@ -854,8 +876,8 @@
   "credit": {
     "title": "Кредит",
     "leftAmount": "Осталось кредитов",
-    "winFreeCredits": "Выиграйте бесплатные кредиты",
-    "getCredits": "Получить 1000 кредитов",
+    "winFreeCredits": "Поделиться опытом",
+    "getCredits": "Получить 1000 бесплатных кредитов",
     "winCredit": {
       "title": "Поделитесь положительным отзывом и заработайте",
       "freeCredits": "1000 бесплатных кредитов",
@@ -909,8 +931,10 @@
       "allSpaces": "Все пространства",
       "user": "Пользователь",
       "creator": "Создатель",
+      "sourceType": "Тип источника",
       "platform": "Платформа",
       "allStatuses": "Все статусы",
+      "allSourceTypes": "Все типы источников",
       "allPlatforms": "Все платформы",
       "pendingCount": "Ожидающих",
       "approvedCount": "Одобренных",
@@ -969,5 +993,11 @@
       "title": "Что-то пошло не так",
       "description": "Произошла непредвиденная ошибка. Пожалуйста, попробуйте позже."
     }
+  },
+  "changelog": {
+    "newUpdate": "НОВОЕ ОБНОВЛЕНИЕ",
+    "title": "Claude Opus 4.6 + 171 моделей запущено",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

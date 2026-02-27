@@ -1,17 +1,19 @@
 import { BaseNodeResourceType, PinType } from '@teable/openapi';
-import { useIsAnonymous, useIsTemplate } from '@teable/sdk/hooks';
+import { useIsAnonymous, useIsReadOnlyPreview } from '@teable/sdk/hooks';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useMemo } from 'react';
 import { StarButton } from '../../space/space-side-bar/StarButton';
 
 interface IBaseNodeStarButtonProps {
   resourceType: BaseNodeResourceType;
   resourceId: string;
+  className?: string;
 }
 
 export const BaseNodeStarButton = (props: IBaseNodeStarButtonProps) => {
-  const { resourceType, resourceId } = props;
+  const { resourceType, resourceId, className } = props;
   const isAnonymous = useIsAnonymous();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const pinType = useMemo(() => {
     switch (resourceType) {
       case BaseNodeResourceType.Table:
@@ -27,9 +29,9 @@ export const BaseNodeStarButton = (props: IBaseNodeStarButtonProps) => {
     }
   }, [resourceType]);
 
-  if (!pinType || isAnonymous || isTemplate) {
+  if (!pinType || isAnonymous || isReadOnlyPreview) {
     return null;
   }
 
-  return <StarButton id={resourceId} type={pinType} className="size-3.5" />;
+  return <StarButton id={resourceId} type={pinType} className={cn('size-3.5', className)} />;
 };

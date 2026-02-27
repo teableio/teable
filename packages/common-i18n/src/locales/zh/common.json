@@ -62,11 +62,13 @@
     "refresh": "刷新",
     "login": "登录",
     "useTemplate": "使用模版",
+    "copyToMySpace": "复制到我的空间",
     "backToSpace": "返回空间",
     "switchBase": "切换数据库",
     "collapse": "收起",
     "viewDetails": "查看详情",
-    "getMore": "获取更多"
+    "getMore": "获取更多",
+    "copySuccess": "复制成功"
   },
   "quickAction": {
     "title": "快捷搜索",
@@ -107,11 +109,32 @@
     },
     "useTemplateDialog": {
       "title": "选择空间",
-      "description": "请选择一个空间来应用模版"
+      "description": "请选择一个空间来应用模版",
+      "noSpaceDescription": "你还没有任何空间，请先创建一个空间以继续。",
+      "newSpacePlaceholder": "空间名称",
+      "createSpace": "创建"
     },
     "non": {
       "share": "分享",
       "copy": "已复制"
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "复制到空间",
+      "description": "请选择一个空间来复制此数据库",
+      "baseName": "数据库名称",
+      "baseNamePlaceholder": "请输入数据库名称",
+      "selectSpace": "选择空间",
+      "noSpaceDescription": "暂无可用管理的空间，请先创建新空间以继续。",
+      "newSpacePlaceholder": "空间名称",
+      "createSpace": "创建",
+      "copyTarget": "复制到",
+      "createNewBase": "新数据库",
+      "copyToExistingBase": "已有数据库",
+      "selectBase": "选择数据库",
+      "selectBasePlaceholder": "选择一个数据库",
+      "noBaseInSpace": "该空间下没有可管理的数据库，请选择「新数据库」。"
     }
   },
   "settings": {
@@ -495,7 +518,7 @@
       "allowSignUp": "允许新用户注册",
       "allowSignUpDescription": "关闭此选项将禁止新用户注册，登录页面将不再显示注册按钮。",
       "allowSpaceInvitation": "允许发送空间邀请",
-      "allowSpaceInvitationDescription": "关闭此选项将禁止除管理员以外的用户邀请他人加入空间。开启此选项后，即使新账户注册已被禁用，仍允许被直接邀请的用户创建账户。",
+      "allowSpaceInvitationDescription": "关闭此选项将禁止除管理员以外的用户邀请他人加入空间。开启此选项后，通过邮箱邀请的新用户可以点击邮件内邀请链接完成注册，但通过创建邀请链接的方式无效。",
       "allowSpaceCreation": "允许所有人创建新的空间",
       "allowSpaceCreationDescription": "关闭此选项将禁止除管理员以外的用户创建新的空间。",
       "enableEmailVerification": "启用邮箱验证",
@@ -1209,11 +1232,11 @@
   "credit": {
     "title": "算力",
     "leftAmount": "剩余算力",
-    "winFreeCredits": "获取免费算力",
-    "getCredits": "获取 1000 算力",
+    "winFreeCredits": "分享体验",
+    "getCredits": "获取 1000 免费算力",
     "winCredit": {
-      "title": "分享正面评价即可获得",
-      "freeCredits": "1000 免费算力",
+      "title": "分享使用体验",
+      "freeCredits": "获取免费 1000 算力",
       "guidelinesTitle": "分享要求",
       "tagTeableio": "标记 <bold>@teableio</bold>",
       "minCharacters": "撰写 <bold>80+</bold> 字符的评价",
@@ -1264,8 +1287,10 @@
       "allSpaces": "全部空间",
       "user": "用户",
       "creator": "创建者",
+      "sourceType": "来源类型",
       "platform": "平台",
       "allStatuses": "全部状态",
+      "allSourceTypes": "全部来源类型",
       "allPlatforms": "全部平台",
       "pendingCount": "待处理个数",
       "approvedCount": "通过个数",
@@ -1328,5 +1353,11 @@
       "title": "出错了",
       "description": "发生了意外错误，请稍后重试。"
     }
+  },
+  "changelog": {
+    "newUpdate": "最新更新",
+    "title": "Claude Opus 4.6 + 171 模型已上线",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

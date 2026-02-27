@@ -1,14 +1,14 @@
+import { TraceSpan, DbFieldName, domainError, isDomainError } from '@teable/v2-core';
 import {
-  TraceSpan,
+  SelectOption,
+  type FieldId,
   type IExecutionContext,
   type ISpecification,
   type ITableSchemaRepository,
-  DbFieldName,
   type Field,
+  type LinkField,
   type ITableSpecVisitor,
   type Table,
-  domainError,
-  isDomainError,
   type DomainError,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
@@ -24,13 +24,18 @@ import type {
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { FieldDependencyGraph } from '../../record/computed/FieldDependencyGraph';
 import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
+import { isNotNullViolation, isUniqueViolation } from '../../shared/errors';
 import { v2PostgresDdlTokens } from '../di/tokens';
+import { detectCircularDependency } from '../helpers/detectCircularDependency';
 import {
   createFieldSchemaRules,
   createSchemaRuleContext,
   PostgresSchemaIntrospector,
 } from '../rules';
+import { DependencyChangeDetectorVisitor } from '../visitors/DependencyChangeDetectorVisitor';
+import { FieldValueChangeCollectorVisitor } from '../visitors/FieldValueChangeCollectorVisitor';
 import type { ICreateTableBuilderRef } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldCreateVisitor } from '../visitors/PostgresTableSchemaFieldCreateVisitor';
 import { TableAddFieldCollectorVisitor } from '../visitors/TableAddFieldCollectorVisitor';
@@ -39,7 +44,24 @@ import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
 type ComputedFieldBackfillService = {
   backfillMany(
     context: IExecutionContext,
-    input: { table: Table; fields: ReadonlyArray<Field> }
+    input: {
+      table: Table;
+      fields: ReadonlyArray<Field>;
+      includeOneManyTwoWay?: boolean;
+    }
+  ): Promise<Result<void, DomainError>>;
+};
+
+type ComputedFieldCascadeService = {
+  cascade(
+    context: IExecutionContext,
+    input: {
+      table: Table;
+      selfBackfillFieldIds: ReadonlyArray<FieldId>;
+      valueChangedFieldIds: ReadonlyArray<FieldId>;
+      deferredBackfillFieldIds?: ReadonlyArray<FieldId>;
+      hasDbStorageTypeChange?: boolean;
+    }
   ): Promise<Result<void, DomainError>>;
 };
 
@@ -60,7 +82,11 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     @inject(v2PostgresDdlTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
-    private readonly computedFieldBackfillService: ComputedFieldBackfillService
+    private readonly computedFieldBackfillService: ComputedFieldBackfillService,
+    @inject(v2RecordRepositoryPostgresTokens.computedFieldCascadeService)
+    private readonly cascadeService: ComputedFieldCascadeService,
+    @inject(v2RecordRepositoryPostgresTokens.computedDependencyGraph)
+    private readonly fieldDependencyGraph: FieldDependencyGraph
   ) {}
 
   private async ensureDeferredForeignKeys(
@@ -213,23 +239,66 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         schema,
         tableName,
         tableId: table.id().toString(),
+        table,
       });
       yield* mutateSpec.accept(visitor);
       const statements = yield* visitor.where();
-      if (statements.length === 0) return ok(undefined);
+      if (statements.length > 0) {
+        try {
+          await executeCompiledQueries(
+            db,
+            statements.map((statement) => statement.compile(db))
+          );
+        } catch (error) {
+          if (isUniqueViolation(error)) {
+            return err(
+              domainError.validation({
+                message: 'Cannot complete update: unique constraint violated',
+                code: 'validation.field.unique',
+              })
+            );
+          }
 
-      try {
-        await executeCompiledQueries(
-          db,
-          statements.map((statement) => statement.compile(db))
-        );
-      } catch (error) {
-        return err(
-          domainError.infrastructure({
-            message: `Failed to update table schema: ${describeError(error)}`,
-          })
-        );
+          if (isNotNullViolation(error)) {
+            return err(
+              domainError.validation({
+                message: 'Cannot complete update: null value violates not-null constraint',
+                code: 'validation.field.not_null',
+              })
+            );
+          }
+
+          return err(
+            domainError.infrastructure({
+              message: `Failed to update table schema: ${describeError(error)}`,
+            })
+          );
+        }
       }
+
+      // Check for circular dependencies if the spec involves dependency changes
+      const dependencyDetector = new DependencyChangeDetectorVisitor();
+      yield* mutateSpec.accept(dependencyDetector);
+      if (dependencyDetector.needsCheck()) {
+        const dependencyChangedFieldIds = dependencyDetector.dependencyChangedFieldIds();
+        const graphResult = yield* await repository.fieldDependencyGraph.load(
+          table.baseId(),
+          context,
+          dependencyChangedFieldIds.length > 0
+            ? { requiredFieldIds: dependencyChangedFieldIds }
+            : undefined
+        );
+        const cycleCheckResult = detectCircularDependency(graphResult.edges);
+        if (cycleCheckResult.isErr()) {
+          return err(cycleCheckResult.error);
+        }
+      }
+
+      const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
+      yield* mutateSpec.accept(valueChangeVisitor);
+      const selfBackfillFieldIds = valueChangeVisitor.selfBackfillFields();
+      const valueChangedFieldIds = valueChangeVisitor.valueChangedFields();
+      const deferredBackfillFieldIds = valueChangeVisitor.deferredBackfillFields();
 
       const backfillVisitor = new TableAddFieldCollectorVisitor();
       yield* mutateSpec.accept(backfillVisitor);
@@ -238,8 +307,103 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         yield* await repository.computedFieldBackfillService.backfillMany(context, {
           table,
           fields,
+          includeOneManyTwoWay: fields.some((field) => {
+            if (field.type().toString() !== 'link') {
+              return false;
+            }
+            const linkField = field as unknown as LinkField;
+            return linkField.relationship().toString() === 'oneMany' && !linkField.isOneWay();
+          }),
         });
       }
+
+      // Cascade value changes to dependent computed fields
+      // Re-ensure dbFieldNames after mutation: specs like TableUpdateFieldNameSpec
+      // replace fields via duplicate() which drops the dbFieldName.
+      yield* ensureDbFieldNames(table.getFields());
+      if (selfBackfillFieldIds.length > 0 || valueChangedFieldIds.length > 0) {
+        yield* await repository.cascadeService.cascade(context, {
+          table,
+          selfBackfillFieldIds,
+          valueChangedFieldIds,
+          deferredBackfillFieldIds,
+          hasDbStorageTypeChange: valueChangeVisitor.hasDbStorageTypeChange(),
+        });
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  @TraceSpan()
+  async refreshInMemoryTableAfterUpdate(
+    context: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<Table, DomainError>> {
+    const repository = this;
+    return await safeTry<Table, DomainError>(async function* () {
+      const selectFieldIds = yield* repository.collectChangedSelectFieldIds(table, mutateSpec);
+      if (selectFieldIds.length === 0) {
+        return ok(table);
+      }
+
+      const db = resolvePostgresDb(repository.db, context);
+      const rows = await db
+        .selectFrom('field')
+        .select(['id', 'options'])
+        .where(
+          'id',
+          'in',
+          selectFieldIds.map((fieldId) => fieldId.toString())
+        )
+        .execute();
+
+      if (rows.length === 0) {
+        return ok(table);
+      }
+
+      const optionsByFieldId = new Map<string, ReadonlyArray<SelectOption>>();
+      for (const row of rows) {
+        const optionsResult = repository.parseSelectOptions(row.options);
+        if (optionsResult.isErr()) return err(optionsResult.error);
+        optionsByFieldId.set(row.id, optionsResult.value);
+      }
+
+      let nextTable = table;
+      for (const fieldId of selectFieldIds) {
+        const selectOptions = optionsByFieldId.get(fieldId.toString());
+        if (!selectOptions || selectOptions.length === 0) continue;
+        const nextTableResult = nextTable.addSelectOptions(fieldId, selectOptions);
+        if (nextTableResult.isErr()) return err(nextTableResult.error);
+        nextTable = nextTableResult.value;
+      }
+
+      return ok(nextTable);
+    });
+  }
+
+  @TraceSpan()
+  async replayDeferredBackfillAfterUpdate(
+    context: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
+      yield* mutateSpec.accept(valueChangeVisitor);
+      const deferredBackfillFieldIds = valueChangeVisitor.deferredBackfillFields();
+      if (deferredBackfillFieldIds.length === 0) {
+        return ok(undefined);
+      }
+
+      yield* await repository.cascadeService.cascade(context, {
+        table,
+        selfBackfillFieldIds: [],
+        valueChangedFieldIds: deferredBackfillFieldIds,
+        hasDbStorageTypeChange: valueChangeVisitor.hasDbStorageTypeChange(),
+      });
 
       return ok(undefined);
     });
@@ -267,6 +431,68 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
       return ok(undefined);
     });
+  }
+
+  private collectChangedSelectFieldIds(
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Result<ReadonlyArray<FieldId>, DomainError> {
+    const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
+    const acceptResult = mutateSpec.accept(valueChangeVisitor);
+    if (acceptResult.isErr()) return err(acceptResult.error);
+
+    const fieldIds = valueChangeVisitor.valueChangedFields();
+    if (fieldIds.length === 0) return ok([]);
+
+    const selectFieldIds: FieldId[] = [];
+    for (const fieldId of fieldIds) {
+      const fieldResult = table.getField((field) => field.id().equals(fieldId));
+      if (fieldResult.isErr()) continue;
+      const fieldType = fieldResult.value.type().toString();
+      if (fieldType === 'singleSelect' || fieldType === 'multipleSelect') {
+        selectFieldIds.push(fieldId);
+      }
+    }
+
+    return ok(selectFieldIds);
+  }
+
+  private parseSelectOptions(raw: unknown): Result<ReadonlyArray<SelectOption>, DomainError> {
+    if (raw == null) {
+      return ok([]);
+    }
+
+    let parsedRaw: unknown = raw;
+    if (typeof raw === 'string') {
+      try {
+        parsedRaw = JSON.parse(raw);
+      } catch {
+        return ok([]);
+      }
+    }
+
+    if (typeof parsedRaw !== 'object' || parsedRaw == null) {
+      return ok([]);
+    }
+
+    const choices = (parsedRaw as { choices?: unknown }).choices;
+    if (!Array.isArray(choices)) {
+      return ok([]);
+    }
+
+    const options: SelectOption[] = [];
+    for (const choice of choices) {
+      if (typeof choice !== 'object' || choice == null) {
+        continue;
+      }
+      const optionResult = SelectOption.create(choice);
+      if (optionResult.isErr()) {
+        continue;
+      }
+      options.push(optionResult.value);
+    }
+
+    return ok(options);
   }
 }
 

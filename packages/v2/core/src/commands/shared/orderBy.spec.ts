@@ -105,4 +105,27 @@ describe('orderBy helpers', () => {
       ]
     `);
   });
+
+  it('deduplicates repeated fields and row-order columns', () => {
+    const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
+    const sortBy = [
+      ...resolveOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap()!,
+      { column: `__row_${viewId}`, direction: 'asc' } as const,
+    ];
+    const merged = mergeOrderBy(groupBy, sortBy, viewId);
+    expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
+      [
+        {
+          "direction": "asc",
+          "fieldId": "fld0000000000000001",
+          "type": "field",
+        },
+        {
+          "column": "__row_viw0000000000000001",
+          "direction": "asc",
+          "type": "column",
+        },
+      ]
+    `);
+  });
 });

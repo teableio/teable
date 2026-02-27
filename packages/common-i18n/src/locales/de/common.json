@@ -63,7 +63,8 @@
     "useTemplate": "Vorlage verwenden",
     "backToSpace": "Zurück zum Space",
     "switchBase": "Base wechseln",
-    "getMore": "Mehr erhalten"
+    "getMore": "Mehr erhalten",
+    "copySuccess": "Kopieren erfolgreich"
   },
   "quickAction": {
     "title": "Schnelle Aktionen",
@@ -104,7 +105,28 @@
     },
     "useTemplateDialog": {
       "title": "Space auswählen",
-      "description": "Bitte wählen Sie einen Space für die Vorlage aus"
+      "description": "Bitte wählen Sie einen Space für die Vorlage aus",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "In Bereich kopieren",
+      "description": "Bitte wählen Sie einen Bereich aus, in den diese Basis kopiert werden soll",
+      "baseName": "Basisname",
+      "baseNamePlaceholder": "Basisname eingeben",
+      "selectSpace": "Bereich auswählen",
+      "noSpaceDescription": "Keine verwaltbaren Bereiche. Bitte erstellen Sie einen neuen Bereich.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "In diesem Bereich gibt es keine verwaltbaren Basen. Bitte wählen Sie \"Neue Basis\"."
     }
   },
   "settings": {
@@ -467,7 +489,7 @@
       "allowSignUp": "Erstellen neuer Konten zulassen",
       "allowSignUpDescription": "Wenn Sie diese Option deaktivieren, werden neue Benutzerregistrierungen verhindert, und die Schaltfläche „Registrieren“ wird nicht mehr auf der Anmeldeseite angezeigt.",
       "allowSpaceInvitation": "Erlauben Sie das Versenden von Space-Einladungen",
-      "allowSpaceInvitationDescription": "Die Deaktivierung dieser Option verhindert, dass andere Benutzer als Administratoren andere Benutzer zu Spaces einladen können. Wenn Sie diese Option aktivieren, können direkt eingeladene Benutzer ein Konto erstellen, auch wenn die Registrierung neuer Konten deaktiviert ist.",
+      "allowSpaceInvitationDescription": "Die Deaktivierung dieser Option verhindert, dass andere Benutzer als Administratoren andere Benutzer zu Spaces einladen können. Wenn aktiviert, können neue Benutzer, die per E-Mail eingeladen wurden, die Registrierung durch Klicken auf den Einladungslink in der E-Mail abschließen, aber freigegebene Einladungslinks funktionieren nicht.",
       "allowSpaceCreation": "Jedem die Möglichkeit geben, neue Space anzulegen",
       "allowSpaceCreationDescription": "Wenn Sie diese Option deaktivieren, können andere Benutzer als Administratoren keine neuen Spaces erstellen.",
       "enableEmailVerification": "Aktivieren der E-Mail-Überprüfung",
@@ -887,8 +909,8 @@
   "credit": {
     "title": "Guthaben",
     "leftAmount": "Verbleibendes Guthaben",
-    "winFreeCredits": "Kostenloses Guthaben gewinnen",
-    "getCredits": "1000 Guthaben erhalten",
+    "winFreeCredits": "Erfahrung teilen",
+    "getCredits": "1000 kostenlose Credits erhalten",
     "winCredit": {
       "title": "Teilen Sie eine positive Bewertung und verdienen Sie",
       "freeCredits": "1000 kostenloses Guthaben",
@@ -942,8 +964,10 @@
       "allSpaces": "Alle Spaces",
       "user": "Benutzer",
       "creator": "Ersteller",
+      "sourceType": "Quelltyp",
       "platform": "Plattform",
       "allStatuses": "Alle Status",
+      "allSourceTypes": "Alle Quelltypen",
       "allPlatforms": "Alle Plattformen",
       "pendingCount": "Ausstehende Anzahl",
       "approvedCount": "Genehmigte Anzahl",
@@ -1002,5 +1026,11 @@
       "title": "Etwas ist schief gelaufen",
       "description": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut."
     }
+  },
+  "changelog": {
+    "newUpdate": "NEUE AKTUALISIERUNG",
+    "title": "Claude Opus 4.6 + 171 Modelle veröffentlicht",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

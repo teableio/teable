@@ -420,7 +420,7 @@ export class FieldDependencyGraph {
 
         // Parse link options, clearing invalid symmetric field references
         let options: Result<LinkOptionsMeta | null, DomainError>;
-        if (row.type === 'link') {
+        if (row.type === 'link' && !row.is_lookup && !row.is_conditional_lookup) {
           const parsed = parseLinkOptions(row.options);
           if (parsed.isErr()) return err(parsed.error);
 
@@ -502,32 +502,43 @@ export class FieldDependencyGraph {
     >
   > {
     try {
-      const rows = await db
+      const selectColumns = [
+        'r.from_field_id as from_field_id',
+        'r.to_field_id as to_field_id',
+        'f_from.table_id as from_table_id',
+        'f_to.table_id as to_table_id',
+        'f_to.type as to_field_type',
+        't_from.base_id as from_base_id',
+        't_to.base_id as to_base_id',
+      ] as const;
+
+      const fromBaseQuery = db
         .selectFrom('reference as r')
         .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
         .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
         .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
         .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
-        .select([
-          'r.from_field_id as from_field_id',
-          'r.to_field_id as to_field_id',
-          'f_from.table_id as from_table_id',
-          'f_to.table_id as to_table_id',
-          'f_to.type as to_field_type',
-          't_from.base_id as from_base_id',
-          't_to.base_id as to_base_id',
-        ])
-        .where((eb) =>
-          eb.or([
-            eb('t_from.base_id', '=', baseId.toString()),
-            eb('t_to.base_id', '=', baseId.toString()),
-          ])
-        )
+        .select(selectColumns)
+        .where('t_from.base_id', '=', baseId.toString())
         .where('f_from.deleted_time', 'is', null)
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
-        .where('t_to.deleted_time', 'is', null)
-        .execute();
+        .where('t_to.deleted_time', 'is', null);
+
+      const toBaseQuery = db
+        .selectFrom('reference as r')
+        .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
+        .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
+        .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
+        .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
+        .select(selectColumns)
+        .where('t_to.base_id', '=', baseId.toString())
+        .where('f_from.deleted_time', 'is', null)
+        .where('f_to.deleted_time', 'is', null)
+        .where('t_from.deleted_time', 'is', null)
+        .where('t_to.deleted_time', 'is', null);
+
+      const rows = await fromBaseQuery.union(toBaseQuery).execute();
 
       const edges: FieldDependencyEdge[] = [];
       const crossBaseFieldsMap = new Map<string, CrossBaseFieldMeta>();
@@ -1054,7 +1065,7 @@ export class FieldDependencyGraph {
 
         // Parse link options, clearing invalid symmetric field references
         let options: Result<LinkOptionsMeta | null, DomainError>;
-        if (row.type === 'link') {
+        if (row.type === 'link' && !row.is_lookup && !row.is_conditional_lookup) {
           const parsed = parseLinkOptions(row.options);
           if (parsed.isErr()) return err(parsed.error);
 
@@ -1134,29 +1145,43 @@ export class FieldDependencyGraph {
     if (fieldIds.length === 0) return ok({ edges: [], crossBaseFields: [] });
 
     try {
-      const rows = await db
+      const selectColumns = [
+        'r.from_field_id as from_field_id',
+        'r.to_field_id as to_field_id',
+        'f_from.table_id as from_table_id',
+        'f_to.table_id as to_table_id',
+        'f_to.type as to_field_type',
+        't_from.base_id as from_base_id',
+        't_to.base_id as to_base_id',
+      ] as const;
+
+      const fromFieldQuery = db
         .selectFrom('reference as r')
         .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
         .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
         .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
         .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
-        .select([
-          'r.from_field_id as from_field_id',
-          'r.to_field_id as to_field_id',
-          'f_from.table_id as from_table_id',
-          'f_to.table_id as to_table_id',
-          'f_to.type as to_field_type',
-          't_from.base_id as from_base_id',
-          't_to.base_id as to_base_id',
-        ])
-        .where((eb) =>
-          eb.or([eb('r.from_field_id', 'in', fieldIds), eb('r.to_field_id', 'in', fieldIds)])
-        )
+        .select(selectColumns)
+        .where('r.from_field_id', 'in', fieldIds)
         .where('f_from.deleted_time', 'is', null)
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
-        .where('t_to.deleted_time', 'is', null)
-        .execute();
+        .where('t_to.deleted_time', 'is', null);
+
+      const toFieldQuery = db
+        .selectFrom('reference as r')
+        .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
+        .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
+        .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
+        .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
+        .select(selectColumns)
+        .where('r.to_field_id', 'in', fieldIds)
+        .where('f_from.deleted_time', 'is', null)
+        .where('f_to.deleted_time', 'is', null)
+        .where('t_from.deleted_time', 'is', null)
+        .where('t_to.deleted_time', 'is', null);
+
+      const rows = await fromFieldQuery.union(toFieldQuery).execute();
 
       const edges: FieldDependencyEdge[] = [];
       const crossBaseFieldsMap = new Map<string, CrossBaseFieldMeta>();

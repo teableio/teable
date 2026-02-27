@@ -62,11 +62,13 @@
     "refresh": "Refresh",
     "login": "Login",
     "useTemplate": "Use template",
+    "copyToMySpace": "Copy to my space",
     "backToSpace": "Back to space",
     "switchBase": "Switch base",
     "collapse": "Collapse",
     "viewDetails": "View details",
-    "getMore": "Get more"
+    "getMore": "Get more",
+    "copySuccess": "Copy successful"
   },
   "quickAction": {
     "title": "Quick actions",
@@ -107,7 +109,28 @@
     },
     "useTemplateDialog": {
       "title": "Select space",
-      "description": "Please select a space to apply template"
+      "description": "Please select a space to apply template",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Copy to space",
+      "description": "Please select a space to copy this base to",
+      "baseName": "Base name",
+      "baseNamePlaceholder": "Enter base name",
+      "selectSpace": "Select space",
+      "noSpaceDescription": "No manageable spaces. Please create a new space to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "No manageable bases in this space. Please select \"New base\"."
     }
   },
   "settings": {
@@ -495,7 +518,7 @@
       "allowSignUp": "Allow creating new accounts",
       "allowSignUpDescription": "Disabling this option will prohibit new user registrations, and the register button will no longer appear on the login page.",
       "allowSpaceInvitation": "Allow sending space invitations",
-      "allowSpaceInvitationDescription": "Disabling this option will prevent users other than administrators from inviting others to join spaces. Enabling this option will allow directly invited users to create an account even if new account registration is disabled.",
+      "allowSpaceInvitationDescription": "Disabling this option will prevent users other than administrators from inviting others to join spaces. When enabled, new users invited via email can complete registration by clicking the invitation link in the email, but shared invitation links will not work.",
       "allowSpaceCreation": "Allow everyone to create new spaces",
       "allowSpaceCreationDescription": "Disabling this option will prevent users other than administrators from creating new spaces.",
       "enableEmailVerification": "Enable email verification",
@@ -1209,8 +1232,8 @@
   "credit": {
     "title": "Credit",
     "leftAmount": "Credits left",
-    "winFreeCredits": "Win free credits",
-    "getCredits": "Get 1000 credits",
+    "winFreeCredits": "Share experience",
+    "getCredits": "Get 1000 free credits",
     "winCredit": {
       "title": "Share a positive review to earn",
       "freeCredits": "1000 free credits",
@@ -1264,8 +1287,10 @@
       "allSpaces": "All Spaces",
       "user": "User",
       "creator": "Creator",
+      "sourceType": "Source Type",
       "platform": "Platform",
       "allStatuses": "All Statuses",
+      "allSourceTypes": "All Source Types",
       "allPlatforms": "All Platforms",
       "pendingCount": "Pending Count",
       "approvedCount": "Approved Count",
@@ -1328,5 +1353,11 @@
       "title": "Something went wrong",
       "description": "An unexpected issue occurred. Please try again later."
     }
+  },
+  "changelog": {
+    "newUpdate": "NEW UPDATE",
+    "title": "Claude Opus 4.6 + 171 Models Launched",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

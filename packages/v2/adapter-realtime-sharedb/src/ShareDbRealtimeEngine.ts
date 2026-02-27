@@ -15,6 +15,8 @@ import type { Result } from 'neverthrow';
 import { v2ShareDbTokens } from './di/tokens';
 import type { IShareDbOpPublisher, ShareDbOp } from './ShareDbPublisher';
 
+const v2ProjectionOpSourcePrefix = '@@v2-projection:';
+
 @injectable()
 export class ShareDbRealtimeEngine implements IRealtimeEngine {
   constructor(
@@ -38,7 +40,7 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       },
       del: undefined,
       op: undefined,
-      src: context.requestId ?? 'unknown',
+      src: this.toProjectionSource(context.requestId),
       seq: 1,
       v: 0,
       m: {
@@ -74,7 +76,7 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       create: undefined,
       del: undefined,
       op: json0Op,
-      src: context.requestId ?? 'unknown',
+      src: this.toProjectionSource(context.requestId),
       seq: 1,
       v: options?.version ?? 0,
       m: {
@@ -94,7 +96,9 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
     switch (change.type) {
       case 'set': {
         // json0 object replace: { p: path, od: oldValue, oi: newValue }
-        // Since we don't know the old value, we use oi only which creates/replaces
+        if (Object.prototype.hasOwnProperty.call(change, 'oldValue')) {
+          return [{ p: path, oi: change.value, od: change.oldValue }];
+        }
         return [{ p: path, oi: change.value }];
       }
       case 'insert': {
@@ -125,7 +129,7 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       create: undefined,
       del: true,
       op: undefined,
-      src: context.requestId ?? 'unknown',
+      src: this.toProjectionSource(context.requestId),
       seq: 1,
       v: 1,
       m: {
@@ -137,5 +141,9 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
 
     const channels = [collection, `${collection}.${documentId}`];
     return this.publisher.publish(channels, op);
+  }
+
+  private toProjectionSource(requestId: string | undefined): string {
+    return `${v2ProjectionOpSourcePrefix}${requestId ?? 'unknown'}`;
   }
 }

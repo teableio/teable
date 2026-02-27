@@ -1,4 +1,10 @@
-import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
+import {
+  domainError,
+  isDomainError,
+  type DomainError,
+  type IExecutionContext,
+} from '@teable/v2-core';
+import { tableI18nKeys } from '@teable/i18n-keys';
 
 export const describeError = (error: unknown): string => {
   if (isDomainError(error)) return error.message;
@@ -73,6 +79,22 @@ export interface WrapDatabaseErrorContext {
   count?: number;
 }
 
+const i18nOrFallback = (
+  t: IExecutionContext['$t'],
+  key: Parameters<NonNullable<IExecutionContext['$t']>>[0],
+  fallback: string,
+  options?: Record<string, unknown>
+): string => {
+  if (!t) {
+    return fallback;
+  }
+  try {
+    return t(key, options);
+  } catch {
+    return fallback;
+  }
+};
+
 /**
  * Wrap database errors into appropriate domain errors.
  * Converts PostgreSQL constraint violations into validation errors.
@@ -80,12 +102,17 @@ export interface WrapDatabaseErrorContext {
 export const wrapDatabaseError = (
   error: unknown,
   operation: DatabaseOperation,
-  context: WrapDatabaseErrorContext
+  context: WrapDatabaseErrorContext,
+  t?: IExecutionContext['$t']
 ): DomainError => {
   // Check for link field unique constraint violation
   if (isLinkUniqueViolation(error)) {
     return domainError.validation({
-      message: `Cannot complete ${operation}: the target record is already linked by another record in a one-to-one relationship`,
+      message: i18nOrFallback(
+        t,
+        tableI18nKeys.validation.link.one_one_duplicate,
+        `Cannot complete ${operation}: the target record is already linked by another record in a one-to-one relationship`
+      ),
       code: 'validation.link.one_one_duplicate',
     });
   }

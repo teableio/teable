@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { ActorId, RealtimeDocId } from '@teable/v2-core';
+import { ok } from 'neverthrow';
 import ShareDb from 'sharedb';
 import type { Doc } from 'sharedb/lib/client';
 import { Connection } from 'sharedb/lib/client';
@@ -241,6 +242,37 @@ const waitNothingPending = <T>(doc: Doc<T>): Promise<void> =>
     doc.whenNothingPending(() => resolve());
   });
 
+const waitNextRemoteOp = <T>(doc: Doc<T>, timeoutMs = 5000): Promise<unknown> =>
+  new Promise((resolve, reject) => {
+    let settled = false;
+
+    const cleanup = () => {
+      doc.removeListener('op batch', onBatch);
+      clearTimeout(timeout);
+    };
+
+    const settle = (error?: Error, op?: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(op);
+    };
+
+    const onBatch = (op: unknown) => {
+      settle(undefined, op);
+    };
+
+    const timeout = setTimeout(() => {
+      settle(new Error('ShareDB remote op timed out'));
+    }, timeoutMs);
+
+    doc.on('op batch', onBatch);
+  });
+
 const waitDocDeleted = <T>(doc: Doc<T>, timeoutMs = 5000): Promise<void> =>
   new Promise((resolve, reject) => {
     let settled = false;
@@ -365,6 +397,131 @@ describe('ShareDbRealtimeEngine', () => {
       clientA.dispose();
       clientB.dispose();
     }
+  });
+
+  it('updates existing object keys via set change', async () => {
+    if (!runtime) throw new Error('Missing ShareDB runtime');
+
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const context = { actorId };
+    const collection = 'tbl_test';
+    const documentId = 'doc_field_update';
+    const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
+    const initial = {
+      id: documentId,
+      type: 'singleLineText',
+      options: {},
+    };
+
+    const engine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const ensureResult = await engine.ensure(context, docId, initial);
+    expect(ensureResult.isOk()).toBe(true);
+    if (ensureResult.isErr()) return;
+
+    const client = createShareDbClientDoc<typeof initial & { type: string; options: unknown }>({
+      url: runtime.url,
+      collection,
+      docId: documentId,
+    });
+
+    try {
+      await client.ready;
+
+      const remoteUpdated = waitNextRemoteOp(client.doc);
+      const updateResult = await engine.applyChange(context, docId, [
+        { type: 'set', path: ['type'], value: 'singleSelect' },
+        {
+          type: 'set',
+          path: ['options'],
+          value: { choices: [{ id: 'cho1', name: 'Open', color: 'yellowBright' }] },
+        },
+      ]);
+      expect(updateResult.isOk()).toBe(true);
+      if (updateResult.isErr()) return;
+
+      const remoteOp = await remoteUpdated;
+      expect(remoteOp).toEqual([
+        { p: ['type'], oi: 'singleSelect' },
+        {
+          p: ['options'],
+          oi: { choices: [{ id: 'cho1', name: 'Open', color: 'yellowBright' }] },
+        },
+      ]);
+      expect(client.doc.data).toEqual({
+        id: documentId,
+        type: 'singleSelect',
+        options: { choices: [{ id: 'cho1', name: 'Open', color: 'yellowBright' }] },
+      });
+    } finally {
+      client.dispose();
+    }
+  });
+
+  it('applies json0 object replace with oi=new and od=old', async () => {
+    if (!runtime) throw new Error('Missing ShareDB runtime');
+
+    const collection = 'tbl_test';
+    const documentId = 'doc_replace_semantic';
+    const subscription = subscribeShareDbDoc<{ id: string; type: string }>({
+      url: runtime.url,
+      collection,
+      docId: documentId,
+    });
+
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const context = { actorId };
+    const engine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
+
+    const ensureResult = await engine.ensure(context, docId, {
+      id: documentId,
+      type: 'singleLineText',
+    });
+    expect(ensureResult.isOk()).toBe(true);
+    if (ensureResult.isErr()) return;
+
+    const client = createShareDbClientDoc<{ id: string; type: string }>({
+      url: runtime.url,
+      collection,
+      docId: documentId,
+    });
+
+    try {
+      await Promise.all([subscription.ready, client.ready]);
+      await submitOp(client.doc, [{ p: ['type'], oi: 'singleSelect', od: 'singleLineText' }]);
+      await waitNothingPending(client.doc);
+      expect(client.doc.data?.type).toBe('singleSelect');
+    } finally {
+      subscription.dispose();
+      client.dispose();
+    }
+  });
+
+  it('emits od when set change provides oldValue', async () => {
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const context = { actorId };
+    const docId = RealtimeDocId.fromParts('fld_tbl_test', 'fld_test')._unsafeUnwrap();
+
+    let publishedOp: unknown;
+    const publisher = {
+      publish: async (_channels: ReadonlyArray<string>, op: unknown) => {
+        publishedOp = op;
+        return ok(undefined);
+      },
+    };
+    const engine = new ShareDbRealtimeEngine(publisher as unknown as ShareDbBackendPublisher);
+
+    const result = await engine.applyChange(context, docId, {
+      type: 'set',
+      path: ['type'],
+      value: 'singleSelect',
+      oldValue: 'singleLineText',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect((publishedOp as { op?: unknown[] }).op).toEqual([
+      { p: ['type'], oi: 'singleSelect', od: 'singleLineText' },
+    ]);
   });
 
   it('delivers delete ops to subscribed clients', async () => {
