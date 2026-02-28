@@ -63,7 +63,8 @@
     "continue": "Devam Et",
     "export": "Dışa Aktar",
     "import": "İçe Aktar",
-    "getMore": "Daha fazla al"
+    "getMore": "Daha fazla al",
+    "copySuccess": "Kopyalama başarılı"
   },
   "quickAction": {
     "title": "Hızlı İşlemler",
@@ -91,7 +92,10 @@
     "createTemplate": "Şablon Oluştur",
     "useTemplateDialog": {
       "title": "Alan Seçin",
-      "description": "Şablon için bir alan seçin"
+      "description": "Şablon için bir alan seçin",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Teable ile iş uygulamanızı oluşturun",
@@ -105,6 +109,24 @@
         "guide6": "Gönderiler ve yayın tarihleri ile bir içerik planlayıcısı oluşturun",
         "guide7": "Özgeçmişleri yapıştırın → Teable'dan adayları düzenlemesini ve ön elemeyi yapmasını isteyin"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Alana kopyala",
+      "description": "Bu veritabanını kopyalamak için bir alan seçin",
+      "baseName": "Veritabanı adı",
+      "baseNamePlaceholder": "Veritabanı adını girin",
+      "selectSpace": "Alan seç",
+      "noSpaceDescription": "Yönetilebilir alan yok. Devam etmek için yeni bir alan oluşturun.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "Bu alanda yönetilebilir veritabanı yok. \"Yeni veritabanı\"nı seçin."
     }
   },
   "settings": {
@@ -436,7 +458,7 @@
       "allowSignUp": "Yeni hesap oluşturmaya izin ver",
       "allowSignUpDescription": "Bu seçeneği devre dışı bırakmak yeni kullanıcı kayıtlarını yasaklar ve kayıt düğmesi artık giriş sayfasında görünmez.",
       "allowSpaceInvitation": "Alan davetleri göndermeye izin ver",
-      "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Bu seçeneği etkinleştirmek, yeni hesap kaydı devre dışı bırakılmış olsa bile doğrudan davet edilen kullanıcıların hesap oluşturmasına izin verir.",
+      "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Etkinleştirildiğinde, e-posta ile davet edilen yeni kullanıcılar e-postadaki davet bağlantısına tıklayarak kaydı tamamlayabilir, ancak paylaşılan davet bağlantıları çalışmaz.",
       "allowSpaceCreation": "Herkesin yeni alan oluşturmasına izin ver",
       "allowSpaceCreationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların yeni alan oluşturmasını engeller.",
       "enableEmailVerification": "E-posta doğrulamasını etkinleştir",
@@ -855,8 +877,8 @@
   "credit": {
     "title": "Kredi",
     "leftAmount": "Kalan kredi",
-    "winFreeCredits": "Ücretsiz kredi kazan",
-    "getCredits": "1000 kredi al",
+    "winFreeCredits": "Deneyim paylaş",
+    "getCredits": "1000 ücretsiz kredi al",
     "winCredit": {
       "title": "Olumlu bir inceleme paylaşarak kazan",
       "freeCredits": "1000 ücretsiz kredi",
@@ -910,8 +932,10 @@
       "allSpaces": "Tüm Alanlar",
       "user": "Kullanıcı",
       "creator": "Oluşturan",
+      "sourceType": "Kaynak Türü",
       "platform": "Platform",
       "allStatuses": "Tüm Durumlar",
+      "allSourceTypes": "Tüm Kaynak Türleri",
       "allPlatforms": "Tüm Platformlar",
       "pendingCount": "Bekleyen Sayısı",
       "approvedCount": "Onaylanan Sayısı",
@@ -1001,5 +1025,11 @@
       "title": "Bir şeyler yanlış gitti",
       "description": "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
     }
+  },
+  "changelog": {
+    "newUpdate": "YENİ GÜNCELLEME",
+    "title": "Claude Opus 4.6 + 171 Model Yayınlandı",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

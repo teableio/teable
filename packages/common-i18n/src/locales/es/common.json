@@ -63,7 +63,8 @@
     "export": "Exportar",
     "import": "Importar",
     "expand": "Expandir",
-    "getMore": "Obtener más"
+    "getMore": "Obtener más",
+    "copySuccess": "Copia exitosa"
   },
   "quickAction": {
     "title": "Acciones Rápidas",
@@ -91,7 +92,10 @@
     "createTemplate": "Crear Plantilla",
     "useTemplateDialog": {
       "title": "Seleccionar espacio",
-      "description": "Por favor seleccione un espacio para la plantilla"
+      "description": "Por favor seleccione un espacio para la plantilla",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Construye tu aplicación empresarial con Teable",
@@ -105,6 +109,24 @@
         "guide6": "Construye un planificador de contenido con publicaciones y fechas de publicación",
         "guide7": "Pega currículums → Pide a Teable que organice y preseleccione candidatos"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Copiar al espacio",
+      "description": "Por favor selecciona un espacio para copiar esta base",
+      "baseName": "Nombre de la base",
+      "baseNamePlaceholder": "Ingresa el nombre de la base",
+      "selectSpace": "Seleccionar espacio",
+      "noSpaceDescription": "No hay espacios gestionables. Crea un nuevo espacio para continuar.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "No hay bases gestionables en este espacio. Selecciona \"Nueva base\"."
     }
   },
   "settings": {
@@ -467,7 +489,7 @@
       "allowSignUp": "Permitir crear nuevas cuentas",
       "allowSignUpDescription": "Deshabilitar esta opción prohibirá los registros de nuevos usuarios, y el botón de registro ya no aparecerá en la página de inicio de sesión.",
       "allowSpaceInvitation": "Permitir envío de invitaciones de espacio",
-      "allowSpaceInvitationDescription": "Deshabilitar esta opción evitará que los usuarios que no sean administradores inviten a otros a unir espacios. ",
+      "allowSpaceInvitationDescription": "Deshabilitar esta opción evitará que los usuarios que no sean administradores inviten a otros a unirse a espacios. Cuando está habilitado, los nuevos usuarios invitados por correo electrónico pueden completar el registro haciendo clic en el enlace de invitación en el correo, pero los enlaces de invitación compartidos no funcionarán.",
       "allowSpaceCreation": "Permitir que todos creen nuevos espacios",
       "allowSpaceCreationDescription": "Deshabilitar esta opción evitará que los usuarios que no sean administradores creen nuevos espacios.",
       "enableEmailVerification": "Habilitar la verificación de correo electrónico",
@@ -890,8 +912,8 @@
   "credit": {
     "title": "Crédito",
     "leftAmount": "Créditos restantes",
-    "winFreeCredits": "Gana créditos gratis",
-    "getCredits": "Obtener 1000 créditos",
+    "winFreeCredits": "Compartir experiencia",
+    "getCredits": "Obtener 1000 créditos gratis",
     "winCredit": {
       "title": "Comparte una reseña positiva para ganar",
       "freeCredits": "1000 créditos gratis",
@@ -945,8 +967,10 @@
       "allSpaces": "Todos los espacios",
       "user": "Usuario",
       "creator": "Creador",
+      "sourceType": "Tipo de fuente",
       "platform": "Plataforma",
       "allStatuses": "Todos los estados",
+      "allSourceTypes": "Todos los tipos de fuente",
       "allPlatforms": "Todas las plataformas",
       "pendingCount": "Cantidad pendiente",
       "approvedCount": "Cantidad aprobada",
@@ -1005,5 +1029,11 @@
       "title": "Algo salió mal",
       "description": "Ocurrió un error inesperado. Por favor, inténtalo de nuevo más tarde."
     }
+  },
+  "changelog": {
+    "newUpdate": "NUEVA ACTUALIZACIÓN",
+    "title": "Claude Opus 4.6 + 171 modelos lanzados",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

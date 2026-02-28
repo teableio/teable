@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FieldModule } from '../features/field/field.module';
 import { TableModule } from '../features/table/table.module';
 import { RealtimeMetricsModule } from './metrics/realtime-metrics.module';
 import { ReadonlyModule } from './readonly/readonly.module';
@@ -7,7 +8,13 @@ import { ShareDbAdapter } from './share-db.adapter';
 import { ShareDbService } from './share-db.service';
 
 @Module({
-  imports: [TableModule, ReadonlyModule, RepairAttachmentOpModule, RealtimeMetricsModule],
+  imports: [
+    TableModule,
+    FieldModule,
+    ReadonlyModule,
+    RepairAttachmentOpModule,
+    RealtimeMetricsModule,
+  ],
   providers: [ShareDbService, ShareDbAdapter],
   exports: [ShareDbService, RealtimeMetricsModule],
 })

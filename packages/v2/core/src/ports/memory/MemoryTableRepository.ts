@@ -10,7 +10,7 @@ import type { Table } from '../../domain/table/Table';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IFindOptions } from '../RepositoryQuery';
-import type { ITableRepository } from '../TableRepository';
+import type { ITableRepository, TableUpdatePersistResult } from '../TableRepository';
 
 export class MemoryTableRepository implements ITableRepository {
   private readonly savedTables: Table[] = [];
@@ -70,7 +70,7 @@ export class MemoryTableRepository implements ITableRepository {
     _: IExecutionContext,
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<TableUpdatePersistResult | void, DomainError>> {
     const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
     if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
     const current = this.savedTables[index];

@@ -63,7 +63,8 @@
     "continue": "続行",
     "export": "エクスポート",
     "import": "インポート",
-    "getMore": "もっと取得"
+    "getMore": "もっと取得",
+    "copySuccess": "コピー成功"
   },
   "quickAction": {
     "title": "クイックアクション",
@@ -91,7 +92,10 @@
     "createTemplate": "テンプレートを作成",
     "useTemplateDialog": {
       "title": "スペースを選択",
-      "description": "テンプレート用のスペースを選択してください"
+      "description": "テンプレート用のスペースを選択してください",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Teableでビジネスアプリを構築",
@@ -105,6 +109,24 @@
         "guide6": "投稿と公開日付を持つコンテンツプランナーを構築",
         "guide7": "履歴書を貼り付け → Teableに候補者を整理して選別させる"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "スペースにコピー",
+      "description": "このベースをコピーするスペースを選択してください",
+      "baseName": "ベース名",
+      "baseNamePlaceholder": "ベース名を入力",
+      "selectSpace": "スペースを選択",
+      "noSpaceDescription": "管理可能なスペースがありません。続行するには新規スペースを作成してください。",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "このスペースに管理可能なベースがありません。「新規ベース」を選択してください。"
     }
   },
   "settings": {
@@ -471,7 +493,7 @@
       "allowSignUp": "新しいアカウントの作成を許可する",
       "allowSignUpDescription": "このオプションを無効にすると、新規ユーザーの登録が禁止され、ログインページに登録ボタンが表示されなくなります。",
       "allowSpaceInvitation": "スペースへの招待の送信を許可する",
-      "allowSpaceInvitationDescription": "このオプションを無効にすると、管理者以外のユーザーは他のユーザーをスペースに招待できなくなります。このオプションを有効にすると、新規アカウント登録が無効になっている場合でも、直接招待されたユーザーはアカウントを作成できるようになります。",
+      "allowSpaceInvitationDescription": "このオプションを無効にすると、管理者以外のユーザーは他のユーザーをスペースに招待できなくなります。有効にすると、メールで招待された新規ユーザーはメール内の招待リンクをクリックして登録を完了できますが、共有された招待リンクは機能しません。",
       "allowSpaceCreation": "誰でも新しいスペースを作成できるようにする",
       "allowSpaceCreationDescription": "このオプションを無効にすると、管理者以外のユーザーは新しいスペースを作成できなくなります。",
       "enableEmailVerification": "メールアドレスの確認を有効にする",
@@ -894,8 +916,8 @@
   "credit": {
     "title": "クレジット",
     "leftAmount": "残りクレジット",
-    "winFreeCredits": "無料クレジットを獲得",
-    "getCredits": "1000クレジットを取得",
+    "winFreeCredits": "体験を共有",
+    "getCredits": "1000無料クレジットを取得",
     "winCredit": {
       "title": "ポジティブなレビューを共有して獲得",
       "freeCredits": "1000無料クレジット",
@@ -949,8 +971,10 @@
       "allSpaces": "すべてのスペース",
       "user": "ユーザー",
       "creator": "作成者",
+      "sourceType": "ソースタイプ",
       "platform": "プラットフォーム",
       "allStatuses": "すべてのステータス",
+      "allSourceTypes": "すべてのソースタイプ",
       "allPlatforms": "すべてのプラットフォーム",
       "pendingCount": "保留中の数",
       "approvedCount": "承認済みの数",
@@ -1009,5 +1033,11 @@
       "title": "エラーが発生しました",
       "description": "予期しないエラーが発生しました。後でもう一度お試しください。"
     }
+  },
+  "changelog": {
+    "newUpdate": "新着アップデート",
+    "title": "Claude Opus 4.6 + 171 モデルリリース",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

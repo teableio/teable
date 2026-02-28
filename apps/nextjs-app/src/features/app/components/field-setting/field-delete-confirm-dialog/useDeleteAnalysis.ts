@@ -1,101 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ILookupLinkOptionsVo } from '@teable/core';
-import { FieldType } from '@teable/core';
-import { planFieldDelete } from '@teable/openapi';
-import type { IFieldInstance } from '@teable/sdk/model';
+import type { IFieldDeleteReferencesItem } from '@teable/openapi';
+import { getFieldDeleteReferences } from '@teable/openapi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { AffectedField, PlanData } from './types';
-
-/**
- * Extract affected field info from plan data based on edge direction.
- * Only fields that depend on the deleted field (target of edges where deleted field is source) are affected.
- */
-const getAffectedFields = (planData: PlanData | undefined): AffectedField[] => {
-  if (!planData?.data?.graph) return [];
-
-  const { nodes, combos, edges } = planData.data.graph;
-  if (!nodes || !edges) return [];
-
-  const comboMap = new Map<string, string>();
-  combos?.forEach((combo) => comboMap.set(combo.id, combo.label));
-
-  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  const deletedFieldIds = new Set(nodes.filter((n) => n.isSelected).map((n) => n.id));
-
-  const affectedFields: AffectedField[] = [];
-
-  // Find affected fields: targets of edges where source is a deleted field
-  edges.forEach((edge) => {
-    if (!deletedFieldIds.has(edge.source)) return;
-
-    const targetNode = nodeMap.get(edge.target);
-    if (!targetNode || targetNode.isSelected) return;
-
-    // Avoid duplicates
-    if (affectedFields.some((f) => f.id === edge.target)) return;
-
-    affectedFields.push({
-      id: edge.target,
-      name: targetNode.label || edge.target,
-      type: targetNode.fieldType as FieldType,
-      tableName: targetNode.comboId ? comboMap.get(targetNode.comboId) : undefined,
-    });
-  });
-
-  return affectedFields;
-};
-
-const getAffectedLookupFields = (
-  tableName: string,
-  fieldId: string,
-  fieldInstances: IFieldInstance[]
-): AffectedField[] => {
-  const field = fieldInstances.find((f) => f.id === fieldId);
-  if (!field || field.type !== FieldType.Link) return [];
-  const lookupFields = fieldInstances.filter(
-    (f) => f.isLookup && (f.lookupOptions as ILookupLinkOptionsVo)?.linkFieldId === fieldId
-  );
-  return lookupFields.map((f) => ({
-    id: f.id,
-    name: f.name,
-    type: f.type,
-    tableName: tableName,
-  }));
-};
-
-/**
- * Hook for single field delete plan analysis with lazy loading
- */
-export const useSingleFieldPlan = (
-  tableId: string,
-  fieldId: string | null,
-  enabled: boolean,
-  fieldInstances: IFieldInstance[]
-) => {
-  const { data: planData, isLoading } = useQuery({
-    queryKey: ['get-delete-field-plan', tableId, fieldId],
-    queryFn: async () => {
-      if (!fieldId) return null;
-      const res = await planFieldDelete(tableId, fieldId);
-      return { fieldId, data: res.data } as PlanData;
-    },
-    enabled: enabled && !!fieldId,
-    refetchOnWindowFocus: false,
-  });
-
-  const affectedFields = useMemo(() => getAffectedFields(planData ?? undefined), [planData]);
-  const tableName = planData?.data?.graph?.combos?.find((c) => c.id === tableId)?.label;
-  const lookupFields = useMemo(() => {
-    if (!tableName) return [];
-    if (!fieldId) return [];
-    return getAffectedLookupFields(tableName, fieldId, fieldInstances);
-  }, [tableName, fieldId, fieldInstances]);
-  const allAffectedFields = useMemo(
-    () => [...affectedFields, ...lookupFields],
-    [affectedFields, lookupFields]
-  );
-  return { affectedFields: allAffectedFields, isLoading, isLoaded: !!planData };
-};
+import type { AffectedItem } from './types';
 
 export interface FieldViewState {
   selectedFieldId: string | null;
@@ -109,12 +16,11 @@ export const useFieldSelectionState = (fieldIds: string[]) => {
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [viewedFieldIds, setViewedFieldIds] = useState<Set<string>>(new Set());
 
-  // Reset state when fieldIds change
   const fieldIdsKey = fieldIds.join(',');
   useEffect(() => {
     setSelectedFieldId(fieldIds[0] ?? null);
     setViewedFieldIds(new Set());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fieldIdsKey is derived from fieldIds
   }, [fieldIdsKey]);
 
   const markAsViewed = useCallback((fieldId: string) => {
@@ -138,5 +44,118 @@ export const useFieldSelectionState = (fieldIds: string[]) => {
     unviewedCount,
     selectField,
     markAsViewed,
+  };
+};
+
+/**
+ * Hook to manage field check state for multi-field delete dialog
+ */
+export const useFieldCheckState = (fieldIds: string[], open: boolean) => {
+  const [checkedFieldIds, setCheckedFieldIds] = useState<Set<string>>(new Set(fieldIds));
+
+  const fieldIdsKey = fieldIds.join(',');
+  useEffect(() => {
+    if (open) {
+      setCheckedFieldIds(new Set(fieldIds));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fieldIdsKey is derived from fieldIds
+  }, [fieldIdsKey, open]);
+
+  const toggleField = useCallback((fieldId: string) => {
+    setCheckedFieldIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(fieldId)) {
+        next.delete(fieldId);
+      } else {
+        next.add(fieldId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(
+    (checked: boolean) => {
+      setCheckedFieldIds(checked ? new Set(fieldIds) : new Set());
+    },
+    [fieldIds]
+  );
+
+  return {
+    checkedFieldIds,
+    toggleField,
+    toggleAll,
+  };
+};
+
+const mapItemReferences = (refs: IFieldDeleteReferencesItem): AffectedItem[] => {
+  const items: AffectedItem[] = [];
+
+  refs.dependentFields.forEach((f) => {
+    items.push({
+      id: f.id,
+      name: f.name,
+      itemType: 'field',
+      type: f.type,
+      source: f.source,
+    });
+  });
+
+  refs.views.forEach((v) => {
+    items.push({
+      id: v.id,
+      name: v.name,
+      itemType: 'view',
+      type: v.type,
+      source: v.source,
+    });
+  });
+
+  refs.workflowNodes.forEach((node) => {
+    items.push({
+      id: node.id,
+      name: node.name ?? node.category,
+      itemType: 'workflow',
+      type: node.type,
+      source: node.source,
+    });
+  });
+
+  refs.authorityMatrixRoles.forEach((r) => {
+    items.push({ id: r.id, name: r.name, itemType: 'authorityMatrix' });
+  });
+
+  return items;
+};
+
+/**
+ * Hook to fetch delete references for one or more fields in a single request.
+ * Returns a per-field risk map and overall loading state.
+ */
+export const useMultiFieldReferences = (tableId: string, fieldIds: string[], enabled: boolean) => {
+  const fieldIdsKey = fieldIds.join(',');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['get-field-delete-references', tableId, fieldIdsKey],
+    queryFn: async () => {
+      const res = await getFieldDeleteReferences(tableId, fieldIds);
+      return res.data;
+    },
+    enabled: enabled && fieldIds.length > 0,
+    refetchOnWindowFocus: false,
+  });
+
+  const fieldRiskMap = useMemo(() => {
+    const map = new Map<string, AffectedItem[]>();
+    for (const fieldId of fieldIds) {
+      const refs = data?.[fieldId];
+      map.set(fieldId, refs ? mapItemReferences(refs) : []);
+    }
+    return map;
+  }, [data, fieldIds]);
+
+  return {
+    fieldRiskMap,
+    isLoading,
+    isAllLoaded: !isLoading,
   };
 };

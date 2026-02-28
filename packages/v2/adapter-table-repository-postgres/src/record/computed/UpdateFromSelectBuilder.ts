@@ -60,6 +60,13 @@ export type UpdateFromSelectParams = {
    * only affect records that have been marked as dirty.
    */
   dirtyFilter?: DirtyFilterConfig;
+  /**
+   * When true, skip the IS DISTINCT FROM optimisation and update all rows
+   * unconditionally.  Use after a field type conversion where the stored
+   * column type differs from the newly-computed value type, making a safe
+   * type-aware comparison impossible.
+   */
+  skipDistinctFilter?: boolean;
 };
 
 /**
@@ -109,46 +116,16 @@ export class UpdateFromSelectBuilder {
       );
     }
 
-    return params.table
-      .dbTableName()
-      .andThen((dbTableName) => dbTableName.value())
-      .andThen((tableName) => {
-        const fieldMappingsResult = buildFieldMappings(params.table, fieldIds);
-        if (fieldMappingsResult.isErr()) return err(fieldMappingsResult.error);
-        const setValuesResult = buildSetValues(fieldMappingsResult.value, selectAlias, tableAlias);
-        if (setValuesResult.isErr()) return err(setValuesResult.error);
-        const distinctFilter = buildDistinctFilter(
-          fieldMappingsResult.value,
-          selectAlias,
-          tableAlias
-        );
-
-        // Apply dirty filter to the SELECT query if provided
-        // Use INNER JOIN instead of IN subquery for better query planning.
-        // PostgreSQL's planner often chooses to scan the entire main table first
-        // when using IN subquery, even when the dirty table is very small.
-        // INNER JOIN allows the planner to use the small dirty table to drive
-        // indexed lookups on the main table.
-        let finalSelectQuery = params.selectQuery;
-        if (params.dirtyFilter) {
-          const {
-            tableId,
-            dirtyTableName = 'tmp_computed_dirty',
-            tableIdColumn = 'table_id',
-            recordIdColumn = 'record_id',
-          } = params.dirtyFilter;
-
-          finalSelectQuery = params.selectQuery.innerJoin(`${dirtyTableName} as __dirty`, (join) =>
-            join
-              .onRef(`${COMPUTED_TABLE_ALIAS}.__id`, '=', `__dirty.${recordIdColumn}`)
-              .on(`__dirty.${tableIdColumn}`, '=', tableId.toString())
-          ) as QB;
-        }
+    return this.prepareUpdateProjectionContext(params, selectAlias).andThen(
+      ({ tableName, projectionPlan, typedSelectQuery }) => {
+        const distinctFilter = params.skipDistinctFilter
+          ? undefined
+          : projectionPlan.buildDistinctFilter(tableAlias);
 
         let query = this.db
           .updateTable(`${tableName} as ${tableAlias}`)
-          .from(finalSelectQuery.as(selectAlias))
-          .set((eb) => setValuesResult.value(eb))
+          .from(typedSelectQuery.as(selectAlias))
+          .set((eb) => projectionPlan.buildSetValues(tableAlias)(eb))
           .whereRef(`${tableAlias}.__id`, '=', `${selectAlias}.__id`);
 
         if (params.recordFilter) {
@@ -166,7 +143,8 @@ export class UpdateFromSelectBuilder {
         }
 
         return ok(query.compile());
-      });
+      }
+    );
   }
 
   /**
@@ -186,44 +164,17 @@ export class UpdateFromSelectBuilder {
       );
     }
 
-    return params.table
-      .dbTableName()
-      .andThen((dbTableName) => dbTableName.value())
-      .andThen((tableName) => {
-        const fieldMappingsResult = buildFieldMappings(params.table, fieldIds);
-        if (fieldMappingsResult.isErr()) return err(fieldMappingsResult.error);
-        const setValuesResult = buildSetValues(fieldMappingsResult.value, selectAlias, tableAlias);
-        if (setValuesResult.isErr()) return err(setValuesResult.error);
-        const distinctFilter = buildDistinctFilter(
-          fieldMappingsResult.value,
-          selectAlias,
-          tableAlias
-        );
-
-        // Build column to fieldId mapping for RETURNING
-        const columnMapping = buildColumnMapping(fieldMappingsResult.value);
-
-        // Apply dirty filter to the SELECT query if provided
-        let finalSelectQuery = params.selectQuery;
-        if (params.dirtyFilter) {
-          const {
-            tableId,
-            dirtyTableName = 'tmp_computed_dirty',
-            tableIdColumn = 'table_id',
-            recordIdColumn = 'record_id',
-          } = params.dirtyFilter;
-
-          finalSelectQuery = params.selectQuery.innerJoin(`${dirtyTableName} as __dirty`, (join) =>
-            join
-              .onRef(`${COMPUTED_TABLE_ALIAS}.__id`, '=', `__dirty.${recordIdColumn}`)
-              .on(`__dirty.${tableIdColumn}`, '=', tableId.toString())
-          ) as QB;
-        }
+    return this.prepareUpdateProjectionContext(params, selectAlias).andThen(
+      ({ tableName, projectionPlan, typedSelectQuery }) => {
+        const distinctFilter = params.skipDistinctFilter
+          ? undefined
+          : projectionPlan.buildDistinctFilter(tableAlias);
+        const columnMapping = projectionPlan.buildColumnMapping();
 
         let query = this.db
           .updateTable(`${tableName} as ${tableAlias}`)
-          .from(finalSelectQuery.as(selectAlias))
-          .set((eb) => setValuesResult.value(eb))
+          .from(typedSelectQuery.as(selectAlias))
+          .set((eb) => projectionPlan.buildSetValues(tableAlias)(eb))
           .whereRef(`${tableAlias}.__id`, '=', `${selectAlias}.__id`);
 
         if (params.recordFilter) {
@@ -263,16 +214,67 @@ export class UpdateFromSelectBuilder {
           },
           columnToFieldId: columnMapping,
         });
+      }
+    );
+  }
+
+  private prepareUpdateProjectionContext(
+    params: UpdateFromSelectParams,
+    selectAlias: string
+  ): Result<
+    {
+      tableName: string;
+      projectionPlan: UpdateAssignmentProjectionPlan;
+      typedSelectQuery: QB;
+    },
+    DomainError
+  > {
+    return params.table
+      .dbTableName()
+      .andThen((dbTableName) => dbTableName.value())
+      .andThen((tableName) => {
+        const fieldMappingsResult = buildFieldMappings(params.table, params.fieldIds);
+        if (fieldMappingsResult.isErr()) return err(fieldMappingsResult.error);
+
+        const projectionPlan = UpdateAssignmentProjectionPlan.create(
+          fieldMappingsResult.value,
+          selectAlias
+        );
+        const sourceQuery = this.applyDirtyFilter(params.selectQuery, params.dirtyFilter);
+        const typedSelectQuery = projectionPlan.buildTypedSelectQuery(this.db, sourceQuery);
+        return ok({ tableName, projectionPlan, typedSelectQuery });
       });
   }
-}
 
-type SetValueBuilder = (eb: ExpressionBuilder<DynamicDB, string>) => Record<string, unknown>;
+  /**
+   * Apply dirty filter to the source SELECT before assignment projection.
+   * The dirty join must remain at this stage so planner can still push it down.
+   */
+  private applyDirtyFilter(selectQuery: QB, dirtyFilter?: DirtyFilterConfig): QB {
+    if (!dirtyFilter) {
+      return selectQuery;
+    }
+
+    const {
+      tableId,
+      dirtyTableName = 'tmp_computed_dirty',
+      tableIdColumn = 'table_id',
+      recordIdColumn = 'record_id',
+    } = dirtyFilter;
+
+    return selectQuery.innerJoin(`${dirtyTableName} as __dirty`, (join) =>
+      join
+        .onRef(`${COMPUTED_TABLE_ALIAS}.__id`, '=', `__dirty.${recordIdColumn}`)
+        .on(`__dirty.${tableIdColumn}`, '=', tableId.toString())
+    ) as QB;
+  }
+}
 
 type FieldMapping = {
   column: string;
   fieldId: FieldId;
   isLookup: boolean;
+  isLookupMultiValue: boolean;
   dbFieldType: string;
 };
 
@@ -378,6 +380,26 @@ const normalizeDbFieldType = (value: string): string => {
   }
 };
 
+const isNumericDbFieldType = (value: string): boolean => {
+  return (
+    value === 'double precision' ||
+    value === 'numeric' ||
+    value === 'decimal' ||
+    value === 'integer' ||
+    value === 'bigint' ||
+    value === 'smallint'
+  );
+};
+
+const buildNumericCastExpression = (expression: ReturnType<typeof sql>, columnType: string) => {
+  return sql`CASE
+    WHEN (${expression}) IS NULL THEN NULL
+    WHEN BTRIM((${expression})::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
+      THEN BTRIM((${expression})::text)::${sql.raw(columnType)}
+    ELSE NULL
+  END`;
+};
+
 const buildLookupScalarCast = (expression: ReturnType<typeof sql>, columnType: string) => {
   switch (columnType) {
     case 'double precision':
@@ -386,7 +408,7 @@ const buildLookupScalarCast = (expression: ReturnType<typeof sql>, columnType: s
     case 'integer':
     case 'bigint':
     case 'smallint':
-      return sql`NULLIF(${expression}, '')::${sql.raw(columnType)}`;
+      return buildNumericCastExpression(expression, columnType);
     case 'boolean':
       return sql`${expression}::boolean`;
     case 'timestamptz':
@@ -402,18 +424,20 @@ const buildLookupScalarCast = (expression: ReturnType<typeof sql>, columnType: s
   }
 };
 
-const buildLookupAssignment = (
-  eb: ExpressionBuilder<DynamicDB, string>,
-  selectAlias: string,
-  column: string,
-  lookupDbFieldType: string
+const buildLookupAssignmentFromRef = (
+  sourceRef: unknown,
+  lookupDbFieldType: string,
+  isLookupMultiValue: boolean
 ) => {
   const normalizedType = normalizeDbFieldType(lookupDbFieldType);
-  const ref = eb.ref(`${selectAlias}.${column}`);
   if (normalizedType === 'jsonb') {
-    return sql`to_jsonb(${ref})`;
+    const refJson = sql`to_jsonb(${sourceRef})`;
+    if (isLookupMultiValue) {
+      return refJson;
+    }
+    return sql`(CASE WHEN jsonb_typeof(${refJson}) = 'array' THEN ${refJson} -> 0 ELSE ${refJson} END)`;
   }
-  const scalarText = sql`(${ref} ->> 0)`;
+  const scalarText = sql`(${sourceRef} ->> 0)`;
   return buildLookupScalarCast(scalarText, normalizedType);
 };
 
@@ -445,6 +469,7 @@ const buildFieldMappings = (
         field.type().equals(FieldType.conditionalLookup());
 
       const valueType = yield* field.accept(valueTypeVisitor);
+      const isLookupMultiValue = isLookup && valueType.isMultipleCellValue.toBoolean();
       const derivedDbFieldType = resolveDbFieldType(
         field,
         valueType.cellValueType.toString(),
@@ -457,6 +482,11 @@ const buildFieldMappings = (
         ? persistedDbFieldTypeResult.value
         : undefined;
       let dbFieldType = persistedDbFieldType ?? derivedDbFieldType;
+
+      // V1 parity: autoNumber fields use INTEGER, not REAL
+      if (field.type().equals(FieldType.autoNumber())) {
+        dbFieldType = 'INTEGER';
+      }
 
       // Created/LastModified time fields are stored as TEXT columns even though their
       // semantic value type is DATETIME. Use TEXT here to align DISTINCT comparisons
@@ -481,85 +511,168 @@ const buildFieldMappings = (
         dbFieldType = yield* resolveLookupScalarDbFieldType(field, valueType);
       }
 
-      mappings.push({ column: columnName, fieldId, isLookup, dbFieldType });
+      mappings.push({
+        column: columnName,
+        fieldId,
+        isLookup,
+        isLookupMultiValue,
+        dbFieldType,
+      });
     }
 
     return ok(mappings);
   });
 };
 
-const buildAssignmentValue = (
-  eb: ExpressionBuilder<DynamicDB, string>,
-  selectAlias: string,
-  mapping: FieldMapping
-) => {
-  if (mapping.isLookup) {
-    return buildLookupAssignment(eb, selectAlias, mapping.column, mapping.dbFieldType);
-  }
+type UpdateAssignmentStrategy = 'lookup' | 'json' | 'numeric' | 'scalar';
 
-  const normalizedType = normalizeDbFieldType(mapping.dbFieldType);
-  const ref = eb.ref(`${selectAlias}.${mapping.column}`);
-  if (normalizedType === 'jsonb') {
-    return sql`to_jsonb(${ref})`;
-  }
+const normalizeIdentifierPart = (value: string): string => value.replace(/[^a-zA-Z0-9_]/g, '_');
 
-  return ref;
-};
+class UpdateAssignmentPlan {
+  readonly column: string;
+  readonly fieldId: FieldId;
+  readonly projectionColumnAlias: string;
+  readonly strategy: UpdateAssignmentStrategy;
+  private readonly normalizedDbType: string;
 
-const buildComparisonValue = (
-  eb: ExpressionBuilder<DynamicDB, string>,
-  selectAlias: string,
-  mapping: FieldMapping
-) => {
-  const assigned = buildAssignmentValue(eb, selectAlias, mapping);
-  const normalizedType = normalizeDbFieldType(mapping.dbFieldType);
-  if (normalizedType === 'jsonb') {
-    return assigned;
-  }
-  return sql`${assigned}::${sql.raw(normalizedType)}`;
-};
+  private constructor(
+    private readonly mapping: FieldMapping,
+    projectionColumnAlias: string
+  ) {
+    this.column = mapping.column;
+    this.fieldId = mapping.fieldId;
+    this.projectionColumnAlias = projectionColumnAlias;
+    this.normalizedDbType = normalizeDbFieldType(mapping.dbFieldType);
 
-const buildSetValues = (
-  mappings: ReadonlyArray<FieldMapping>,
-  selectAlias: string,
-  tableAlias: string
-): Result<SetValueBuilder, DomainError> => {
-  return ok((eb) => {
-    const values: Record<string, unknown> = {};
-    // Increment __version for computed updates (like V1 does)
-    values['__version'] = sql`"${sql.raw(tableAlias)}"."__version" + 1`;
-
-    for (const mapping of mappings) {
-      values[mapping.column] = buildAssignmentValue(eb, selectAlias, mapping);
+    if (mapping.isLookup) {
+      this.strategy = 'lookup';
+    } else if (this.normalizedDbType === 'jsonb') {
+      this.strategy = 'json';
+    } else if (isNumericDbFieldType(this.normalizedDbType)) {
+      this.strategy = 'numeric';
+    } else {
+      this.strategy = 'scalar';
     }
-    return values;
-  });
-};
-
-const buildDistinctFilter = (
-  mappings: ReadonlyArray<FieldMapping>,
-  selectAlias: string,
-  tableAlias: string
-): ((eb: ExpressionBuilder<DynamicDB, string>) => Expression<SqlBool>) | undefined => {
-  if (mappings.length === 0) return undefined;
-  return (eb) => {
-    const conditions = mappings.map((mapping) => {
-      const assigned = buildComparisonValue(eb, selectAlias, mapping);
-      return sql<SqlBool>`"${sql.raw(tableAlias)}"."${sql.raw(
-        mapping.column
-      )}" IS DISTINCT FROM ${assigned}`;
-    });
-    return sql<SqlBool>`(${sql.join(conditions, sql` OR `)})`;
-  };
-};
-
-/**
- * Build a mapping from column name to field ID for RETURNING clause processing.
- */
-const buildColumnMapping = (mappings: ReadonlyArray<FieldMapping>): Map<string, string> => {
-  const mapping = new Map<string, string>();
-  for (const entry of mappings) {
-    mapping.set(entry.column, entry.fieldId.toString());
   }
-  return mapping;
-};
+
+  static createMany(mappings: ReadonlyArray<FieldMapping>): ReadonlyArray<UpdateAssignmentPlan> {
+    const usedAliases = new Set<string>();
+
+    return mappings.map((mapping) => {
+      const baseAlias = `__set_${normalizeIdentifierPart(mapping.column)}`;
+      let alias = baseAlias;
+      let index = 1;
+      while (usedAliases.has(alias)) {
+        alias = `${baseAlias}_${index}`;
+        index += 1;
+      }
+      usedAliases.add(alias);
+      return new UpdateAssignmentPlan(mapping, alias);
+    });
+  }
+
+  buildProjectionExpression(
+    eb: ExpressionBuilder<DynamicDB, string>,
+    sourceAlias: string
+  ): unknown {
+    const sourceRef = eb.ref(`${sourceAlias}.${this.column}`);
+
+    switch (this.strategy) {
+      case 'lookup':
+        return buildLookupAssignmentFromRef(
+          sourceRef,
+          this.mapping.dbFieldType,
+          this.mapping.isLookupMultiValue
+        );
+      case 'json':
+        return sql`to_jsonb(${sourceRef})`;
+      case 'numeric':
+        return buildNumericCastExpression(sql`${sourceRef}`, this.normalizedDbType);
+      case 'scalar':
+      default:
+        return sql`${sourceRef}::${sql.raw(this.normalizedDbType)}`;
+    }
+  }
+
+  buildProjectedRef(eb: ExpressionBuilder<DynamicDB, string>, projectionAlias: string) {
+    return eb.ref(`${projectionAlias}.${this.projectionColumnAlias}`);
+  }
+}
+
+class UpdateAssignmentProjectionPlan {
+  readonly assignmentPlans: ReadonlyArray<UpdateAssignmentPlan>;
+  readonly sourceAlias: string;
+  readonly projectionAlias: string;
+
+  private constructor(params: {
+    assignmentPlans: ReadonlyArray<UpdateAssignmentPlan>;
+    sourceAlias: string;
+    projectionAlias: string;
+  }) {
+    this.assignmentPlans = params.assignmentPlans;
+    this.sourceAlias = params.sourceAlias;
+    this.projectionAlias = params.projectionAlias;
+  }
+
+  static create(
+    mappings: ReadonlyArray<FieldMapping>,
+    projectionAlias: string
+  ): UpdateAssignmentProjectionPlan {
+    return new UpdateAssignmentProjectionPlan({
+      assignmentPlans: UpdateAssignmentPlan.createMany(mappings),
+      sourceAlias: `${projectionAlias}_src`,
+      projectionAlias,
+    });
+  }
+
+  buildTypedSelectQuery(db: Kysely<DynamicDB>, sourceQuery: QB): QB {
+    return db
+      .selectFrom(sourceQuery.as(this.sourceAlias))
+      .select((eb) => [
+        sql`${eb.ref(`${this.sourceAlias}.__id`)}`.as('__id'),
+        ...this.assignmentPlans.map((plan) =>
+          sql`${plan.buildProjectionExpression(eb, this.sourceAlias)}`.as(
+            plan.projectionColumnAlias
+          )
+        ),
+      ]) as QB;
+  }
+
+  buildSetValues(
+    tableAlias: string
+  ): (eb: ExpressionBuilder<DynamicDB, string>) => Record<string, unknown> {
+    return (eb) => {
+      const values: Record<string, unknown> = {};
+      // Increment __version for computed updates (like V1 does)
+      values['__version'] = sql`"${sql.raw(tableAlias)}"."__version" + 1`;
+
+      for (const plan of this.assignmentPlans) {
+        values[plan.column] = plan.buildProjectedRef(eb, this.projectionAlias);
+      }
+      return values;
+    };
+  }
+
+  buildDistinctFilter(
+    tableAlias: string
+  ): ((eb: ExpressionBuilder<DynamicDB, string>) => Expression<SqlBool>) | undefined {
+    if (this.assignmentPlans.length === 0) return undefined;
+    return (eb) => {
+      const conditions = this.assignmentPlans.map((plan) => {
+        const projected = plan.buildProjectedRef(eb, this.projectionAlias);
+        return sql<SqlBool>`"${sql.raw(tableAlias)}"."${sql.raw(
+          plan.column
+        )}" IS DISTINCT FROM ${projected}`;
+      });
+      return sql<SqlBool>`(${sql.join(conditions, sql` OR `)})`;
+    };
+  }
+
+  buildColumnMapping(): Map<string, string> {
+    const mapping = new Map<string, string>();
+    for (const plan of this.assignmentPlans) {
+      mapping.set(plan.column, plan.fieldId.toString());
+    }
+    return mapping;
+  }
+}

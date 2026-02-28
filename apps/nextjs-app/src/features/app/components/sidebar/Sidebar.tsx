@@ -1,5 +1,5 @@
 import { ChevronsLeft } from '@teable/icons';
-import { useIsHydrated, useIsMobile, useIsTemplate } from '@teable/sdk';
+import { useIsHydrated, useIsMobile, useIsReadOnlyPreview } from '@teable/sdk';
 import { Button, cn } from '@teable/ui-lib';
 import { Resizable } from 're-resizable';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
@@ -22,12 +22,12 @@ interface ISidebarProps {
 }
 
 const useSidebar = () => {
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const [isVisible, setVisible] = useState(true);
   const [width, setWidth] = useState(SIDE_BAR_WIDTH);
   const storedSidebarStore = useSidebarStore();
   return useMemo(() => {
-    if (isTemplate) {
+    if (isReadOnlyPreview) {
       return {
         isVisible,
         setVisible,
@@ -36,7 +36,7 @@ const useSidebar = () => {
       };
     }
     return storedSidebarStore;
-  }, [isVisible, setVisible, setWidth, width, isTemplate, storedSidebarStore]);
+  }, [isVisible, setVisible, setWidth, width, isReadOnlyPreview, storedSidebarStore]);
 };
 
 export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {

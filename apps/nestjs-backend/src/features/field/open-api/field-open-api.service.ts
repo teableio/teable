@@ -3,9 +3,11 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   CellValueType,
+  ColorConfigType,
   FieldKeyType,
   FieldOpBuilder,
   FieldType,
+  ViewType,
   generateFieldId,
   generateOperationId,
   IFieldRo,
@@ -31,9 +33,21 @@ import type {
   IFilter,
   IFilterItem,
   IFieldReferenceValue,
+  IGridViewOptions,
+  ISort,
+  IGroup,
+  ICalendarViewOptions,
+  IGalleryViewOptions,
+  IKanbanViewOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IDuplicateFieldRo } from '@teable/openapi';
+import type {
+  IDuplicateFieldRo,
+  IFieldDeleteReferencesItem,
+  IFieldDeleteRefTableSource,
+  IFieldDeleteRefDependentField,
+  IFieldDeleteRefView,
+} from '@teable/openapi';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { groupBy, isEqual, omit, pick } from 'lodash';
@@ -68,6 +82,21 @@ import {
   createFieldInstanceByVo,
   rawField2FieldObj,
 } from '../model/factory';
+
+type FieldDeleteDependencyContext = {
+  tableId: string;
+  sourceFieldIds: string[];
+  sourceFieldIdSet: Set<string>;
+  deletingFieldIdSet: Set<string>;
+  currentTableFields: Array<{ id: string; type: string; options: string | null }>;
+  currentTableFieldIds: string[];
+  currentTableFieldIdSet: Set<string>;
+};
+
+type LinkReferenceOptions = Pick<
+  ILinkFieldOptions,
+  'foreignTableId' | 'lookupFieldId' | 'visibleFieldIds'
+>;
 @Injectable()
 export class FieldOpenApiService {
   private logger = new Logger(FieldOpenApiService.name);
@@ -115,6 +144,395 @@ export class FieldOpenApiService {
 
   async planDeleteField(tableId: string, fieldId: string) {
     return await this.graphService.planDeleteField(tableId, fieldId);
+  }
+
+  async getDeleteFieldReferences(
+    tableId: string,
+    fieldIds: string[]
+  ): Promise<Record<string, IFieldDeleteReferencesItem>> {
+    const [viewRefMap, depFieldMap] = await Promise.all([
+      this.getReferencedViewsPerField(tableId, fieldIds),
+      this.getDependentFieldsPerField(tableId, fieldIds),
+    ]);
+
+    const emptyWorkflowNodes: IFieldDeleteReferencesItem['workflowNodes'] = [];
+    const emptyRoles: IFieldDeleteReferencesItem['authorityMatrixRoles'] = [];
+
+    const result: Record<string, IFieldDeleteReferencesItem> = {};
+    for (const fieldId of fieldIds) {
+      result[fieldId] = {
+        workflowNodes: emptyWorkflowNodes,
+        authorityMatrixRoles: emptyRoles,
+        views: viewRefMap.get(fieldId) ?? [],
+        dependentFields: depFieldMap.get(fieldId) ?? [],
+      };
+    }
+    return result;
+  }
+
+  private async getReferencedViewsPerField(tableId: string, fieldIds: string[]) {
+    const [views, tableMeta] = await Promise.all([
+      this.prismaService.view.findMany({
+        where: { tableId, deletedTime: null },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          filter: true,
+          sort: true,
+          group: true,
+          options: true,
+        },
+      }),
+      this.prismaService.tableMeta.findFirst({
+        where: { id: tableId },
+        select: { id: true, name: true, icon: true, baseId: true },
+      }),
+    ]);
+
+    const result = new Map<string, IFieldDeleteRefView[]>();
+    if (!tableMeta) {
+      return result;
+    }
+
+    const base = await this.prismaService.base.findFirst({
+      where: { id: tableMeta.baseId },
+      select: { id: true, name: true, icon: true },
+    });
+    if (!base) {
+      return result;
+    }
+
+    const source: IFieldDeleteRefTableSource = {
+      id: tableMeta.id,
+      name: tableMeta.name,
+      icon: tableMeta.icon,
+      base: {
+        id: base.id,
+        name: base.name,
+        icon: base.icon,
+      },
+    };
+
+    for (const fieldId of fieldIds) {
+      const matched: IFieldDeleteRefView[] = [];
+      for (const view of views) {
+        if (this.viewReferencesField(view, fieldId)) {
+          matched.push({ id: view.id, name: view.name, type: view.type, source });
+        }
+      }
+      if (matched.length > 0) {
+        result.set(fieldId, matched);
+      }
+    }
+
+    return result;
+  }
+
+  private viewReferencesField(
+    view: {
+      filter: string | null;
+      sort: string | null;
+      group: string | null;
+      options: string | null;
+      type: string;
+    },
+    fieldId: string
+  ): boolean {
+    const filter = this.parseJsonOptions<IFilter>(view.filter);
+    if (filter) {
+      try {
+        const filterRefs = extractFieldIdsFromFilter(filter, true);
+        if (filterRefs.includes(fieldId)) {
+          return true;
+        }
+      } catch {
+        // Ignore malformed historical filter payloads and keep scanning other view properties.
+      }
+    }
+
+    const sort = this.parseJsonOptions<ISort>(view.sort);
+    if (sort?.sortObjs?.some((s) => s.fieldId === fieldId)) {
+      return true;
+    }
+
+    const group = this.parseJsonOptions<IGroup>(view.group);
+    if (Array.isArray(group) && group.some((g) => g.fieldId === fieldId)) {
+      return true;
+    }
+
+    const optionFieldIds = this.extractViewOptionFieldIds(view.type, view.options);
+    if (optionFieldIds.has(fieldId)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private extractViewOptionFieldIds(viewType: string, rawOptions: string | null): Set<string> {
+    const fieldIds = new Set<string>();
+    const addFieldId = (value?: string | null) => value && fieldIds.add(value);
+
+    switch (viewType) {
+      case ViewType.Grid: {
+        const options = this.parseJsonOptions<IGridViewOptions>(rawOptions);
+        addFieldId(options?.frozenFieldId);
+        break;
+      }
+      case ViewType.Kanban: {
+        const options = this.parseJsonOptions<IKanbanViewOptions>(rawOptions);
+        addFieldId(options?.stackFieldId);
+        addFieldId(options?.coverFieldId);
+        break;
+      }
+      case ViewType.Gallery: {
+        const options = this.parseJsonOptions<IGalleryViewOptions>(rawOptions);
+        addFieldId(options?.coverFieldId);
+        break;
+      }
+      case ViewType.Calendar: {
+        const options = this.parseJsonOptions<ICalendarViewOptions>(rawOptions);
+        addFieldId(options?.startDateFieldId);
+        addFieldId(options?.endDateFieldId);
+        addFieldId(options?.titleFieldId);
+        if (options?.colorConfig?.type === ColorConfigType.Field) {
+          addFieldId(options.colorConfig.fieldId);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    return fieldIds;
+  }
+
+  private parseJsonOptions<T>(raw: string | null): T | null {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  private createDependentFieldAdder(
+    context: FieldDeleteDependencyContext,
+    depMap: Map<string, Set<string>>
+  ) {
+    return (fromFieldId: string, toFieldId: string) => {
+      const { sourceFieldIdSet, deletingFieldIdSet } = context;
+      if (!sourceFieldIdSet.has(fromFieldId) || deletingFieldIdSet.has(toFieldId)) {
+        return;
+      }
+
+      let depSet = depMap.get(fromFieldId);
+      if (!depSet) {
+        depSet = new Set();
+        depMap.set(fromFieldId, depSet);
+      }
+      depSet.add(toFieldId);
+    };
+  }
+
+  private async buildFieldDeleteDependencyContext(
+    tableId: string,
+    fieldIds: string[]
+  ): Promise<FieldDeleteDependencyContext | null> {
+    // Build a normalized context once so each dependency collector can stay focused.
+    const currentTableFields = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, type: true, options: true },
+    });
+
+    const currentTableFieldIds = currentTableFields.map((f) => f.id);
+    const currentTableFieldIdSet = new Set(currentTableFieldIds);
+    const sourceFieldIdSet = new Set(fieldIds.filter((id) => currentTableFieldIdSet.has(id)));
+    const sourceFieldIds = [...sourceFieldIdSet];
+
+    if (sourceFieldIds.length === 0) {
+      return null;
+    }
+
+    return {
+      tableId,
+      sourceFieldIds,
+      sourceFieldIdSet,
+      deletingFieldIdSet: new Set(fieldIds),
+      currentTableFields,
+      currentTableFieldIds,
+      currentTableFieldIdSet,
+    };
+  }
+
+  private async collectDirectAndExternalCandidates(
+    context: FieldDeleteDependencyContext,
+    addDep: (fromFieldId: string, toFieldId: string) => void
+  ) {
+    // A single reference scan gives us both:
+    // 1) direct dependencies from deleting fields, and
+    // 2) external link field candidates that may display those deleting fields.
+    const references = await this.prismaService.reference.findMany({
+      where: {
+        fromFieldId: { in: context.currentTableFieldIds },
+        OR: [
+          { fromFieldId: { in: context.sourceFieldIds } },
+          { toFieldId: { notIn: context.currentTableFieldIds } },
+        ],
+      },
+      select: { fromFieldId: true, toFieldId: true },
+    });
+
+    const externalCandidateIdSet = new Set<string>();
+    for (const ref of references) {
+      if (context.sourceFieldIdSet.has(ref.fromFieldId)) {
+        addDep(ref.fromFieldId, ref.toFieldId);
+      }
+      if (!context.currentTableFieldIdSet.has(ref.toFieldId)) {
+        externalCandidateIdSet.add(ref.toFieldId);
+      }
+    }
+
+    return [...externalCandidateIdSet];
+  }
+
+  private collectSymmetricLinkDependencies(
+    context: FieldDeleteDependencyContext,
+    addDep: (fromFieldId: string, toFieldId: string) => void
+  ) {
+    for (const sourceField of context.currentTableFields) {
+      if (!context.sourceFieldIdSet.has(sourceField.id) || sourceField.type !== FieldType.Link) {
+        continue;
+      }
+      const options = this.parseJsonOptions<{ symmetricFieldId?: string }>(sourceField.options);
+      if (options?.symmetricFieldId) {
+        addDep(sourceField.id, options.symmetricFieldId);
+      }
+    }
+  }
+
+  private async collectExternalLinkDisplayDependencies(
+    context: FieldDeleteDependencyContext,
+    externalCandidateIds: string[],
+    addDep: (fromFieldId: string, toFieldId: string) => void
+  ) {
+    if (externalCandidateIds.length === 0) {
+      return;
+    }
+
+    const externalLinkFields = await this.prismaService.field.findMany({
+      where: { id: { in: externalCandidateIds }, type: FieldType.Link, deletedTime: null },
+      select: { id: true, options: true },
+    });
+
+    for (const linkField of externalLinkFields) {
+      const options = this.parseJsonOptions<LinkReferenceOptions>(linkField.options);
+      if (options?.foreignTableId !== context.tableId) continue;
+
+      // One-way link still writes reference edges to the host link field.
+      // We use those candidates here, then inspect lookup/visible config to find exact dependencies.
+      if (options.lookupFieldId && context.sourceFieldIdSet.has(options.lookupFieldId)) {
+        addDep(options.lookupFieldId, linkField.id);
+      }
+
+      if (!options.visibleFieldIds?.length) continue;
+      for (const visibleFieldId of options.visibleFieldIds) {
+        if (context.sourceFieldIdSet.has(visibleFieldId)) {
+          addDep(visibleFieldId, linkField.id);
+        }
+      }
+    }
+  }
+
+  private async hydrateDependentFieldInfos(perFieldDepIds: Map<string, Set<string>>) {
+    // Resolve collected dependency ids into user-facing metadata in one batch.
+    const allDepIds = [...new Set([...perFieldDepIds.values()].flatMap((ids) => [...ids]))];
+    if (allDepIds.length === 0) {
+      return new Map<string, IFieldDeleteRefDependentField[]>();
+    }
+
+    const fields = await this.prismaService.field.findMany({
+      where: { id: { in: allDepIds }, deletedTime: null },
+      select: { id: true, name: true, type: true, tableId: true },
+    });
+
+    const tableIds = [...new Set(fields.map((f) => f.tableId))];
+    const tableSourceMap = await this.buildTableSourceMap(tableIds);
+    const fieldInfoMap = new Map(
+      fields.map((field) => [
+        field.id,
+        {
+          id: field.id,
+          name: field.name,
+          type: field.type,
+          source: tableSourceMap.get(field.tableId),
+        },
+      ])
+    );
+
+    const result = new Map<string, IFieldDeleteRefDependentField[]>();
+    for (const [fromFieldId, depIds] of perFieldDepIds) {
+      const items = [...depIds]
+        .map((depId) => fieldInfoMap.get(depId))
+        .filter((item): item is IFieldDeleteRefDependentField => Boolean(item?.source));
+      if (items.length > 0) {
+        result.set(fromFieldId, items);
+      }
+    }
+
+    return result;
+  }
+
+  private async getDependentFieldsPerField(tableId: string, fieldIds: string[]) {
+    // Orchestration only: build context -> collect dependency edges -> hydrate field info.
+    const context = await this.buildFieldDeleteDependencyContext(tableId, fieldIds);
+    if (!context) {
+      return new Map<string, IFieldDeleteRefDependentField[]>();
+    }
+
+    const perFieldDepIds = new Map<string, Set<string>>();
+    const addDep = this.createDependentFieldAdder(context, perFieldDepIds);
+    const externalCandidateIds = await this.collectDirectAndExternalCandidates(context, addDep);
+    this.collectSymmetricLinkDependencies(context, addDep);
+    await this.collectExternalLinkDisplayDependencies(context, externalCandidateIds, addDep);
+    return await this.hydrateDependentFieldInfos(perFieldDepIds);
+  }
+
+  private async buildTableSourceMap(tableIds: string[]) {
+    if (tableIds.length === 0) {
+      return new Map<string, IFieldDeleteRefTableSource>();
+    }
+
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: { id: { in: tableIds } },
+      select: { id: true, name: true, icon: true, baseId: true },
+    });
+
+    const baseIds = [...new Set(tables.map((table) => table.baseId))];
+    const bases = await this.prismaService.base.findMany({
+      where: { id: { in: baseIds } },
+      select: { id: true, name: true, icon: true },
+    });
+    const baseMap = new Map(bases.map((base) => [base.id, base]));
+
+    const tableSourceMap = new Map<string, IFieldDeleteRefTableSource>();
+    for (const table of tables) {
+      const base = baseMap.get(table.baseId);
+      if (!base) {
+        continue;
+      }
+      tableSourceMap.set(table.id, {
+        id: table.id,
+        name: table.name,
+        icon: table.icon,
+        base: {
+          id: base.id,
+          name: base.name,
+          icon: base.icon,
+        },
+      });
+    }
+    return tableSourceMap;
   }
 
   async getFields(tableId: string, query: IGetFieldsQuery) {

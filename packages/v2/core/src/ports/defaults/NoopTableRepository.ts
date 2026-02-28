@@ -8,7 +8,7 @@ import type { Table } from '../../domain/table/Table';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IFindOptions } from '../RepositoryQuery';
-import type { ITableRepository } from '../TableRepository';
+import type { ITableRepository, TableUpdatePersistResult } from '../TableRepository';
 
 export class NoopTableRepository implements ITableRepository {
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -41,7 +41,7 @@ export class NoopTableRepository implements ITableRepository {
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<TableUpdatePersistResult | void, DomainError>> {
     return ok(undefined);
   }
 

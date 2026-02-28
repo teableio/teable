@@ -47,23 +47,23 @@ export const useAppSumoTierConfig = (tier?: AppSumoTier) => {
   const config = useMemo(() => {
     return {
       1: {
-        name: 'Diamond Tier 1',
-        description: t('billing.levelTips', { level: 'Diamond Tier 1' }),
+        name: 'Tier 1',
+        description: t('billing.levelTips', { level: 'Tier 1' }),
         tagCls: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400',
       },
       2: {
-        name: 'Diamond Tier 2',
-        description: t('billing.levelTips', { level: 'Diamond Tier 2' }),
+        name: 'Tier 2',
+        description: t('billing.levelTips', { level: 'Tier 2' }),
         tagCls: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400',
       },
       3: {
-        name: 'Diamond Tier 3',
-        description: t('billing.levelTips', { level: 'Diamond Tier 3' }),
+        name: 'Tier 3',
+        description: t('billing.levelTips', { level: 'Tier 3' }),
         tagCls: 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400',
       },
       4: {
-        name: 'Diamond Tier 4',
-        description: t('billing.levelTips', { level: 'Diamond Tier 4' }),
+        name: 'Tier 4',
+        description: t('billing.levelTips', { level: 'Tier 4' }),
         tagCls: 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400',
       },
     };

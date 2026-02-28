@@ -10,6 +10,8 @@ import {
   Post,
   Query,
   Headers,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import type { IFieldVo } from '@teable/core';
 import {
@@ -24,6 +26,7 @@ import {
 } from '@teable/core';
 import {
   deleteFieldsQuerySchema,
+  fieldDeleteReferencesQuerySchema,
   IAutoFillFieldRo,
   autoFillFieldRoSchema,
   duplicateFieldRoSchema,
@@ -32,23 +35,45 @@ import {
 } from '@teable/openapi';
 import type {
   IAutoFillFieldVo,
+  IFieldDeleteReferencesQuery,
+  IFieldDeleteReferencesVo,
   IGetViewFilterLinkRecordsVo,
   IPlanFieldConvertVo,
   IPlanFieldVo,
 } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../../types/cls';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { FieldService } from '../field.service';
+import { FieldOpenApiV2Service } from './field-open-api-v2.service';
 import { FieldOpenApiService } from './field-open-api.service';
 
+@UseGuards(V2FeatureGuard)
+@UseInterceptors(V2IndicatorInterceptor)
 @Controller('api/table/:tableId/field')
 @AllowAnonymous()
 export class FieldOpenApiController {
   constructor(
     private readonly fieldService: FieldService,
-    private readonly fieldOpenApiService: FieldOpenApiService
+    private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
+    private readonly cls: ClsService<IClsStore>
   ) {}
+
+  @Permissions('field|delete')
+  @Get('delete-references')
+  async getDeleteFieldReferences(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(fieldDeleteReferencesQuerySchema))
+    query: IFieldDeleteReferencesQuery
+  ): Promise<IFieldDeleteReferencesVo> {
+    return this.fieldOpenApiService.getDeleteFieldReferences(tableId, query.fieldIds);
+  }
 
   @Permissions('field|read')
   @Get(':fieldId/plan')
@@ -107,6 +132,7 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|update')
+  @UseV2Feature('convertField')
   @Put(':fieldId/convert')
   async convertField(
     @Param('tableId') tableId: string,
@@ -114,16 +140,26 @@ export class FieldOpenApiController {
     @Body(new ZodValidationPipe(convertFieldRoSchema)) updateFieldRo: IConvertFieldRo,
     @Headers('x-window-id') windowId: string
   ) {
+    if (this.cls.get('useV2')) {
+      return await this.fieldOpenApiV2Service.convertField(tableId, fieldId, updateFieldRo, {
+        emitOperation: Boolean(windowId),
+        suppressWindowId: !windowId,
+      });
+    }
     return await this.fieldOpenApiService.convertField(tableId, fieldId, updateFieldRo, windowId);
   }
 
   @Permissions('field|update')
+  @UseV2Feature('updateField')
   @Patch(':fieldId')
   async updateField(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
     @Body(new ZodValidationPipe(updateFieldRoSchema)) updateFieldRo: IUpdateFieldRo
   ) {
+    if (this.cls.get('useV2')) {
+      return await this.fieldOpenApiV2Service.updateField(tableId, fieldId, updateFieldRo);
+    }
     return await this.fieldOpenApiService.updateField(tableId, fieldId, updateFieldRo);
   }
 

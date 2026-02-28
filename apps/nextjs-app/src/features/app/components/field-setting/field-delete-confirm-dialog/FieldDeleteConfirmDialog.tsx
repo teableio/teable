@@ -13,12 +13,17 @@ import {
   AlertDialogTitle,
   Separator,
 } from '@teable/ui-lib/shadcn';
+import { ShieldCheck } from 'lucide-react';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
 import { AffectedFieldsList } from './AffectedFieldsList';
 import { FieldSelectionList } from './FieldSelectionList';
-import type { FieldDeleteConfirmDialogProps } from './types';
-import { useFieldSelectionState, useSingleFieldPlan } from './useDeleteAnalysis';
+import type { AffectedItem, FieldDeleteConfirmDialogProps } from './types';
+import {
+  useFieldCheckState,
+  useFieldSelectionState,
+  useMultiFieldReferences,
+} from './useDeleteAnalysis';
 
 // Single field delete dialog content
 const SingleFieldContent = ({
@@ -32,9 +37,8 @@ const SingleFieldContent = ({
   fieldName: string;
   open: boolean;
 }) => {
-  const { t } = useTranslation(['table']);
-  const fieldInstances = useFields({ withHidden: true, withDenied: true });
-  const { affectedFields, isLoading } = useSingleFieldPlan(tableId, fieldId, open, fieldInstances);
+  const { fieldRiskMap, isLoading } = useMultiFieldReferences(tableId, [fieldId], open);
+  const affectedItems = fieldRiskMap.get(fieldId) ?? [];
 
   if (isLoading) {
     return (
@@ -44,7 +48,7 @@ const SingleFieldContent = ({
     );
   }
 
-  if (affectedFields.length === 0) {
+  if (affectedItems.length === 0) {
     return (
       <AlertDialogDescription>
         <Trans
@@ -59,8 +63,8 @@ const SingleFieldContent = ({
 
   return (
     <AlertDialogDescription asChild>
-      <div className="space-y-2">
-        <p>
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <p className="shrink-0 text-foreground">
           <Trans
             ns="table"
             i18nKey="field.editor.deleteField.withDependencies"
@@ -68,67 +72,87 @@ const SingleFieldContent = ({
             values={{ fieldName }}
           />
         </p>
-        <p className="text-sm font-medium">{t('table:field.editor.deleteField.affectedFields')}</p>
-        <AffectedFieldsList fields={affectedFields} />
+        <AffectedFieldsList items={affectedItems} />
       </div>
     </AlertDialogDescription>
   );
 };
 
+// Safe to delete state component
+const SafeToDeleteState = () => {
+  const { t } = useTranslation(['table']);
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+      <ShieldCheck className="size-12 text-muted-foreground" />
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-base font-medium text-foreground">
+          {t('table:field.editor.deleteField.safeToDelete')}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {t('table:field.editor.deleteField.safeToDeleteDesc')}
+        </p>
+      </div>
+    </div>
+  );
+};
+
 // Multi field delete dialog content
 const MultiFieldContent = ({
-  tableId,
   targetFields,
   selectedFieldId,
-  viewedFieldIds,
+  checkedFieldIds,
+  fieldRiskMap,
+  isLoading,
   onSelect,
-  markAsViewed,
-  open,
+  onToggleCheck,
 }: {
-  tableId: string;
   targetFields: IFieldInstance[];
   selectedFieldId: string | null;
-  viewedFieldIds: Set<string>;
+  checkedFieldIds: Set<string>;
+  fieldRiskMap: Map<string, AffectedItem[]>;
+  isLoading: boolean;
   onSelect: (fieldId: string) => void;
-  markAsViewed: (fieldId: string) => void;
-  open: boolean;
+  onToggleCheck: (fieldId: string) => void;
 }) => {
-  const { t } = useTranslation(['table']);
-
   const selectedField = useMemo(
     () => targetFields.find((f) => f.id === selectedFieldId),
     [targetFields, selectedFieldId]
   );
 
+  const selectedItems = selectedFieldId ? fieldRiskMap.get(selectedFieldId) ?? [] : [];
+
   return (
     <AlertDialogDescription asChild>
-      <div className="flex gap-4">
+      <div className="flex min-h-0 flex-1 gap-4">
         {/* Left panel - field list */}
-        <div className="w-40 shrink-0">
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
-            {t('table:field.editor.deleteField.fieldsToDelete', { count: targetFields.length })}
-          </p>
-          <FieldSelectionList
-            fields={targetFields}
-            selectedFieldId={selectedFieldId}
-            viewedFieldIds={viewedFieldIds}
-            onSelect={onSelect}
-          />
+        <div className="w-48 shrink-0 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Spin />
+            </div>
+          ) : (
+            <FieldSelectionList
+              fields={targetFields}
+              selectedFieldId={selectedFieldId}
+              checkedFieldIds={checkedFieldIds}
+              fieldRiskMap={fieldRiskMap}
+              onSelect={onSelect}
+              onToggleCheck={onToggleCheck}
+            />
+          )}
         </div>
 
         <Separator orientation="vertical" className="h-auto" />
 
         {/* Right panel - detail */}
-        <div className="min-h-32 flex-1 overflow-hidden">
-          {selectedFieldId && selectedField && (
-            <DetailPanel
-              tableId={tableId}
-              fieldId={selectedFieldId}
-              fieldName={selectedField.name}
-              open={open}
-              markAsViewed={markAsViewed}
-            />
-          )}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+          {isLoading ? (
+            <div className="flex flex-1 items-center justify-center py-4">
+              <Spin />
+            </div>
+          ) : selectedFieldId && selectedField ? (
+            <DetailPanel fieldName={selectedField.name} affectedItems={selectedItems} />
+          ) : null}
         </div>
       </div>
     </AlertDialogDescription>
@@ -137,55 +161,19 @@ const MultiFieldContent = ({
 
 // Detail panel for multi field mode
 const DetailPanel = ({
-  tableId,
-  fieldId,
   fieldName,
-  open,
-  markAsViewed,
+  affectedItems,
 }: {
-  tableId: string;
-  fieldId: string;
   fieldName: string;
-  open: boolean;
-  markAsViewed: (fieldId: string) => void;
+  affectedItems: AffectedItem[];
 }) => {
-  const { t } = useTranslation(['table']);
-  const fieldInstances = useFields({ withHidden: true, withDenied: true });
-  const { affectedFields, isLoading, isLoaded } = useSingleFieldPlan(
-    tableId,
-    fieldId,
-    open,
-    fieldInstances
-  );
-
-  // Mark as viewed when loaded
-  useEffect(() => {
-    if (isLoaded) {
-      markAsViewed(fieldId);
-    }
-  }, [isLoaded, fieldId, markAsViewed]);
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-4">
-        <Spin />
-      </div>
-    );
-  }
-
-  if (affectedFields.length === 0) {
-    return (
-      <div className="flex-1">
-        <p className="text-sm text-muted-foreground">
-          {t('table:field.editor.deleteField.noAffectedFields')}
-        </p>
-      </div>
-    );
+  if (affectedItems.length === 0) {
+    return <SafeToDeleteState />;
   }
 
   return (
-    <div className="flex-1 space-y-2">
-      <p className="text-sm">
+    <>
+      <p className="shrink-0 text-sm text-foreground">
         <Trans
           ns="table"
           i18nKey="field.editor.deleteField.withDependencies"
@@ -193,9 +181,8 @@ const DetailPanel = ({
           values={{ fieldName }}
         />
       </p>
-      <p className="text-sm font-medium">{t('table:field.editor.deleteField.affectedFields')}</p>
-      <AffectedFieldsList fields={affectedFields} />
-    </div>
+      <AffectedFieldsList items={affectedItems} isMultiField />
+    </>
   );
 };
 
@@ -212,9 +199,37 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
 
   const isMultiField = fieldIds.length > 1;
 
-  // Lift state up for multi-field mode
-  const { selectedFieldId, viewedFieldIds, unviewedCount, selectField, markAsViewed } =
-    useFieldSelectionState(fieldIds);
+  // State for multi-field mode
+  const { selectedFieldId, selectField } = useFieldSelectionState(fieldIds);
+  const { checkedFieldIds, toggleField } = useFieldCheckState(fieldIds, open);
+  const { fieldRiskMap, isLoading, isAllLoaded } = useMultiFieldReferences(tableId, fieldIds, open);
+  const [hasInitialSelected, setHasInitialSelected] = useState(false);
+
+  // Select first field in grouped order (risk fields first) after loading - only once
+  useEffect(() => {
+    if (!isAllLoaded || !isMultiField || hasInitialSelected) return;
+
+    const riskFieldId = targetFields.find((f) => {
+      const affected = fieldRiskMap.get(f.id) ?? [];
+      return affected.length > 0;
+    })?.id;
+
+    const firstFieldId = riskFieldId ?? targetFields[0]?.id;
+    if (firstFieldId) {
+      selectField(firstFieldId);
+      setHasInitialSelected(true);
+    }
+  }, [isAllLoaded, isMultiField, targetFields, fieldRiskMap, selectField, hasInitialSelected]);
+
+  // Reset initial selection flag when dialog reopens
+  useEffect(() => {
+    if (!open) {
+      setHasInitialSelected(false);
+    }
+  }, [open]);
+
+  const deleteCount = checkedFieldIds.size;
+  const canDelete = deleteCount > 0;
 
   const close = () => {
     setIsDeleting(false);
@@ -222,10 +237,11 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
   };
 
   const actionDelete = async () => {
-    if (isDeleting) return;
+    if (isDeleting || !canDelete) return;
     try {
       setIsDeleting(true);
-      await deleteFields(tableId, fieldIds);
+      const idsToDelete = isMultiField ? Array.from(checkedFieldIds) : fieldIds;
+      await deleteFields(tableId, idsToDelete);
       close();
     } finally {
       setIsDeleting(false);
@@ -235,21 +251,25 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
   return (
     <AlertDialog open={open} onOpenChange={(open) => !open && close()}>
       <AlertDialogContent
-        className={isMultiField ? 'max-w-lg' : undefined}
+        className={
+          isMultiField
+            ? 'flex h-[480px] max-w-5xl flex-col'
+            : 'flex max-h-[560px] max-w-xl flex-col'
+        }
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <AlertDialogHeader className="overflow-hidden">
+        <AlertDialogHeader className="min-h-0 flex-1 overflow-hidden">
           <AlertDialogTitle>{t('table:field.editor.deleteField.title')}</AlertDialogTitle>
           {isMultiField ? (
             <MultiFieldContent
-              tableId={tableId}
               targetFields={targetFields}
               selectedFieldId={selectedFieldId}
-              viewedFieldIds={viewedFieldIds}
+              checkedFieldIds={checkedFieldIds}
+              fieldRiskMap={fieldRiskMap}
+              isLoading={isLoading}
               onSelect={selectField}
-              markAsViewed={markAsViewed}
-              open={open}
+              onToggleCheck={toggleField}
             />
           ) : (
             <SingleFieldContent
@@ -261,11 +281,6 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
           )}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          {isMultiField && unviewedCount > 0 && (
-            <p className="mr-auto text-xs text-muted-foreground">
-              {t('table:field.editor.deleteField.unviewedHint', { count: unviewedCount })}
-            </p>
-          )}
           <AlertDialogCancel disabled={isDeleting}>{t('common:actions.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -273,11 +288,11 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
               e.preventDefault();
               actionDelete();
             }}
-            disabled={isDeleting}
+            disabled={isDeleting || !canDelete}
           >
             {isDeleting && <Spin className="mr-1" />}
             {isMultiField
-              ? t('table:field.editor.deleteField.deleteCount', { count: fieldIds.length })
+              ? t('table:field.editor.deleteField.deleteCount', { count: deleteCount })
               : t('common:actions.delete')}
           </AlertDialogAction>
         </AlertDialogFooter>

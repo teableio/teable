@@ -2,11 +2,18 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import type { ISpecification } from '../../../shared/specification/ISpecification';
+import { UpdateFormulaExpressionSpec } from '../../specs/field-updates/UpdateFormulaExpressionSpec';
+import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
+import type { Table } from '../../Table';
 import { Field } from '../Field';
 import type { FieldDuplicateParams } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
+import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import type { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
@@ -31,7 +38,7 @@ type FormulaResultType = {
   isMultipleCellValue: CellValueMultiplicity;
 };
 
-export class FormulaField extends Field {
+export class FormulaField extends Field implements OnTeableFieldUpdated {
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -209,6 +216,125 @@ export class FormulaField extends Field {
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitFormulaField(this);
+  }
+
+  /**
+   * Respond to updates of fields this formula depends on.
+   *
+   * Formula fields depend on fields referenced in their expression.
+   * When a dependency field's type changes, the formula may need to
+   * recalculate its result type (cellValueType).
+   *
+   * The actual result type recalculation requires the formula evaluator,
+   * which is handled by the command processing flow. Here we just acknowledge
+   * that we depend on this field.
+   *
+   * Note: Complex result type recalculation would require access to the
+   * formula evaluator service, which is not available in the domain layer.
+   * The FieldUpdateSideEffectService will handle triggering recalculation.
+   */
+  onDependencyUpdated(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    context: FieldUpdateContext
+  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+    const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
+
+    // Check if this is actually our dependency.
+    // Prefer explicit dependency metadata, but fall back to parsing formula references
+    // because some legacy fields may not have dependencies persisted.
+    const dependencyFromMetadata = this.dependencies().some((depId) =>
+      depId.equals(updatedField.id())
+    );
+    const dependencyFromExpression = !dependencyFromMetadata
+      ? this.expression()
+          .getReferencedFieldIds()
+          .map((ids) => ids.some((depId) => depId.equals(updatedField.id())))
+          .unwrapOr(false)
+      : false;
+    const isDependency = dependencyFromMetadata || dependencyFromExpression;
+    if (!isDependency) {
+      return ok(specs);
+    }
+
+    const dependencyTypeChanged = updateSpecs.some(
+      (spec): spec is TableUpdateFieldTypeSpec =>
+        spec instanceof TableUpdateFieldTypeSpec &&
+        spec.oldField().id().equals(updatedField.id()) &&
+        spec.isTypeConversion()
+    );
+
+    const dependencyFormulaExpressionChanged = updateSpecs.some(
+      (spec): spec is UpdateFormulaExpressionSpec =>
+        spec instanceof UpdateFormulaExpressionSpec && spec.fieldId().equals(updatedField.id())
+    );
+
+    if (!dependencyTypeChanged && !dependencyFormulaExpressionChanged) {
+      return ok(specs);
+    }
+
+    const currentFieldResult = context.table.getField((f) => f.id().equals(this.id()));
+    if (currentFieldResult.isErr()) return err(currentFieldResult.error);
+    const currentField = currentFieldResult.value;
+    if (!(currentField instanceof FormulaField)) {
+      return ok(specs);
+    }
+
+    const valueTypeVisitor = new FieldValueTypeVisitor();
+    const fieldValueTypes = context.table
+      .getFields()
+      .filter((candidate) => !candidate.id().equals(currentField.id()))
+      .flatMap((candidate) => {
+        const valueTypeResult = candidate.accept(valueTypeVisitor);
+        if (valueTypeResult.isErr()) return [];
+        return [{ id: candidate.id(), valueType: valueTypeResult.value }];
+      });
+
+    const inferredResultType = currentField.expression().getParsedValueType(fieldValueTypes);
+    if (inferredResultType.isErr()) {
+      return ok(specs);
+    }
+
+    const currentCellValueType = currentField.cellValueType();
+    const currentMultiplicity = currentField.isMultipleCellValue();
+    if (currentCellValueType.isErr() || currentMultiplicity.isErr()) {
+      return ok(specs);
+    }
+
+    if (
+      inferredResultType.value.cellValueType.equals(currentCellValueType.value) &&
+      inferredResultType.value.isMultipleCellValue.equals(currentMultiplicity.value)
+    ) {
+      return ok(specs);
+    }
+
+    const buildUpdatedField = (clearStyle: boolean): Result<FormulaField, DomainError> =>
+      FormulaField.create({
+        id: currentField.id(),
+        name: currentField.name(),
+        expression: currentField.expression(),
+        timeZone: currentField.timeZone(),
+        formatting: clearStyle ? undefined : currentField.formatting(),
+        showAs: clearStyle ? undefined : currentField.showAs(),
+        meta: currentField.meta(),
+        resultType: inferredResultType.value,
+        dependencies: currentField.dependencies(),
+      });
+
+    let updatedFieldResult = buildUpdatedField(false);
+    if (updatedFieldResult.isErr()) {
+      updatedFieldResult = buildUpdatedField(true);
+      if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+    }
+
+    const dbFieldNameResult = currentField.dbFieldName();
+    if (dbFieldNameResult.isOk()) {
+      const setDbFieldNameResult = updatedFieldResult.value.setDbFieldName(dbFieldNameResult.value);
+      if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+    }
+
+    specs.push(TableUpdateFieldTypeSpec.create(currentField, updatedFieldResult.value));
+    return ok(specs);
   }
 
   private validateOptions(

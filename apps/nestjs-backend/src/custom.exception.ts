@@ -39,6 +39,8 @@ export const getDefaultCodeByStatus = (status: HttpStatus) => {
       return HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE;
     case HttpStatus.REQUEST_TIMEOUT:
       return HttpErrorCode.REQUEST_TIMEOUT;
+    case HttpStatus.TOO_MANY_REQUESTS:
+      return HttpErrorCode.TOO_MANY_REQUESTS;
     case HttpStatus.PAYLOAD_TOO_LARGE:
       return HttpErrorCode.PAYLOAD_TOO_LARGE;
     default:

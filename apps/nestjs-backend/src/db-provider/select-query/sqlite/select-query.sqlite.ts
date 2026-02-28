@@ -549,9 +549,66 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     return `CASE WHEN ${normalizedStartDay} = 'monday' THEN ${mondayWeekdaySql} ELSE ${weekdaySql} END`;
   }
 
-  workday(startDate: string, days: string): string {
-    // Simplified implementation
-    return `DATE(${startDate}, '+' || ${days} || ' days')`;
+  workday(startDate: string, days: string, holidayStr?: string): string {
+    const dayCountSql = `CAST(${this.coalesceNumeric(days)} AS INTEGER)`;
+    const holidayTextSql = holidayStr ? `COALESCE(CAST(${holidayStr} AS TEXT), '')` : `''`;
+
+    return `(
+      WITH RECURSIVE
+      params AS (
+        SELECT DATE(${startDate}) AS start_date, ${dayCountSql} AS day_count, ${holidayTextSql} AS holiday_text
+      ),
+      split(rest, part) AS (
+        SELECT (SELECT holiday_text FROM params), ''
+        UNION ALL
+        SELECT
+          CASE WHEN INSTR(rest, ',') = 0 THEN '' ELSE SUBSTR(rest, INSTR(rest, ',') + 1) END,
+          TRIM(CASE WHEN INSTR(rest, ',') = 0 THEN rest ELSE SUBSTR(rest, 1, INSTR(rest, ',') - 1) END)
+        FROM split
+        WHERE rest <> ''
+      ),
+      holiday_dates AS (
+        SELECT DISTINCT DATE(SUBSTR(part, 1, 10)) AS holiday_date
+        FROM split
+        WHERE part <> ''
+          AND part GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*'
+          AND DATE(SUBSTR(part, 1, 10)) = SUBSTR(part, 1, 10)
+      ),
+      seq(n) AS (
+        SELECT 1
+        UNION ALL
+        SELECT n + 1
+        FROM seq
+        WHERE n < (SELECT ABS(day_count) * 7 + 366 FROM params)
+      ),
+      candidates AS (
+        SELECT
+          DATE(
+            p.start_date,
+            PRINTF('%+d day', CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)
+          ) AS candidate_date,
+          seq.n
+        FROM params p
+        CROSS JOIN seq
+      ),
+      workdays AS (
+        SELECT c.candidate_date, c.n
+        FROM candidates c
+        LEFT JOIN holiday_dates h ON h.holiday_date = c.candidate_date
+        WHERE CAST(STRFTIME('%w', c.candidate_date) AS INTEGER) NOT IN (0, 6)
+          AND h.holiday_date IS NULL
+        ORDER BY c.n
+      )
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date
+        ELSE (
+          SELECT w.candidate_date
+          FROM workdays w
+          LIMIT 1 OFFSET ABS(p.day_count) - 1
+        )
+      END
+      FROM params p
+    )`;
   }
 
   workdayDiff(startDate: string, endDate: string): string {

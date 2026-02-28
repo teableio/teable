@@ -46,7 +46,8 @@
     "view": "Переглянути",
     "preview": "Попередній перегляд",
     "viewAndEdit": "Переглянути та редагувати",
-    "getMore": "Отримати більше"
+    "getMore": "Отримати більше",
+    "copySuccess": "Копіювання успішне"
   },
   "quickAction": {
     "title": "Швидкі дії",
@@ -78,7 +79,10 @@
     "createTemplate": "Створити Шаблон",
     "useTemplateDialog": {
       "title": "Виберіть простір",
-      "description": "Виберіть простір для застосування шаблону"
+      "description": "Виберіть простір для застосування шаблону",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Створіть свій бізнес-додаток з Teable",
@@ -92,6 +96,24 @@
         "guide6": "Створіть планувальник контенту з публікаціями та датами публікації",
         "guide7": "Вставте резюме → Попросіть Teable організувати та відібрати кандидатів"
       }
+    }
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Копіювати до простору",
+      "description": "Виберіть простір для копіювання цієї бази",
+      "baseName": "Назва бази",
+      "baseNamePlaceholder": "Введіть назву бази",
+      "selectSpace": "Виберіть простір",
+      "noSpaceDescription": "Немає доступних просторів. Створіть новий простір, щоб продовжити.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "У цьому просторі немає доступних баз. Виберіть «Нова база»."
     }
   },
   "settings": {
@@ -425,7 +447,7 @@
       "allowSignUp": "Дозволити створення нових облікових записів",
       "allowSignUpDescription": "Вимкнення цієї опції заборонить реєстрацію нових користувачів, і кнопка реєстрації більше не відображатиметься на сторінці входу.",
       "allowSpaceInvitation": "Дозволити запрошення в простір",
-      "allowSpaceInvitationDescription": "Відключення цієї опції заборонить користувачам, крім адміністраторів, запрошувати інших у простір. Увімкнення дозволить запрошеним створювати обліковий запис, навіть якщо реєстрацію нових облікових записів вимкнено.",
+      "allowSpaceInvitationDescription": "Відключення цієї опції заборонить користувачам, крім адміністраторів, запрошувати інших у простір. При увімкненні нові користувачі, запрошені електронною поштою, можуть завершити реєстрацію, натиснувши на посилання-запрошення в листі, але спільні посилання-запрошення не працюватимуть.",
       "allowSpaceCreation": "Дозволити всім створювати нові простори",
       "allowSpaceCreationDescription": "Вимкнення цієї опції заборонить користувачам, крім адміністраторів, створювати нові простори.",
       "enableEmailVerification": "Увімкнути перевірку електронної пошти",
@@ -844,8 +866,8 @@
   "credit": {
     "title": "Кредит",
     "leftAmount": "Залишок кредитів",
-    "winFreeCredits": "Виграйте безкоштовні кредити",
-    "getCredits": "Отримати 1000 кредитів",
+    "winFreeCredits": "Поділитися досвідом",
+    "getCredits": "Отримати 1000 безкоштовних кредитів",
     "winCredit": {
       "title": "Поділіться позитивним відгуком та заробіть",
       "freeCredits": "1000 безкоштовних кредитів",
@@ -899,8 +921,10 @@
       "allSpaces": "Усі простори",
       "user": "Користувач",
       "creator": "Створювач",
+      "sourceType": "Тип джерела",
       "platform": "Платформа",
       "allStatuses": "Усі статуси",
+      "allSourceTypes": "Усі типи джерел",
       "allPlatforms": "Усі платформи",
       "pendingCount": "Очікують",
       "approvedCount": "Схвалених",
@@ -990,5 +1014,11 @@
       "title": "Щось пішло не так",
       "description": "Сталася неочікувана помилка. Будь ласка, спробуйте пізніше."
     }
+  },
+  "changelog": {
+    "newUpdate": "НОВЕ ОНОВЛЕННЯ",
+    "title": "Claude Opus 4.6 + 171 моделей запущено",
+    "url": "https://help.teable.ai/en/changelog#feb-07-2026",
+    "id": "changelog-2026-02-12-claude-opus-4.6-171-models-launched"
   }
 }

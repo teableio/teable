@@ -8,7 +8,7 @@ import {
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useIsTemplate } from '../../hooks/use-is-template';
+import { useIsReadOnlyPreview } from '../../hooks/use-is-readonly-preview';
 import { Base } from '../../model';
 import { AnchorContext } from '../anchor';
 import { BaseContext } from './BaseContext';
@@ -19,7 +19,7 @@ interface IBaseProviderProps {
 
 export const BaseProvider: FC<IBaseProviderProps> = ({ children, fallback }) => {
   const { baseId } = useContext(AnchorContext);
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { data: baseData } = useQuery({
     queryKey: ReactQueryKeys.base(baseId as string),
     queryFn: ({ queryKey }) =>
@@ -27,7 +27,8 @@ export const BaseProvider: FC<IBaseProviderProps> = ({ children, fallback }) => 
   });
 
   useEffect(() => {
-    if (isTemplate) {
+    // Skip last visit tracking in template or share mode
+    if (isReadOnlyPreview) {
       return;
     }
     if (baseData) {
@@ -37,7 +38,7 @@ export const BaseProvider: FC<IBaseProviderProps> = ({ children, fallback }) => 
         parentResourceId: baseData.spaceId,
       });
     }
-  }, [baseData, isTemplate]);
+  }, [baseData, isReadOnlyPreview]);
 
   const { data: basePermissionData } = useQuery({
     queryKey: ReactQueryKeys.getBasePermission(baseId as string),
