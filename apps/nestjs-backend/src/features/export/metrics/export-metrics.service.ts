@@ -17,13 +17,6 @@ export class ExportMetricsService {
       ],
     },
   });
-  private readonly exportRows = this.meter.createHistogram('data.export.rows', {
-    description: 'Number of rows per export task',
-    unit: 'rows',
-    advice: {
-      explicitBucketBoundaries: [10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000],
-    },
-  });
   private readonly exportErrors = this.meter.createCounter('data.export.errors', {
     description: 'Total number of export errors',
   });
@@ -32,8 +25,7 @@ export class ExportMetricsService {
     this.exportTotal.add(1, { format });
   }
 
-  recordExportComplete(attrs: { format: string; rows: number; durationMs: number }): void {
-    this.exportRows.record(attrs.rows, { format: attrs.format });
+  recordExportComplete(attrs: { format: string; durationMs: number }): void {
     this.exportDuration.record(attrs.durationMs, { format: attrs.format });
   }
 
