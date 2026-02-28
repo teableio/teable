@@ -12,6 +12,7 @@ import { FieldService } from '../../field/field.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
 import { ExportMetricsService } from '../metrics/export-metrics.service';
+import { ExportTracingService } from '../metrics/export-tracing.service';
 
 @Injectable()
 export class ExportOpenApiService {
@@ -20,7 +21,8 @@ export class ExportOpenApiService {
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly prismaService: PrismaService,
-    @Optional() private readonly exportMetrics?: ExportMetricsService
+    @Optional() private readonly exportMetrics?: ExportMetricsService,
+    @Optional() private readonly exportTracing?: ExportTracingService
   ) {}
   async exportCsvFromTable(response: Response, tableId: string, query?: IExportCsvRo) {
     const exportStartTime = Date.now();
@@ -156,9 +158,9 @@ export class ExportOpenApiService {
           isOver = true;
           // end the stream
           csvStream.push(null);
+          this.exportTracing?.setExportAttributes({ rows: count });
           this.exportMetrics?.recordExportComplete({
             format: 'csv',
-            rows: count,
             durationMs: Date.now() - exportStartTime,
           });
           break;
