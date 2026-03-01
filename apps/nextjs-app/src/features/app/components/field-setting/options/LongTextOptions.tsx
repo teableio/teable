@@ -1,6 +1,7 @@
-import type { ILongTextFieldOptions } from '@teable/core';
+import type { ILongTextFieldOptions, ILongTextShowAs } from '@teable/core';
 import { Textarea } from '@teable/ui-lib/shadcn';
 import { DefaultValue } from '../DefaultValue';
+import { LongTextShowAs } from '../show-as/LongTextShowAs';
 
 export const LongTextOptions = (props: {
   options: Partial<ILongTextFieldOptions> | undefined;
@@ -11,7 +12,15 @@ export const LongTextOptions = (props: {
 
   const onDefaultValueChange = (defaultValue: string | undefined) => {
     onChange?.({
+      ...options,
       defaultValue: defaultValue ?? null,
+    });
+  };
+
+  const onShowAsChange = (showAs?: ILongTextShowAs) => {
+    onChange?.({
+      ...options,
+      showAs,
     });
   };
 
@@ -27,6 +36,7 @@ export const LongTextOptions = (props: {
           />
         </DefaultValue>
       )}
+      <LongTextShowAs showAs={options?.showAs} onChange={onShowAsChange} />
     </div>
   );
 };

@@ -223,6 +223,8 @@
       "url": "Url",
       "email": "Correo electrónico",
       "phone": "Teléfono",
+      "plainText": "Texto sin formato",
+      "markdown": "Markdown",
       "maxNumber": "Número máximo",
       "showNumber": "Numero",
       "autoFillDate": "Llena automática con la fecha actual",

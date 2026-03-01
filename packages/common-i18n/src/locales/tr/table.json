@@ -223,6 +223,8 @@
       "url": "URL",
       "email": "E-posta",
       "phone": "Telefon",
+      "plainText": "Düz metin",
+      "markdown": "Markdown",
       "maxNumber": "Maksimum Sayı",
       "showNumber": "Sayıyı Göster",
       "autoFillDate": "Mevcut tarihle otomatik doldur",

@@ -220,6 +220,8 @@
       "url": "Url",
       "email": "メール",
       "phone": "電話",
+      "plainText": "プレーンテキスト",
+      "markdown": "Markdown",
       "maxNumber": "最大数",
       "showNumber": "番号を表示",
       "autoFillDate": "現在の日付を自動入力",
