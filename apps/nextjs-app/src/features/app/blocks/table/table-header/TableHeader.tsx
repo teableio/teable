@@ -1,4 +1,4 @@
-import { HelpCircle, MoreHorizontal, UserPlus } from '@teable/icons';
+import { Copy, HelpCircle, MoreHorizontal, UserPlus } from '@teable/icons';
 import { BaseNodeResourceType } from '@teable/openapi';
 import {
   useBase,
@@ -21,6 +21,7 @@ import {
   SheetHeader,
   SheetTrigger,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -30,6 +31,7 @@ import { ShareBasePopover } from '@/features/app/components/collaborator/share/S
 import { PublicOperateButton } from '@/features/app/components/PublicOperateButton';
 import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
+import { useIsInIframe } from '@/features/app/hooks/useIsInIframe';
 import { tableConfig } from '@/features/i18n/table.config';
 import { BaseNodeMore } from '../../base/base-side-bar/BaseNodeMore';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
@@ -208,12 +210,14 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
 };
 
 export const TableHeader: React.FC = () => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const view = useView();
   const { visible } = useLockedViewTipStore();
   const isReadOnlyPreview = useIsReadOnlyPreview();
   const template = useTemplate();
+  const isInIframe = useIsInIframe();
   // Only show PublicOperateButton for real templates, not for share mode
-  const isRealTemplate = !!template;
+  const isRealTemplate = !!template && !isInIframe;
   const tipVisible = view?.isLocked && visible;
   const [isEditing, setIsEditing] = useState(false);
   return (
@@ -236,7 +240,20 @@ export const TableHeader: React.FC = () => {
         <div className="grow basis-0"></div>
         {!isReadOnlyPreview && <RightActions setIsEditing={setIsEditing} />}
         {isRealTemplate && (
-          <div className="min-w-20">
+          <div className="flex min-w-20 items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[13px] font-normal"
+              onClick={() => {
+                const link = `${window.location.origin}/t/${template!.id}`;
+                navigator.clipboard.writeText(link);
+                toast.success(t('common:actions.copyLink'));
+              }}
+            >
+              <Copy className="size-4" />
+              {t('common:actions.copyLink')}
+            </Button>
             <PublicOperateButton />
           </div>
         )}

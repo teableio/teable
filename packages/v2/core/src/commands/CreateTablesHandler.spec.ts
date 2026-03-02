@@ -6,17 +6,22 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldId } from '../domain/table/fields/FieldId';
+import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
-import type { Table } from '../domain/table/Table';
+import { Table } from '../domain/table/Table';
+import { TableId } from '../domain/table/TableId';
+import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
@@ -38,6 +43,29 @@ const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
   actorIdResult._unsafeUnwrap();
   return { actorId: actorIdResult._unsafeUnwrap() };
+};
+
+const buildTable = (params: {
+  baseId: string;
+  tableId: string;
+  tableName: string;
+  primaryFieldId: string;
+}): Table => {
+  return Table.builder()
+    .withId(TableId.create(params.tableId)._unsafeUnwrap())
+    .withBaseId(BaseId.create(params.baseId)._unsafeUnwrap())
+    .withName(TableName.create(params.tableName)._unsafeUnwrap())
+    .field()
+    .singleLineText()
+    .withId(FieldId.create(params.primaryFieldId)._unsafeUnwrap())
+    .withName(FieldName.create('Name')._unsafeUnwrap())
+    .primary()
+    .done()
+    .view()
+    .defaultGrid()
+    .done()
+    .build()
+    ._unsafeUnwrap();
 };
 
 class FakeTableRepository implements ITableRepository {
@@ -434,5 +462,82 @@ describe('CreateTablesHandler', () => {
 
     expect(recordAValue).toBe('Alpha');
     expect(recordBValue).toBe('Beta');
+  });
+
+  it('allows creating tables that link to external cross-base tables', async () => {
+    const hostBaseId = `bse${'f'.repeat(16)}`;
+    const foreignBaseId = `bse${'g'.repeat(16)}`;
+    const foreignTableId = `tbl${'h'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'i'.repeat(16)}`;
+    const hostTableId = `tbl${'j'.repeat(16)}`;
+    const hostPrimaryId = `fld${'k'.repeat(16)}`;
+    const hostLinkId = `fld${'l'.repeat(16)}`;
+
+    const commandResult = CreateTablesCommand.create({
+      baseId: hostBaseId,
+      tables: [
+        {
+          tableId: hostTableId,
+          name: 'Host Table',
+          fields: [
+            { type: 'singleLineText', id: hostPrimaryId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: hostLinkId,
+              name: 'Cross Base Link',
+              options: {
+                baseId: foreignBaseId,
+                relationship: 'manyOne',
+                foreignTableId,
+                lookupFieldId: foreignPrimaryId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        },
+      ],
+    });
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.inserted.push(
+      buildTable({
+        baseId: foreignBaseId,
+        tableId: foreignTableId,
+        tableName: 'Foreign Table',
+        primaryFieldId: foreignPrimaryId,
+      })
+    );
+    const schemaRepository = new FakeTableSchemaRepository();
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const tableCreationService = new TableCreationService(
+      tableRepository,
+      schemaRepository,
+      fieldCreationSideEffectService
+    );
+    const handler = new CreateTablesHandler(
+      tableRepository,
+      recordRepository,
+      foreignTableLoaderService,
+      tableCreationService,
+      eventBus,
+      unitOfWork
+    );
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
+
+    expect(tableRepository.inserted.some((table) => table.id().toString() === hostTableId)).toBe(
+      true
+    );
   });
 });

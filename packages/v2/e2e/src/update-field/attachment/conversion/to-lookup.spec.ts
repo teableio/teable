@@ -137,7 +137,7 @@ describe('update-field: attachment → lookup conversion', () => {
         }
       | undefined;
     expect(updatedField?.isLookup).toBe(true);
-    expect(updatedField?.lookupOptions).toEqual({
+    expect(updatedField?.lookupOptions).toMatchObject({
       linkFieldId,
       foreignTableId,
       lookupFieldId: foreignPrimaryFieldId,

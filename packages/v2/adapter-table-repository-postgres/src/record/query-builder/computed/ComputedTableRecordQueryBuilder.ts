@@ -55,13 +55,27 @@ const T = COMPUTED_TABLE_ALIAS; // main table alias
 const F = 'f'; // foreign table alias in lateral
 const DEFAULT_CONDITIONAL_ORDER_BY = { column: '__auto_number', direction: 'asc' } as const;
 
+const parsePositiveInt = (raw: string | undefined, fallback: number): number => {
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.floor(parsed);
+};
+
+const CONDITIONAL_QUERY_MAX_LIMIT = parsePositiveInt(process.env.CONDITIONAL_QUERY_MAX_LIMIT, 5000);
+const CONDITIONAL_QUERY_DEFAULT_LIMIT = Math.min(
+  parsePositiveInt(process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT, CONDITIONAL_QUERY_MAX_LIMIT),
+  CONDITIONAL_QUERY_MAX_LIMIT
+);
+
 type ResolvedOrderBy = {
   column: string;
   direction: 'asc' | 'desc';
   userLikeMode?: 'single' | 'multiple';
   userLikeSource?: 'field' | 'system';
 };
-
 /**
  * Configuration for dirty record filtering.
  * When provided, the query will INNER JOIN with the dirty table early
@@ -594,7 +608,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const sortClause = condition
             ? yield* this.resolveConditionalSort(foreignTable, condition)
             : null;
-          const limitValue = condition?.limit();
+          const configuredLimit = condition?.limit();
+          const limitValue = configuredLimit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
           const isConditionalDerived =
             firstColumnType?.type === 'conditionalLookup' ||
             firstColumnType?.type === 'conditionalRollup';
@@ -987,6 +1002,53 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       );
   }
 
+  private buildPerRowNestedJsonTextExpr(colRef: RawBuilder<unknown>): RawBuilder<unknown> {
+    const colJson = sql`to_jsonb(${colRef})`;
+    const normalized = sql`(CASE
+      WHEN ${colRef} IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof(${colJson}) = 'array' THEN ${colJson}
+      WHEN jsonb_typeof(${colJson}) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array(${colJson})
+    END)`;
+    return sql`(
+      SELECT string_agg(
+        ${sql.raw(extractJsonScalarText('leaf'))},
+        ', '
+        ORDER BY outer_ord, inner_ord
+      )
+      FROM jsonb_array_elements(${normalized}) WITH ORDINALITY AS outer_elem(elem, outer_ord)
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE
+          WHEN jsonb_typeof(outer_elem.elem) = 'array' THEN outer_elem.elem
+          ELSE jsonb_build_array(outer_elem.elem)
+        END
+      ) WITH ORDINALITY AS inner_elem(leaf, inner_ord)
+    )`;
+  }
+
+  private buildDistinctNestedJsonTextArrayExpr(
+    baseAggregate: RawBuilder<unknown>
+  ): RawBuilder<unknown> {
+    return sql`(
+      SELECT jsonb_agg(to_jsonb(v.val))
+      FROM (
+        SELECT DISTINCT val
+        FROM (
+          SELECT ${sql.raw(extractJsonScalarText('leaf'))} AS val
+          FROM jsonb_array_elements(COALESCE(${baseAggregate}, '[]'::jsonb)) AS row_elem(elem)
+          CROSS JOIN LATERAL jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(row_elem.elem) = 'array' THEN row_elem.elem
+              ELSE jsonb_build_array(row_elem.elem)
+            END
+          ) AS leaf_elem(leaf)
+        ) AS flattened
+        WHERE val IS NOT NULL AND val <> ''
+        ORDER BY val
+      ) AS v
+    )`;
+  }
+
   /**
    * Build lookup aggregation expression.
    *
@@ -1069,8 +1131,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               );
             }
 
-            // For regular columns, use to_jsonb() to convert to JSONB
-            const aggExpr = sql`jsonb_agg(to_jsonb(${colRef})${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
+            const fieldValueTypeResult = foreignField.accept(new FieldValueTypeVisitor());
+            const isDateTimeLookupTarget =
+              fieldValueTypeResult.isOk() &&
+              fieldValueTypeResult.value.cellValueType.equals(CellValueType.dateTime());
+
+            const lookupValueExpr =
+              isMultiValue && isDateTimeLookupTarget
+                ? sql`to_jsonb(to_char(${colRef} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`
+                : sql`to_jsonb(${colRef})`;
+            const aggExpr = sql`jsonb_agg(${lookupValueExpr}${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
             return ok(
               isMultiValue ? aggExpr.as(outputAlias) : sql`${aggExpr} -> 0`.as(outputAlias)
             );
@@ -1171,6 +1241,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             return ok(sql`(COUNT(CASE WHEN ${colRef}::boolean THEN 1 END) % 2 = 1)`);
           case 'array_join({values})':
           case 'concatenate({values})': {
+            if (foreignField.type().equals(FieldType.link())) {
+              const rowTextExpr = this.buildPerRowNestedJsonTextExpr(colRef);
+              return ok(sql`STRING_AGG(${rowTextExpr}, ', '${orderBySql})`);
+            }
             const columnName = yield* foreignField
               .dbFieldName()
               .andThen((dbFieldName) => dbFieldName.value());
@@ -1189,8 +1263,15 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               sql`STRING_AGG(${formattedSql ? sql.raw(formattedSql) : sql`${colRef}::text`}, ', '${orderBySql})`
             );
           }
-          case 'array_unique({values})':
+          case 'array_unique({values})': {
+            if (foreignField.type().equals(FieldType.link())) {
+              const baseAggregate = orderByExpr
+                ? sql`jsonb_agg(to_jsonb(${colRef}) ORDER BY ${orderByExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`
+                : sql`jsonb_agg(to_jsonb(${colRef})) FILTER (WHERE ${colRef} IS NOT NULL)`;
+              return ok(this.buildDistinctNestedJsonTextArrayExpr(baseAggregate));
+            }
             return ok(sql`json_agg(DISTINCT ${colRef})`);
+          }
           case 'array_compact({values})': {
             const baseAggregate = orderByExpr
               ? sql`jsonb_agg(${colRef} ORDER BY ${orderByExpr}) FILTER (WHERE (${colRef}) IS NOT NULL AND (${colRef})::text <> '')`

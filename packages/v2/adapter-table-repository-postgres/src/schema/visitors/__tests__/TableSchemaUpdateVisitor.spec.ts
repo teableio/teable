@@ -4,7 +4,17 @@
  * These tests validate the SQL statements generated for various
  * field update operations using Kysely DummyDriver (no actual database connection).
  */
-import { DbFieldName, FieldId, LinkFieldConfig, UpdateLinkRelationshipSpec } from '@teable/v2-core';
+import {
+  BaseId,
+  DbFieldName,
+  FieldId,
+  FieldName,
+  LinkFieldConfig,
+  Table,
+  TableAddFieldSpec,
+  TableName,
+  UpdateLinkRelationshipSpec,
+} from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
 import { TableSchemaUpdateVisitor } from '../TableSchemaUpdateVisitor';
@@ -838,10 +848,78 @@ describe('TableSchemaUpdateVisitor', () => {
   });
 
   describe('visitTableAddField', () => {
-    it.todo(
-      'should delegate to PostgresTableSchemaFieldCreateVisitor'
-      // Verify: create statements returned
-    );
+    const SCHEMA = 'bseTestBase00000001';
+    const TABLE_NAME = 'tblTestTable0000001';
+    const TABLE_ID = TABLE_NAME;
+    const db = createTestDb();
+
+    const createTable = () => {
+      const table = Table.builder()
+        .withBaseId(BaseId.create(SCHEMA)._unsafeUnwrap())
+        .withName(TableName.create('Test Table')._unsafeUnwrap());
+      table.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+      table.view().defaultGrid().done();
+      return table.build()._unsafeUnwrap();
+    };
+
+    const createVisitor = () =>
+      new TableSchemaUpdateVisitor({
+        db,
+        schema: SCHEMA,
+        tableName: TABLE_NAME,
+        tableId: TABLE_ID,
+        table: createTable(),
+      });
+
+    const createField = (params: { id: string; kind: 'singleLineText' | 'checkbox' }) => {
+      const table = Table.builder()
+        .withBaseId(BaseId.create(SCHEMA)._unsafeUnwrap())
+        .withName(TableName.create('Field Source')._unsafeUnwrap());
+      const fieldBuilder = table.field();
+      const fieldName = FieldName.create(`Field ${params.id.slice(-4)}`)._unsafeUnwrap();
+      const fieldId = FieldId.create(params.id)._unsafeUnwrap();
+
+      if (params.kind === 'singleLineText') {
+        fieldBuilder.singleLineText().withId(fieldId).withName(fieldName).done();
+      } else {
+        fieldBuilder.checkbox().withId(fieldId).withName(fieldName).done();
+      }
+
+      table.view().defaultGrid().done();
+      const fieldSource = table.build()._unsafeUnwrap();
+      const field = fieldSource
+        .getField((candidate) => candidate.id().equals(fieldId))
+        ._unsafeUnwrap();
+      const dbFieldName = DbFieldName.rehydrate(`fld_${params.id.slice(-8)}`)._unsafeUnwrap();
+      field.setDbFieldName(dbFieldName)._unsafeUnwrap();
+      return field;
+    };
+
+    it('should append search index statement for searchable field types', () => {
+      const field = createField({ id: 'fldSearchField00001', kind: 'singleLineText' });
+      const spec = TableAddFieldSpec.create(field);
+      const visitor = createVisitor();
+
+      const result = visitor.visitTableAddField(spec);
+      expect(result.isOk()).toBe(true);
+
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
+      expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
+    });
+
+    it('should not append search index statement for unsupported field types', () => {
+      const field = createField({ id: 'fldCheckboxField001', kind: 'checkbox' });
+      const spec = TableAddFieldSpec.create(field);
+      const visitor = createVisitor();
+
+      const result = visitor.visitTableAddField(spec);
+      expect(result.isOk()).toBe(true);
+
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(false);
+      expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(false);
+    });
   });
 
   describe('visitTableRemoveField', () => {

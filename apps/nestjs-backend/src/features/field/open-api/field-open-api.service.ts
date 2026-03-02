@@ -536,9 +536,19 @@ export class FieldOpenApiService {
   }
 
   async getFields(tableId: string, query: IGetFieldsQuery) {
-    return await this.fieldService.getFieldsByQuery(tableId, {
+    const fields = await this.fieldService.getFieldsByQuery(tableId, {
       ...query,
       filterHidden: query.filterHidden == null ? true : query.filterHidden,
+    });
+
+    return fields.map((field) => {
+      if (field.isMultipleCellValue !== false) {
+        return field;
+      }
+
+      const normalized = { ...field } as IFieldVo & Record<string, unknown>;
+      delete normalized.isMultipleCellValue;
+      return normalized as IFieldVo;
     });
   }
 

@@ -5,6 +5,7 @@ import {
   NumberFormatting,
   NumberFormattingType,
   TimeFormatting,
+  createDateField,
   createSingleLineTextField,
   DbFieldName,
   FieldId,
@@ -1671,7 +1672,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = $1) as "cond_fldcccccccccccccccc" on true"`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("cond_fldcccccccccccccccc_src"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select * from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = $1 order by "f"."__auto_number" asc limit $2) as "cond_fldcccccccccccccccc_src") as "cond_fldcccccccccccccccc" on true"`
       );
     });
 
@@ -1700,7 +1701,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = "t"."col_category_ref") as "cond_fldcccccccccccccccc" on true"`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("cond_fldcccccccccccccccc_src"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select * from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = "t"."col_category_ref" order by "f"."__auto_number" asc limit $1) as "cond_fldcccccccccccccccc_src") as "cond_fldcccccccccccccccc" on true"`
       );
     });
   });
@@ -2086,6 +2087,84 @@ describe('ComputedTableRecordQueryBuilder', () => {
         }
       }
     );
+
+    test('uses UTC ISO datetime strings for multi-value lookup aggregation', () => {
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const tableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+      const lookupTargetFieldId = FieldId.create(LOOKUP_TARGET_FIELD_ID)._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'oneMany',
+        foreignTableId: tableId.toString(),
+        lookupFieldId: lookupTargetFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+
+      const lookupOptions = LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: tableId.toString(),
+        lookupFieldId: lookupTargetFieldId.toString(),
+      })._unsafeUnwrap();
+
+      const innerField = createDateField({
+        id: FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap(),
+        name: FieldName.create('InnerDate')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const builder = Table.builder()
+        .withId(tableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('SelfDateLookup')._unsafeUnwrap());
+      builder
+        .field()
+        .date()
+        .withId(lookupTargetFieldId)
+        .withName(FieldName.create('Due')._unsafeUnwrap())
+        .done();
+      builder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Reports')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      builder
+        .field()
+        .lookup()
+        .withName(FieldName.create('ReportDueDates')._unsafeUnwrap())
+        .withLookupOptions(lookupOptions)
+        .withInnerField(innerField)
+        .done();
+      builder.view().defaultGrid().done();
+
+      const table = builder.build({ includeSelf: true })._unsafeUnwrap();
+      table
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_due')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      table
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_link_reports')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      table
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_lookup_due')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const db = createTestDb();
+      const foreignTables = new Map([[tableId.toString(), table]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          table
+        )
+      );
+
+      expect(sql).toContain(
+        `jsonb_agg(to_jsonb(to_char("f"."col_due" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')) order by`
+      );
+    });
 
     test.each(relationships)('self-ref %s with lookup and rollup snapshot', (relationship) => {
       const db = createTestDb();

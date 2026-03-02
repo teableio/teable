@@ -16,6 +16,7 @@ import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
 import { ImportMetricsService } from '../metrics/import-metrics.service';
+import { ImportTracingService } from '../metrics/import-tracing.service';
 import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-csv.processor';
 import { DEFAULT_IMPORT_CPU_USAGE, getWorkerPath, importerFactory } from './import.class';
 
@@ -86,7 +87,8 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     private readonly importTableCsvQueueProcessor: ImportTableCsvQueueProcessor,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE) public readonly queue: Queue<ITableImportChunkJob>,
-    @Optional() private readonly importMetrics?: ImportMetricsService
+    @Optional() private readonly importMetrics?: ImportMetricsService,
+    @Optional() private readonly importTracing?: ImportTracingService
   ) {
     super();
     // When BACKEND_CACHE_REDIS_URI is not set, queues are backed by the local
@@ -130,10 +132,10 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       );
       const rowCount = await this.resolveDataByWorker(job);
       this.logger.log(`import data to ${table.id} chunk data job completed`);
+      this.importTracing?.setImportAttributes({ rows: rowCount });
       this.importMetrics?.recordImportComplete({
         fileType,
         operationType,
-        rows: rowCount,
         durationMs: Date.now() - importStartTime,
       });
     } catch (error) {

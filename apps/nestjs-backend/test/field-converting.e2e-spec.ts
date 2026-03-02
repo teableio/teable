@@ -600,6 +600,22 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.description).toEqual('world');
     });
 
+    it('should clear field description', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'my name',
+        description: 'hello',
+        type: FieldType.SingleLineText,
+      };
+      const newFieldRo: IFieldRo = {
+        description: null,
+        type: FieldType.SingleLineText,
+      };
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
+      expect(newField.name).toEqual('my name');
+      expect(newField.description).toBeUndefined();
+    });
+
     // A -> B -> C
     // D -> E -> C
     // should not update E when A update

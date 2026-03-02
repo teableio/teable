@@ -1387,6 +1387,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
       return err(nextInnerFieldResult.error);
     }
     const nextInnerField = nextInnerFieldResult.value;
+    const nextInnerOptionsPatch = this.resolveNextInnerOptionsPatch(params.currentField);
 
     if (nextInnerField) {
       return ConditionalLookupField.create({
@@ -1396,6 +1397,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
         conditionalLookupOptions: params.nextOptions,
         isMultipleCellValue: params.isMultipleCellValue,
         dependencies: params.currentField.dependencies(),
+        innerOptionsPatch: nextInnerOptionsPatch,
       });
     }
 
@@ -1405,7 +1407,29 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
       conditionalLookupOptions: params.nextOptions,
       isMultipleCellValue: params.isMultipleCellValue,
       dependencies: params.currentField.dependencies(),
+      innerOptionsPatch: nextInnerOptionsPatch,
     });
+  }
+
+  private resolveNextInnerOptionsPatch(
+    currentField: ConditionalLookupField
+  ): Readonly<Record<string, unknown>> | undefined {
+    const currentPatch = currentField.innerOptionsPatch();
+    const hasInnerTypeUpdate = this.innerTypeValue !== undefined;
+    const hasInnerOptionsUpdate = this.innerOptionsValue !== undefined;
+
+    if (hasInnerTypeUpdate) {
+      return hasInnerOptionsUpdate ? this.innerOptionsValue : undefined;
+    }
+
+    if (hasInnerOptionsUpdate) {
+      return {
+        ...(currentPatch ?? {}),
+        ...this.innerOptionsValue,
+      };
+    }
+
+    return currentPatch;
   }
 
   private buildUpdatedInnerField(
@@ -2120,6 +2144,18 @@ class UpdateFormulaFieldSpec implements IUpdateTableFieldSpec {
       if (!currentTimeZone || !this.timeZoneValue.equals(currentTimeZone)) {
         specs.push(
           UpdateFormulaTimeZoneSpec.create(currentField.id(), currentTimeZone, this.timeZoneValue)
+        );
+      }
+    } else {
+      const currentTimeZone = currentField.timeZone();
+      const touchedFormulaOptions =
+        this.expressionValue !== undefined ||
+        this.formattingValue !== undefined ||
+        this.showAsValue !== undefined ||
+        this.shouldClearShowAs;
+      if (!currentTimeZone && touchedFormulaOptions) {
+        specs.push(
+          UpdateFormulaTimeZoneSpec.create(currentField.id(), currentTimeZone, TimeZone.default())
         );
       }
     }

@@ -104,6 +104,148 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
     });
   });
 
+  describe('duplicate field response compatibility under FORCE_V2', () => {
+    let table: ITableFullVo;
+    let foreignTable: ITableFullVo;
+    let linkFieldId: string;
+    let foreignPrimaryFieldId: string;
+
+    beforeAll(async () => {
+      foreignTable = await createTable(baseId, {
+        name: 'dup_force_v2_compat_foreign',
+        fields: [
+          {
+            type: FieldType.SingleLineText,
+            name: 'foreign_name',
+          },
+        ],
+      });
+      foreignPrimaryFieldId = foreignTable.fields.find((f) => f.isPrimary)!.id;
+
+      table = await createTable(baseId, {
+        name: 'dup_force_v2_compat_main',
+      });
+
+      const linkField = (
+        await createField(table.id, {
+          type: FieldType.Link,
+          name: 'to_foreign',
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+            isOneWay: false,
+          },
+        })
+      ).data;
+      linkFieldId = linkField.id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, foreignTable.id);
+    });
+
+    it('keeps description but omits false/linked compatibility keys in duplicated fields', async () => {
+      const describedField = (
+        await createField(table.id, {
+          type: FieldType.Number,
+          name: 'number_with_description',
+          description: 'description_kept',
+        })
+      ).data;
+      const duplicatedDescribedField = (
+        await duplicateField(table.id, describedField.id, {
+          name: 'number_with_description_copy',
+        })
+      ).data;
+      expect(duplicatedDescribedField.description).toBe('description_kept');
+
+      const lookupField = (
+        await createField(table.id, {
+          type: FieldType.SingleLineText,
+          name: 'lookup_force_v2_compat',
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: foreignTable.id,
+            linkFieldId,
+            lookupFieldId: foreignPrimaryFieldId,
+          },
+        })
+      ).data;
+      const duplicatedLookupField = (
+        await duplicateField(table.id, lookupField.id, {
+          name: 'lookup_force_v2_compat_copy',
+        })
+      ).data;
+      const duplicatedLookupOptions = duplicatedLookupField.lookupOptions as
+        | Record<string, unknown>
+        | undefined;
+
+      expect(Object.prototype.hasOwnProperty.call(duplicatedLookupOptions ?? {}, 'isOneWay')).toBe(
+        false
+      );
+      expect(
+        Object.prototype.hasOwnProperty.call(duplicatedLookupOptions ?? {}, 'symmetricFieldId')
+      ).toBe(false);
+
+      const rollupField = (
+        await createField(table.id, {
+          type: FieldType.Rollup,
+          name: 'rollup_force_v2_compat',
+          lookupOptions: {
+            foreignTableId: foreignTable.id,
+            linkFieldId,
+            lookupFieldId: foreignPrimaryFieldId,
+          },
+          options: {
+            expression: 'countall({values})',
+          },
+        })
+      ).data;
+      const duplicatedRollupField = (
+        await duplicateField(table.id, rollupField.id, {
+          name: 'rollup_force_v2_compat_copy',
+        })
+      ).data;
+      const duplicatedRollupLookupOptions = duplicatedRollupField.lookupOptions as
+        | Record<string, unknown>
+        | undefined;
+
+      expect(
+        Object.prototype.hasOwnProperty.call(duplicatedRollupLookupOptions ?? {}, 'isOneWay')
+      ).toBe(false);
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          duplicatedRollupLookupOptions ?? {},
+          'symmetricFieldId'
+        )
+      ).toBe(false);
+
+      const buttonField = (
+        await createField(table.id, {
+          type: FieldType.Button,
+          name: 'button_force_v2_compat',
+          options: {
+            label: 'go',
+            color: Colors.Blue,
+            workflow: {
+              id: generateWorkflowId(),
+              name: 'wf_for_compat',
+              isActive: true,
+            },
+          },
+        })
+      ).data;
+      const duplicatedButtonField = (
+        await duplicateField(table.id, buttonField.id, {
+          name: 'button_force_v2_compat_copy',
+        })
+      ).data;
+
+      expect(duplicatedButtonField.isMultipleCellValue).toBeUndefined();
+    });
+  });
+
   afterAll(async () => {
     await app.close();
   });

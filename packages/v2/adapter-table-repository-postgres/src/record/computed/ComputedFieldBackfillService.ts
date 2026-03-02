@@ -294,6 +294,7 @@ export class ComputedFieldBackfillService {
         // This will select all records in the table
         const builder = new ComputedTableRecordQueryBuilder(db, {
           typeValidationStrategy: this.typeValidationStrategy,
+          forceLookupArrayOutput: true,
         })
           .from(input.table)
           .select([fieldId]);
@@ -387,6 +388,7 @@ export class ComputedFieldBackfillService {
         // Build SELECT query for all computed fields
         const builder = new ComputedTableRecordQueryBuilder(db, {
           typeValidationStrategy: this.typeValidationStrategy,
+          forceLookupArrayOutput: true,
         })
           .from(input.table)
           .select(fieldIds);

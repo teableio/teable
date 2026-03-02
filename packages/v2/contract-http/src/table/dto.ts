@@ -103,6 +103,7 @@ const lookupOptionsSchema = z.object({
   linkFieldId: z.string(),
   foreignTableId: z.string(),
   lookupFieldId: z.string(),
+  relationship: z.enum(['oneOne', 'manyMany', 'oneMany', 'manyOne']).optional(),
   filter: fieldConditionSchema.shape.filter,
   sort: fieldConditionSchema.shape.sort,
   limit: fieldConditionSchema.shape.limit,
@@ -461,7 +462,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       dbFieldName: this.optionalDbFieldName(field),
       isPrimary: field.id().equals(this.primaryFieldId),
       ...(notNull ? { notNull } : {}),
-      ...(unique ? { unique } : {}),
+      unique,
       ...(isComputed ? { isComputed } : {}),
       ...(hasError ? { hasError } : {}),
     };
@@ -814,8 +815,17 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
 
   visitLookupField(field: LookupField): Result<IFieldDto, DomainError> {
     const lookupOptions = field.lookupOptionsDto();
-
     const baseField = this.baseField(field);
+    const isMultipleCellValueResult = field.isMultipleCellValue();
+    const isMultipleCellValue = isMultipleCellValueResult.isOk()
+      ? isMultipleCellValueResult.value.toBoolean()
+      : undefined;
+    const relationship: 'oneOne' | 'manyMany' | 'oneMany' | 'manyOne' | undefined =
+      isMultipleCellValue == null ? undefined : isMultipleCellValue ? 'manyMany' : 'manyOne';
+    const lookupOptionsWithRelationship = {
+      ...lookupOptions,
+      ...(baseField.hasError && relationship ? { relationship } : {}),
+    };
 
     // For pending lookup fields, return minimal DTO with singleLineText as default type
     if (field.isPending()) {
@@ -823,7 +833,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
         ...baseField,
         type: 'singleLineText',
         isLookup: true,
-        lookupOptions,
+        lookupOptions: lookupOptionsWithRelationship,
       });
     }
 
@@ -836,7 +846,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       ...innerDto,
       ...baseField,
       isLookup: true,
-      lookupOptions,
+      lookupOptions: lookupOptionsWithRelationship,
     });
   }
 
