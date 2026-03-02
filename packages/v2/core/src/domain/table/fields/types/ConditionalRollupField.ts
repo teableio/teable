@@ -14,13 +14,6 @@ import type { FieldDuplicateParams } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
-import type {
-  ForeignTableRelatedField,
-  ForeignTableValidationContext,
-} from '../ForeignTableRelatedField';
-import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
-import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
-import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
   buildFieldFilterSyncPlan,
   hasFieldReferenceInFilter,
@@ -28,7 +21,14 @@ import {
   isEquivalentFilter,
   syncFilterByFieldChanges,
 } from '../filter-sync';
-import type { CellValueMultiplicity } from './CellValueMultiplicity';
+import type {
+  ForeignTableRelatedField,
+  ForeignTableValidationContext,
+} from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
+import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
+import type { IFieldVisitor } from '../visitors/IFieldVisitor';
+import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import {
   ConditionalRollupConfig,
@@ -37,6 +37,7 @@ import {
 import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
+import { FieldHasError } from './FieldHasError';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import type { NumberFormatting } from './NumberFormatting';
 import { NumberShowAs as NumberShowAsValue } from './NumberShowAs';
@@ -319,16 +320,24 @@ export class ConditionalRollupField
   }
 
   cellValueType(): Result<CellValueType, DomainError> {
-    if (!this.cellValueTypeValue)
+    if (!this.cellValueTypeValue) {
+      if (this.hasError().isError()) {
+        return ok(CellValueType.string());
+      }
       return err(
         domainError.invariant({ message: 'ConditionalRollupField cell value type not set' })
       );
+    }
     return ok(this.cellValueTypeValue);
   }
 
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
-    if (!this.isMultipleCellValueValue)
+    if (!this.isMultipleCellValueValue) {
+      if (this.hasError().isError()) {
+        return ok(CellValueMultiplicity.single());
+      }
       return err(domainError.invariant({ message: 'ConditionalRollupField multiplicity not set' }));
+    }
     return ok(this.isMultipleCellValueValue);
   }
 
@@ -405,7 +414,9 @@ export class ConditionalRollupField
         cellValueType: valuesTypeResult.value.cellValueType,
         isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
       });
-      if (resolveResult.isErr()) return err(resolveResult.error);
+      if (resolveResult.isErr()) {
+        this.setHasError(FieldHasError.error());
+      }
     }
 
     // Dependencies include host fields referenced by condition value expressions.

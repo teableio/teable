@@ -33,6 +33,8 @@ const fieldIsUserOrLink = (field: core.Field): boolean => {
   return type === 'user' || type === 'createdBy' || type === 'lastModifiedBy' || type === 'link';
 };
 
+const fieldIsLink = (field: core.Field): boolean => field.type().toString() === 'link';
+
 const buildUserLinkIdArray = (
   columnRef: RecordConditionWhere,
   isMultiple: boolean
@@ -44,6 +46,22 @@ const buildUserLinkIdArray = (
 
 const buildJsonbTextArray = (jsonArray: RecordConditionWhere): RecordConditionWhere => {
   return sql`COALESCE((SELECT array_agg(value) FROM jsonb_array_elements_text(${jsonArray}) AS value), ARRAY[]::text[])`;
+};
+
+const buildLinkTitleMatchCondition = (
+  columnRef: RecordConditionWhere,
+  rightColumnRef: RecordConditionWhere
+): RecordConditionWhere => {
+  const normalizedLinks = sql`CASE
+    WHEN jsonb_typeof(to_jsonb(${columnRef})) = 'array' THEN to_jsonb(${columnRef})
+    WHEN to_jsonb(${columnRef}) IS NULL THEN '[]'::jsonb
+    ELSE jsonb_build_array(to_jsonb(${columnRef}))
+  END`;
+  return sql`EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(${normalizedLinks}) AS __link
+    WHERE __link->>'title' = (${rightColumnRef})::text
+  )`;
 };
 
 /**
@@ -202,6 +220,11 @@ const resolveDateFormatting = (field: core.Field): core.DateTimeFormatting | und
     return formatting instanceof core.DateTimeFormatting ? formatting : undefined;
   }
   return undefined;
+};
+
+const shouldCompareAsDateOnly = (field: core.Field): boolean => {
+  const formatting = resolveDateFormatting(field);
+  return formatting?.time() === core.TimeFormatting.None;
 };
 
 const resolveDateRange = (
@@ -463,11 +486,20 @@ const buildIsCondition = (
 
         return ok(sql`jsonb_exists_any(${leftIds}, ${buildJsonbTextArray(rightIds)})`);
       }
+
+      if (fieldIsLink(field)) {
+        const rightColumnRef = sql.ref(operand.column);
+        return ok(buildLinkTitleMatchCondition(columnRef, rightColumnRef));
+      }
     }
 
     if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
       const rightColumnRef = sql.ref(operand.column);
+
+      if (shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)) {
+        return ok(sql`(${columnRef})::date = (${rightColumnRef})::date`);
+      }
 
       if (fieldIsJson(field) || fieldIsJson(referenceField)) {
         return ok(sql`to_jsonb(${columnRef}) = to_jsonb(${rightColumnRef})`);
@@ -528,6 +560,10 @@ const buildIsNotCondition = (
     if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
       const rightColumnRef = sql.ref(operand.column);
+
+      if (shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)) {
+        return ok(sql`(${columnRef})::date is distinct from (${rightColumnRef})::date`);
+      }
 
       if (fieldIsJson(field) || fieldIsJson(referenceField)) {
         return ok(sql`to_jsonb(${columnRef}) is distinct from to_jsonb(${rightColumnRef})`);
@@ -609,15 +645,35 @@ const buildDateComparisonCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
   operator: ComparisonOperator,
-  tableAlias?: string
+  tableAlias?: string,
+  hostTableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
+    const columnRef = sql.ref(column);
+
+    if (core.isRecordConditionFieldReferenceValue(value)) {
+      const rightColumn = yield* resolveColumn(value.field(), hostTableAlias ?? tableAlias);
+      const right = sql.ref(rightColumn);
+      const referenceField = value.field();
+      const leftExpr: RecordConditionWhere =
+        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)
+          ? sql`(${columnRef})::date`
+          : columnRef;
+      const rightExpr: RecordConditionWhere =
+        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)
+          ? sql`(${right})::date`
+          : right;
+      if (operator === '>') return ok(sql`${leftExpr} > ${rightExpr}`);
+      if (operator === '>=') return ok(sql`${leftExpr} >= ${rightExpr}`);
+      if (operator === '<') return ok(sql`${leftExpr} < ${rightExpr}`);
+      return ok(sql`${leftExpr} <= ${rightExpr}`);
+    }
+
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
-    const columnRef = sql.ref(column);
     const boundary = operator === '>' || operator === '<=' ? range.end : range.start;
     const right = sql`${boundary}`;
     if (operator === '>') return ok(sql`${columnRef} > ${right}`);
@@ -1645,7 +1701,7 @@ export class TableRecordConditionWhereVisitor
     operator: ComparisonOperator
   ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(
-      buildDateComparisonCondition(field, value, operator, this.tableAlias)
+      buildDateComparisonCondition(field, value, operator, this.tableAlias, this.hostTableAlias)
     );
   }
 

@@ -24,7 +24,6 @@ export const BASE_IMPORT_ATTACHMENTS_QUEUE = 'base-import-attachments-queue';
 @Processor(BASE_IMPORT_ATTACHMENTS_QUEUE)
 export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
   private logger = new Logger(BaseImportAttachmentsQueueProcessor.name);
-  private processedJobs = new Set<string>();
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -36,19 +35,11 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<IBaseImportJob>) {
-    const jobId = String(job.id);
-    if (this.processedJobs.has(jobId)) {
-      this.logger.log(`Job ${jobId} already processed, skipping`);
-      return;
-    }
-
-    this.processedJobs.add(jobId);
-
     try {
       await this.handleBaseImportAttachments(job);
     } catch (error) {
       this.logger.error(
-        `Process base import attachments failed: ${(error as Error)?.message}`,
+        `[base import attachment] Process base import attachments failed: ${(error as Error)?.message}`,
         (error as Error)?.stack
       );
     }
@@ -109,126 +100,75 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
       StorageAdapter.getBucket(UploadType.Import),
       path
     );
-    const parser = unzipper.Parse();
+    const parser = unzipper.Parse({ forceStream: true });
     zipStream.pipe(parser);
     const bucket = StorageAdapter.getBucket(UploadType.Table);
 
-    return new Promise((resolve, reject) => {
-      let processingFiles = 0;
-      let hasError = false;
+    try {
+      for await (const entry of parser.pipe(new PassThrough({ objectMode: true }))) {
+        await this.processAttachmentEntry(entry, bucket);
+      }
 
-      parser.on('entry', (entry) => {
-        const filePath = entry.path;
-        const fileSuffix = filePath.split('.').pop();
-        if (
-          filePath.startsWith('attachments/') &&
-          entry.type !== 'Directory' &&
-          fileSuffix !== 'csv'
-        ) {
-          processingFiles++;
+      this.logger.log(`[base import attachment] all finished`);
+    } finally {
+      zipStream.destroy();
+    }
+  }
 
-          const passThrough = new PassThrough();
-          entry.pipe(passThrough);
+  private async processAttachmentEntry(entry: unzipper.Entry, bucket: string) {
+    const filePath = entry.path;
+    const fileSuffix = filePath.split('.').pop() ?? '';
 
-          const token = filePath.replace('attachments/', '').split('.')[0];
-          const isThumbnail = token.includes('thumbnail__');
-          const fileSuffix = filePath.replace('attachments/', '').split('.').pop();
-          const pathDir = StorageAdapter.getDir(UploadType.Table);
-          const mimeTypeFromExtension = this.getFileMimeType(fileSuffix);
+    if (
+      !filePath.startsWith('attachments/') ||
+      entry.type === 'Directory' ||
+      fileSuffix === 'csv'
+    ) {
+      entry.autodrain();
+      return;
+    }
 
-          const finalPath = isThumbnail
-            ? `table/${token.split('__')[1].split('.')[0]}`
-            : `${pathDir}/${token}`;
+    let passThrough: PassThrough | undefined;
+    try {
+      const token = filePath.replace('attachments/', '').split('.')[0];
+      const isThumbnail = token.includes('thumbnail__');
+      const mimeType = this.getFileMimeType(fileSuffix);
+      const pathDir = StorageAdapter.getDir(UploadType.Table);
+      const finalPath = isThumbnail
+        ? `table/${token.split('__')[1].split('.')[0]}`
+        : `${pathDir}/${token}`;
+      const finalToken = isThumbnail ? token.split('__')[1].split('.')[0] : token;
 
-          const finalToken = isThumbnail ? token.split('__')[1].split('.')[0] : token;
+      this.logger.log(`[base import attachment] start upload: ${token}`);
 
-          this.logger.log(`start upload attachment: ${token}`);
-
-          // this.storageAdapter
-          //   .uploadFile(bucket, finalPath, passThrough, {
-          //     // eslint-disable-next-line @typescript-eslint/naming-convention
-          //     'Content-Type': mimeTypeFromExtension,
-          //   })
-          //   .then(() => {
-          //     this.logger.log(`attachment finished: ${token}`);
-          //     processingFiles--;
-          //     checkComplete();
-          //   })
-          //   .catch((err) => {
-          //     this.logger.error(`attachment upload error ${token}: ${err.message}`);
-          //     hasError = true;
-          //     processingFiles--;
-          //     checkComplete();
-          //   });
-
-          // if the token file is existed, skip the upload
-          this.prismaService
-            .txClient()
-            .attachments.findUnique({
-              where: {
-                token: finalToken,
-              },
-              select: {
-                id: true,
-              },
-            })
-            .then(async (res) => {
-              if (res) {
-                this.logger.log(`attachment already exists: ${token}`);
-                processingFiles--;
-                checkComplete();
-                return;
-              }
-              // update attachment
-              await this.storageAdapter.uploadFileStream(bucket, finalPath, passThrough, {
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                'Content-Type': mimeTypeFromExtension,
-              });
-
-              this.logger.log(`attachment finished: ${token}`);
-              processingFiles--;
-              checkComplete();
-            })
-            .catch((err) => {
-              this.logger.error(`attachment upload error ${token}: ${err.message}`);
-              hasError = true;
-              processingFiles--;
-              checkComplete();
-            });
-        } else {
-          entry.autodrain();
-        }
+      const existing = await this.prismaService.txClient().attachments.findUnique({
+        where: { token: finalToken },
+        select: { id: true },
       });
 
-      const checkComplete = () => {
-        if (processingFiles === 0) {
-          if (hasError) {
-            reject(new Error('upload attachments error'));
-          } else {
-            parser.end();
-            parser.destroy();
-            zipStream.destroy();
-          }
+      if (existing) {
+        this.logger.log(`[base import attachment]  already exists: ${token}`);
+        entry.autodrain();
+        return;
+      }
 
-          if (parser.closed) {
-            resolve(true);
-          }
-        }
-      };
+      passThrough = new PassThrough();
+      entry.pipe(passThrough);
 
-      parser.on('close', () => {
-        this.logger.log(`import attachments success`);
-        if (processingFiles === 0) {
-          resolve(true);
-        }
+      await this.storageAdapter.uploadFileStream(bucket, finalPath, passThrough, {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Type': mimeType,
       });
 
-      parser.on('error', (err) => {
-        this.logger.error(`import attachments error: ${err.message}`);
-        hasError = true;
-        reject(err);
-      });
-    });
+      this.logger.log(`[base import attachment] ${token} finished: ${token}`);
+    } catch (err) {
+      this.logger.error(`[base import attachment] upload  error: ${(err as Error).message}`);
+      if (passThrough) {
+        passThrough.resume();
+      } else {
+        entry.autodrain();
+      }
+    }
   }
 
   @OnWorkerEvent('completed')

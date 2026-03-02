@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { fieldColorSchema } from '../../domain/table/fields/types/FieldColor';
+import { fieldColorSchema, fieldColorValues } from '../../domain/table/fields/types/FieldColor';
 import { TIME_ZONE_LIST } from '../../domain/table/fields/types/TimeZone';
 import {
   cellValueTypeSchema,
@@ -45,8 +45,29 @@ export const selectChoiceSchema = z.object({
   color: fieldColorSchema,
 });
 
+const normalizedSelectChoicesSchema = z.preprocess((value) => {
+  const toArray = Array.isArray(value)
+    ? value
+    : value && typeof value === 'object'
+      ? Object.values(value as Record<string, unknown>)
+      : [];
+
+  return toArray.map((item, index) => {
+    const choice = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+    const color =
+      typeof choice.color === 'string' && fieldColorValues.includes(choice.color as never)
+        ? choice.color
+        : fieldColorValues[index % fieldColorValues.length];
+    return {
+      id: typeof choice.id === 'string' ? choice.id : undefined,
+      name: String(choice.name ?? ''),
+      color,
+    };
+  });
+}, z.array(selectChoiceSchema));
+
 export const selectOptionsSchema = z.object({
-  choices: z.array(selectChoiceSchema).optional(),
+  choices: normalizedSelectChoicesSchema.optional(),
   defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
   preventAutoNewOptions: z.boolean().optional(),
 });
@@ -109,8 +130,11 @@ export const linkOptionsSchema = z
     baseId: z.string().optional(),
     relationship: linkRelationshipSchema,
     foreignTableId: z.string(),
-    lookupFieldId: z.string(),
+    lookupFieldId: z.string().optional(),
     isOneWay: z.boolean().optional(),
+    fkHostTableName: z.string().optional(),
+    selfKeyName: z.string().optional(),
+    foreignKeyName: z.string().optional(),
     symmetricFieldId: z.string().optional(),
     filterByViewId: z.string().nullable().optional(),
     visibleFieldIds: z.array(z.string()).nullable().optional(),
@@ -204,7 +228,9 @@ export const conditionalLookupOptionsSchema = z
 const tableFieldCommonShape = {
   id: z.string().optional(),
   name: z.string().optional(),
+  dbFieldName: z.string().optional(),
   description: z.string().nullable().optional(),
+  aiConfig: z.unknown().nullable().optional(),
   isPrimary: z.boolean().optional(),
   notNull: z.boolean().optional(),
   unique: z.boolean().optional(),
@@ -300,6 +326,9 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
   tableFieldSchema({
     type: z.literal('lookup'),
     options: lookupOptionsSchema,
+    innerOptions: z.record(z.string(), z.unknown()).optional(),
+    legacyMultiplicityDerivation: z.boolean().optional(),
+    isMultipleCellValue: z.boolean().optional(),
   }).strict(),
   tableFieldSchema({
     type: z.literal('conditionalRollup'),
@@ -311,6 +340,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
   tableFieldSchema({
     type: z.literal('conditionalLookup'),
     options: conditionalLookupOptionsSchema,
+    innerOptions: z.record(z.string(), z.unknown()).optional(),
+    isMultipleCellValue: z.boolean().optional(),
   }).strict(),
 ]);
 

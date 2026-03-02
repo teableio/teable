@@ -6,6 +6,7 @@ import type { ISpecification } from '../shared/specification/ISpecification';
 import { SpecBuilder, type SpecBuilderMode } from '../shared/specification/SpecBuilder';
 import { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
+import type { FieldName } from './fields/FieldName';
 import {
   isForeignTableRelatedField,
   validateForeignTablesForFields,
@@ -21,6 +22,8 @@ import { TableUpdateViewColumnMetaSpec } from './specs/TableUpdateViewColumnMeta
 import { TableEventGeneratingSpecVisitor } from './specs/visitors/TableEventGeneratingSpecVisitor';
 import type { Table } from './Table';
 import type { TableName } from './TableName';
+import { ViewColumnMeta } from './views/ViewColumnMeta';
+import type { ViewId } from './views/ViewId';
 
 class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, TableMutateSpecBuilder> {
   private constructor(private currentTable: Table) {
@@ -46,7 +49,13 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
 
   addField(
     field: Field,
-    options?: { foreignTables?: ReadonlyArray<Table> }
+    options?: {
+      foreignTables?: ReadonlyArray<Table>;
+      viewOrder?: {
+        viewId: ViewId;
+        order: number;
+      };
+    }
   ): TableMutateSpecBuilder {
     const nextTableResult = this.currentTable.addField(field, options);
     if (nextTableResult.isErr()) {
@@ -64,10 +73,48 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     }
 
     this.addSpec(TableAddFieldSpec.create(resolvedFieldResult.value));
-    const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTableWithFieldId(
-      nextTableResult.value,
-      field.id()
-    );
+    const viewSpecResult = (() => {
+      if (!options?.viewOrder) {
+        return TableUpdateViewColumnMetaSpec.fromTableWithFieldId(
+          nextTableResult.value,
+          field.id()
+        );
+      }
+
+      const viewResult = nextTableResult.value.getView(options.viewOrder.viewId);
+      if (viewResult.isErr()) {
+        return err(viewResult.error);
+      }
+
+      const columnMetaResult = viewResult.value.columnMeta();
+      if (columnMetaResult.isErr()) {
+        return err(columnMetaResult.error);
+      }
+
+      const fieldId = field.id();
+      const fieldIdStr = fieldId.toString();
+      const currentMeta = columnMetaResult.value.toDto();
+      const nextMetaResult = ViewColumnMeta.create({
+        ...currentMeta,
+        [fieldIdStr]: {
+          ...(currentMeta[fieldIdStr] ?? {}),
+          order: options.viewOrder.order,
+        },
+      });
+      if (nextMetaResult.isErr()) {
+        return err(nextMetaResult.error);
+      }
+
+      return ok(
+        TableUpdateViewColumnMetaSpec.create([
+          {
+            viewId: options.viewOrder.viewId,
+            fieldId,
+            columnMeta: nextMetaResult.value,
+          },
+        ])
+      );
+    })();
     if (viewSpecResult.isErr()) {
       this.recordError(viewSpecResult.error);
       return this;
@@ -129,9 +176,52 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
 
   duplicateField(
     sourceField: Field,
-    newField: Field,
-    includeRecordValues: boolean
+    newFieldId: FieldId,
+    newFieldName: FieldName,
+    includeRecordValues: boolean,
+    options?: { targetViewId?: ViewId }
   ): TableMutateSpecBuilder {
+    const newFieldResult = sourceField.duplicate({
+      newId: newFieldId,
+      newName: newFieldName,
+      baseId: this.currentTable.baseId(),
+      tableId: this.currentTable.id(),
+    });
+    if (newFieldResult.isErr()) {
+      this.recordError(newFieldResult.error);
+      return this;
+    }
+
+    const newField = newFieldResult.value;
+
+    if (newField.dbFieldName().isOk()) {
+      this.recordError(
+        domainError.invariant({ message: 'Duplicated field must not carry dbFieldName' })
+      );
+      return this;
+    }
+
+    const copyDescriptionResult = newField.setDescription(sourceField.description());
+    if (copyDescriptionResult.isErr()) {
+      this.recordError(copyDescriptionResult.error);
+      return this;
+    }
+    const copyAiConfigResult = newField.setAiConfig(sourceField.aiConfig());
+    if (copyAiConfigResult.isErr()) {
+      this.recordError(copyAiConfigResult.error);
+      return this;
+    }
+    const copyNotNullResult = newField.setNotNull(sourceField.notNull());
+    if (copyNotNullResult.isErr()) {
+      this.recordError(copyNotNullResult.error);
+      return this;
+    }
+    const copyUniqueResult = newField.setUnique(sourceField.unique());
+    if (copyUniqueResult.isErr()) {
+      this.recordError(copyUniqueResult.error);
+      return this;
+    }
+
     const nextTableResult = this.currentTable.addField(newField);
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);
@@ -149,10 +239,14 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     this.addSpec(
       TableDuplicateFieldSpec.create(sourceField, resolvedFieldResult.value, includeRecordValues)
     );
-    const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTableWithFieldId(
-      nextTableResult.value,
-      newField.id()
-    );
+    const viewSpecResult = options?.targetViewId
+      ? TableUpdateViewColumnMetaSpec.forDuplicatePlacement({
+          table: nextTableResult.value,
+          sourceFieldId: sourceField.id(),
+          newFieldId: newField.id(),
+          targetViewId: options.targetViewId,
+        })
+      : TableUpdateViewColumnMetaSpec.fromTableWithFieldId(nextTableResult.value, newField.id());
     if (viewSpecResult.isErr()) {
       this.recordError(viewSpecResult.error);
       return this;
@@ -275,7 +369,16 @@ export class TableMutator {
     return this;
   }
 
-  addField(field: Field, options?: { foreignTables?: ReadonlyArray<Table> }): TableMutator {
+  addField(
+    field: Field,
+    options?: {
+      foreignTables?: ReadonlyArray<Table>;
+      viewOrder?: {
+        viewId: ViewId;
+        order: number;
+      };
+    }
+  ): TableMutator {
     this.builder.addField(field, options);
     this.hasUpdates = true;
     return this;
@@ -296,8 +399,20 @@ export class TableMutator {
     return this;
   }
 
-  duplicateField(sourceField: Field, newField: Field, includeRecordValues: boolean): TableMutator {
-    this.builder.duplicateField(sourceField, newField, includeRecordValues);
+  duplicateField(
+    sourceField: Field,
+    newFieldId: FieldId,
+    newFieldName: FieldName,
+    includeRecordValues: boolean,
+    options?: { targetViewId?: ViewId }
+  ): TableMutator {
+    this.builder.duplicateField(
+      sourceField,
+      newFieldId,
+      newFieldName,
+      includeRecordValues,
+      options
+    );
     this.hasUpdates = true;
     return this;
   }

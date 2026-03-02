@@ -503,15 +503,28 @@ export class FieldCondition extends ValueObject {
               );
             }
 
-            const fieldIdResult = FieldId.create(filterItemEntry.fieldId);
+            const isFieldRefObject =
+              typeof filterItemEntry.value === 'object' &&
+              filterItemEntry.value !== null &&
+              'type' in filterItemEntry.value &&
+              (filterItemEntry.value as { type?: string }).type === 'field' &&
+              'fieldId' in filterItemEntry.value;
+            const isSelfTableReference =
+              isFieldRefObject && hostTable !== undefined && hostTable.id().equals(table.id());
+            const effectiveFieldIdValue =
+              isSelfTableReference && isFieldRefObject
+                ? (filterItemEntry.value as { fieldId: string }).fieldId
+                : filterItemEntry.fieldId;
+
+            const fieldIdResult = FieldId.create(effectiveFieldIdValue);
             if (fieldIdResult.isErr()) return err(fieldIdResult.error);
             const field = fields.find((f) => f.id().equals(fieldIdResult.value));
             if (!field) {
               return err(
                 domainError.notFound({
                   code: 'field.condition.field_not_found',
-                  message: `Field not found: ${filterItemEntry.fieldId}`,
-                  details: { fieldId: filterItemEntry.fieldId },
+                  message: `Field not found: ${effectiveFieldIdValue}`,
+                  details: { fieldId: effectiveFieldIdValue },
                 })
               );
             }
@@ -520,18 +533,12 @@ export class FieldCondition extends ValueObject {
             // `value: null` is commonly used by v1-style filters for operators that don't require a value
             // (e.g. `isEmpty`, `isNotEmpty`). Treat null the same as "not provided".
             if (filterItemEntry.value !== undefined && filterItemEntry.value !== null) {
-              // Check if value is a field reference object: { type: 'field', fieldId: ... }
-              const isFieldRefObject =
-                typeof filterItemEntry.value === 'object' &&
-                filterItemEntry.value !== null &&
-                'type' in filterItemEntry.value &&
-                (filterItemEntry.value as { type?: string }).type === 'field' &&
-                'fieldId' in filterItemEntry.value;
-
               if (filterItemEntry.isSymbol || isFieldRefObject) {
                 // Field reference - resolve from host table if provided, otherwise from main table
                 const refFieldIdValue = isFieldRefObject
-                  ? (filterItemEntry.value as { fieldId: string }).fieldId
+                  ? isSelfTableReference
+                    ? filterItemEntry.fieldId
+                    : (filterItemEntry.value as { fieldId: string }).fieldId
                   : String(filterItemEntry.value);
                 const refFieldId = yield* FieldId.create(refFieldIdValue);
                 const refField = hostFields.find((f) => f.id().equals(refFieldId));

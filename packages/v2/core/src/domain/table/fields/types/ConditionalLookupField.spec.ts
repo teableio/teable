@@ -40,6 +40,50 @@ const createConditionalLookupField = (statusFieldId: FieldId) => {
 };
 
 describe('ConditionalLookupField.onDependencyUpdated', () => {
+  it('preserves inner options patch when duplicated', () => {
+    const statusFieldId = createFieldId('z');
+    const field = ConditionalLookupField.create({
+      id: createFieldId('y'),
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: SingleLineTextField.create({
+        id: createFieldId('x'),
+        name: FieldName.create('Title')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: createTableId('w').toString(),
+        lookupFieldId: createFieldId('v').toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+        },
+      })._unsafeUnwrap(),
+      innerOptionsPatch: {
+        formatting: {
+          type: 'currency',
+          precision: 1,
+          symbol: '¥',
+        },
+      },
+    })._unsafeUnwrap();
+
+    const duplicated = field
+      .duplicate({
+        newId: createFieldId('u'),
+        newName: FieldName.create('Conditional Lookup Copy')._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap() as ConditionalLookupField;
+
+    expect(duplicated.innerOptionsPatch()).toEqual({
+      formatting: {
+        type: 'currency',
+        precision: 1,
+        symbol: '¥',
+      },
+    });
+  });
+
   it('marks hasError when referenced field is type-converted', () => {
     const statusFieldId = createFieldId('a');
     const conditionalLookup = createConditionalLookupField(statusFieldId);

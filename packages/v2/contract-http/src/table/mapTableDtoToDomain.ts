@@ -82,6 +82,14 @@ import { sequenceResults } from '../shared/neverthrow';
 import type { IFieldDto, ITableDto, IViewDto } from './dto';
 
 type FormulaFieldDto = Extract<IFieldDto, { type: 'formula' }>;
+type LookupRelationship = 'oneOne' | 'manyMany' | 'oneMany' | 'manyOne' | undefined;
+
+const relationshipToLookupMultiplicity = (
+  relationship: LookupRelationship
+): boolean | undefined => {
+  if (relationship == null) return undefined;
+  return relationship === 'manyOne' || relationship === 'oneOne' ? false : true;
+};
 
 const optional = <T>(
   raw: unknown,
@@ -177,8 +185,11 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, DomainError> => {
         );
       }
       if (dto.isLookup && dto.lookupOptions) {
+        const isMultipleCellValue = relationshipToLookupMultiplicity(
+          dto.lookupOptions.relationship
+        );
         return LookupOptions.create(dto.lookupOptions).andThen((lookupOptions) =>
-          createLookupFieldPending({ id, name, lookupOptions })
+          createLookupFieldPending({ id, name, lookupOptions, isMultipleCellValue })
             .andThen((field) => applyFieldValidation(field, dto.notNull, dto.unique))
             .andThen((field) => applyDbFieldName(field, dto.dbFieldName))
         );

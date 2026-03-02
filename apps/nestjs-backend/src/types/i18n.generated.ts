@@ -255,6 +255,7 @@ export type I18nTranslations = {
             "copySuccess": string;
             "retry": string;
             "copyToMySpace": string;
+            "copyLink": string;
             "collapse": string;
             "viewDetails": string;
         };
