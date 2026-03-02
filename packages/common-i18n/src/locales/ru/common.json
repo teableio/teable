@@ -799,9 +799,23 @@
             "failed": {
               "message": "❌ Импорт {{tableName}} не удался: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ Импорт {{tableName}} не удался: Достигнут лимит строк, обновите план для импорта большего количества записей"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ Импорт {{tableName}} не удался: Ни одна запись не была обработана"
+            },
             "success": {
               "message": "🎉 {{tableName}} успешно импортирована.",
               "inplace": "🎉 {{tableName}} успешно импортирована на месте."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -992,6 +1006,17 @@
     "error": {
       "title": "Что-то пошло не так",
       "description": "Произошла непредвиденная ошибка. Пожалуйста, попробуйте позже."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Ошибка разбора даты, значение \"{{value}}\" выходит за допустимый диапазон",
+      "planRowLimit": "Достигнут лимит строк: обновите план для импорта большего количества записей",
+      "notNullValidation": "{{fieldHint}}Обязательные поля не могут быть пустыми",
+      "uniqueValidation": "{{fieldHint}}Дублирующиеся значения в уникальных полях",
+      "requestTimeout": "Превышено время ожидания запроса",
+      "chunkProcessingFailed": "Ошибка пакетной обработки: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

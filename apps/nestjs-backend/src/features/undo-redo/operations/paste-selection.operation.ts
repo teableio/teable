@@ -71,17 +71,17 @@ export class PasteSelectionOperation {
       });
     }
 
-    if (newRecords && newRecords.length > 0) {
-      await this.recordOpenApiService.deleteRecords(
-        tableId,
-        newRecords.map((r) => r.id)
-      );
-    }
-
     if (newFields && newFields.length > 0) {
       await this.fieldOpenApiService.deleteFields(
         tableId,
         newFields.map((field) => field.id)
+      );
+    }
+
+    if (newRecords && newRecords.length > 0) {
+      await this.recordOpenApiService.deleteRecords(
+        tableId,
+        newRecords.map((r) => r.id)
       );
     }
 

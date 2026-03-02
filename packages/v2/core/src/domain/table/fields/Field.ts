@@ -35,7 +35,8 @@ export abstract class Field extends Entity<FieldId> {
     dbFieldName?: DbFieldName,
     dependencies: ReadonlyArray<FieldId> = [],
     computed?: FieldComputed,
-    description: string | null = null
+    description: string | null = null,
+    aiConfig?: unknown | null
   ) {
     super(id);
     this.dbFieldNameValue = dbFieldName ?? DbFieldName.empty();
@@ -43,6 +44,7 @@ export abstract class Field extends Entity<FieldId> {
     this.dependenciesValue = [...dependencies];
     this.computedValue = computed ?? FieldComputed.manual();
     this.descriptionValue = description;
+    this.aiConfigValue = aiConfig;
     this.hasErrorValue = FieldHasError.ok();
     this.notNullValue = FieldNotNull.optional();
     this.uniqueValue = FieldUnique.disabled();
@@ -54,6 +56,7 @@ export abstract class Field extends Entity<FieldId> {
   private dependentsValue: ReadonlyArray<FieldId> | undefined;
   private readonly computedValue: FieldComputed;
   private descriptionValue: string | null;
+  private aiConfigValue: unknown | null | undefined;
   private hasErrorValue: FieldHasError;
   private notNullValue: FieldNotNull;
   private uniqueValue: FieldUnique;
@@ -76,6 +79,15 @@ export abstract class Field extends Entity<FieldId> {
 
   description(): string | null {
     return this.descriptionValue;
+  }
+
+  aiConfig(): unknown | null | undefined {
+    return this.aiConfigValue;
+  }
+
+  setAiConfig(aiConfig: unknown | null | undefined): Result<void, DomainError> {
+    this.aiConfigValue = aiConfig;
+    return ok(undefined);
   }
 
   setDescription(description: string | null): Result<void, DomainError> {
@@ -135,6 +147,19 @@ export abstract class Field extends Entity<FieldId> {
       if (currentValue.value !== nextValue.value)
         return err(domainError.invariant({ message: 'DbFieldName already set' }));
       return ok(undefined);
+    }
+
+    this.dbFieldNameValue = dbFieldName;
+    return ok(undefined);
+  }
+
+  renameDbFieldName(dbFieldName: DbFieldName): Result<void, DomainError> {
+    const nextValue = dbFieldName.value();
+    if (nextValue.isErr()) return err(nextValue.error);
+
+    const currentValue = this.dbFieldNameValue.value();
+    if (currentValue.isErr()) {
+      return err(domainError.invariant({ message: 'DbFieldName not set' }));
     }
 
     this.dbFieldNameValue = dbFieldName;

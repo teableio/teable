@@ -835,9 +835,23 @@
             "failed": {
               "message": "❌ Importación de {{tableName}} fallida: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ Importación de {{tableName}} fallida: Límite de filas alcanzado, actualice su plan para importar más registros"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ Importación de {{tableName}} fallida: No se procesaron registros"
+            },
             "success": {
               "message": "🎉 {{tableName}} importado exitosamente.",
               "inplace": "🎉 {{tableName}} importado incrementalmente exitosamente."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -1028,6 +1042,17 @@
     "error": {
       "title": "Algo salió mal",
       "description": "Ocurrió un error inesperado. Por favor, inténtalo de nuevo más tarde."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Error al analizar la fecha, el valor \"{{value}}\" está fuera del rango válido",
+      "planRowLimit": "Límite de filas alcanzado: actualice su plan para importar más registros",
+      "notNullValidation": "{{fieldHint}}Los campos obligatorios no pueden estar vacíos",
+      "uniqueValidation": "{{fieldHint}}Valores duplicados en campos únicos",
+      "requestTimeout": "Tiempo de espera agotado",
+      "chunkProcessingFailed": "Error en el procesamiento por lotes: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

@@ -839,9 +839,23 @@
             "failed": {
               "message": "❌ {{tableName}}のインポートが失敗しました：{{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}}のインポートが失敗しました：行数上限に達しました。より多くのレコードをインポートするにはプランをアップグレードしてください"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}}のインポートが失敗しました：レコードが処理されませんでした"
+            },
             "success": {
               "message": "🎉 {{tableName}}が正常にインポートされました。",
               "inplace": "🎉 {{tableName}}が正常にインプレースインポートされました。"
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -1032,6 +1046,17 @@
     "error": {
       "title": "エラーが発生しました",
       "description": "予期しないエラーが発生しました。後でもう一度お試しください。"
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}日付解析エラー、値「{{value}}」が有効範囲外です",
+      "planRowLimit": "行数上限に達しました：より多くのレコードをインポートするにはプランをアップグレードしてください",
+      "notNullValidation": "{{fieldHint}}必須フィールドが空です",
+      "uniqueValidation": "{{fieldHint}}一意フィールドに重複値があります",
+      "requestTimeout": "リクエストがタイムアウトしました",
+      "chunkProcessingFailed": "バッチ処理に失敗しました：{{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

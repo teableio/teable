@@ -10,6 +10,7 @@ import {
   type CreateTableResult,
   FieldId,
   type ICommandBus,
+  type ITableRepository,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -298,7 +299,7 @@ describe('CreateFieldHandler (db)', () => {
     expect(checkboxRow.is_multiple_cell_value).toBe(false);
     expect(checkboxRow.db_field_type).toBe('BOOLEAN');
     expect(checkboxRow.not_null).toBeNull();
-    expect(checkboxRow.unique).toBeNull();
+    expect(checkboxRow.unique).toBe(false);
     expect(checkboxRow.is_computed).toBeNull();
     expect(JSON.parse(checkboxRow.options ?? '')).toEqual({ defaultValue: true });
 
@@ -326,7 +327,7 @@ describe('CreateFieldHandler (db)', () => {
     expect(formulaRow.is_multiple_cell_value).toBe(false);
     expect(formulaRow.db_field_type).toBe('REAL');
     expect(formulaRow.not_null).toBeNull();
-    expect(formulaRow.unique).toBeNull();
+    expect(formulaRow.unique).toBe(false);
     expect(formulaRow.is_computed).toBe(true);
     expect(JSON.parse(formulaRow.options ?? '')).toEqual({
       expression: `{${numberFieldId}} * 2`,
@@ -496,6 +497,83 @@ describe('CreateFieldHandler (db)', () => {
       { order: number }
     >;
     expect(updatedViewMetaDb).toEqual(updatedViewMeta);
+  });
+
+  it('persists and rehydrates aiConfig on field create', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+    const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
+
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const createTableResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'AI Config Table',
+      fields: [{ type: 'singleLineText', name: 'Title' }],
+    });
+    createTableResult._unsafeUnwrap();
+
+    const createdTableResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createTableResult._unsafeUnwrap()
+    );
+    createdTableResult._unsafeUnwrap();
+    const createdTable = createdTableResult._unsafeUnwrap().table;
+
+    const aiFieldId = FieldId.mustGenerate().toString();
+    const aiConfig = {
+      type: 'summary',
+      modelKey: 'openai@gpt-4o@gpt',
+      sourceFieldId: createdTable.primaryFieldId().toString(),
+    };
+
+    const createFieldResult = CreateFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: createdTable.id().toString(),
+      field: {
+        id: aiFieldId,
+        type: 'singleLineText',
+        name: 'AI Summary',
+        aiConfig,
+      },
+    });
+    createFieldResult._unsafeUnwrap();
+
+    const createdFieldResult = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      createFieldResult._unsafeUnwrap()
+    );
+    createdFieldResult._unsafeUnwrap();
+
+    const persistedRow = await db
+      .selectFrom('field')
+      .select(['id', 'ai_config'])
+      .where('id', '=', aiFieldId)
+      .executeTakeFirst();
+
+    expect(persistedRow).toBeTruthy();
+    if (!persistedRow) return;
+    expect(persistedRow.id).toBe(aiFieldId);
+    expect(JSON.parse(persistedRow.ai_config ?? 'null')).toEqual(aiConfig);
+
+    const byIdSpecResult = createdTable.specs().byId(createdTable.id()).build();
+    byIdSpecResult._unsafeUnwrap();
+
+    const reloadedTableResult = await tableRepository.findOne(
+      context,
+      byIdSpecResult._unsafeUnwrap()
+    );
+    reloadedTableResult._unsafeUnwrap();
+    const reloadedTable = reloadedTableResult._unsafeUnwrap();
+
+    const reloadedField = reloadedTable
+      .getFields()
+      .find((field) => field.id().toString() === aiFieldId);
+    expect(reloadedField).toBeTruthy();
+    expect(reloadedField?.aiConfig()).toEqual(aiConfig);
   });
 
   it('persists all field types and link side effects', async () => {
@@ -939,5 +1017,210 @@ describe('CreateFieldHandler (db)', () => {
       { from_field_id: foreignPrimaryFieldId, to_field_id: linkId },
       { from_field_id: hostTable.primaryFieldId().toString(), to_field_id: symmetricLinkId },
     ]);
+  });
+
+  it('uses provided link db config when creating link fields', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
+
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const createHostResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Configured Link Host',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    createHostResult._unsafeUnwrap();
+    const hostExec = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createHostResult._unsafeUnwrap()
+    );
+    hostExec._unsafeUnwrap();
+    const hostTable = hostExec._unsafeUnwrap().table;
+    const hostTableId = hostTable.id().toString();
+
+    const createForeignResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Configured Link Foreign',
+      fields: [{ type: 'singleLineText', name: 'Title' }],
+    });
+    createForeignResult._unsafeUnwrap();
+    const foreignExec = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createForeignResult._unsafeUnwrap()
+    );
+    foreignExec._unsafeUnwrap();
+    const foreignTable = foreignExec._unsafeUnwrap().table;
+    const foreignTableId = foreignTable.id().toString();
+    const foreignPrimaryFieldId = foreignTable.primaryFieldId().toString();
+
+    const linkId = `fld${'p'.repeat(16)}`;
+    const symmetricLinkId = `fld${'q'.repeat(16)}`;
+    const customJunctionTable = `junction_cfg_${linkId.slice(-4)}_${symmetricLinkId.slice(-4)}`;
+    const customFkHostTableName = `${baseId.toString()}.${customJunctionTable}`;
+    const selfKeyName = `__fk_${symmetricLinkId}`;
+    const foreignKeyName = `__fk_${linkId}`;
+
+    const commandResult = CreateFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        id: linkId,
+        name: 'Configured ManyMany Link',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+          symmetricFieldId: symmetricLinkId,
+          fkHostTableName: customFkHostTableName,
+          selfKeyName,
+          foreignKeyName,
+        },
+      },
+    });
+    commandResult._unsafeUnwrap();
+
+    const execResult = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      commandResult._unsafeUnwrap()
+    );
+    execResult._unsafeUnwrap();
+
+    const createdLinkRow = await db
+      .selectFrom('field')
+      .select(['id', 'options', 'table_id'])
+      .where('id', '=', linkId)
+      .executeTakeFirst();
+    expect(createdLinkRow).toBeTruthy();
+    if (!createdLinkRow) return;
+    expect(createdLinkRow.table_id).toBe(hostTableId);
+
+    const createdOptions = JSON.parse(createdLinkRow.options ?? '{}') as Record<string, unknown>;
+    expect(createdOptions.fkHostTableName).toBe(customFkHostTableName);
+    expect(createdOptions.selfKeyName).toBe(selfKeyName);
+    expect(createdOptions.foreignKeyName).toBe(foreignKeyName);
+
+    const symmetricRow = await db
+      .selectFrom('field')
+      .select(['id', 'options', 'table_id'])
+      .where('id', '=', symmetricLinkId)
+      .executeTakeFirst();
+    expect(symmetricRow).toBeTruthy();
+    if (!symmetricRow) return;
+    expect(symmetricRow.table_id).toBe(foreignTableId);
+
+    const symmetricOptions = JSON.parse(symmetricRow.options ?? '{}') as Record<string, unknown>;
+    expect(symmetricOptions.fkHostTableName).toBe(customFkHostTableName);
+    expect(symmetricOptions.selfKeyName).toBe(foreignKeyName);
+    expect(symmetricOptions.foreignKeyName).toBe(selfKeyName);
+
+    const customJunctionRows = await db
+      .withSchema('information_schema')
+      .selectFrom('tables')
+      .select(['table_name'])
+      .where('table_schema', '=', baseId.toString())
+      .where('table_name', '=', customJunctionTable)
+      .execute();
+    expect(customJunctionRows).toHaveLength(1);
+
+    const defaultJunctionTable = `junction_${linkId}_${symmetricLinkId}`;
+    const defaultJunctionRows = await db
+      .withSchema('information_schema')
+      .selectFrom('tables')
+      .select(['table_name'])
+      .where('table_schema', '=', baseId.toString())
+      .where('table_name', '=', defaultJunctionTable)
+      .execute();
+    expect(defaultJunctionRows).toHaveLength(0);
+  });
+
+  it('defaults link lookupFieldId to foreign primary field when omitted', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
+
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const createHostResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Link Host Without Lookup',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    createHostResult._unsafeUnwrap();
+    const hostExec = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createHostResult._unsafeUnwrap()
+    );
+    hostExec._unsafeUnwrap();
+    const hostTable = hostExec._unsafeUnwrap().table;
+    const hostTableId = hostTable.id().toString();
+    const hostPrimaryFieldId = hostTable.primaryFieldId().toString();
+
+    const createForeignResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Link Foreign Without Lookup',
+      fields: [{ type: 'singleLineText', name: 'Title' }],
+    });
+    createForeignResult._unsafeUnwrap();
+    const foreignExec = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createForeignResult._unsafeUnwrap()
+    );
+    foreignExec._unsafeUnwrap();
+    const foreignTable = foreignExec._unsafeUnwrap().table;
+    const foreignTableId = foreignTable.id().toString();
+    const foreignPrimaryFieldId = foreignTable.primaryFieldId().toString();
+
+    const linkId = `fld${'r'.repeat(16)}`;
+    const symmetricLinkId = `fld${'s'.repeat(16)}`;
+    const commandResult = CreateFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        id: linkId,
+        name: 'ManyMany Without Lookup',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId,
+          symmetricFieldId: symmetricLinkId,
+        },
+      },
+    });
+    commandResult._unsafeUnwrap();
+
+    const execResult = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      commandResult._unsafeUnwrap()
+    );
+    execResult._unsafeUnwrap();
+
+    const createdLinkRow = await db
+      .selectFrom('field')
+      .select(['id', 'options'])
+      .where('id', '=', linkId)
+      .executeTakeFirst();
+    expect(createdLinkRow).toBeTruthy();
+    if (!createdLinkRow) return;
+
+    const createdOptions = JSON.parse(createdLinkRow.options ?? '{}') as Record<string, unknown>;
+    expect(createdOptions.lookupFieldId).toBe(foreignPrimaryFieldId);
+
+    const symmetricRow = await db
+      .selectFrom('field')
+      .select(['id', 'options'])
+      .where('id', '=', symmetricLinkId)
+      .executeTakeFirst();
+    expect(symmetricRow).toBeTruthy();
+    if (!symmetricRow) return;
+
+    const symmetricOptions = JSON.parse(symmetricRow.options ?? '{}') as Record<string, unknown>;
+    expect(symmetricOptions.lookupFieldId).toBe(hostPrimaryFieldId);
   });
 });

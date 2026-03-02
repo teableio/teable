@@ -832,9 +832,23 @@
             "failed": {
               "message": "❌ {{tableName}} Import fehlgeschlagen: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}} Import fehlgeschlagen: Zeilenlimit erreicht, bitte upgraden Sie Ihren Plan, um mehr Datensätze zu importieren"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}} Import fehlgeschlagen: Keine Datensätze wurden verarbeitet"
+            },
             "success": {
               "message": "🎉 {{tableName}} erfolgreich importiert.",
               "inplace": "🎉 {{tableName}} erfolgreich inkrementell importiert."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -1025,6 +1039,17 @@
     "error": {
       "title": "Etwas ist schief gelaufen",
       "description": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Datumsanalyse fehlgeschlagen, Wert \"{{value}}\" liegt außerhalb des gültigen Bereichs",
+      "planRowLimit": "Zeilenlimit erreicht: Bitte upgraden Sie Ihren Plan, um mehr Datensätze zu importieren",
+      "notNullValidation": "{{fieldHint}}Pflichtfeld(er) dürfen nicht leer sein",
+      "uniqueValidation": "{{fieldHint}}Doppelte Werte in eindeutigem Feld/Feldern",
+      "requestTimeout": "Zeitüberschreitung der Anfrage",
+      "chunkProcessingFailed": "Stapelverarbeitung fehlgeschlagen: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

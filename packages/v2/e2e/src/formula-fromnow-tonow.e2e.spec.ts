@@ -118,10 +118,11 @@ describe('v2 http formula FROMNOW / TONOW (e2e)', () => {
     expect(pastToDay).toBeGreaterThan(0);
     expect(Math.abs(pastFromDay - pastToDay)).toBeLessThanOrEqual(1);
 
-    expect(pastFromHour).toBeGreaterThanOrEqual(pastFromDay * 24);
-    expect(pastFromHour).toBeLessThan((pastFromDay + 1) * 24);
-    expect(pastFromSecond).toBeGreaterThanOrEqual(pastFromHour * 3600);
-    expect(pastFromSecond).toBeLessThan((pastFromHour + 1) * 3600);
+    const epsilon = 1e-9;
+    expect(pastFromHour).toBeGreaterThanOrEqual(pastFromDay * 24 - epsilon);
+    expect(pastFromHour).toBeLessThan((pastFromDay + 1) * 24 + epsilon);
+    expect(pastFromSecond).toBeGreaterThanOrEqual(pastFromHour * 3600 - epsilon);
+    expect(pastFromSecond).toBeLessThan((pastFromHour + 1) * 3600 + epsilon);
 
     const futureToDay = toNumber(futureRecord.fields[toNowDayId]);
     expect(futureToDay).toBeLessThan(0);

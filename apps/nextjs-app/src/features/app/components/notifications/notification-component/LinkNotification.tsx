@@ -37,11 +37,28 @@ export const LinkNotification = (props: LinkNotificationProps) => {
   const { t } = useTranslation(['common']);
   const message = getShowMessage(data, t as ILocaleFunction);
 
+  // When the message contains inner <a> links (e.g. error report download),
+  // we need to stop the click from bubbling up to the parent <Link> which
+  // would navigate to the table URL instead.
+  const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'A' || target.closest('a')) {
+      e.stopPropagation();
+      e.preventDefault();
+      const anchor = (target.tagName === 'A' ? target : target.closest('a')) as HTMLAnchorElement;
+      if (anchor?.href) {
+        window.open(anchor.href, anchor.target || '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
+
   return notifyType !== NotificationTypeEnum.ExportBase ? (
     <Link href={url}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="max-h-20 overflow-auto break-words"
         dangerouslySetInnerHTML={{ __html: message }}
+        onClick={handleContentClick}
       />
     </Link>
   ) : (

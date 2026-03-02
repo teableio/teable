@@ -4,7 +4,10 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import { AndSpec } from '../../domain/shared/specification/AndSpec';
+import {
+  composeAndSpecsOrUndefined,
+  flattenAndSpecs,
+} from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
@@ -81,28 +84,22 @@ export class FieldCrossTableUpdateSideEffectService {
       const events: IDomainEvent[] = [];
 
       for (const candidateTable of candidateTables) {
-        const cleanupSpecsResult = service.buildCleanupSpecs(
+        const cleanupSpecResult = service.buildCleanupSpecs(
           candidateTable,
           input.table,
           input.updatedField,
           input.updateSpecs
         );
-        if (cleanupSpecsResult.isErr()) return err(cleanupSpecsResult.error);
-        const cleanupSpecs = cleanupSpecsResult.value;
-        if (cleanupSpecs.length === 0) continue;
-
-        const composedSpec = service.composeSpecs(cleanupSpecs);
+        if (cleanupSpecResult.isErr()) return err(cleanupSpecResult.error);
+        const cleanupSpec = cleanupSpecResult.value;
+        if (!cleanupSpec) continue;
         const updateResult = yield* await service.tableUpdateFlow.execute(
           context,
           { table: candidateTable },
           (table) => {
-            let updatedTable = table;
-            for (const spec of cleanupSpecs) {
-              const mutateResult = spec.mutate(updatedTable);
-              if (mutateResult.isErr()) return err(mutateResult.error);
-              updatedTable = mutateResult.value;
-            }
-            return ok(TableUpdateResult.create(updatedTable, composedSpec));
+            const updatedTable = cleanupSpec.mutate(table);
+            if (updatedTable.isErr()) return err(updatedTable.error);
+            return ok(TableUpdateResult.create(updatedTable.value, cleanupSpec));
           },
           { publishEvents: false }
         );
@@ -150,7 +147,7 @@ export class FieldCrossTableUpdateSideEffectService {
     updatedTable: Table,
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const directSpecs: Array<ISpecification<Table, ITableSpecVisitor>> = [];
     const updateContext: FieldUpdateContext = {
       table: candidateTable,
@@ -163,11 +160,11 @@ export class FieldCrossTableUpdateSideEffectService {
 
       const result = field.onDependencyUpdated(updatedField, updateSpecs, updateContext);
       if (result.isErr()) return err(result.error);
-      directSpecs.push(...result.value);
+      directSpecs.push(...flattenAndSpecs(result.value));
     }
 
     if (directSpecs.length === 0) {
-      return ok([]);
+      return ok(undefined);
     }
 
     const allSpecs: Array<ISpecification<Table, ITableSpecVisitor>> = [...directSpecs];
@@ -206,9 +203,10 @@ export class FieldCrossTableUpdateSideEffectService {
           }
         );
         if (cascadeResult.isErr()) return err(cascadeResult.error);
-        if (cascadeResult.value.length === 0) continue;
+        const cascadeSpecs = flattenAndSpecs(cascadeResult.value);
+        if (cascadeSpecs.length === 0) continue;
 
-        for (const spec of cascadeResult.value) {
+        for (const spec of cascadeSpecs) {
           const mutateResult = spec.mutate(workingTable);
           if (mutateResult.isErr()) return err(mutateResult.error);
           workingTable = mutateResult.value;
@@ -221,7 +219,7 @@ export class FieldCrossTableUpdateSideEffectService {
       }
     }
 
-    return ok(allSpecs);
+    return ok(composeAndSpecsOrUndefined(allSpecs));
   }
 
   private isFieldDependentOn(field: Field, dependencyFieldId: FieldId): boolean {
@@ -252,19 +250,5 @@ export class FieldCrossTableUpdateSideEffectService {
       return field.foreignTableId().equals(updatedTable.id());
     }
     return false;
-  }
-
-  private composeSpecs(
-    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): ISpecification<Table, ITableSpecVisitor> {
-    if (specs.length === 1) {
-      return specs[0]!;
-    }
-
-    let composed: ISpecification<Table, ITableSpecVisitor> = specs[0]!;
-    for (let i = 1; i < specs.length; i++) {
-      composed = new AndSpec<Table, ITableSpecVisitor>(composed, specs[i]!);
-    }
-    return composed;
   }
 }

@@ -664,7 +664,7 @@
       "example": "Tonow ({date}, \"día\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Devuelve la diferencia entre datos en unidades especificadas. ",
+      "summary": "Devuelve la diferencia entre fechas en unidades especificadas. La unidad predeterminada es \"day\".\nUnidades soportadas: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nLa diferencia entre fechas se determina restando [date2] de [date1]. Esto significa que si [date2] es posterior a [date1], el valor resultante será negativo.",
       "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
@@ -1273,7 +1273,8 @@
     "import": {
       "notSupportedFileFormat": "Formato de archivo no compatible, solo se admiten {{supportType}}, el tipo de contenido de su archivo es {{fileFormat}}",
       "notSupportedFileType": "Tipo de archivo de importación no compatible",
-      "exceedMaxFieldsLength": "El número de campos en la tabla no puede exceder {{maxFieldsLength}}, el actual es {{length}}"
+      "exceedMaxFieldsLength": "El número de campos en la tabla no puede exceder {{maxFieldsLength}}, el actual es {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "La instancia actual no permite invitaciones de espacio por parte del administrador",

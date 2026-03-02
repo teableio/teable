@@ -487,10 +487,11 @@ export class ComputedFieldSelectExpressionVisitor
       }
       const orderByResult = this.getLinkOrderBy(linkField);
       if (orderByResult.isErr()) return err(orderByResult.error);
-      const isMultiValueResult = field
+      const lookupIsMultipleResult = field
         .isMultipleCellValue()
         .map((multiplicity) => multiplicity.isMultiple());
-      if (isMultiValueResult.isErr()) return err(isMultiValueResult.error);
+      if (lookupIsMultipleResult.isErr()) return err(lookupIsMultipleResult.error);
+      const isMultiValue = lookupIsMultipleResult.value;
       const condition = field.lookupOptions().condition();
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
@@ -499,7 +500,7 @@ export class ComputedFieldSelectExpressionVisitor
         {
           type: 'lookup',
           foreignFieldId: field.lookupFieldId(),
-          isMultiValue: this.forceLookupArrayOutput ? true : isMultiValueResult.value,
+          isMultiValue: this.forceLookupArrayOutput ? true : isMultiValue,
           orderBy: orderByResult.value,
           condition,
         }

@@ -837,9 +837,23 @@
             "failed": {
               "message": "❌ Importation de {{tableName}} échouée: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ Importation de {{tableName}} échouée: Limite de lignes atteinte, veuillez mettre à niveau votre plan pour importer plus d'enregistrements"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ Importation de {{tableName}} échouée: Aucun enregistrement n'a été traité"
+            },
             "success": {
               "message": "🎉 {{tableName}} importé avec succès.",
               "inplace": "🎉 {{tableName}} importé en place avec succès."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -1030,6 +1044,17 @@
     "error": {
       "title": "Une erreur s'est produite",
       "description": "Une erreur inattendue s'est produite. Veuillez réessayer plus tard."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Échec de l'analyse de la date, la valeur \"{{value}}\" est hors de la plage valide",
+      "planRowLimit": "Limite de lignes atteinte : veuillez mettre à niveau votre plan pour importer plus d'enregistrements",
+      "notNullValidation": "{{fieldHint}}Les champs obligatoires ne peuvent pas être vides",
+      "uniqueValidation": "{{fieldHint}}Valeurs en double dans les champs uniques",
+      "requestTimeout": "Délai d'attente dépassé",
+      "chunkProcessingFailed": "Échec du traitement par lots : {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

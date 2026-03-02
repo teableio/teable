@@ -227,6 +227,10 @@ export const getValidRecordConditionOperators = (
   if (fieldType.equals(FieldType.link())) {
     operators = isMultiple
       ? [
+          'is',
+          'isNot',
+          'isAnyOf',
+          'isNoneOf',
           'hasAnyOf',
           'hasAllOf',
           'isExactly',

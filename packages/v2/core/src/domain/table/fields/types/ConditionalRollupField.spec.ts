@@ -153,8 +153,7 @@ describe('ConditionalRollupField.onDependencyUpdated', () => {
 
     const result = conditionalRollup.onDependencyUpdated(updatedField, [typeSpec], {} as never);
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toHaveLength(1);
-    expect(result._unsafeUnwrap()[0]).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
   });
 
   it('emits field type update when referenced select option name changes', () => {
@@ -185,10 +184,9 @@ describe('ConditionalRollupField.onDependencyUpdated', () => {
 
     const result = conditionalRollup.onDependencyUpdated(statusField, [optionsSpec], {} as never);
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toHaveLength(1);
-    expect(result._unsafeUnwrap()[0]).toBeInstanceOf(TableUpdateFieldTypeSpec);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
 
-    const spec = result._unsafeUnwrap()[0] as TableUpdateFieldTypeSpec;
+    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
     const nextField = spec.newField() as ConditionalRollupField;
     const nextFilter = nextField.config().condition().toDto().filter as {
       filterSet: Array<{ value?: unknown }>;

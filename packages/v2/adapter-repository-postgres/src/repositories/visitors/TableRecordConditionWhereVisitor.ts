@@ -498,9 +498,19 @@ const buildDateComparisonCondition = (
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
+    const columnRef = sql.ref(column);
+
+    if (core.isRecordConditionFieldReferenceValue(value)) {
+      const rightColumn = yield* resolveColumn(value.field(), tableAlias);
+      const right = sql.ref(rightColumn);
+      if (operator === '>') return ok(sql`${columnRef} > ${right}`);
+      if (operator === '>=') return ok(sql`${columnRef} >= ${right}`);
+      if (operator === '<') return ok(sql`${columnRef} < ${right}`);
+      return ok(sql`${columnRef} <= ${right}`);
+    }
+
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
-    const columnRef = sql.ref(column);
     const boundary = operator === '>' || operator === '<=' ? range.end : range.start;
     const right = sql`${boundary}`;
     if (operator === '>') return ok(sql`${columnRef} > ${right}`);

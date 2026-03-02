@@ -12,12 +12,18 @@ export class FieldCreated extends AbstractTableUpdatedEvent {
   private constructor(
     tableId: TableId,
     baseId: BaseId,
-    readonly fieldId: FieldId
+    readonly fieldId: FieldId,
+    readonly viewOrders?: Readonly<Record<string, number>>
   ) {
     super(tableId, baseId);
   }
 
-  static create(params: { tableId: TableId; baseId: BaseId; fieldId: FieldId }): FieldCreated {
-    return new FieldCreated(params.tableId, params.baseId, params.fieldId);
+  static create(params: {
+    tableId: TableId;
+    baseId: BaseId;
+    fieldId: FieldId;
+    viewOrders?: Readonly<Record<string, number>>;
+  }): FieldCreated {
+    return new FieldCreated(params.tableId, params.baseId, params.fieldId, params.viewOrders);
   }
 }

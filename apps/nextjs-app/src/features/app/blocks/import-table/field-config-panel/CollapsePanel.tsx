@@ -115,6 +115,7 @@ export const InplaceImportOptionPanel = (props: IInplaceCollapsePanel) => {
           <div className="pl-4">
             <span className="text-xs">{t('table:import.options.sheetKey')}</span>
             <BaseSingleSelect
+              modal
               value={options.sourceWorkSheetKey}
               options={sheetKeyOptions}
               onSelect={(value) => {

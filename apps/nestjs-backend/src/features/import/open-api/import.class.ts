@@ -1,8 +1,10 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { PassThrough } from 'stream';
 import { getUniqName, FieldType, HttpErrorCode } from '@teable/core';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
+import jschardet from 'jschardet';
 import { zip, toString, intersection, chunk as chunkArray } from 'lodash';
 import fetch from 'node-fetch';
 import sizeof from 'object-sizeof';
@@ -28,6 +30,49 @@ export const parseBoolean = (value: unknown): boolean => {
   return Boolean(value);
 };
 
+/**
+ * Whitelist of regex patterns for date-like strings.
+ * Only values matching one of these patterns are considered for Date type detection.
+ * Avoids false positives from JavaScript's lenient parsing (e.g. "CC-38716" → year 38716).
+ */
+const dateFormatPatterns: RegExp[] = [
+  /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD (ISO date)
+  /^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}(?::\d{2})?(?:\.\d{1,3})?$/, // YYYY-MM-DD HH:mm:ss
+  /^\d{4}-\d{2}-\d{2}T\d{1,2}:\d{2}(?::\d{2})?(?:\.\d{1,3})?(?:Z|[+-]\d{2}:?\d{2})?$/, // ISO 8601 datetime
+  /^\d{1,2}-\d{1,2}-\d{4}$/, // DD-MM-YYYY or MM-DD-YYYY
+  /^\d{4}\/\d{1,2}\/\d{1,2}$/, // YYYY/MM/DD
+  /^\d{1,2}\/\d{1,2}\/\d{4}$/, // MM/DD/YYYY (US)
+  /^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?$/, // MM/DD/YYYY HH:mm:ss (US)
+];
+
+const reasonableYearMin = 1;
+const reasonableYearMax = 9999;
+const invalidDateStr = 'Invalid Date';
+
+function isValidDateForImport(value: unknown): boolean {
+  if (value === '' || value == null) return false;
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return false;
+    const d = new Date(value);
+    if (d.toString() === invalidDateStr) return false;
+    const year = d.getFullYear();
+    return year >= reasonableYearMin && year <= reasonableYearMax;
+  }
+
+  if (typeof value !== 'string') return false;
+
+  const str = value.trim();
+  if (!str) return false;
+  if (!dateFormatPatterns.some((p) => p.test(str))) return false;
+
+  const d = new Date(value);
+  if (d.toString() === invalidDateStr) return false;
+
+  const year = d.getFullYear();
+  return year >= reasonableYearMin && year <= reasonableYearMax;
+}
+
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.Checkbox]: z.union([z.string(), z.boolean()]).refine(
     (value: unknown) => {
@@ -44,12 +89,7 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
     },
     { message: 'Invalid checkbox value' }
   ),
-  [FieldType.Date]: z.any().refine(
-    (value) => {
-      return new Date(value).toString() !== 'Invalid Date';
-    },
-    { message: 'Invalid date' }
-  ),
+  [FieldType.Date]: z.any().refine(isValidDateForImport, { message: 'Invalid date' }),
   [FieldType.Number]: z.any().refine(
     (value) => {
       return !isNaN(Number(value));
@@ -64,6 +104,83 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.SingleLineText]: z.string(),
 };
 
+const encodingSampleSize = 64 * 1024; // 64KB for encoding detection
+
+function isUtf8Compatible(encoding: string | null): boolean {
+  const normalized = (encoding || 'utf-8').toLowerCase();
+  return normalized === 'utf-8' || normalized === 'ascii';
+}
+
+function detectAndDecode(sample: Buffer): { isUtf8: boolean; encoding: string } {
+  const { encoding } = jschardet.detect(sample);
+  return { isUtf8: isUtf8Compatible(encoding), encoding: encoding || 'utf-8' };
+}
+
+function flushSampleAsUtf8(sampleChunks: Buffer[], output: PassThrough, encoding: string) {
+  const decoder = new TextDecoder(encoding, { fatal: false });
+  for (const buf of sampleChunks) {
+    output.write(Buffer.from(decoder.decode(buf, { stream: true })));
+  }
+  return decoder;
+}
+
+/**
+ * Detect the encoding of a stream by sampling the first N bytes,
+ * then return a UTF-8 stream. If the source is already UTF-8/ASCII,
+ * the original bytes are passed through with zero overhead.
+ */
+function createEncodingConvertStream(input: NodeJS.ReadableStream): NodeJS.ReadableStream {
+  const output = new PassThrough();
+  const sampleChunks: Buffer[] = [];
+  let sampleSize = 0;
+  let detected = false;
+
+  input.on('data', (chunk: Buffer) => {
+    if (detected) return;
+
+    sampleChunks.push(chunk);
+    sampleSize += chunk.length;
+
+    if (sampleSize < encodingSampleSize) return;
+
+    detected = true;
+    const { isUtf8, encoding } = detectAndDecode(Buffer.concat(sampleChunks));
+
+    if (isUtf8) {
+      for (const buf of sampleChunks) output.write(buf);
+      input.on('data', (c: Buffer) => output.write(c));
+    } else {
+      const decoder = flushSampleAsUtf8(sampleChunks, output, encoding);
+      input.on('data', (c: Buffer) => {
+        output.write(Buffer.from(decoder.decode(c, { stream: true })));
+      });
+      input.on('end', () => {
+        const tail = decoder.decode();
+        if (tail) output.write(Buffer.from(tail));
+      });
+    }
+  });
+
+  input.on('end', () => {
+    if (!detected && sampleChunks.length > 0) {
+      const sample = Buffer.concat(sampleChunks);
+      const { isUtf8, encoding } = detectAndDecode(sample);
+
+      if (isUtf8) {
+        output.write(sample);
+      } else {
+        const decoder = new TextDecoder(encoding, { fatal: false });
+        output.write(Buffer.from(decoder.decode(sample)));
+      }
+    }
+    output.end();
+  });
+
+  input.on('error', (err) => output.destroy(err));
+
+  return output;
+}
+
 export interface IImportConstructorParams {
   url: string;
   type: SUPPORTEDTYPE;
@@ -75,11 +192,12 @@ export interface IParseResult {
   [x: string]: unknown[][];
 }
 
+export const OVER_PLAN_ROW_COUNT_ERROR_MESSAGE = 'Please upgrade your plan to import more records';
+
 export abstract class Importer {
   public static DEFAULT_ERROR_MESSAGE = 'unknown error';
 
-  public static OVER_PLAN_ROW_COUNT_ERROR_MESSAGE =
-    'Please upgrade your plan to import more records';
+  public static OVER_PLAN_ROW_COUNT_ERROR_MESSAGE = OVER_PLAN_ROW_COUNT_ERROR_MESSAGE;
 
   public static CHUNK_SIZE = 1024 * 1024 * 0.2;
 
@@ -165,7 +283,13 @@ export abstract class Importer {
 
     this.setFileNameFromHeader(decodeURIComponent(finalFileName));
 
-    return { stream, fileName: finalFileName };
+    // Only apply encoding conversion for text-based formats (CSV).
+    // Binary formats like XLSX handle encoding internally and must not be
+    // piped through a text decoder — doing so would corrupt the data.
+    const finalStream =
+      this.config.type === SUPPORTEDTYPE.CSV ? createEncodingConvertStream(stream) : stream;
+
+    return { stream: finalStream, fileName: finalFileName };
   }
 
   async genColumns() {

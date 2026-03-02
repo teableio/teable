@@ -7,11 +7,14 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
 import type { Table } from '../domain/table/Table';
+import { ViewId } from '../domain/table/views/ViewId';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import type { ResolvedTableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { CreateFieldCommand } from './CreateFieldCommand';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
@@ -48,7 +51,7 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
     return safeTry<CreateFieldResult, DomainError>(async function* () {
       const foreignTableReferences = yield* command.foreignTableReferences();
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
-        baseId: command.baseId,
+        // Foreign references may point to tables in other bases (e.g. cross-base lookup).
         references: foreignTableReferences,
       });
       let createdField: Field | undefined;
@@ -61,16 +64,40 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
             t: context.$t,
             hostTable: table,
             foreignTables,
-          }).andThen((resolved) =>
-            parseTableFieldSpec(resolved, { isPrimary: false })
+          }).andThen((resolved) => {
+            const normalized = handler.populateLinkLookupFieldId(resolved, foreignTables);
+            return parseTableFieldSpec(normalized, { isPrimary: false })
               .andThen((spec) =>
                 spec.createField({ baseId: command.baseId, tableId: command.tableId })
               )
               .andThen((field) => {
+                if (normalized.dbFieldName) {
+                  const dbFieldNameResult = DbFieldName.rehydrate(normalized.dbFieldName).andThen(
+                    (dbFieldName) => field.setDbFieldName(dbFieldName)
+                  );
+                  if (dbFieldNameResult.isErr()) {
+                    return err(dbFieldNameResult.error);
+                  }
+                }
                 createdField = field;
-                return table.update((mutator) => mutator.addField(field, { foreignTables }));
-              })
-          );
+                if (!command.order) {
+                  return table.update((mutator) => mutator.addField(field, { foreignTables }));
+                }
+
+                const order = command.order;
+                return ViewId.create(order.viewId).andThen((viewId) =>
+                  table.update((mutator) =>
+                    mutator.addField(field, {
+                      foreignTables,
+                      viewOrder: {
+                        viewId,
+                        order: order.orderIndex,
+                      },
+                    })
+                  )
+                );
+              });
+          });
         },
         {
           hooks: {
@@ -92,5 +119,29 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
       );
       return ok(CreateFieldResult.create(updateResult.table, updateResult.events));
     });
+  }
+
+  private populateLinkLookupFieldId(
+    field: ResolvedTableFieldInput,
+    foreignTables: ReadonlyArray<Table>
+  ): ResolvedTableFieldInput {
+    if (field.type !== 'link' || field.options.lookupFieldId != null) {
+      return field;
+    }
+
+    const foreignTable = foreignTables.find(
+      (table) => table.id().toString() === field.options.foreignTableId
+    );
+    if (!foreignTable) {
+      return field;
+    }
+
+    return {
+      ...field,
+      options: {
+        ...field.options,
+        lookupFieldId: foreignTable.primaryFieldId().toString(),
+      },
+    };
   }
 }

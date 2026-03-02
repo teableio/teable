@@ -143,8 +143,6 @@ const derivedFieldNameWithTranslation = (
   options: ResolveTableFieldNameOptions
 ): string | undefined => {
   const t = options.t;
-  if (!t) return;
-
   const foreignTables = options.foreignTables;
   const hostTable = options.hostTable;
 
@@ -163,9 +161,20 @@ const derivedFieldNameWithTranslation = (
         }
       ).options;
       const foreignTable = findTableById(foreignTables, opts?.foreignTableId);
-      const lookupFieldName = findFieldNameById(foreignTable, opts?.lookupFieldId);
+      const lookupFieldName = findFieldNameById(foreignTable, opts?.lookupFieldId) ?? 'Name';
       const linkFieldName = findFieldNameById(hostTable, opts?.linkFieldId);
-      if (!lookupFieldName || !linkFieldName) return;
+      const tableName = foreignTable?.name().toString();
+      if (!t) {
+        return tableName
+          ? `${lookupFieldName} (from ${tableName})`
+          : `${lookupFieldName} (from ${linkFieldName ?? 'Link'})`;
+      }
+      if (!linkFieldName) {
+        if (tableName) {
+          return `${lookupFieldName} (from ${tableName})`;
+        }
+        return;
+      }
       return translateOrFallback(t, tableI18nKeys.field.default.lookup.title, 'Lookup', {
         lookupFieldName,
         linkFieldName,
@@ -180,6 +189,13 @@ const derivedFieldNameWithTranslation = (
       const foreignTable = findTableById(foreignTables, cfg?.foreignTableId);
       const lookupFieldName = findFieldNameById(foreignTable, cfg?.lookupFieldId);
       const linkFieldName = findFieldNameById(hostTable, cfg?.linkFieldId);
+      const tableName = foreignTable?.name().toString();
+      if (!t) {
+        if (lookupFieldName && tableName) {
+          return `${lookupFieldName} Rollup (from ${tableName})`;
+        }
+        return 'Rollup';
+      }
       if (lookupFieldName && linkFieldName) {
         return translateOrFallback(t, tableI18nKeys.field.default.rollup.title, 'Rollup', {
           lookupFieldName,
@@ -195,6 +211,9 @@ const derivedFieldNameWithTranslation = (
       const lookupFieldName = findFieldNameById(foreignTable, opts?.lookupFieldId);
       const tableName = foreignTable?.name().toString();
       if (!lookupFieldName || !tableName) return;
+      if (!t) {
+        return `${lookupFieldName} (from ${tableName})`;
+      }
       return translateOrFallback(
         t,
         tableI18nKeys.field.default.conditionalLookup.title,
@@ -209,6 +228,9 @@ const derivedFieldNameWithTranslation = (
       const lookupFieldName = findFieldNameById(foreignTable, cfg?.lookupFieldId);
       const tableName = foreignTable?.name().toString();
       if (!lookupFieldName || !tableName) return;
+      if (!t) {
+        return `${lookupFieldName} Rollup (from ${tableName})`;
+      }
       return translateOrFallback(
         t,
         tableI18nKeys.field.default.conditionalRollup.title,
@@ -226,14 +248,13 @@ const defaultFieldName = (
   options?: ResolveTableFieldNameOptions
 ): string => {
   const t = options?.t;
+  const derived = derivedFieldNameWithTranslation(field, options ?? {});
+  if (derived) return derived;
 
   // Keep legacy behavior when translation isn't provided.
   if (!t && field.isPrimary === true) return 'Name';
 
   if (t) {
-    const derived = derivedFieldNameWithTranslation(field, options ?? {});
-    if (derived) return derived;
-
     switch (field.type) {
       case 'singleLineText':
         return translateOrFallback(t, tableI18nKeys.field.default.singleLineText.title, 'Label');
@@ -321,7 +342,7 @@ const defaultFieldName = (
     case 'lastModifiedBy':
       return 'Last Modified By';
     case 'autoNumber':
-      return 'Auto Number';
+      return 'ID';
     case 'button':
       return 'Button';
     case 'formula':
@@ -418,12 +439,58 @@ class CreateTableFieldWithDescriptionSpec implements ICreateTableFieldSpec {
   }
 }
 
+class CreateTableFieldWithAiConfigSpec implements ICreateTableFieldSpec {
+  constructor(
+    private readonly spec: ICreateTableFieldSpec,
+    private readonly aiConfig: unknown | null | undefined,
+    private readonly fieldName: string
+  ) {}
+
+  applyTo(builder: TableBuilder): void {
+    this.spec.applyTo(builder);
+  }
+
+  createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    return this.spec
+      .createField(params)
+      .andThen((field) =>
+        this.aiConfig === undefined ? ok(field) : field.setAiConfig(this.aiConfig).map(() => field)
+      );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    return this.spec.foreignTableReferences();
+  }
+
+  applyPostBuild(table: Table): Result<void, DomainError> {
+    const applyInner = this.spec.applyPostBuild ? this.spec.applyPostBuild(table) : ok(undefined);
+
+    if (this.aiConfig === undefined) {
+      return applyInner;
+    }
+
+    return applyInner.andThen(() =>
+      table
+        .getField((field) => field.name().toString() === this.fieldName)
+        .andThen((field) => field.setAiConfig(this.aiConfig))
+    );
+  }
+}
+
 const withFieldDescription = (
   spec: ICreateTableFieldSpec,
   description: string | null | undefined,
   fieldName: string
 ): ICreateTableFieldSpec => {
   return new CreateTableFieldWithDescriptionSpec(spec, description ?? null, fieldName);
+};
+
+const withFieldAiConfig = (
+  spec: ICreateTableFieldSpec,
+  aiConfig: unknown | null | undefined,
+  fieldName: string
+): ICreateTableFieldSpec => {
+  return new CreateTableFieldWithAiConfigSpec(spec, aiConfig, fieldName);
 };
 
 const uniqueForeignTableReferences = (
@@ -999,6 +1066,8 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
     private readonly filter: unknown,
     private readonly sort: unknown,
     private readonly limit: number | undefined,
+    private readonly innerOptionsPatch: Readonly<Record<string, unknown>> | undefined,
+    private readonly legacyMultiplicityDerivation: boolean,
     private readonly isMultipleCellValue: boolean | undefined,
     private readonly notNull: FieldNotNull,
     private readonly unique: FieldUnique
@@ -1015,6 +1084,8 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
       filter?: unknown;
       sort?: unknown;
       limit?: number;
+      innerOptionsPatch?: Readonly<Record<string, unknown>>;
+      legacyMultiplicityDerivation?: boolean;
       isMultipleCellValue?: boolean;
       notNull: FieldNotNull;
       unique: FieldUnique;
@@ -1029,6 +1100,8 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
       options.filter,
       options.sort,
       options.limit,
+      options.innerOptionsPatch,
+      options.legacyMultiplicityDerivation === true,
       options.isMultipleCellValue,
       options.notNull,
       options.unique
@@ -1059,6 +1132,8 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
           id,
           name: this.name,
           lookupOptions,
+          innerOptionsPatch: this.innerOptionsPatch,
+          legacyMultiplicityDerivation: this.legacyMultiplicityDerivation,
           isMultipleCellValue: this.isMultipleCellValue,
           notNull: this.notNull,
           unique: this.unique,
@@ -1207,7 +1282,8 @@ class CreateConditionalLookupFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
-    private readonly conditionalLookupOptions: ConditionalLookupOptions
+    private readonly conditionalLookupOptions: ConditionalLookupOptions,
+    private readonly innerOptionsPatch: Readonly<Record<string, unknown>> | undefined
   ) {}
 
   static create(
@@ -1216,12 +1292,14 @@ class CreateConditionalLookupFieldSpec implements ICreateTableFieldSpec {
     options: {
       isPrimary: boolean;
       conditionalLookupOptions: ConditionalLookupOptions;
+      innerOptionsPatch?: Readonly<Record<string, unknown>>;
     }
   ): CreateConditionalLookupFieldSpec {
     return new CreateConditionalLookupFieldSpec(
       id,
       name,
-      options.conditionalLookupOptions
+      options.conditionalLookupOptions,
+      options.innerOptionsPatch
     ).withPrimary(options.isPrimary);
   }
 
@@ -1243,6 +1321,7 @@ class CreateConditionalLookupFieldSpec implements ICreateTableFieldSpec {
         id,
         name: this.name,
         conditionalLookupOptions: this.conditionalLookupOptions,
+        innerOptionsPatch: this.innerOptionsPatch,
       })
     );
   }
@@ -2269,7 +2348,7 @@ export const parseTableFieldSpec = (
                       CreateFormulaFieldSpec.create(id, name, {
                         isPrimary: options.isPrimary,
                         expression,
-                        timeZone,
+                        timeZone: timeZone ?? TimeZone.default(),
                         formatting,
                         showAs,
                         resultType,
@@ -2326,6 +2405,13 @@ export const parseTableFieldSpec = (
                 filter: field.options.filter,
                 sort: field.options.sort,
                 limit: field.options.limit,
+                innerOptionsPatch:
+                  field.innerOptions &&
+                  typeof field.innerOptions === 'object' &&
+                  !Array.isArray(field.innerOptions)
+                    ? (field.innerOptions as Record<string, unknown>)
+                    : undefined,
+                legacyMultiplicityDerivation: field.legacyMultiplicityDerivation === true,
                 isMultipleCellValue:
                   'isMultipleCellValue' in field && typeof field.isMultipleCellValue === 'boolean'
                     ? field.isMultipleCellValue
@@ -2504,11 +2590,23 @@ export const parseTableFieldSpec = (
               CreateConditionalLookupFieldSpec.create(id, name, {
                 isPrimary: options.isPrimary,
                 conditionalLookupOptions,
+                innerOptionsPatch:
+                  field.innerOptions &&
+                  typeof field.innerOptions === 'object' &&
+                  !Array.isArray(field.innerOptions)
+                    ? (field.innerOptions as Record<string, unknown>)
+                    : undefined,
               })
             )
           )
           .exhaustive()
-          .map((spec) => withFieldDescription(spec, field.description, field.name))
+          .map((spec) =>
+            withFieldAiConfig(
+              withFieldDescription(spec, field.description, field.name),
+              field.aiConfig,
+              field.name
+            )
+          )
       )
     )
   );

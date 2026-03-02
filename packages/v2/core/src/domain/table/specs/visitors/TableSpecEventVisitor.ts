@@ -1,4 +1,4 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../../shared/DomainError';
@@ -9,6 +9,7 @@ import { FieldDeleted } from '../../events/FieldDeleted';
 import { FieldUpdated } from '../../events/FieldUpdated';
 import { TableRenamed } from '../../events/TableRenamed';
 import { ViewColumnMetaUpdated } from '../../events/ViewColumnMetaUpdated';
+import type { FieldId } from '../../fields/FieldId';
 import type { Table } from '../../Table';
 import type {
   RemoveSymmetricLinkFieldSpec,
@@ -118,15 +119,41 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
 
   visitTableAddField(spec: TableAddFieldSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
     const field = spec.field();
+    const viewOrdersResult = this.collectViewOrders(field.id());
+    if (viewOrdersResult.isErr()) {
+      return err<void, DomainError>(viewOrdersResult.error);
+    }
+
     this.eventsCollected.push(
       FieldCreated.create({
         tableId: this.table.id(),
         baseId: this.table.baseId(),
         fieldId: field.id(),
+        viewOrders: viewOrdersResult.value,
       })
     );
 
     return ok(undefined);
+  }
+
+  private collectViewOrders(
+    fieldId: FieldId
+  ): Result<Readonly<Record<string, number>>, DomainError> {
+    const fieldIdStr = fieldId.toString();
+    const viewOrders: Record<string, number> = {};
+
+    for (const view of this.table.views()) {
+      const viewMetaResult = view.columnMeta();
+      if (viewMetaResult.isErr()) {
+        return err<Readonly<Record<string, number>>, DomainError>(viewMetaResult.error);
+      }
+      const order = viewMetaResult.value.toDto()[fieldIdStr]?.order;
+      if (typeof order === 'number') {
+        viewOrders[view.id().toString()] = order;
+      }
+    }
+
+    return ok(viewOrders);
   }
 
   visitTableAddSelectOptions(

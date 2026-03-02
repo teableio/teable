@@ -800,9 +800,23 @@
             "failed": {
               "message": "❌ {{tableName}} içe aktarma başarısız oldu: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}} içe aktarma başarısız oldu: Satır sınırına ulaşıldı, daha fazla kayıt içe aktarmak için planınızı yükseltin"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}} içe aktarma başarısız oldu: Hiçbir kayıt işlenmedi"
+            },
             "success": {
               "message": "🎉 {{tableName}} başarıyla içe aktarıldı.",
               "inplace": "🎉 {{tableName}} yerinde başarıyla içe aktarıldı."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -1024,6 +1038,17 @@
     "error": {
       "title": "Bir şeyler yanlış gitti",
       "description": "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Tarih ayrıştırma hatası, \"{{value}}\" değeri geçerli aralığın dışında",
+      "planRowLimit": "Satır sınırına ulaşıldı: daha fazla kayıt içe aktarmak için planınızı yükseltin",
+      "notNullValidation": "{{fieldHint}}Zorunlu alan(lar) boş olamaz",
+      "uniqueValidation": "{{fieldHint}}Benzersiz alan(lar)da yinelenen değerler",
+      "requestTimeout": "İstek zaman aşımına uğradı",
+      "chunkProcessingFailed": "Toplu işlem başarısız oldu: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

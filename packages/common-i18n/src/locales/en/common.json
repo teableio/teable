@@ -63,6 +63,7 @@
     "login": "Login",
     "useTemplate": "Use template",
     "copyToMySpace": "Copy to my space",
+    "copyLink": "Copy link",
     "backToSpace": "Back to space",
     "switchBase": "Switch base",
     "collapse": "Collapse",
@@ -1134,9 +1135,23 @@
             "failed": {
               "message": "❌ {{tableName}} import failed: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}} import failed: Row limit reached, please upgrade your plan to import more records"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}} import failed: No records were processed"
+            },
             "success": {
               "message": "🎉 {{tableName}} imported successfully.",
               "inplace": "🎉 {{tableName}} inplace imported successfully."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download Error Report</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download Error Report</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -1352,6 +1367,17 @@
     "error": {
       "title": "Something went wrong",
       "description": "An unexpected issue occurred. Please try again later."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Date parsing failed, value \"{{value}}\" is out of valid range",
+      "planRowLimit": "Row limit reached, please upgrade your plan to import more records",
+      "notNullValidation": "{{fieldHint}}Required field(s) cannot be empty",
+      "uniqueValidation": "{{fieldHint}}Duplicate value(s) in unique field(s)",
+      "requestTimeout": "Request timed out",
+      "chunkProcessingFailed": "Batch processing failed: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

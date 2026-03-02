@@ -347,14 +347,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     reason: string
   ): SqlExpr {
     const normalizedArray = this.normalizeArrayExpr(arrayExpr);
-    const elemExpr = makeExpr(
-      extractJsonScalarText('elem'),
-      'unknown',
-      false,
-      arrayExpr.errorConditionSql,
-      arrayExpr.errorMessageSql
-    );
-    const elementNumber = this.coerceToNumber(elemExpr, reason);
+    const elementNumber = this.coerceArrayElementToNumber(arrayExpr, 'elem', reason);
     const elementValueSql = guardValueSql(
       op(elementNumber.valueSql),
       elementNumber.errorConditionSql
@@ -560,12 +553,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'number', false);
     const numeric = this.coerceToNumber(value, 'even');
     const valueSql = this.withValueAlias(numeric.valueSql, (ref) => {
-      const rounded = `(CASE WHEN ${ref} > 0 THEN CEIL(${ref}) ELSE FLOOR(${ref}) END)`;
+      const rounded = `FLOOR(${ref})`;
       const roundedNumeric = `(${rounded})::numeric`;
       return `(CASE
         WHEN MOD(${roundedNumeric}, 2::numeric) = 0 THEN ${rounded}
-        WHEN ${rounded} > 0 THEN ${rounded} + 1
-        ELSE ${rounded} - 1
+        ELSE (${rounded} + 1)
       END)`;
     });
     return makeExpr(
@@ -582,12 +574,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!value) return makeExpr('NULL', 'number', false);
     const numeric = this.coerceToNumber(value, 'odd');
     const valueSql = this.withValueAlias(numeric.valueSql, (ref) => {
-      const rounded = `(CASE WHEN ${ref} > 0 THEN CEIL(${ref}) ELSE FLOOR(${ref}) END)`;
+      const rounded = `FLOOR(${ref})`;
       const roundedNumeric = `(${rounded})::numeric`;
       return `(CASE
         WHEN MOD(${roundedNumeric}, 2::numeric) <> 0 THEN ${rounded}
-        WHEN ${rounded} >= 0 THEN ${rounded} + 1
-        ELSE ${rounded} - 1
+        ELSE (${rounded} + 1)
       END)`;
     });
     return makeExpr(
@@ -943,7 +934,8 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const oldText = params[1];
     const newText = params[2];
     if (!textExpr || !oldText || !newText) return makeExpr('NULL', 'string', false);
-    const text = this.coerceToString(textExpr);
+    // Use raw text coercion so numeric values keep runtime precision semantics (e.g. 42.5 vs 42.50).
+    const text = this.coerceToString(textExpr, false);
     const search = this.coerceToString(oldText);
     const replacement = this.coerceToString(newText);
     const errorCondition = combineErrorConditions([text, search, replacement]);
@@ -1037,25 +1029,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private t(params: SqlExpr[]): SqlExpr {
     const value = params[0];
     if (!value) return makeExpr('NULL', 'string', false);
-    if (value.isArray) {
-      return makeExpr(
-        this.stringifyArrayExpr(value),
-        'string',
-        false,
-        value.errorConditionSql,
-        value.errorMessageSql
-      );
-    }
-    if (value.valueType === 'string') {
-      return makeExpr(
-        value.valueSql,
-        'string',
-        false,
-        value.errorConditionSql,
-        value.errorMessageSql
-      );
-    }
-    return makeExpr('NULL', 'string', false);
+    // Keep legacy runtime behavior: T coerces supported scalar/array values to text.
+    const text = this.coerceToString(value, false);
+    return makeExpr(
+      guardValueSql(text.valueSql, text.errorConditionSql),
+      'string',
+      false,
+      text.errorConditionSql,
+      text.errorMessageSql
+    );
   }
 
   private encodeUrlComponent(params: SqlExpr[]): SqlExpr {
@@ -1414,21 +1396,14 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   }
 
   private toNow(params: SqlExpr[]): SqlExpr {
-    const value = params[0];
-    if (!value) return makeExpr('NULL', 'number', false);
-    const unit = params[1];
-    const datetime = this.coerceToDatetime(value);
-    const diffSeconds = `EXTRACT(EPOCH FROM (NOW() - ${datetime.valueSql}))`;
-    const diffMonths = `EXTRACT(MONTH FROM AGE(NOW(), ${datetime.valueSql})) + EXTRACT(YEAR FROM AGE(NOW(), ${datetime.valueSql})) * 12`;
-    const diffYears = `EXTRACT(YEAR FROM AGE(NOW(), ${datetime.valueSql}))`;
-    return this.buildNowDiffWithUnit(datetime, unit, diffSeconds, diffMonths, diffYears);
+    return this.fromNow(params);
   }
 
   private datetimeDiff(params: SqlExpr[]): SqlExpr {
     const start = params[0];
     const end = params[1];
-    const unit = params[2];
-    if (!start || !end || !unit) return makeExpr('NULL', 'number', false);
+    const unit = params[2] ?? makeExpr(sqlStringLiteral('day'), 'string', false);
+    if (!start || !end) return makeExpr('NULL', 'number', false);
     const startDt = this.coerceToDatetime(start);
     const endDt = this.coerceToDatetime(end);
     const startError = this.shortCircuitOnError(
@@ -1446,8 +1421,8 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     );
     if (endError) return endError;
     const diffSeconds = `EXTRACT(EPOCH FROM (${startDt.valueSql} - ${endDt.valueSql}))`;
-    const diffMonths = `EXTRACT(MONTH FROM AGE(${endDt.valueSql}, ${startDt.valueSql})) + EXTRACT(YEAR FROM AGE(${endDt.valueSql}, ${startDt.valueSql})) * 12`;
-    const diffYears = `EXTRACT(YEAR FROM AGE(${endDt.valueSql}, ${startDt.valueSql}))`;
+    const diffMonths = this.buildMonthDiff(startDt.valueSql, endDt.valueSql);
+    const diffYears = `CAST((${diffMonths}) / 12.0 AS INTEGER)`;
     const unitLiteral = this.getStringLiteralValue(unit);
     const normalizedUnit = this.normalizeUnitLiteral(unitLiteral, DATETIME_DIFF_UNIT_ALIASES);
     if (unitLiteral) {
@@ -1514,6 +1489,25 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       errorCondition,
       errorMessage
     );
+  }
+
+  private buildMonthDiff(startSql: string, endSql: string): string {
+    const startExpr = this.applyFormulaTimeZone(startSql);
+    const endExpr = this.applyFormulaTimeZone(endSql);
+
+    const startYear = `EXTRACT(YEAR FROM ${startExpr})`;
+    const endYear = `EXTRACT(YEAR FROM ${endExpr})`;
+    const startMonth = `EXTRACT(MONTH FROM ${startExpr})`;
+    const endMonth = `EXTRACT(MONTH FROM ${endExpr})`;
+    const startDay = `EXTRACT(DAY FROM ${startExpr})`;
+    const endDay = `EXTRACT(DAY FROM ${endExpr})`;
+    const startLastDay = `EXTRACT(DAY FROM (DATE_TRUNC('month', ${startExpr}) + INTERVAL '1 month - 1 day'))`;
+    const endLastDay = `EXTRACT(DAY FROM (DATE_TRUNC('month', ${endExpr}) + INTERVAL '1 month - 1 day'))`;
+
+    const baseMonths = `((${startYear} - ${endYear}) * 12 + (${startMonth} - ${endMonth}))`;
+    const adjustDown = `(CASE WHEN ${baseMonths} > 0 AND ${startDay} < ${endDay} AND ${startDay} < ${startLastDay} THEN 1 ELSE 0 END)`;
+    const adjustUp = `(CASE WHEN ${baseMonths} < 0 AND ${startDay} > ${endDay} AND ${endDay} < ${endLastDay} THEN 1 ELSE 0 END)`;
+    return `(${baseMonths} - ${adjustDown} + ${adjustUp})`;
   }
 
   private workday(params: SqlExpr[]): SqlExpr {

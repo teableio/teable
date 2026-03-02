@@ -690,10 +690,7 @@ export class RecordOpenApiV2Service {
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
     const normalizedFilter = this.mapV1FilterToV2(rangeQuery.filter);
-    const sortWithGroupFallback = this.mergeGroupByIntoSort(
-      rangeQuery.groupBy,
-      rangeQuery.orderBy
-    );
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
     const v2Input = {
       tableId,
       viewId: rangeQuery.viewId,
@@ -812,10 +809,7 @@ export class RecordOpenApiV2Service {
     const context = await this.v2ContextFactory.createContext();
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
-    const sortWithGroupFallback = this.mergeGroupByIntoSort(
-      rangeQuery.groupBy,
-      rangeQuery.orderBy
-    );
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
 
     // Build v2 deleteByRange input
     const v2Input = {

@@ -660,7 +660,7 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Gibt die Differenz zwischen den Zeitpunkten in den angegebenen Einheiten zurück. Standardeinheiten sind Sekunden. (Siehe Liste der Einheitenspezifikationen hier.)\nDie Differenz zwischen Datumszeiten wird durch Subtraktion von [datum2] von [datum1] ermittelt. Das bedeutet, dass der resultierende Wert negativ ist, wenn [datum2] später als [datum1] liegt.",
+      "summary": "Gibt die Differenz zwischen den Zeitpunkten in den angegebenen Einheiten zurück. Standardeinheit ist \"day\".\nUnterstützte Einheiten: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nDie Differenz zwischen Datumszeiten wird durch Subtraktion von [datum2] von [datum1] ermittelt. Das bedeutet, dass der resultierende Wert negativ ist, wenn [datum2] später als [datum1] liegt.",
       "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
@@ -1278,7 +1278,8 @@
     "import": {
       "notSupportedFileFormat": "Dateiformat wird nicht unterstützt, nur {{supportType}} werden unterstützt, Ihr Dateityp ist {{fileFormat}}",
       "notSupportedFileType": "Import-Dateityp nicht unterstützt",
-      "exceedMaxFieldsLength": "Die Anzahl der Felder in der Tabelle darf {{maxFieldsLength}} nicht überschreiten, aktuell ist {{length}}"
+      "exceedMaxFieldsLength": "Die Anzahl der Felder in der Tabelle darf {{maxFieldsLength}} nicht überschreiten, aktuell ist {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "Die aktuelle Instanz verbietet Raumeinladungen durch den Administrator",

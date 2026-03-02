@@ -130,7 +130,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     return ok(undefined);
   }
 
-  visitTableDuplicateField(_spec: TableDuplicateFieldSpec): Result<void, DomainError> {
+  visitTableDuplicateField(spec: TableDuplicateFieldSpec): Result<void, DomainError> {
+    if (spec.newField().computed().toBoolean()) {
+      this.addSelfBackfill(spec.newField().id());
+    }
     return ok(undefined);
   }
 

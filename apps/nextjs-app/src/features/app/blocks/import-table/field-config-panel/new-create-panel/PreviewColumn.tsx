@@ -72,6 +72,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
             </TableCell>
             <TableCell className="w-full max-w-md">
               <BaseSingleSelect
+                modal
                 className="m-1 w-full"
                 options={candidates}
                 popoverClassName="w-96 truncate"

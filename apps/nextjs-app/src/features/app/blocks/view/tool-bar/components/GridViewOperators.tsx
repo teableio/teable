@@ -43,7 +43,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     return <div></div>;
   }
   return (
-    <div className="flex gap-1">
+    <div className="flex min-w-0 flex-1 gap-1">
       <HideFields>
         {(text, isActive) => (
           <ToolBarButton
@@ -75,7 +75,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             text={text}
             ref={filterRef}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
               hasWarning && 'border-yellow-500'
@@ -83,8 +83,8 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             textClassName="@2xl/toolbar:inline"
           >
             <>
-              <FilterIcon className="size-4 text-sm" />
-              {hasWarning && <AlertTriangle className="size-3.5 text-yellow-500" />}
+              <FilterIcon className="size-4 shrink-0 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 shrink-0 text-yellow-500" />}
             </>
           </ToolBarButton>
         )}
@@ -97,13 +97,13 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             text={text}
             ref={sortRef}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
             )}
             textClassName="@2xl/toolbar:inline"
           >
-            <ArrowUpDown className="size-4 text-sm" />
+            <ArrowUpDown className="size-4 shrink-0 text-sm" />
           </ToolBarButton>
         )}
       </Sort>
@@ -115,13 +115,13 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             text={text}
             ref={groupRef}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-green-100 dark:bg-green-600/30 hover:bg-green-200 dark:hover:bg-green-500/30'
             )}
             textClassName="@2xl/toolbar:inline"
           >
-            <LayoutList className="size-4 text-sm" />
+            <LayoutList className="size-4 shrink-0 text-sm" />
           </ToolBarButton>
         )}
       </Group>

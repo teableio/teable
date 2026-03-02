@@ -7,20 +7,21 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { AndSpec } from '../domain/shared/specification/AndSpec';
+import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import {
+  implementsOnTeableFieldDeleted,
+  type FieldDeletionContext,
+} from '../domain/table/OnTeableFieldDeleted';
 import { Field } from '../domain/table/fields/Field';
-import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
-import { ConditionalRollupField } from '../domain/table/fields/types/ConditionalRollupField';
-import { LinkField } from '../domain/table/fields/types/LinkField';
-import { LookupField } from '../domain/table/fields/types/LookupField';
-import { RollupField } from '../domain/table/fields/types/RollupField';
 import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
-import { TableUpdateFieldHasErrorSpec } from '../domain/table/specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
+import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { Table } from '../domain/table/Table';
 import { TableUpdateResult } from '../domain/table/TableMutator';
+import { implementsOnTeableViewFieldDeleted } from '../domain/table/views/OnTeableViewFieldDeleted';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -94,28 +95,32 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
         {
           hooks: {
             afterPersist: async (transactionContext, updatedTable) =>
-              safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-                if (!deletedField)
-                  return err(domainError.unexpected({ message: 'Field not deleted' }));
-                const events = yield* await handler.fieldDeletionSideEffectService.execute(
-                  transactionContext,
-                  {
-                    table: updatedTable,
-                    fields: [deletedField],
-                    foreignTables,
-                  }
-                );
+              safeTry<{ events: ReadonlyArray<IDomainEvent>; table: Table }, DomainError>(
+                async function* () {
+                  if (!deletedField)
+                    return err(domainError.unexpected({ message: 'Field not deleted' }));
+                  const events = yield* await handler.fieldDeletionSideEffectService.execute(
+                    transactionContext,
+                    {
+                      table: updatedTable,
+                      fields: [deletedField],
+                      foreignTables,
+                    }
+                  );
 
-                // Cross-table cleanup: mark fields in other tables as errored
-                // if they reference the deleted field (in filter conditions or as lookupFieldId)
-                const crossTableEvents = yield* await handler.executeCrossTableDeletionCleanup(
-                  transactionContext,
-                  updatedTable,
-                  deletedField
-                );
+                  const cleanupResult = yield* await handler.executeDeletionEntityCleanup(
+                    transactionContext,
+                    updatedTable,
+                    table,
+                    deletedField
+                  );
 
-                return ok([...events, ...crossTableEvents]);
-              }),
+                  return ok({
+                    events: [...events, ...cleanupResult.events],
+                    table: cleanupResult.sourceTable,
+                  });
+                }
+              ),
           },
         }
       );
@@ -124,107 +129,123 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
     });
   }
 
-  /**
-   * Mark fields in other tables as errored when they reference the deleted field.
-   *
-   * This handles the case where:
-   * - A ConditionalRollupField/ConditionalLookupField has a filter referencing the deleted field
-   * - A RollupField/LookupField/ConditionalRollupField uses the deleted field as lookupFieldId
-   * - A RollupField/LookupField uses the deleted field as linkFieldId
-   */
-  private async executeCrossTableDeletionCleanup(
+  private async executeDeletionEntityCleanup(
     context: ExecutionContextPort.IExecutionContext,
     sourceTable: Table,
+    previousSourceTable: Table,
     deletedField: Field
-  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
+  ): Promise<
+    Result<
+      {
+        sourceTable: Table;
+        events: ReadonlyArray<IDomainEvent>;
+      },
+      DomainError
+    >
+  > {
     const handler = this;
-    return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
+    return safeTry<
+      {
+        sourceTable: Table;
+        events: ReadonlyArray<IDomainEvent>;
+      },
+      DomainError
+    >(async function* () {
       const allTablesSpec = yield* TableAggregate.specs(sourceTable.baseId()).build();
       const allTables = yield* await handler.tableRepository.find(context, allTablesSpec);
+      const orderedTables = [
+        sourceTable,
+        ...allTables.filter((table) => !table.id().equals(sourceTable.id())),
+      ];
 
+      let latestSourceTable = sourceTable;
       const events: IDomainEvent[] = [];
 
-      for (const candidateTable of allTables) {
-        if (candidateTable.id().equals(sourceTable.id())) continue;
+      for (const table of orderedTables) {
+        const candidateTable = table.id().equals(latestSourceTable.id())
+          ? latestSourceTable
+          : table;
 
-        const specs = handler.buildDeletionCleanupSpecs(candidateTable, sourceTable, deletedField);
-        if (specs.length === 0) continue;
-
-        let composedSpec: ISpecification<Table, ITableSpecVisitor> = specs[0]!;
-        for (let i = 1; i < specs.length; i++) {
-          composedSpec = new AndSpec<Table, ITableSpecVisitor>(composedSpec, specs[i]!);
+        const cleanupSpecResult = handler.buildDeletionCleanupSpecs(candidateTable, deletedField, {
+          table: candidateTable,
+          sourceTable: latestSourceTable,
+          previousSourceTable,
+        });
+        if (cleanupSpecResult.isErr()) return err(cleanupSpecResult.error);
+        const cleanupSpec = cleanupSpecResult.value;
+        if (!cleanupSpec) {
+          continue;
         }
-
         const updateResult = yield* await handler.tableUpdateFlow.execute(
           context,
           { table: candidateTable },
           (table) => {
-            let updated = table;
-            for (const spec of specs) {
-              const result = spec.mutate(updated);
-              if (result.isErr()) return err(result.error);
-              updated = result.value;
-            }
-            return ok(TableUpdateResult.create(updated, composedSpec));
+            const updated = cleanupSpec.mutate(table);
+            if (updated.isErr()) return err(updated.error);
+            return ok(TableUpdateResult.create(updated.value, cleanupSpec));
           },
           { publishEvents: false }
         );
+        if (candidateTable.id().equals(latestSourceTable.id())) {
+          latestSourceTable = updateResult.table;
+        }
         events.push(...updateResult.events);
       }
 
-      return ok(events);
+      return ok({
+        sourceTable: latestSourceTable,
+        events,
+      });
     });
   }
 
   private buildDeletionCleanupSpecs(
     candidateTable: Table,
-    sourceTable: Table,
-    deletedField: Field
-  ): Array<ISpecification<Table, ITableSpecVisitor>> {
+    deletedField: Field,
+    context: FieldDeletionContext
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: Array<ISpecification<Table, ITableSpecVisitor>> = [];
-    const deletedFieldId = deletedField.id();
+
+    for (const view of candidateTable.views()) {
+      if (!implementsOnTeableViewFieldDeleted(view)) {
+        continue;
+      }
+      const result = view.onFieldDeleted(deletedField, context);
+      if (result.isErr()) return err(result.error);
+      if (result.value?.columnMeta) {
+        specs.push(
+          TableUpdateViewColumnMetaSpec.create([
+            {
+              viewId: result.value.viewId,
+              fieldId: result.value.fieldId,
+              columnMeta: result.value.columnMeta,
+            },
+          ])
+        );
+      }
+      if (result.value?.queryDefaults) {
+        specs.push(
+          TableUpdateViewQueryDefaultsSpec.create([
+            {
+              viewId: result.value.viewId,
+              queryDefaults: result.value.queryDefaults,
+            },
+          ])
+        );
+      }
+    }
 
     for (const field of candidateTable.getFields()) {
-      if (!this.referencesTable(field, sourceTable)) continue;
-
-      let shouldMarkError = false;
-
-      if (field instanceof RollupField) {
-        shouldMarkError =
-          field.lookupFieldId().equals(deletedFieldId) ||
-          field.linkFieldId().equals(deletedFieldId);
-      } else if (field instanceof ConditionalRollupField) {
-        shouldMarkError =
-          field.lookupFieldId().equals(deletedFieldId) ||
-          field.config().condition().referencesField(deletedFieldId);
-      } else if (field instanceof LookupField) {
-        shouldMarkError =
-          field.lookupFieldId().equals(deletedFieldId) ||
-          field.linkFieldId().equals(deletedFieldId);
-      } else if (field instanceof ConditionalLookupField) {
-        shouldMarkError =
-          field.lookupFieldId().equals(deletedFieldId) ||
-          field.conditionalLookupOptions().condition().referencesField(deletedFieldId);
+      if (!implementsOnTeableFieldDeleted(field)) {
+        continue;
       }
-
-      if (shouldMarkError && !field.hasError().isError()) {
-        specs.push(TableUpdateFieldHasErrorSpec.setError(field.id(), field.hasError()));
+      const result = field.onFieldDeleted(deletedField, context);
+      if (result.isErr()) return err(result.error);
+      if (result.value) {
+        specs.push(result.value);
       }
     }
 
-    return specs;
-  }
-
-  private referencesTable(field: Field, sourceTable: Table): boolean {
-    if (
-      field instanceof LinkField ||
-      field instanceof LookupField ||
-      field instanceof RollupField ||
-      field instanceof ConditionalLookupField ||
-      field instanceof ConditionalRollupField
-    ) {
-      return field.foreignTableId().equals(sourceTable.id());
-    }
-    return false;
+    return ok(composeAndSpecsOrUndefined(specs));
   }
 }

@@ -89,14 +89,9 @@ export class FormulaTypeVisitor
     if (rightResult.isErr()) return err(rightResult.error);
 
     const valueType = this.getBinaryOpValueType(ctx, leftResult.value, rightResult.value);
-    // Comparison operators always return a single boolean value,
-    // even when comparing arrays (the array is unwrapped to its first element in SQL).
-    // Logical operators (||, &&) also return single boolean.
-    const isComparisonOrLogical = this.isComparisonOrLogicalOp(ctx);
-    const isMultiple = isComparisonOrLogical
-      ? false
-      : Boolean(leftResult.value.isMultiple || rightResult.value.isMultiple);
-    return ok(new TypedValue(null, valueType, isMultiple));
+    // Binary operators unwrap arrays to scalar values in SQL translation.
+    // Keep v1 parity by inferring scalar results for all binary operations.
+    return ok(new TypedValue(null, valueType, false));
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): Result<TypedValue, DomainError> {
@@ -144,19 +139,6 @@ export class FormulaTypeVisitor
     if (returnResult.isErr()) return err(returnResult.error);
 
     return ok(new TypedValue(null, returnResult.value.type, returnResult.value.isMultiple));
-  }
-
-  private isComparisonOrLogicalOp(ctx: BinaryOpContext): boolean {
-    return Boolean(
-      ctx.PIPE_PIPE() ||
-        ctx.AMP_AMP() ||
-        ctx.EQUAL() ||
-        ctx.BANG_EQUAL() ||
-        ctx.GT() ||
-        ctx.GTE() ||
-        ctx.LT() ||
-        ctx.LTE()
-    );
   }
 
   private getBinaryOpValueType(

@@ -1,23 +1,44 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import os from 'os';
-import { Readable } from 'stream';
+import { PassThrough, Readable } from 'stream';
 import { Worker } from 'worker_threads';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { FieldType, ILocalization } from '@teable/core';
 import { getRandomString } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import type { IImportOptionRo, IImportColumn, IInplaceImportOptionRo } from '@teable/openapi';
 import { Job, Queue, QueueEvents } from 'bullmq';
 import { toNumber } from 'lodash';
+import { I18nService } from 'nestjs-i18n';
 import Papa from 'papaparse';
-import type { I18nPath } from '../../../types/i18n.generated';
+import { CacheService } from '../../../cache/cache.service';
+import type { I18nPath, I18nTranslations } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
 import { ImportMetricsService } from '../metrics/import-metrics.service';
+import { ImportTracingService } from '../metrics/import-tracing.service';
+import type { IChunkImportResult } from './import-csv.processor';
 import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-csv.processor';
-import { DEFAULT_IMPORT_CPU_USAGE, getWorkerPath, importerFactory } from './import.class';
+import { classifyImportError, formatClassifiedError } from './import-error-classifier';
+import type { TranslateFn } from './import-error-classifier';
+import {
+  getImportResultManifestKey,
+  IMPORT_RESULT_MANIFEST_TTL_SECONDS,
+  type IImportResultManifest,
+} from './import-result-manifest';
+import {
+  ImportTableResultQueueProcessor,
+  TABLE_IMPORT_RESULT_QUEUE,
+} from './import-result.processor';
+import {
+  DEFAULT_IMPORT_CPU_USAGE,
+  getWorkerPath,
+  importerFactory,
+  OVER_PLAN_ROW_COUNT_ERROR_MESSAGE,
+} from './import.class';
 
 const importCpuUsage = toNumber(process.env.IMPORT_CPU_USAGE ?? DEFAULT_IMPORT_CPU_USAGE);
 
@@ -54,7 +75,7 @@ interface ITableImportChunkJob {
   };
   recordsCal: {
     columnInfo?: IImportColumn[];
-    fields: { id: string; type: FieldType }[];
+    fields: { id: string; name?: string; type: FieldType }[];
     sourceColumnMap?: Record<string, number | null>;
   };
   ro: IImportOptionRo | IInplaceImportOptionRo;
@@ -84,9 +105,14 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   constructor(
     private readonly notificationService: NotificationService,
     private readonly importTableCsvQueueProcessor: ImportTableCsvQueueProcessor,
+    private readonly importTableResultQueueProcessor: ImportTableResultQueueProcessor,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE) public readonly queue: Queue<ITableImportChunkJob>,
-    @Optional() private readonly importMetrics?: ImportMetricsService
+    private readonly cacheService: CacheService,
+    private readonly i18n: I18nService<I18nTranslations>,
+    private readonly prismaService: PrismaService,
+    @Optional() private readonly importMetrics?: ImportMetricsService,
+    @Optional() private readonly importTracing?: ImportTracingService
   ) {
     super();
     // When BACKEND_CACHE_REDIS_URI is not set, queues are backed by the local
@@ -113,6 +139,39 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     }
   }
 
+  private async getUserLang(userId: string): Promise<string> {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { id: userId, deletedTime: null },
+        select: { lang: true },
+      });
+      return user?.lang ?? 'en';
+    } catch {
+      return 'en';
+    }
+  }
+
+  private createTranslateFn(lang?: string): TranslateFn {
+    return (key: I18nPath, args?: Record<string, string>) =>
+      this.i18n.t(key, { args, lang: lang ?? 'en' }) as string;
+  }
+
+  private getImportErrorNotification(
+    tableName: string,
+    errorMessage: string
+  ): ILocalization<I18nPath> {
+    if (errorMessage === OVER_PLAN_ROW_COUNT_ERROR_MESSAGE) {
+      return {
+        i18nKey: 'common.email.templates.notify.import.table.planLimitExceeded.message' as I18nPath,
+        context: { tableName },
+      };
+    }
+    return {
+      i18nKey: 'common.email.templates.notify.import.table.failed.message',
+      context: { tableName, errorMessage },
+    };
+  }
+
   public async process(job: Job<ITableImportChunkJob>) {
     const {
       baseId,
@@ -123,19 +182,53 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     const importStartTime = Date.now();
     const fileType = job.data.importerParams.fileType;
     const operationType = job.data.recordsCal.sourceColumnMap ? 'inplace' : 'create_table';
+    const { sourceColumnMap } = job.data.recordsCal;
 
     try {
       this.logger.log(
         `start chunk data job concurrency: ${TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY}`
       );
-      const rowCount = await this.resolveDataByWorker(job);
+      const manifest = await this.resolveDataByWorker(job);
       this.logger.log(`import data to ${table.id} chunk data job completed`);
+
+      const stats = {
+        success: manifest.successCount,
+        failed: manifest.failedCount,
+        total: manifest.successCount + manifest.failedCount,
+      };
+
+      this.importTracing?.setImportAttributes({ rows: stats.total });
       this.importMetrics?.recordImportComplete({
         fileType,
         operationType,
-        rows: rowCount,
         durationMs: Date.now() - importStartTime,
       });
+
+      const importJobId = String(job.id);
+      await this.cacheService.setDetail(
+        getImportResultManifestKey(importJobId) as `import:result:manifest:${string}`,
+        manifest,
+        IMPORT_RESULT_MANIFEST_TTL_SECONDS
+      );
+
+      await this.importTableResultQueueProcessor.queue.add(
+        TABLE_IMPORT_RESULT_QUEUE,
+        {
+          jobId: importJobId,
+          baseId,
+          table,
+          userId,
+          sourceColumnMap,
+          notification,
+        },
+        {
+          // Some queue backends reject custom IDs containing ":".
+          // Keep it derived from parent jobId, but normalize to safe chars.
+          jobId: `${importJobId.replace(/:/g, '_')}_result`,
+          removeOnComplete: 1000,
+          removeOnFail: 1000,
+        }
+      );
     } catch (error) {
       this.importMetrics?.recordImportError({
         fileType,
@@ -154,10 +247,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
           },
         };
       } else if (error instanceof Error) {
-        finalMessage = {
-          i18nKey: 'common.email.templates.notify.import.table.failed.message',
-          context: { tableName: table.name, errorMessage: error.message },
-        };
+        finalMessage = this.getImportErrorNotification(table.name, error.message);
       }
 
       if (notification && finalMessage) {
@@ -175,16 +265,17 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     }
   }
 
-  private async resolveDataByWorker(job: Job<ITableImportChunkJob>): Promise<number> {
+  private async resolveDataByWorker(
+    job: Job<ITableImportChunkJob>
+  ): Promise<IImportResultManifest> {
     const jobId = String(job.id);
     const jobData = job.data;
-    const { importerParams, table, options, baseId, userId, recordsCal } = jobData;
+    const { importerParams, table, options } = jobData;
 
     const workerId = `worker_${getRandomString(8)}`;
     const path = getWorkerPath('parse');
 
     const { attachmentUrl, fileType, maxRowCount } = importerParams;
-    const { sourceColumnMap } = recordsCal;
 
     const { skipFirstNLines, sheetKey, notification } = options;
 
@@ -206,67 +297,71 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       },
     });
 
-    // record count for error notification
     let recordCount = 1;
+    let successCount = 0;
+    let failedCount = 0;
+    const errorFilePaths: string[] = [];
 
-    return new Promise<number>((resolve, reject) => {
+    // Build fieldId→name map for resolving field IDs in error messages
+    const { columnInfo, sourceColumnMap, fields } = jobData.recordsCal;
+    const fieldIdToName = new Map(fields.map((f) => [f.id, f.name ?? f.id]));
+
+    const userLang = await this.getUserLang(jobData.userId);
+    const translate = this.createTranslateFn(userLang);
+
+    // Build sparse field names to preserve original CSV column order.
+    const fieldNames: string[] = [];
+    let maxWidth = 1;
+    if (columnInfo?.length) {
+      for (const col of columnInfo) {
+        fieldNames[col.sourceColumnIndex] = col.name;
+        maxWidth = Math.max(maxWidth, col.sourceColumnIndex + 1);
+      }
+    } else if (sourceColumnMap) {
+      for (const [fieldId, sourceIndex] of Object.entries(sourceColumnMap)) {
+        if (sourceIndex !== null) {
+          fieldNames[sourceIndex] = fieldIdToName.get(fieldId) ?? fieldId;
+          maxWidth = Math.max(maxWidth, sourceIndex + 1);
+        }
+      }
+    }
+
+    return new Promise<IImportResultManifest>((resolve, reject) => {
       worker.on('message', async (result) => {
-        const { type, data, chunkId, id, lastChunk } = result;
+        const { type } = result;
         switch (type) {
-          case 'chunk': {
-            const records = (data as Record<string, unknown[][]>)[sheetKey];
-            // fill data
-            recordCount += records.length;
-            if (records.length === 0) {
-              // Even if the chunk is empty, we need to notify the worker
-              // that we've finished processing it to avoid blocking
-              this.notificationService.sendImportResultNotify({
-                baseId,
-                tableId: table.id,
-                toUserId: userId,
-                message: sourceColumnMap
-                  ? {
-                      i18nKey: 'common.email.templates.notify.import.table.success.inplace',
-                      context: { tableName: table.name },
-                    }
-                  : {
-                      i18nKey: 'common.email.templates.notify.import.table.success.message',
-                      context: { tableName: table.name },
-                    },
-              });
-              worker.postMessage({ type: 'done', chunkId });
-              return;
-            }
-            try {
-              if (workerId === id) {
-                await this.chunkToFile(
-                  jobData,
-                  jobId,
-                  table.id,
-                  [recordCount - records.length, recordCount - 1],
-                  records,
-                  lastChunk
-                );
-              }
-              worker.postMessage({ type: 'done', chunkId });
-            } catch (e: unknown) {
-              const error = e as Error;
-              this.logger.error(error?.message, error?.stack);
-              const range: [number, number] = [recordCount - records.length, recordCount - 1];
-              worker.terminate();
-              const importError = new ImportError(error.message || String(e), range);
-              importError.stack = error.stack;
-              reject(importError);
-            }
+          case 'chunk':
+            ({ recordCount, successCount, failedCount } = await this.handleChunkMessage({
+              result,
+              sheetKey,
+              workerId,
+              jobData,
+              jobId,
+              tableId: table.id,
+              maxWidth,
+              userLang,
+              translate,
+              fieldIdToName,
+              errorFilePaths,
+              recordCount,
+              successCount,
+              failedCount,
+              worker,
+            }));
             break;
-          }
           case 'finished':
             worker.terminate();
-            resolve(recordCount - 1);
+            resolve({
+              successCount,
+              failedCount,
+              errorFilePaths,
+              fieldNames,
+              maxWidth,
+            });
             break;
           case 'error':
             worker.terminate();
-            reject(new Error(data as string));
+            reject(new Error(result.data as string));
             break;
         }
       });
@@ -280,30 +375,121 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     });
   }
 
+  private async handleChunkMessage(params: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    result: any;
+    sheetKey: string;
+    workerId: string;
+    jobData: ITableImportChunkJob;
+    jobId: string;
+    tableId: string;
+    maxWidth: number;
+    userLang: string;
+    translate: TranslateFn;
+    fieldIdToName: Map<string, string>;
+    errorFilePaths: string[];
+    recordCount: number;
+    successCount: number;
+    failedCount: number;
+    worker: Worker;
+  }): Promise<{ recordCount: number; successCount: number; failedCount: number }> {
+    const {
+      result,
+      sheetKey,
+      workerId,
+      jobData,
+      jobId,
+      tableId,
+      maxWidth,
+      userLang,
+      translate,
+      fieldIdToName,
+      errorFilePaths,
+      worker,
+    } = params;
+    let { recordCount, successCount, failedCount } = params;
+    const { data, chunkId, id, lastChunk } = result;
+    const rawRecords = (data as Record<string, unknown>)?.[sheetKey];
+    const records: unknown[][] = Array.isArray(rawRecords)
+      ? (rawRecords.filter((row) => row != null) as unknown[][])
+      : [];
+    recordCount += records.length;
+    if (records.length === 0) {
+      worker.postMessage({ type: 'done', chunkId });
+      return { recordCount, successCount, failedCount };
+    }
+    try {
+      if (workerId === id) {
+        const chunkResult = await this.chunkToFile(
+          jobData,
+          jobId,
+          tableId,
+          [recordCount - records.length, recordCount - 1],
+          records,
+          lastChunk,
+          { maxWidth, userLang }
+        );
+        if (chunkResult) {
+          if (chunkResult.errorFilePath && chunkResult.failedCount > 0) {
+            errorFilePaths.push(chunkResult.errorFilePath);
+          }
+          successCount += chunkResult.successCount;
+          failedCount += chunkResult.failedCount;
+        }
+      }
+      worker.postMessage({ type: 'done', chunkId });
+      return { recordCount, successCount, failedCount };
+    } catch (e: unknown) {
+      const error = e as Error;
+      const chunkStartRow = recordCount - records.length;
+      this.logger.error(
+        `Chunk [${chunkStartRow}, ${recordCount - 1}] had a catastrophic error: ${error?.message}`,
+        error?.stack
+      );
+      const rawMsg = `Chunk processing failed: ${error?.message ?? String(e)}`;
+      const classified = classifyImportError(rawMsg);
+      const translatedMsg = formatClassifiedError(classified, translate, fieldIdToName);
+      const path = await this.writeCatastrophicChunkErrors(
+        jobId,
+        [chunkStartRow, recordCount - 1],
+        records,
+        translatedMsg,
+        maxWidth
+      );
+      if (path) {
+        errorFilePaths.push(path);
+      }
+      failedCount += records.length;
+      worker.postMessage({ type: 'done', chunkId });
+      return { recordCount, successCount, failedCount };
+    }
+  }
+
   private async chunkToFile(
     job: ITableImportChunkJob,
     jobId: string,
     tableId: string,
     range: [number, number],
     records: unknown[][],
-    lastChunk: boolean
-  ) {
-    const {
-      baseId,
-      userId,
-      origin,
-      table,
-      recordsCal,
-      options: { notification },
-      ro,
-      logId,
-    } = job;
+    lastChunk: boolean,
+    errorReportConfig: { maxWidth: number; userLang: string }
+  ): Promise<IChunkImportResult | undefined> {
+    const { baseId, userId, origin, table, recordsCal, ro, logId } = job;
 
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
 
     const bucket = StorageAdapter.getBucket(UploadType.Import);
 
-    const csvString = Papa.unparse(records);
+    // Filter out undefined/null rows that can come from the worker parser
+    // (e.g. trailing empty lines in the source file). Papa.unparse will throw
+    // "Cannot read properties of undefined (reading 'length')" on such rows.
+    const cleanRecords = records.filter((row) => row != null);
+
+    if (cleanRecords.length === 0) {
+      return undefined;
+    }
+
+    const csvString = Papa.unparse(cleanRecords);
 
     // add BOM to make sure the csv file can be opened correctly in excel with UTF-8 encoding
     const csvWithBOM = '\uFEFF' + csvString;
@@ -324,37 +510,84 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
 
     const chunkJobId = this.importTableCsvQueueProcessor.getChunkImportJobId(jobId, range);
 
-    const importJob = await this.importTableCsvQueueProcessor.queue.add(
-      TABLE_IMPORT_CSV_QUEUE,
-      {
-        baseId,
-        userId,
-        origin,
-        path,
-        columnInfo,
-        fields,
-        sourceColumnMap,
-        table,
-        range,
-        notification,
-        lastChunk,
-        parentJobId: jobId,
-        ro,
-        logId,
-      },
-      {
-        jobId: chunkJobId,
-        removeOnComplete: 1000,
-        removeOnFail: 1000,
-      }
-    );
+    const jobData = {
+      baseId,
+      userId,
+      origin,
+      path,
+      columnInfo,
+      fields,
+      sourceColumnMap,
+      table,
+      range,
+      notification: false, // Notification now handled by parent after aggregation
+      lastChunk,
+      parentJobId: jobId,
+      ro,
+      logId,
+      errorReportConfig,
+    };
 
-    // Wait for the current chunk import job to complete before processing the next chunk,
-    // ensuring that all chunks of the same import task are executed sequentially across multiple Pods.
-    // In fallback (non-Redis) mode, `importQueueEvents` is undefined and jobs are handled
-    // in-process, so there is nothing to wait for.
     if (this.importQueueEvents) {
-      await importJob.waitUntilFinished(this.importQueueEvents, 200000);
+      // Redis mode: use the queue and wait for the result
+      const importJob = await this.importTableCsvQueueProcessor.queue.add(
+        TABLE_IMPORT_CSV_QUEUE,
+        jobData,
+        {
+          jobId: chunkJobId,
+          removeOnComplete: 1000,
+          removeOnFail: 1000,
+        }
+      );
+
+      // Wait for the current chunk import job to complete before processing the next chunk,
+      // ensuring that all chunks of the same import task are executed sequentially across multiple Pods.
+      return (await importJob.waitUntilFinished(
+        this.importQueueEvents,
+        200000
+      )) as IChunkImportResult;
+    }
+
+    // Fallback (non-Redis) mode: call the processor directly to get the result,
+    // since the local queue's fire-and-forget approach discards return values.
+    const fakeJob = {
+      id: chunkJobId,
+      data: jobData,
+    } as Job;
+    return await this.importTableCsvQueueProcessor.process(fakeJob);
+  }
+
+  private async writeCatastrophicChunkErrors(
+    jobId: string,
+    range: [number, number],
+    rows: unknown[][],
+    translatedMessage: string,
+    maxWidth: number
+  ): Promise<string | undefined> {
+    if (!rows.length) {
+      return undefined;
+    }
+    const bucket = StorageAdapter.getBucket(UploadType.Import);
+    const pathDir = StorageAdapter.getDir(UploadType.Import);
+    const errorPath = `${pathDir}/${jobId}/chunk_errors_[${range[0]},${range[1]}].csv`;
+    const stream = new PassThrough();
+    const uploadPromise = this.storageAdapter.uploadFileStream(bucket, errorPath, stream, {
+      'Content-Type': 'text/csv; charset=utf-8',
+    });
+    for (const row of rows) {
+      const originalCells = Array.isArray(row) ? row : [];
+      const padded = [...originalCells];
+      while (padded.length < maxWidth) padded.push('');
+      const line = Papa.unparse([[...padded, translatedMessage]], { header: false });
+      stream.write(line.endsWith('\n') ? line : line + '\n');
+    }
+    stream.end();
+    try {
+      const result = await uploadPromise;
+      return result.path;
+    } catch (error) {
+      this.logger.warn(`Failed to write catastrophic chunk errors for [${range}]`, error);
+      return undefined;
     }
   }
 
