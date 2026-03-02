@@ -21,11 +21,12 @@ import type {
 import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
 import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import type { CellValueMultiplicity } from './CellValueMultiplicity';
+import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
+import { FieldHasError } from './FieldHasError';
 import { LinkField } from './LinkField';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import type { NumberFormatting } from './NumberFormatting';
@@ -288,14 +289,22 @@ export class RollupField extends Field implements ForeignTableRelatedField, OnTe
   }
 
   cellValueType(): Result<CellValueType, DomainError> {
-    if (!this.cellValueTypeValue)
+    if (!this.cellValueTypeValue) {
+      if (this.hasError().isError()) {
+        return ok(CellValueType.string());
+      }
       return err(domainError.invariant({ message: 'RollupField cell value type not set' }));
+    }
     return ok(this.cellValueTypeValue);
   }
 
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
-    if (!this.isMultipleCellValueValue)
+    if (!this.isMultipleCellValueValue) {
+      if (this.hasError().isError()) {
+        return ok(CellValueMultiplicity.single());
+      }
       return err(domainError.invariant({ message: 'RollupField multiplicity not set' }));
+    }
     return ok(this.isMultipleCellValueValue);
   }
 
@@ -373,7 +382,9 @@ export class RollupField extends Field implements ForeignTableRelatedField, OnTe
         cellValueType: valuesTypeResult.value.cellValueType,
         isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
       });
-      if (resolveResult.isErr()) return err(resolveResult.error);
+      if (resolveResult.isErr()) {
+        this.setHasError(FieldHasError.error());
+      }
     }
 
     return this.ensureDependencies([linkFieldId]);

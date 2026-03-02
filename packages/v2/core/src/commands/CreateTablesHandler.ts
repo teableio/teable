@@ -282,7 +282,8 @@ export class CreateTablesHandler
 
       // Load external/foreign tables
       const externalTables = yield* await handler.foreignTableLoaderService.load(context, {
-        baseId: command.baseId,
+        // Cross-base references are allowed for external tables.
+        // Do not constrain by host baseId here.
         references: externalReferences,
       });
 

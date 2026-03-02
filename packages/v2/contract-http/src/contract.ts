@@ -12,6 +12,7 @@ import {
   deleteFieldInputSchema,
   deleteRecordsInputSchema,
   deleteTableInputSchema,
+  duplicateFieldInputSchema,
   duplicateRecordInputSchema,
   getRecordByIdInputSchema,
   getTableByIdInputSchema,
@@ -40,6 +41,7 @@ import { deleteByRangeOkResponseSchema } from './table/deleteByRange';
 import { deleteFieldOkResponseSchema } from './table/deleteField';
 import { deleteRecordsOkResponseSchema } from './table/deleteRecords';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
+import { duplicateFieldOkResponseSchema } from './table/duplicateField';
 import { duplicateRecordOkResponseSchema } from './table/duplicateRecord';
 import {
   explainCreateRecordInputSchema,
@@ -87,6 +89,7 @@ const TABLES_RENAME_PATH = '/tables/rename';
 const TABLES_UPDATE_FIELD_PATH = '/tables/updateField';
 const TABLES_UPDATE_RECORD_PATH = '/tables/updateRecord';
 const TABLES_REORDER_RECORDS_PATH = '/tables/reorderRecords';
+const TABLES_DUPLICATE_FIELD_PATH = '/tables/duplicateField';
 const TABLES_DUPLICATE_RECORD_PATH = '/tables/duplicateRecord';
 
 export const v2Contract: AnyContractRouter = {
@@ -303,6 +306,16 @@ export const v2Contract: AnyContractRouter = {
       })
       .input(reorderRecordsInputSchema)
       .output(reorderRecordsOkResponseSchema),
+    duplicateField: oc
+      .route({
+        method: 'POST',
+        path: TABLES_DUPLICATE_FIELD_PATH,
+        successStatus: 200,
+        summary: 'Duplicate field',
+        tags: ['tables'],
+      })
+      .input(duplicateFieldInputSchema)
+      .output(duplicateFieldOkResponseSchema),
     duplicateRecord: oc
       .route({
         method: 'POST',

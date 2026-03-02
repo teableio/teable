@@ -175,6 +175,8 @@ export const createLookupFieldPending = (params: {
   name: FieldName;
   lookupOptions: LookupOptions;
   isMultipleCellValue?: boolean;
+  innerOptionsPatch?: Readonly<Record<string, unknown>>;
+  legacyMultiplicityDerivation?: boolean;
   dependencies?: ReadonlyArray<FieldId>;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
@@ -366,6 +368,7 @@ export const createConditionalLookupField = (params: {
   conditionalLookupOptions: ConditionalLookupOptions;
   dependencies?: ReadonlyArray<FieldId>;
   isMultipleCellValue?: boolean;
+  innerOptionsPatch?: Readonly<Record<string, unknown>>;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>
@@ -376,6 +379,7 @@ export const createConditionalLookupFieldPending = (params: {
   name: FieldName;
   conditionalLookupOptions: ConditionalLookupOptions;
   dependencies?: ReadonlyArray<FieldId>;
+  innerOptionsPatch?: Readonly<Record<string, unknown>>;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>

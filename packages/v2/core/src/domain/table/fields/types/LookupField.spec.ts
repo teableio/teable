@@ -822,6 +822,227 @@ describe('LookupField', () => {
       expect(validationResult.isOk()).toBe(true);
     });
 
+    it('keeps v2 default multiplicity for manyOne lookup without legacy derivation', () => {
+      const baseId = createBaseId('r')._unsafeUnwrap();
+      const hostTableId = createTableId('s')._unsafeUnwrap();
+      const foreignTableId = createTableId('t')._unsafeUnwrap();
+      const hostPrimaryId = createFieldId('u')._unsafeUnwrap();
+      const foreignPrimaryId = createFieldId('v')._unsafeUnwrap();
+      const linkFieldId = createFieldId('w')._unsafeUnwrap();
+      const lookupFieldId = createFieldId('x')._unsafeUnwrap();
+
+      const foreignTable = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Foreign')._unsafeUnwrap())
+        .field()
+        .singleLineText()
+        .withId(foreignPrimaryId)
+        .withName(FieldName.create('Foreign Name')._unsafeUnwrap())
+        .primary()
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: LinkRelationship.manyOne().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+      })._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withId(hostTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Host')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(hostPrimaryId)
+        .withName(FieldName.create('Host Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+      const lookupField = LookupField.createPending({
+        id: lookupFieldId,
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryId.toString(),
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      expect(lookupField.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(true);
+
+      const validationResult = lookupField.validateForeignTables({
+        hostTable,
+        foreignTables: [foreignTable],
+      });
+      expect(validationResult.isOk()).toBe(true);
+      expect(lookupField.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(true);
+    });
+
+    it('derives single multiplicity for manyOne lookup to single-value target in legacy mode', () => {
+      const baseId = createBaseId('g')._unsafeUnwrap();
+      const hostTableId = createTableId('h')._unsafeUnwrap();
+      const foreignTableId = createTableId('i')._unsafeUnwrap();
+      const hostPrimaryId = createFieldId('j')._unsafeUnwrap();
+      const foreignPrimaryId = createFieldId('k')._unsafeUnwrap();
+      const linkFieldId = createFieldId('l')._unsafeUnwrap();
+      const lookupFieldId = createFieldId('m')._unsafeUnwrap();
+
+      const foreignTable = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Foreign Legacy')._unsafeUnwrap())
+        .field()
+        .singleLineText()
+        .withId(foreignPrimaryId)
+        .withName(FieldName.create('Foreign Name')._unsafeUnwrap())
+        .primary()
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: LinkRelationship.manyOne().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+      })._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withId(hostTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Host Legacy')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(hostPrimaryId)
+        .withName(FieldName.create('Host Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+      const lookupField = LookupField.createPending({
+        id: lookupFieldId,
+        name: FieldName.create('Lookup Legacy')._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryId.toString(),
+        })._unsafeUnwrap(),
+        legacyMultiplicityDerivation: true,
+      })._unsafeUnwrap();
+
+      const validationResult = lookupField.validateForeignTables({
+        hostTable,
+        foreignTables: [foreignTable],
+      });
+      expect(validationResult.isOk()).toBe(true);
+      expect(lookupField.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(false);
+    });
+
+    it('derives multiple multiplicity when lookup target is multi-value on manyOne link in legacy mode', () => {
+      const baseId = createBaseId('y')._unsafeUnwrap();
+      const hostTableId = createTableId('z')._unsafeUnwrap();
+      const foreignTableId = createTableId('a')._unsafeUnwrap();
+      const hostPrimaryId = createFieldId('b')._unsafeUnwrap();
+      const foreignPrimaryId = createFieldId('c')._unsafeUnwrap();
+      const foreignMultiFieldId = createFieldId('d')._unsafeUnwrap();
+      const linkFieldId = createFieldId('e')._unsafeUnwrap();
+      const lookupFieldId = createFieldId('f')._unsafeUnwrap();
+      const option = SelectOption.create({ name: 'Done', color: 'blue' })._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Foreign')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignPrimaryId)
+        .withName(FieldName.create('Foreign Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder
+        .field()
+        .multipleSelect()
+        .withId(foreignMultiFieldId)
+        .withName(FieldName.create('Tags')._unsafeUnwrap())
+        .withOptions([option])
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: LinkRelationship.manyOne().toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+      })._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withId(hostTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Host')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(hostPrimaryId)
+        .withName(FieldName.create('Host Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+      const lookupField = LookupField.createPending({
+        id: lookupFieldId,
+        name: FieldName.create('Lookup Tags')._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignMultiFieldId.toString(),
+        })._unsafeUnwrap(),
+        legacyMultiplicityDerivation: true,
+      })._unsafeUnwrap();
+
+      const validationResult = lookupField.validateForeignTables({
+        hostTable,
+        foreignTables: [foreignTable],
+      });
+      expect(validationResult.isOk()).toBe(true);
+      expect(lookupField.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(true);
+    });
+
     it('rejects when link field is not found in host table', () => {
       const baseIdResult = createBaseId('i');
       const hostTableIdResult = createTableId('j');

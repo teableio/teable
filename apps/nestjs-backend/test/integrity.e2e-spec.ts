@@ -538,7 +538,6 @@ describe('OpenAPI integrity (e2e)', () => {
 
       await executeKnex(
         knex.schema.alterTable(options.fkHostTableName, (table) => {
-          table.dropForeign(options.foreignKeyName, `fk_${options.foreignKeyName}`);
           table.dropColumn(options.foreignKeyName);
           table.dropColumn(`${options.foreignKeyName}_order`);
         })
@@ -591,7 +590,6 @@ describe('OpenAPI integrity (e2e)', () => {
 
       await executeKnex(
         knex.schema.alterTable(options.fkHostTableName, (table) => {
-          table.dropForeign(options.foreignKeyName, `fk_${options.foreignKeyName}`);
           table.dropColumn(options.foreignKeyName);
         })
       );
@@ -638,7 +636,6 @@ describe('OpenAPI integrity (e2e)', () => {
 
       await executeKnex(
         knex.schema.alterTable(options.fkHostTableName, (table) => {
-          table.dropForeign(options.selfKeyName, `fk_${options.selfKeyName}`);
           table.dropColumn(options.selfKeyName);
         })
       );

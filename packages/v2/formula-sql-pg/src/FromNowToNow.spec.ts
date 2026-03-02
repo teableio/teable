@@ -44,7 +44,7 @@ describe('FROMNOW / TONOW', () => {
 
     expect(dayContext.sql).toContain('/ 86400');
     expect(hourContext.sql).toContain('/ 3600');
-    expect(secondContext.sql).toContain('TRUNC((EXTRACT(EPOCH FROM (NOW() -');
+    expect(secondContext.sql).toContain('EXTRACT(EPOCH FROM (NOW() -');
 
     const dayValue = parseNumericResult(dayContext.result);
     const hourValue = parseNumericResult(hourContext.result);

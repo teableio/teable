@@ -5,6 +5,7 @@ import type { DomainError } from '../shared/DomainError';
 import { domainError } from '../shared/DomainError';
 import { FieldId } from './fields/FieldId';
 import { FieldType } from './fields/FieldType';
+import { FieldHasError } from './fields/types/FieldHasError';
 import type { FormulaField } from './fields/types/FormulaField';
 import { FormulaField as FormulaFieldType } from './fields/types/FormulaField';
 import {
@@ -13,11 +14,16 @@ import {
 } from './fields/visitors/FieldValueTypeVisitor';
 import type { Table } from './Table';
 
-export const resolveFormulaFields = (table: Table): Result<void, DomainError> => {
+export const resolveFormulaFields = (
+  table: Table,
+  options?: {
+    ignoreMissingReferenceOnExisting?: boolean;
+    strictFieldId?: FieldId;
+  }
+): Result<void, DomainError> => {
   const fields = table.getFields();
   const fieldById = new Map(fields.map((field) => [field.id().toString(), field] as const));
   const dependenciesByFieldId = new Map<string, ReadonlyArray<FieldId>>();
-  const missingRefs: string[] = [];
 
   for (const field of fields) {
     if (!field.type().equals(FieldType.formula())) continue;
@@ -29,6 +35,7 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
 
     const uniqueRefs = Array.from(new Set(referenceResult.value.map((id) => id.toString())));
     const dependencies: FieldId[] = [];
+    const missingRefs: string[] = [];
 
     for (const ref of uniqueRefs) {
       if (!fieldById.has(ref)) {
@@ -40,7 +47,16 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
       dependencies.push(fieldIdResult.value);
     }
 
+    const isStrictField = options?.strictFieldId ? field.id().equals(options.strictFieldId) : false;
     if (missingRefs.length > 0) {
+      if (options?.ignoreMissingReferenceOnExisting && !isStrictField) {
+        formulaField.setHasError(FieldHasError.error());
+        const dependencyResult = formulaField.setDependencies(dependencies);
+        if (dependencyResult.isErr()) return err(dependencyResult.error);
+        dependenciesByFieldId.set(field.id().toString(), dependencies);
+        continue;
+      }
+
       return err(
         domainError.notFound({
           message: `Formula field references not found: ${missingRefs.join(
@@ -50,6 +66,7 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
       );
     }
 
+    formulaField.setHasError(FieldHasError.ok());
     const dependencyResult = formulaField.setDependencies(dependencies);
     if (dependencyResult.isErr()) return err(dependencyResult.error);
     dependenciesByFieldId.set(field.id().toString(), dependencies);
@@ -106,12 +123,20 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
   for (const field of dependencyOrder.ordered) {
     if (!field.type().equals(FieldType.formula())) continue;
     const formulaField = field as FormulaField;
+    if (formulaField.hasError().isError()) {
+      continue;
+    }
     const typeResult = formulaField.expression().getParsedValueType(valueTypes);
     if (typeResult.isErr()) {
+      const parseError = typeResult.error;
+      const parseMessage = `Parse formula expression ${formulaField.expression().toString()} error: ${parseError}`;
       return err(
-        domainError.unexpected({
-          message: `Parse formula expression ${formulaField.expression().toString()} error: ${typeResult.error}`,
-        })
+        // Preserve original domain tags (validation/invariant/etc.) so HTTP status mapping stays correct.
+        {
+          ...parseError,
+          message: parseMessage,
+          toString: () => parseMessage,
+        }
       );
     }
 

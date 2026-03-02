@@ -209,6 +209,7 @@ export type ILookupOptionsDTO = {
   linkFieldId: string;
   lookupFieldId: string;
   foreignTableId: string;
+  relationship?: 'oneOne' | 'manyMany' | 'oneMany' | 'manyOne';
   filter?: IFieldConditionDTO['filter'];
   sort?: IFieldConditionDTO['sort'];
   limit?: number;
@@ -218,6 +219,7 @@ export type ITableFieldBaseDTO = {
   id: string;
   name: string;
   description?: string | null;
+  aiConfig?: unknown | null;
   dbFieldName?: string;
   dbFieldType?: string;
   isComputed?: boolean;

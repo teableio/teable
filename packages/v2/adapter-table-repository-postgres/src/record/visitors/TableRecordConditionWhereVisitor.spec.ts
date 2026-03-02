@@ -4,6 +4,7 @@ import {
   CheckboxConditionSpec,
   DbFieldName,
   FieldName,
+  RecordConditionFieldReferenceValue,
   LongTextConditionSpec,
   NumberConditionSpec,
   RecordConditionLiteralListValue,
@@ -79,6 +80,8 @@ const createTestTable = () => {
   builder.field().singleSelect().withName(FieldName.create('Status')._unsafeUnwrap()).done();
   builder.field().checkbox().withName(FieldName.create('Done')._unsafeUnwrap()).done();
   builder.field().longText().withName(FieldName.create('Notes')._unsafeUnwrap()).done();
+  builder.field().date().withName(FieldName.create('Due Date')._unsafeUnwrap()).done();
+  builder.field().date().withName(FieldName.create('Cutoff Date')._unsafeUnwrap()).done();
   builder.view().defaultGrid().done();
 
   const table = builder.build()._unsafeUnwrap();
@@ -88,6 +91,10 @@ const createTestTable = () => {
   fields[2].setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())._unsafeUnwrap();
   fields[3].setDbFieldName(DbFieldName.rehydrate('col_done')._unsafeUnwrap())._unsafeUnwrap();
   fields[4].setDbFieldName(DbFieldName.rehydrate('col_notes')._unsafeUnwrap())._unsafeUnwrap();
+  fields[5].setDbFieldName(DbFieldName.rehydrate('col_due_date')._unsafeUnwrap())._unsafeUnwrap();
+  fields[6]
+    .setDbFieldName(DbFieldName.rehydrate('col_cutoff_date')._unsafeUnwrap())
+    ._unsafeUnwrap();
 
   return {
     table,
@@ -96,6 +103,8 @@ const createTestTable = () => {
     statusField: fields[2],
     doneField: fields[3],
     notesField: fields[4],
+    dueDateField: fields[5],
+    cutoffDateField: fields[6],
   };
 };
 
@@ -121,7 +130,15 @@ const buildWhereFor = (
 
 describe('TableRecordConditionWhereVisitor NULL handling', () => {
   const db = createTestDb();
-  const { nameField, scoreField, statusField, doneField, notesField } = createTestTable();
+  const {
+    nameField,
+    scoreField,
+    statusField,
+    doneField,
+    notesField,
+    dueDateField,
+    cutoffDateField,
+  } = createTestTable();
 
   // ---- isNot ----
 
@@ -248,6 +265,29 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
 
       expect(sql).toMatchInlineSnapshot(`""t"."col_score" = $1"`);
       expect(parameters).toEqual([100]);
+    });
+  });
+
+  describe('date field reference comparisons', () => {
+    test('date isBefore with field reference uses host table alias', () => {
+      const value = RecordConditionFieldReferenceValue.create(cutoffDateField)._unsafeUnwrap();
+      const spec = dueDateField.spec().create({ operator: 'isBefore', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const visitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+      const visitResult = spec.value.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toContain('("f"."col_due_date")::date < ("t"."col_cutoff_date")::date');
+      expect(parameters).toEqual([]);
     });
   });
 
