@@ -832,6 +832,7 @@ export class ComputedFieldUpdater {
           if (!selectQuery) {
             const builder = new ComputedTableRecordQueryBuilder(db, {
               typeValidationStrategy: this.typeValidationStrategy,
+              forceLookupArrayOutput: true,
             })
               .from(table)
               .select(fieldIds)

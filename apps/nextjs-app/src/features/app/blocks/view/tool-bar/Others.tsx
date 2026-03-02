@@ -1,8 +1,7 @@
-import { ArrowUpRight, Code2, MoreHorizontal } from '@teable/icons';
+import { ArrowUpRight, MoreHorizontal } from '@teable/icons';
 import { useIsReadOnlyPreview, useTablePermission } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { SearchButton } from '../search/SearchButton';
-import { APIDialog } from './APIDialog';
 import { PersonalViewSwitch } from './components';
 import { UndoRedoButtons } from './components/UndoRedoButtons';
 import { SharePopover } from './SharePopover';
@@ -71,7 +70,13 @@ const OthersMenu = ({ className }: { className?: string }) => {
 export const Others: React.FC = () => {
   const isReadOnlyPreview = useIsReadOnlyPreview();
   return (
-    <div className="flex flex-1 items-center justify-end @container/toolbar-others md:gap-0">
+    <div
+      className={cn(
+        'flex shrink-0 items-center justify-end pl-6 md:gap-0',
+        'bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,hsl(var(--background))_5%)]',
+        'dark:bg-[linear-gradient(90deg,rgba(0,0,0,0)_0%,hsl(var(--background))_5%)]'
+      )}
+    >
       <SearchButton />
       {!isReadOnlyPreview && (
         <>
@@ -80,7 +85,7 @@ export const Others: React.FC = () => {
           <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
           <OthersList
             className="hidden @md/toolbar:flex"
-            classNames={{ textClassName: '@[300px]/toolbar-others:inline' }}
+            classNames={{ textClassName: '@2xl/toolbar:inline' }}
           />
           <OthersMenu className="@md/toolbar:hidden" />
         </>

@@ -2,7 +2,9 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
+import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { ForeignTable } from '../../ForeignTable';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
@@ -21,11 +23,12 @@ import type {
 import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
 import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import type { CellValueMultiplicity } from './CellValueMultiplicity';
+import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
+import { FieldHasError } from './FieldHasError';
 import { LinkField } from './LinkField';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import type { NumberFormatting } from './NumberFormatting';
@@ -51,7 +54,10 @@ type RollupValuesType = {
   isMultipleCellValue: CellValueMultiplicity;
 };
 
-export class RollupField extends Field implements ForeignTableRelatedField, OnTeableFieldUpdated {
+export class RollupField
+  extends Field
+  implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
+{
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -288,14 +294,22 @@ export class RollupField extends Field implements ForeignTableRelatedField, OnTe
   }
 
   cellValueType(): Result<CellValueType, DomainError> {
-    if (!this.cellValueTypeValue)
+    if (!this.cellValueTypeValue) {
+      if (this.hasError().isError()) {
+        return ok(CellValueType.string());
+      }
       return err(domainError.invariant({ message: 'RollupField cell value type not set' }));
+    }
     return ok(this.cellValueTypeValue);
   }
 
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
-    if (!this.isMultipleCellValueValue)
+    if (!this.isMultipleCellValueValue) {
+      if (this.hasError().isError()) {
+        return ok(CellValueMultiplicity.single());
+      }
       return err(domainError.invariant({ message: 'RollupField multiplicity not set' }));
+    }
     return ok(this.isMultipleCellValueValue);
   }
 
@@ -373,7 +387,9 @@ export class RollupField extends Field implements ForeignTableRelatedField, OnTe
         cellValueType: valuesTypeResult.value.cellValueType,
         isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
       });
-      if (resolveResult.isErr()) return err(resolveResult.error);
+      if (resolveResult.isErr()) {
+        this.setHasError(FieldHasError.error());
+      }
     }
 
     return this.ensureDependencies([linkFieldId]);
@@ -424,7 +440,7 @@ export class RollupField extends Field implements ForeignTableRelatedField, OnTe
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
     _context: FieldUpdateContext
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
 
     // Check if the updated field is our link field or lookup field
@@ -434,7 +450,7 @@ export class RollupField extends Field implements ForeignTableRelatedField, OnTe
 
     if (!isRelatedField) {
       // Not our dependency, no response needed
-      return ok(specs);
+      return ok(undefined);
     }
 
     // Check if the field is being type-converted
@@ -467,7 +483,25 @@ export class RollupField extends Field implements ForeignTableRelatedField, OnTe
       }
     }
 
-    return ok(specs);
+    return ok(composeAndSpecsOrUndefined(specs));
+  }
+
+  onFieldDeleted(
+    deletedField: Field,
+    context: FieldDeletionContext
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+    const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
+    const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
+
+    const shouldSetError =
+      (deletedFromHostTable && deletedField.id().equals(this.linkFieldId())) ||
+      (deletedFromForeignTable && deletedField.id().equals(this.lookupFieldId()));
+
+    if (!shouldSetError || this.hasError().isError()) {
+      return ok(undefined);
+    }
+
+    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

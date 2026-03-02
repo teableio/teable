@@ -54,8 +54,27 @@ const defaultScheduler: AsyncEventBusScheduler = (task) => {
 
 export class AsyncMemoryEventBus implements IEventBus {
   private readonly publishedEvents: IDomainEvent[] = [];
-  private readonly queue: Array<{ context: IExecutionContext; event: IDomainEvent }> = [];
+  private readonly queue: Array<{ context: IExecutionContext; event: IDomainEvent; seq: number }> =
+    [];
+  private readonly waiters: Array<{ targetSeq: number; resolve: () => void }> = [];
   private draining = false;
+  private nextSeq = 0;
+  private processedSeq = -1;
+
+  private shouldAwait(events: ReadonlyArray<IDomainEvent>): boolean {
+    if (!events.length) return false;
+
+    const awaitableEventNames = new Set([
+      'FieldCreated',
+      'FieldUpdated',
+      'FieldDeleted',
+      'FieldDuplicated',
+      'FieldOptionsAdded',
+      'ViewColumnMetaUpdated',
+    ]);
+
+    return events.every((event) => awaitableEventNames.has(event.name.toString()));
+  }
 
   constructor(
     private readonly handlerResolver: IHandlerResolver,
@@ -70,9 +89,14 @@ export class AsyncMemoryEventBus implements IEventBus {
     context: IExecutionContext,
     event: IDomainEvent
   ): Promise<Result<void, DomainError>> {
+    const shouldAwait = this.shouldAwait([event]);
+    const wasDraining = this.draining;
     this.enrichWithRequestId(context, event);
     this.publishedEvents.push(event);
-    this.enqueue(context, [event]);
+    const targetSeq = this.enqueue(context, [event]);
+    if (shouldAwait && !wasDraining) {
+      await this.waitUntilProcessed(targetSeq);
+    }
     return ok(undefined);
   }
 
@@ -80,11 +104,19 @@ export class AsyncMemoryEventBus implements IEventBus {
     context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
   ): Promise<Result<void, DomainError>> {
+    if (!events.length) {
+      return ok(undefined);
+    }
+    const shouldAwait = this.shouldAwait(events);
+    const wasDraining = this.draining;
     for (const event of events) {
       this.enrichWithRequestId(context, event);
     }
     this.publishedEvents.push(...events);
-    this.enqueue(context, events);
+    const targetSeq = this.enqueue(context, events);
+    if (shouldAwait && !wasDraining) {
+      await this.waitUntilProcessed(targetSeq);
+    }
     return ok(undefined);
   }
 
@@ -94,13 +126,40 @@ export class AsyncMemoryEventBus implements IEventBus {
     }
   }
 
-  private enqueue(context: IExecutionContext, events: ReadonlyArray<IDomainEvent>): void {
+  private enqueue(context: IExecutionContext, events: ReadonlyArray<IDomainEvent>): number {
+    let targetSeq = this.processedSeq;
     for (const event of events) {
-      this.queue.push({ context, event });
+      const seq = this.nextSeq;
+      this.nextSeq += 1;
+      targetSeq = seq;
+      this.queue.push({ context, event, seq });
     }
     if (!this.draining) {
       this.draining = true;
       this.scheduleDrain();
+    }
+    return targetSeq;
+  }
+
+  private waitUntilProcessed(targetSeq: number): Promise<void> {
+    if (targetSeq <= this.processedSeq) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      this.waiters.push({ targetSeq, resolve });
+    });
+  }
+
+  private resolveWaiters(): void {
+    if (!this.waiters.length) return;
+
+    for (let i = this.waiters.length - 1; i >= 0; i--) {
+      const waiter = this.waiters[i];
+      if (waiter.targetSeq <= this.processedSeq) {
+        this.waiters.splice(i, 1);
+        waiter.resolve();
+      }
     }
   }
 
@@ -116,6 +175,8 @@ export class AsyncMemoryEventBus implements IEventBus {
       const next = this.queue.shift();
       if (!next) continue;
       await this.dispatch(next.context, next.event);
+      this.processedSeq = next.seq;
+      this.resolveWaiters();
     }
     this.draining = false;
     if (this.queue.length > 0) {

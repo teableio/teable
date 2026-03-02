@@ -30,7 +30,7 @@ export type TableFieldRow = {
   description: string | null;
   options: string | null;
   meta: string | null;
-  ai_config: null;
+  ai_config: string | null;
   type: string;
   cell_value_type: string;
   is_multiple_cell_value: boolean;
@@ -255,13 +255,18 @@ export class TableFieldPersistenceBuilder {
         : null;
     const persistedType = this.resolvePersistedFieldType(params.fieldDto);
 
+    const serializedAiConfig =
+      params.fieldDto.aiConfig === undefined || params.fieldDto.aiConfig === null
+        ? null
+        : JSON.stringify(params.fieldDto.aiConfig);
+
     return {
       id: params.fieldDto.id,
       name: params.fieldDto.name,
       description: params.fieldDto.description ?? null,
       options: this.serializeFieldOptions(params.fieldDto),
       meta: this.serializeFieldMeta(params.fieldDto),
-      ai_config: null,
+      ai_config: serializedAiConfig,
       type: persistedType,
       cell_value_type: params.storageType.cellValueType,
       is_multiple_cell_value: params.storageType.isMultipleCellValue,
@@ -334,8 +339,9 @@ export class TableFieldPersistenceBuilder {
     if (field.isLookup && field.lookupOptions) {
       const linkOptions = this.resolveLinkFieldOptions(field.lookupOptions.linkFieldId);
       if (!linkOptions) return JSON.stringify(field.lookupOptions);
+      const normalizedLinkOptions = this.normalizeLookupLinkedOptions(linkOptions);
       return JSON.stringify({
-        ...linkOptions,
+        ...normalizedLinkOptions,
         ...field.lookupOptions,
         linkFieldId: field.lookupOptions.linkFieldId,
       });
@@ -346,7 +352,7 @@ export class TableFieldPersistenceBuilder {
       const linkOptions = this.resolveLinkFieldOptions(field.config.linkFieldId);
       if (!linkOptions) return JSON.stringify(field.config);
       return JSON.stringify({
-        ...linkOptions,
+        ...this.normalizeLookupLinkedOptions(linkOptions),
         ...field.config,
         linkFieldId: field.config.linkFieldId,
       });
@@ -371,6 +377,19 @@ export class TableFieldPersistenceBuilder {
     }
 
     return null;
+  }
+
+  private normalizeLookupLinkedOptions(
+    linkOptions: ILinkFieldOptionsDTO
+  ): Partial<ILinkFieldOptionsDTO> {
+    const options: Partial<ILinkFieldOptionsDTO> = { ...linkOptions };
+    if (options.isOneWay === false) {
+      delete options.isOneWay;
+    }
+    if ('symmetricFieldId' in options) {
+      delete options.symmetricFieldId;
+    }
+    return options;
   }
 
   private resolveLinkFieldOptions(

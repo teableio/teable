@@ -826,6 +826,77 @@ describe('PostgresTableRepository (pg)', () => {
     }
   });
 
+  it('persists and rehydrates aiConfig on create', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${'g'.repeat(16)}`)._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'AI Space', created_by: actorId.toString() })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'AI Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableName = TableName.create('AI Table')._unsafeUnwrap();
+      const titleName = FieldName.create('Title')._unsafeUnwrap();
+      const aiName = FieldName.create('AI Summary')._unsafeUnwrap();
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder.field().singleLineText().withName(titleName).primary().done();
+      builder.field().singleLineText().withName(aiName).done();
+      builder.view().defaultGrid().done();
+
+      const table = builder.build()._unsafeUnwrap();
+      const aiField = table.getFields().find((field) => field.name().equals(aiName));
+      expect(aiField).toBeDefined();
+      if (!aiField) return;
+
+      const aiConfig = {
+        type: 'summary',
+        modelKey: 'openai@gpt-4o@gpt',
+        sourceFieldId: table.primaryFieldId().toString(),
+      };
+      aiField.setAiConfig(aiConfig)._unsafeUnwrap();
+
+      (await repo.insert(context, table))._unsafeUnwrap();
+
+      const row = await db
+        .selectFrom('field')
+        .select(['id', 'ai_config'])
+        .where('id', '=', aiField.id().toString())
+        .where('deleted_time', 'is', null)
+        .executeTakeFirst();
+      expect(row).toBeDefined();
+      expect(JSON.parse(row?.ai_config ?? 'null')).toEqual(aiConfig);
+
+      const spec = Table.specs(baseId).byId(table.id()).build()._unsafeUnwrap();
+      const loaded = (await repo.findOne(context, spec))._unsafeUnwrap();
+      const loadedAiField = loaded.getFields().find((field) => field.id().equals(aiField.id()));
+      expect(loadedAiField?.aiConfig()).toEqual(aiConfig);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('rejects duplicate db table names within a base', async () => {
     const c = container.createChildContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());

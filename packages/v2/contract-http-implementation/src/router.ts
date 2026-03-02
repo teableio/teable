@@ -40,6 +40,7 @@ import { executeDeleteByRangeEndpoint } from './handlers/tables/deleteByRange';
 import { executeRenameTableEndpoint } from './handlers/tables/renameTable';
 import { executeUpdateRecordEndpoint } from './handlers/tables/updateRecord';
 import { executeReorderRecordsEndpoint } from './handlers/tables/reorderRecords';
+import { executeDuplicateFieldEndpoint } from './handlers/tables/duplicateField';
 import { executeDuplicateRecordEndpoint } from './handlers/tables/duplicateRecord';
 
 export interface IV2OrpcRouterOptions {
@@ -318,10 +319,6 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       throwDomainError('BAD_REQUEST', result.body.error);
     }
 
-    if (result.status === 403) {
-      throwDomainError('FORBIDDEN', result.body.error);
-    }
-
     if (result.status === 404) {
       throwDomainError('NOT_FOUND', result.body.error);
     }
@@ -429,6 +426,34 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     const result = await executeDuplicateRecordEndpoint(executionContext, input, commandBus);
 
     if (result.status === 201) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  const tablesDuplicateField = os.tables.duplicateField.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeDuplicateFieldEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 200) return result.body;
 
     if (result.status === 400) {
       throwDomainError('BAD_REQUEST', result.body.error);
@@ -576,6 +601,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     if (result.status === 404) {
       throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    if (result.status === 403) {
+      throwDomainError('FORBIDDEN', result.body.error);
     }
 
     throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
@@ -918,6 +947,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       createRecords: tablesCreateRecords,
       updateRecord: tablesUpdateRecord,
       reorderRecords: tablesReorderRecords,
+      duplicateField: tablesDuplicateField,
       duplicateRecord: tablesDuplicateRecord,
       paste: tablesPaste,
       clear: tablesClear,

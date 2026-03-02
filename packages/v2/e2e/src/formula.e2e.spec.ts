@@ -1530,6 +1530,106 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
+     * Scenario:Formula references created time on record create
+     * Formula:DATETIME_DIFF(NOW(), {createdTimeField}, "day")
+     * Expect: newly inserted record evaluates to zero days
+     */
+    it('should create formula referencing created time on insert - DATETIME_DIFF(NOW(), {createdTimeField}, "day")', async () => {
+      const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('Created Time Age Formula Test'),
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const primaryFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+
+      const createCreatedTimeResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'createdTime',
+            name: 'Created Time',
+          },
+        }),
+      });
+      expect(createCreatedTimeResponse.status).toBe(200);
+      const createdTimeRaw = await createCreatedTimeResponse.json();
+      const createdTimeParsed = createFieldOkResponseSchema.safeParse(createdTimeRaw);
+      expect(createdTimeParsed.success).toBe(true);
+      if (!createdTimeParsed.success || !createdTimeParsed.data.ok) return;
+
+      const createdTimeFieldId =
+        createdTimeParsed.data.data.table.fields.find((f) => f.type === 'createdTime')?.id ?? '';
+
+      const createFormulaResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'CreatedAgeDays',
+            options: {
+              expression: `DATETIME_DIFF(NOW(), {${createdTimeFieldId}}, "day")`,
+              timeZone: 'utc',
+            },
+          },
+        }),
+      });
+      if (createFormulaResponse.status !== 200) {
+        const errorText = await createFormulaResponse.text();
+        throw new Error(`Create formula failed: ${errorText}`);
+      }
+      const formulaRaw = await createFormulaResponse.json();
+      const formulaParsed = createFieldOkResponseSchema.safeParse(formulaRaw);
+      expect(formulaParsed.success).toBe(true);
+      if (!formulaParsed.success || !formulaParsed.data.ok) return;
+
+      const formulaFieldId =
+        formulaParsed.data.data.table.fields.find((f) => f.name === 'CreatedAgeDays')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [primaryFieldId]: 'Row 1',
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      expect(record.fields[formulaFieldId]).toBe(0);
+    });
+
+    /**
      * Scenario:Formula references last modified time field
      * Formula:DATETIME_FORMAT({lastModifiedTimeField}, "YYYY-MM-DD")
      * Expect: formats last modified time
@@ -1923,7 +2023,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario: use SUBSTITUTE with number field (auto string coercion)
      * Formula:SUBSTITUTE({numberField}, "0", "X")
-     * Expect: coerces number to string before substitution
+     * Expect: coerces number to raw string before substitution
      */
     it('should substitute numeric field as text - SUBSTITUTE({numberField}, "0", "X")', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
@@ -1998,7 +2098,7 @@ describe('v2 http formula (e2e)', () => {
       expect(record).toBeDefined();
       if (!record) return;
 
-      expect(record.fields[formulaFieldId]).toBe('1XXX.XX');
+      expect(record.fields[formulaFieldId]).toBe('1XXX');
     });
 
     /**
@@ -5589,7 +5689,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario:T function
      * Formula:T({numberField})
-     * Expect: returns text if input is text, otherwise empty string
+     * Expect: returns text representation
      */
     it('should convert to text or empty - T({numberField})', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
@@ -5661,7 +5761,7 @@ describe('v2 http formula (e2e)', () => {
       expect(record).toBeDefined();
       if (!record) return;
 
-      expect(record.fields[formulaFieldId]).toBe(null);
+      expect(record.fields[formulaFieldId]).toBe('123');
     });
 
     /**
@@ -7930,6 +8030,88 @@ describe('v2 http formula (e2e)', () => {
       if (!record) return;
 
       expect(record.fields[formulaFieldId]).toBe(2);
+    });
+
+    /**
+     * Scenario:DATETIME_DIFF default unit
+     * Formula:DATETIME_DIFF({date1}, {date2})
+     * Expect: defaults to day unit and keeps sign when end precedes start
+     */
+    it('should get datetime diff with default unit - DATETIME_DIFF({date1}, {date2})', async () => {
+      const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('DATETIME_DIFF Default Unit Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'date', name: 'Date1' },
+            { type: 'date', name: 'Date2' },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const date1FieldId = table.fields.find((f) => f.name === 'Date1')?.id ?? '';
+      const date2FieldId = table.fields.find((f) => f.name === 'Date2')?.id ?? '';
+
+      const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'DiffDaysDefault',
+            options: { expression: `DATETIME_DIFF({${date1FieldId}}, {${date2FieldId}})` },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'DiffDaysDefault')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            [date1FieldId]: '2024-01-03T00:00:00.000Z',
+            [date2FieldId]: '2024-01-01T00:00:00.000Z',
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const diffValue = record.fields[formulaFieldId];
+      expect(typeof diffValue).toBe('number');
+      if (typeof diffValue !== 'number') return;
+      expect(diffValue).toBeCloseTo(2, 6);
     });
 
     /**
@@ -14509,8 +14691,8 @@ describe('v2 http formula (e2e)', () => {
         }),
       });
 
-      // 3. Verify 500 error (invalid function causes parse error)
-      expect(createFieldResponse.status).toBe(500);
+      // 3. Verify 400 error (invalid function causes parse validation error)
+      expect(createFieldResponse.status).toBe(400);
     });
 
     /**

@@ -10,6 +10,7 @@ import {
   type DeleteFieldResult,
   type ICommandBus,
   type LinkField,
+  type LookupField,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
@@ -183,5 +184,114 @@ describe('DeleteFieldHandler', () => {
         .getFields()
         .some((field) => field.id().equals(symmetricFieldId))
     ).toBe(false);
+  });
+
+  it('marks dependent lookup field as errored when foreign lookup target is deleted', async () => {
+    const { container, tableRepository, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const hostCreated = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Host',
+        fields: [{ type: 'singleLineText', name: 'Title' }],
+      })._unsafeUnwrap()
+    );
+    hostCreated._unsafeUnwrap();
+    const hostTable = hostCreated._unsafeUnwrap().table;
+
+    const foreignCreated = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Foreign',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      })._unsafeUnwrap()
+    );
+    foreignCreated._unsafeUnwrap();
+    const foreignTable = foreignCreated._unsafeUnwrap().table;
+
+    const foreignStatusFieldId = `fld${'s'.repeat(16)}`;
+    const foreignStatusResult = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      CreateFieldCommand.create({
+        baseId: baseId.toString(),
+        tableId: foreignTable.id().toString(),
+        field: {
+          type: 'singleLineText',
+          id: foreignStatusFieldId,
+          name: 'Status',
+        },
+      })._unsafeUnwrap()
+    );
+    foreignStatusResult._unsafeUnwrap();
+
+    const linkFieldId = `fld${'l'.repeat(16)}`;
+    const linkResult = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      CreateFieldCommand.create({
+        baseId: baseId.toString(),
+        tableId: hostTable.id().toString(),
+        field: {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id().toString(),
+            lookupFieldId: foreignTable.primaryFieldId().toString(),
+          },
+        },
+      })._unsafeUnwrap()
+    );
+    linkResult._unsafeUnwrap();
+
+    const lookupFieldId = `fld${'k'.repeat(16)}`;
+    const lookupResult = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      CreateFieldCommand.create({
+        baseId: baseId.toString(),
+        tableId: hostTable.id().toString(),
+        field: {
+          type: 'lookup',
+          id: lookupFieldId,
+          name: 'Lookup Status',
+          options: {
+            foreignTableId: foreignTable.id().toString(),
+            linkFieldId,
+            lookupFieldId: foreignStatusFieldId,
+          },
+        },
+      })._unsafeUnwrap()
+    );
+    lookupResult._unsafeUnwrap();
+
+    const deleteResult = await commandBus.execute<DeleteFieldCommand, DeleteFieldResult>(
+      context,
+      DeleteFieldCommand.create({
+        baseId: baseId.toString(),
+        tableId: foreignTable.id().toString(),
+        fieldId: foreignStatusFieldId,
+      })._unsafeUnwrap()
+    );
+    deleteResult._unsafeUnwrap();
+
+    const hostSpecResult = hostTable.specs().byId(hostTable.id()).build();
+    hostSpecResult._unsafeUnwrap();
+    const hostAfterResult = await tableRepository.findOne(context, hostSpecResult._unsafeUnwrap());
+    hostAfterResult._unsafeUnwrap();
+
+    const lookupField = hostAfterResult
+      ._unsafeUnwrap()
+      .getFields()
+      .find((field) => field.id().toString() === lookupFieldId) as LookupField | undefined;
+    expect(lookupField).toBeDefined();
+    if (!lookupField) return;
+
+    expect(lookupField.hasError().isError()).toBe(true);
   });
 });

@@ -13,6 +13,7 @@ import { CellValueMultiplicity } from '../../../domain/table/fields/types/CellVa
 import { CellValueType } from '../../../domain/table/fields/types/CellValueType';
 import { CheckboxField } from '../../../domain/table/fields/types/CheckboxField';
 import { ConditionalLookupField } from '../../../domain/table/fields/types/ConditionalLookupField';
+import { ConditionalLookupOptions } from '../../../domain/table/fields/types/ConditionalLookupOptions';
 import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefaultValue';
 import { DateField } from '../../../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
@@ -451,6 +452,74 @@ describe('DefaultTableMapper', () => {
 
     expect(conditionalLookupField).toBeInstanceOf(ConditionalLookupField);
     expect((conditionalLookupField as ConditionalLookupField).isPending()).toBe(true);
+  });
+
+  it('merges conditional lookup inner options patch when persisting', () => {
+    const baseId = BaseId.create(`bse${'m'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'m'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+    const innerFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+    const conditionalLookupId = FieldId.create(`fld${'o'.repeat(16)}`)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Conditional Lookup Patch')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.addFieldFromResult(
+      ConditionalLookupField.create({
+        id: conditionalLookupId,
+        name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+        innerField: NumberField.create({
+          id: innerFieldId,
+          name: FieldName.create('Amount')._unsafeUnwrap(),
+          formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+        })._unsafeUnwrap(),
+        conditionalLookupOptions: ConditionalLookupOptions.create({
+          foreignTableId: `tbl${'p'.repeat(16)}`,
+          lookupFieldId: `fld${'q'.repeat(16)}`,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: primaryFieldId.toString(), operator: 'is', value: 'open' }],
+            },
+          },
+        })._unsafeUnwrap(),
+        innerOptionsPatch: {
+          formatting: {
+            type: 'currency',
+            precision: 1,
+            symbol: '¥',
+          },
+        },
+      })
+    );
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const persisted = dto.fields.find((field) => field.id === conditionalLookupId.toString()) as
+      | (typeof dto.fields)[number]
+      | undefined;
+
+    expect(persisted?.type).toBe('conditionalLookup');
+    if (!persisted || persisted.type !== 'conditionalLookup') {
+      return;
+    }
+    expect(persisted.innerOptions).toEqual({
+      formatting: {
+        type: 'currency',
+        precision: 1,
+        symbol: '¥',
+      },
+    });
   });
 
   it('falls back to pending lookup when legacy link-lookup inner options are invalid', () => {

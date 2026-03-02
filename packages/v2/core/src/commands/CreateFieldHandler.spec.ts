@@ -14,6 +14,7 @@ import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
+import type { LookupField } from '../domain/table/fields/types/LookupField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -312,5 +313,276 @@ describe('CreateFieldHandler', () => {
     const cellValueTypeResult = formulaField.cellValueType();
     expect(cellValueTypeResult.isOk()).toBe(true);
     cellValueTypeResult._unsafeUnwrap();
+  });
+
+  it('derives lookup multiplicity from oneMany link in domain layer', async () => {
+    const baseId = `bse${'a'.repeat(16)}`;
+    const hostTableId = `tbl${'b'.repeat(16)}`;
+    const foreignTableId = `tbl${'c'.repeat(16)}`;
+    const hostPrimaryId = `fld${'d'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'e'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const handler = new CreateFieldHandler(
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId: hostTableId,
+        tableName: 'Host',
+        primaryFieldId: hostPrimaryId,
+      }),
+      buildTable({
+        baseId,
+        tableId: foreignTableId,
+        tableName: 'Foreign',
+        primaryFieldId: foreignPrimaryId,
+      })
+    );
+
+    const createLink = CreateFieldCommand.create({
+      baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        name: 'Host Link',
+        options: {
+          relationship: 'oneMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryId,
+        },
+      },
+    })._unsafeUnwrap();
+    const linkResult = await handler.handle(createContext(), createLink);
+    linkResult._unsafeUnwrap();
+
+    const hostAfterLink = tableRepository.tables.find(
+      (table) => table.id().toString() === hostTableId
+    );
+    expect(hostAfterLink).toBeDefined();
+    if (!hostAfterLink) return;
+
+    const linkField = hostAfterLink
+      .getFields()
+      .find((field) => field.name().toString() === 'Host Link') as LinkField | undefined;
+    expect(linkField).toBeDefined();
+    if (!linkField) return;
+
+    const createLookup = CreateFieldCommand.create({
+      baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'lookup',
+        name: 'Lookup Name',
+        options: {
+          foreignTableId,
+          linkFieldId: linkField.id().toString(),
+          lookupFieldId: foreignPrimaryId,
+        },
+      },
+    })._unsafeUnwrap();
+    const lookupResult = await handler.handle(createContext(), createLookup);
+    lookupResult._unsafeUnwrap();
+
+    const hostAfterLookup = tableRepository.tables.find(
+      (table) => table.id().toString() === hostTableId
+    );
+    expect(hostAfterLookup).toBeDefined();
+    if (!hostAfterLookup) return;
+
+    const lookupField = hostAfterLookup
+      .getFields()
+      .find((field) => field.name().toString() === 'Lookup Name') as LookupField | undefined;
+    expect(lookupField?.type().toString()).toBe('lookup');
+    expect(lookupField?.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(true);
+  });
+
+  it('derives lookup multiplicity as single for manyOne link in legacy mode', async () => {
+    const baseId = `bse${'f'.repeat(16)}`;
+    const hostTableId = `tbl${'g'.repeat(16)}`;
+    const foreignTableId = `tbl${'h'.repeat(16)}`;
+    const hostPrimaryId = `fld${'i'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'j'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const handler = new CreateFieldHandler(
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId: hostTableId,
+        tableName: 'Host',
+        primaryFieldId: hostPrimaryId,
+      }),
+      buildTable({
+        baseId,
+        tableId: foreignTableId,
+        tableName: 'Foreign',
+        primaryFieldId: foreignPrimaryId,
+      })
+    );
+
+    const createLink = CreateFieldCommand.create({
+      baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        name: 'Host Link',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryId,
+        },
+      },
+    })._unsafeUnwrap();
+    const linkResult = await handler.handle(createContext(), createLink);
+    linkResult._unsafeUnwrap();
+
+    const hostAfterLink = tableRepository.tables.find(
+      (table) => table.id().toString() === hostTableId
+    );
+    expect(hostAfterLink).toBeDefined();
+    if (!hostAfterLink) return;
+
+    const linkField = hostAfterLink
+      .getFields()
+      .find((field) => field.name().toString() === 'Host Link') as LinkField | undefined;
+    expect(linkField).toBeDefined();
+    if (!linkField) return;
+
+    const createLookup = CreateFieldCommand.create({
+      baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'lookup',
+        name: 'Lookup Name',
+        legacyMultiplicityDerivation: true,
+        options: {
+          foreignTableId,
+          linkFieldId: linkField.id().toString(),
+          lookupFieldId: foreignPrimaryId,
+        },
+      },
+    })._unsafeUnwrap();
+    const lookupResult = await handler.handle(createContext(), createLookup);
+    lookupResult._unsafeUnwrap();
+
+    const hostAfterLookup = tableRepository.tables.find(
+      (table) => table.id().toString() === hostTableId
+    );
+    expect(hostAfterLookup).toBeDefined();
+    if (!hostAfterLookup) return;
+
+    const lookupField = hostAfterLookup
+      .getFields()
+      .find((field) => field.name().toString() === 'Lookup Name') as LookupField | undefined;
+    expect(lookupField?.type().toString()).toBe('lookup');
+    expect(lookupField?.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(false);
+  });
+
+  it('allows cross-base conditional lookup creation', async () => {
+    const hostBaseId = `bse${'a'.repeat(16)}`;
+    const foreignBaseId = `bse${'b'.repeat(16)}`;
+    const hostTableId = `tbl${'c'.repeat(16)}`;
+    const foreignTableId = `tbl${'d'.repeat(16)}`;
+    const hostPrimaryId = `fld${'e'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'f'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const handler = new CreateFieldHandler(
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId: hostBaseId,
+        tableId: hostTableId,
+        tableName: 'Host',
+        primaryFieldId: hostPrimaryId,
+      }),
+      buildTable({
+        baseId: foreignBaseId,
+        tableId: foreignTableId,
+        tableName: 'Foreign',
+        primaryFieldId: foreignPrimaryId,
+      })
+    );
+
+    const commandResult = CreateFieldCommand.create({
+      baseId: hostBaseId,
+      tableId: hostTableId,
+      field: {
+        type: 'conditionalLookup',
+        name: 'Cross Base Amounts',
+        options: {
+          foreignTableId,
+          lookupFieldId: foreignPrimaryId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: foreignPrimaryId, operator: 'is', value: 'A' }],
+            },
+          },
+        },
+      },
+    });
+    commandResult._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
+
+    const updatedTable = tableRepository.tables.find(
+      (table) => table.id().toString() === hostTableId
+    );
+    expect(updatedTable).toBeDefined();
+    if (!updatedTable) return;
+
+    const conditionalLookup = updatedTable
+      .getFields()
+      .find((field) => field.name().toString() === 'Cross Base Amounts');
+    expect(conditionalLookup?.type().toString()).toBe('conditionalLookup');
   });
 });

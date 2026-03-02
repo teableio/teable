@@ -2,7 +2,9 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
+import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { ForeignTable } from '../../ForeignTable';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
@@ -59,9 +61,10 @@ import { FieldComputed } from './FieldComputed';
  */
 export class ConditionalLookupField
   extends Field
-  implements ForeignTableRelatedField, OnTeableFieldUpdated
+  implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
 {
   private innerFieldValue: Field | undefined;
+  private readonly innerOptionsPatchValue: Readonly<Record<string, unknown>> | undefined;
   /**
    * Override for isMultipleCellValue. When set, this value is used instead of
    * defaulting to multiple. This is important for compatibility with v1.
@@ -75,7 +78,8 @@ export class ConditionalLookupField
     private readonly conditionalLookupOptionsValue: ConditionalLookupOptions,
     dbFieldName?: DbFieldName,
     dependencies?: ReadonlyArray<FieldId>,
-    isMultipleCellValue?: boolean
+    isMultipleCellValue?: boolean,
+    innerOptionsPatch?: Readonly<Record<string, unknown>>
   ) {
     super(
       id,
@@ -87,6 +91,7 @@ export class ConditionalLookupField
     );
     this.innerFieldValue = innerField;
     this.isMultipleCellValueOverride = isMultipleCellValue;
+    this.innerOptionsPatchValue = innerOptionsPatch ? { ...innerOptionsPatch } : undefined;
   }
 
   /**
@@ -100,6 +105,7 @@ export class ConditionalLookupField
     dbFieldName?: DbFieldName;
     dependencies?: ReadonlyArray<FieldId>;
     isMultipleCellValue?: boolean;
+    innerOptionsPatch?: Readonly<Record<string, unknown>>;
   }): Result<ConditionalLookupField, DomainError> {
     return ok(
       new ConditionalLookupField(
@@ -109,7 +115,8 @@ export class ConditionalLookupField
         params.conditionalLookupOptions,
         params.dbFieldName,
         params.dependencies,
-        params.isMultipleCellValue
+        params.isMultipleCellValue,
+        params.innerOptionsPatch
       )
     );
   }
@@ -125,6 +132,7 @@ export class ConditionalLookupField
     dbFieldName?: DbFieldName;
     dependencies?: ReadonlyArray<FieldId>;
     isMultipleCellValue?: boolean;
+    innerOptionsPatch?: Readonly<Record<string, unknown>>;
   }): Result<ConditionalLookupField, DomainError> {
     return ok(
       new ConditionalLookupField(
@@ -134,7 +142,8 @@ export class ConditionalLookupField
         params.conditionalLookupOptions,
         params.dbFieldName,
         params.dependencies,
-        params.isMultipleCellValue
+        params.isMultipleCellValue,
+        params.innerOptionsPatch
       )
     );
   }
@@ -150,6 +159,7 @@ export class ConditionalLookupField
     dbFieldName?: DbFieldName;
     dependencies?: ReadonlyArray<FieldId>;
     isMultipleCellValue?: boolean;
+    innerOptionsPatch?: Readonly<Record<string, unknown>>;
   }): Result<ConditionalLookupField, DomainError> {
     return ConditionalLookupField.create(params);
   }
@@ -193,6 +203,10 @@ export class ConditionalLookupField
 
   conditionalLookupOptionsDto(): ConditionalLookupOptionsValue {
     return this.conditionalLookupOptionsValue.toDto();
+  }
+
+  innerOptionsPatch(): Readonly<Record<string, unknown>> | undefined {
+    return this.innerOptionsPatchValue;
   }
 
   /**
@@ -340,6 +354,7 @@ export class ConditionalLookupField
         conditionalLookupOptions: this.conditionalLookupOptions(),
         isMultipleCellValue,
         dependencies: this.dependencies(),
+        innerOptionsPatch: this.innerOptionsPatchValue,
       });
     }
 
@@ -349,6 +364,7 @@ export class ConditionalLookupField
       conditionalLookupOptions: this.conditionalLookupOptions(),
       isMultipleCellValue,
       dependencies: this.dependencies(),
+      innerOptionsPatch: this.innerOptionsPatchValue,
     });
   }
 
@@ -366,13 +382,13 @@ export class ConditionalLookupField
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
     _context: FieldUpdateContext
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
 
     const condition = this.conditionalLookupOptionsValue.condition();
     const referencesUpdatedField = condition.referencesField(updatedField.id());
     if (!referencesUpdatedField) {
-      return ok(specs);
+      return ok(undefined);
     }
 
     const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
@@ -381,34 +397,34 @@ export class ConditionalLookupField
     );
     if (hasTypeConversion && !this.hasError().isError()) {
       specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     if (!hasSelectOptionValueChanges(plan)) {
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     const optionsDto = this.conditionalLookupOptionsValue.toDto();
     const conditionDto = optionsDto.condition;
     const currentFilter = conditionDto.filter;
     if (currentFilter == null) {
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     if (!hasFieldReferenceInFilter(currentFilter, updatedField.id())) {
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     const nextFilter = syncFilterByFieldChanges(currentFilter, updatedField.id(), plan);
     if (isEquivalentFilter(currentFilter, nextFilter)) {
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     if (nextFilter == null) {
       if (!this.hasError().isError()) {
         specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
       }
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     const nextOptionsResult = ConditionalLookupOptions.create({
@@ -436,6 +452,7 @@ export class ConditionalLookupField
           conditionalLookupOptions: nextOptionsResult.value,
           isMultipleCellValue: multiplicityResult.value.isMultiple(),
           dependencies: this.dependencies(),
+          innerOptionsPatch: this.innerOptionsPatchValue,
         })
       )
       .orElse(() =>
@@ -445,6 +462,7 @@ export class ConditionalLookupField
           conditionalLookupOptions: nextOptionsResult.value,
           isMultipleCellValue: multiplicityResult.value.isMultiple(),
           dependencies: this.dependencies(),
+          innerOptionsPatch: this.innerOptionsPatchValue,
         })
       );
     if (nextFieldResult.isErr()) {
@@ -452,7 +470,28 @@ export class ConditionalLookupField
     }
 
     specs.push(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
-    return ok(specs);
+    return ok(composeAndSpecsOrUndefined(specs));
+  }
+
+  onFieldDeleted(
+    deletedField: Field,
+    context: FieldDeletionContext
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+    const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
+    const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
+    const condition = this.conditionalLookupOptionsValue.condition();
+    const conditionReferencesDeletedField = condition.referencesField(deletedField.id());
+
+    const shouldSetError =
+      (deletedFromHostTable && conditionReferencesDeletedField) ||
+      (deletedFromForeignTable &&
+        (deletedField.id().equals(this.lookupFieldId()) || conditionReferencesDeletedField));
+
+    if (!shouldSetError || this.hasError().isError()) {
+      return ok(undefined);
+    }
+
+    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

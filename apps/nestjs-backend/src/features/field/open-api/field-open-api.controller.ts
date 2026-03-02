@@ -90,6 +90,21 @@ export class FieldOpenApiController {
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string
   ): Promise<IFieldVo> {
+    const forceV2All = process.env.FORCE_V2_ALL?.toLowerCase() === 'true';
+    if (this.cls.get('useV2') || forceV2All) {
+      const field = await this.fieldOpenApiV2Service.getField(tableId, fieldId);
+      if (field.hasError == null) {
+        try {
+          const legacyField = await this.fieldService.getField(tableId, fieldId);
+          if (legacyField.hasError != null) {
+            field.hasError = legacyField.hasError;
+          }
+        } catch (error) {
+          void error;
+        }
+      }
+      return field;
+    }
     return await this.fieldService.getField(tableId, fieldId);
   }
 
@@ -112,12 +127,16 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|create')
+  @UseV2Feature('createField')
   @Post()
   async createField(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo,
     @Headers('x-window-id') windowId: string
   ): Promise<IFieldVo> {
+    if (this.cls.get('useV2')) {
+      return await this.fieldOpenApiV2Service.createField(tableId, fieldRo);
+    }
     return await this.fieldOpenApiService.createField(tableId, fieldRo, windowId);
   }
 
@@ -170,22 +189,34 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|delete')
+  @UseV2Feature('deleteField')
   @Delete(':fieldId')
   async deleteField(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
     @Headers('x-window-id') windowId: string
   ) {
+    if (this.cls.get('useV2')) {
+      await this.fieldOpenApiV2Service.deleteField(tableId, fieldId);
+      return;
+    }
     await this.fieldOpenApiService.deleteField(tableId, fieldId, windowId);
   }
 
   @Permissions('field|delete')
+  @UseV2Feature('deleteField')
   @Delete()
   async deleteFields(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(deleteFieldsQuerySchema)) query: IDeleteFieldsQuery,
     @Headers('x-window-id') windowId: string
   ) {
+    if (this.cls.get('useV2')) {
+      for (const fieldId of query.fieldIds) {
+        await this.fieldOpenApiV2Service.deleteField(tableId, fieldId);
+      }
+      return;
+    }
     await this.fieldOpenApiService.deleteFields(tableId, query.fieldIds, windowId);
   }
 
@@ -214,6 +245,7 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|create')
+  @UseV2Feature('duplicateField')
   @Post('/:fieldId/duplicate')
   async duplicateField(
     @Param('tableId') tableId: string,
@@ -221,6 +253,14 @@ export class FieldOpenApiController {
     @Body(new ZodValidationPipe(duplicateFieldRoSchema)) duplicateFieldRo: IDuplicateFieldRo,
     @Headers('x-window-id') windowId: string
   ) {
+    if (this.cls.get('useV2')) {
+      return this.fieldOpenApiV2Service.duplicateField(
+        tableId,
+        fieldId,
+        duplicateFieldRo,
+        windowId
+      );
+    }
     return this.fieldOpenApiService.duplicateField(tableId, fieldId, duplicateFieldRo, windowId);
   }
 

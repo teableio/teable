@@ -28,7 +28,7 @@ export type FieldUpdateContext = {
  * 2. Recalculate derived values (e.g., FormulaField recalculating result type)
  * 3. Mark themselves as having errors (e.g., when a referenced field is deleted)
  *
- * The specs returned by `onDependencyUpdated` will be collected and executed
+ * The spec returned by `onDependencyUpdated` will be collected and executed
  * as part of the update transaction, ensuring cascading updates happen atomically.
  *
  * Example implementation for LookupField:
@@ -37,10 +37,10 @@ export type FieldUpdateContext = {
  *   updatedField: Field,
  *   updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
  *   context: FieldUpdateContext
- * ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+ * ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
  *   // Only respond if the updated field is our lookup target
  *   if (!this.lookupOptions().lookupFieldId().equals(updatedField.id())) {
- *     return ok([]);
+ *     return ok(undefined);
  *   }
  *
  *   // Check if cellValueType changed and sync if needed
@@ -58,14 +58,14 @@ export interface OnTeableFieldUpdated {
    *                    Dependent fields can inspect these to determine what changed
    *                    and decide how to respond.
    * @param context Additional context including the table and foreign tables
-   * @returns Specs to apply to this field in response to the update,
-   *          or an empty array if no changes are needed
+   * @returns A composed spec to apply to this field in response to the update,
+   *          or undefined if no changes are needed
    */
   onDependencyUpdated(
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
     context: FieldUpdateContext
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError>;
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError>;
 }
 
 /**

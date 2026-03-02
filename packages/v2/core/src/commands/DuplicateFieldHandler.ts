@@ -83,21 +83,25 @@ export class DuplicateFieldHandler
             const resolvedName = generateUniqueName(baseName, existingNames);
             const newFieldName = yield* FieldName.create(resolvedName);
 
-            // Clone the source field with new ID and name
-            const clonedField = yield* field.duplicate({
-              newId: newFieldId,
-              newName: newFieldName,
-              baseId: command.baseId,
-              tableId: command.tableId,
-            });
-            newField = clonedField;
-
             // Update table with duplicated field
             // Note: Value duplication happens in the repository visitor (TableSchemaUpdateVisitor)
             // when it visits the TableDuplicateFieldSpec
             const updated = yield* table.update((mutator) =>
-              mutator.duplicateField(sourceField!, clonedField, command.includeRecordValues)
+              mutator.duplicateField(
+                sourceField!,
+                newFieldId,
+                newFieldName,
+                command.includeRecordValues,
+                {
+                  targetViewId: command.viewId,
+                }
+              )
             );
+            const duplicatedFieldResult = updated.table.getField((f) => f.id().equals(newFieldId));
+            if (duplicatedFieldResult.isErr()) {
+              return err(duplicatedFieldResult.error);
+            }
+            newField = duplicatedFieldResult.value;
             return ok(updated);
           }),
         {

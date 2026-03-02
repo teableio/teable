@@ -1,12 +1,12 @@
 import { domainError, Field, FieldType, FieldValueTypeVisitor } from '@teable/v2-core';
 import type {
   DomainError,
+  ConditionalLookupField,
   FieldId,
+  LookupField,
   Table,
   TableId,
-  ConditionalLookupField,
   FieldValueType,
-  LookupField,
 } from '@teable/v2-core';
 import type {
   CompiledQuery,
@@ -275,6 +275,7 @@ type FieldMapping = {
   fieldId: FieldId;
   isLookup: boolean;
   isLookupMultiValue: boolean;
+  isLookupAutoNumber: boolean;
   dbFieldType: string;
 };
 
@@ -283,19 +284,6 @@ const jsonSpecResult = Field.specs().isJson().build();
 const fieldIsJson = (field: Field): boolean => {
   if (jsonSpecResult.isErr()) return false;
   return jsonSpecResult.value.isSatisfiedBy(field);
-};
-
-const shouldSkipLookupAutoNumberUpdate = (field: Field): boolean => {
-  if (
-    !field.type().equals(FieldType.lookup()) &&
-    !field.type().equals(FieldType.conditionalLookup())
-  ) {
-    return false;
-  }
-  const lookupField = field as LookupField | ConditionalLookupField;
-  const innerTypeResult = lookupField.innerFieldType();
-  if (innerTypeResult.isErr()) return false;
-  return innerTypeResult.value.equals(FieldType.autoNumber());
 };
 
 const resolveDbFieldType = (
@@ -427,12 +415,13 @@ const buildLookupScalarCast = (expression: ReturnType<typeof sql>, columnType: s
 const buildLookupAssignmentFromRef = (
   sourceRef: unknown,
   lookupDbFieldType: string,
-  isLookupMultiValue: boolean
+  isLookupMultiValue: boolean,
+  isLookupAutoNumber: boolean
 ) => {
   const normalizedType = normalizeDbFieldType(lookupDbFieldType);
   if (normalizedType === 'jsonb') {
     const refJson = sql`to_jsonb(${sourceRef})`;
-    if (isLookupMultiValue) {
+    if (isLookupMultiValue && !isLookupAutoNumber) {
       return refJson;
     }
     return sql`(CASE WHEN jsonb_typeof(${refJson}) = 'array' THEN ${refJson} -> 0 ELSE ${refJson} END)`;
@@ -455,9 +444,6 @@ const buildFieldMappings = (
       if (field.hasError().isError()) {
         continue;
       }
-      if (shouldSkipLookupAutoNumberUpdate(field)) {
-        continue;
-      }
       const dbFieldName = yield* field.dbFieldName();
       const columnName = yield* dbFieldName.value();
       // Determine if this is a lookup field
@@ -467,6 +453,21 @@ const buildFieldMappings = (
       const isLookup =
         field.type().equals(FieldType.lookup()) ||
         field.type().equals(FieldType.conditionalLookup());
+      const isLookupAutoNumber = (() => {
+        if (field.type().equals(FieldType.lookup())) {
+          return (field as LookupField)
+            .innerFieldType()
+            .map((innerType) => innerType.equals(FieldType.autoNumber()))
+            .unwrapOr(false);
+        }
+        if (field.type().equals(FieldType.conditionalLookup())) {
+          return (field as ConditionalLookupField)
+            .innerFieldType()
+            .map((innerType) => innerType.equals(FieldType.autoNumber()))
+            .unwrapOr(false);
+        }
+        return false;
+      })();
 
       const valueType = yield* field.accept(valueTypeVisitor);
       const isLookupMultiValue = isLookup && valueType.isMultipleCellValue.toBoolean();
@@ -498,6 +499,13 @@ const buildFieldMappings = (
         dbFieldType = 'TEXT';
       }
 
+      // For multi-value lookups, always use JSON storage semantics. This protects against
+      // stale scalar dbFieldType metadata that can otherwise produce jsonb=integer DISTINCT
+      // comparisons during computed updates.
+      if (isLookup && valueType.isMultipleCellValue.toBoolean()) {
+        dbFieldType = 'JSON';
+      }
+
       // For single-value lookups, resolve the scalar dbFieldType for proper SQL generation.
       // The SELECT query (built by ComputedTableRecordQueryBuilder) returns JSONB arrays for all
       // lookup fields. For single-value lookups stored in scalar columns, we need to extract the
@@ -516,6 +524,7 @@ const buildFieldMappings = (
         fieldId,
         isLookup,
         isLookupMultiValue,
+        isLookupAutoNumber,
         dbFieldType,
       });
     }
@@ -582,7 +591,8 @@ class UpdateAssignmentPlan {
         return buildLookupAssignmentFromRef(
           sourceRef,
           this.mapping.dbFieldType,
-          this.mapping.isLookupMultiValue
+          this.mapping.isLookupMultiValue,
+          this.mapping.isLookupAutoNumber
         );
       case 'json':
         return sql`to_jsonb(${sourceRef})`;

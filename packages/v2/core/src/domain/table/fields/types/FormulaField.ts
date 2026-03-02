@@ -2,9 +2,12 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
+import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { UpdateFormulaExpressionSpec } from '../../specs/field-updates/UpdateFormulaExpressionSpec';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../../Table';
 import { Field } from '../Field';
@@ -38,7 +41,7 @@ type FormulaResultType = {
   isMultipleCellValue: CellValueMultiplicity;
 };
 
-export class FormulaField extends Field implements OnTeableFieldUpdated {
+export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeableFieldDeleted {
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -237,7 +240,7 @@ export class FormulaField extends Field implements OnTeableFieldUpdated {
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
     context: FieldUpdateContext
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
 
     // Check if this is actually our dependency.
@@ -254,7 +257,7 @@ export class FormulaField extends Field implements OnTeableFieldUpdated {
       : false;
     const isDependency = dependencyFromMetadata || dependencyFromExpression;
     if (!isDependency) {
-      return ok(specs);
+      return ok(undefined);
     }
 
     const dependencyTypeChanged = updateSpecs.some(
@@ -270,14 +273,14 @@ export class FormulaField extends Field implements OnTeableFieldUpdated {
     );
 
     if (!dependencyTypeChanged && !dependencyFormulaExpressionChanged) {
-      return ok(specs);
+      return ok(undefined);
     }
 
     const currentFieldResult = context.table.getField((f) => f.id().equals(this.id()));
     if (currentFieldResult.isErr()) return err(currentFieldResult.error);
     const currentField = currentFieldResult.value;
     if (!(currentField instanceof FormulaField)) {
-      return ok(specs);
+      return ok(undefined);
     }
 
     const valueTypeVisitor = new FieldValueTypeVisitor();
@@ -292,20 +295,20 @@ export class FormulaField extends Field implements OnTeableFieldUpdated {
 
     const inferredResultType = currentField.expression().getParsedValueType(fieldValueTypes);
     if (inferredResultType.isErr()) {
-      return ok(specs);
+      return ok(undefined);
     }
 
     const currentCellValueType = currentField.cellValueType();
     const currentMultiplicity = currentField.isMultipleCellValue();
     if (currentCellValueType.isErr() || currentMultiplicity.isErr()) {
-      return ok(specs);
+      return ok(undefined);
     }
 
     if (
       inferredResultType.value.cellValueType.equals(currentCellValueType.value) &&
       inferredResultType.value.isMultipleCellValue.equals(currentMultiplicity.value)
     ) {
-      return ok(specs);
+      return ok(undefined);
     }
 
     const buildUpdatedField = (clearStyle: boolean): Result<FormulaField, DomainError> =>
@@ -334,7 +337,61 @@ export class FormulaField extends Field implements OnTeableFieldUpdated {
     }
 
     specs.push(TableUpdateFieldTypeSpec.create(currentField, updatedFieldResult.value));
-    return ok(specs);
+    return ok(composeAndSpecsOrUndefined(specs));
+  }
+
+  onFieldDeleted(
+    deletedField: Field,
+    context: FieldDeletionContext
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+    const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
+    if (!deletedFromHostTable || this.hasError().isError()) {
+      return ok(undefined);
+    }
+
+    const shouldSetError = this.dependsOnDeletedField(deletedField.id(), context.table, new Set());
+    if (!shouldSetError) {
+      return ok(undefined);
+    }
+
+    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+  }
+
+  private dependsOnDeletedField(
+    deletedFieldId: FieldId,
+    table: Table,
+    visitedFormulaIds: Set<string>
+  ): boolean {
+    const currentFormulaId = this.id().toString();
+    if (visitedFormulaIds.has(currentFormulaId)) {
+      return false;
+    }
+    visitedFormulaIds.add(currentFormulaId);
+
+    const referencedFieldIds = this.referencedFieldIdsForDeleteCheck();
+    if (referencedFieldIds.some((fieldId) => fieldId.equals(deletedFieldId))) {
+      return true;
+    }
+
+    for (const referencedFieldId of referencedFieldIds) {
+      const referencedField = table.getFields((field) => field.id().equals(referencedFieldId))[0];
+      if (!(referencedField instanceof FormulaField)) {
+        continue;
+      }
+      if (referencedField.dependsOnDeletedField(deletedFieldId, table, visitedFormulaIds)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private referencedFieldIdsForDeleteCheck(): ReadonlyArray<FieldId> {
+    const dependencies = this.dependencies();
+    if (dependencies.length > 0) {
+      return dependencies;
+    }
+    return this.expression().getReferencedFieldIds().unwrapOr([]);
   }
 
   private validateOptions(

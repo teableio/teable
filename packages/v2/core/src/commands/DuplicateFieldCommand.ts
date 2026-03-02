@@ -7,6 +7,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { TableId } from '../domain/table/TableId';
+import { ViewId } from '../domain/table/views/ViewId';
 import { TableUpdateCommand } from './TableUpdateCommand';
 
 export const duplicateFieldInputSchema = z.object({
@@ -15,6 +16,7 @@ export const duplicateFieldInputSchema = z.object({
   fieldId: z.string(),
   includeRecordValues: z.boolean().default(true),
   newFieldName: z.string().optional(),
+  viewId: z.string().optional(),
 });
 
 export type IDuplicateFieldCommandInput = z.input<typeof duplicateFieldInputSchema>;
@@ -25,7 +27,8 @@ export class DuplicateFieldCommand extends TableUpdateCommand {
     readonly tableId: TableId,
     readonly fieldId: FieldId,
     readonly includeRecordValues: boolean,
-    readonly newFieldName: string | undefined
+    readonly newFieldName: string | undefined,
+    readonly viewId: ViewId | undefined
   ) {
     super(baseId, tableId);
   }
@@ -42,15 +45,29 @@ export class DuplicateFieldCommand extends TableUpdateCommand {
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).andThen((tableId) =>
-        FieldId.create(parsed.data.fieldId).map(
-          (fieldId) =>
-            new DuplicateFieldCommand(
-              baseId,
-              tableId,
-              fieldId,
-              parsed.data.includeRecordValues,
-              parsed.data.newFieldName
-            )
+        FieldId.create(parsed.data.fieldId).andThen((fieldId) =>
+          parsed.data.viewId
+            ? ViewId.create(parsed.data.viewId).map(
+                (viewId) =>
+                  new DuplicateFieldCommand(
+                    baseId,
+                    tableId,
+                    fieldId,
+                    parsed.data.includeRecordValues,
+                    parsed.data.newFieldName,
+                    viewId
+                  )
+              )
+            : ok(
+                new DuplicateFieldCommand(
+                  baseId,
+                  tableId,
+                  fieldId,
+                  parsed.data.includeRecordValues,
+                  parsed.data.newFieldName,
+                  undefined
+                )
+              )
         )
       )
     );

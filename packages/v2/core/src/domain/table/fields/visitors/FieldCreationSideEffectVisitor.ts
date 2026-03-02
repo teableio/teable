@@ -150,7 +150,10 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
 
     const foreignTableResult = this.foreignTable(field.foreignTableId());
     if (foreignTableResult.isErr()) return err(foreignTableResult.error);
-    const foreignTable = foreignTableResult.value;
+    const resolvedForeignTable = foreignTableResult.value;
+    const foreignTable = resolvedForeignTable.id().equals(this.table.id())
+      ? this.table
+      : resolvedForeignTable;
 
     const symmetricFieldId = field.symmetricFieldId();
     if (symmetricFieldId) {

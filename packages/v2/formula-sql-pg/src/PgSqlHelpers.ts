@@ -23,8 +23,8 @@ export const safeJsonb = (expr: string): string => {
   const trimmedText = `BTRIM(${textSql})`;
   return `(CASE
     WHEN ${baseExpr} IS NULL THEN NULL
-    WHEN pg_typeof(${baseExpr}) = 'jsonb'::regtype THEN (${baseExpr})::jsonb
-    WHEN pg_typeof(${baseExpr}) = 'json'::regtype THEN (${baseExpr})::jsonb
+    WHEN pg_typeof(${baseExpr}) = 'jsonb'::regtype THEN to_jsonb(${baseExpr})
+    WHEN pg_typeof(${baseExpr}) = 'json'::regtype THEN to_jsonb(${baseExpr})
     WHEN NULLIF(${trimmedText}, '') IS NULL THEN NULL
     ELSE to_jsonb(${baseExpr})
   END)`;
@@ -42,8 +42,8 @@ export const safeJsonbWithStrategy = (
   const jsonValid = typeValidation.isValidForType(textSql, 'jsonb');
   return `(CASE
     WHEN ${baseExpr} IS NULL THEN NULL
-    WHEN pg_typeof(${baseExpr}) = 'jsonb'::regtype THEN (${baseExpr})::jsonb
-    WHEN pg_typeof(${baseExpr}) = 'json'::regtype THEN (${baseExpr})::jsonb
+    WHEN pg_typeof(${baseExpr}) = 'jsonb'::regtype THEN to_jsonb(${baseExpr})
+    WHEN pg_typeof(${baseExpr}) = 'json'::regtype THEN to_jsonb(${baseExpr})
     WHEN pg_typeof(${baseExpr}) IN (${textTypes}) THEN
       CASE
         WHEN NULLIF(${trimmedText}, '') IS NULL THEN NULL

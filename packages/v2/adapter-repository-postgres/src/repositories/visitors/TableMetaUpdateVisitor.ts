@@ -67,6 +67,8 @@ import {
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type {
+  DeleteQueryBuilder,
+  DeleteResult,
   InsertQueryBuilder,
   InsertResult,
   Kysely,
@@ -85,7 +87,8 @@ export type TableUpdateBuilder =
   | UpdateQueryBuilder<V1TeableDatabase, 'table_meta', 'table_meta', UpdateResult>
   | UpdateQueryBuilder<V1TeableDatabase, 'view', 'view', UpdateResult>
   | UpdateQueryBuilder<V1TeableDatabase, 'field', 'field', UpdateResult>
-  | InsertQueryBuilder<V1TeableDatabase, 'field', InsertResult>;
+  | InsertQueryBuilder<V1TeableDatabase, 'field', InsertResult>
+  | DeleteQueryBuilder<V1TeableDatabase, 'reference', DeleteResult>;
 
 type TableMetaUpdateVisitorParams = {
   db: Kysely<V1TeableDatabase>;
@@ -197,6 +200,11 @@ export class TableMetaUpdateVisitor
         .where('id', '=', fieldId)
         .where('table_id', '=', this.params.table.id().toString())
         .where('deleted_time', 'is', null),
+      this.params.db
+        .deleteFrom('reference')
+        .where((eb) =>
+          eb.or([eb.eb('from_field_id', '=', fieldId), eb.eb('to_field_id', '=', fieldId)])
+        ),
     ];
 
     return this.addCond(statements).map(() => statements);

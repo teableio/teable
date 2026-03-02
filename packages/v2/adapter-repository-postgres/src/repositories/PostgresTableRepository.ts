@@ -545,6 +545,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'type',
                 'options',
                 'meta',
+                'ai_config',
                 'cell_value_type',
                 'is_multiple_cell_value',
                 'not_null',
@@ -640,6 +641,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'type',
                 'options',
                 'meta',
+                'ai_config',
                 'cell_value_type',
                 'is_multiple_cell_value',
                 'not_null',
@@ -908,6 +910,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           type: string;
           options: string | null;
           meta: string | null;
+          ai_config: string | null;
           cell_value_type: string | null;
           is_multiple_cell_value: boolean | null;
           not_null: boolean | null;
@@ -972,6 +975,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     type: string;
     options: string | null;
     meta: string | null;
+    ai_config: string | null;
     cell_value_type: string | null;
     is_multiple_cell_value: boolean | null;
     not_null: boolean | null;
@@ -1060,10 +1064,12 @@ export class PostgresTableRepository implements core.ITableRepository {
     const lookupOptions = resolveLookupOptions();
     const dbFieldName = row.db_field_name ?? undefined;
     const dbFieldType = row.db_field_type ?? undefined;
+    const aiConfig = this.parseJsonValue(row.ai_config);
     const baseCommon = {
       id: row.id,
       name: row.name,
       ...(row.description !== null ? { description: row.description } : { description: null }),
+      ...(row.ai_config !== null ? { aiConfig } : {}),
       dbFieldName,
       dbFieldType,
       ...(row.not_null ? { notNull: true } : {}),
@@ -1612,16 +1618,36 @@ export class PostgresTableRepository implements core.ITableRepository {
     defaultValue?: string | ReadonlyArray<string>;
     preventAutoNewOptions?: boolean;
   } {
+    const normalizeColor = (color: unknown, index: number): string => {
+      if (typeof color === 'string' && core.fieldColorValues.includes(color as never)) {
+        return color;
+      }
+      return core.fieldColorValues[index % core.fieldColorValues.length];
+    };
+
     if (Array.isArray(raw.options)) {
       const choices = raw.options.map((name, index) => ({
         id: `cho${core.getRandomString(8)}`,
         name: String(name),
-        color: core.fieldColorValues[index % core.fieldColorValues.length],
+        color: normalizeColor(undefined, index),
       }));
       return { choices };
     }
 
-    const choices = Array.isArray(raw.choices) ? raw.choices : [];
+    const choices = Array.isArray(raw.choices)
+      ? raw.choices.map((choice, index) => {
+          const item =
+            choice && typeof choice === 'object' ? (choice as Record<string, unknown>) : {};
+          return {
+            id:
+              typeof item.id === 'string' && item.id.length > 0
+                ? item.id
+                : `cho${core.getRandomString(8)}`,
+            name: typeof item.name === 'string' ? item.name : String(item.name ?? ''),
+            color: normalizeColor(item.color, index),
+          };
+        })
+      : [];
     const defaultValue = raw.defaultValue;
     const preventAutoNewOptions =
       typeof raw.preventAutoNewOptions === 'boolean' ? raw.preventAutoNewOptions : undefined;

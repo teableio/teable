@@ -11,13 +11,30 @@ import {
   ROLLUP_FUNCTIONS,
   getRollupFunctionsByCellValueType,
 } from '@teable/v2-core';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 describe('v2 http createField (e2e)', () => {
+  const getSearchIndexName = (tableName: string, dbFieldName: string, fieldId: string) => {
+    const prefix = 'idx_trgm';
+    const maxLen = 63;
+    const delimiterLen = 3;
+    const maxTableDbNameLen = maxLen - fieldId.length - prefix.length - delimiterLen;
+    const tableDbNameLen =
+      maxTableDbNameLen < tableName.length ? maxTableDbNameLen : tableName.length;
+    const dbFieldNameLen =
+      maxTableDbNameLen < tableName.length
+        ? 0
+        : maxLen - fieldId.length - prefix.length - tableDbNameLen - delimiterLen;
+    const abbDbFieldName = dbFieldName.slice(0, dbFieldNameLen);
+    return `${prefix}_${tableName.slice(0, tableDbNameLen)}_${abbDbFieldName}_${fieldId}`;
+  };
+
   let ctx: SharedTestContext;
   let tableId: string;
   let tablePrimaryFieldId: string;
+  let tablePrimaryDbFieldName: string;
   let foreignTableId: string;
   let foreignPrimaryFieldId: string;
   let fieldIdCounter = 0;
@@ -86,7 +103,11 @@ describe('v2 http createField (e2e)', () => {
     if (!primaryField) {
       throw new Error('Failed to resolve primary field');
     }
+    if (typeof primaryField.dbFieldName !== 'string') {
+      throw new Error('Failed to resolve primary db field name');
+    }
     tablePrimaryFieldId = primaryField.id;
+    tablePrimaryDbFieldName = primaryField.dbFieldName;
 
     const foreignResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
       method: 'POST',
@@ -127,6 +148,122 @@ describe('v2 http createField (e2e)', () => {
         // Ignore cleanup errors
       }
     }
+  });
+
+  it('persists aiConfig when creating field', async () => {
+    const fieldId = createFieldId();
+    const aiConfig = {
+      type: 'summary',
+      modelKey: 'openai@gpt-4o@gpt',
+      sourceFieldId: tablePrimaryFieldId,
+    };
+
+    const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId: ctx.baseId,
+        tableId,
+        field: {
+          id: fieldId,
+          type: 'singleLineText',
+          name: 'AI Summary',
+          aiConfig,
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const raw = await response.json();
+    const parsed = createFieldOkResponseSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+
+    const row = await ctx.testContainer.db
+      .selectFrom('field')
+      .select(['id', 'ai_config'])
+      .where('id', '=', fieldId)
+      .executeTakeFirst();
+
+    expect(row?.id).toBe(fieldId);
+    expect(JSON.parse(row?.ai_config ?? 'null')).toEqual(aiConfig);
+  });
+
+  it('creates search index for new searchable field when table search indexing is enabled', async () => {
+    const trgmAvailable = await sql<{ available: boolean }>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_opclass
+        WHERE opcname = 'gin_trgm_ops'
+      ) AS available
+    `.execute(ctx.testContainer.db);
+
+    if (!trgmAvailable.rows[0]?.available) {
+      await sql
+        .raw('CREATE EXTENSION IF NOT EXISTS pg_trgm')
+        .execute(ctx.testContainer.db)
+        .catch(() => undefined);
+    }
+
+    const trgmEnabled = await sql<{ available: boolean }>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_opclass
+        WHERE opcname = 'gin_trgm_ops'
+      ) AS available
+    `.execute(ctx.testContainer.db);
+
+    if (!trgmEnabled.rows[0]?.available) {
+      return;
+    }
+
+    const bootstrapIndexName = `idx_trgm_${tableId}_bootstrap`;
+    await sql
+      .raw(
+        `CREATE INDEX IF NOT EXISTS "${bootstrapIndexName}" ON "${ctx.baseId}"."${tableId}" USING gin (("${tablePrimaryDbFieldName}") gin_trgm_ops)`
+      )
+      .execute(ctx.testContainer.db);
+
+    const fieldId = createFieldId();
+    const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId: ctx.baseId,
+        tableId,
+        field: {
+          id: fieldId,
+          type: 'singleLineText',
+          name: 'Searchable Field',
+        },
+      }),
+    });
+    const raw = await response.json();
+    expect(response.status).toBe(200);
+    const parsed = createFieldOkResponseSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success || !parsed.data.ok) {
+      return;
+    }
+
+    const created = parsed.data.data.table.fields.find((field) => field.id === fieldId);
+    expect(created).toBeTruthy();
+    if (!created) {
+      return;
+    }
+    if (typeof created.dbFieldName !== 'string') {
+      return;
+    }
+
+    const expectedIndexName = getSearchIndexName(tableId, created.dbFieldName, created.id);
+    const indexRows = await sql<{ indexname: string }>`
+      SELECT indexname
+      FROM pg_indexes
+      WHERE schemaname = ${ctx.baseId}
+        AND tablename = ${tableId}
+        AND indexname = ${expectedIndexName}
+    `.execute(ctx.testContainer.db);
+
+    expect(indexRows.rows.some((row) => row.indexname === expectedIndexName)).toBe(true);
   });
 
   it('creates all field types with configured options', async () => {
@@ -603,6 +740,196 @@ describe('v2 http createField (e2e)', () => {
         expect(symmetricLinks[0].options.foreignTableId).toBe(tableId);
       } else {
         expect(symmetricLinks).toHaveLength(0);
+      }
+    });
+
+    it('does not persist same-base baseId onto symmetric link fields', async () => {
+      const linkFieldId = createFieldId();
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: `Same Base Link ${linkFieldId}`,
+            options: {
+              baseId: ctx.baseId,
+              relationship: 'manyOne',
+              foreignTableId,
+              lookupFieldId: foreignPrimaryFieldId,
+            },
+          },
+        }),
+      });
+
+      const rawBody = await response.json();
+      if (response.status !== 200) {
+        throw new Error(`CreateField failed for same-base link: ${JSON.stringify(rawBody)}`);
+      }
+      const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      const created = parsed.data.data.table.fields.find((field) => field.id === linkFieldId);
+      expect(created).toBeTruthy();
+      if (!created || created.type !== 'link') return;
+
+      const symmetricFieldId = created.options.symmetricFieldId;
+      expect(typeof symmetricFieldId).toBe('string');
+      if (typeof symmetricFieldId !== 'string') return;
+
+      const foreignTable = await getTableById(foreignTableId);
+      const symmetric = foreignTable.fields.find((field) => field.id === symmetricFieldId);
+      expect(symmetric).toBeTruthy();
+      if (!symmetric || symmetric.type !== 'link') return;
+
+      expect(symmetric.options.baseId).toBeUndefined();
+    });
+
+    it('accepts explicit link db config and keeps it', async () => {
+      const hostTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'Configured Link Host',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      });
+      const foreignTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'Configured Link Foreign',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      });
+
+      try {
+        const foreignPrimary = foreignTable.fields.find((field) => field.isPrimary);
+        expect(foreignPrimary).toBeTruthy();
+        if (!foreignPrimary) return;
+
+        const linkFieldId = createFieldId();
+        const symmetricFieldId = createFieldId();
+        const customJunctionTable = `junction_cfg_${linkFieldId.slice(-4)}_${symmetricFieldId.slice(-4)}`;
+        const customFkHostTableName = `${ctx.baseId}.${customJunctionTable}`;
+        const selfKeyName = `__fk_${symmetricFieldId}`;
+        const foreignKeyName = `__fk_${linkFieldId}`;
+
+        const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId: hostTable.id,
+            field: {
+              type: 'link',
+              id: linkFieldId,
+              name: `Configured Link ${linkFieldId}`,
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: foreignTable.id,
+                lookupFieldId: foreignPrimary.id,
+                symmetricFieldId,
+                fkHostTableName: customFkHostTableName,
+                selfKeyName,
+                foreignKeyName,
+              },
+            },
+          }),
+        });
+
+        const rawBody = await response.json();
+        if (response.status !== 200) {
+          throw new Error(`CreateField failed for configured link: ${JSON.stringify(rawBody)}`);
+        }
+        const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return;
+
+        const created = parsed.data.data.table.fields.find((field) => field.id === linkFieldId);
+        expect(created).toBeTruthy();
+        if (!created || created.type !== 'link') return;
+        expect(created.options.fkHostTableName).toBe(customFkHostTableName);
+        expect(created.options.selfKeyName).toBe(selfKeyName);
+        expect(created.options.foreignKeyName).toBe(foreignKeyName);
+
+        const hostRecord = await ctx.createRecord(hostTable.id, { Name: 'host-1' });
+        const foreignRecord = await ctx.createRecord(foreignTable.id, { Name: 'foreign-1' });
+        await ctx.updateRecord(hostTable.id, hostRecord.id, {
+          [linkFieldId]: [{ id: foreignRecord.id }],
+        });
+
+        const records = await ctx.listRecords(hostTable.id);
+        expect(records[0]?.fields?.[linkFieldId]).toEqual([
+          { id: foreignRecord.id, title: 'foreign-1' },
+        ]);
+      } finally {
+        await ctx.deleteTable(hostTable.id).catch(() => undefined);
+        await ctx.deleteTable(foreignTable.id).catch(() => undefined);
+      }
+    });
+
+    it('defaults lookupFieldId to foreign primary when omitted', async () => {
+      const hostTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'Default Lookup Host',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      });
+      const foreignTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'Default Lookup Foreign',
+        fields: [{ type: 'singleLineText', name: 'Title' }],
+      });
+
+      try {
+        const hostPrimary = hostTable.fields.find((field) => field.isPrimary);
+        const foreignPrimary = foreignTable.fields.find((field) => field.isPrimary);
+        expect(hostPrimary).toBeTruthy();
+        expect(foreignPrimary).toBeTruthy();
+        if (!hostPrimary || !foreignPrimary) return;
+
+        const linkFieldId = createFieldId();
+        const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId: hostTable.id,
+            field: {
+              type: 'link',
+              id: linkFieldId,
+              name: `Lookup Default ${linkFieldId}`,
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: foreignTable.id,
+              },
+            },
+          }),
+        });
+
+        const rawBody = await response.json();
+        if (response.status !== 200) {
+          throw new Error(`CreateField failed for default lookup: ${JSON.stringify(rawBody)}`);
+        }
+        const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success || !parsed.data.ok) return;
+
+        const created = parsed.data.data.table.fields.find((field) => field.id === linkFieldId);
+        expect(created).toBeTruthy();
+        if (!created || created.type !== 'link') return;
+        expect(created.options.lookupFieldId).toBe(foreignPrimary.id);
+
+        const symmetricFieldId = created.options.symmetricFieldId;
+        expect(typeof symmetricFieldId).toBe('string');
+        if (typeof symmetricFieldId !== 'string') return;
+
+        const foreignTableNext = await getTableById(foreignTable.id);
+        const symmetric = foreignTableNext.fields.find((field) => field.id === symmetricFieldId);
+        expect(symmetric).toBeTruthy();
+        if (!symmetric || symmetric.type !== 'link') return;
+        expect(symmetric.options.lookupFieldId).toBe(hostPrimary.id);
+      } finally {
+        await ctx.deleteTable(hostTable.id).catch(() => undefined);
+        await ctx.deleteTable(foreignTable.id).catch(() => undefined);
       }
     });
   });
@@ -1103,16 +1430,6 @@ describe('v2 http createField (e2e)', () => {
       });
 
       const rawBody = await response.json();
-      if (!entry.expectOk) {
-        expect(response.status).not.toBe(200);
-        const errorParsed = createFieldErrorResponseSchema.safeParse(rawBody);
-        expect(errorParsed.success).toBe(true);
-        if (!errorParsed.success) return;
-        expect(errorParsed.data.ok).toBe(false);
-        expect(errorParsed.data.error.message).toContain('Invalid RollupExpression');
-        return;
-      }
-
       if (response.status !== 200) {
         throw new Error(`CreateField failed for rollup: ${JSON.stringify(rawBody)}`);
       }
@@ -1126,6 +1443,11 @@ describe('v2 http createField (e2e)', () => {
       if (!created || created.type !== 'rollup') return;
       expect(created.options.expression).toBe(entry.expression);
       expect(created.config.lookupFieldId).toBe(entry.lookupFieldId);
+      if (!entry.expectOk) {
+        expect(created.hasError).toBe(true);
+        return;
+      }
+      expect(created.hasError).toBeUndefined();
     });
   });
 

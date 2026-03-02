@@ -118,7 +118,7 @@ const fieldCases = createFieldTypeCases();
 const dateFunctionChunks = chunkArray(dateFunctionCases, 7);
 
 describe('DATETIME_PARSE without custom format uses formula time zone', () => {
-  let container: IV2NodeTestContainer;
+  let container: IV2NodeTestContainer | undefined;
   let testTable: FormulaTestTable;
 
   beforeAll(async () => {
@@ -135,7 +135,7 @@ describe('DATETIME_PARSE without custom format uses formula time zone', () => {
   });
 
   afterAll(async () => {
-    await container.dispose();
+    await container?.dispose();
   });
 
   it('renders SQL with Asia/Shanghai and keeps correct conversion', async () => {
@@ -166,7 +166,7 @@ const runDateFunctionSuite = (label: string, cases: ReadonlyArray<DateFunctionCa
         normalizeResult: fn.normalizeResult,
       }))
     );
-    let container: IV2NodeTestContainer;
+    let container: IV2NodeTestContainer | undefined;
     let testTable: FormulaTestTable;
 
     beforeAll(async () => {
@@ -181,7 +181,7 @@ const runDateFunctionSuite = (label: string, cases: ReadonlyArray<DateFunctionCa
     });
 
     afterAll(async () => {
-      await container.dispose();
+      await container?.dispose();
     });
 
     it.each(matrix)(

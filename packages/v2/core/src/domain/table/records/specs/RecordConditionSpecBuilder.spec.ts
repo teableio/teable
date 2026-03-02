@@ -306,6 +306,10 @@ describe('RecordCondition operators', () => {
       fields.linkMultiField.accept(new FieldValueTypeVisitor())._unsafeUnwrap()
     );
     expect(linkMultiOperators).toEqual([
+      'is',
+      'isNot',
+      'isAnyOf',
+      'isNoneOf',
       'hasAnyOf',
       'hasAllOf',
       'isExactly',

@@ -47,10 +47,7 @@ export class TableUpdateFieldDbFieldNameSpec<
   }
 
   mutate(_t: Table): Result<Table, DomainError> {
-    // The physical rename is handled by the persistence layer.
-    // The in-memory model is left unchanged because setDbFieldName rejects
-    // overwriting a rehydrated value; the repository re-derives names on load.
-    return ok(_t);
+    return _t.updateFieldDbFieldName(this.fieldIdValue, this.nextDbFieldNameValue);
   }
 
   accept(v: V): Result<void, DomainError> {
