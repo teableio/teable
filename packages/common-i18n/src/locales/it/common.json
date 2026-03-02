@@ -837,9 +837,23 @@
             "failed": {
               "message": "❌ Importazione di {{tableName}} fallita: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ Importazione di {{tableName}} fallita: Limite di righe raggiunto, aggiorna il tuo piano per importare più record"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ Importazione di {{tableName}} fallita: Nessun record è stato elaborato"
+            },
             "success": {
               "message": "🎉 {{tableName}} importato con successo.",
               "inplace": "🎉 {{tableName}} importato in loco con successo."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -1030,6 +1044,17 @@
     "error": {
       "title": "Qualcosa è andato storto",
       "description": "Si è verificato un errore imprevisto. Riprova più tardi."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Analisi della data fallita, il valore \"{{value}}\" è fuori dall'intervallo valido",
+      "planRowLimit": "Limite di righe raggiunto: aggiorna il tuo piano per importare più record",
+      "notNullValidation": "{{fieldHint}}I campi obbligatori non possono essere vuoti",
+      "uniqueValidation": "{{fieldHint}}Valori duplicati nei campi univoci",
+      "requestTimeout": "Timeout della richiesta",
+      "chunkProcessingFailed": "Elaborazione batch fallita: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

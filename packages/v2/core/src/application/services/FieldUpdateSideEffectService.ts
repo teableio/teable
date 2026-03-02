@@ -4,7 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import { AndSpec } from '../../domain/shared/specification/AndSpec';
+import { flattenAndSpecs } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
@@ -250,8 +250,9 @@ export class FieldUpdateSideEffectService {
 
         if (specsResult.isErr()) return err(specsResult.error);
 
-        const newSpecs = specsResult.value;
-        if (newSpecs.length === 0) continue;
+        const dependentSpec = specsResult.value;
+        if (!dependentSpec) continue;
+        const newSpecs = flattenAndSpecs(dependentSpec);
 
         // Apply specs to table for cascading
         for (const spec of newSpecs) {
@@ -265,11 +266,10 @@ export class FieldUpdateSideEffectService {
 
         // Persist changes via TableUpdateFlow
         if (newSpecs.length > 0) {
-          const composedSpec = service.composeSpecs(newSpecs);
           const updateResult = yield* await service.tableUpdateFlow.execute(
             context,
             { table: currentTable },
-            (t) => ok(TableUpdateResult.create(t, composedSpec)),
+            (t) => ok(TableUpdateResult.create(t, dependentSpec)),
             { publishEvents: false }
           );
           currentTable = updateResult.table;
@@ -280,47 +280,45 @@ export class FieldUpdateSideEffectService {
         allSpecs.push(...newSpecs);
       }
 
-      const viewQueryCleanupSpecsResult = service.buildViewQueryCleanupSpecs(
+      const viewQueryCleanupSpecResult = service.buildViewQueryCleanupSpecs(
         currentTable,
         updatedField,
         updateSpecs
       );
-      if (viewQueryCleanupSpecsResult.isErr()) return err(viewQueryCleanupSpecsResult.error);
-      const viewQueryCleanupSpecs = viewQueryCleanupSpecsResult.value;
+      if (viewQueryCleanupSpecResult.isErr()) return err(viewQueryCleanupSpecResult.error);
+      const viewQueryCleanupSpec = viewQueryCleanupSpecResult.value;
 
-      if (viewQueryCleanupSpecs.length > 0) {
-        const composedSpec = service.composeSpecs(viewQueryCleanupSpecs);
+      if (viewQueryCleanupSpec) {
         const updateResult = yield* await service.tableUpdateFlow.execute(
           context,
           { table: currentTable },
-          (table) => ok(TableUpdateResult.create(table, composedSpec)),
+          (table) => ok(TableUpdateResult.create(table, viewQueryCleanupSpec)),
           { publishEvents: false }
         );
         currentTable = updateResult.table;
         events.push(...updateResult.events);
-        allSpecs.push(...viewQueryCleanupSpecs);
+        allSpecs.push(...flattenAndSpecs(viewQueryCleanupSpec));
       }
 
-      const viewColumnMetaCleanupSpecsResult = service.buildViewColumnMetaCleanupSpecs(
+      const viewColumnMetaCleanupSpecResult = service.buildViewColumnMetaCleanupSpecs(
         currentTable,
         updatedField,
         updateSpecs
       );
-      if (viewColumnMetaCleanupSpecsResult.isErr())
-        return err(viewColumnMetaCleanupSpecsResult.error);
-      const viewColumnMetaCleanupSpecs = viewColumnMetaCleanupSpecsResult.value;
+      if (viewColumnMetaCleanupSpecResult.isErr())
+        return err(viewColumnMetaCleanupSpecResult.error);
+      const viewColumnMetaCleanupSpec = viewColumnMetaCleanupSpecResult.value;
 
-      if (viewColumnMetaCleanupSpecs.length > 0) {
-        const composedSpec = service.composeSpecs(viewColumnMetaCleanupSpecs);
+      if (viewColumnMetaCleanupSpec) {
         const updateResult = yield* await service.tableUpdateFlow.execute(
           context,
           { table: currentTable },
-          (table) => ok(TableUpdateResult.create(table, composedSpec)),
+          (table) => ok(TableUpdateResult.create(table, viewColumnMetaCleanupSpec)),
           { publishEvents: false }
         );
         currentTable = updateResult.table;
         events.push(...updateResult.events);
-        allSpecs.push(...viewColumnMetaCleanupSpecs);
+        allSpecs.push(...flattenAndSpecs(viewColumnMetaCleanupSpec));
       }
 
       // Side effect #3: cross-table side effects (e.g., clean link filter in host tables)
@@ -516,34 +514,14 @@ export class FieldUpdateSideEffectService {
     return false;
   }
 
-  /**
-   * Compose multiple specs into a single spec using AndSpec.
-   */
-  private composeSpecs(
-    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): ISpecification<Table, ITableSpecVisitor> {
-    if (specs.length === 0) {
-      throw new Error('Cannot compose empty specs array');
-    }
-    if (specs.length === 1) {
-      return specs[0]!;
-    }
-
-    let composed: ISpecification<Table, ITableSpecVisitor> = specs[0]!;
-    for (let i = 1; i < specs.length; i++) {
-      composed = new AndSpec<Table, ITableSpecVisitor>(composed, specs[i]!);
-    }
-    return composed;
-  }
-
   private buildViewQueryCleanupSpecs(
     table: Table,
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
     if (!hasFieldFilterSyncPlanChanges(plan)) {
-      return ok([]);
+      return ok(undefined);
     }
 
     const updates: TableViewQueryDefaultsUpdate[] = [];
@@ -573,10 +551,10 @@ export class FieldUpdateSideEffectService {
     }
 
     if (updates.length === 0) {
-      return ok([]);
+      return ok(undefined);
     }
 
-    return ok([TableUpdateViewQueryDefaultsSpec.create(updates)]);
+    return ok(TableUpdateViewQueryDefaultsSpec.create(updates));
   }
 
   private hasFieldReferenceInRecordFilter(filter: RecordFilter, fieldId: string): boolean {
@@ -711,7 +689,7 @@ export class FieldUpdateSideEffectService {
     table: Table,
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const hasTypeConversion = updateSpecs.some(
       (spec) =>
         spec instanceof TableUpdateFieldTypeSpec &&
@@ -719,7 +697,7 @@ export class FieldUpdateSideEffectService {
         spec.oldField().id().equals(updatedField.id())
     );
     if (!hasTypeConversion) {
-      return ok([]);
+      return ok(undefined);
     }
 
     const updates: Array<{
@@ -760,9 +738,9 @@ export class FieldUpdateSideEffectService {
     }
 
     if (!updates.length) {
-      return ok([]);
+      return ok(undefined);
     }
 
-    return ok([TableUpdateViewColumnMetaSpec.create(updates)]);
+    return ok(TableUpdateViewColumnMetaSpec.create(updates));
   }
 }

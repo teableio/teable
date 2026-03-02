@@ -118,8 +118,8 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -134,8 +134,8 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -151,8 +151,8 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -167,8 +167,8 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -221,19 +221,19 @@ exports[`logical functions > 'And' with 'createdBy' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND COALESCE(TRUE, FALSE))",
@@ -335,19 +335,19 @@ exports[`logical functions > 'And' with 'lastModifiedBy' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND COALESCE(TRUE, FALSE))",
@@ -460,8 +460,8 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -476,8 +476,8 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -493,8 +493,8 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -509,8 +509,8 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -858,8 +858,8 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -874,8 +874,8 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -891,8 +891,8 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -907,8 +907,8 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -961,19 +961,19 @@ exports[`logical functions > 'If' with 'createdBy' 1`] = `
   "result": "yes",
   "sql": "(CASE WHEN (CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
@@ -1075,19 +1075,19 @@ exports[`logical functions > 'If' with 'lastModifiedBy' 1`] = `
   "result": "yes",
   "sql": "(CASE WHEN (CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
@@ -1200,8 +1200,8 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -1216,8 +1216,8 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -1233,8 +1233,8 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -1249,8 +1249,8 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -1534,8 +1534,8 @@ exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -1586,9 +1586,9 @@ exports[`logical functions > 'IsError' with 'createdBy' 1`] = `
   },
   "result": "false",
   "sql": "((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END) LIKE '#ERROR:%')",
 }
 `;
@@ -1677,9 +1677,9 @@ exports[`logical functions > 'IsError' with 'lastModifiedBy' 1`] = `
   },
   "result": "false",
   "sql": "((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END) LIKE '#ERROR:%')",
 }
 `;
@@ -1776,8 +1776,8 @@ exports[`logical functions > 'IsError' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -2053,8 +2053,8 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -2069,8 +2069,8 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -2086,8 +2086,8 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -2102,8 +2102,8 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -2156,19 +2156,19 @@ exports[`logical functions > 'Not' with 'createdBy' 1`] = `
   "result": "false",
   "sql": "(NOT (CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
@@ -2270,19 +2270,19 @@ exports[`logical functions > 'Not' with 'lastModifiedBy' 1`] = `
   "result": "false",
   "sql": "(NOT (CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
@@ -2395,8 +2395,8 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -2411,8 +2411,8 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -2428,8 +2428,8 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -2444,8 +2444,8 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -2734,8 +2734,8 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -2750,8 +2750,8 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -2767,8 +2767,8 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -2783,8 +2783,8 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -2837,19 +2837,19 @@ exports[`logical functions > 'Or' with 'createdBy' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR COALESCE(FALSE, FALSE))",
@@ -2951,19 +2951,19 @@ exports[`logical functions > 'Or' with 'lastModifiedBy' 1`] = `
   "result": "true",
   "sql": "((CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR COALESCE(FALSE, FALSE))",
@@ -3076,8 +3076,8 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -3092,8 +3092,8 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -3109,8 +3109,8 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -3125,8 +3125,8 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -3410,8 +3410,8 @@ exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -3462,9 +3462,9 @@ exports[`logical functions > 'Switch' with 'createdBy' 1`] = `
   },
   "result": "other",
   "sql": "(CASE WHEN (CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
@@ -3553,9 +3553,9 @@ exports[`logical functions > 'Switch' with 'lastModifiedBy' 1`] = `
   },
   "result": "other",
   "sql": "(CASE WHEN (CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
@@ -3652,8 +3652,8 @@ exports[`logical functions > 'Switch' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -3929,8 +3929,8 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -3945,8 +3945,8 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -3962,8 +3962,8 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -3978,8 +3978,8 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."ConditionalLookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
-    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN ((("t"."ConditionalLookupType")))::jsonb
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
+    WHEN pg_typeof((("t"."ConditionalLookupType"))) = 'json'::regtype THEN to_jsonb((("t"."ConditionalLookupType")))
     WHEN pg_typeof((("t"."ConditionalLookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."ConditionalLookupType")))::text), '') IS NULL THEN NULL
@@ -4032,19 +4032,19 @@ exports[`logical functions > 'Xor' with 'createdBy' 1`] = `
   "result": "false",
   "sql": "(((CASE WHEN (CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'object' THEN COALESCE(("t"."CreatedBy")::jsonb->>'title', ("t"."CreatedBy")::jsonb->>'name', ("t"."CreatedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."CreatedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
@@ -4146,19 +4146,19 @@ exports[`logical functions > 'Xor' with 'lastModifiedBy' 1`] = `
   "result": "false",
   "sql": "(((CASE WHEN (CASE
       WHEN (CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END) IS NULL THEN FALSE
       WHEN BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END)) = '' THEN FALSE
       WHEN LOWER(BTRIM((CASE
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'object' THEN COALESCE(("t"."LastModifiedBy")::jsonb->>'title', ("t"."LastModifiedBy")::jsonb->>'name', ("t"."LastModifiedBy")::jsonb #>> '{}')
-    WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN NULL
-    ELSE ("t"."LastModifiedBy")::jsonb #>> '{}'
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
+    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
+    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
   END))) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
@@ -4271,8 +4271,8 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -4287,8 +4287,8 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -4304,8 +4304,8 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL
@@ -4320,8 +4320,8 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
         ELSE jsonb_build_array(_lkp.v)
       END FROM (SELECT (CASE
     WHEN (("t"."LookupType")) IS NULL THEN NULL
-    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN ((("t"."LookupType")))::jsonb
-    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN ((("t"."LookupType")))::jsonb
+    WHEN pg_typeof((("t"."LookupType"))) = 'jsonb'::regtype THEN to_jsonb((("t"."LookupType")))
+    WHEN pg_typeof((("t"."LookupType"))) = 'json'::regtype THEN to_jsonb((("t"."LookupType")))
     WHEN pg_typeof((("t"."LookupType"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
         WHEN NULLIF(BTRIM(((("t"."LookupType")))::text), '') IS NULL THEN NULL

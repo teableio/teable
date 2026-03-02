@@ -49,6 +49,76 @@ describe('CreateFieldCommand', () => {
     expect(command.field.type).toBe('singleLineText');
   });
 
+  it('accepts link input without lookupFieldId and keeps foreign table reference', () => {
+    const foreignTableId = `tbl${'c'.repeat(16)}`;
+    const commandResult = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'link',
+        name: 'Linked Records',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId,
+        },
+      },
+    });
+
+    commandResult._unsafeUnwrap();
+    const command = commandResult._unsafeUnwrap();
+    expect(command.field.type).toBe('link');
+    if (command.field.type !== 'link') return;
+    expect(command.field.options.lookupFieldId).toBeUndefined();
+
+    const refs = command.foreignTableReferences()._unsafeUnwrap();
+    expect(refs).toHaveLength(1);
+    expect(refs[0]?.foreignTableId.toString()).toBe(foreignTableId);
+  });
+
+  it('accepts lookup field multiplicity in create input', () => {
+    const commandResult = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'lookup',
+        name: 'Lookup C',
+        isMultipleCellValue: false,
+        options: {
+          linkFieldId: `fld${'c'.repeat(16)}`,
+          foreignTableId: `tbl${'d'.repeat(16)}`,
+          lookupFieldId: `fld${'e'.repeat(16)}`,
+        },
+      },
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.field.type).toBe('lookup');
+    if (command.field.type !== 'lookup') return;
+    expect(command.field.isMultipleCellValue).toBe(false);
+  });
+
+  it('accepts aiConfig in create input for sidecar persistence flow', () => {
+    const commandResult = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'singleLineText',
+        name: 'AI Field',
+        aiConfig: {
+          type: 'summary',
+          sourceFieldId: `fld${'f'.repeat(16)}`,
+        },
+      },
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.field.type).toBe('singleLineText');
+    expect((command.field as { aiConfig?: unknown }).aiConfig).toEqual({
+      type: 'summary',
+      sourceFieldId: `fld${'f'.repeat(16)}`,
+    });
+  });
+
   it('accepts description on strict variants (formula)', () => {
     const commandResult = CreateFieldCommand.create({
       baseId,
@@ -434,6 +504,31 @@ describe('CreateFieldCommand', () => {
             foreignTableId: `tbl${'d'.repeat(16)}`,
             lookupFieldId: `fld${'e'.repeat(16)}`,
           });
+        },
+      },
+      {
+        field: {
+          type: 'link',
+          name: 'Configured Link',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: tableId,
+            lookupFieldId: `fld${'c'.repeat(16)}`,
+            symmetricFieldId: `fld${'d'.repeat(16)}`,
+            fkHostTableName: `${baseId}.junction_custom_link`,
+            selfKeyName: `__fk_fld${'d'.repeat(16)}`,
+            foreignKeyName: `__fk_fld${'e'.repeat(16)}`,
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(LinkField);
+          const typed = field as LinkField;
+          expect(typed.relationship().toString()).toBe('manyMany');
+          expect(typed.fkHostTableNameString()._unsafeUnwrap()).toBe(
+            `${baseId}.junction_custom_link`
+          );
+          expect(typed.selfKeyNameString()._unsafeUnwrap()).toBe(`__fk_fld${'d'.repeat(16)}`);
+          expect(typed.foreignKeyNameString()._unsafeUnwrap()).toBe(`__fk_fld${'e'.repeat(16)}`);
         },
       },
       {

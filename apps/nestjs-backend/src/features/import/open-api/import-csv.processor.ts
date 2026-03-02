@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { join } from 'path';
+import { PassThrough } from 'stream';
+import { text } from 'stream/consumers';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import {
@@ -11,10 +12,16 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CreateRecordAction, UploadType } from '@teable/openapi';
-import type { IImportOptionRo, IImportColumn, IInplaceImportOptionRo } from '@teable/openapi';
+import type {
+  ICreateRecordsRo,
+  IImportOptionRo,
+  IImportColumn,
+  IInplaceImportOptionRo,
+} from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
-import { toString } from 'lodash';
+import { chunk as chunkArray, toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { I18nService } from 'nestjs-i18n';
 import Papa from 'papaparse';
 import type { CreateOp } from 'sharedb';
 import type { LocalPresence } from 'sharedb/lib/client';
@@ -22,11 +29,14 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
+import type { I18nPath, I18nTranslations } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
-import { toLineDelimitedStream } from './delimiter-stream';
+import { classifyImportError, formatClassifiedError } from './import-error-classifier';
+import type { TranslateFn } from './import-error-classifier';
+import { ImportErrorCollector } from './import-error-collector';
 import { parseBoolean } from './import.class';
 
 interface ITableImportCsvJob {
@@ -40,7 +50,7 @@ interface ITableImportCsvJob {
   };
   path: string;
   columnInfo?: IImportColumn[];
-  fields: { id: string; type: FieldType }[];
+  fields: { id: string; name?: string; type: FieldType }[];
   sourceColumnMap?: Record<string, number | null>;
   table: { id: string; name: string };
   range: [number, number];
@@ -49,9 +59,22 @@ interface ITableImportCsvJob {
   parentJobId: string;
   ro: IImportOptionRo | IInplaceImportOptionRo;
   logId: string;
+  /** Provided by parent so child can write errors to S3 instead of returning them via Redis */
+  errorReportConfig?: {
+    maxWidth: number;
+    userLang: string;
+  };
 }
 
 export const TABLE_IMPORT_CSV_QUEUE = 'import-table-csv-queue';
+export const SUB_BATCH_SIZE = 50;
+
+export interface IChunkImportResult {
+  successCount: number;
+  failedCount: number;
+  /** S3 path to headerless CSV rows of failed records (only set when failedCount > 0) */
+  errorFilePath?: string;
+}
 
 @Injectable()
 @Processor(TABLE_IMPORT_CSV_QUEUE, {
@@ -72,50 +95,40 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(TABLE_IMPORT_CSV_QUEUE) public readonly queue: Queue<ITableImportCsvJob>
+    @InjectQueue(TABLE_IMPORT_CSV_QUEUE) public readonly queue: Queue<ITableImportCsvJob>,
+    private readonly i18n: I18nService<I18nTranslations>
   ) {
     super();
   }
 
-  public async process(job: Job<ITableImportCsvJob>) {
-    const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range, origin, ro } =
-      job.data;
+  public async process(job: Job<ITableImportCsvJob>): Promise<IChunkImportResult> {
+    const { table, notification, baseId, userId, lastChunk, range } = job.data;
     const localPresence = this.createImportPresence(table.id, 'status');
     this.setImportStatus(localPresence, true);
     try {
-      await this.handleImportChunkCsv(job);
-      await this.emitImportAuditLog(job);
-      if (lastChunk) {
-        notification &&
-          this.notificationService.sendImportResultNotify({
-            baseId,
-            tableId: table.id,
-            toUserId: userId,
-            message: sourceColumnMap
-              ? {
-                  i18nKey: 'common.email.templates.notify.import.table.success.inplace',
-                  context: { tableName: table.name },
-                }
-              : {
-                  i18nKey: 'common.email.templates.notify.import.table.success.message',
-                  context: { tableName: table.name },
-                },
-          });
+      const errorCollector = await this.handleImportChunkCsv(job);
+      await this.emitImportAuditLog(job, errorCollector.successCount);
 
+      let errorFilePath: string | undefined;
+      if (errorCollector.hasErrors()) {
+        errorFilePath = await this.writeChunkErrorsToStorage(job, errorCollector);
+      }
+
+      const result: IChunkImportResult = {
+        successCount: errorCollector.successCount,
+        failedCount: errorCollector.failedCount,
+        errorFilePath,
+      };
+
+      if (lastChunk) {
         this.setImportStatus(localPresence, false);
         localPresence.destroy();
         this.presences = this.presences.filter(
           (presence) => presence.presenceId !== localPresence.presenceId
         );
-
-        const dir = StorageAdapter.getDir(UploadType.Import);
-        const fullPath = join(dir, job.data.parentJobId);
-        await this.storageAdapter.deleteDir(
-          StorageAdapter.getBucket(UploadType.Import),
-          fullPath,
-          false
-        );
       }
+
+      return result;
     } catch (error) {
       const err = error as Error;
       notification &&
@@ -147,25 +160,33 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     }
   }
 
-  private async handleImportChunkCsv(job: Job<ITableImportCsvJob>) {
+  private async handleImportChunkCsv(job: Job<ITableImportCsvJob>): Promise<ImportErrorCollector> {
+    const errorCollector = new ImportErrorCollector();
+
     await this.cls.run(async () => {
       this.cls.set('user.id', job.data.userId);
       this.cls.set('origin', job.data.origin!);
       this.cls.set('skipRecordAuditLog', true);
-      const { columnInfo, fields, sourceColumnMap, table } = job.data;
+      const { columnInfo, fields, sourceColumnMap, table, range } = job.data;
       const currentResult = await this.getChunkData(job);
-      // fill data
-      const records = currentResult.map((row) => {
-        const res: { fields: Record<string, unknown> } = {
+
+      // Build records with source metadata for error reporting
+      const recordsWithMeta = currentResult.map((row, index) => {
+        const res: {
+          fields: Record<string, unknown>;
+          __sourceRowIndex: number;
+          __sourceData: unknown[];
+        } = {
           fields: {},
+          __sourceRowIndex: range[0] + index,
+          __sourceData: Array.isArray(row) ? row : [],
         };
         // import new table
         if (columnInfo) {
-          columnInfo.forEach((col, index) => {
+          columnInfo.forEach((col, colIndex) => {
             const { sourceColumnIndex, type } = col;
-            // empty row will be return void row value
             const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
-            res.fields[fields[index].id] =
+            res.fields[fields[colIndex].id] =
               type === FieldType.Checkbox ? parseBoolean(value) : value?.toString();
           });
         }
@@ -174,34 +195,261 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           for (const [key, value] of Object.entries(sourceColumnMap)) {
             if (value !== null) {
               const { type } = fields.find((f) => f.id === key) || {};
-              // link value should be string
               res.fields[key] = type === FieldType.Link ? toString(row[value]) : row[value];
             }
           }
         }
         return res;
       });
-      if (records.length === 0) {
+
+      if (recordsWithMeta.length === 0) {
         return;
       }
+
+      const createFn: (
+        tableId: string,
+        createRecordsRo: ICreateRecordsRo,
+        ignoreMissingFields?: boolean
+      ) => Promise<unknown> = columnInfo
+        ? (tableId, createRecordsRo) =>
+            this.recordOpenApiService.createRecordsOnlySql(tableId, createRecordsRo)
+        : (tableId, createRecordsRo, ignoreMissingFields = false) =>
+            this.recordOpenApiService.multipleCreateRecords(
+              tableId,
+              createRecordsRo,
+              ignoreMissingFields
+            );
+
+      const fieldIdToName = new Map(fields.map((f) => [f.id, f.name ?? f.id]));
+      const fieldIdToType = new Map(fields.map((f) => [f.id, f.type]));
+
+      // Optimistic: try inserting the entire chunk at once.
+      // In the common case (no bad rows), this is a single INSERT for the whole chunk.
+      const cleanRecords = recordsWithMeta.map(({ fields: f }) => ({ fields: f }));
       try {
-        const createFn = columnInfo
-          ? this.recordOpenApiService.createRecordsOnlySql.bind(this.recordOpenApiService)
-          : this.recordOpenApiService.multipleCreateRecords.bind(this.recordOpenApiService);
         await createFn(
           table.id,
-          {
-            fieldKeyType: FieldKeyType.Id,
-            typecast: true,
-            records,
-          },
+          { fieldKeyType: FieldKeyType.Id, typecast: true, records: cleanRecords },
           false
         );
-      } catch (e: unknown) {
-        this.logger.error(e);
-        throw e;
+        errorCollector.addSuccessCount(recordsWithMeta.length);
+      } catch {
+        // Chunk has bad rows — fall back to sub-batch + binary search to locate them
+        const subBatches = chunkArray(recordsWithMeta, SUB_BATCH_SIZE);
+        for (const subBatch of subBatches) {
+          await this.insertWithBinaryFallback(
+            subBatch,
+            createFn,
+            table.id,
+            errorCollector,
+            fieldIdToName,
+            fieldIdToType
+          );
+          await new Promise((resolve) => setImmediate(resolve));
+        }
       }
     });
+
+    return errorCollector;
+  }
+
+  /**
+   * Translate collected errors and write them to S3 as headerless CSV rows.
+   * The parent processor will pipe these rows into the final error report stream.
+   * Returns the S3 path, or undefined if writing fails (errors are logged but not rethrown).
+   */
+  private async writeChunkErrorsToStorage(
+    job: Job<ITableImportCsvJob>,
+    errorCollector: ImportErrorCollector
+  ): Promise<string | undefined> {
+    const { errorReportConfig, parentJobId, range, fields } = job.data;
+    const errors = errorCollector.getErrors();
+    if (errors.length === 0) return undefined;
+
+    const maxWidth = errorReportConfig?.maxWidth ?? 1;
+
+    const fieldIdToName = new Map(fields.map((f) => [f.id, f.name ?? f.id]));
+    const translate = this.createTranslateFn(errorReportConfig?.userLang);
+
+    try {
+      const stream = new PassThrough();
+      const bucket = StorageAdapter.getBucket(UploadType.Import);
+      const pathDir = StorageAdapter.getDir(UploadType.Import);
+      const errorPath = `${pathDir}/${parentJobId}/chunk_errors_[${range[0]},${range[1]}].csv`;
+
+      const uploadPromise = this.storageAdapter.uploadFileStream(bucket, errorPath, stream, {
+        'Content-Type': 'text/csv; charset=utf-8',
+      });
+
+      for (const error of errors) {
+        const classified = classifyImportError(error.errorMessage);
+        const translatedMsg = formatClassifiedError(
+          classified,
+          translate,
+          fieldIdToName,
+          error.failedFieldNames
+        );
+        const originalCells = Array.isArray(error.originalData) ? error.originalData : [];
+        const padded = [...originalCells];
+        while (padded.length < maxWidth) padded.push('');
+        const row = [...padded, translatedMsg];
+        const line = Papa.unparse([row], { header: false });
+        stream.write(line.endsWith('\n') ? line : line + '\n');
+      }
+
+      stream.end();
+      const result = await uploadPromise;
+      return result.path;
+    } catch (e) {
+      this.logger.warn(`Failed to write chunk errors to S3 for range [${range}]`, e);
+      return undefined;
+    }
+  }
+
+  private createTranslateFn(lang?: string): TranslateFn {
+    return (key: I18nPath, args?: Record<string, string>) =>
+      this.i18n.t(key, { args, lang: lang ?? 'en' }) as string;
+  }
+
+  /**
+   * Binary search fallback for fault-tolerant record insertion.
+   *
+   * Tries to insert all records at once. On failure, splits in half and recurses.
+   * When down to a single record that fails, logs the error and continues.
+   *
+   * Performance: For N records with K bad ones, takes O(N/B + K*log(B)) INSERT calls
+   * where B is the sub-batch size, vs O(N) for naive single-record fallback.
+   */
+  private async insertWithBinaryFallback(
+    recordsWithMeta: {
+      fields: Record<string, unknown>;
+      __sourceRowIndex: number;
+      __sourceData: unknown[];
+    }[],
+    createFn: (
+      tableId: string,
+      createRecordsRo: ICreateRecordsRo,
+      ignoreMissingFields?: boolean
+    ) => Promise<unknown>,
+    tableId: string,
+    errorCollector: ImportErrorCollector,
+    fieldIdToName: Map<string, string>,
+    fieldIdToType: Map<string, FieldType>
+  ): Promise<void> {
+    // Strip metadata before passing to createFn
+    const cleanRecords = recordsWithMeta.map(({ fields }) => ({ fields }));
+
+    try {
+      await createFn(
+        tableId,
+        {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+          records: cleanRecords,
+        },
+        false
+      );
+      errorCollector.addSuccessCount(recordsWithMeta.length);
+    } catch (e: unknown) {
+      if (recordsWithMeta.length === 1) {
+        const record = recordsWithMeta[0];
+        const rawMessage = e instanceof Error ? e.message : String(e);
+        this.logger.warn(
+          `Import row ${record.__sourceRowIndex} failed: ${rawMessage.slice(0, 200)}`
+        );
+        const failedFieldNames = this.identifyFailingFields(
+          rawMessage,
+          record.fields,
+          fieldIdToName,
+          fieldIdToType
+        );
+        errorCollector.add({
+          rowIndex: record.__sourceRowIndex,
+          originalData: record.__sourceData,
+          errorMessage: rawMessage,
+          failedFieldNames: failedFieldNames.length > 0 ? failedFieldNames : undefined,
+        });
+        return;
+      }
+
+      // Binary split: try each half separately
+      const mid = Math.ceil(recordsWithMeta.length / 2);
+      const firstHalf = recordsWithMeta.slice(0, mid);
+      const secondHalf = recordsWithMeta.slice(mid);
+
+      await this.insertWithBinaryFallback(
+        firstHalf,
+        createFn,
+        tableId,
+        errorCollector,
+        fieldIdToName,
+        fieldIdToType
+      );
+      await this.insertWithBinaryFallback(
+        secondHalf,
+        createFn,
+        tableId,
+        errorCollector,
+        fieldIdToName,
+        fieldIdToType
+      );
+    }
+  }
+
+  private static readonly DATE_FIELD_TYPES = new Set([
+    FieldType.Date,
+    FieldType.CreatedTime,
+    FieldType.LastModifiedTime,
+  ]);
+
+  private static readonly DATE_ERROR_RE =
+    /time zone displacement out of range|date\/time field value out of range/i;
+
+  // Use atomic-style regex: field IDs are word chars separated by ", "
+  private static readonly FIELD_VALIDATION_RE =
+    /Fields?\s+(\w+(?:,\s*\w+)*)\s+(?:not null|unique) validation/i;
+
+  private identifyFailingFields(
+    rawMessage: string,
+    recordFields: Record<string, unknown>,
+    fieldIdToName: Map<string, string>,
+    fieldIdToType: Map<string, FieldType>
+  ): string[] {
+    if (ImportTableCsvQueueProcessor.DATE_ERROR_RE.test(rawMessage)) {
+      return this.identifyDateFields(rawMessage, recordFields, fieldIdToName, fieldIdToType);
+    }
+
+    const fieldIdMatch = rawMessage.match(ImportTableCsvQueueProcessor.FIELD_VALIDATION_RE);
+    if (fieldIdMatch) {
+      return fieldIdMatch[1].split(/,\s*/).map((id) => fieldIdToName.get(id.trim()) ?? id.trim());
+    }
+
+    return [];
+  }
+
+  private identifyDateFields(
+    rawMessage: string,
+    recordFields: Record<string, unknown>,
+    fieldIdToName: Map<string, string>,
+    fieldIdToType: Map<string, FieldType>
+  ): string[] {
+    const valueMatch = rawMessage.match(/"([^"]+)"/);
+    const errorValue = valueMatch?.[1] ?? '';
+
+    const dateEntries = Object.entries(recordFields).filter(([fieldId]) =>
+      ImportTableCsvQueueProcessor.DATE_FIELD_TYPES.has(fieldIdToType.get(fieldId)!)
+    );
+
+    // Try exact value match first
+    const exact = dateEntries
+      .filter(([, value]) => value != null && String(value).includes(errorValue))
+      .map(([fieldId]) => fieldIdToName.get(fieldId) ?? fieldId);
+    if (exact.length > 0) return exact;
+
+    // Fallback: all date fields that have non-null values
+    return dateEntries
+      .filter(([, value]) => value != null)
+      .map(([fieldId]) => fieldIdToName.get(fieldId) ?? fieldId);
   }
 
   private async getChunkData(job: Job<ITableImportCsvJob>): Promise<unknown[][]> {
@@ -210,14 +458,18 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
       StorageAdapter.getBucket(UploadType.Import),
       path
     );
+    // Read full content so PapaParse can correctly handle newlines inside quoted cells.
+    // toLineDelimitedStream would split on ALL newlines (including inside quotes),
+    // causing "product\nProduct image" to become two rows instead of one.
+    const csvString = await text(stream);
     return new Promise((resolve, reject) => {
-      Papa.parse(toLineDelimitedStream(stream), {
+      Papa.parse(csvString, {
         download: false,
         dynamicTyping: false,
         complete: (result) => {
           resolve(result.data as unknown[][]);
         },
-        error: (err) => {
+        error: (err: Error) => {
           reject(err);
         },
       });
@@ -288,8 +540,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     return `${prefix}_[${range[0]},${range[1]}]`;
   }
 
-  private async emitImportAuditLog(job: Job<ITableImportCsvJob>) {
-    const { table, range, origin, userId, logId } = job.data;
+  private async emitImportAuditLog(job: Job<ITableImportCsvJob>, successCount: number) {
+    const { table, origin, userId, logId } = job.data;
     const { ro } = job.data;
 
     const actionType =
@@ -304,7 +556,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
       this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
         action: actionType,
         resourceId: table.id,
-        recordCount: range.at(-1) || 0,
+        recordCount: successCount,
         params: { fileType: ro?.fileType },
         logId,
       });

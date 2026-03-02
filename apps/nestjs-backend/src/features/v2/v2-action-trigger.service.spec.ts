@@ -1,6 +1,7 @@
 import { getActionTriggerChannel } from '@teable/core';
 import {
   BaseId,
+  FieldCreated,
   FieldId,
   FieldUpdated,
   TableId,
@@ -95,6 +96,72 @@ describe('V2ActionTriggerService', () => {
             },
           },
         },
+      },
+    ]);
+  });
+
+  it('emits addField and setRecord presence payloads for field created', async () => {
+    let channelSubmitted: string | undefined;
+    let submitted: PresencePayload | undefined;
+
+    const shareDbService = {
+      connect: () => ({
+        getPresence: (channel: string) => {
+          channelSubmitted = channel;
+          return {
+            create: () => ({
+              submit: (data: PresencePayload, cb?: (error?: unknown) => void) => {
+                submitted = data;
+                cb?.();
+              },
+            }),
+          };
+        },
+      }),
+    } as unknown as ShareDbService;
+
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+
+    const service = new V2ActionTriggerService(shareDbService);
+    service.registerProjections(container);
+
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2FieldCreatedActionTriggerProjection'
+    )?.instance as IEventHandler<FieldCreated> | undefined;
+
+    expect(projection).toBeDefined();
+
+    const { baseId, tableId, fieldId } = createIds();
+    const event = FieldCreated.create({
+      baseId,
+      tableId,
+      fieldId,
+    });
+
+    const result = await projection?.handle({} as IExecutionContext, event);
+    expect(result?.isOk()).toBe(true);
+
+    expect(channelSubmitted).toBe(getActionTriggerChannel(tableId.toString()));
+    expect(submitted).toEqual([
+      {
+        actionKey: 'addField',
+        payload: {
+          tableId: tableId.toString(),
+          field: {
+            id: fieldId.toString(),
+          },
+        },
+      },
+      {
+        actionKey: 'setRecord',
       },
     ]);
   });

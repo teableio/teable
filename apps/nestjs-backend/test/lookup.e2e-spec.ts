@@ -879,7 +879,6 @@ describe('OpenAPI Lookup field (e2e)', () => {
       );
       expect(sourceRecord).toBeTruthy();
       expect(hostRecord).toBeTruthy();
-
       expect(hostRecord!.fields[HOST_LOOKUP_AUTO]).toEqual(sourceRecord!.fields[SOURCE_AUTO_FIELD]);
       expect(normalizeSingle(hostRecord!.fields[HOST_LOOKUP_CREATED_TIME] as unknown)).toEqual(
         sourceRecord!.fields[SOURCE_CREATED_TIME_FIELD]

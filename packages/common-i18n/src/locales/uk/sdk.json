@@ -660,7 +660,7 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Повертає різницю між датою та часом у вказаних одиницях. Одиницями за замовчуванням є секунди. (Див. список специфікаторів одиниць тут.)\nРізниця між датою та часом визначається шляхом віднімання [date2] від [date1]. Це означає, що якщо [date2] пізніше [date1], результуюче значення буде від’ємним.",
+      "summary": "Повертає різницю між датою та часом у вказаних одиницях. Одиниця за замовчуванням — \"day\".\nПідтримувані одиниці: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nРізниця між датою та часом визначається шляхом віднімання [date2] від [date1]. Це означає, що якщо [date2] пізніше [date1], результуюче значення буде від'ємним.",
       "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
@@ -1273,7 +1273,8 @@
     "import": {
       "notSupportedFileFormat": "Формат файлу не підтримується, підтримуються лише {{supportType}}, тип вмісту вашого файлу {{fileFormat}}",
       "notSupportedFileType": "Тип файлу імпорту не підтримується",
-      "exceedMaxFieldsLength": "Кількість полів у таблиці не може перевищувати {{maxFieldsLength}}, поточне значення {{length}}"
+      "exceedMaxFieldsLength": "Кількість полів у таблиці не може перевищувати {{maxFieldsLength}}, поточне значення {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "Поточний екземпляр забороняє запрошення до простору адміністратором",

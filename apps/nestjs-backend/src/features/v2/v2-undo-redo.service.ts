@@ -1,7 +1,16 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable, Logger } from '@nestjs/common';
-import type { IFieldVo, IOtOperation, IRecord } from '@teable/core';
 import {
+  CellValueType,
+  FieldType,
+  getDbFieldType,
+  type IColumnMeta,
+  type IFieldVo,
+  type IOtOperation,
+  type IRecord,
+} from '@teable/core';
+import {
+  FieldCreated,
   FieldUpdated,
   ProjectionHandler,
   RecordReordered,
@@ -17,6 +26,7 @@ import {
 import type { DomainError, IEventHandler, IExecutionContext, Result } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import {
+  type ICreateFieldsOperation,
   OperationName,
   type IConvertFieldV2Operation,
   type ICreateRecordsOperation,
@@ -155,6 +165,72 @@ const mergeOpsMap = (base: IOpsMap | undefined, patch: IOpsMap): IOpsMap => {
   }
 
   return result;
+};
+
+const deriveCellValueType = (field: IFieldVo): CellValueType => {
+  switch (field.type) {
+    case FieldType.Number:
+    case FieldType.Rating:
+    case FieldType.AutoNumber:
+      return CellValueType.Number;
+    case FieldType.Checkbox:
+      return CellValueType.Boolean;
+    case FieldType.Date:
+    case FieldType.CreatedTime:
+    case FieldType.LastModifiedTime:
+      return CellValueType.DateTime;
+    default:
+      return CellValueType.String;
+  }
+};
+
+const deriveIsMultipleCellValue = (field: IFieldVo): boolean => {
+  switch (field.type) {
+    case FieldType.MultipleSelect:
+    case FieldType.Attachment:
+      return true;
+    case FieldType.Link: {
+      const options =
+        field.options && typeof field.options === 'object' && !Array.isArray(field.options)
+          ? (field.options as Record<string, unknown>)
+          : undefined;
+      const relationship = options?.relationship;
+      return relationship === 'oneMany' || relationship === 'manyMany';
+    }
+    case FieldType.User: {
+      const options =
+        field.options && typeof field.options === 'object' && !Array.isArray(field.options)
+          ? (field.options as Record<string, unknown>)
+          : undefined;
+      return options?.isMultiple === true;
+    }
+    default:
+      return false;
+  }
+};
+
+const normalizeUndoField = (field: IFieldVo): IFieldVo => {
+  const normalized: IFieldVo = {
+    ...field,
+  };
+
+  if (normalized.cellValueType == null) {
+    normalized.cellValueType = deriveCellValueType(normalized);
+  }
+
+  if (normalized.isMultipleCellValue == null && deriveIsMultipleCellValue(normalized)) {
+    normalized.isMultipleCellValue = true;
+  }
+
+  if (normalized.dbFieldType == null && normalized.cellValueType != null) {
+    normalized.dbFieldType = getDbFieldType(
+      normalized.type as FieldType,
+      normalized.cellValueType,
+      normalized.isMultipleCellValue
+    );
+  }
+
+  return normalized;
 };
 
 const buildModifiedOps = (
@@ -411,6 +487,74 @@ class V2RecordsBatchUpdatedUndoRedoProjection implements IEventHandler<RecordsBa
       },
       result: {
         cellContexts,
+      },
+    };
+
+    await this.undoRedoStackService.push(userId, tableId, windowId, operation);
+    return ok(undefined);
+  }
+}
+
+@ProjectionHandler(FieldCreated)
+class V2FieldCreatedUndoRedoProjection implements IEventHandler<FieldCreated> {
+  constructor(
+    private readonly undoRedoStackService: UndoRedoStackService,
+    private readonly tableQueryService: TableQueryService,
+    private readonly tableMapper: ITableMapper
+  ) {}
+
+  async handle(
+    context: IExecutionContext,
+    event: FieldCreated
+  ): Promise<Result<void, DomainError>> {
+    const { windowId, actorId } = context;
+
+    if (!windowId) {
+      return ok(undefined);
+    }
+
+    const tableId = event.tableId.toString();
+    const userId = actorId.toString();
+    const fieldId = event.fieldId.toString();
+
+    const tableResult = await this.tableQueryService.getById(context, event.tableId);
+    if (tableResult.isErr()) {
+      return ok(undefined);
+    }
+
+    const tableDtoResult = this.tableMapper.toDTO(tableResult.value);
+    if (tableDtoResult.isErr()) {
+      return ok(undefined);
+    }
+
+    const createdField = tableDtoResult.value.fields.find((field) => field.id === fieldId);
+    if (!createdField) {
+      return ok(undefined);
+    }
+
+    const eventColumnMeta = Object.fromEntries(
+      Object.entries(event.viewOrders ?? {}).map(([viewId, order]) => [viewId, { order }])
+    ) as IColumnMeta;
+    const fallbackColumnMeta = Object.fromEntries(
+      tableDtoResult.value.views.flatMap((view) => {
+        const column = (view.columnMeta as Record<string, unknown> | undefined)?.[fieldId];
+        return column == null ? [] : [[view.id, column]];
+      })
+    ) as IColumnMeta;
+    const normalizedColumnMeta =
+      Object.keys(eventColumnMeta).length > 0 ? eventColumnMeta : fallbackColumnMeta;
+    const createdFieldWithMeta: IFieldVo & { columnMeta?: IColumnMeta } = {
+      ...normalizeUndoField(createdField as unknown as IFieldVo),
+      ...(Object.keys(normalizedColumnMeta).length > 0 ? { columnMeta: normalizedColumnMeta } : {}),
+    };
+
+    const operation: ICreateFieldsOperation = {
+      name: OperationName.CreateFields,
+      params: {
+        tableId,
+      },
+      result: {
+        fields: [createdFieldWithMeta],
       },
     };
 
@@ -773,6 +917,11 @@ export class V2UndoRedoService {
         tableQueryService,
         tableMapper
       )
+    );
+
+    container.registerInstance(
+      V2FieldCreatedUndoRedoProjection,
+      new V2FieldCreatedUndoRedoProjection(undoRedoStackService, tableQueryService, tableMapper)
     );
 
     container.registerInstance(

@@ -3,11 +3,14 @@ import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../../base/BaseId';
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
+import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { DbTableName } from '../../DbTableName';
 import { ForeignTable } from '../../ForeignTable';
-import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
+import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import type { ViewId } from '../../views/ViewId';
@@ -17,12 +20,6 @@ import type { FieldDuplicateParams } from '../Field';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
-import type {
-  ForeignTableRelatedField,
-  ForeignTableValidationContext,
-} from '../ForeignTableRelatedField';
-import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
-import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
   buildFieldFilterSyncPlan,
   hasFieldFilterSyncPlanChanges,
@@ -30,6 +27,12 @@ import {
   isEquivalentFilter,
   syncFilterByFieldChanges,
 } from '../filter-sync';
+import type {
+  ForeignTableRelatedField,
+  ForeignTableValidationContext,
+} from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
+import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
   LinkFieldConfig,
   type LinkFieldConfigValue,
@@ -38,7 +41,10 @@ import {
 import { LinkFieldMeta, type LinkFieldMetaValue } from './LinkFieldMeta';
 import type { LinkRelationship } from './LinkRelationship';
 
-export class LinkField extends Field implements ForeignTableRelatedField, OnTeableFieldUpdated {
+export class LinkField
+  extends Field
+  implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
+{
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -69,16 +75,18 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
       ? ok(params.meta)
       : LinkField.defaultMetaForConfig(params.config);
 
-    return metaResult.andThen((meta) =>
-      LinkField.create({
-        id: params.id,
-        name: params.name,
-        config: params.config,
-        meta,
-      }).andThen((field) =>
-        field
-          .ensureDbConfig({ baseId: params.baseId, hostTableId: params.hostTableId })
-          .map(() => field)
+    return LinkField.normalizeCrossBaseConfig(params.config, params.baseId).andThen((config) =>
+      metaResult.andThen((meta) =>
+        LinkField.create({
+          id: params.id,
+          name: params.name,
+          config,
+          meta,
+        }).andThen((field) =>
+          field
+            .ensureDbConfig({ baseId: params.baseId, hostTableId: params.hostTableId })
+            .map(() => field)
+        )
       )
     );
   }
@@ -256,7 +264,11 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
         ? ok(this.symmetricFieldId()!)
         : FieldId.generate();
 
-    const baseId = this.isCrossBase() ? hostTable.baseId().toString() : undefined;
+    const baseId = this.baseId()
+      ? this.baseId()!.equals(hostTable.baseId())
+        ? undefined
+        : hostTable.baseId().toString()
+      : undefined;
     const lookupFieldId = hostTable.primaryFieldId().toString();
 
     const symmetricDbConfigResult: Result<LinkFieldDbConfig | undefined, DomainError> =
@@ -326,23 +338,48 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
     _context: FieldUpdateContext
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const filter = this.configValue.filter();
-    if (filter == null) return ok([]);
+    if (filter == null) return ok(undefined);
 
     const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
-    if (!hasFieldFilterSyncPlanChanges(plan)) return ok([]);
-    if (!hasFieldReferenceInFilter(filter, updatedField.id())) return ok([]);
+    if (!hasFieldFilterSyncPlanChanges(plan)) return ok(undefined);
+    if (!hasFieldReferenceInFilter(filter, updatedField.id())) return ok(undefined);
 
     const nextFilter = syncFilterByFieldChanges(filter, updatedField.id(), plan);
-    if (isEquivalentFilter(filter, nextFilter)) return ok([]);
+    if (isEquivalentFilter(filter, nextFilter)) return ok(undefined);
 
     return this.configDto().andThen((currentDto) =>
       LinkFieldConfig.create({
         ...currentDto,
         filter: nextFilter,
-      }).map((nextConfig) => [UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig)])
+      }).map((nextConfig) =>
+        composeAndSpecsOrUndefined([
+          UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig),
+        ])
+      )
     );
+  }
+
+  onFieldDeleted(
+    deletedField: Field,
+    context: FieldDeletionContext
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+    const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
+    const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
+    const filter = this.configValue.filter();
+
+    const shouldSetError =
+      (deletedFromHostTable &&
+        filter != null &&
+        hasFieldReferenceInFilter(filter, deletedField.id())) ||
+      (deletedFromForeignTable && deletedField.id().equals(this.lookupFieldId()));
+
+    if (!shouldSetError || this.hasError().isError()) {
+      return ok(undefined);
+    }
+
+    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
   }
 
   setDbConfig(params: LinkFieldDbConfig): Result<void, DomainError> {
@@ -360,8 +397,6 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
   }
 
   ensureDbConfig(params: { baseId: BaseId; hostTableId: TableId }): Result<void, DomainError> {
-    if (this.configValue.hasDbConfig()) return ok(undefined);
-
     const symmetricFieldIdResult = (() => {
       if (this.isOneWay()) return ok(this.symmetricFieldId());
       if (this.symmetricFieldId()) return ok(this.symmetricFieldId());
@@ -371,6 +406,9 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
     })();
 
     if (symmetricFieldIdResult.isErr()) return err(symmetricFieldIdResult.error);
+
+    if (this.configValue.hasDbConfig()) return ok(undefined);
+
     const symmetricFieldId = symmetricFieldIdResult.value;
 
     return this.resolveFkHostTableName({
@@ -428,6 +466,47 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
       ? `${this.id().toString()}_${symmetricFieldId.toString()}`
       : this.id().toString();
     return DbTableName.rehydrate(`${baseId.toString()}.junction_${suffix}`);
+  }
+
+  private static normalizeCrossBaseConfig(
+    config: LinkFieldConfig,
+    hostBaseId: BaseId
+  ): Result<LinkFieldConfig, DomainError> {
+    const configBaseId = config.baseId();
+    if (!configBaseId || !configBaseId.equals(hostBaseId)) {
+      return ok(config);
+    }
+
+    const baseOptions = {
+      relationship: config.relationship().toString(),
+      foreignTableId: config.foreignTableId().toString(),
+      lookupFieldId: config.lookupFieldId().toString(),
+      isOneWay: config.isOneWay(),
+      symmetricFieldId: config.symmetricFieldId()?.toString(),
+      filterByViewId: config.filterByViewId() === null ? null : config.filterByViewId()?.toString(),
+      visibleFieldIds:
+        config.visibleFieldIds() === null
+          ? null
+          : config.visibleFieldIds()?.map((fieldId) => fieldId.toString()),
+      filter: config.filter() ?? undefined,
+    };
+
+    if (!config.hasDbConfig()) {
+      return LinkFieldConfig.create(baseOptions);
+    }
+
+    return config.fkHostTableNameString().andThen((fkHostTableName) =>
+      config.selfKeyNameString().andThen((selfKeyName) =>
+        config.foreignKeyNameString().andThen((foreignKeyName) =>
+          LinkFieldConfig.create({
+            ...baseOptions,
+            fkHostTableName,
+            selfKeyName,
+            foreignKeyName,
+          })
+        )
+      )
+    );
   }
 
   private static defaultMetaForConfig(

@@ -624,7 +624,7 @@ describe('update-field: formula property updates', () => {
       const afterField = tableAfter.fields.find((f) => f.id === formulaField.id) as
         | ({ hasError?: boolean } & typeof formulaField)
         | undefined;
-      expect(afterField?.hasError).toBeUndefined();
+      expect(afterField?.hasError).toBe(true);
     } finally {
       if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
     }

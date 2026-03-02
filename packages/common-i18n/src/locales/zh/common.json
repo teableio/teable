@@ -63,6 +63,7 @@
     "login": "登录",
     "useTemplate": "使用模版",
     "copyToMySpace": "复制到我的空间",
+    "copyLink": "复制链接",
     "backToSpace": "返回空间",
     "switchBase": "切换数据库",
     "collapse": "收起",
@@ -1134,9 +1135,23 @@
             "failed": {
               "message": "❌ {{tableName}} 导入失败: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}} 导入失败: 行数已达上限，请升级套餐以导入更多记录"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}} 导入失败: 没有记录被处理"
+            },
             "success": {
               "message": "🎉 {{tableName}} 导入成功。",
               "inplace": "🎉 {{tableName}} 增量导入成功。"
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} 部分导入成功：{{successCount}} 行成功，{{failedCount}} 行失败。<a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 下载错误报告</a>",
+              "messageNoReport": "⚠️ {{tableName}} 部分导入成功：{{successCount}} 行成功，{{failedCount}} 行失败。"
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} 导入失败：全部 {{failedCount}} 行均失败。<a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 下载错误报告</a>",
+              "messageNoReport": "❌ {{tableName}} 导入失败：全部 {{failedCount}} 行均失败。"
             }
           }
         },
@@ -1352,6 +1367,17 @@
     "error": {
       "title": "出错了",
       "description": "发生了意外错误，请稍后重试。"
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}日期解析失败，值 \"{{value}}\" 超出有效范围",
+      "planRowLimit": "行数已达上限，请升级套餐以导入更多记录",
+      "notNullValidation": "{{fieldHint}}必填字段不能为空",
+      "uniqueValidation": "{{fieldHint}}唯一字段存在重复值",
+      "requestTimeout": "请求超时",
+      "chunkProcessingFailed": "批处理失败：{{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

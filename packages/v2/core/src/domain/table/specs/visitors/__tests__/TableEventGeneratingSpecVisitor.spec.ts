@@ -134,11 +134,7 @@ describe('TableEventGeneratingSpecVisitor', () => {
       precision: 2,
       symbol: '$',
     })._unsafeUnwrap();
-    const spec = UpdateNumberFormattingSpec.create(
-      fieldId,
-      previousFormatting,
-      nextFormatting
-    );
+    const spec = UpdateNumberFormattingSpec.create(fieldId, previousFormatting, nextFormatting);
     spec.accept(visitor)._unsafeUnwrap();
 
     const events = visitor.getEvents();

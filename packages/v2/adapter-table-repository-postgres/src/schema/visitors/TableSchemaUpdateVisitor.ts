@@ -175,20 +175,27 @@ export class TableSchemaUpdateVisitor
       return null;
     }
 
+    const valueTypeResult = field.accept(new FieldValueTypeVisitor());
+    if (valueTypeResult.isOk()) {
+      const cellValueType = valueTypeResult.value.cellValueType.toString();
+      if (cellValueType === 'boolean' || cellValueType === 'dateTime') {
+        return null;
+      }
+    }
+
     const { db, schema, tableName } = this.params;
     const fieldId = field.id().toString();
     const indexName = TableSchemaUpdateVisitor.getSearchIndexName(tableName, fieldId, dbFieldName);
     const pgSchema = schema ?? 'public';
 
-    // Build the index expression based on field characteristics.
-    // This replicates v1 FieldFormatter.getIndexExpression logic.
+    // Keep search index expressions text-compatible across field storage types
+    // (e.g. numeric/jsonb), matching v1's text-oriented trigram indexing behavior.
     const isMultipleResult = field.isMultipleCellValue();
     const isMultiple = isMultipleResult.isOk() && isMultipleResult.value.toBoolean();
-    let expression: string;
-    if (isMultiple) {
-      expression = `"${dbFieldName}"::text`;
-    } else {
-      expression = `"${dbFieldName}"`;
+    let expression = `"${dbFieldName}"::text`;
+
+    if (!isMultiple && fieldType === 'longText') {
+      expression = `REPLACE(REPLACE(REPLACE("${dbFieldName}"::text, CHR(13), ' '::text), CHR(10), ' '::text), CHR(9), ' '::text)`;
     }
 
     // Wrap in a DO block that only executes if search indexes are enabled for this table
@@ -410,10 +417,16 @@ export class TableSchemaUpdateVisitor
   visitTableAddField(
     spec: TableAddFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const visitor = this;
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements = yield* spec.field().accept(fieldVisitor);
+      const statements = [...(yield* spec.field().accept(fieldVisitor))];
+      const dbFieldName = yield* visitor.resolveDbFieldNameText(spec.field());
+      const createSearchIdx = visitor.createSearchIndexStatement(spec.field(), dbFieldName);
+      if (createSearchIdx) {
+        statements.push(createSearchIdx);
+      }
       yield* addCond(statements);
       return ok(statements);
     });

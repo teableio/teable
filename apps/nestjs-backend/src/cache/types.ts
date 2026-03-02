@@ -35,6 +35,13 @@ export interface ICacheStore {
   [key: `automation:email:rate:${string}:${number}`]: number;
   // Distributed lock keys
   [key: `lock:${string}`]: string;
+  [key: `import:result:manifest:${string}`]: {
+    successCount: number;
+    failedCount: number;
+    errorFilePaths: string[];
+    fieldNames: string[];
+    maxWidth: number;
+  };
 }
 
 export interface IAttachmentSignatureCache {

@@ -196,11 +196,41 @@ const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, Doma
   return sequenceResults(raw.map((entry) => FieldId.create(entry)));
 };
 
+const unwrapConditionalLookupInner = (
+  dto: ITableFieldPersistenceDTO
+): { innerType?: ITableFieldPersistenceDTO['type']; innerOptions?: unknown } => {
+  if (dto.type !== 'conditionalLookup') {
+    return {
+      innerType: dto.type,
+      innerOptions: 'options' in dto ? dto.options : undefined,
+    };
+  }
+
+  if (dto.innerType && dto.innerType !== 'conditionalLookup') {
+    return {
+      innerType: dto.innerType as ITableFieldPersistenceDTO['type'],
+      innerOptions: dto.innerOptions,
+    };
+  }
+
+  return {
+    innerType: undefined,
+    innerOptions: undefined,
+  };
+};
+
 class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceDTO> {
+  constructor(
+    private readonly resolveLookupRelationship?: (
+      linkFieldId: string
+    ) => ILinkFieldOptionsDTO['relationship'] | undefined
+  ) {}
+
   private baseField(field: Field): {
     id: string;
     name: string;
     description?: string | null;
+    aiConfig?: unknown | null;
     dbFieldName?: string;
     dbFieldType?: string;
     notNull?: boolean;
@@ -217,10 +247,11 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       id: field.id().toString(),
       name: field.name().toString(),
       ...(field.description() != null ? { description: field.description() } : {}),
+      ...(field.aiConfig() !== undefined ? { aiConfig: field.aiConfig() } : {}),
       ...(dbFieldNameResult.isOk() ? { dbFieldName: dbFieldNameResult.value } : {}),
       ...(dbFieldTypeResult.isOk() ? { dbFieldType: dbFieldTypeResult.value } : {}),
       ...(notNull ? { notNull } : {}),
-      ...(unique ? { unique } : {}),
+      unique,
       ...(isComputed ? { isComputed } : {}),
     };
   }
@@ -518,7 +549,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       label: field.label().toString(),
       color: field.color().toString(),
       ...(maxCount ? { maxCount: maxCount.toNumber() } : {}),
-      ...(maxCount && resetCount ? { resetCount: resetCount.toBoolean() } : {}),
+      ...(resetCount ? { resetCount: resetCount.toBoolean() } : {}),
       ...(workflow ? { workflow: workflow.toDto() } : {}),
     };
 
@@ -560,6 +591,17 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const isMultipleCellValue = multiplicityResult.isOk()
       ? multiplicityResult.value.toBoolean()
       : undefined;
+    const resolvedRelationship = this.resolveLookupRelationship?.(lookupOptions.linkFieldId);
+    const fallbackRelationship =
+      isMultipleCellValue == null ? undefined : isMultipleCellValue ? 'manyMany' : 'manyOne';
+    const lookupOptionsWithRelationship: ILookupOptionsDTO = {
+      ...lookupOptions,
+      ...(resolvedRelationship
+        ? { relationship: resolvedRelationship }
+        : fallbackRelationship
+          ? { relationship: fallbackRelationship }
+          : {}),
+    };
 
     // For pending lookup fields (inner field not yet resolved), use singleLineText as default type
     if (field.isPending()) {
@@ -568,7 +610,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
         type: 'singleLineText' as const,
         isLookup: true,
         isConditionalLookup,
-        lookupOptions,
+        lookupOptions: lookupOptionsWithRelationship,
         isComputed: true,
         ...(isMultipleCellValue != null ? { isMultipleCellValue } : {}),
       });
@@ -578,16 +620,32 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     return field
       .innerField()
       .andThen((inner) => inner.accept(this))
-      .map((innerDto: ITableFieldPersistenceDTO) => ({
-        ...innerDto,
-        id: field.id().toString(),
-        name: field.name().toString(),
-        isLookup: true,
-        isConditionalLookup,
-        lookupOptions,
-        isComputed: true,
-        ...(isMultipleCellValue != null ? { isMultipleCellValue } : {}),
-      }));
+      .map((innerDto: ITableFieldPersistenceDTO) => {
+        const innerOptionsPatch = field.innerOptionsPatch();
+        const mergedInnerOptions: ITableFieldPersistenceDTO['options'] | undefined =
+          innerOptionsPatch && Object.keys(innerOptionsPatch).length > 0
+            ? {
+                ...((innerDto.options &&
+                typeof innerDto.options === 'object' &&
+                !Array.isArray(innerDto.options)
+                  ? (innerDto.options as Record<string, unknown>)
+                  : {}) as Record<string, unknown>),
+                ...innerOptionsPatch,
+              }
+            : innerDto.options;
+
+        return {
+          ...innerDto,
+          id: field.id().toString(),
+          name: field.name().toString(),
+          isLookup: true,
+          isConditionalLookup,
+          lookupOptions: lookupOptionsWithRelationship,
+          isComputed: true,
+          ...(mergedInnerOptions !== undefined ? { options: mergedInnerOptions } : {}),
+          ...(isMultipleCellValue != null ? { isMultipleCellValue } : {}),
+        } as ITableFieldPersistenceDTO;
+      });
   }
 
   visitConditionalRollupField(
@@ -661,21 +719,38 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
 
     // Get inner field info for value type resolution
     return field.innerField().andThen((inner) =>
-      inner.accept(this).map((innerDto: ITableFieldPersistenceDTO) => ({
-        ...baseDto,
-        type: 'conditionalLookup' as const,
-        options,
-        innerType: innerDto.type,
-        innerOptions: 'options' in innerDto ? innerDto.options : undefined,
-        isComputed: true,
-        ...(isMultipleCellValue != null ? { isMultipleCellValue } : {}),
-      }))
+      inner.accept(this).map((innerDto: ITableFieldPersistenceDTO) => {
+        const unwrapped = unwrapConditionalLookupInner(innerDto);
+        const innerOptionsPatch = field.innerOptionsPatch();
+        const mergedInnerOptions: ITableFieldPersistenceDTO['options'] | undefined =
+          innerOptionsPatch && Object.keys(innerOptionsPatch).length > 0
+            ? {
+                ...((unwrapped.innerOptions &&
+                typeof unwrapped.innerOptions === 'object' &&
+                !Array.isArray(unwrapped.innerOptions)
+                  ? (unwrapped.innerOptions as Record<string, unknown>)
+                  : {}) as Record<string, unknown>),
+                ...innerOptionsPatch,
+              }
+            : (unwrapped.innerOptions as ITableFieldPersistenceDTO['options'] | undefined);
+        return {
+          ...baseDto,
+          type: 'conditionalLookup' as const,
+          options,
+          innerType: unwrapped.innerType,
+          innerOptions: mergedInnerOptions,
+          isComputed: true,
+          ...(isMultipleCellValue != null ? { isMultipleCellValue } : {}),
+        };
+      })
     );
   }
 }
 
-const mapFieldToDto = (field: Field): Result<ITableFieldPersistenceDTO, DomainError> =>
-  field.accept(new FieldToPersistenceVisitor());
+const mapFieldToDto = (
+  field: Field,
+  visitor: FieldToPersistenceVisitor
+): Result<ITableFieldPersistenceDTO, DomainError> => field.accept(visitor);
 
 class ViewToPersistenceVisitor implements IViewVisitor<ITableViewPersistenceDTO> {
   visitGridView(view: GridView): Result<ITableViewPersistenceDTO, DomainError> {
@@ -723,7 +798,21 @@ const mapViewToDto = (view: View): Result<ITableViewPersistenceDTO, DomainError>
 
 export class DefaultTableMapper implements ITableMapper {
   toDTO(table: Table): Result<ITablePersistenceDTO, DomainError> {
-    return sequenceResults(table.getFields().map(mapFieldToDto)).andThen((fields) =>
+    const relationshipByLinkFieldId = new Map<string, ILinkFieldOptionsDTO['relationship']>();
+    for (const field of table.getFields()) {
+      if (!(field instanceof LinkField)) {
+        continue;
+      }
+      relationshipByLinkFieldId.set(field.id().toString(), field.relationship().toString());
+    }
+
+    const fieldVisitor = new FieldToPersistenceVisitor((linkFieldId) =>
+      relationshipByLinkFieldId.get(linkFieldId)
+    );
+
+    return sequenceResults(
+      table.getFields().map((field) => mapFieldToDto(field, fieldVisitor))
+    ).andThen((fields) =>
       sequenceResults(table.views().map(mapViewToDto)).map((views) => ({
         id: table.id().toString(),
         baseId: table.baseId().toString(),
@@ -838,7 +927,8 @@ export class DefaultTableMapper implements ITableMapper {
   private mapConditionalLookupInnerField(
     dto: Extract<ITableFieldPersistenceDTO, { type: 'conditionalLookup' }>
   ): Result<Field | undefined, DomainError> {
-    if (!dto.innerType || dto.innerType === 'conditionalLookup') {
+    const unwrapped = unwrapConditionalLookupInner(dto);
+    if (!unwrapped.innerType || unwrapped.innerType === 'conditionalLookup') {
       return ok(undefined);
     }
 
@@ -847,8 +937,8 @@ export class DefaultTableMapper implements ITableMapper {
         this.mapBaseFieldToDomain({
           id: innerId.toString(),
           name: dto.name,
-          type: dto.innerType as ITableFieldPersistenceDTO['type'],
-          options: dto.innerOptions as never,
+          type: unwrapped.innerType as ITableFieldPersistenceDTO['type'],
+          options: unwrapped.innerOptions as never,
         } as ITableFieldPersistenceDTO)
       )
       .andThen((innerField) => {
@@ -1184,6 +1274,7 @@ export class DefaultTableMapper implements ITableMapper {
       )
       .andThen((field) => this.applyFieldValidation(field, dto.notNull, dto.unique))
       .andThen((field) => this.applyDescription(field, dto.description))
+      .andThen((field) => this.applyAiConfig(field, dto.aiConfig))
       .andThen((field) => this.applyDbFieldName(field, dto.dbFieldName))
       .andThen((field) => this.applyDbFieldType(field, dto.dbFieldType))
       .andThen((field) => this.applyHasError(field, dto.hasError));
@@ -1195,6 +1286,14 @@ export class DefaultTableMapper implements ITableMapper {
   ): Result<Field, DomainError> {
     if (description === undefined) return ok(field);
     return field.setDescription(description).map(() => field);
+  }
+
+  private applyAiConfig(
+    field: Field,
+    aiConfig: unknown | null | undefined
+  ): Result<Field, DomainError> {
+    if (aiConfig === undefined) return ok(field);
+    return field.setAiConfig(aiConfig).map(() => field);
   }
 
   private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, DomainError> {

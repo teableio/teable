@@ -86,11 +86,31 @@ const TABLE_ALIAS = 't';
 const FORMULA_TYPE_FIELD_NAME = 'FormulaType';
 const DEFAULT_DATE_FORMATTING = { date: 'YYYY/MM/DD', time: 'HH:mm', timeZone: 'Asia/Shanghai' };
 
-export const createFormulaTestContainer = async (): Promise<IV2NodeTestContainer> =>
+const createFormulaContainer = (): Promise<IV2NodeTestContainer> =>
   createV2NodeTestContainer({
     connectionString: 'memory://',
     registerDb: async (container, config) => registerV2PostgresPgliteDb(container, config),
   });
+
+const isMemoryAccessOutOfBoundsError = (error: unknown): boolean => {
+  const candidate =
+    error instanceof Error
+      ? [error.message, error.cause instanceof Error ? error.cause.message : ''].join(' ')
+      : String(error);
+
+  return candidate.toLowerCase().includes('memory access out of bounds');
+};
+
+export const createFormulaTestContainer = async (): Promise<IV2NodeTestContainer> => {
+  try {
+    return await createFormulaContainer();
+  } catch (error) {
+    if (!isMemoryAccessOutOfBoundsError(error)) {
+      throw error;
+    }
+    return createFormulaContainer();
+  }
+};
 
 const FIELD_TYPE_NAMES: Record<FieldTypeLiteral, string> = {
   singleLineText: 'SingleLineText',

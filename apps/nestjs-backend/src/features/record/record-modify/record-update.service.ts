@@ -62,6 +62,7 @@ export class RecordUpdateService {
     updateRecordsRo: IUpdateRecordsInternalRo,
     windowId?: string
   ) {
+    const effectiveWindowId = windowId ?? this.cls.get('windowId');
     const {
       records,
       order,
@@ -73,7 +74,7 @@ export class RecordUpdateService {
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const scopedRecords = this.filterRecordsByFieldKeys(records, fieldIds);
     const orderIndexesBefore =
-      order != null && windowId
+      order != null && effectiveWindowId
         ? await this.recordService.getRecordIndexes(
             table,
             records.map((r) => r.id),
@@ -145,13 +146,13 @@ export class RecordUpdateService {
     });
 
     const recordIds = records.map((r) => r.id);
-    if (windowId) {
+    if (effectiveWindowId) {
       const orderIndexesAfter =
         order && (await this.recordService.getRecordIndexes(table, recordIds, order.viewId));
 
       this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
         tableId,
-        windowId,
+        windowId: effectiveWindowId,
         userId: this.cls.get('user.id'),
         recordIds,
         fieldIds: fieldIds?.length ? fieldIds : Object.keys(scopedRecords[0]?.fields || {}),

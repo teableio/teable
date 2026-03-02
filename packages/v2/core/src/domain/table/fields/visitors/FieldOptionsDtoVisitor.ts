@@ -176,7 +176,7 @@ export class FieldOptionsDtoVisitor implements IFieldVisitor<unknown> {
       color: field.color().toString(),
     };
     if (maxCount) options.maxCount = maxCount.toNumber();
-    if (maxCount && resetCount) options.resetCount = resetCount.toBoolean();
+    if (resetCount) options.resetCount = resetCount.toBoolean();
     if (workflow) options.workflow = workflow.toDto();
     return ok(options);
   }

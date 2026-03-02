@@ -660,7 +660,7 @@
       "example": "TONOW({Date}, \"день\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Возвращает разницу между датами в указанных единицах. По умолчанию — в секундах.",
+      "summary": "Возвращает разницу между датами в указанных единицах. Единица по умолчанию — \"day\".\nПоддерживаемые единицы: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nРазница между датами определяется путём вычитания [date2] из [date1]. Это означает, что если [date2] позже [date1], результат будет отрицательным.",
       "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
@@ -1273,7 +1273,8 @@
     "import": {
       "notSupportedFileFormat": "Формат файла не поддерживается, поддерживаются только {{supportType}}, тип содержимого вашего файла {{fileFormat}}",
       "notSupportedFileType": "Тип файла импорта не поддерживается",
-      "exceedMaxFieldsLength": "Количество полей в таблице не может превышать {{maxFieldsLength}}, текущее значение {{length}}"
+      "exceedMaxFieldsLength": "Количество полей в таблице не может превышать {{maxFieldsLength}}, текущее значение {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "Текущий экземпляр запрещает приглашения в пространство администратором",

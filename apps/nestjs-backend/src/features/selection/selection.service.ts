@@ -757,6 +757,7 @@ export class SelectionService {
       windowId?: string;
     } = {}
   ) {
+    const effectiveWindowId = windowId ?? this.cls.get('windowId');
     const { content, header, ...rangesRo } = pasteRo;
     const { ranges, type, ...queryRo } = rangesRo;
     const { viewId } = queryRo;
@@ -911,9 +912,9 @@ export class SelectionService {
       };
     });
 
-    if (windowId) {
+    if (effectiveWindowId) {
       this.eventEmitterService.emitAsync(Events.OPERATION_PASTE_SELECTION, {
-        windowId,
+        windowId: effectiveWindowId,
         userId: this.cls.get('user.id'),
         tableId,
         updateRecords,

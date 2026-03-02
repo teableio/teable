@@ -1,8 +1,9 @@
 import { ok } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../base/BaseId';
 import { DbTableName } from './DbTableName';
+import { DbFieldName } from './fields/DbFieldName';
 import { FieldDeleted } from './events/FieldDeleted';
 import { FieldUpdated } from './events/FieldUpdated';
 import { TableCreated } from './events/TableCreated';
@@ -13,6 +14,8 @@ import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
 import { CheckboxField } from './fields/types/CheckboxField';
+import { FieldNotNull } from './fields/types/FieldNotNull';
+import { FieldUnique } from './fields/types/FieldUnique';
 import { FormulaExpression } from './fields/types/FormulaExpression';
 import { LongTextField } from './fields/types/LongTextField';
 import { NumberDefaultValue } from './fields/types/NumberDefaultValue';
@@ -292,6 +295,204 @@ describe('Table', () => {
     expect(addedEntry).toBeTruthy();
     if (!addedEntry) return;
     expect(addedEntry.order).toBe(maxOrder + 1);
+  });
+
+  it('rejects adding a field with duplicate dbFieldName', () => {
+    const baseIdResult = createBaseId('d');
+    const tableNameResult = TableName.create('Duplicate DbFieldName');
+    const primaryFieldNameResult = FieldName.create('Title');
+    const viewNameResult = ViewName.create('Grid');
+    const secondFieldNameResult = FieldName.create('Text-1');
+    const thirdFieldNameResult = FieldName.create('Text-2');
+    const secondFieldIdResult = createFieldId('e');
+    const thirdFieldIdResult = createFieldId('f');
+    const duplicateDbFieldNameResult = DbFieldName.rehydrate('fld_duplicate_db_field');
+
+    [
+      baseIdResult,
+      tableNameResult,
+      primaryFieldNameResult,
+      viewNameResult,
+      secondFieldNameResult,
+      thirdFieldNameResult,
+      secondFieldIdResult,
+      thirdFieldIdResult,
+      duplicateDbFieldNameResult,
+    ].forEach((result) => result._unsafeUnwrap());
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(primaryFieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
+    const tableResult = builder.build();
+    tableResult._unsafeUnwrap();
+    const table = tableResult._unsafeUnwrap();
+
+    const secondFieldResult = SingleLineTextField.create({
+      id: secondFieldIdResult._unsafeUnwrap(),
+      name: secondFieldNameResult._unsafeUnwrap(),
+    }).andThen((field) =>
+      field.setDbFieldName(duplicateDbFieldNameResult._unsafeUnwrap()).map(() => field)
+    );
+    secondFieldResult._unsafeUnwrap();
+
+    const tableAfterSecondFieldResult = table.update((mutator) =>
+      mutator.addField(secondFieldResult._unsafeUnwrap())
+    );
+    tableAfterSecondFieldResult._unsafeUnwrap();
+
+    const thirdFieldResult = SingleLineTextField.create({
+      id: thirdFieldIdResult._unsafeUnwrap(),
+      name: thirdFieldNameResult._unsafeUnwrap(),
+    }).andThen((field) =>
+      field.setDbFieldName(duplicateDbFieldNameResult._unsafeUnwrap()).map(() => field)
+    );
+    thirdFieldResult._unsafeUnwrap();
+
+    const duplicateResult = tableAfterSecondFieldResult
+      ._unsafeUnwrap()
+      .table.update((mutator) => mutator.addField(thirdFieldResult._unsafeUnwrap()));
+
+    expect(duplicateResult.isErr()).toBe(true);
+    if (duplicateResult.isErr()) {
+      expect(duplicateResult.error.message).toContain('already exists in this table');
+    }
+  });
+
+  it('duplicates field and preserves common metadata in mutator flow', () => {
+    const baseIdResult = createBaseId('m');
+    const tableNameResult = TableName.create('Duplicate Metadata');
+    const primaryFieldNameResult = FieldName.create('Title');
+    const sourceFieldNameResult = FieldName.create('Source');
+    const duplicatedFieldIdResult = createFieldId('n');
+    const duplicatedFieldNameResult = FieldName.create('Source (copy)');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(primaryFieldNameResult._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.field().singleLineText().withName(sourceFieldNameResult._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const buildResult = builder.build();
+    buildResult._unsafeUnwrap();
+
+    const table = buildResult._unsafeUnwrap();
+    const sourceSpecResult = Field.specs()
+      .withFieldName(sourceFieldNameResult._unsafeUnwrap())
+      .build();
+    sourceSpecResult._unsafeUnwrap();
+    const [sourceField] = table.getFields(sourceSpecResult._unsafeUnwrap());
+    expect(sourceField).toBeDefined();
+    if (!sourceField) return;
+
+    sourceField.setDescription('copy me')._unsafeUnwrap();
+    sourceField.setAiConfig({ provider: 'openai', prompt: 'metadata copy' })._unsafeUnwrap();
+    sourceField.setNotNull(FieldNotNull.required())._unsafeUnwrap();
+    sourceField.setUnique(FieldUnique.enabled())._unsafeUnwrap();
+    sourceField
+      .setDbFieldName(DbFieldName.rehydrate('fld_source_duplicate_guard')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const updateResult = table.update((mutator) =>
+      mutator.duplicateField(
+        sourceField,
+        duplicatedFieldIdResult._unsafeUnwrap(),
+        duplicatedFieldNameResult._unsafeUnwrap(),
+        true
+      )
+    );
+    updateResult._unsafeUnwrap();
+
+    const updatedTable = updateResult._unsafeUnwrap().table;
+    const duplicatedFieldResult = updatedTable.getField((field) =>
+      field.id().equals(duplicatedFieldIdResult._unsafeUnwrap())
+    );
+    duplicatedFieldResult._unsafeUnwrap();
+    const duplicatedField = duplicatedFieldResult._unsafeUnwrap();
+
+    expect(duplicatedField.description()).toBe('copy me');
+    expect(duplicatedField.aiConfig()).toEqual({ provider: 'openai', prompt: 'metadata copy' });
+    expect(duplicatedField.notNull().toBoolean()).toBe(true);
+    expect(duplicatedField.unique().toBoolean()).toBe(true);
+    expect(duplicatedField.dbFieldName().isErr()).toBe(true);
+  });
+
+  it('rejects duplicate field when duplicated field carries dbFieldName', () => {
+    const baseIdResult = createBaseId('o');
+    const tableNameResult = TableName.create('Duplicate Guard');
+    const primaryFieldNameResult = FieldName.create('Title');
+    const sourceFieldNameResult = FieldName.create('Source');
+    const duplicatedFieldIdResult = createFieldId('p');
+    const duplicatedFieldNameResult = FieldName.create('Source (copy)');
+    const forcedDbFieldNameResult = DbFieldName.rehydrate('fld_forced_duplicate_db_name');
+
+    [
+      baseIdResult,
+      tableNameResult,
+      primaryFieldNameResult,
+      sourceFieldNameResult,
+      duplicatedFieldIdResult,
+      duplicatedFieldNameResult,
+      forcedDbFieldNameResult,
+    ].forEach((result) => result._unsafeUnwrap());
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(primaryFieldNameResult._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.field().singleLineText().withName(sourceFieldNameResult._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+
+    const buildResult = builder.build();
+    buildResult._unsafeUnwrap();
+    const table = buildResult._unsafeUnwrap();
+
+    const sourceSpecResult = Field.specs()
+      .withFieldName(sourceFieldNameResult._unsafeUnwrap())
+      .build();
+    sourceSpecResult._unsafeUnwrap();
+    const [sourceField] = table.getFields(sourceSpecResult._unsafeUnwrap());
+    expect(sourceField).toBeDefined();
+    if (!sourceField) return;
+
+    const originalDuplicate = sourceField.duplicate.bind(sourceField);
+    const duplicateSpy = vi
+      .spyOn(sourceField, 'duplicate')
+      .mockImplementation((params) =>
+        originalDuplicate(params).andThen((duplicatedField) =>
+          duplicatedField
+            .setDbFieldName(forcedDbFieldNameResult._unsafeUnwrap())
+            .map(() => duplicatedField)
+        )
+      );
+
+    const updateResult = table.update((mutator) =>
+      mutator.duplicateField(
+        sourceField,
+        duplicatedFieldIdResult._unsafeUnwrap(),
+        duplicatedFieldNameResult._unsafeUnwrap(),
+        true
+      )
+    );
+
+    duplicateSpy.mockRestore();
+
+    expect(updateResult.isErr()).toBe(true);
+    if (updateResult.isErr()) {
+      expect(updateResult.error.code).toBe('invariant.violation');
+      expect(updateResult.error.message).toBe('Duplicated field must not carry dbFieldName');
+    }
   });
 
   it('removes a field and updates view column meta', () => {

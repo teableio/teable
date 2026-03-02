@@ -4,15 +4,15 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../../../base/BaseId';
 import type { DomainError } from '../../../shared/DomainError';
 import { ForeignTable } from '../../ForeignTable';
+import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
+import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
-import { DbFieldName } from '../DbFieldName';
 import { ViewId } from '../../views/ViewId';
+import { DbFieldName } from '../DbFieldName';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
-import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
-import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { LinkField } from './LinkField';
 import { LinkFieldConfig } from './LinkFieldConfig';
 import { LinkFieldMeta } from './LinkFieldMeta';
@@ -437,6 +437,71 @@ describe('LinkField', () => {
     ).toBe(true);
   });
 
+  it('ensures symmetricFieldId even when db config already exists', () => {
+    const baseId = createBaseId('g')._unsafeUnwrap();
+    const hostTableId = createTableId('h')._unsafeUnwrap();
+    const foreignTableId = createTableId('i')._unsafeUnwrap();
+    const lookupFieldId = createFieldId('j')._unsafeUnwrap();
+    const linkFieldId = createFieldId('k')._unsafeUnwrap();
+    const linkFieldName = FieldName.create('Link')._unsafeUnwrap();
+
+    const field = LinkFieldConfig.create({
+      relationship: LinkRelationship.manyOne().toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      fkHostTableName: `${baseId.toString()}.${hostTableId.toString()}`,
+      selfKeyName: '__id',
+      foreignKeyName: `__fk_${linkFieldId.toString()}`,
+    })
+      .andThen((config) =>
+        LinkField.create({
+          id: linkFieldId,
+          name: linkFieldName,
+          config,
+        })
+      )
+      ._unsafeUnwrap();
+
+    field.ensureDbConfig({ baseId, hostTableId })._unsafeUnwrap();
+
+    const symmetricFieldId = field.symmetricFieldId();
+    expect(symmetricFieldId).toBeDefined();
+    expect(symmetricFieldId?.equals(linkFieldId)).toBe(false);
+
+    expect(field.fkHostTableNameString()._unsafeUnwrap()).toBe(
+      `${baseId.toString()}.${hostTableId.toString()}`
+    );
+    expect(field.selfKeyNameString()._unsafeUnwrap()).toBe('__id');
+    expect(field.foreignKeyNameString()._unsafeUnwrap()).toBe(`__fk_${linkFieldId.toString()}`);
+  });
+
+  it('normalizes same-base baseId when creating a link field', () => {
+    const baseId = createBaseId('w')._unsafeUnwrap();
+    const hostTableId = createTableId('x')._unsafeUnwrap();
+    const foreignTableId = createTableId('y')._unsafeUnwrap();
+    const lookupFieldId = createFieldId('z')._unsafeUnwrap();
+    const linkFieldId = createFieldId('a')._unsafeUnwrap();
+    const linkFieldName = FieldName.create('Link')._unsafeUnwrap();
+
+    const config = LinkFieldConfig.create({
+      baseId: baseId.toString(),
+      relationship: LinkRelationship.manyOne().toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const field = LinkField.createNew({
+      id: linkFieldId,
+      name: linkFieldName,
+      config,
+      baseId,
+      hostTableId,
+    })._unsafeUnwrap();
+
+    expect(field.baseId()).toBeUndefined();
+    expect(field.isCrossBase()).toBe(false);
+  });
+
   it('builds symmetric fields and swaps db config', () => {
     const baseIdResult = createBaseId('1');
     const hostTableIdResult = createTableId('2');
@@ -518,6 +583,7 @@ describe('LinkField', () => {
     expect(symmetric.foreignTableId().equals(hostTableId)).toBe(true);
     expect(symmetric.lookupFieldId().equals(hostPrimaryId)).toBe(true);
     expect(symmetric.symmetricFieldId()?.equals(linkFieldId)).toBe(true);
+    expect(symmetric.baseId()).toBeUndefined();
     expect(symmetric.meta()?.hasOrderColumn()).toBe(true);
     expect(symmetric.name().toString()).toBe('Host');
 
@@ -525,6 +591,68 @@ describe('LinkField', () => {
     const symmetricForeignKey = symmetric.foreignKeyNameString();
     expect(symmetricSelfKey._unsafeUnwrap()).toBe('__fk_link');
     expect(symmetricForeignKey._unsafeUnwrap()).toBe('__id');
+  });
+
+  it('sets symmetric baseId to host base for cross-base links', () => {
+    const hostBaseId = createBaseId('h')._unsafeUnwrap();
+    const foreignBaseId = createBaseId('i')._unsafeUnwrap();
+    const hostTableId = createTableId('j')._unsafeUnwrap();
+    const foreignTableId = createTableId('k')._unsafeUnwrap();
+    const hostPrimaryId = createFieldId('l')._unsafeUnwrap();
+    const foreignPrimaryId = createFieldId('m')._unsafeUnwrap();
+    const linkFieldId = createFieldId('n')._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withId(hostTableId)
+      .withBaseId(hostBaseId)
+      .withName(TableName.create('Cross Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Host Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(foreignBaseId)
+      .withName(TableName.create('Cross Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Foreign Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = ForeignTable.from(foreignBuilder.build()._unsafeUnwrap());
+
+    const config = LinkFieldConfig.create({
+      baseId: foreignBaseId.toString(),
+      relationship: 'manyOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignPrimaryId.toString(),
+    })._unsafeUnwrap();
+
+    const linkField = LinkField.createNew({
+      id: linkFieldId,
+      name: FieldName.create('Cross Link')._unsafeUnwrap(),
+      config,
+      baseId: hostBaseId,
+      hostTableId,
+    })._unsafeUnwrap();
+
+    const symmetric = linkField
+      .buildSymmetricField({
+        foreignTable,
+        hostTable,
+      })
+      ._unsafeUnwrap();
+
+    expect(symmetric.baseId()?.equals(hostBaseId)).toBe(true);
   });
 
   it('rejects symmetric build for one-way links', () => {
@@ -731,10 +859,9 @@ describe('LinkField', () => {
 
       const result = linkField.onDependencyUpdated(statusField, [optionsSpec], {} as never);
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toHaveLength(1);
-      expect(result._unsafeUnwrap()[0]).toBeInstanceOf(UpdateLinkConfigSpec);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(UpdateLinkConfigSpec);
 
-      const updateSpec = result._unsafeUnwrap()[0] as UpdateLinkConfigSpec;
+      const updateSpec = result._unsafeUnwrap() as UpdateLinkConfigSpec;
       const nextFilter = updateSpec.nextConfig().filter() as {
         filterSet: Array<{ value?: unknown }>;
       };
@@ -788,7 +915,7 @@ describe('LinkField', () => {
 
       const result = linkField.onDependencyUpdated(otherField, [optionsSpec], {} as never);
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual([]);
+      expect(result._unsafeUnwrap()).toBeUndefined();
     });
   });
 });

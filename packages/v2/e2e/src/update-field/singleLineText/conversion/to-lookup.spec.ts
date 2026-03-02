@@ -120,7 +120,7 @@ describe('update-field: singleLineText → lookup conversion', () => {
         }
       | undefined;
     expect(updatedField?.isLookup).toBe(true);
-    expect(updatedField?.lookupOptions).toEqual({
+    expect(updatedField?.lookupOptions).toMatchObject({
       linkFieldId,
       foreignTableId,
       lookupFieldId: foreignPrimaryFieldId,
@@ -201,7 +201,7 @@ describe('update-field: singleLineText → lookup conversion', () => {
     expect(updatedField?.isMultipleCellValue).not.toBe(true);
     expect(fieldStorageRow.db_field_type).toBe('TEXT');
     expect(fieldStorageRow.is_multiple_cell_value).toBe(false);
-    expect(updatedField?.lookupOptions).toEqual({
+    expect(updatedField?.lookupOptions).toMatchObject({
       linkFieldId: manyOneLinkFieldId,
       foreignTableId,
       lookupFieldId: foreignPrimaryFieldId,

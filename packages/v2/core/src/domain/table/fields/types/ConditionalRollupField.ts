@@ -2,7 +2,9 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
+import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { ForeignTable } from '../../ForeignTable';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
@@ -14,13 +16,6 @@ import type { FieldDuplicateParams } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
-import type {
-  ForeignTableRelatedField,
-  ForeignTableValidationContext,
-} from '../ForeignTableRelatedField';
-import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
-import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
-import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
   buildFieldFilterSyncPlan,
   hasFieldReferenceInFilter,
@@ -28,7 +23,14 @@ import {
   isEquivalentFilter,
   syncFilterByFieldChanges,
 } from '../filter-sync';
-import type { CellValueMultiplicity } from './CellValueMultiplicity';
+import type {
+  ForeignTableRelatedField,
+  ForeignTableValidationContext,
+} from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
+import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
+import type { IFieldVisitor } from '../visitors/IFieldVisitor';
+import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import {
   ConditionalRollupConfig,
@@ -37,6 +39,7 @@ import {
 import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
+import { FieldHasError } from './FieldHasError';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import type { NumberFormatting } from './NumberFormatting';
 import { NumberShowAs as NumberShowAsValue } from './NumberShowAs';
@@ -74,7 +77,7 @@ type ConditionalRollupValuesType = {
  */
 export class ConditionalRollupField
   extends Field
-  implements ForeignTableRelatedField, OnTeableFieldUpdated
+  implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
 {
   private constructor(
     id: FieldId,
@@ -319,16 +322,24 @@ export class ConditionalRollupField
   }
 
   cellValueType(): Result<CellValueType, DomainError> {
-    if (!this.cellValueTypeValue)
+    if (!this.cellValueTypeValue) {
+      if (this.hasError().isError()) {
+        return ok(CellValueType.string());
+      }
       return err(
         domainError.invariant({ message: 'ConditionalRollupField cell value type not set' })
       );
+    }
     return ok(this.cellValueTypeValue);
   }
 
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
-    if (!this.isMultipleCellValueValue)
+    if (!this.isMultipleCellValueValue) {
+      if (this.hasError().isError()) {
+        return ok(CellValueMultiplicity.single());
+      }
       return err(domainError.invariant({ message: 'ConditionalRollupField multiplicity not set' }));
+    }
     return ok(this.isMultipleCellValueValue);
   }
 
@@ -405,7 +416,9 @@ export class ConditionalRollupField
         cellValueType: valuesTypeResult.value.cellValueType,
         isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
       });
-      if (resolveResult.isErr()) return err(resolveResult.error);
+      if (resolveResult.isErr()) {
+        this.setHasError(FieldHasError.error());
+      }
     }
 
     // Dependencies include host fields referenced by condition value expressions.
@@ -453,7 +466,7 @@ export class ConditionalRollupField
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
     _context: FieldUpdateContext
-  ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> {
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
     const currentConfig = this.configValue;
     const currentCondition = currentConfig.condition();
@@ -462,7 +475,7 @@ export class ConditionalRollupField
       updatedField.id().equals(this.lookupFieldId());
 
     if (!referencesUpdatedField) {
-      return ok(specs);
+      return ok(undefined);
     }
 
     const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
@@ -471,34 +484,34 @@ export class ConditionalRollupField
     );
     if (hasTypeConversion && !this.hasError().isError()) {
       specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     if (!hasSelectOptionValueChanges(plan)) {
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     const configDto = currentConfig.toDto();
     const conditionDto = configDto.condition;
     const currentFilter = conditionDto.filter;
     if (currentFilter == null) {
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     if (!hasFieldReferenceInFilter(currentFilter, updatedField.id())) {
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     const nextFilter = syncFilterByFieldChanges(currentFilter, updatedField.id(), plan);
     if (isEquivalentFilter(currentFilter, nextFilter)) {
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     if (nextFilter == null) {
       if (!this.hasError().isError()) {
         specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
       }
-      return ok(specs);
+      return ok(composeAndSpecsOrUndefined(specs));
     }
 
     const nextConfigResult = ConditionalRollupConfig.create({
@@ -540,7 +553,28 @@ export class ConditionalRollupField
     }
 
     specs.push(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
-    return ok(specs);
+    return ok(composeAndSpecsOrUndefined(specs));
+  }
+
+  onFieldDeleted(
+    deletedField: Field,
+    context: FieldDeletionContext
+  ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
+    const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
+    const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
+    const condition = this.configValue.condition();
+    const conditionReferencesDeletedField = condition.referencesField(deletedField.id());
+
+    const shouldSetError =
+      (deletedFromHostTable && conditionReferencesDeletedField) ||
+      (deletedFromForeignTable &&
+        (deletedField.id().equals(this.lookupFieldId()) || conditionReferencesDeletedField));
+
+    if (!shouldSetError || this.hasError().isError()) {
+      return ok(undefined);
+    }
+
+    return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
   }
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {

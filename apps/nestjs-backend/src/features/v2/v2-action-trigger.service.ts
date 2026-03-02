@@ -208,6 +208,8 @@ class V2FieldCreatedActionTriggerProjection implements IEventHandler<FieldCreate
           },
         },
       },
+      // Trigger clients to refresh record cells for newly backfilled field values.
+      { actionKey: 'setRecord' },
     ]);
     return ok(undefined);
   }

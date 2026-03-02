@@ -34,6 +34,18 @@ import { importerFactory } from './import.class';
 const maxFieldsLength = 500;
 const maxFieldsChunkSize = 30;
 
+/**
+ * System-wide cap on **waiting** (queued but not yet processing) import jobs.
+ * This is a global limit across all pods (BullMQ queue is shared via Redis).
+ * Active jobs are excluded — they are already consuming workers and will complete.
+ * Only the backlog of waiting jobs is capped to prevent unbounded queue growth
+ * and excessive user wait times.
+ *
+ * Default 50 is generous enough for multi-pod deployments (e.g. 5 pods × ~10 each).
+ * Tune via IMPORT_MAX_WAITING_JOBS env variable based on cluster size.
+ */
+const maxWaitingImports = Number(process.env.IMPORT_MAX_WAITING_JOBS ?? Infinity);
+
 @Injectable()
 export class ImportOpenApiService {
   private logger = new Logger(ImportOpenApiService.name);
@@ -49,6 +61,41 @@ export class ImportOpenApiService {
     @Optional() private readonly importMetrics?: ImportMetricsService
   ) {}
 
+  /**
+   * Reject new imports when the global queue backlog (waiting jobs) is too deep.
+   * Active jobs are excluded — they are already being processed by workers.
+   */
+  private async checkImportConcurrencyLimit() {
+    try {
+      const queue = this.importTableCsvChunkQueueProcessor.queue;
+      const waitingJobs = await queue.getJobCountByTypes('waiting');
+
+      if (waitingJobs >= maxWaitingImports) {
+        this.logger.warn(
+          `Import queue backlog limit reached: ${waitingJobs}/${maxWaitingImports} waiting jobs`
+        );
+        throw new CustomHttpException(
+          `Too many import tasks queued (${waitingJobs}/${maxWaitingImports}). Please try again later.`,
+          HttpErrorCode.TOO_MANY_REQUESTS,
+          {
+            localization: {
+              i18nKey: 'httpErrors.import.tooManyConcurrentImports',
+              context: {
+                current: waitingJobs,
+                max: maxWaitingImports,
+              },
+            },
+          }
+        );
+      }
+    } catch (e) {
+      if (e instanceof CustomHttpException) {
+        throw e;
+      }
+      this.logger.warn('Failed to check import queue backlog, allowing import to proceed', e);
+    }
+  }
+
   async analyze(analyzeRo: IAnalyzeRo) {
     const { attachmentUrl, fileType } = analyzeRo;
 
@@ -61,6 +108,8 @@ export class ImportOpenApiService {
   }
 
   async createTableFromImport(baseId: string, importRo: IImportOptionRo, maxRowCount?: number) {
+    await this.checkImportConcurrencyLimit();
+
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
     const { worksheets, notification = false, tz, fileType, attachmentUrl } = importRo;
@@ -137,7 +186,7 @@ export class ImportOpenApiService {
               notification,
             },
             recordsCal: {
-              fields: fields.map((f) => ({ id: f.id, type: f.type })),
+              fields: fields.map((f) => ({ id: f.id, name: f.name, type: f.type })),
               columnInfo: columns,
             },
             ro: importRo,
@@ -207,6 +256,8 @@ export class ImportOpenApiService {
     maxRowCount?: number,
     projection?: string[]
   ) {
+    await this.checkImportConcurrencyLimit();
+
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
     const { attachmentUrl, fileType, insertConfig, notification = false } = inplaceImportRo;
@@ -232,6 +283,7 @@ export class ImportOpenApiService {
       where: { tableId, deletedTime: null, hasError: null },
       select: {
         id: true,
+        name: true,
         type: true,
       },
     });
@@ -286,7 +338,7 @@ export class ImportOpenApiService {
         },
         recordsCal: {
           sourceColumnMap,
-          fields: fieldRaws as { id: string; type: FieldType }[],
+          fields: fieldRaws as { id: string; name: string; type: FieldType }[],
         },
         ro: inplaceImportRo,
         logId,

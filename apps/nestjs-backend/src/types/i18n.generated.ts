@@ -255,6 +255,7 @@ export type I18nTranslations = {
             "copySuccess": string;
             "retry": string;
             "copyToMySpace": string;
+            "copyLink": string;
             "collapse": string;
             "viewDetails": string;
         };
@@ -1343,9 +1344,23 @@ export type I18nTranslations = {
                             "failed": {
                                 "message": string;
                             };
+                            "planLimitExceeded": {
+                                "message": string;
+                            };
+                            "noRecordsProcessed": {
+                                "message": string;
+                            };
                             "success": {
                                 "message": string;
                                 "inplace": string;
+                            };
+                            "partialSuccess": {
+                                "message": string;
+                                "messageNoReport": string;
+                            };
+                            "allFailed": {
+                                "message": string;
+                                "messageNoReport": string;
                             };
                         };
                     };
@@ -1555,6 +1570,17 @@ export type I18nTranslations = {
             "error": {
                 "title": string;
                 "description": string;
+            };
+        };
+        "import": {
+            "error": {
+                "dateOutOfRange": string;
+                "planRowLimit": string;
+                "notNullValidation": string;
+                "uniqueValidation": string;
+                "requestTimeout": string;
+                "chunkProcessingFailed": string;
+                "unknown": string;
             };
         };
         "changelog": {
@@ -3115,6 +3141,7 @@ export type I18nTranslations = {
                 "notSupportedFileFormat": string;
                 "notSupportedFileType": string;
                 "exceedMaxFieldsLength": string;
+                "tooManyConcurrentImports": string;
             };
             "invitation": {
                 "disallowSpaceInvitation": string;

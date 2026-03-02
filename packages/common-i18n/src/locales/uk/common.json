@@ -789,9 +789,23 @@
             "failed": {
               "message": "❌ Імпорт {{tableName}} не вдався: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ Імпорт {{tableName}} не вдався: Досягнуто ліміт рядків, оновіть план для імпорту більшої кількості записів"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ Імпорт {{tableName}} не вдався: Жоден запис не був оброблений"
+            },
             "success": {
               "message": "🎉 {{tableName}} успішно імпортовано.",
               "inplace": "🎉 {{tableName}} успішно імпортовано на місці."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -1013,6 +1027,17 @@
     "error": {
       "title": "Щось пішло не так",
       "description": "Сталася неочікувана помилка. Будь ласка, спробуйте пізніше."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Помилка розбору дати, значення \"{{value}}\" виходить за допустимий діапазон",
+      "planRowLimit": "Досягнуто ліміт рядків: оновіть план для імпорту більшої кількості записів",
+      "notNullValidation": "{{fieldHint}}Обов'язкові поля не можуть бути порожніми",
+      "uniqueValidation": "{{fieldHint}}Дублікати значень в унікальних полях",
+      "requestTimeout": "Час очікування запиту вичерпано",
+      "chunkProcessingFailed": "Помилка пакетної обробки: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
     }
   },
   "changelog": {

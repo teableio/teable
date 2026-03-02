@@ -660,7 +660,7 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "指定された単位で日付時刻の差を返します。デフォルトの単位は秒です。(単位指定子のリストはここを参照してください。)\n日付時刻の差は、[date1] から [date2] を減算して決定されます。つまり、[date2] が [date1] より後の場合、結果の値は負になります。",
+      "summary": "指定された単位で日付時刻の差を返します。デフォルトの単位は \"day\" です。\nサポートされている単位: \"millisecond\" (ms)、\"second\" (s)、\"minute\" (m)、\"hour\" (h)、\"day\" (d)、\"week\" (w)、\"month\" (M)、\"year\" (y)。\n日付時刻の差は、[date1] から [date2] を減算して決定されます。つまり、[date2] が [date1] より後の場合、結果の値は負になります。",
       "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
@@ -1273,7 +1273,8 @@
     "import": {
       "notSupportedFileFormat": "ファイル形式がサポートされていません。{{supportType}} のみがサポートされており、ファイルのコンテンツタイプは {{fileFormat}} です",
       "notSupportedFileType": "インポートファイルタイプがサポートされていません",
-      "exceedMaxFieldsLength": "テーブル内のフィールド数は {{maxFieldsLength}} を超えることができません。現在は {{length}} です"
+      "exceedMaxFieldsLength": "テーブル内のフィールド数は {{maxFieldsLength}} を超えることができません。現在は {{length}} です",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "現在のインスタンスでは、管理者によるスペース招待が許可されていません",

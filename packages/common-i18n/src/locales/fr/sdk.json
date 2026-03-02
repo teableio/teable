@@ -660,7 +660,7 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Renvoie la différence entre les datetimes dans les unités spécifiées. Les unités par défaut sont les secondes. (Voir la liste des spécificateurs d'unité ici.)\nLa différence entre les datetimes est déterminée en soustrayant [date2] de [date1]. Cela signifie que si [date2] est plus tard que [date1], la valeur résultante sera négative.",
+      "summary": "Renvoie la différence entre les datetimes dans les unités spécifiées. L'unité par défaut est \"day\".\nUnités supportées : \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nLa différence entre les datetimes est déterminée en soustrayant [date2] de [date1]. Cela signifie que si [date2] est plus tard que [date1], la valeur résultante sera négative.",
       "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
@@ -1273,7 +1273,8 @@
     "import": {
       "notSupportedFileFormat": "Format de fichier non pris en charge, seuls {{supportType}} sont pris en charge, le type de contenu de votre fichier est {{fileFormat}}",
       "notSupportedFileType": "Type de fichier d'importation non pris en charge",
-      "exceedMaxFieldsLength": "Le nombre de champs dans la table ne peut pas dépasser {{maxFieldsLength}}, actuellement {{length}}"
+      "exceedMaxFieldsLength": "Le nombre de champs dans la table ne peut pas dépasser {{maxFieldsLength}}, actuellement {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "L'instance actuelle interdit les invitations d'espace par l'administrateur",

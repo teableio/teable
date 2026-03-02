@@ -1,15 +1,36 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import type { IConvertFieldRo, IFieldVo, IUpdateFieldRo } from '@teable/core';
-import { CellValueType, DbFieldType, FieldKeyType, FieldType, getDbFieldType } from '@teable/core';
+import type { IConvertFieldRo, IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable/core';
 import {
+  CellValueType,
+  DbFieldType,
+  FieldKeyType,
+  FieldType,
+  generateFieldId,
+  getDefaultFormatting,
+  getDbFieldType,
+} from '@teable/core';
+import type { IDuplicateFieldRo } from '@teable/openapi';
+import {
+  executeCreateFieldEndpoint,
+  executeDeleteFieldEndpoint,
+  executeDuplicateFieldEndpoint,
   executeUpdateFieldEndpoint,
   executeUpdateRecordEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
-import { TableId, v2CoreTokens } from '@teable/v2-core';
+import {
+  DbTableName,
+  FieldId,
+  LinkFieldConfig,
+  LinkRelationship,
+  TableId,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import type {
   ICommandBus,
   IExecutionContext,
+  Table,
   TableQueryService,
   ITableMapper,
 } from '@teable/v2-core';
@@ -44,6 +65,26 @@ export class FieldOpenApiV2Service {
     private readonly dataLoaderService: DataLoaderService
   ) {}
 
+  private stripUndefinedDeep(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.stripUndefinedDeep(item));
+    }
+
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    const result: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (nested === undefined) {
+        continue;
+      }
+      result[key] = this.stripUndefinedDeep(nested);
+    }
+
+    return result;
+  }
+
   private invalidateFieldLoader(tableIds: ReadonlyArray<string>) {
     const ids = Array.from(
       new Set(tableIds.filter((id) => typeof id === 'string' && id.length > 0))
@@ -70,10 +111,6 @@ export class FieldOpenApiV2Service {
 
   private normalizeFieldVo(field: unknown): IFieldVo {
     const vo = instanceToPlain(field, { excludePrefixes: ['_'] }) as IFieldVo;
-    // Ensure unique is always a boolean (v2 persistence omits false, but v1 API expects it)
-    if (vo.unique == null) {
-      vo.unique = false;
-    }
     const raw = vo as Record<string, unknown>;
 
     // Translate v2 conditionalRollup DTO to v1 API format.
@@ -164,12 +201,6 @@ export class FieldOpenApiV2Service {
       const linkOpts = vo.options as Record<string, unknown>;
       if (linkOpts.isOneWay === true) {
         delete linkOpts.symmetricFieldId;
-      } else if (
-        linkOpts.isOneWay === false &&
-        linkOpts.relationship !== 'oneOne' &&
-        linkOpts.relationship !== 'one_one'
-      ) {
-        delete linkOpts.isOneWay;
       }
 
       if (raw.meta && typeof raw.meta === 'object') {
@@ -187,6 +218,26 @@ export class FieldOpenApiV2Service {
       }
     }
 
+    if (vo.isMultipleCellValue === false) {
+      delete raw.isMultipleCellValue;
+    }
+
+    if (vo.isComputed === true && raw.isPending == null) {
+      raw.isPending = true;
+    }
+
+    if (raw.options && typeof raw.options === 'object') {
+      raw.options = this.denormalizeLegacyTimeZone(this.stripUndefinedDeep(raw.options));
+    }
+
+    if (raw.lookupOptions && typeof raw.lookupOptions === 'object') {
+      raw.lookupOptions = this.stripUndefinedDeep(raw.lookupOptions);
+    }
+
+    if (raw.aiConfig && typeof raw.aiConfig === 'object') {
+      raw.aiConfig = this.stripUndefinedDeep(raw.aiConfig);
+    }
+
     if (vo.type === FieldType.AutoNumber) {
       vo.cellValueType = CellValueType.Number;
       vo.dbFieldType = DbFieldType.Integer;
@@ -194,6 +245,20 @@ export class FieldOpenApiV2Service {
 
     if (vo.cellValueType == null) {
       vo.cellValueType = this.deriveCellValueType(vo);
+    }
+
+    if (vo.type === FieldType.Rollup && vo.options && typeof vo.options === 'object') {
+      const options = vo.options as Record<string, unknown>;
+      if (options.formatting == null) {
+        const fallbackCellValueType = this.shouldApplyLegacyRollupNumberFormatting(vo)
+          ? CellValueType.Number
+          : vo.cellValueType;
+        const defaultFormatting =
+          fallbackCellValueType != null ? getDefaultFormatting(fallbackCellValueType) : undefined;
+        if (defaultFormatting) {
+          options.formatting = defaultFormatting;
+        }
+      }
     }
 
     // Derive isMultipleCellValue when not present for field types that are always multi-value.
@@ -269,6 +334,28 @@ export class FieldOpenApiV2Service {
     }
   }
 
+  private shouldApplyLegacyRollupNumberFormatting(vo: IFieldVo): boolean {
+    if (vo.type !== FieldType.Rollup) {
+      return false;
+    }
+    const options =
+      vo.options && typeof vo.options === 'object' && !Array.isArray(vo.options)
+        ? (vo.options as Record<string, unknown>)
+        : undefined;
+    const expression =
+      typeof options?.expression === 'string' ? options.expression.trim().toLowerCase() : '';
+    if (!expression) {
+      return false;
+    }
+    return (
+      expression.startsWith('sum(') ||
+      expression.startsWith('average(') ||
+      expression.startsWith('count(') ||
+      expression.startsWith('counta(') ||
+      expression.startsWith('countall(')
+    );
+  }
+
   private async getFieldFromV2(
     tableId: string,
     fieldId: string,
@@ -328,6 +415,12 @@ export class FieldOpenApiV2Service {
 
     if (vo.isLookup && vo.lookupOptions && typeof vo.lookupOptions === 'object') {
       const lookupOpts = vo.lookupOptions as Record<string, unknown>;
+      if (lookupOpts.isOneWay === false) {
+        delete lookupOpts.isOneWay;
+      }
+      if (lookupOpts.symmetricFieldId != null) {
+        delete lookupOpts.symmetricFieldId;
+      }
       const foreignTableId = lookupOpts.foreignTableId;
       const lookupFieldId = lookupOpts.lookupFieldId;
       if (typeof foreignTableId === 'string' && typeof lookupFieldId === 'string') {
@@ -353,6 +446,7 @@ export class FieldOpenApiV2Service {
               ...(sourceOptions ?? {}),
               ...(currentOptions ?? {}),
             } as IFieldVo['options'];
+            vo.options = this.denormalizeLegacyTimeZone(vo.options) as IFieldVo['options'];
           }
 
           if (sourceVo.cellValueType != null && vo.cellValueType == null) {
@@ -369,6 +463,11 @@ export class FieldOpenApiV2Service {
     }
 
     return vo;
+  }
+
+  async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
+    const context = await this.v2ContextFactory.createContext();
+    return this.getFieldFromV2(tableId, fieldId, context);
   }
 
   private mapLegacyUpdateFieldToV2(
@@ -410,6 +509,584 @@ export class FieldOpenApiV2Service {
     }
 
     return mapped;
+  }
+
+  private normalizeLegacyTimeZone(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.normalizeLegacyTimeZone(item));
+    }
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    const normalized: Record<string, unknown> = {};
+    for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+      if (key === 'timeZone' && raw === 'UTC') {
+        normalized[key] = 'utc';
+        continue;
+      }
+      normalized[key] = this.normalizeLegacyTimeZone(raw);
+    }
+    return normalized;
+  }
+
+  private denormalizeLegacyTimeZone(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.denormalizeLegacyTimeZone(item));
+    }
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    const normalized: Record<string, unknown> = {};
+    for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+      if (key === 'timeZone' && raw === 'utc') {
+        normalized[key] = 'UTC';
+        continue;
+      }
+      normalized[key] = this.denormalizeLegacyTimeZone(raw);
+    }
+    return normalized;
+  }
+
+  private getResultTypePair(raw: Record<string, unknown>): Record<string, unknown> {
+    const cellValueType = raw.cellValueType;
+    const isMultipleCellValue = raw.isMultipleCellValue;
+
+    if (typeof cellValueType === 'string' && typeof isMultipleCellValue === 'boolean') {
+      return isMultipleCellValue ? { cellValueType, isMultipleCellValue } : { cellValueType };
+    }
+    return {};
+  }
+
+  private mapLegacyCreateFieldToV2(ro: IFieldRo): Record<string, unknown> {
+    const field = ro as Record<string, unknown>;
+    const base: Record<string, unknown> = {
+      id: typeof field.id === 'string' ? field.id : generateFieldId(),
+    };
+    if (field.name != null) base.name = field.name;
+    if (typeof field.dbFieldName === 'string') {
+      base.dbFieldName = field.dbFieldName;
+    }
+    if (Object.prototype.hasOwnProperty.call(field, 'description')) {
+      base.description = field.description ?? null;
+    }
+    if (field.notNull != null) base.notNull = field.notNull;
+    if (field.unique != null) base.unique = field.unique;
+    if (Object.prototype.hasOwnProperty.call(field, 'aiConfig')) {
+      base.aiConfig = field.aiConfig ?? null;
+    }
+
+    if (field.isConditionalLookup) {
+      const lookupOpts =
+        ro.lookupOptions && typeof ro.lookupOptions === 'object' && !Array.isArray(ro.lookupOptions)
+          ? (ro.lookupOptions as Record<string, unknown>)
+          : undefined;
+      const innerOptions =
+        ro.options && typeof ro.options === 'object' && !Array.isArray(ro.options)
+          ? (ro.options as Record<string, unknown>)
+          : undefined;
+      return this.normalizeLegacyTimeZone({
+        ...base,
+        type: 'conditionalLookup',
+        ...(typeof field.isMultipleCellValue === 'boolean'
+          ? { isMultipleCellValue: field.isMultipleCellValue }
+          : {}),
+        options: {
+          ...(lookupOpts?.foreignTableId != null
+            ? { foreignTableId: lookupOpts.foreignTableId }
+            : {}),
+          ...(lookupOpts?.lookupFieldId != null ? { lookupFieldId: lookupOpts.lookupFieldId } : {}),
+          condition: {
+            ...(lookupOpts?.filter ? { filter: lookupOpts.filter } : {}),
+            ...(lookupOpts?.sort ? { sort: lookupOpts.sort } : {}),
+            ...(lookupOpts?.limit != null ? { limit: lookupOpts.limit } : {}),
+          },
+        },
+        ...(innerOptions && Object.keys(innerOptions).length > 0 ? { innerOptions } : {}),
+      }) as Record<string, unknown>;
+    }
+
+    if (field.isLookup) {
+      const lookupOpts =
+        ro.lookupOptions && typeof ro.lookupOptions === 'object' && !Array.isArray(ro.lookupOptions)
+          ? (ro.lookupOptions as Record<string, unknown>)
+          : undefined;
+      const innerOptions =
+        ro.options && typeof ro.options === 'object' && !Array.isArray(ro.options)
+          ? (ro.options as Record<string, unknown>)
+          : undefined;
+      return this.normalizeLegacyTimeZone({
+        ...base,
+        type: 'lookup',
+        legacyMultiplicityDerivation: true,
+        ...(field.isMultipleCellValue === true ? { isMultipleCellValue: true } : {}),
+        options: {
+          ...(lookupOpts?.linkFieldId != null ? { linkFieldId: lookupOpts.linkFieldId } : {}),
+          ...(lookupOpts?.lookupFieldId != null ? { lookupFieldId: lookupOpts.lookupFieldId } : {}),
+          ...(lookupOpts?.foreignTableId != null
+            ? { foreignTableId: lookupOpts.foreignTableId }
+            : {}),
+          ...(lookupOpts?.filter ? { filter: lookupOpts.filter } : {}),
+          ...(lookupOpts?.sort ? { sort: lookupOpts.sort } : {}),
+          ...(lookupOpts?.limit != null ? { limit: lookupOpts.limit } : {}),
+        },
+        ...(innerOptions && Object.keys(innerOptions).length > 0 ? { innerOptions } : {}),
+      }) as Record<string, unknown>;
+    }
+
+    if (ro.type === FieldType.Rollup) {
+      const opts = (ro.options ?? {}) as Record<string, unknown>;
+      const lookupOpts =
+        ro.lookupOptions && typeof ro.lookupOptions === 'object' && !Array.isArray(ro.lookupOptions)
+          ? (ro.lookupOptions as Record<string, unknown>)
+          : undefined;
+      const linkFieldId = opts.linkFieldId ?? lookupOpts?.linkFieldId;
+      const lookupFieldId = opts.lookupFieldId ?? lookupOpts?.lookupFieldId;
+      const foreignTableId = opts.foreignTableId ?? lookupOpts?.foreignTableId;
+      const shouldIncludeConfig =
+        linkFieldId != null && lookupFieldId != null && foreignTableId != null;
+      return this.normalizeLegacyTimeZone({
+        ...base,
+        type: FieldType.Rollup,
+        ...this.getResultTypePair(field),
+        options: {
+          ...(opts.expression != null ? { expression: opts.expression } : {}),
+          ...(opts.formatting != null ? { formatting: opts.formatting } : {}),
+          ...(opts.timeZone != null ? { timeZone: opts.timeZone } : {}),
+          ...(opts.showAs != null ? { showAs: opts.showAs } : {}),
+        },
+        ...(shouldIncludeConfig
+          ? {
+              config: {
+                linkFieldId,
+                lookupFieldId,
+                foreignTableId,
+              },
+            }
+          : {}),
+      }) as Record<string, unknown>;
+    }
+
+    if (ro.type === FieldType.Link) {
+      const opts =
+        ro.options && typeof ro.options === 'object' && !Array.isArray(ro.options)
+          ? (ro.options as Record<string, unknown>)
+          : {};
+
+      return this.normalizeLegacyTimeZone({
+        ...base,
+        type: FieldType.Link,
+        options: {
+          ...(opts.baseId != null ? { baseId: opts.baseId } : {}),
+          ...(opts.relationship != null ? { relationship: opts.relationship } : {}),
+          ...(opts.foreignTableId != null ? { foreignTableId: opts.foreignTableId } : {}),
+          ...(opts.lookupFieldId != null ? { lookupFieldId: opts.lookupFieldId } : {}),
+          ...(opts.fkHostTableName != null ? { fkHostTableName: opts.fkHostTableName } : {}),
+          ...(opts.selfKeyName != null ? { selfKeyName: opts.selfKeyName } : {}),
+          ...(opts.foreignKeyName != null ? { foreignKeyName: opts.foreignKeyName } : {}),
+          ...(opts.isOneWay != null ? { isOneWay: opts.isOneWay } : {}),
+          ...(opts.symmetricFieldId != null ? { symmetricFieldId: opts.symmetricFieldId } : {}),
+          ...(Object.prototype.hasOwnProperty.call(opts, 'filterByViewId')
+            ? { filterByViewId: opts.filterByViewId }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(opts, 'visibleFieldIds')
+            ? { visibleFieldIds: opts.visibleFieldIds }
+            : {}),
+          ...(opts.filter != null ? { filter: opts.filter } : {}),
+        },
+      }) as Record<string, unknown>;
+    }
+
+    if (ro.type === 'conditionalRollup') {
+      const opts = (ro.options ?? {}) as Record<string, unknown>;
+      const condition = {
+        ...(opts.filter ? { filter: opts.filter } : {}),
+        ...(opts.sort ? { sort: opts.sort } : {}),
+        ...(opts.limit != null ? { limit: opts.limit } : {}),
+      };
+      const shouldIncludeConfig =
+        opts.foreignTableId != null &&
+        opts.lookupFieldId != null &&
+        Object.keys(condition).length > 0;
+      return this.normalizeLegacyTimeZone({
+        ...base,
+        type: 'conditionalRollup',
+        ...this.getResultTypePair(field),
+        options: {
+          ...(opts.expression != null ? { expression: opts.expression } : {}),
+          ...(opts.formatting != null ? { formatting: opts.formatting } : {}),
+          ...(opts.timeZone != null ? { timeZone: opts.timeZone } : {}),
+          ...(opts.showAs != null ? { showAs: opts.showAs } : {}),
+        },
+        ...(shouldIncludeConfig
+          ? {
+              config: {
+                foreignTableId: opts.foreignTableId,
+                lookupFieldId: opts.lookupFieldId,
+                condition,
+              },
+            }
+          : {}),
+      }) as Record<string, unknown>;
+    }
+
+    return this.normalizeLegacyTimeZone({
+      ...base,
+      type: ro.type,
+      ...(ro.options != null ? { options: ro.options } : {}),
+    }) as Record<string, unknown>;
+  }
+
+  private getDbTableNameString(table: Table): string | undefined {
+    const dbTableNameResult = table.dbTableName();
+    if (dbTableNameResult.isErr()) {
+      return undefined;
+    }
+    const valueResult = dbTableNameResult.value.value();
+    if (valueResult.isErr()) {
+      return undefined;
+    }
+    return valueResult.value;
+  }
+
+  private hasDuplicatedDbFieldName(table: Table, dbFieldName: string): boolean {
+    return table.getFields().some((field) => {
+      const existingDbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
+      return existingDbFieldNameResult.isOk() && existingDbFieldNameResult.value === dbFieldName;
+    });
+  }
+
+  private async completeLegacyLinkDbConfigForCreate(
+    v2Field: Record<string, unknown>,
+    currentTable: Table,
+    tableQueryService: TableQueryService,
+    context: IExecutionContext
+  ): Promise<Record<string, unknown>> {
+    if (v2Field.type !== FieldType.Link) {
+      return v2Field;
+    }
+
+    const options =
+      v2Field.options && typeof v2Field.options === 'object' && !Array.isArray(v2Field.options)
+        ? (v2Field.options as Record<string, unknown>)
+        : undefined;
+    if (!options) {
+      return v2Field;
+    }
+
+    const hasAnyDbConfig =
+      options.fkHostTableName != null ||
+      options.selfKeyName != null ||
+      options.foreignKeyName != null;
+    if (hasAnyDbConfig) {
+      return v2Field;
+    }
+
+    const relationshipRaw = options.relationship;
+    const foreignTableIdRaw = options.foreignTableId;
+    if (typeof relationshipRaw !== 'string' || typeof foreignTableIdRaw !== 'string') {
+      return v2Field;
+    }
+
+    const relationshipResult = LinkRelationship.create(relationshipRaw);
+    if (relationshipResult.isErr()) {
+      return v2Field;
+    }
+
+    const relationship = relationshipResult.value.toString();
+    const isOneWay = options.isOneWay === true;
+    if (relationship === 'manyMany' || (relationship === 'oneMany' && isOneWay)) {
+      return v2Field;
+    }
+
+    const fieldIdRaw = v2Field.id;
+    if (typeof fieldIdRaw !== 'string') {
+      return v2Field;
+    }
+
+    let fkHostTableNameValue: string | undefined;
+    if (relationship === 'oneMany') {
+      const foreignTableIdResult = TableId.create(foreignTableIdRaw);
+      if (foreignTableIdResult.isErr()) {
+        return v2Field;
+      }
+      const foreignTableResult = await tableQueryService.getById(
+        context,
+        foreignTableIdResult.value
+      );
+      if (foreignTableResult.isErr()) {
+        return v2Field;
+      }
+      fkHostTableNameValue = this.getDbTableNameString(foreignTableResult.value);
+    } else {
+      fkHostTableNameValue = this.getDbTableNameString(currentTable);
+    }
+
+    if (!fkHostTableNameValue) {
+      return v2Field;
+    }
+
+    const fieldIdResult = FieldId.create(fieldIdRaw);
+    if (fieldIdResult.isErr()) {
+      return v2Field;
+    }
+
+    let symmetricFieldIdRaw =
+      typeof options.symmetricFieldId === 'string' ? options.symmetricFieldId : undefined;
+    if (relationship === 'oneMany' && !isOneWay && !symmetricFieldIdRaw) {
+      symmetricFieldIdRaw = generateFieldId();
+    }
+
+    let symmetricFieldId: FieldId | undefined;
+    if (symmetricFieldIdRaw) {
+      const symmetricFieldIdResult = FieldId.create(symmetricFieldIdRaw);
+      if (symmetricFieldIdResult.isErr()) {
+        return v2Field;
+      }
+      symmetricFieldId = symmetricFieldIdResult.value;
+    }
+
+    const dbTableNameResult = DbTableName.rehydrate(fkHostTableNameValue);
+    if (dbTableNameResult.isErr()) {
+      return v2Field;
+    }
+
+    const dbConfigResult = LinkFieldConfig.buildDbConfig({
+      fkHostTableName: dbTableNameResult.value,
+      relationship: relationshipResult.value,
+      fieldId: fieldIdResult.value,
+      symmetricFieldId,
+      isOneWay,
+    });
+    if (dbConfigResult.isErr()) {
+      return v2Field;
+    }
+
+    const fkHostTableNameResult = dbConfigResult.value.fkHostTableName.value();
+    const selfKeyNameResult = dbConfigResult.value.selfKeyName.value();
+    const foreignKeyNameResult = dbConfigResult.value.foreignKeyName.value();
+    if (
+      fkHostTableNameResult.isErr() ||
+      selfKeyNameResult.isErr() ||
+      foreignKeyNameResult.isErr()
+    ) {
+      return v2Field;
+    }
+
+    return {
+      ...v2Field,
+      options: {
+        ...options,
+        fkHostTableName: fkHostTableNameResult.value,
+        selfKeyName: selfKeyNameResult.value,
+        foreignKeyName: foreignKeyNameResult.value,
+        ...(symmetricFieldIdRaw != null ? { symmetricFieldId: symmetricFieldIdRaw } : {}),
+      },
+    };
+  }
+
+  async createField(tableId: string, fieldRo: IFieldRo): Promise<IFieldVo> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
+    const context = await this.v2ContextFactory.createContext();
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
+    }
+
+    const tableResult = await tableQueryService.getById(context, tableIdResult.value);
+    if (tableResult.isErr()) {
+      const errMsg = tableResult.error.message ?? 'Table not found';
+      const isNotFound =
+        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
+      throw new HttpException(
+        errMsg,
+        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+
+    const rawFieldRo = fieldRo as Record<string, unknown>;
+    const rawDbFieldName = rawFieldRo.dbFieldName;
+    if (
+      typeof rawDbFieldName === 'string' &&
+      this.hasDuplicatedDbFieldName(tableResult.value, rawDbFieldName)
+    ) {
+      throw new CustomHttpException(
+        `Db Field name ${rawDbFieldName} already exists in this table`,
+        getDefaultCodeByStatus(HttpStatus.BAD_REQUEST)
+      );
+    }
+
+    const hasAiConfig = Object.prototype.hasOwnProperty.call(rawFieldRo, 'aiConfig');
+    const nextAiConfig = hasAiConfig ? rawFieldRo.aiConfig ?? null : undefined;
+    const mappedField = this.mapLegacyCreateFieldToV2(fieldRo);
+    const linkDbCompletedField = await this.completeLegacyLinkDbConfigForCreate(
+      mappedField,
+      tableResult.value,
+      tableQueryService,
+      context
+    );
+    const v2Field = linkDbCompletedField;
+    const legacyOrder =
+      fieldRo && typeof fieldRo === 'object' && 'order' in fieldRo
+        ? (fieldRo.order as
+            | {
+                viewId?: unknown;
+                orderIndex?: unknown;
+              }
+            | undefined)
+        : undefined;
+    const normalizedOrder =
+      typeof legacyOrder?.viewId === 'string' && typeof legacyOrder?.orderIndex === 'number'
+        ? {
+            viewId: legacyOrder.viewId,
+            orderIndex: legacyOrder.orderIndex,
+          }
+        : undefined;
+    const result = await executeCreateFieldEndpoint(
+      context,
+      {
+        baseId: tableResult.value.baseId().toString(),
+        tableId,
+        field: v2Field,
+        ...(normalizedOrder ? { order: normalizedOrder } : {}),
+      },
+      commandBus
+    );
+
+    if (result.status === 200 && result.body.ok) {
+      const tableIdsToInvalidate = [tableId];
+      const mappedOptions =
+        v2Field.options && typeof v2Field.options === 'object' && !Array.isArray(v2Field.options)
+          ? (v2Field.options as Record<string, unknown>)
+          : undefined;
+      const mappedConfig =
+        v2Field.config && typeof v2Field.config === 'object' && !Array.isArray(v2Field.config)
+          ? (v2Field.config as Record<string, unknown>)
+          : undefined;
+      if (typeof mappedOptions?.foreignTableId === 'string') {
+        tableIdsToInvalidate.push(mappedOptions.foreignTableId);
+      }
+      if (typeof mappedConfig?.foreignTableId === 'string') {
+        tableIdsToInvalidate.push(mappedConfig.foreignTableId);
+      }
+      this.invalidateFieldLoader(tableIdsToInvalidate);
+
+      if (typeof v2Field.id === 'string') {
+        const createdField = await this.getFieldFromV2(tableId, v2Field.id, context);
+
+        if (hasAiConfig) {
+          createdField.aiConfig = nextAiConfig as IFieldVo['aiConfig'];
+        }
+
+        return createdField;
+      }
+    }
+
+    if (!result.body.ok) {
+      this.throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async duplicateField(
+    tableId: string,
+    fieldId: string,
+    duplicateFieldRo: IDuplicateFieldRo,
+    _windowId?: string
+  ): Promise<IFieldVo> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
+    const context = await this.v2ContextFactory.createContext();
+
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
+    }
+
+    const tableResult = await tableQueryService.getById(context, tableIdResult.value);
+    if (tableResult.isErr()) {
+      const errMsg = tableResult.error.message ?? 'Table not found';
+      const isNotFound =
+        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
+      throw new HttpException(
+        errMsg,
+        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+
+    const duplicateResult = await executeDuplicateFieldEndpoint(
+      context,
+      {
+        baseId: tableResult.value.baseId().toString(),
+        tableId,
+        fieldId,
+        includeRecordValues: true,
+        newFieldName: duplicateFieldRo.name,
+        viewId: duplicateFieldRo.viewId,
+      },
+      commandBus
+    );
+
+    if (!(duplicateResult.status === 200 && duplicateResult.body.ok)) {
+      if (!duplicateResult.body.ok) {
+        this.throwV2Error(duplicateResult.body.error, duplicateResult.status);
+      }
+      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    const duplicatedFieldId = duplicateResult.body.data.newFieldId;
+
+    this.invalidateFieldLoader([tableId]);
+
+    return this.getFieldFromV2(tableId, duplicatedFieldId, context);
+  }
+
+  async deleteField(tableId: string, fieldId: string): Promise<void> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
+    const context = await this.v2ContextFactory.createContext();
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
+    }
+
+    const tableResult = await tableQueryService.getById(context, tableIdResult.value);
+    if (tableResult.isErr()) {
+      const errMsg = tableResult.error.message ?? 'Table not found';
+      const isNotFound =
+        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
+      throw new HttpException(
+        errMsg,
+        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+
+    const result = await executeDeleteFieldEndpoint(
+      context,
+      {
+        baseId: tableResult.value.baseId().toString(),
+        tableId,
+        fieldId,
+      },
+      commandBus
+    );
+
+    if (result.status === 200 && result.body.ok) {
+      this.invalidateFieldLoader([tableId]);
+      return;
+    }
+
+    if (!result.body.ok) {
+      this.throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   async updateField(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
@@ -602,7 +1279,9 @@ export class FieldOpenApiV2Service {
   ): Record<string, unknown> {
     const base: Record<string, unknown> = {};
     if (ro.name != null) base.name = ro.name;
-    if (ro.description != null) base.description = ro.description;
+    if (Object.prototype.hasOwnProperty.call(ro, 'description')) {
+      base.description = ro.description ?? null;
+    }
     if (ro.notNull != null) base.notNull = ro.notNull;
     if (ro.unique != null) base.unique = ro.unique;
     if ((ro as Record<string, unknown>).dbFieldName != null) {
@@ -630,8 +1309,7 @@ export class FieldOpenApiV2Service {
       return {
         ...base,
         type: 'conditionalRollup',
-        cellValueType: (ro as Record<string, unknown>).cellValueType,
-        isMultipleCellValue: (ro as Record<string, unknown>).isMultipleCellValue,
+        ...this.getResultTypePair(ro as Record<string, unknown>),
         options: {
           ...(opts.expression != null ? { expression: opts.expression } : {}),
           ...(opts.formatting != null ? { formatting: opts.formatting } : {}),

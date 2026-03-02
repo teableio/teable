@@ -77,7 +77,7 @@ export class ButtonField extends Field {
       color: this.color(),
       maxCount: this.maxCount(),
       resetCount: this.resetCount(),
-      workflow: this.workflow(),
+      workflow: undefined,
     });
   }
 

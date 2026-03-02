@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { BaseId } from '../../../base/BaseId';
 import { DbFieldName } from '../DbFieldName';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
@@ -15,6 +16,7 @@ import { TableId } from '../../TableId';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
+const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 
 const createConditionalLookupField = (statusFieldId: FieldId) => {
   const lookupOptions = ConditionalLookupOptions.create({
@@ -40,6 +42,52 @@ const createConditionalLookupField = (statusFieldId: FieldId) => {
 };
 
 describe('ConditionalLookupField.onDependencyUpdated', () => {
+  it('preserves inner options patch when duplicated', () => {
+    const statusFieldId = createFieldId('z');
+    const field = ConditionalLookupField.create({
+      id: createFieldId('y'),
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: SingleLineTextField.create({
+        id: createFieldId('x'),
+        name: FieldName.create('Title')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: createTableId('w').toString(),
+        lookupFieldId: createFieldId('v').toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+        },
+      })._unsafeUnwrap(),
+      innerOptionsPatch: {
+        formatting: {
+          type: 'currency',
+          precision: 1,
+          symbol: '¥',
+        },
+      },
+    })._unsafeUnwrap();
+
+    const duplicated = field
+      .duplicate({
+        newId: createFieldId('u'),
+        newName: FieldName.create('Conditional Lookup Copy')._unsafeUnwrap(),
+        baseId: createBaseId('b'),
+        tableId: createTableId('t'),
+      })
+      ._unsafeUnwrap() as ConditionalLookupField;
+
+    expect(duplicated.innerOptionsPatch()).toEqual({
+      formatting: {
+        type: 'currency',
+        precision: 1,
+        symbol: '¥',
+      },
+    });
+  });
+
   it('marks hasError when referenced field is type-converted', () => {
     const statusFieldId = createFieldId('a');
     const conditionalLookup = createConditionalLookupField(statusFieldId);
@@ -58,8 +106,7 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
 
     const result = conditionalLookup.onDependencyUpdated(updatedField, [typeSpec], {} as never);
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toHaveLength(1);
-    expect(result._unsafeUnwrap()[0]).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
   });
 
   it('emits field type update when referenced select option name changes', () => {
@@ -90,10 +137,9 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
 
     const result = conditionalLookup.onDependencyUpdated(statusField, [optionsSpec], {} as never);
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toHaveLength(1);
-    expect(result._unsafeUnwrap()[0]).toBeInstanceOf(TableUpdateFieldTypeSpec);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
 
-    const spec = result._unsafeUnwrap()[0] as TableUpdateFieldTypeSpec;
+    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
     const nextField = spec.newField() as ConditionalLookupField;
     const nextFilter = nextField.conditionalLookupOptions().condition().toDto().filter as {
       filterSet: Array<{ value?: unknown }>;
@@ -144,7 +190,6 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
 
     const result = conditionalLookup.onDependencyUpdated(updatedField, [typeSpec], {} as never);
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toHaveLength(1);
-    expect(result._unsafeUnwrap()[0]).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
   });
 });

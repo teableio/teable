@@ -435,6 +435,43 @@ export const AttachmentTransferModeValues = ['url', 'base64'] as const;
 export type AttachmentTransferMode = (typeof AttachmentTransferModeValues)[number];
 export const attachmentTransferModeSchema = z.enum(AttachmentTransferModeValues);
 
+// Task types for AI concurrency group routing
+export const TaskTypeValues = ['text', 'image'] as const;
+export type TaskType = (typeof TaskTypeValues)[number];
+export const taskTypeSchema = z.enum(TaskTypeValues);
+
+// API key entry within a concurrency group (with verification status)
+export const concurrencyKeyEntrySchema = z.object({
+  apiKey: z.string(),
+  status: z.enum(['verified', 'untested', 'error']).default('untested'),
+});
+
+export type IConcurrencyKeyEntry = z.infer<typeof concurrencyKeyEntrySchema>;
+
+// Named group of API keys sharing a concurrency pool, scoped to specific task types
+export const concurrencyGroupSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  taskTypes: z.array(taskTypeSchema).default([]),
+  keys: z.array(concurrencyKeyEntrySchema).default([]),
+  perKey: z.number().min(1).max(100).default(5).optional(),
+});
+
+export type IConcurrencyGroup = z.infer<typeof concurrencyGroupSchema>;
+
+// Vertex BYOK credential for free quota optimization via AI Gateway BYOK
+// @see https://vercel.com/docs/ai-gateway/authentication-and-byok/byok#credential-structure-by-provider
+export const vertexByokCredentialSchema = z.object({
+  project: z.string(),
+  location: z.string(),
+  googleCredentials: z.object({
+    privateKey: z.string(),
+    clientEmail: z.string(),
+  }),
+});
+
+export type IVertexByokCredential = z.infer<typeof vertexByokCredentialSchema>;
+
 export const aiConfigSchema = z.object({
   llmProviders: z.array(llmProviderSchema).default([]),
   embeddingModel: z.string().optional(),
@@ -455,6 +492,14 @@ export const aiConfigSchema = z.object({
   attachmentTest: attachmentTestSchema.optional(),
   // Attachment transfer mode: 'url' (default) or 'base64'
   attachmentTransferMode: attachmentTransferModeSchema.default('url').optional(),
+  // Multiple AI Gateway API keys for concurrency scaling via key rotation
+  aiGatewayApiKeys: z.array(z.string()).optional(),
+  // Vertex AI BYOK credential (free quota optimization for Google models)
+  vertexByokCredential: vertexByokCredentialSchema.optional(),
+  // Named concurrency groups: each group owns a set of API keys and task types
+  concurrencyGroups: z.array(concurrencyGroupSchema).optional(),
+  // Default concurrency slots per API key (applies when groups don't specify perKey)
+  concurrencyPerKey: z.number().min(1).max(100).optional(),
 });
 
 export type IAIConfig = z.infer<typeof aiConfigSchema>;
@@ -493,6 +538,9 @@ export const v2FeatureSchema = z.enum([
   'paste',
   'clear',
   'importRecords',
+  'createField',
+  'deleteField',
+  'duplicateField',
   'updateField',
   'convertField',
 ]);
