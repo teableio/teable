@@ -13,6 +13,7 @@ import { DbTableName } from './DbTableName';
 import type { RecordCreateSource } from './events/RecordFieldValuesDTO';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
+import type { DbFieldName } from './fields/DbFieldName';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
@@ -666,6 +667,27 @@ export class Table extends AggregateRoot<TableId> {
       return err(domainError.conflict({ message: 'Field names must be unique' }));
     }
 
+    const nextDbFieldNameResult = field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
+    if (nextDbFieldNameResult.isOk()) {
+      const hasDuplicateDbFieldName = this.fieldsValue.some((existing) => {
+        const existingDbFieldNameResult = existing
+          .dbFieldName()
+          .andThen((dbFieldName) => dbFieldName.value());
+        return (
+          existingDbFieldNameResult.isOk() &&
+          existingDbFieldNameResult.value === nextDbFieldNameResult.value
+        );
+      });
+
+      if (hasDuplicateDbFieldName) {
+        return err(
+          domainError.conflict({
+            message: `Db Field name ${nextDbFieldNameResult.value} already exists in this table`,
+          })
+        );
+      }
+    }
+
     const validationResult = this.validateForeignTables([field], options?.foreignTables);
     if (validationResult.isErr()) return err(validationResult.error);
 
@@ -688,7 +710,10 @@ export class Table extends AggregateRoot<TableId> {
 
     return Table.rehydrate(props).andThen((nextTable) => {
       const resolved = field.type().equals(FieldType.formula())
-        ? resolveFormulaFields(nextTable)
+        ? resolveFormulaFields(nextTable, {
+            ignoreMissingReferenceOnExisting: true,
+            strictFieldId: field.id(),
+          })
         : ok(undefined);
       if (resolved.isErr()) return err(resolved.error);
       return ok(nextTable);
@@ -870,6 +895,17 @@ export class Table extends AggregateRoot<TableId> {
     return ok(this);
   }
 
+  updateFieldDbFieldName(fieldId: FieldId, dbFieldName: DbFieldName): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+    const renameResult = field.renameDbFieldName(dbFieldName);
+    if (renameResult.isErr()) return err(renameResult.error);
+
+    return ok(this);
+  }
+
   /**
    * Replace a field with a new field (for type conversion).
    * The new field must have the same ID as the old field.
@@ -937,7 +973,10 @@ export class Table extends AggregateRoot<TableId> {
 
     return Table.rehydrate(props).andThen((nextTable) => {
       const resolved = newField.type().equals(FieldType.formula())
-        ? resolveFormulaFields(nextTable)
+        ? resolveFormulaFields(nextTable, {
+            ignoreMissingReferenceOnExisting: true,
+            strictFieldId: newField.id(),
+          })
         : ok(undefined);
       if (resolved.isErr()) return err(resolved.error);
       return ok(nextTable);

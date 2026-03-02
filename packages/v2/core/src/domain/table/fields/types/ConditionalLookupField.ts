@@ -62,6 +62,7 @@ export class ConditionalLookupField
   implements ForeignTableRelatedField, OnTeableFieldUpdated
 {
   private innerFieldValue: Field | undefined;
+  private readonly innerOptionsPatchValue: Readonly<Record<string, unknown>> | undefined;
   /**
    * Override for isMultipleCellValue. When set, this value is used instead of
    * defaulting to multiple. This is important for compatibility with v1.
@@ -75,7 +76,8 @@ export class ConditionalLookupField
     private readonly conditionalLookupOptionsValue: ConditionalLookupOptions,
     dbFieldName?: DbFieldName,
     dependencies?: ReadonlyArray<FieldId>,
-    isMultipleCellValue?: boolean
+    isMultipleCellValue?: boolean,
+    innerOptionsPatch?: Readonly<Record<string, unknown>>
   ) {
     super(
       id,
@@ -87,6 +89,7 @@ export class ConditionalLookupField
     );
     this.innerFieldValue = innerField;
     this.isMultipleCellValueOverride = isMultipleCellValue;
+    this.innerOptionsPatchValue = innerOptionsPatch ? { ...innerOptionsPatch } : undefined;
   }
 
   /**
@@ -100,6 +103,7 @@ export class ConditionalLookupField
     dbFieldName?: DbFieldName;
     dependencies?: ReadonlyArray<FieldId>;
     isMultipleCellValue?: boolean;
+    innerOptionsPatch?: Readonly<Record<string, unknown>>;
   }): Result<ConditionalLookupField, DomainError> {
     return ok(
       new ConditionalLookupField(
@@ -109,7 +113,8 @@ export class ConditionalLookupField
         params.conditionalLookupOptions,
         params.dbFieldName,
         params.dependencies,
-        params.isMultipleCellValue
+        params.isMultipleCellValue,
+        params.innerOptionsPatch
       )
     );
   }
@@ -125,6 +130,7 @@ export class ConditionalLookupField
     dbFieldName?: DbFieldName;
     dependencies?: ReadonlyArray<FieldId>;
     isMultipleCellValue?: boolean;
+    innerOptionsPatch?: Readonly<Record<string, unknown>>;
   }): Result<ConditionalLookupField, DomainError> {
     return ok(
       new ConditionalLookupField(
@@ -134,7 +140,8 @@ export class ConditionalLookupField
         params.conditionalLookupOptions,
         params.dbFieldName,
         params.dependencies,
-        params.isMultipleCellValue
+        params.isMultipleCellValue,
+        params.innerOptionsPatch
       )
     );
   }
@@ -150,6 +157,7 @@ export class ConditionalLookupField
     dbFieldName?: DbFieldName;
     dependencies?: ReadonlyArray<FieldId>;
     isMultipleCellValue?: boolean;
+    innerOptionsPatch?: Readonly<Record<string, unknown>>;
   }): Result<ConditionalLookupField, DomainError> {
     return ConditionalLookupField.create(params);
   }
@@ -193,6 +201,10 @@ export class ConditionalLookupField
 
   conditionalLookupOptionsDto(): ConditionalLookupOptionsValue {
     return this.conditionalLookupOptionsValue.toDto();
+  }
+
+  innerOptionsPatch(): Readonly<Record<string, unknown>> | undefined {
+    return this.innerOptionsPatchValue;
   }
 
   /**
@@ -340,6 +352,7 @@ export class ConditionalLookupField
         conditionalLookupOptions: this.conditionalLookupOptions(),
         isMultipleCellValue,
         dependencies: this.dependencies(),
+        innerOptionsPatch: this.innerOptionsPatchValue,
       });
     }
 
@@ -349,6 +362,7 @@ export class ConditionalLookupField
       conditionalLookupOptions: this.conditionalLookupOptions(),
       isMultipleCellValue,
       dependencies: this.dependencies(),
+      innerOptionsPatch: this.innerOptionsPatchValue,
     });
   }
 
@@ -436,6 +450,7 @@ export class ConditionalLookupField
           conditionalLookupOptions: nextOptionsResult.value,
           isMultipleCellValue: multiplicityResult.value.isMultiple(),
           dependencies: this.dependencies(),
+          innerOptionsPatch: this.innerOptionsPatchValue,
         })
       )
       .orElse(() =>
@@ -445,6 +460,7 @@ export class ConditionalLookupField
           conditionalLookupOptions: nextOptionsResult.value,
           isMultipleCellValue: multiplicityResult.value.isMultiple(),
           dependencies: this.dependencies(),
+          innerOptionsPatch: this.innerOptionsPatchValue,
         })
       );
     if (nextFieldResult.isErr()) {

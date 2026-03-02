@@ -10,6 +10,7 @@ import {
   ok,
   RecordByIdsSpec,
   RecordConditionDateValue,
+  RecordConditionFieldReferenceValue,
   RecordConditionLiteralListValue,
   RecordConditionLiteralValue,
   RecordId,
@@ -541,5 +542,22 @@ describe('TableRecordConditionWhereVisitor', () => {
     expect(compiled.sql.toLowerCase()).toContain('in');
     expect(compiled.sql).toContain('__id');
     expect(compiled.parameters).toEqual(recordIds.map((id) => id.toString()));
+  });
+
+  test('supports date comparison with field reference values', () => {
+    const field = fixture.fields.date;
+    const value = RecordConditionFieldReferenceValue.create(field)._unsafeUnwrap();
+    const spec = field.spec().create({ operator: 'isBefore', value });
+    expect(spec.isOk()).toBe(true);
+    if (spec.isErr()) return;
+
+    const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 't' });
+    const visitResult = spec.value.accept(visitor);
+    expect(visitResult.isOk()).toBe(true);
+    const where = visitor.where()._unsafeUnwrap();
+    const compiled = compileCondition(db, where);
+
+    expect(compiled.sql).toContain('"t"."col_due_date" < "t"."col_due_date"');
+    expect(compiled.parameters).toEqual([]);
   });
 });

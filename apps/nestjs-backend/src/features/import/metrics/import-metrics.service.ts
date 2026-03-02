@@ -17,13 +17,6 @@ export class ImportMetricsService {
       ],
     },
   });
-  private readonly importRows = this.meter.createHistogram('data.import.rows', {
-    description: 'Number of rows per import task',
-    unit: 'rows',
-    advice: {
-      explicitBucketBoundaries: [10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000],
-    },
-  });
   private readonly importErrors = this.meter.createCounter('data.import.errors', {
     description: 'Total number of import errors',
   });
@@ -38,13 +31,8 @@ export class ImportMetricsService {
   recordImportComplete(attrs: {
     fileType: string;
     operationType: string;
-    rows: number;
     durationMs: number;
   }): void {
-    this.importRows.record(attrs.rows, {
-      file_type: attrs.fileType,
-      operation_type: attrs.operationType,
-    });
     this.importDuration.record(attrs.durationMs, {
       file_type: attrs.fileType,
       operation_type: attrs.operationType,

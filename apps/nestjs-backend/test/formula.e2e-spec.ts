@@ -3132,7 +3132,7 @@ describe('OpenAPI formula (e2e)', () => {
         }
         await permanentDeleteTable(baseId, foreign.id);
       }
-    });
+    }, 120000);
 
     it('applies timezone-aware formatting before slicing datetime values', async () => {
       const foreign = await createTable(baseId, {

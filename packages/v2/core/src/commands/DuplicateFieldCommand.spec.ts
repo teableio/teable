@@ -30,6 +30,7 @@ describe('DuplicateFieldCommand', () => {
         fieldId: 'fldcccccccccccccccc',
         includeRecordValues: false,
         newFieldName: 'Custom Name',
+        viewId: 'viwaaaaaaaaaaaaaaaa',
       };
 
       const result = DuplicateFieldCommand.create(input);
@@ -38,6 +39,7 @@ describe('DuplicateFieldCommand', () => {
       if (result.isOk()) {
         expect(result.value.includeRecordValues).toBe(false);
         expect(result.value.newFieldName).toBe('Custom Name');
+        expect(result.value.viewId?.toString()).toBe(input.viewId);
       }
     });
 

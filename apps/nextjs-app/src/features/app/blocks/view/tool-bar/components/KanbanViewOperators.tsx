@@ -188,7 +188,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             isActive={isActive}
             text={text}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
               hasWarning && 'border-yellow-500'
@@ -196,8 +196,8 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             textClassName="@2xl/toolbar:inline"
           >
             <>
-              <FilterIcon className="size-4 text-sm" />
-              {hasWarning && <AlertTriangle className="size-3.5 text-yellow-500" />}
+              <FilterIcon className="size-4 shrink-0 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 shrink-0 text-yellow-500" />}
             </>
           </ToolBarButton>
         )}
@@ -209,13 +209,13 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             isActive={isActive}
             text={text}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
             )}
             textClassName="@2xl/toolbar:inline"
           >
-            <ArrowUpDown className="size-4 text-sm" />
+            <ArrowUpDown className="size-4 shrink-0 text-sm" />
           </ToolBarButton>
         )}
       </Sort>

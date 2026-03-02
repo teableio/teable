@@ -4,6 +4,7 @@ import { tableI18nKeys } from '@teable/i18n-keys';
 import { BaseId } from '../domain/base/BaseId';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
 import { Table } from '../domain/table/Table';
 import { TableName } from '../domain/table/TableName';
 import { TableId } from '../domain/table/TableId';
@@ -289,6 +290,46 @@ describe('TableFieldSpecs', () => {
     }
   });
 
+  it('preserves conditional lookup inner options patch in create spec', () => {
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const lookupFieldId = `fld${'a'.repeat(16)}`;
+
+    const specResult = parseSpec({
+      type: 'conditionalLookup',
+      name: 'Conditional Currency',
+      options: {
+        foreignTableId,
+        lookupFieldId,
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: lookupFieldId, operator: 'is', value: 'active' }],
+          },
+        },
+      },
+      innerOptions: {
+        formatting: {
+          type: 'currency',
+          precision: 1,
+          symbol: '¥',
+        },
+      },
+    });
+
+    expect(specResult.isOk()).toBe(true);
+    const fieldResult = specResult._unsafeUnwrap().createField();
+    expect(fieldResult.isOk()).toBe(true);
+    const field = fieldResult._unsafeUnwrap();
+    expect(field).toBeInstanceOf(ConditionalLookupField);
+    expect((field as ConditionalLookupField).innerOptionsPatch()).toEqual({
+      formatting: {
+        type: 'currency',
+        precision: 1,
+        symbol: '¥',
+      },
+    });
+  });
+
   it('collects foreign table references from specs', () => {
     const linkSpec = parseSpec({
       type: 'link',
@@ -318,5 +359,28 @@ describe('TableFieldSpecs', () => {
     const spec = parseSpec({ type: 'singleLineText', name: 'New Field' })._unsafeUnwrap();
     const field = spec.createField()._unsafeUnwrap();
     expect(field.id()).toBeInstanceOf(FieldId);
+  });
+
+  it('applies aiConfig when creating field from spec', () => {
+    const aiConfig = {
+      type: 'summary',
+      modelKey: 'openai@gpt-4o@gpt',
+      sourceFieldId: `fld${'z'.repeat(16)}`,
+    };
+
+    const spec = parseSpec({
+      type: 'singleLineText',
+      name: 'AI Text',
+      aiConfig,
+    })._unsafeUnwrap();
+
+    const field = spec
+      .createField({
+        baseId: BaseId.create(`bse${'e'.repeat(16)}`)._unsafeUnwrap(),
+        tableId: TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap();
+
+    expect(field.aiConfig()).toEqual(aiConfig);
   });
 });

@@ -52,7 +52,7 @@ describe('FieldCreationSideEffectVisitor', () => {
     const hostPrimaryIdResult = createFieldId('d');
     const foreignPrimaryIdResult = createFieldId('e');
     const linkFieldIdResult = createFieldId('f');
-    const linkFieldNameResult = FieldName.create('Link');
+    const linkFieldNameResult = FieldName.create('Self');
 
     [
       baseIdResult,
@@ -136,7 +136,7 @@ describe('FieldCreationSideEffectVisitor', () => {
     const hostPrimaryIdResult = createFieldId('j');
     const foreignPrimaryIdResult = createFieldId('k');
     const linkFieldIdResult = createFieldId('l');
-    const linkFieldNameResult = FieldName.create('Link');
+    const linkFieldNameResult = FieldName.create('Self');
 
     [
       baseIdResult,
@@ -205,7 +205,7 @@ describe('FieldCreationSideEffectVisitor', () => {
     const tableIdResult = createTableId('n');
     const primaryIdResult = createFieldId('o');
     const linkFieldIdResult = createFieldId('p');
-    const linkFieldNameResult = FieldName.create('Link');
+    const linkFieldNameResult = FieldName.create('Self');
 
     baseIdResult._unsafeUnwrap();
     tableIdResult._unsafeUnwrap();
@@ -238,10 +238,16 @@ describe('FieldCreationSideEffectVisitor', () => {
     });
     linkFieldResult._unsafeUnwrap();
 
+    const tableWithLinkResult = table.update((mutator) =>
+      mutator.addField(linkFieldResult._unsafeUnwrap(), { foreignTables: [table] })
+    );
+    tableWithLinkResult._unsafeUnwrap();
+    const tableWithLink = tableWithLinkResult._unsafeUnwrap().table;
+
     const sideEffectsResult = FieldCreationSideEffectVisitor.collect(
       [linkFieldResult._unsafeUnwrap()],
       {
-        table,
+        table: tableWithLink,
         foreignTables: [table],
       }
     );
@@ -251,12 +257,14 @@ describe('FieldCreationSideEffectVisitor', () => {
 
     const [effect] = sideEffectsResult._unsafeUnwrap();
     expect(effect.foreignTable.id().equals(tableIdResult._unsafeUnwrap())).toBe(true);
-    const updatedResult = effect.mutateSpec.mutate(table);
+    const updatedResult = effect.mutateSpec.mutate(tableWithLink);
     updatedResult._unsafeUnwrap();
 
-    expect(
-      updatedResult._unsafeUnwrap().getFields(buildFieldSpec((builder) => builder.isLink()))
-    ).toHaveLength(1);
+    const linkFields = updatedResult
+      ._unsafeUnwrap()
+      .getFields(buildFieldSpec((builder) => builder.isLink())) as ReadonlyArray<LinkField>;
+    expect(linkFields).toHaveLength(2);
+    expect(linkFields.map((field) => field.name().toString())).toEqual(['Self', 'Self (linked)']);
   });
 
   it('errors when foreign table is missing', () => {

@@ -16,9 +16,9 @@ export function createEventPromise(eventEmitterService: EventEmitterService, eve
 }
 
 export function createAwaitWithEvent(eventEmitterService: EventEmitterService, event: Events) {
-  return async function fn<T>(fn: () => Promise<T>) {
+  return async function runWithEvent<T>(action: () => Promise<T>) {
     const promise = createEventPromise(eventEmitterService, event);
-    const result = await fn();
+    const result = await action();
     await promise;
     return result;
   };
@@ -28,9 +28,9 @@ export function createAwaitWithEventWithResult<R = unknown>(
   eventEmitterService: EventEmitterService,
   event: Events
 ) {
-  return async function fn<T>(fn: () => Promise<T>) {
+  return async function runWithEventResult<T>(action: () => Promise<T>) {
     const promise = createEventPromise(eventEmitterService, event);
-    await fn();
+    await action();
     await promise;
     return (await promise) as R;
   };
@@ -62,9 +62,9 @@ export function createAwaitWithEventWithResultWithCount(
   event: Events,
   count: number = 1
 ) {
-  return async function fn<T>(fn: () => Promise<T>) {
+  return async function runWithEventResultCount<T>(action: () => Promise<T>) {
     const promise = createEventPromiseWithCount(eventEmitterService, event, count);
-    const result = await fn();
+    const result = await action();
     const payloads = await promise;
     return {
       result,

@@ -595,7 +595,8 @@ export class ComputedUpdatePlanner {
           });
 
           const cycleFieldIds = findCycleParticipantFieldIds(relevantEdges, computedFieldIds);
-          const skippedFieldIdSet = cycleFieldIds.size > 0 ? cycleFieldIds : new Set(unsortedFieldIds);
+          const skippedFieldIdSet =
+            cycleFieldIds.size > 0 ? cycleFieldIds : new Set(unsortedFieldIds);
           const skippedFieldIds = [...skippedFieldIdSet];
           const message = `Computed field dependency cycle detected. Total unsorted: ${unsortedFieldIds.length}. Skipped cycle fields: ${skippedFieldIds.length}. Cycle: [${cycleInfoText}]. Sample fields: [${sampleFields.join(', ')}]`;
           const allowSkip = context.cyclePolicy === 'skip';
@@ -607,7 +608,9 @@ export class ComputedUpdatePlanner {
             );
           }
 
-          computedFieldIds = new Set([...computedFieldIds].filter((id) => !skippedFieldIdSet.has(id)));
+          computedFieldIds = new Set(
+            [...computedFieldIds].filter((id) => !skippedFieldIdSet.has(id))
+          );
           relevantEdges = relevantEdges.filter(
             (edge) =>
               computedFieldIds.has(edge.fromFieldId.toString()) &&

@@ -6,8 +6,8 @@ import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { DbTableName } from '../../DbTableName';
 import { ForeignTable } from '../../ForeignTable';
-import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { UpdateLinkConfigSpec } from '../../specs/field-updates/UpdateLinkConfigSpec';
+import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import type { ViewId } from '../../views/ViewId';
@@ -17,12 +17,6 @@ import type { FieldDuplicateParams } from '../Field';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
-import type {
-  ForeignTableRelatedField,
-  ForeignTableValidationContext,
-} from '../ForeignTableRelatedField';
-import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
-import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
   buildFieldFilterSyncPlan,
   hasFieldFilterSyncPlanChanges,
@@ -30,6 +24,12 @@ import {
   isEquivalentFilter,
   syncFilterByFieldChanges,
 } from '../filter-sync';
+import type {
+  ForeignTableRelatedField,
+  ForeignTableValidationContext,
+} from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
+import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
   LinkFieldConfig,
   type LinkFieldConfigValue,
@@ -69,16 +69,18 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
       ? ok(params.meta)
       : LinkField.defaultMetaForConfig(params.config);
 
-    return metaResult.andThen((meta) =>
-      LinkField.create({
-        id: params.id,
-        name: params.name,
-        config: params.config,
-        meta,
-      }).andThen((field) =>
-        field
-          .ensureDbConfig({ baseId: params.baseId, hostTableId: params.hostTableId })
-          .map(() => field)
+    return LinkField.normalizeCrossBaseConfig(params.config, params.baseId).andThen((config) =>
+      metaResult.andThen((meta) =>
+        LinkField.create({
+          id: params.id,
+          name: params.name,
+          config,
+          meta,
+        }).andThen((field) =>
+          field
+            .ensureDbConfig({ baseId: params.baseId, hostTableId: params.hostTableId })
+            .map(() => field)
+        )
       )
     );
   }
@@ -256,7 +258,11 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
         ? ok(this.symmetricFieldId()!)
         : FieldId.generate();
 
-    const baseId = this.isCrossBase() ? hostTable.baseId().toString() : undefined;
+    const baseId = this.baseId()
+      ? this.baseId()!.equals(hostTable.baseId())
+        ? undefined
+        : hostTable.baseId().toString()
+      : undefined;
     const lookupFieldId = hostTable.primaryFieldId().toString();
 
     const symmetricDbConfigResult: Result<LinkFieldDbConfig | undefined, DomainError> =
@@ -360,8 +366,6 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
   }
 
   ensureDbConfig(params: { baseId: BaseId; hostTableId: TableId }): Result<void, DomainError> {
-    if (this.configValue.hasDbConfig()) return ok(undefined);
-
     const symmetricFieldIdResult = (() => {
       if (this.isOneWay()) return ok(this.symmetricFieldId());
       if (this.symmetricFieldId()) return ok(this.symmetricFieldId());
@@ -371,6 +375,9 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
     })();
 
     if (symmetricFieldIdResult.isErr()) return err(symmetricFieldIdResult.error);
+
+    if (this.configValue.hasDbConfig()) return ok(undefined);
+
     const symmetricFieldId = symmetricFieldIdResult.value;
 
     return this.resolveFkHostTableName({
@@ -428,6 +435,47 @@ export class LinkField extends Field implements ForeignTableRelatedField, OnTeab
       ? `${this.id().toString()}_${symmetricFieldId.toString()}`
       : this.id().toString();
     return DbTableName.rehydrate(`${baseId.toString()}.junction_${suffix}`);
+  }
+
+  private static normalizeCrossBaseConfig(
+    config: LinkFieldConfig,
+    hostBaseId: BaseId
+  ): Result<LinkFieldConfig, DomainError> {
+    const configBaseId = config.baseId();
+    if (!configBaseId || !configBaseId.equals(hostBaseId)) {
+      return ok(config);
+    }
+
+    const baseOptions = {
+      relationship: config.relationship().toString(),
+      foreignTableId: config.foreignTableId().toString(),
+      lookupFieldId: config.lookupFieldId().toString(),
+      isOneWay: config.isOneWay(),
+      symmetricFieldId: config.symmetricFieldId()?.toString(),
+      filterByViewId: config.filterByViewId() === null ? null : config.filterByViewId()?.toString(),
+      visibleFieldIds:
+        config.visibleFieldIds() === null
+          ? null
+          : config.visibleFieldIds()?.map((fieldId) => fieldId.toString()),
+      filter: config.filter() ?? undefined,
+    };
+
+    if (!config.hasDbConfig()) {
+      return LinkFieldConfig.create(baseOptions);
+    }
+
+    return config.fkHostTableNameString().andThen((fkHostTableName) =>
+      config.selfKeyNameString().andThen((selfKeyName) =>
+        config.foreignKeyNameString().andThen((foreignKeyName) =>
+          LinkFieldConfig.create({
+            ...baseOptions,
+            fkHostTableName,
+            selfKeyName,
+            foreignKeyName,
+          })
+        )
+      )
+    );
   }
 
   private static defaultMetaForConfig(

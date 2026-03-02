@@ -63,7 +63,7 @@ const nativeRequire: NodeRequire =
   typeof __non_webpack_require__ !== 'undefined' ? __non_webpack_require__ : require;
 
 const { BatchLogRecordProcessor } = opentelemetry.logs;
-const { PeriodicExportingMetricReader } = opentelemetry.metrics;
+const { PeriodicExportingMetricReader, AggregationType } = opentelemetry.metrics;
 const { AlwaysOnSampler } = opentelemetry.node;
 
 const otelLogger = new Logger('OpenTelemetry');
@@ -159,6 +159,32 @@ const logExporter = logEndpoint
 const metricsExporter = metricsEndpoint
   ? new OTLPMetricExporter(createExporterOptions(metricsEndpoint))
   : undefined;
+
+// Strip high-cardinality resource attributes from metrics only.
+// Traces and logs keep these for debugging; metrics drop them to prevent
+// cardinality explosion in ephemeral containers (each restart = new host.name + pid).
+if (metricsExporter) {
+  const dropFromMetricResource = new Set([
+    'host.name',
+    'host.arch',
+    'os.type',
+    'os.description',
+    'process.pid',
+    'process.command',
+    'process.command_args',
+    'process.command_line',
+    'process.executable.path',
+    'process.owner',
+    'service.instance.id',
+  ]);
+  const origExport = metricsExporter.export.bind(metricsExporter);
+  metricsExporter.export = (metrics, cb) => {
+    const attrs = Object.fromEntries(
+      Object.entries(metrics.resource.attributes).filter(([k]) => !dropFromMetricResource.has(k))
+    );
+    origExport({ ...metrics, resource: resourceFromAttributes(attrs) }, cb);
+  };
+}
 
 // Smart export: deterministic decision based on traceId hash
 // No cache needed - hash function is pure and fast
@@ -263,12 +289,21 @@ const ignorePaths = [
   '/health',
 ];
 
+// Drop old semconv HTTP metrics — new semconv (http.*.request.duration) is used in all dashboards;
+// the old names (http.server.duration, http.client.duration) are pure duplicates with high cardinality.
+const dropAggregation = { type: AggregationType.DROP } as const;
+const metricViews = [
+  { instrumentName: 'http.server.duration', aggregation: dropAggregation },
+  { instrumentName: 'http.client.duration', aggregation: dropAggregation },
+];
+
 const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
   sampler: new AlwaysOnSampler(),
   contextManager: SentryContextManager ? new SentryContextManager() : undefined,
   textMapPropagator: hasSentry ? new SentryPropagator() : undefined,
+  views: metricViews,
   metricReader: metricsExporter
     ? new PeriodicExportingMetricReader({
         exporter: metricsExporter,

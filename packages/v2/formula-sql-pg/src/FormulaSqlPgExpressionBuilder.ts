@@ -33,7 +33,16 @@ import {
 } from './SqlExpression';
 import { mapTimeZoneToPg } from './TimeZonePgMapping';
 
-type DateAddUnit = 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second';
+type DateAddUnit =
+  | 'millisecond'
+  | 'year'
+  | 'quarter'
+  | 'month'
+  | 'week'
+  | 'day'
+  | 'hour'
+  | 'minute'
+  | 'second';
 type DatetimeDiffUnit =
   | 'millisecond'
   | 'second'
@@ -44,9 +53,12 @@ type DatetimeDiffUnit =
   | 'month'
   | 'quarter'
   | 'year';
-type IsSameUnit = 'year' | 'month' | 'day';
+type IsSameUnit = 'year' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second';
 
 export const DATE_ADD_UNIT_ALIASES: Record<string, DateAddUnit> = {
+  millisecond: 'millisecond',
+  milliseconds: 'millisecond',
+  ms: 'millisecond',
   year: 'year',
   years: 'year',
   quarter: 'quarter',
@@ -61,19 +73,36 @@ export const DATE_ADD_UNIT_ALIASES: Record<string, DateAddUnit> = {
   hours: 'hour',
   minute: 'minute',
   minutes: 'minute',
+  min: 'minute',
+  mins: 'minute',
   second: 'second',
   seconds: 'second',
+  s: 'second',
+  sec: 'second',
+  secs: 'second',
+  h: 'hour',
+  hr: 'hour',
+  hrs: 'hour',
 };
 
 export const DATETIME_DIFF_UNIT_ALIASES: Record<string, DatetimeDiffUnit> = {
   millisecond: 'millisecond',
   milliseconds: 'millisecond',
+  ms: 'millisecond',
   second: 'second',
   seconds: 'second',
+  s: 'second',
+  sec: 'second',
+  secs: 'second',
   minute: 'minute',
   minutes: 'minute',
+  min: 'minute',
+  mins: 'minute',
   hour: 'hour',
   hours: 'hour',
+  h: 'hour',
+  hr: 'hour',
+  hrs: 'hour',
   day: 'day',
   days: 'day',
   week: 'week',
@@ -91,8 +120,24 @@ export const IS_SAME_UNIT_ALIASES: Record<string, IsSameUnit> = {
   years: 'year',
   month: 'month',
   months: 'month',
+  week: 'week',
+  weeks: 'week',
   day: 'day',
   days: 'day',
+  hour: 'hour',
+  hours: 'hour',
+  h: 'hour',
+  hr: 'hour',
+  hrs: 'hour',
+  minute: 'minute',
+  minutes: 'minute',
+  min: 'minute',
+  mins: 'minute',
+  second: 'second',
+  seconds: 'second',
+  s: 'second',
+  sec: 'second',
+  secs: 'second',
 };
 
 const JSON_OBJECT_FIELD_TYPES = new Set(['button', 'link']);
@@ -118,6 +163,7 @@ const NON_DATETIME_FIELD_TYPES = new Set([
 ]);
 
 const DATE_ADD_INTERVALS: Record<DateAddUnit, string> = {
+  millisecond: "INTERVAL '1 millisecond'",
   year: "INTERVAL '1 year'",
   quarter: "INTERVAL '3 month'",
   month: "INTERVAL '1 month'",
@@ -928,8 +974,7 @@ export class FormulaSqlPgExpressionBuilder {
       );
     }
     if (expr.storageKind === 'json') {
-      // For known JSON storage fields, use direct cast instead of safeJsonbWithStrategy
-      const jsonbValue = `(${expr.valueSql})::jsonb`;
+      const jsonbValue = `to_jsonb(${expr.valueSql})`;
       const valueSql = this.isStructuredJsonField(expr)
         ? this.buildJsonObjectText(jsonbValue)
         : extractJsonScalarText(jsonbValue);
@@ -1626,6 +1671,11 @@ export class FormulaSqlPgExpressionBuilder {
 
   protected buildDateAddCaseSql(unitSql: string, dateSql: string, countSql: string): string {
     return `(CASE
+      WHEN ${unitSql} IN ('millisecond', 'milliseconds', 'ms') THEN ${this.buildDateAddSql(
+        'millisecond',
+        dateSql,
+        countSql
+      )}
       WHEN ${unitSql} IN ('year', 'years') THEN ${this.buildDateAddSql('year', dateSql, countSql)}
       WHEN ${unitSql} IN ('quarter', 'quarters') THEN ${this.buildDateAddSql(
         'quarter',
@@ -1645,11 +1695,18 @@ export class FormulaSqlPgExpressionBuilder {
         dateSql,
         countSql
       )}
+      WHEN ${unitSql} IN ('min', 'mins') THEN ${this.buildDateAddSql('minute', dateSql, countSql)}
       WHEN ${unitSql} IN ('second', 'seconds') THEN ${this.buildDateAddSql(
         'second',
         dateSql,
         countSql
       )}
+      WHEN ${unitSql} IN ('s', 'sec', 'secs') THEN ${this.buildDateAddSql(
+        'second',
+        dateSql,
+        countSql
+      )}
+      WHEN ${unitSql} IN ('h', 'hr', 'hrs') THEN ${this.buildDateAddSql('hour', dateSql, countSql)}
       ELSE NULL::timestamptz
     END)`;
   }
@@ -1661,17 +1718,22 @@ export class FormulaSqlPgExpressionBuilder {
     diffYears: string
   ): string {
     const sqlByUnit: Record<DatetimeDiffUnit, string> = {
-      millisecond: `TRUNC((${diffSeconds}) * 1000)`,
-      second: `TRUNC((${diffSeconds}))`,
-      minute: `TRUNC((${diffSeconds}) / 60)`,
-      hour: `TRUNC((${diffSeconds}) / 3600)`,
-      day: `TRUNC((${diffSeconds}) / 86400)`,
-      week: `TRUNC((${diffSeconds}) / (86400 * 7))`,
-      month: `TRUNC(${diffMonths})`,
-      quarter: `TRUNC((${diffMonths}) / 3.0)`,
-      year: `TRUNC(${diffYears})`,
+      millisecond: `((${diffSeconds}) * 1000)`,
+      second: `((${diffSeconds}))`,
+      minute: `((${diffSeconds}) / 60)`,
+      hour: `((${diffSeconds}) / 3600)`,
+      day: this.buildDatetimeDiffDaySql(diffSeconds),
+      week: `((${diffSeconds}) / (86400 * 7))`,
+      month: `${diffMonths}`,
+      quarter: `((${diffMonths}) / 3.0)`,
+      year: `${diffYears}`,
     };
     return sqlByUnit[unit];
+  }
+
+  protected buildDatetimeDiffDaySql(diffSeconds: string): string {
+    // Align with v1 behavior for fresh inserts where NOW() and created-time can differ by sub-second jitter.
+    return `(CASE WHEN ABS((${diffSeconds})) < 1 THEN 0::double precision ELSE ((${diffSeconds}) / 86400) END)`;
   }
 
   protected buildDatetimeDiffCaseSql(
@@ -1681,15 +1743,15 @@ export class FormulaSqlPgExpressionBuilder {
     diffYears: string
   ): string {
     return `(CASE
-      WHEN ${unitSql} IN ('millisecond', 'milliseconds') THEN TRUNC((${diffSeconds}) * 1000)
-      WHEN ${unitSql} IN ('second', 'seconds') THEN TRUNC((${diffSeconds}))
-      WHEN ${unitSql} IN ('minute', 'minutes') THEN TRUNC((${diffSeconds}) / 60)
-      WHEN ${unitSql} IN ('hour', 'hours') THEN TRUNC((${diffSeconds}) / 3600)
-      WHEN ${unitSql} IN ('week', 'weeks') THEN TRUNC((${diffSeconds}) / (86400 * 7))
-      WHEN ${unitSql} IN ('month', 'months') THEN TRUNC(${diffMonths})
-      WHEN ${unitSql} IN ('quarter', 'quarters') THEN TRUNC((${diffMonths}) / 3.0)
-      WHEN ${unitSql} IN ('year', 'years') THEN TRUNC(${diffYears})
-      WHEN ${unitSql} IN ('day', 'days') THEN TRUNC((${diffSeconds}) / 86400)
+      WHEN ${unitSql} IN ('millisecond', 'milliseconds', 'ms') THEN ((${diffSeconds}) * 1000)
+      WHEN ${unitSql} IN ('second', 'seconds', 's', 'sec', 'secs') THEN ((${diffSeconds}))
+      WHEN ${unitSql} IN ('minute', 'minutes', 'min', 'mins') THEN ((${diffSeconds}) / 60)
+      WHEN ${unitSql} IN ('hour', 'hours', 'h', 'hr', 'hrs') THEN ((${diffSeconds}) / 3600)
+      WHEN ${unitSql} IN ('week', 'weeks') THEN ((${diffSeconds}) / (86400 * 7))
+      WHEN ${unitSql} IN ('month', 'months') THEN ${diffMonths}
+      WHEN ${unitSql} IN ('quarter', 'quarters') THEN ((${diffMonths}) / 3.0)
+      WHEN ${unitSql} IN ('year', 'years') THEN ${diffYears}
+      WHEN ${unitSql} IN ('day', 'days') THEN ${this.buildDatetimeDiffDaySql(diffSeconds)}
       ELSE NULL::double precision
     END)`;
   }
@@ -1700,7 +1762,11 @@ export class FormulaSqlPgExpressionBuilder {
     const sqlByUnit: Record<IsSameUnit, string> = {
       year: `DATE_TRUNC('year', ${left}) = DATE_TRUNC('year', ${right})`,
       month: `DATE_TRUNC('month', ${left}) = DATE_TRUNC('month', ${right})`,
+      week: `DATE_TRUNC('week', ${left}) = DATE_TRUNC('week', ${right})`,
       day: `DATE_TRUNC('day', ${left}) = DATE_TRUNC('day', ${right})`,
+      hour: `DATE_TRUNC('hour', ${left}) = DATE_TRUNC('hour', ${right})`,
+      minute: `DATE_TRUNC('minute', ${left}) = DATE_TRUNC('minute', ${right})`,
+      second: `DATE_TRUNC('second', ${left}) = DATE_TRUNC('second', ${right})`,
     };
     return sqlByUnit[unit];
   }
@@ -1709,7 +1775,23 @@ export class FormulaSqlPgExpressionBuilder {
     return `(CASE
       WHEN ${unitSql} IN ('year', 'years') THEN ${this.buildIsSameSql('year', leftSql, rightSql)}
       WHEN ${unitSql} IN ('month', 'months') THEN ${this.buildIsSameSql('month', leftSql, rightSql)}
+      WHEN ${unitSql} IN ('week', 'weeks') THEN ${this.buildIsSameSql('week', leftSql, rightSql)}
       WHEN ${unitSql} IN ('day', 'days') THEN ${this.buildIsSameSql('day', leftSql, rightSql)}
+      WHEN ${unitSql} IN ('hour', 'hours', 'h', 'hr', 'hrs') THEN ${this.buildIsSameSql(
+        'hour',
+        leftSql,
+        rightSql
+      )}
+      WHEN ${unitSql} IN ('minute', 'minutes', 'min', 'mins') THEN ${this.buildIsSameSql(
+        'minute',
+        leftSql,
+        rightSql
+      )}
+      WHEN ${unitSql} IN ('second', 'seconds', 's', 'sec', 'secs') THEN ${this.buildIsSameSql(
+        'second',
+        leftSql,
+        rightSql
+      )}
       ELSE NULL
     END)`;
   }
@@ -1738,6 +1820,44 @@ export class FormulaSqlPgExpressionBuilder {
     return `(SELECT ${buildBody(ref)} FROM (SELECT ${valueSql} AS ${column}) AS ${tableAlias})`;
   }
 
+  protected coerceArrayElementToNumber(
+    arrayExpr: SqlExpr,
+    elementRef: string,
+    reason: string
+  ): SqlExpr {
+    const elemExpr = makeExpr(
+      extractJsonScalarText(elementRef),
+      arrayExpr.valueType ?? 'unknown',
+      false,
+      arrayExpr.errorConditionSql,
+      arrayExpr.errorMessageSql,
+      arrayExpr.field
+    );
+
+    // Fast path for numeric arrays (for example lookup<number>) to avoid
+    // generating deeply nested regex guards for every element.
+    if (arrayExpr.valueType === 'number') {
+      const textSql = `(${elemExpr.valueSql})::text`;
+      const castable = this.typeValidation.isValidForType(textSql, 'numeric');
+      const errorCondition = `(${elementRef} IS NOT NULL AND jsonb_typeof(${elementRef}) <> 'null' AND NOT (${castable}))`;
+      const valueSql = `(CASE
+        WHEN ${elementRef} IS NULL OR jsonb_typeof(${elementRef}) = 'null' THEN NULL::double precision
+        WHEN ${castable} THEN (${textSql})::double precision
+        ELSE NULL::double precision
+      END)`;
+      return makeExpr(
+        valueSql,
+        'number',
+        false,
+        errorCondition,
+        buildErrorLiteral('TYPE', 'cannot_cast_to_number'),
+        arrayExpr.field
+      );
+    }
+
+    return this.coerceToNumber(elemExpr, reason);
+  }
+
   protected vectorizeArrayScalar(
     arrayExpr: SqlExpr,
     scalarExpr: SqlExpr,
@@ -1746,14 +1866,7 @@ export class FormulaSqlPgExpressionBuilder {
   ): SqlExpr {
     const normalizedArray = this.normalizeArrayExpr(arrayExpr);
     const scalarNumber = this.coerceToNumber(scalarExpr, reason);
-    const elemExpr = makeExpr(
-      extractJsonScalarText('elem'),
-      'unknown',
-      false,
-      arrayExpr.errorConditionSql,
-      arrayExpr.errorMessageSql
-    );
-    const elementNumber = this.coerceToNumber(elemExpr, reason);
+    const elementNumber = this.coerceArrayElementToNumber(arrayExpr, 'elem', reason);
     const elementErrorCondition = combineErrorConditions([elementNumber, scalarNumber]);
     const elementErrorMessage = buildErrorMessageSql(
       [elementNumber, scalarNumber],
@@ -1782,14 +1895,7 @@ export class FormulaSqlPgExpressionBuilder {
 
   protected vectorizeUnaryNumeric(expr: SqlExpr, op: (valueSql: string) => string): SqlExpr {
     const normalizedArray = this.normalizeArrayExpr(expr);
-    const elemExpr = makeExpr(
-      extractJsonScalarText('elem'),
-      'unknown',
-      false,
-      expr.errorConditionSql,
-      expr.errorMessageSql
-    );
-    const elementNumber = this.coerceToNumber(elemExpr, 'unary');
+    const elementNumber = this.coerceArrayElementToNumber(expr, 'elem', 'unary');
     const elementErrorCondition = elementNumber.errorConditionSql;
     const elementErrorMessage =
       elementNumber.errorMessageSql ?? buildErrorLiteral('TYPE', 'cannot_cast_to_number');

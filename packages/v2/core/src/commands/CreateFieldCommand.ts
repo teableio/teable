@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -14,6 +14,12 @@ export const createFieldInputSchema = z.object({
   baseId: z.string(),
   tableId: z.string(),
   field: tableFieldInputSchema,
+  order: z
+    .object({
+      viewId: z.string(),
+      orderIndex: z.number(),
+    })
+    .optional(),
 });
 
 export type ICreateFieldCommandInput = z.input<typeof createFieldInputSchema>;
@@ -22,7 +28,11 @@ export class CreateFieldCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
-    readonly field: z.output<typeof tableFieldInputSchema>
+    readonly field: z.output<typeof tableFieldInputSchema>,
+    readonly order?: {
+      viewId: string;
+      orderIndex: number;
+    }
   ) {
     super(baseId, tableId);
   }
@@ -47,12 +57,21 @@ export class CreateFieldCommand extends TableUpdateCommand {
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(
-        (tableId) => new CreateFieldCommand(baseId, tableId, parsed.data.field)
+        (tableId) => new CreateFieldCommand(baseId, tableId, parsed.data.field, parsed.data.order)
       )
     );
   }
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    if (this.field.type === 'link') {
+      const baseIdRaw = this.field.options.baseId;
+      return TableId.create(this.field.options.foreignTableId).andThen((foreignTableId) =>
+        baseIdRaw
+          ? BaseId.create(baseIdRaw).map((baseId) => [{ foreignTableId, baseId }])
+          : ok([{ foreignTableId }])
+      );
+    }
+
     return resolveTableFieldInputName(this.field, []).andThen((resolved) =>
       parseTableFieldSpec(resolved, { isPrimary: false }).andThen((spec) =>
         spec.foreignTableReferences()
