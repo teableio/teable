@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { generateOperationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
+import type { IThresholdConfig } from '../../../configs/threshold.config';
+import { ThresholdConfig } from '../../../configs/threshold.config';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
@@ -19,7 +21,8 @@ export class RecordDeleteService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly computedOrchestrator: ComputedOrchestratorService,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async deleteRecord(tableId: string, recordId: string, windowId?: string) {
@@ -29,7 +32,8 @@ export class RecordDeleteService {
 
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
-    const { records: recordsForEvent, orders } = await this.prismaService.$tx(async () => {
+    const { records: recordsForEvent, orders } = await this.prismaService.$tx(
+      async () => {
       // Use a base-table query to ensure link values are derived from junction tables.
       const recordsForEvent = await this.recordService.getRecordsById(
         tableId,
@@ -71,7 +75,9 @@ export class RecordDeleteService {
       });
 
       return { records: recordsForEvent, orders };
-    });
+    },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
 
     this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
       operationId: generateOperationId(),
