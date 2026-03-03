@@ -324,4 +324,211 @@ describe('RecordQueryBuilder (e2e)', () => {
       await deleteField(table.id, selfLink.id);
     }
   });
+
+  it('uses grouped equality plan for array_unique conditional rollups with field references', async () => {
+    const foreign = await createTable(baseId, {
+      name: 'rqb_cond_rollup_unique_src',
+      fields: [
+        { name: 'Student Id', type: FT.SingleLineText } as IFieldRo,
+        { name: 'Subject', type: FT.SingleLineText } as IFieldRo,
+      ],
+    });
+
+    let conditionalRollup: IFieldVo | undefined;
+
+    try {
+      const studentIdField = foreign.fields.find((field) => field.name === 'Student Id')!;
+      const subjectField = foreign.fields.find((field) => field.name === 'Subject')!;
+
+      conditionalRollup = await createField(table.id, {
+        name: 'Cond Rollup Unique',
+        type: FT.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: subjectField.id,
+          expression: 'array_unique({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: studentIdField.id,
+                operator: 'is',
+                value: { type: 'field', fieldId: f1.id },
+              },
+            ],
+          },
+        },
+      } as IFieldRo);
+
+      const { qb, alias } = await rqb.createRecordQueryBuilder(dbTableName, {
+        tableId: table.id,
+        projection: [conditionalRollup.id],
+      });
+      qb.from({ [alias]: 'db_table' });
+
+      const sql = qb.limit(1).toQuery();
+      expect(sql).toContain(`__cr_counts_${conditionalRollup.id}`);
+      expect(sql).toContain('json_agg(DISTINCT');
+      expect(sql).toMatch(/group by/i);
+    } finally {
+      if (conditionalRollup) {
+        await deleteField(table.id, conditionalRollup.id);
+      }
+      await permanentDeleteTable(baseId, foreign.id);
+    }
+  });
+
+  it.each([
+    {
+      nameSuffix: 'counta',
+      expression: 'counta({values})',
+      lookupFieldName: 'Subject',
+      expectedSqlFragment: 'COALESCE(COUNT(',
+      expectedFallbackFragment: '0::double precision',
+    },
+    {
+      nameSuffix: 'and',
+      expression: 'and({values})',
+      lookupFieldName: 'Is Active',
+      expectedSqlFragment: 'BOOL_AND(',
+    },
+    {
+      nameSuffix: 'or',
+      expression: 'or({values})',
+      lookupFieldName: 'Is Active',
+      expectedSqlFragment: 'BOOL_OR(',
+    },
+    {
+      nameSuffix: 'xor',
+      expression: 'xor({values})',
+      lookupFieldName: 'Is Active',
+      expectedSqlFragment: '% 2 = 1',
+    },
+  ])(
+    'uses grouped equality plan for $expression conditional rollups with field references',
+    async ({
+      nameSuffix,
+      expression,
+      lookupFieldName,
+      expectedSqlFragment,
+      expectedFallbackFragment,
+    }) => {
+      const foreign = await createTable(baseId, {
+        name: `rqb_cond_rollup_eq_${nameSuffix}`,
+        fields: [
+          { name: 'Student Id', type: FT.SingleLineText } as IFieldRo,
+          { name: 'Subject', type: FT.SingleLineText } as IFieldRo,
+          { name: 'Is Active', type: FT.Checkbox } as IFieldRo,
+        ],
+      });
+
+      let conditionalRollup: IFieldVo | undefined;
+
+      try {
+        const studentIdField = foreign.fields.find((field) => field.name === 'Student Id')!;
+        const lookupField = foreign.fields.find((field) => field.name === lookupFieldName)!;
+
+        conditionalRollup = await createField(table.id, {
+          name: `Cond Rollup ${expression}`,
+          type: FT.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: lookupField.id,
+            expression,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: studentIdField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: f1.id },
+                },
+              ],
+            },
+          },
+        } as IFieldRo);
+
+        const { qb, alias } = await rqb.createRecordQueryBuilder(dbTableName, {
+          tableId: table.id,
+          projection: [conditionalRollup.id],
+        });
+        qb.from({ [alias]: 'db_table' });
+
+        const sql = qb.limit(1).toQuery();
+        expect(sql).toContain(`__cr_counts_${conditionalRollup.id}`);
+        expect(sql).toContain(expectedSqlFragment);
+        if (expectedFallbackFragment) {
+          expect(sql).toContain(expectedFallbackFragment);
+        }
+      } finally {
+        if (conditionalRollup) {
+          await deleteField(table.id, conditionalRollup.id);
+        }
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    }
+  );
+
+  it('uses equality join for conditional lookup filters referencing user fields', async () => {
+    const foreign = await createTable(baseId, {
+      name: 'rqb_cond_lookup_user_src',
+      fields: [
+        { name: 'Owner', type: FT.User } as IFieldRo,
+        { name: 'Tutor', type: FT.User } as IFieldRo,
+      ],
+    });
+
+    let hostAssignee: IFieldVo | undefined;
+    let conditionalLookup: IFieldVo | undefined;
+
+    try {
+      const ownerField = foreign.fields.find((field) => field.name === 'Owner')!;
+      const tutorField = foreign.fields.find((field) => field.name === 'Tutor')!;
+
+      hostAssignee = await createField(table.id, {
+        name: 'Host Assignee',
+        type: FT.User,
+      } as IFieldRo);
+
+      conditionalLookup = await createField(table.id, {
+        name: 'Cond Lookup Tutor',
+        type: FT.User,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: tutorField.id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: ownerField.id,
+                operator: 'is',
+                value: { type: 'field', fieldId: hostAssignee.id },
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      const { qb, alias } = await rqb.createRecordQueryBuilder(dbTableName, {
+        tableId: table.id,
+        projection: [conditionalLookup.id],
+      });
+      qb.from({ [alias]: 'db_table' });
+
+      const sql = qb.limit(1).toQuery();
+      expect(sql).toContain(`__cl_${conditionalLookup.id}`);
+      expect(sql).toContain('ROW_NUMBER() OVER (PARTITION BY');
+      expect(sql).toContain('jsonb_extract_path_text');
+    } finally {
+      if (conditionalLookup) {
+        await deleteField(table.id, conditionalLookup.id);
+      }
+      if (hostAssignee) {
+        await deleteField(table.id, hostAssignee.id);
+      }
+      await permanentDeleteTable(baseId, foreign.id);
+    }
+  });
 });

@@ -870,6 +870,10 @@
           "insufficientCredit": {
             "title": "L'automatisation {{name}} a échoué en raison d'un crédit insuffisant",
             "message": "Votre automatisation {{name}} n'a pas pu s'exécuter en raison d'un crédit insuffisant. Veuillez mettre à niveau votre abonnement ou contacter le support."
+          },
+          "runQuotaExceeded": {
+            "title": "L'automatisation {{name}} a atteint le nombre maximal d'exécutions mensuelles",
+            "message": "Le quota mensuel d'exécutions de l'automatisation {{name}} est épuisé. L'exécution est temporairement indisponible. Veuillez mettre à niveau votre abonnement ou acheter des exécutions supplémentaires."
           }
         },
         "exportBase": {
