@@ -267,6 +267,9 @@ export class LinkService {
     // Update link cell values for symmetric field of the foreign table
     if (toDelete.length) {
       toDelete.forEach((foreignRecordId) => {
+        if (!foreignRecordMap[foreignRecordId]) {
+          return;
+        }
         const foreignCellValue = foreignRecordMap[foreignRecordId][symmetricFieldId] as
           | ILinkCellValue[]
           | ILinkCellValue
@@ -344,6 +347,9 @@ export class LinkService {
     // Update link cell values for symmetric field of the foreign table
     if (oldKey?.length) {
       oldKey.forEach((foreignRecordId) => {
+        if (!foreignRecordMap[foreignRecordId]) {
+          return;
+        }
         const foreignCellValue = foreignRecordMap[foreignRecordId][symmetricFieldId] as
           | ILinkCellValue[]
           | ILinkCellValue
@@ -423,6 +429,9 @@ export class LinkService {
 
     if (toDelete.length) {
       toDelete.forEach((foreignRecordId) => {
+        if (!foreignRecordMap[foreignRecordId]) {
+          return;
+        }
         foreignRecordMap[foreignRecordId][symmetricFieldId] = null;
       });
     }
@@ -433,6 +442,9 @@ export class LinkService {
       const sourceRecordTitle = this.extractLinkTitle(lookupValue, sourceLookupField);
 
       toAdd.forEach((foreignRecordId) => {
+        if (!foreignRecordMap[foreignRecordId]) {
+          return;
+        }
         foreignRecordMap[foreignRecordId][symmetricFieldId] = {
           id: recordId,
           title: sourceRecordTitle,
@@ -465,6 +477,9 @@ export class LinkService {
 
     if (oldKey?.length) {
       oldKey.forEach((foreignRecordId) => {
+        if (!foreignRecordMap[foreignRecordId]) {
+          return;
+        }
         foreignRecordMap[foreignRecordId][symmetricFieldId] = null;
       });
     }
@@ -474,10 +489,12 @@ export class LinkService {
         sourceLookedFieldId != null ? sourceRecordMap[recordId]?.[sourceLookedFieldId] : undefined;
       const sourceRecordTitle = this.extractLinkTitle(lookupValue, sourceLookupField);
 
-      foreignRecordMap[newKey][symmetricFieldId] = {
-        id: recordId,
-        title: sourceRecordTitle,
-      };
+      if (foreignRecordMap[newKey]) {
+        foreignRecordMap[newKey][symmetricFieldId] = {
+          id: recordId,
+          title: sourceRecordTitle,
+        };
+      }
     }
   }
 
