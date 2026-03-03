@@ -1162,12 +1162,16 @@
         "automation": {
           "title": "Automation notification",
           "failed": {
-            "title": "Automation {{name}} failed",
-            "message": "Your Automation {{name}} has failed to run. Click the button below to view specific errors from the run history."
+            "title": "Automation {{name}} run failed",
+            "message": "Your automation {{name}} encountered an execution error. Open run history to view details."
           },
           "insufficientCredit": {
-            "title": "Automation {{name}} failed due to insufficient credit",
-            "message": "Your Automation {{name}} has failed to run due to insufficient credit. please upgrade subscription or contact support."
+            "title": "Automation {{name}} run failed due to insufficient AI credits",
+            "message": "Your automation {{name}} failed because AI credits are insufficient. Please add credits or upgrade your plan."
+          },
+          "runQuotaExceeded": {
+            "title": "Automation {{name}} run failed due to run quota limit",
+            "message": "Your automation {{name}} reached the monthly automation run quota. Please upgrade your plan or purchase additional automation runs."
           }
         },
         "exportBase": {
