@@ -1378,6 +1378,10 @@ export type I18nTranslations = {
                             "title": string;
                             "message": string;
                         };
+                        "runQuotaExceeded": {
+                            "title": string;
+                            "message": string;
+                        };
                     };
                     "exportBase": {
                         "title": string;
@@ -2822,6 +2826,7 @@ export type I18nTranslations = {
                 "nodeNotFound": string;
                 "triggerTestFailed": string;
                 "testFailed": string;
+                "runFailed": string;
                 "nodeParseError": string;
                 "nodeNeedTest": string;
                 "nodeTestOutdated": string;
@@ -3075,6 +3080,7 @@ export type I18nTranslations = {
             "billing": {
                 "insufficientCredit": string;
                 "exceedMaxRowLimit": string;
+                "exceedMaxAutomationRunLimit": string;
             };
             "aggregation": {
                 "searchQueryRequired": string;
