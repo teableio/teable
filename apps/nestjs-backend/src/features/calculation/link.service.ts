@@ -1197,6 +1197,14 @@ export class LinkService {
       }
     }
 
+    // Lock affected foreign records to prevent concurrent modifications
+    const affectedForeignIds = uniq([
+      ...toDelete.map(([, foreignId]) => foreignId),
+      ...toAdd.map(([, foreignId]) => foreignId),
+      ...toDeleteAndReinsert.flatMap(([, newKeys]) => newKeys),
+    ]);
+    await this.lockForeignRecords(field.options.foreignTableId, affectedForeignIds);
+
     // Handle order changes: delete all existing records for affected recordIds and re-insert
     if (toDeleteAndReinsert.length) {
       const recordIdsToDeleteAll = toDeleteAndReinsert.map(([recordId]) => recordId);
@@ -1429,9 +1437,19 @@ export class LinkService {
     const { selfKeyName, foreignKeyName, fkHostTableName, isOneWay } = field.options;
 
     if (isOneWay) {
-      this.saveForeignKeyForManyMany(field, fkMap);
+      await this.saveForeignKeyForManyMany(field, fkMap);
       return;
     }
+
+    // Lock affected foreign records to prevent concurrent modifications
+    const allForeignIds: string[] = [];
+    for (const recordId in fkMap) {
+      const fkItem = fkMap[recordId];
+      const oldKey = (fkItem.oldKey || []) as string[];
+      const newKey = (fkItem.newKey || []) as string[];
+      allForeignIds.push(...oldKey, ...newKey);
+    }
+    await this.lockForeignRecords(field.options.foreignTableId, uniq(allForeignIds));
 
     // Process each record individually to maintain order
     for (const recordId in fkMap) {
@@ -1588,6 +1606,12 @@ export class LinkService {
         oldKey && oldKey.forEach((key) => toDelete.push([recordId, key]));
         newKey && toAdd.push([recordId, newKey]);
       }
+
+      // Lock affected foreign records to prevent concurrent modifications
+      const affectedForeignIds = uniq(
+        toDelete.map(([, foreignId]) => foreignId).concat(toAdd.map(([, foreignId]) => foreignId))
+      );
+      await this.lockForeignRecords(field.options.foreignTableId, affectedForeignIds);
 
       if (toDelete.length) {
         const updateFields: Record<string, null> = { [selfKeyName]: null };
