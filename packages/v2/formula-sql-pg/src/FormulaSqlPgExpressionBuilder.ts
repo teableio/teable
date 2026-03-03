@@ -98,6 +98,7 @@ export const DATETIME_DIFF_UNIT_ALIASES: Record<string, DatetimeDiffUnit> = {
   minutes: 'minute',
   min: 'minute',
   mins: 'minute',
+  m: 'minute',
   hour: 'hour',
   hours: 'hour',
   h: 'hour',
@@ -1745,7 +1746,7 @@ export class FormulaSqlPgExpressionBuilder {
     return `(CASE
       WHEN ${unitSql} IN ('millisecond', 'milliseconds', 'ms') THEN ((${diffSeconds}) * 1000)
       WHEN ${unitSql} IN ('second', 'seconds', 's', 'sec', 'secs') THEN ((${diffSeconds}))
-      WHEN ${unitSql} IN ('minute', 'minutes', 'min', 'mins') THEN ((${diffSeconds}) / 60)
+      WHEN ${unitSql} IN ('minute', 'minutes', 'min', 'mins', 'm') THEN ((${diffSeconds}) / 60)
       WHEN ${unitSql} IN ('hour', 'hours', 'h', 'hr', 'hrs') THEN ((${diffSeconds}) / 3600)
       WHEN ${unitSql} IN ('week', 'weeks') THEN ((${diffSeconds}) / (86400 * 7))
       WHEN ${unitSql} IN ('month', 'months') THEN ${diffMonths}

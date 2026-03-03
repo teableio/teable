@@ -10,6 +10,7 @@ export enum UsageFeature {
   NumDatabaseConnections = 'numDatabaseConnections',
   NumCollaborators = 'numCollaborators',
   NumAutomationSendEmail = 'numAutomationSendEmail',
+  NumAutomationRuns = 'numAutomationRuns',
 }
 
 export const usageFeatureSchema = z.object({
@@ -18,11 +19,13 @@ export const usageFeatureSchema = z.object({
   [UsageFeature.NumDatabaseConnections]: z.number(),
   [UsageFeature.NumCollaborators]: z.number(),
   [UsageFeature.NumAutomationSendEmail]: z.number(),
+  [UsageFeature.NumAutomationRuns]: z.number(),
 });
 
 export enum UsageFeatureLimit {
   MaxRows = 'maxRows',
   MaxSizeAttachments = 'maxSizeAttachments',
+  MaxNumAutomationRuns = 'maxNumAutomationRuns',
   MaxNumDatabaseConnections = 'maxNumDatabaseConnections',
   MaxRevisionHistoryDays = 'maxRevisionHistoryDays',
   MaxAutomationHistoryDays = 'maxAutomationHistoryDays',
@@ -49,6 +52,7 @@ export enum UsageFeatureLimit {
 export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.MaxRows]: z.number(),
   [UsageFeatureLimit.MaxSizeAttachments]: z.number(),
+  [UsageFeatureLimit.MaxNumAutomationRuns]: z.number(),
   [UsageFeatureLimit.MaxNumDatabaseConnections]: z.number(),
   [UsageFeatureLimit.MaxRevisionHistoryDays]: z.number(),
   [UsageFeatureLimit.MaxAutomationHistoryDays]: z.number(),
