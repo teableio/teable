@@ -28,7 +28,7 @@ export const SortConfig = (props: ISortConfigProps) => {
 
       {value && (
         <div className="flex items-center justify-between">
-          <Button size="xs" disabled={buttonLoading} className="ml-2 h-6 text-xs" onClick={onClick}>
+          <Button size="xs" disabled={buttonLoading} className="ml-2 h-6" onClick={onClick}>
             {buttonLoading ? <Spin className="mr-1 size-4" /> : null}
             {t('sort.label')}
           </Button>

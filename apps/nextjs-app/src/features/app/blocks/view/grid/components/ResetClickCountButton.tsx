@@ -98,11 +98,11 @@ export const ResetClickCountButton = forwardRef<
     <div className="absolute z-50" style={style}>
       <Button
         variant="outline"
-        size="sm"
+        size="icon-sm"
         className="disabled:opacity-100"
         onClick={resetClickCount}
       >
-        <RotateCcwIcon className="size-4" />
+        <RotateCcwIcon className="size-4 shrink-0" />
       </Button>
     </div>
   );

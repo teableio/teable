@@ -38,6 +38,10 @@ describe('DATETIME_DIFF parity', () => {
         name: 'DiffSubSecondNegativeDay',
         expression: 'DATETIME_DIFF("2024-01-01T00:00:00.000Z", "2024-01-01T00:00:00.500Z", "day")',
       },
+      {
+        name: 'DiffMinuteShorthand',
+        expression: 'DATETIME_DIFF("2024-01-01T01:30:00.000Z", "2024-01-01T00:00:00.000Z", "m")',
+      },
     ]);
   });
 
@@ -71,5 +75,12 @@ describe('DATETIME_DIFF parity', () => {
 
     expect(parseNumericResult(positiveContext.result)).toBeCloseTo(0, 10);
     expect(parseNumericResult(negativeContext.result)).toBeCloseTo(0, 10);
+  });
+
+  it('supports minute shorthand unit "m"', async () => {
+    const context = await buildFormulaSnapshotContext(testTable, 'DiffMinuteShorthand');
+
+    expect(context.sql).toContain('/ 60');
+    expect(parseNumericResult(context.result)).toBeCloseTo(90, 10);
   });
 });

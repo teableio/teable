@@ -93,7 +93,7 @@ export const LastModifiedTimeOptions = ({ options = {}, onChange }: IProps) => {
             onSelect={addField}
             placeholder={t('field.editor.lastModifiedSelect')}
           >
-            <Button variant="outline" className="h-9 w-full justify-between px-3">
+            <Button variant="outline" className="w-full justify-between px-3">
               <span className="truncate text-sm font-normal">
                 {t('field.editor.lastModifiedSelect')}
               </span>
