@@ -306,7 +306,7 @@ model Attachments {
   id             String    @id @default(cuid())
   token          String    @unique
   hash           String
-  size           Int
+  size           BigInt
   mimetype       String
   path           String
   width          Int?

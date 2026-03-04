@@ -42,6 +42,8 @@ export interface ICacheStore {
     fieldNames: string[];
     maxWidth: number;
   };
+  // trash cleanup: per-item backoff after failed cleanup attempts
+  [key: `trash-cleanup:skipped:${string}`]: { attempts: number; retryAfter: number };
 }
 
 export interface IAttachmentSignatureCache {

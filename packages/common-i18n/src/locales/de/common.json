@@ -865,6 +865,10 @@
           "insufficientCredit": {
             "title": "Automatisierung {{name}} aufgrund unzureichenden Guthabens fehlgeschlagen",
             "message": "Ihre Automatisierung {{name}} konnte aufgrund unzureichenden Guthabens nicht ausgeführt werden. Bitte aktualisieren Sie Ihr Abonnement oder kontaktieren Sie den Support."
+          },
+          "runQuotaExceeded": {
+            "title": "Automatisierung {{name}} hat die maximale monatliche Ausführungsanzahl erreicht",
+            "message": "Die monatlichen Ausführungen für Automatisierung {{name}} sind aufgebraucht. Die Ausführung ist vorübergehend nicht möglich. Bitte upgraden Sie Ihr Abonnement oder kaufen Sie zusätzliche Ausführungen."
           }
         },
         "exportBase": {

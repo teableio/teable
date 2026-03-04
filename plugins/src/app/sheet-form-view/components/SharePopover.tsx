@@ -136,8 +136,8 @@ export const SharePopover: React.FC<{
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button size="xs" variant="outline">
-                    <Qrcode />
+                  <Button size="icon-xs" variant="outline">
+                    <Qrcode className="size-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="size-48 bg-white p-2">
@@ -148,8 +148,8 @@ export const SharePopover: React.FC<{
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size={'xs'} variant={'outline'} onClick={() => view.setRefreshLink()}>
-                      <RefreshCcw />
+                    <Button size={'icon-xs'} variant={'outline'} onClick={() => view.setRefreshLink()}>
+                      <RefreshCcw className="size-4 shrink-0" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>

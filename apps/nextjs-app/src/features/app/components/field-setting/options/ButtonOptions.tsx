@@ -111,8 +111,8 @@ const ConfirmEditor = (props: {
                 onSelect={(fieldId) => onFieldSelect(fieldId, titleEditorViewRef)}
                 modal
               >
-                <Button variant="ghost" size="xs">
-                  <Plus className="size-4" />
+                <Button variant="ghost" size="icon-xs">
+                  <Plus className="size-4 shrink-0" />
                 </Button>
               </FieldSelector>
             </div>
@@ -136,8 +136,8 @@ const ConfirmEditor = (props: {
                 onSelect={(fieldId) => onFieldSelect(fieldId, descEditorViewRef)}
                 modal
               >
-                <Button variant="ghost" size="xs">
-                  <Plus className="size-4" />
+                <Button variant="ghost" size="icon-xs">
+                  <Plus className="size-4 shrink-0" />
                 </Button>
               </FieldSelector>
             </div>
