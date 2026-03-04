@@ -28,15 +28,15 @@ export const InviteLinkItem = (props: {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 overflow-hidden">
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm">{url}</div>
         <div className="text-xs text-muted-foreground">
           {dayjs(createdTime).format('YYYY-MM-DD')}
         </div>
       </div>
-      {children}
-      <div className="flex items-center gap-0">
+      <div className="shrink-0">{children}</div>
+      <div className="flex shrink-0 items-center gap-0">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

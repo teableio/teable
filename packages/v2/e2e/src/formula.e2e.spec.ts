@@ -8033,6 +8033,84 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
+     * Scenario:DATETIME_DIFF minute shorthand unit
+     * Formula:DATETIME_DIFF("2024-01-01T01:30:00.000Z", "2024-01-01T00:00:00.000Z", "m")
+     * Expect: shorthand "m" resolves to minute and returns 90
+     */
+    it('should get datetime diff in minutes with shorthand unit - DATETIME_DIFF(..., "m")', async () => {
+      const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('DATETIME_DIFF Minute Shorthand Test'),
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+
+      const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'DiffMinutesShorthand',
+            options: {
+              expression:
+                'DATETIME_DIFF("2024-01-01T01:30:00.000Z", "2024-01-01T00:00:00.000Z", "m")',
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'DiffMinutesShorthand')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            Name: 'seed',
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const diffValue = record.fields[formulaFieldId];
+      expect(typeof diffValue).toBe('number');
+      if (typeof diffValue !== 'number') return;
+      expect(diffValue).toBeCloseTo(90, 6);
+    });
+
+    /**
      * Scenario:DATETIME_DIFF default unit
      * Formula:DATETIME_DIFF({date1}, {date2})
      * Expect: defaults to day unit and keeps sign when end precedes start

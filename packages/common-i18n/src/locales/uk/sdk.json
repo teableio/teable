@@ -410,6 +410,7 @@
       "appUpdate": "Оновити додаток",
       "userProfileRead": "Читати поточний профіль користувача",
       "userEmailRead": "Прочитати електронну адресу поточного користувача",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Читати історію записів",
       "baseQuery": "База запитів",
       "instanceRead": "Прочитати екземпляр",
@@ -963,6 +964,7 @@
       "nodeNotFound": "{{nodeId}} вузол не знайдено",
       "triggerTestFailed": "Тест тригера провалився, будь ласка, перевірте конфігурацію тригера",
       "testFailed": "Тест автоматизації не пройшов, перевірте конфігурацію автоматизації",
+      "runFailed": "Виконання автоматизації не вдалося",
       "nodeParseError": "{{name}} конфігурація вузла неповна або містить помилки, будь ласка, перевірте конфігурацію вузла",
       "nodeNeedTest": "{{name}} вузол потребує тестування",
       "nodeTestOutdated": "{{name}} тест вузла застарів",
@@ -1209,7 +1211,8 @@
     },
     "billing": {
       "insufficientCredit": "Недостатньо коштів",
-      "exceedMaxRowLimit": "Перевищено максимальний ліміт рядків {{maxRowCount}}"
+      "exceedMaxRowLimit": "Перевищено максимальний ліміт рядків {{maxRowCount}}",
+      "exceedMaxAutomationRunLimit": "Досягнуто максимального місячного ліміту запусків автоматизації"
     },
     "aggregation": {
       "searchQueryRequired": "Пошуковий запит є обов'язковим",

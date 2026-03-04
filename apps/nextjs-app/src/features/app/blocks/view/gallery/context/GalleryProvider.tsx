@@ -7,6 +7,7 @@ import {
   useFields,
   useTablePermission,
   usePersonalView,
+  useButtonClickStatus,
 } from '@teable/sdk/hooks';
 import type { AttachmentField, GalleryView, IFieldInstance } from '@teable/sdk/model';
 import { useRouter } from 'next/router';
@@ -24,6 +25,7 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   const allFields = useFields({ withHidden: true, withDenied: true });
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
   const [expandRecordId, setExpandRecordId] = useState<string>();
+  const buttonClickStatusHook = useButtonClickStatus(tableId!, shareId);
   const router = useRouter();
   const {
     recordId: routerRecordId,
@@ -139,6 +141,7 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
           recordId={expandRecordId}
           recordIds={expandRecordId ? [expandRecordId] : []}
           onClose={onClose}
+          buttonClickStatusHook={buttonClickStatusHook}
           showHistory={showHistory}
           showComment={showComment}
         />
