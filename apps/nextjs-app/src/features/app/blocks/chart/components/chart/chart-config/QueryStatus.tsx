@@ -40,11 +40,11 @@ export const QueryStatus = () => {
       <Button
         title={t('reloadQuery')}
         className="h-auto p-0 pt-0.5"
-        size={'xs'}
+        size={'icon-xs'}
         variant="link"
         onClick={refreshQuery}
       >
-        <RefreshCcw />
+        <RefreshCcw className="size-4 shrink-0" />
       </Button>
     </div>
   );

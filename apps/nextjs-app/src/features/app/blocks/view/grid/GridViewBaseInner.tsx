@@ -148,7 +148,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const usage = useBaseUsage();
   const allFields = useFields({ withHidden: true });
   const taskStatusCollection = useContext(TaskStatusCollectionContext);
-  const buttonClickStatusHook = useButtonClickStatus(tableId);
+  const { shareId } = useShareContext();
+  const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -184,7 +185,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const columnHeaderHeight =
     GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
   const permission = useTablePermission();
-  const { shareId } = useShareContext();
+
   const shareAllowCopy = useShareAllowCopy();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = permission['field|update'];

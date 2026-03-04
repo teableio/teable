@@ -55,10 +55,10 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
   const collapsedTrigger = (
     <Button
       variant="ghost"
-      size="xs"
+      size="icon-xs"
       className="shrink-0 truncate font-normal @md/view-header:hidden"
     >
-      <MoreHorizontal className="size-4" />
+      <MoreHorizontal className="size-4 shrink-0" />
     </Button>
   );
 
@@ -181,7 +181,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
               <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
             </Button>
           </ShareBasePopover>
-          <Button asChild variant="ghost" className="w-7 p-0" size="xs">
+          <Button asChild variant="ghost" size="icon-xs">
             <Link
               href={t('help.mainLink')}
               title={t('help.title')}
@@ -196,7 +196,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
             resourceId={tableId}
             onRename={() => setIsEditing?.(true)}
           >
-            <Button className="w-7 p-0" variant="ghost" size="xs">
+            <Button variant="ghost" size="icon-xs">
               <MoreHorizontal className="size-4" />
             </Button>
           </BaseNodeMore>

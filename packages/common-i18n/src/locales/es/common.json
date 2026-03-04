@@ -868,6 +868,10 @@
           "insufficientCredit": {
             "title": "La automatización {{name}} falló por crédito insuficiente",
             "message": "Tu automatización {{name}} no se pudo ejecutar por crédito insuficiente. Por favor actualiza la suscripción o contacta con soporte."
+          },
+          "runQuotaExceeded": {
+            "title": "La automatización {{name}} alcanzó el máximo mensual de ejecuciones",
+            "message": "Las ejecuciones mensuales de la automatización {{name}} se han agotado y no puede ejecutarse temporalmente. Actualiza tu suscripción o compra ejecuciones adicionales."
           }
         },
         "exportBase": {

@@ -21,6 +21,7 @@ import {
   useBaseId,
   usePersonalView,
   useIsReadOnlyPreview,
+  useButtonClickStatus,
 } from '@teable/sdk/hooks';
 import type { KanbanView, IFieldInstance, AttachmentField } from '@teable/sdk/model';
 import { useRouter } from 'next/router';
@@ -49,6 +50,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     view?.options ?? {};
   const fieldPermission = useFieldPermission();
   const [expandRecordId, setExpandRecordId] = useState<string>();
+  const buttonClickStatusHook = useButtonClickStatus(tableId!, shareId);
   const groupPoints = useGroupPoint();
   const router = useRouter();
   const {
@@ -306,6 +308,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
           recordId={expandRecordId}
           recordIds={expandRecordId ? [expandRecordId] : []}
           onClose={onClose}
+          buttonClickStatusHook={buttonClickStatusHook}
           showHistory={showHistory}
           showComment={showComment}
         />

@@ -1163,11 +1163,15 @@
           "title": "自动化通知",
           "failed": {
             "title": "自动化 {{name}} 运行失败",
-            "message": "自动化 {{name}} 运行失败。点击下面的按钮查看具体错误。"
+            "message": "自动化 {{name}} 执行时发生错误，请前往运行历史查看详情。"
           },
           "insufficientCredit": {
-            "title": "自动化 {{name}} 运行失败，由于算力不足",
-            "message": "自动化 {{name}} 运行失败，由于算力不足。请升级订阅或联系支持。"
+            "title": "自动化 {{name}} 运行失败（AI 算力不足）",
+            "message": "自动化 {{name}} 运行失败，原因是 AI 算力不足。请补充算力或升级订阅。"
+          },
+          "runQuotaExceeded": {
+            "title": "自动化 {{name}} 已触及每月最大运行次数",
+            "message": "自动化 {{name}} 本月可运行次数已用完，暂时无法继续运行。请升级订阅或购买额外运行次数。"
           }
         },
         "exportBase": {

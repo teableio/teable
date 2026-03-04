@@ -23,8 +23,8 @@ export const Integration = () => {
             <NewIntegration>
               <Button
                 variant="outline"
-                size="xs"
-                className="justify-start gap-2 px-2 text-sm font-normal text-foreground"
+                size="sm"
+                className="justify-start gap-2 text-sm font-normal text-foreground"
               >
                 <Plus className="size-4" />
                 {t('settings.integration.userIntegration.create')}

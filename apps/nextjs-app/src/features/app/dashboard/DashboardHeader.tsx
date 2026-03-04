@@ -119,8 +119,8 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
             resourceId={dashboardId}
             onRename={startRename}
           >
-            <Button size="icon" variant="outline" className="size-7">
-              <MoreHorizontal className="size-3.5" />
+            <Button size="icon-xs" variant="outline">
+              <MoreHorizontal className="size-4" />
             </Button>
           </BaseNodeMore>
         )}

@@ -576,7 +576,7 @@ function PlaygroundTablesCard({ baseId, tables, searchValue }: PlaygroundTablesC
                 <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
                   {table.fields.length} fields
                 </Badge>
-                <Button variant="outline" size="sm" className="h-8" asChild>
+                <Button variant="outline" size="sm" asChild>
                   <Link
                     to={env.routes.table}
                     params={{ baseId, tableId: table.id }}

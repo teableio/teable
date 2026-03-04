@@ -49,8 +49,8 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
           {config.measure && config.measure.column && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button size="xs" variant={'outline'}>
-                  <Settings />
+                <Button size="icon-xs" variant={'outline'}>
+                  <Settings className="size-4 shrink-0" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="space-y-4">
