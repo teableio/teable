@@ -51,8 +51,8 @@ export const CallbackEditor = (props: ICallbackEditorProps) => {
             value={callbackURL}
             onChange={(e) => updateCallbackURL(index, e.target.value)}
           />
-          <Button variant={'destructive'} size={'xs'} onClick={() => deleteCallbackURL(index)}>
-            <Trash2 />
+          <Button variant={'destructive'} size={'icon-xs'} onClick={() => deleteCallbackURL(index)}>
+            <Trash2 className="size-4 shrink-0" />
           </Button>
         </div>
       ))}

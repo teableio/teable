@@ -9,7 +9,7 @@ export const CheckboxEditor = (props: ICheckboxEditor) => {
   return (
     <Checkbox
       style={style}
-      className={cn('w-6 h-6', className)}
+      className={cn('size-5', className)}
       checked={Boolean(value)}
       onCheckedChange={(checked) => {
         onChange?.(checked ? true : null);

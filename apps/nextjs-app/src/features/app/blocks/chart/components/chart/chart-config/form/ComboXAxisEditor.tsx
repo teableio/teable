@@ -51,8 +51,8 @@ export const ComboXAxisEditor = (props: {
         <XAxisDisplayEditor value={displayValue} onChange={onChangeDisplay} />
       )}
       {!hiddenDelete && (
-        <Button size="xs" variant="outline" onClick={onDelete}>
-          <X />
+        <Button size="icon-xs" variant="outline" onClick={onDelete}>
+          <X className="size-4 shrink-0" />
         </Button>
       )}
     </div>
@@ -69,8 +69,8 @@ export const XAxisDisplayEditor = (props: {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button className={className} size="xs" variant={'outline'}>
-          <Settings />
+        <Button className={className} size="icon-xs" variant={'outline'}>
+          <Settings className="size-4 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="max-h-64 space-y-4 overflow-auto">

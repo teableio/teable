@@ -564,3 +564,22 @@ const buildLinkedRecordLocksFromLinkChanges = (
 
   return locks;
 };
+
+/**
+ * Collect linked record advisory locks for a single record update mutate spec.
+ * This is shared by single-update and batch-update builders to keep lock behavior consistent.
+ */
+export const collectLinkedRecordLocksForUpdate = async (params: {
+  db: Kysely<DynamicDB>;
+  table: Table;
+  tableName: string;
+  recordId: string;
+  mutateSpec: ICellValueSpec;
+}): Promise<Result<LinkedRecordLockInfo[], DomainError>> => {
+  const linkChangesResult = await collectLinkChanges(params);
+  if (linkChangesResult.isErr()) {
+    return err(linkChangesResult.error);
+  }
+
+  return ok(buildLinkedRecordLocksFromLinkChanges(linkChangesResult.value.linkChanges));
+};

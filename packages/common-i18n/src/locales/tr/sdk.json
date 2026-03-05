@@ -410,6 +410,7 @@
       "appUpdate": "Uygulama güncelle",
       "userProfileRead": "Read current user profile",
       "userEmailRead": "Kullanıcı e-postası oku",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Kayıt geçmişi oku",
       "baseQuery": "Veritabanı sorgula",
       "instanceRead": "Örnek oku",
@@ -963,6 +964,7 @@
       "nodeNotFound": "{{nodeId}} düğümü bulunamadı",
       "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
       "testFailed": "Otomasyon testi başarısız, otomasyon yapılandırmasını kontrol edin",
+      "runFailed": "Otomasyon çalıştırması başarısız oldu",
       "nodeParseError": "{{name}} düğüm yapılandırması eksik veya hatalı, lütfen düğüm yapılandırmasını kontrol edin",
       "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
       "nodeTestOutdated": "{{name}} düğüm testi güncel değil",
@@ -1209,7 +1211,8 @@
     },
     "billing": {
       "insufficientCredit": "Yetersiz kredi",
-      "exceedMaxRowLimit": "Maksimum satır sınırı {{maxRowCount}} aşıldı"
+      "exceedMaxRowLimit": "Maksimum satır sınırı {{maxRowCount}} aşıldı",
+      "exceedMaxAutomationRunLimit": "Aylık maksimum otomasyon çalıştırma sayısına ulaşıldı"
     },
     "aggregation": {
       "searchQueryRequired": "Arama sorgusu gereklidir",

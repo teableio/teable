@@ -45,7 +45,7 @@ export const RatingEditor: FC<IRatingEditor> = (props) => {
           <Icon
             key={index}
             className={cn(
-              'w-6 h-6 mr-2 rounded cursor-pointer text-slate-200 fill-slate-200 dark:text-gray-700 dark:fill-gray-700',
+              'w-6 h-6 mr-2 rounded cursor-pointer text-zinc-200 fill-zinc-200 dark:text-zinc-700 dark:fill-zinc-700',
               iconClassName
             )}
             style={style}

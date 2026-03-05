@@ -410,6 +410,7 @@
       "appUpdate": "アプリを更新",
       "userProfileRead": "ユーザーのプロフィールの読み取り",
       "userEmailRead": "ユーザーメールの読み取り",
+      "userIntegrations": "ユーザー統合の管理",
       "recordHistoryRead": "レコード履歴の読み取り",
       "baseQuery": "クエリベース",
       "instanceRead": "インスタンスの読み取り",
@@ -963,6 +964,7 @@
       "nodeNotFound": "{{nodeId}} ノードが見つかりません",
       "triggerTestFailed": "トリガーテストが失敗しました。トリガーの設定を確認してください",
       "testFailed": "自動化テストが失敗しました。自動化設定を確認してください",
+      "runFailed": "自動化の実行に失敗しました",
       "nodeParseError": "{{name}} ノード設定が不完全またはエラーがあります。ノード設定を確認してください",
       "nodeNeedTest": "{{name}} ノードはテストが必要です",
       "nodeTestOutdated": "{{name}} ノードのテストは古くなっています",
@@ -1209,7 +1211,8 @@
     },
     "billing": {
       "insufficientCredit": "クレジット不足",
-      "exceedMaxRowLimit": "最大行数制限 {{maxRowCount}} を超えました"
+      "exceedMaxRowLimit": "最大行数制限 {{maxRowCount}} を超えました",
+      "exceedMaxAutomationRunLimit": "自動化の月間最大実行回数に達しました"
     },
     "aggregation": {
       "searchQueryRequired": "検索クエリが必要です",

@@ -133,8 +133,8 @@ export const TableForm = (props: {
                     <div className="flex-1 text-[13px]">{column.name}</div>
                     <Popover>
                       <PopoverTrigger>
-                        <Button variant="ghost" size="xs">
-                          <Settings />
+                        <Button variant="ghost" size="icon-xs">
+                          <Settings className="size-4 shrink-0" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="space-y-2">

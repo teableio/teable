@@ -679,15 +679,10 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 <Link className="size-4 shrink-0" />
                 <div className="flex-1 truncate">{shareUrl}</div>
               </div>
-              <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleCopyUrl}>
+              <Button size="icon" variant="outline" onClick={handleCopyUrl}>
                 <Copy className="size-4" />
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="size-9 p-0"
-                onClick={() => window.open(shareUrl, '_blank')}
-              >
+              <Button size="icon" variant="outline" onClick={() => window.open(shareUrl, '_blank')}>
                 <ExternalLink className="size-4" />
               </Button>
             </div>
