@@ -870,6 +870,10 @@
           "insufficientCredit": {
             "title": "L'automazione {{name}} è fallita a causa di credito insufficiente",
             "message": "La tua automazione {{name}} non è riuscita ad essere eseguita a causa di credito insufficiente. Aggiorna l'abbonamento o contatta il supporto."
+          },
+          "runQuotaExceeded": {
+            "title": "L'automazione {{name}} ha raggiunto il numero massimo mensile di esecuzioni",
+            "message": "Le esecuzioni mensili dell'automazione {{name}} sono esaurite e l'esecuzione è temporaneamente non disponibile. Aggiorna l'abbonamento o acquista esecuzioni aggiuntive."
           }
         },
         "exportBase": {

@@ -98,6 +98,7 @@ export const DATETIME_DIFF_UNIT_ALIASES: Record<string, DatetimeDiffUnit> = {
   minutes: 'minute',
   min: 'minute',
   mins: 'minute',
+  m: 'minute',
   hour: 'hour',
   hours: 'hour',
   h: 'hour',
@@ -1251,20 +1252,25 @@ export class FormulaSqlPgExpressionBuilder {
     const textValue = this.coerceToString(base);
     const valueSql = this.withValueAlias(textValue.valueSql, (ref) => {
       const textSql = `(${ref})::text`;
-      const validTimestamp = this.typeValidation.isValidForType(textSql, 'timestamptz');
+      const trimmedTextSql = `BTRIM(${textSql})`;
+      const validTimestamptz = this.typeValidation.isValidForType(textSql, 'timestamptz');
       const validTimestampNoTz = this.typeValidation.isValidForType(textSql, 'timestamp');
+      const hasClockTime = `(${trimmedTextSql} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
+      const hasExplicitTimeZone = `(${trimmedTextSql} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
+      const shouldInterpretAsLocal = `(${hasClockTime} AND NOT ${hasExplicitTimeZone})`;
       return `(CASE
         WHEN ${ref} IS NULL THEN NULL::timestamptz
-        WHEN ${validTimestamp} THEN (${textSql})::timestamptz
+        WHEN ${validTimestampNoTz} AND ${shouldInterpretAsLocal} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}
+        WHEN ${validTimestamptz} THEN (${textSql})::timestamptz
         WHEN ${validTimestampNoTz} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}
         ELSE NULL::timestamptz
       END)`;
     });
     const errorCondition = this.withValueAlias(textValue.valueSql, (ref) => {
       const textSql = `(${ref})::text`;
-      const validTimestamp = this.typeValidation.isValidForType(textSql, 'timestamptz');
+      const validTimestamptz = this.typeValidation.isValidForType(textSql, 'timestamptz');
       const validTimestampNoTz = this.typeValidation.isValidForType(textSql, 'timestamp');
-      return `(${ref} IS NOT NULL AND NOT (${validTimestamp} OR ${validTimestampNoTz}))`;
+      return `(${ref} IS NOT NULL AND NOT (${validTimestamptz} OR ${validTimestampNoTz}))`;
     });
     const combinedErrorCondition = combineErrorConditions([
       textValue,
@@ -1745,7 +1751,7 @@ export class FormulaSqlPgExpressionBuilder {
     return `(CASE
       WHEN ${unitSql} IN ('millisecond', 'milliseconds', 'ms') THEN ((${diffSeconds}) * 1000)
       WHEN ${unitSql} IN ('second', 'seconds', 's', 'sec', 'secs') THEN ((${diffSeconds}))
-      WHEN ${unitSql} IN ('minute', 'minutes', 'min', 'mins') THEN ((${diffSeconds}) / 60)
+      WHEN ${unitSql} IN ('minute', 'minutes', 'min', 'mins', 'm') THEN ((${diffSeconds}) / 60)
       WHEN ${unitSql} IN ('hour', 'hours', 'h', 'hr', 'hrs') THEN ((${diffSeconds}) / 3600)
       WHEN ${unitSql} IN ('week', 'weeks') THEN ((${diffSeconds}) / (86400 * 7))
       WHEN ${unitSql} IN ('month', 'months') THEN ${diffMonths}

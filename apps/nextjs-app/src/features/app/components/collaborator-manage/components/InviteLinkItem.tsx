@@ -28,19 +28,19 @@ export const InviteLinkItem = (props: {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 overflow-hidden">
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm">{url}</div>
         <div className="text-xs text-muted-foreground">
           {dayjs(createdTime).format('YYYY-MM-DD')}
         </div>
       </div>
-      {children}
-      <div className="flex items-center gap-0">
+      <div className="shrink-0">{children}</div>
+      <div className="flex shrink-0 items-center gap-0">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button className="size-8 p-0" size="sm" variant="ghost" onClick={copyInviteUrl}>
+              <Button size="icon-sm" variant="ghost" onClick={copyInviteUrl}>
                 <Copy className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
               </Button>
             </TooltipTrigger>
@@ -52,13 +52,7 @@ export const InviteLinkItem = (props: {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                className="size-8 p-0"
-                variant="ghost"
-                disabled={deleteDisabled}
-                onClick={onDelete}
-              >
+              <Button size="icon-sm" variant="ghost" disabled={deleteDisabled} onClick={onDelete}>
                 <Trash2 className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
               </Button>
             </TooltipTrigger>

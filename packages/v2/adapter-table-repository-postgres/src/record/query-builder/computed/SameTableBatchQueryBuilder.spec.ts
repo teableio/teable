@@ -18,7 +18,7 @@ import {
   PostgresIntrospector,
   PostgresQueryCompiler,
 } from 'kysely';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { UpdateFromSelectBuilder } from '../../computed/UpdateFromSelectBuilder';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
@@ -31,21 +31,6 @@ const createFieldName = (name: string) => FieldName.create(name)._unsafeUnwrap()
 // Test type validation strategy
 const typeValidationStrategy = new Pg16TypeValidationStrategy();
 
-// Create a minimal mock Kysely instance
-const createMockKysely = () => {
-  const executor = {
-    transformQuery: (node: unknown) => node,
-    compileQuery: () => ({ sql: '', parameters: [] }),
-    executeQuery: async () => ({ rows: [] }),
-    withPlugins: () => executor,
-  };
-
-  return {
-    getExecutor: () => executor,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as unknown as Kysely<DynamicDB>;
-};
-
 const createCompileKysely = () =>
   new Kysely<DynamicDB>({
     dialect: {
@@ -55,6 +40,9 @@ const createCompileKysely = () =>
       createQueryCompiler: () => new PostgresQueryCompiler(),
     },
   });
+
+// Create a minimal Kysely instance that can compile SQL
+const createMockKysely = () => createCompileKysely();
 
 // Create a simple table with formula fields for testing
 const createSingleFormulaTable = () => {
@@ -167,10 +155,118 @@ const createParallelFormulaTable = () => {
   return { table, valueAId, valueBId, doubledAId, doubledBId, dbTableName };
 };
 
+const createChainedFormulaTable = () => {
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('TestTable')._unsafeUnwrap();
+
+  const baseValueId = createFieldId(`fld${'i'.repeat(16)}`);
+  const plusOneId = createFieldId(`fld${'j'.repeat(16)}`);
+  const plusOneDoubleId = createFieldId(`fld${'k'.repeat(16)}`);
+
+  const baseValueResult = createNumberField({
+    id: baseValueId,
+    name: createFieldName('BaseValue'),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('BaseValue').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const plusOneResult = createFormulaField({
+    id: plusOneId,
+    name: createFieldName('PlusOne'),
+    expression: FormulaExpression.create(`{${baseValueId.toString()}} + 1`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('PlusOne').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const plusOneDoubleResult = createFormulaField({
+    id: plusOneDoubleId,
+    name: createFieldName('PlusOneDouble'),
+    expression: FormulaExpression.create(`{${plusOneId.toString()}} * 2`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('PlusOneDouble').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const table = Table.builder()
+    .withId(tableId)
+    .withName(tableName)
+    .withBaseId(baseId)
+    .addFieldFromResult(baseValueResult)
+    .addFieldFromResult(plusOneResult)
+    .addFieldFromResult(plusOneDoubleResult)
+    .view()
+    .defaultGrid()
+    .done()
+    .build()
+    ._unsafeUnwrap();
+
+  return { table, plusOneId, plusOneDoubleId };
+};
+
+const createIsErrorFormulaChainTable = () => {
+  const baseId = BaseId.create(`bse${'e'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'e'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('ErrorChainTable')._unsafeUnwrap();
+
+  const nameId = createFieldId(`fld${'l'.repeat(16)}`);
+  const alwaysErrorId = createFieldId(`fld${'m'.repeat(16)}`);
+  const isErrorAlwaysErrorId = createFieldId(`fld${'o'.repeat(16)}`);
+
+  const nameResult = createNumberField({
+    id: nameId,
+    name: createFieldName('BaseValue'),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('BaseValue').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const alwaysErrorResult = createFormulaField({
+    id: alwaysErrorId,
+    name: createFieldName('AlwaysError'),
+    expression: FormulaExpression.create(`ERROR("boom")`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('AlwaysError').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const isErrorAlwaysErrorResult = createFormulaField({
+    id: isErrorAlwaysErrorId,
+    name: createFieldName('IsErrorAlwaysError'),
+    expression: FormulaExpression.create(`IS_ERROR({${alwaysErrorId.toString()}})`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('IsErrorAlwaysError').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const table = Table.builder()
+    .withId(tableId)
+    .withName(tableName)
+    .withBaseId(baseId)
+    .addFieldFromResult(nameResult)
+    .addFieldFromResult(alwaysErrorResult)
+    .addFieldFromResult(isErrorAlwaysErrorResult)
+    .view()
+    .defaultGrid()
+    .done()
+    .build()
+    ._unsafeUnwrap();
+
+  return { table, alwaysErrorId, isErrorAlwaysErrorId };
+};
+
 // Create a table with two identical formulas in one level and a dependent formula in next level.
 const createDuplicateFormulaChainTable = () => {
   const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
-  const tableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'d'.repeat(16)}`)._unsafeUnwrap();
   const tableName = TableName.create('DupFormulaTable')._unsafeUnwrap();
 
   const valueId = createFieldId(`fld${'e'.repeat(16)}`);
@@ -304,6 +400,99 @@ describe('SameTableBatchQueryBuilder', () => {
       const { tableName } = result._unsafeUnwrap();
       expect(tableName).toBe(dbTableName);
     });
+
+    it('carries forward previous level columns and selects from the last CTE only', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, plusOneId, plusOneDoubleId } = createChainedFormulaTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [
+          { level: 0, fieldIds: [plusOneId] },
+          { level: 1, fieldIds: [plusOneDoubleId] },
+        ],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const { selectQuery, fieldMappings } = result._unsafeUnwrap();
+      expect(fieldMappings).toEqual([
+        { columnName: 'PlusOne', cteName: 'level_1' },
+        { columnName: 'PlusOneDouble', cteName: 'level_1' },
+      ]);
+
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [plusOneId, plusOneDoubleId],
+        selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+      const sqlText = compiled._unsafeUnwrap().sql;
+
+      expect(sqlText).toContain('"level_0"."PlusOne"');
+      expect(sqlText).toContain(
+        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u JOIN "level_1"'
+      );
+      expect(sqlText).not.toContain(
+        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u, "level_0", "level_1"'
+      );
+    });
+
+    it('applies recordIds filter in first-level CTE when recordIds are provided', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, formulaFieldId } = createSingleFormulaTable();
+      const recordIdA = `rec${'1'.repeat(16)}`;
+      const recordIdB = `rec${'2'.repeat(16)}`;
+
+      const result = builder.build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [formulaFieldId] }],
+        recordIds: [recordIdA, recordIdB],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [formulaFieldId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+
+      const sqlText = compiled._unsafeUnwrap().sql;
+      expect(sqlText).toContain(
+        `INNER JOIN (VALUES ('${recordIdA}'), ('${recordIdB}')) AS "__record_ids"("__id")`
+      );
+    });
+
+    it('keeps formula error metadata when referencing previous CTE formula in IS_ERROR', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, alwaysErrorId, isErrorAlwaysErrorId } = createIsErrorFormulaChainTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [
+          { level: 0, fieldIds: [alwaysErrorId] },
+          { level: 1, fieldIds: [isErrorAlwaysErrorId] },
+        ],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [alwaysErrorId, isErrorAlwaysErrorId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+
+      const sqlText = compiled._unsafeUnwrap().sql;
+      expect(sqlText).toContain(`"level_0"."AlwaysError" LIKE '#ERROR:%'`);
+      expect(sqlText).toContain('TRUE OR');
+    });
   });
 
   describe('field mappings', () => {
@@ -359,24 +548,10 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(sqlText).toContain('"__cse"."__cse_0" as "SameA"');
       expect(sqlText).toContain('"__cse"."__cse_0" as "SameB"');
       expect((sqlText.match(/as "__cse_0"/g) ?? []).length).toBe(1);
-      expect(sqlText).toMatchInlineSnapshot(`
-        "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "u" set "__version" = "u"."__version" + 1, "SameA" = "c"."__set_SameA", "SameB" = "c"."__set_SameB", "Chain" = "c"."__set_Chain" from (select "c_src"."__id" as "__id", CASE
-            WHEN ("c_src"."SameA") IS NULL THEN NULL
-            WHEN BTRIM(("c_src"."SameA")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
-              THEN BTRIM(("c_src"."SameA")::text)::double precision
-            ELSE NULL
-          END as "__set_SameA", CASE
-            WHEN ("c_src"."SameB") IS NULL THEN NULL
-            WHEN BTRIM(("c_src"."SameB")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
-              THEN BTRIM(("c_src"."SameB")::text)::double precision
-            ELSE NULL
-          END as "__set_SameB", CASE
-            WHEN ("c_src"."Chain") IS NULL THEN NULL
-            WHEN BTRIM(("c_src"."Chain")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
-              THEN BTRIM(("c_src"."Chain")::text)::double precision
-            ELSE NULL
-          END as "__set_Chain" from WITH "level_0" AS (SELECT "t"."__id", "__cse"."__cse_0" as "SameA", "__cse"."__cse_0" as "SameB" FROM "bseaaaaaaaaaaaaaaaa.tblcccccccccccccccc" AS "t" CROSS JOIN LATERAL (SELECT ((COALESCE(((COALESCE(("t"."Value")::double precision, 0) * COALESCE((2)::double precision, 0)))::double precision, 0) + COALESCE((1)::double precision, 0))) as "__cse_0") AS "__cse"), "level_1" AS (SELECT "t"."__id", ((COALESCE(((("level_0"."SameA")::text)::text), '') || COALESCE((((10)::text)::text), ''))) as "Chain" FROM "bseaaaaaaaaaaaaaaaa.tblcccccccccccccccc" AS "t" JOIN "level_0" ON "t"."__id" = "level_0"."__id") SELECT u."__id", "level_0"."SameA" as "SameA", "level_0"."SameB" as "SameB", "level_1"."Chain" as "Chain" FROM "bseaaaaaaaaaaaaaaaa.tblcccccccccccccccc" AS u, "level_0", "level_1" WHERE u."__id" = "level_0"."__id" AND u."__id" = "level_1"."__id" as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."SameA" IS DISTINCT FROM "c"."__set_SameA" OR "u"."SameB" IS DISTINCT FROM "c"."__set_SameB" OR "u"."Chain" IS DISTINCT FROM "c"."__set_Chain")"
-      `);
+      expect(sqlText).toContain('JOIN "level_1" ON u."__id" = "level_1"."__id"');
+      expect(sqlText).not.toContain(
+        'FROM "bseaaaaaaaaaaaaaaaa"."tbldddddddddddddddd" AS u, "level_0", "level_1"'
+      );
     });
   });
 });

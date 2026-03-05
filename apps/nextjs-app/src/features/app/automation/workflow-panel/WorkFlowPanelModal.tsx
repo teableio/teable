@@ -113,8 +113,8 @@ export const WorkFlowPanelModal = () => {
               baseId={baseId}
               workflowId={workflowId}
               headLeft={
-                <Button variant={'ghost'} size={'xs'} onClick={handleClose}>
-                  <XIcon className="size-4" />
+                <Button variant={'ghost'} size={'icon-xs'} onClick={handleClose}>
+                  <XIcon className="size-4 shrink-0" />
                 </Button>
               }
               ref={workflowRef}

@@ -7833,6 +7833,238 @@ describe('v2 http formula (e2e)', () => {
       );
     });
 
+    it("should add one local day with DATE_ADD({dateField}, 1, 'days') in Asia/Shanghai", async () => {
+      const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('DATE_ADD days alias Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'date',
+              name: 'Date',
+              options: {
+                formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'Asia/Shanghai' },
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const dateFieldId = table.fields.find((f) => f.name === 'Date')?.id ?? '';
+
+      const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'AddedByDays',
+            options: {
+              expression: `DATE_ADD({${dateFieldId}}, 1, 'days')`,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'AddedByDays')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: { [dateFieldId]: '2026-02-02 00:00' },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const sourceValue = record.fields[dateFieldId];
+      const addedValue = record.fields[formulaFieldId];
+      expect(typeof sourceValue).toBe('string');
+      expect(typeof addedValue).toBe('string');
+      if (typeof sourceValue !== 'string' || typeof addedValue !== 'string') return;
+
+      const toLocalMinute = (iso: string) => {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }).formatToParts(new Date(iso));
+        const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+        return `${byType.year}-${byType.month}-${byType.day} ${byType.hour}:${byType.minute}`;
+      };
+
+      expect(toLocalMinute(sourceValue)).toBe('2026-02-02 00:00');
+      expect(toLocalMinute(addedValue)).toBe('2026-02-03 00:00');
+      expect(new Date(addedValue).getTime() - new Date(sourceValue).getTime()).toBe(
+        24 * 60 * 60 * 1000
+      );
+    });
+
+    it('should add local week/hour/month with DATE_ADD aliases in Asia/Shanghai', async () => {
+      const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('DATE_ADD multi units alias Test'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'date',
+              name: 'Date',
+              options: {
+                formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'Asia/Shanghai' },
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+      const dateFieldId = table.fields.find((f) => f.name === 'Date')?.id ?? '';
+
+      const createFormulaField = async (name: string, expression: string) => {
+        const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId: table.id,
+            field: {
+              type: 'formula',
+              name,
+              options: {
+                expression,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          }),
+        });
+        expect(createFieldResponse.status).toBe(200);
+        const fieldRaw = await createFieldResponse.json();
+        const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+        expect(fieldParsed.success).toBe(true);
+        if (!fieldParsed.success || !fieldParsed.data.ok) return '';
+        return fieldParsed.data.data.table.fields.find((f) => f.name === name)?.id ?? '';
+      };
+
+      const weekFieldId = await createFormulaField(
+        'AddedByWeeks',
+        `DATE_ADD({${dateFieldId}}, 1, 'weeks')`
+      );
+      const hourFieldId = await createFormulaField(
+        'AddedByHours',
+        `DATE_ADD({${dateFieldId}}, 2, 'hours')`
+      );
+      const monthFieldId = await createFormulaField(
+        'AddedByMonths',
+        `DATE_ADD({${dateFieldId}}, 1, 'months')`
+      );
+
+      const createRecordResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: { [dateFieldId]: '2026-02-02 00:00' },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const sourceValue = record.fields[dateFieldId];
+      const weekValue = record.fields[weekFieldId];
+      const hourValue = record.fields[hourFieldId];
+      const monthValue = record.fields[monthFieldId];
+      expect(typeof sourceValue).toBe('string');
+      expect(typeof weekValue).toBe('string');
+      expect(typeof hourValue).toBe('string');
+      expect(typeof monthValue).toBe('string');
+      if (
+        typeof sourceValue !== 'string' ||
+        typeof weekValue !== 'string' ||
+        typeof hourValue !== 'string' ||
+        typeof monthValue !== 'string'
+      ) {
+        return;
+      }
+
+      const toLocalMinute = (iso: string) => {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }).formatToParts(new Date(iso));
+        const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+        return `${byType.year}-${byType.month}-${byType.day} ${byType.hour}:${byType.minute}`;
+      };
+
+      expect(toLocalMinute(sourceValue)).toBe('2026-02-02 00:00');
+      expect(toLocalMinute(weekValue)).toBe('2026-02-09 00:00');
+      expect(toLocalMinute(hourValue)).toBe('2026-02-02 02:00');
+      expect(toLocalMinute(monthValue)).toBe('2026-03-02 00:00');
+      expect(new Date(weekValue).getTime() - new Date(sourceValue).getTime()).toBe(
+        7 * 24 * 60 * 60 * 1000
+      );
+      expect(new Date(hourValue).getTime() - new Date(sourceValue).getTime()).toBe(
+        2 * 60 * 60 * 1000
+      );
+    });
+
     it('should evaluate WORKDAY with weekend, holiday and negative offsets', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
         method: 'POST',
@@ -8030,6 +8262,84 @@ describe('v2 http formula (e2e)', () => {
       if (!record) return;
 
       expect(record.fields[formulaFieldId]).toBe(2);
+    });
+
+    /**
+     * Scenario:DATETIME_DIFF minute shorthand unit
+     * Formula:DATETIME_DIFF("2024-01-01T01:30:00.000Z", "2024-01-01T00:00:00.000Z", "m")
+     * Expect: shorthand "m" resolves to minute and returns 90
+     */
+    it('should get datetime diff in minutes with shorthand unit - DATETIME_DIFF(..., "m")', async () => {
+      const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: uniqueName('DATETIME_DIFF Minute Shorthand Test'),
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          views: [{ type: 'grid' }],
+        }),
+      });
+      const tableRaw = await createTableResponse.json();
+      const tableParsed = createTableOkResponseSchema.safeParse(tableRaw);
+      expect(tableParsed.success).toBe(true);
+      if (!tableParsed.success || !tableParsed.data.ok) return;
+
+      const table = tableParsed.data.data.table;
+
+      const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            name: 'DiffMinutesShorthand',
+            options: {
+              expression:
+                'DATETIME_DIFF("2024-01-01T01:30:00.000Z", "2024-01-01T00:00:00.000Z", "m")',
+            },
+          },
+        }),
+      });
+      expect(createFieldResponse.status).toBe(200);
+      const fieldRaw = await createFieldResponse.json();
+      const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+      expect(fieldParsed.success).toBe(true);
+      if (!fieldParsed.success || !fieldParsed.data.ok) return;
+
+      const formulaFieldId =
+        fieldParsed.data.data.table.fields.find((f) => f.name === 'DiffMinutesShorthand')?.id ?? '';
+
+      const createRecordResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          fields: {
+            Name: 'seed',
+          },
+        }),
+      });
+      expect(createRecordResponse.status).toBe(201);
+      const recordRaw = await createRecordResponse.json();
+      const recordParsed = createRecordOkResponseSchema.safeParse(recordRaw);
+      expect(recordParsed.success).toBe(true);
+      if (!recordParsed.success || !recordParsed.data.ok) return;
+      const recordId = recordParsed.data.data.record.id;
+
+      await processOutbox();
+
+      const records = await listRecords(table.id);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) return;
+
+      const diffValue = record.fields[formulaFieldId];
+      expect(typeof diffValue).toBe('number');
+      if (typeof diffValue !== 'number') return;
+      expect(diffValue).toBeCloseTo(90, 6);
     });
 
     /**

@@ -551,6 +551,78 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     vi.useRealTimers();
   });
 
+  it('acquires advisory lock for oneOne link in updateManyStream', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'oneOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      symmetricFieldId: symmetricFieldId.toString(),
+      isOneWay: false,
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('OneOneBatchUpdateTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Partner')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    hydrateLinkField({ table, fieldId: linkFieldId, baseId, tableId });
+
+    const fieldValues = new Map<string, unknown>([[LINK_FIELD_ID, { id: LINKED_RECORD_A }]]);
+    const updateRecordResult = table.updateRecord(recordId, fieldValues);
+    expect(updateRecordResult.isOk()).toBe(true);
+
+    const { db, driver } = createRecordingDb();
+    const repo = createRepository(db, table);
+
+    function* batches() {
+      yield ok([updateRecordResult._unsafeUnwrap()]);
+    }
+
+    const result = await repo.updateManyStream({ actorId }, table, batches());
+    expect(result.isOk()).toBe(true);
+
+    const lockQuery = driver.queries.find((query) => query.sql.includes('pg_advisory_xact_lock'));
+    expect(lockQuery).toBeDefined();
+    expect(lockQuery?.sql).toContain(`v2:link:${BASE_ID}:${FOREIGN_TABLE_ID}:${LINKED_RECORD_A}`);
+    expect(lockQuery?.sql).toContain('ORDER BY k');
+
+    vi.useRealTimers();
+  });
+
   it('casts oneMany order column update to integer', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));

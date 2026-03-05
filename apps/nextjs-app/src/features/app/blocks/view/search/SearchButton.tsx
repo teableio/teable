@@ -493,7 +493,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
         setActive(true);
       }}
     >
-      <Search className="size-4" />
+      <Search className="size-4 shrink-0" />
     </ToolBarButton>
   );
 };

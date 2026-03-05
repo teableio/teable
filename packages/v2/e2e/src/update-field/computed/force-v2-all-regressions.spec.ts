@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { beforeAll, describe, expect, test } from 'vitest';
+import { sql } from 'kysely';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
 let fieldIdCounter = 0;
@@ -197,6 +198,196 @@ describe('update-field: FORCE_V2_ALL regressions', () => {
       } finally {
         if (tableId) {
           await ctx.deleteTable(tableId).catch(() => undefined);
+        }
+      }
+    }
+  );
+
+  test(
+    'ignores malformed numeric text in conditional rollup backfill instead of throwing pg cast errors',
+    { timeout: 120_000 },
+    async () => {
+      let sourceTableId: string | undefined;
+      let middleTableId: string | undefined;
+      let hostTableId: string | undefined;
+
+      try {
+        const sourceScoreFieldId = createFieldId();
+        const sourceTable = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: nextName('v1p-numeric-fallback-source'),
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'number', name: 'Score', id: sourceScoreFieldId },
+          ],
+          records: [
+            { fields: { Name: 'S1', [sourceScoreFieldId]: 10 } },
+            { fields: { Name: 'S2', [sourceScoreFieldId]: 20 } },
+          ],
+        });
+        sourceTableId = sourceTable.id;
+        const sourcePrimaryFieldId = sourceTable.fields.find((field) => field.isPrimary)?.id;
+        if (!sourcePrimaryFieldId) throw new Error('Missing source primary field id');
+
+        const middleNameFieldId = createFieldId();
+        const middleLinkFieldId = createFieldId();
+        const middleLookupFieldId = createFieldId();
+        const middleTable = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: nextName('v1p-numeric-fallback-middle'),
+          fields: [
+            { type: 'singleLineText', id: middleNameFieldId, name: 'Bucket', isPrimary: true },
+            {
+              type: 'link',
+              id: middleLinkFieldId,
+              name: 'Source Link',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: sourceTable.id,
+                lookupFieldId: sourcePrimaryFieldId,
+              },
+            },
+            {
+              type: 'lookup',
+              id: middleLookupFieldId,
+              name: 'Scores',
+              options: {
+                linkFieldId: middleLinkFieldId,
+                foreignTableId: sourceTable.id,
+                lookupFieldId: sourceScoreFieldId,
+              },
+            },
+          ],
+        });
+        middleTableId = middleTable.id;
+
+        const sourceRecords = await ctx.listRecords(sourceTable.id, { limit: 10, offset: 0 });
+        const s1 = sourceRecords.find((record) => record.fields[sourcePrimaryFieldId] === 'S1');
+        const s2 = sourceRecords.find((record) => record.fields[sourcePrimaryFieldId] === 'S2');
+        if (!s1 || !s2) throw new Error('Missing source records');
+
+        await ctx.createRecord(middleTable.id, {
+          [middleNameFieldId]: 'BucketA',
+          [middleLinkFieldId]: [{ id: s1.id }, { id: s2.id }],
+        });
+
+        const hostNameFieldId = createFieldId();
+        const hostTable = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: nextName('v1p-numeric-fallback-host'),
+          fields: [
+            { type: 'singleLineText', id: hostNameFieldId, name: 'Bucket', isPrimary: true },
+          ],
+          records: [{ fields: { [hostNameFieldId]: 'BucketA' } }],
+        });
+        hostTableId = hostTable.id;
+
+        const rollupFieldId = createFieldId();
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: hostTable.id,
+          field: {
+            type: 'conditionalRollup',
+            id: rollupFieldId,
+            name: 'Sum Score',
+            options: { expression: 'sum({values})' },
+            config: {
+              foreignTableId: middleTable.id,
+              lookupFieldId: middleLookupFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: middleNameFieldId,
+                      operator: 'is',
+                      value: hostNameFieldId,
+                      isSymbol: true,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        });
+
+        await ctx.drainOutbox();
+
+        const middleMeta = await ctx.testContainer.db
+          .selectFrom('table_meta')
+          .select('db_table_name')
+          .where('id', '=', middleTable.id)
+          .executeTakeFirst();
+        const middleDbTableName = middleMeta?.db_table_name;
+        if (!middleDbTableName) throw new Error('Missing middle db table name');
+
+        const lookupFieldMeta = await ctx.testContainer.db
+          .selectFrom('field')
+          .select('db_field_name')
+          .where('id', '=', middleLookupFieldId)
+          .executeTakeFirst();
+        const middleLookupDbFieldName = lookupFieldMeta?.db_field_name;
+        if (!middleLookupDbFieldName) throw new Error('Missing middle lookup db field name');
+
+        const middleRecords = await ctx.listRecords(middleTable.id, { limit: 10, offset: 0 });
+        const middleRecord = middleRecords.find(
+          (record) => record.fields[middleNameFieldId] === 'BucketA'
+        );
+        if (!middleRecord) throw new Error('Missing middle record');
+
+        const malformedNumeric = '16.0514.5411200000000016.2222222222222227.56.47.5';
+        await sql`
+          UPDATE ${sql.table(middleDbTableName)}
+          SET ${sql.ref(middleLookupDbFieldName)} = ${JSON.stringify([malformedNumeric])}::jsonb
+          WHERE "__id" = ${middleRecord.id}
+        `.execute(ctx.testContainer.db);
+
+        await ctx.updateField({
+          tableId: hostTable.id,
+          fieldId: rollupFieldId,
+          field: {
+            type: 'conditionalRollup',
+            description: 'trigger malformed numeric backfill',
+            options: { expression: 'sum({values})' },
+            config: {
+              foreignTableId: middleTable.id,
+              lookupFieldId: middleLookupFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: middleNameFieldId,
+                      operator: 'is',
+                      value: hostNameFieldId,
+                      isSymbol: true,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        });
+
+        await ctx.drainOutbox();
+
+        const refreshedHost = await ctx.getTableById(hostTable.id);
+        const rollupField = refreshedHost.fields.find((field) => field.id === rollupFieldId);
+        expect(rollupField?.hasError ?? false).toBe(false);
+
+        const hostRecords = await ctx.listRecords(hostTable.id, { limit: 10, offset: 0 });
+        const resultValue = hostRecords[0]?.fields[rollupFieldId];
+        expect(typeof resultValue).toBe('number');
+        expect(resultValue as number).toBeCloseTo(30, 4);
+      } finally {
+        if (hostTableId) {
+          await ctx.deleteTable(hostTableId).catch(() => undefined);
+        }
+        if (middleTableId) {
+          await ctx.deleteTable(middleTableId).catch(() => undefined);
+        }
+        if (sourceTableId) {
+          await ctx.deleteTable(sourceTableId).catch(() => undefined);
         }
       }
     }
