@@ -721,6 +721,10 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     return field.innerField().andThen((inner) =>
       inner.accept(this).map((innerDto: ITableFieldPersistenceDTO) => {
         const unwrapped = unwrapConditionalLookupInner(innerDto);
+        const innerValueType = inner.accept(new FieldValueTypeVisitor());
+        const cellValueType = innerValueType.isOk()
+          ? innerValueType.value.cellValueType.toString()
+          : undefined;
         const innerOptionsPatch = field.innerOptionsPatch();
         const mergedInnerOptions: ITableFieldPersistenceDTO['options'] | undefined =
           innerOptionsPatch && Object.keys(innerOptionsPatch).length > 0
@@ -740,6 +744,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
           innerType: unwrapped.innerType,
           innerOptions: mergedInnerOptions,
           isComputed: true,
+          ...(cellValueType != null ? { cellValueType } : {}),
           ...(isMultipleCellValue != null ? { isMultipleCellValue } : {}),
         };
       })
@@ -939,6 +944,10 @@ export class DefaultTableMapper implements ITableMapper {
           name: dto.name,
           type: unwrapped.innerType as ITableFieldPersistenceDTO['type'],
           options: unwrapped.innerOptions as never,
+          ...(typeof dto.cellValueType === 'string' ? { cellValueType: dto.cellValueType } : {}),
+          ...(typeof dto.isMultipleCellValue === 'boolean'
+            ? { isMultipleCellValue: dto.isMultipleCellValue }
+            : {}),
         } as ITableFieldPersistenceDTO)
       )
       .andThen((innerField) => {

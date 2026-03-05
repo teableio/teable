@@ -59,6 +59,8 @@ import type { UpdatedRecordRow } from './UpdateFromSelectBuilder';
 const DIRTY_TABLE = 'tmp_computed_dirty';
 const DIRTY_TABLE_ID_COL = 'table_id';
 const DIRTY_RECORD_ID_COL = 'record_id';
+const SAME_TABLE_BATCH_CHUNK_TRIGGER = 1000;
+const SAME_TABLE_BATCH_CHUNK_SIZE = 500;
 
 /**
  * Change data for a single field in a record.
@@ -575,10 +577,13 @@ export class ComputedFieldUpdater {
       const map = new Map<string, SameTableBatch>();
       for (const batch of plan.sameTableBatches) {
         if (batch.steps.length <= 1) continue;
-        const originalKeysPresent = batch.steps.some((s) => keysInSteps.has(stepKey(s)));
+        const collapsedKey = `${batch.tableId.toString()}|${batch.minLevel}`;
+        const originalKeysPresent = batch.steps.some((s) => {
+          const key = stepKey(s);
+          return key !== collapsedKey && keysInSteps.has(key);
+        });
         if (originalKeysPresent) continue;
 
-        const collapsedKey = `${batch.tableId.toString()}|${batch.minLevel}`;
         if (keysInSteps.has(collapsedKey)) {
           map.set(collapsedKey, batch);
         }
@@ -773,63 +778,91 @@ export class ComputedFieldUpdater {
             });
           }
 
-          let selectQuery: QB | undefined;
+          let selectQueries: QB[] | undefined;
 
           // If this step represents a collapsed same-table formula chain, execute using a CTE chain
           // so later formulas read the computed values of earlier formulas (and avoid volatile
           // re-evaluation caused by formula expansion).
           if (collapsedBatch && fieldIds.length > 1) {
-            const fieldLevelsResult = safeTry<SameTableFieldLevel[], DomainError>(function* () {
-              if (!collapsedBatch.tableId.equals(step.tableId)) {
-                return err(domainError.validation({ message: 'Collapsed batch table mismatch' }));
-              }
+            const hasJsonTargets = await this.hasJsonTargetColumns(db, tableName, table, fieldIds);
+            if (hasJsonTargets) {
+              stepSpan?.setAttribute('step.sameTableCollapsedSkipped', true);
+              stepSpan?.setAttribute('step.sameTableCollapsedSkipReason', 'json_target_column');
+            }
 
-              const allowedFieldIds = new Set(fieldIds.map((id) => id.toString()));
-              const orderedBatchSteps = [...collapsedBatch.steps].sort((a, b) => a.level - b.level);
-              const fieldLevels: SameTableFieldLevel[] = [];
+            if (!hasJsonTargets) {
+              const fieldLevelsResult = safeTry<SameTableFieldLevel[], DomainError>(function* () {
+                if (!collapsedBatch.tableId.equals(step.tableId)) {
+                  return err(domainError.validation({ message: 'Collapsed batch table mismatch' }));
+                }
 
-              for (const batchStep of orderedBatchSteps) {
-                const levelFieldIds: FieldId[] = [];
-                for (const fieldId of batchStep.fieldIds) {
-                  if (!allowedFieldIds.has(fieldId.toString())) continue;
-                  const field = yield* table.getField((f) => f.id().equals(fieldId));
-                  if (!field.type().equals(FieldType.formula())) {
-                    return err(
-                      domainError.validation({
-                        message: 'Same-table batch optimization only supports formula fields',
-                      })
-                    );
+                const allowedFieldIds = new Set(fieldIds.map((id) => id.toString()));
+                const orderedBatchSteps = [...collapsedBatch.steps].sort(
+                  (a, b) => a.level - b.level
+                );
+                const fieldLevels: SameTableFieldLevel[] = [];
+
+                for (const batchStep of orderedBatchSteps) {
+                  const levelFieldIds: FieldId[] = [];
+                  for (const fieldId of batchStep.fieldIds) {
+                    if (!allowedFieldIds.has(fieldId.toString())) continue;
+                    const field = yield* table.getField((f) => f.id().equals(fieldId));
+                    if (!field.type().equals(FieldType.formula())) {
+                      return err(
+                        domainError.validation({
+                          message: 'Same-table batch optimization only supports formula fields',
+                        })
+                      );
+                    }
+                    levelFieldIds.push(fieldId);
                   }
-                  levelFieldIds.push(fieldId);
+                  if (levelFieldIds.length > 0) {
+                    fieldLevels.push({ level: batchStep.level, fieldIds: levelFieldIds });
+                  }
                 }
-                if (levelFieldIds.length > 0) {
-                  fieldLevels.push({ level: batchStep.level, fieldIds: levelFieldIds });
-                }
-              }
 
-              return ok(fieldLevels);
-            });
-
-            if (fieldLevelsResult.isErr()) return err(fieldLevelsResult.error);
-
-            // If the batch no longer spans multiple effective levels after filtering, fall back.
-            if (fieldLevelsResult.value.length > 1) {
-              const batchBuilder = new SameTableBatchQueryBuilder(db, this.typeValidationStrategy);
-              const batchResult = yield* batchBuilder.build({
-                table,
-                fieldLevels: fieldLevelsResult.value,
-                dirtyFilter: {
-                  tableId: step.tableId.toString(),
-                  dirtyTableName: DIRTY_TABLE,
-                  tableIdColumn: DIRTY_TABLE_ID_COL,
-                  recordIdColumn: DIRTY_RECORD_ID_COL,
-                },
+                return ok(fieldLevels);
               });
-              selectQuery = batchResult.selectQuery;
+
+              if (fieldLevelsResult.isErr()) return err(fieldLevelsResult.error);
+
+              // If the batch no longer spans multiple effective levels after filtering, fall back.
+              if (fieldLevelsResult.value.length > 1) {
+                const batchBuilder = new SameTableBatchQueryBuilder(
+                  db,
+                  this.typeValidationStrategy
+                );
+                const chunkedRecordIds =
+                  dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER
+                    ? await this.getDirtyRecordIdChunks(db, step.tableId)
+                    : [];
+                const effectiveChunks =
+                  chunkedRecordIds.length > 1 ? chunkedRecordIds : [undefined];
+
+                stepSpan?.setAttribute('step.sameTableChunkCount', effectiveChunks.length);
+                stepSpan?.setAttribute('step.sameTableChunked', effectiveChunks.length > 1);
+
+                const batchSelectQueries: QB[] = [];
+                for (const recordIds of effectiveChunks) {
+                  const batchResult = yield* batchBuilder.build({
+                    table,
+                    fieldLevels: fieldLevelsResult.value,
+                    ...(recordIds ? { recordIds } : {}),
+                    dirtyFilter: {
+                      tableId: step.tableId.toString(),
+                      dirtyTableName: DIRTY_TABLE,
+                      tableIdColumn: DIRTY_TABLE_ID_COL,
+                      recordIdColumn: DIRTY_RECORD_ID_COL,
+                    },
+                  });
+                  batchSelectQueries.push(batchResult.selectQuery);
+                }
+                selectQueries = batchSelectQueries;
+              }
             }
           }
 
-          if (!selectQuery) {
+          if (!selectQueries) {
             const builder = new ComputedTableRecordQueryBuilder(db, {
               typeValidationStrategy: this.typeValidationStrategy,
               forceLookupArrayOutput: true,
@@ -841,52 +874,64 @@ export class ComputedFieldUpdater {
               context,
               tableRepository: this.tableRepository,
             });
-            selectQuery = yield* builder.build();
+            selectQueries = [yield* builder.build()];
           }
 
           let recordChanges: RecordChangeData[] = [];
+          const executedSqls: Array<{ sql: string; parameterCount: number }> = [];
 
           if (collectChanges) {
-            // Use buildWithReturning to get updated record data
-            const compiledResult = yield* updateBuilder.buildWithReturning({
-              table,
-              fieldIds,
-              selectQuery,
-            });
+            for (let i = 0; i < selectQueries.length; i++) {
+              const selectQuery = selectQueries[i];
+              const compiledResult = yield* updateBuilder.buildWithReturning({
+                table,
+                fieldIds,
+                selectQuery,
+              });
+              executedSqls.push({
+                sql: compiledResult.compiled.sql,
+                parameterCount: compiledResult.compiled.parameters.length,
+              });
 
-            // Record SQL on span
-            stepSpan?.setAttribute('step.sql', compiledResult.compiled.sql);
-            stepSpan?.setAttribute(
-              'step.parameterCount',
-              compiledResult.compiled.parameters.length
-            );
+              const chunkSuffix =
+                selectQueries.length > 1 ? `:chunk=${i + 1}/${selectQueries.length}` : '';
+              const sqlLogContext = run
+                ? { ...toRunLogContext(run), parameters: compiledResult.compiled.parameters }
+                : { parameters: compiledResult.compiled.parameters };
+              this.logger.debug(
+                `computed:update:table=${tableName}:level=${step.level}${chunkSuffix}:sql:\n${compiledResult.compiled.sql}`,
+                sqlLogContext
+              );
 
-            const sqlLogContext = run
-              ? { ...toRunLogContext(run), parameters: compiledResult.compiled.parameters }
-              : { parameters: compiledResult.compiled.parameters };
-            this.logger.debug(
-              `computed:update:table=${tableName}:level=${step.level}:sql:\n${compiledResult.compiled.sql}`,
-              sqlLogContext
-            );
+              const result = await db.executeQuery(compiledResult.compiled);
+              const rows = (result.rows ?? []) as UpdatedRecordRow[];
 
-            const result = await db.executeQuery(compiledResult.compiled);
-            const rows = (result.rows ?? []) as UpdatedRecordRow[];
-
-            // Build change data from returned rows
-            recordChanges = rows.map((row) => {
-              const changes: FieldChangeData[] = [];
-              for (const [column, fieldId] of compiledResult.columnToFieldId) {
-                changes.push({
-                  fieldId,
-                  newValue: row[column],
+              // Build change data from returned rows
+              for (const row of rows) {
+                const changes: FieldChangeData[] = [];
+                for (const [column, fieldId] of compiledResult.columnToFieldId) {
+                  changes.push({
+                    fieldId,
+                    newValue: row[column],
+                  });
+                }
+                recordChanges.push({
+                  recordId: row.__id,
+                  oldVersion: row.__old_version,
+                  changes,
                 });
               }
-              return {
-                recordId: row.__id,
-                oldVersion: row.__old_version,
-                changes,
-              };
-            });
+            }
+
+            const sqlSummary =
+              executedSqls.length > 1
+                ? `[chunked:${executedSqls.length}] ${executedSqls[0]?.sql ?? ''}`
+                : executedSqls[0]?.sql ?? '';
+            const parameterCount = executedSqls.reduce((sum, item) => sum + item.parameterCount, 0);
+
+            // Record SQL on span
+            stepSpan?.setAttribute('step.sql', sqlSummary);
+            stepSpan?.setAttribute('step.parameterCount', parameterCount);
 
             const traceInfo: StepTraceInfo = {
               tableId: step.tableId.toString(),
@@ -894,35 +939,50 @@ export class ComputedFieldUpdater {
               level: step.level,
               fieldIds: fieldIds.map((f) => f.toString()),
               fieldNames,
-              sql: compiledResult.compiled.sql,
-              parameterCount: compiledResult.compiled.parameters.length,
+              sql: sqlSummary,
+              parameterCount,
               dirtyRecordCount: dirtyCount,
             };
 
             return ok({ traceInfo, recordChanges });
           }
 
-          const compiled = yield* updateBuilder.build({
-            table,
-            fieldIds,
-            selectQuery,
-            // Note: dirtyFilter is applied on the ComputedTableRecordQueryBuilder above
-            // This ensures the dirty JOIN is placed BEFORE lateral joins for optimal query planning
-          });
+          for (let i = 0; i < selectQueries.length; i++) {
+            const selectQuery = selectQueries[i];
+            const compiled = yield* updateBuilder.build({
+              table,
+              fieldIds,
+              selectQuery,
+              // Note: dirtyFilter is applied on the ComputedTableRecordQueryBuilder above
+              // This ensures the dirty JOIN is placed BEFORE lateral joins for optimal query planning
+            });
+            executedSqls.push({
+              sql: compiled.sql,
+              parameterCount: compiled.parameters.length,
+            });
+
+            const chunkSuffix =
+              selectQueries.length > 1 ? `:chunk=${i + 1}/${selectQueries.length}` : '';
+            const sqlLogContext = run
+              ? { ...toRunLogContext(run), parameters: compiled.parameters }
+              : { parameters: compiled.parameters };
+            this.logger.debug(
+              `computed:update:table=${tableName}:level=${step.level}${chunkSuffix}:sql:\n${compiled.sql}`,
+              sqlLogContext
+            );
+
+            await db.executeQuery(compiled);
+          }
+
+          const sqlSummary =
+            executedSqls.length > 1
+              ? `[chunked:${executedSqls.length}] ${executedSqls[0]?.sql ?? ''}`
+              : executedSqls[0]?.sql ?? '';
+          const parameterCount = executedSqls.reduce((sum, item) => sum + item.parameterCount, 0);
 
           // Record SQL on span
-          stepSpan?.setAttribute('step.sql', compiled.sql);
-          stepSpan?.setAttribute('step.parameterCount', compiled.parameters.length);
-
-          const sqlLogContext = run
-            ? { ...toRunLogContext(run), parameters: compiled.parameters }
-            : { parameters: compiled.parameters };
-          this.logger.debug(
-            `computed:update:table=${tableName}:level=${step.level}:sql:\n${compiled.sql}`,
-            sqlLogContext
-          );
-
-          await db.executeQuery(compiled);
+          stepSpan?.setAttribute('step.sql', sqlSummary);
+          stepSpan?.setAttribute('step.parameterCount', parameterCount);
 
           const traceInfo: StepTraceInfo = {
             tableId: step.tableId.toString(),
@@ -930,8 +990,8 @@ export class ComputedFieldUpdater {
             level: step.level,
             fieldIds: fieldIds.map((f) => f.toString()),
             fieldNames,
-            sql: compiled.sql,
-            parameterCount: compiled.parameters.length,
+            sql: sqlSummary,
+            parameterCount,
             dirtyRecordCount: dirtyCount,
           };
 
@@ -1091,6 +1151,84 @@ export class ComputedFieldUpdater {
     }
   }
 
+  private async hasJsonTargetColumns(
+    db: Kysely<DynamicDB>,
+    tableName: string,
+    table: Table,
+    fieldIds: ReadonlyArray<FieldId>
+  ): Promise<boolean> {
+    try {
+      const tableNameParts = tableName.split('.');
+      if (tableNameParts.length !== 2) return false;
+      const [schemaName, physicalTableName] = tableNameParts;
+
+      const columnNames: string[] = [];
+      for (const fieldId of fieldIds) {
+        const fieldResult = table.getField((f) => f.id().equals(fieldId));
+        if (fieldResult.isErr()) continue;
+        const dbFieldNameResult = fieldResult.value.dbFieldName().andThen((n) => n.value());
+        if (dbFieldNameResult.isErr()) continue;
+        columnNames.push(dbFieldNameResult.value);
+      }
+
+      if (columnNames.length === 0) return false;
+
+      const columns = await db
+        .selectFrom('information_schema.columns')
+        .select(['column_name', 'data_type', 'udt_name'])
+        .where('table_schema', '=', schemaName)
+        .where('table_name', '=', physicalTableName)
+        .where('column_name', 'in', columnNames)
+        .execute();
+
+      return columns.some((column) => {
+        const dataType = String(column.data_type).toLowerCase();
+        const udtName = String(column.udt_name).toLowerCase();
+        return (
+          dataType === 'json' || dataType === 'jsonb' || udtName === 'json' || udtName === 'jsonb'
+        );
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  private async getDirtyRecordIdChunks(
+    db: Kysely<DynamicDB>,
+    tableId: TableId
+  ): Promise<ReadonlyArray<ReadonlyArray<string>>> {
+    const recordIds = await this.getDirtyRecordIdsForTable(db, tableId);
+    if (recordIds.length === 0) return [];
+    return splitIntoChunks(recordIds, SAME_TABLE_BATCH_CHUNK_SIZE);
+  }
+
+  private async getDirtyRecordIdsForTable(
+    db: Kysely<DynamicDB>,
+    tableId: TableId
+  ): Promise<string[]> {
+    try {
+      const rows = await db
+        .selectFrom(DIRTY_TABLE)
+        .select(DIRTY_RECORD_ID_COL)
+        .where(DIRTY_TABLE_ID_COL, '=', tableId.toString())
+        .orderBy(DIRTY_RECORD_ID_COL)
+        .execute();
+
+      const recordIds: string[] = [];
+      for (const row of rows as Array<Record<string, unknown>>) {
+        const value = row[DIRTY_RECORD_ID_COL];
+        if (typeof value === 'string') {
+          recordIds.push(value);
+        } else if (value != null) {
+          recordIds.push(String(value));
+        }
+      }
+      return recordIds;
+    } catch {
+      return [];
+    }
+  }
+
   /**
    * Collect statistics about dirty records per table for tracing.
    */
@@ -1205,6 +1343,17 @@ export class ComputedFieldUpdater {
     }
   }
 }
+
+const splitIntoChunks = <T>(values: ReadonlyArray<T>, chunkSize: number): T[][] => {
+  if (values.length === 0) return [];
+  if (chunkSize <= 0 || values.length <= chunkSize) return [Array.from(values)];
+
+  const chunks: T[][] = [];
+  for (let i = 0; i < values.length; i += chunkSize) {
+    chunks.push(Array.from(values.slice(i, i + chunkSize)));
+  }
+  return chunks;
+};
 
 const resetDirtyTable = async (db: Kysely<DynamicDB>): Promise<Result<void, DomainError>> => {
   try {

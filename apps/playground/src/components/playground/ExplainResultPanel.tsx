@@ -584,7 +584,7 @@ function JsonViewPanel({ result }: { result: IExplainResultDto }) {
           <Code className="h-4 w-4 text-muted-foreground" />
           <h3 className="font-semibold">JSON Analysis Result</h3>
         </div>
-        <Button variant="outline" size="sm" className="h-8 gap-1" onClick={handleCopy}>
+        <Button variant="outline" size="sm" className="gap-1" onClick={handleCopy}>
           <Copy className="h-3.5 w-3.5" />
           {copied ? 'Copied!' : 'Copy JSON'}
         </Button>
@@ -1051,7 +1051,7 @@ export function ExplainResultPanel({ result, className }: ExplainResultPanelProp
                 </div>
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8 gap-1">
+                    <Button variant="outline" size="sm" className="gap-1">
                       <Zap className="h-3.5 w-3.5" />
                       AI Analysis
                       <ChevronDown className="h-3 w-3" />

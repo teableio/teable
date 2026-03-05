@@ -1104,6 +1104,10 @@ export class PostgresTableRepository implements core.ITableRepository {
           innerOptions: asOptions<unknown>(),
           isLookup: true,
           isConditionalLookup: true,
+          ...(row.cell_value_type !== null ? { cellValueType: row.cell_value_type } : {}),
+          ...(row.is_multiple_cell_value !== null
+            ? { isMultipleCellValue: row.is_multiple_cell_value }
+            : {}),
         };
       }
     }
@@ -1304,6 +1308,10 @@ export class PostgresTableRepository implements core.ITableRepository {
           ...baseCommon,
           type: 'conditionalLookup',
           options,
+          ...(row.cell_value_type !== null ? { cellValueType: row.cell_value_type } : {}),
+          ...(row.is_multiple_cell_value !== null
+            ? { isMultipleCellValue: row.is_multiple_cell_value }
+            : {}),
         };
       }
     }

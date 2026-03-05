@@ -241,7 +241,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
           onDelete={onDelete}
           onRename={startEditing}
         >
-          <Button variant="outline" size="xs" className="size-7 p-0">
+          <Button variant="outline" size="icon-xs">
             <MoreHorizontal className="size-4" />
           </Button>
         </BaseActionTrigger>

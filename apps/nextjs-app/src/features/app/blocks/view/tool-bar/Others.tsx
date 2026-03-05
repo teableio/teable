@@ -31,7 +31,7 @@ const OthersList = ({
             className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
             disabled={!permission['view|update']}
           >
-            <ArrowUpRight className="size-4" />
+            <ArrowUpRight className="size-4 shrink-0" />
           </ToolBarButton>
         )}
       </SharePopover>
@@ -50,10 +50,10 @@ const OthersMenu = ({ className }: { className?: string }) => {
       <PopoverTrigger asChild>
         <Button
           variant={'ghost'}
-          size={'xs'}
+          size={'icon-xs'}
           className={cn('font-normal shrink-0 truncate', className)}
         >
-          <MoreHorizontal className="size-4" />
+          <MoreHorizontal className="size-4 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-40 p-1">
@@ -77,7 +77,7 @@ export const Others: React.FC = () => {
         'dark:bg-[linear-gradient(90deg,rgba(0,0,0,0)_0%,hsl(var(--background))_5%)]'
       )}
     >
-      <SearchButton />
+      <SearchButton className="size-7 shrink-0" />
       {!isReadOnlyPreview && (
         <>
           <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>

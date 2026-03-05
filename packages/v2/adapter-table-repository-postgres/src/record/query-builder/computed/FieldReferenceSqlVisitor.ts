@@ -174,11 +174,14 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
    * Default handling for simple scalar fields.
    * Returns a direct column reference without any transformation.
    */
-  private scalarColumn(field: Field): Result<SqlExpr, DomainError> {
+  private scalarColumn(
+    field: Field,
+    valueType: SqlValueType = 'unknown'
+  ): Result<SqlExpr, DomainError> {
     return this.getColAlias(field).map((colAlias) =>
       makeExpr(
         this.qualify(this.tableAlias, colAlias),
-        'unknown',
+        valueType,
         false,
         undefined,
         undefined,
@@ -209,7 +212,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
   }
 
   visitDateField(field: DateField): Result<SqlExpr, DomainError> {
-    return this.scalarColumn(field);
+    return this.scalarColumn(field, 'datetime');
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<SqlExpr, DomainError> {
@@ -221,11 +224,11 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
   }
 
   visitCreatedTimeField(field: CreatedTimeField): Result<SqlExpr, DomainError> {
-    return this.scalarColumn(field);
+    return this.scalarColumn(field, 'datetime');
   }
 
   visitLastModifiedTimeField(field: LastModifiedTimeField): Result<SqlExpr, DomainError> {
-    return this.scalarColumn(field);
+    return this.scalarColumn(field, 'datetime');
   }
 
   visitAutoNumberField(field: AutoNumberField): Result<SqlExpr, DomainError> {
