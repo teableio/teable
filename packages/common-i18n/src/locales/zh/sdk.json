@@ -443,6 +443,7 @@
       "appUpdate": "更新应用",
       "userProfileRead": "查看当前用户",
       "userEmailRead": "查看当前用户电子邮件",
+      "userIntegrations": "管理用户集成",
       "recordHistoryRead": "查看记录历史",
       "baseQuery": "查询数据库",
       "instanceRead": "查看实例",
@@ -980,6 +981,7 @@
       "nodeNotFound": "{{nodeId}} 节点未找到",
       "triggerTestFailed": "触发器测试失败, 请检查触发器配置",
       "testFailed": "自动化测试失败, 请检查自动化配置",
+      "runFailed": "自动化运行失败",
       "nodeParseError": "{{name}} 节点配置未完成或者有错误，请检查该节点配置",
       "nodeNeedTest": "{{name}} 节点需要测试",
       "nodeTestOutdated": "{{name}} 节点测试已过期",
@@ -1232,7 +1234,8 @@
     },
     "billing": {
       "insufficientCredit": "算力不足",
-      "exceedMaxRowLimit": "已超过最大行数限制 {{maxRowCount}}"
+      "exceedMaxRowLimit": "已超过最大行数限制 {{maxRowCount}}",
+      "exceedMaxAutomationRunLimit": "已触及自动化每月最大运行次数"
     },
     "aggregation": {
       "searchQueryRequired": "搜索查询是必需的",

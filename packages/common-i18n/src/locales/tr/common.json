@@ -833,6 +833,10 @@
           "insufficientCredit": {
             "title": "Otomasyon {{name}} yetersiz kredi nedeniyle başarısız oldu",
             "message": "Otomasyonunuz {{name}} yetersiz kredi nedeniyle çalıştırılamadı. Lütfen aboneliği yükseltin veya destekle iletişime geçin."
+          },
+          "runQuotaExceeded": {
+            "title": "Otomasyon {{name}} aylık maksimum çalıştırma sayısına ulaştı",
+            "message": "Otomasyon {{name}} için aylık çalıştırma hakkı tükendiği için şu anda çalıştırılamıyor. Aboneliğinizi yükseltin veya ek çalıştırma satın alın."
           }
         },
         "exportBase": {

@@ -316,6 +316,8 @@ export type ITableFieldPersistenceDTO =
       options: IConditionalLookupOptionsDTO;
       innerType?: string;
       innerOptions?: unknown;
+      cellValueType?: string;
+      isMultipleCellValue?: boolean;
     });
 
 export type ITableViewPersistenceDTOBase = {

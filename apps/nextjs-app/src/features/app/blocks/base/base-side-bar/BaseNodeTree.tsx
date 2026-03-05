@@ -753,7 +753,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   >
                                     <Button
                                       variant="ghost"
-                                      size="xs"
+                                      size="icon-xs"
                                       className="size-4 shrink-0 p-0 group-data-[folder=false]:hidden"
                                     >
                                       <AddBoldIcon className="size-full" />
@@ -767,7 +767,11 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   onCreateSuccess={createSuccefulyCallback}
                                   onUpdateSuccess={updateSuccefulyCallback}
                                 >
-                                  <Button variant="ghost" size="xs" className="size-4 shrink-0 p-0">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className="size-4 shrink-0 p-0"
+                                  >
                                     <MoreHorizontal className="size-full" />
                                   </Button>
                                 </BaseNodeMore>

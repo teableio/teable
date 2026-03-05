@@ -167,7 +167,7 @@ export const LLMProviderManage = ({
                     hideModelRates={hideModelRates}
                     onSaveTestResult={onSaveTestResult}
                   >
-                    <Button size="xs" variant="ghost" className="w-7 p-0">
+                    <Button size="icon-xs" variant="ghost">
                       <SlidersHorizontalIcon className="size-4 text-muted-foreground" />
                     </Button>
                   </UpdateLLMProviderForm>

@@ -308,7 +308,7 @@ export function LLMApiConfigStep({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Label htmlFor="gateway-key">{t('admin.setting.app.aiGatewayApiKey')} *</Label>
-              <Button variant="outline" size="xs" asChild className="h-6 gap-1 px-2 text-xs">
+              <Button variant="outline" size="xs" asChild className="h-6 gap-1">
                 <Link
                   href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%2Fapi-keys"
                   target="_blank"

@@ -410,6 +410,7 @@
       "appUpdate": "Обновить приложение",
       "userProfileRead": "Читать профиль пользователя",
       "userEmailRead": "Читать электронную почту пользователя",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Читать историю записей",
       "baseQuery": "Запрос базы",
       "instanceRead": "Читать экземпляр",
@@ -963,6 +964,7 @@
       "nodeNotFound": "{{nodeId}} узел не найден",
       "triggerTestFailed": "Тест триггера провалился, пожалуйста, проверьте конфигурацию триггера",
       "testFailed": "Тест автоматизации не прошел, проверьте конфигурацию автоматизации",
+      "runFailed": "Сбой выполнения автоматизации",
       "nodeParseError": "{{name}} конфигурация узла неполная или содержит ошибки, пожалуйста, проверьте конфигурацию узла",
       "nodeNeedTest": "{{name}} узел требует тестирования",
       "nodeTestOutdated": "{{name}} тест узла устарел",
@@ -1209,7 +1211,8 @@
     },
     "billing": {
       "insufficientCredit": "Недостаточно средств",
-      "exceedMaxRowLimit": "Превышен максимальный лимит строк {{maxRowCount}}"
+      "exceedMaxRowLimit": "Превышен максимальный лимит строк {{maxRowCount}}",
+      "exceedMaxAutomationRunLimit": "Достигнут максимальный месячный лимит запусков автоматизации"
     },
     "aggregation": {
       "searchQueryRequired": "Требуется поисковой запрос",
