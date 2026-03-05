@@ -14,13 +14,14 @@ interface IModelSelectTriggerProps extends ComponentPropsWithoutRef<typeof Butto
   currentModel: IModelOption | undefined;
   value: string;
   open: boolean;
+  placeholder?: string;
 }
 
 /**
  * Trigger button for model select dropdown
  */
 export const ModelSelectTrigger = forwardRef<HTMLButtonElement, IModelSelectTriggerProps>(
-  ({ currentModel, value, size = 'default', className, open, ...props }, ref) => {
+  ({ currentModel, value, size = 'default', className, open, placeholder, ...props }, ref) => {
     const { t } = useTranslation('common');
     const { name, model } = parseModelKey(currentModel?.modelKey || value);
     const Icon = getModelIcon(currentModel?.modelKey || value, currentModel?.ownedBy);
@@ -39,7 +40,7 @@ export const ModelSelectTrigger = forwardRef<HTMLButtonElement, IModelSelectTrig
       >
         <div className="flex flex-1 items-center truncate">
           {!currentModel ? (
-            t('admin.setting.ai.selectModel')
+            placeholder ?? t('admin.setting.ai.selectModel')
           ) : (
             <>
               {Icon && <Icon className="mr-1.5 size-4 shrink-0" />}

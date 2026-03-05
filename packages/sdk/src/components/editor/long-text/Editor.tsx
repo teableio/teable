@@ -32,7 +32,7 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
     <AutoSizeTextarea
       ref={inputRef}
       className={cn(
-        'w-full resize-none rounded-md border border-input bg-background p-2 text-sm leading-6 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'w-full resize-none rounded-md border bg-background dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 p-2 text-sm leading-6 focus-visible:outline-none focus-visible:border-border disabled:cursor-not-allowed focus-visible:border-primary',
         className
       )}
       value={text}

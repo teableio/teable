@@ -1244,7 +1244,7 @@ export class SettingOpenApiService {
       maxTokens?: number;
       created?: number;
       ownedBy?: GatewayModelProvider;
-      pricing?: Record<string, string>;
+      pricing?: Record<string, unknown>;
     }>;
   }> {
     // Check if gateway is configured

@@ -9,6 +9,7 @@ import {
   SettingKey,
   Task,
   convertGatewayApiModel,
+  normalizeGatewayPricing,
 } from '@teable/openapi';
 import type {
   IAIConfig,
@@ -244,7 +245,13 @@ export class AiService {
     const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
     const { aiConfig } = await this.settingService.getSetting();
 
-    if (!aiIntegrationConfig && (!aiConfig || !aiConfig.enable)) {
+    const hasInstanceAIConfig =
+      aiConfig &&
+      (aiConfig.enable ||
+        aiConfig.chatModel?.lg ||
+        aiConfig.llmProviders?.length > 0 ||
+        aiConfig.aiGatewayApiKey);
+    if (!aiIntegrationConfig && !hasInstanceAIConfig) {
       throw new CustomHttpException('AI configuration is not set', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.ai.configurationNotSet',
@@ -273,13 +280,13 @@ export class AiService {
           ability,
         },
       } as IAIConfig;
-    } else if (!aiConfig?.enable) {
+    } else if (!aiConfig?.chatModel?.lg) {
       config = aiIntegrationConfig as IAIConfig;
     } else {
-      const lg = aiIntegrationConfig.chatModel?.lg;
+      const lg = aiIntegrationConfig.chatModel?.lg || aiConfig.chatModel.lg;
       const sm = aiIntegrationConfig.chatModel?.sm;
       const md = aiIntegrationConfig.chatModel?.md;
-      const ability = aiIntegrationConfig.chatModel?.ability;
+      const ability = aiIntegrationConfig.chatModel?.ability || aiConfig.chatModel.ability;
       config = {
         ...aiIntegrationConfig,
         // Include gateway models from admin config (space config doesn't have gateway models)
@@ -297,6 +304,7 @@ export class AiService {
           lg: lg,
           ability,
         },
+        isSpaceChatModel: Boolean(aiIntegrationConfig.chatModel?.lg),
       } as IAIConfig;
     }
 
@@ -334,15 +342,20 @@ export class AiService {
     });
 
     const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
-    const disableAIActionsFromSpaceIntegration = aiIntegrationConfig?.capabilities?.disableActions;
+    const disableAIActionsFromSpaceIntegration =
+      aiIntegrationConfig?.capabilities?.disableActions ?? [];
 
     // get instance ai setting
     const { aiConfig } = await this.settingService.getSetting();
-    const disableAIActionsFromInstanceAiSetting = aiConfig?.capabilities?.disableActions;
+    const disableAIActionsFromInstanceAiSetting = aiConfig?.capabilities?.disableActions ?? [];
 
+    // merge both: instance-level disableActions should always be respected
+    const merged = [
+      ...disableAIActionsFromInstanceAiSetting,
+      ...disableAIActionsFromSpaceIntegration,
+    ];
     return {
-      disableActions:
-        disableAIActionsFromSpaceIntegration || disableAIActionsFromInstanceAiSetting || [],
+      disableActions: [...new Set(merged)],
     };
   }
 
@@ -422,7 +435,7 @@ export class AiService {
 
     const { aiConfig } = await this.settingService.getSetting();
 
-    if (!aiConfig?.enable) return null;
+    if (!aiConfig?.chatModel?.lg) return null;
 
     return aiConfig;
   }
@@ -651,13 +664,15 @@ export class AiService {
     const localModel = gatewayModels.find((m) => m.id === modelId);
 
     if (localModel?.pricing) {
+      // Normalize handles both camelCase (admin UI) and snake_case (legacy stored data)
+      const pricing = normalizeGatewayPricing(localModel.pricing);
       this.logger.debug(
-        `[getGatewayModelPricing] Found local pricing for ${modelId}: ${JSON.stringify(localModel.pricing)}`
+        `[getGatewayModelPricing] Found local pricing for ${modelId}: ${JSON.stringify(pricing)}`
       );
-      return localModel.pricing;
+      return pricing;
     }
 
-    // If not found locally, fetch from API
+    // If not found locally, fetch from API (already normalized by convertGatewayApiModel)
     try {
       const apiModel = await this.getGatewayApiModel(modelId);
       if (apiModel?.pricing) {

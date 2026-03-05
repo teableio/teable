@@ -427,6 +427,7 @@
       "appUpdate": "Update app",
       "userProfileRead": "Read current user profile",
       "userEmailRead": "Read current user email",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Read record history",
       "baseQuery": "Query base",
       "instanceRead": "Read instance",
@@ -980,6 +981,7 @@
       "nodeNotFound": "{{nodeId}} node not found",
       "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
       "testFailed": "Automation test failed, please check the automation configuration",
+      "runFailed": "Automation run failed",
       "nodeParseError": "{{name}} node configuration is incomplete or has errors, please check the node configuration",
       "nodeNeedTest": "{{name}} node needs to be tested",
       "nodeTestOutdated": "{{name}} node test outdated",
@@ -1232,7 +1234,8 @@
     },
     "billing": {
       "insufficientCredit": "Insufficient credit",
-      "exceedMaxRowLimit": "Maximum row limit {{maxRowCount}} exceeded"
+      "exceedMaxRowLimit": "Maximum row limit {{maxRowCount}} exceeded",
+      "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded"
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",

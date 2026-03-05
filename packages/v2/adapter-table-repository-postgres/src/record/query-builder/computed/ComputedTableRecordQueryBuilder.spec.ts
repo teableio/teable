@@ -294,6 +294,77 @@ describe('ComputedTableRecordQueryBuilder', () => {
     });
   });
 
+  describe('date add source typing', () => {
+    const compileDateAddSql = (unitLiteral: string) => {
+      const db = createTestDb();
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const tableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const dateFieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
+      const formulaFieldId = FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap();
+
+      const builder = Table.builder()
+        .withId(tableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('DateAddTable')._unsafeUnwrap());
+      builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+      builder
+        .field()
+        .date()
+        .withId(dateFieldId)
+        .withName(FieldName.create('Date')._unsafeUnwrap())
+        .done();
+      builder
+        .field()
+        .formula()
+        .withId(formulaFieldId)
+        .withName(FieldName.create('DatePlusOne')._unsafeUnwrap())
+        .withExpression(
+          FormulaExpression.create(
+            `DATE_ADD({${dateFieldId.toString()}}, 1, '${unitLiteral}')`
+          )._unsafeUnwrap()
+        )
+        .done();
+      builder.view().defaultGrid().done();
+
+      const table = builder.build()._unsafeUnwrap();
+      table
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      table
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_date')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      table
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_date_plus_one')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy }).from(table)
+      );
+
+      return sql.replace(/\s+/g, ' ');
+    };
+
+    test.each([
+      ['days', "INTERVAL '1 day'"],
+      ['weeks', "INTERVAL '1 week'"],
+      ['hours', "INTERVAL '1 hour'"],
+      ['months', "INTERVAL '1 month'"],
+    ])(
+      'generates DATE_ADD from date column for %s without text reparsing',
+      (unitLiteral, expectedInterval) => {
+        const normalizedSql = compileDateAddSql(unitLiteral);
+        expect(normalizedSql).toContain(
+          `("t"."col_date")::timestamptz + ((1)::double precision) * ${expectedInterval}`
+        );
+        expect(normalizedSql).not.toContain('__teable_input_is_valid((("t"."col_date")::text');
+      }
+    );
+  });
+
   describe('link field with all relationship types', () => {
     const relationships = ['oneOne', 'oneMany', 'manyOne', 'manyMany'] as const;
     const expectedMultiValue: Record<(typeof relationships)[number], boolean> = {

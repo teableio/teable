@@ -25,21 +25,12 @@ export function generateLabelFromId(modelId: string, apiName?: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Get pricing from API model data (USD format)
+// Extract pricing from API model - returns the full IModelPricing as-is
 export function getPricingFromApiModel(
   apiModel: IGatewayModelAPI | undefined
 ): IGatewayModel['pricing'] | undefined {
   if (!apiModel?.pricing) return undefined;
-
-  const pricing: NonNullable<IGatewayModel['pricing']> = {};
-
-  if (apiModel.pricing.input) pricing.input = apiModel.pricing.input;
-  if (apiModel.pricing.output) pricing.output = apiModel.pricing.output;
-  if (apiModel.pricing.inputCacheRead) pricing.inputCacheRead = apiModel.pricing.inputCacheRead;
-  if (apiModel.pricing.inputCacheWrite) pricing.inputCacheWrite = apiModel.pricing.inputCacheWrite;
-  if (apiModel.pricing.webSearch) pricing.webSearch = apiModel.pricing.webSearch;
-
-  return Object.keys(pricing).length > 0 ? pricing : undefined;
+  return Object.keys(apiModel.pricing).length > 0 ? apiModel.pricing : undefined;
 }
 
 // Detect if a model is an image generation model (via API type and tags only, not keywords)

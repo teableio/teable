@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Check, Loader2, Plus, X, Eye, Image } from '@teable/icons';
+import { AlertCircle, Check, Loader2, Plus, X, Eye, Image, HelpCircle } from '@teable/icons';
 import { llmProviderSchema, LLMProviderType, chatModelAbilityType } from '@teable/openapi';
 import type {
   ITestLLMVo,
@@ -42,6 +42,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDERS } from './constant';
+
+const CUSTOM_MODEL_DOC_URL = 'https://help.teable.ai/en/basic/ai/custom-model';
 
 interface TestResult {
   success: boolean;
@@ -199,7 +201,12 @@ export const UpdateLLMProviderForm = ({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{t('admin.setting.ai.updateLLMProvider')}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {t('admin.setting.ai.updateLLMProvider')}
+            <a href={CUSTOM_MODEL_DOC_URL} target="_blank" rel="noopener noreferrer">
+              <HelpCircle className="size-4 text-muted-foreground hover:text-foreground" />
+            </a>
+          </DialogTitle>
         </DialogHeader>
         <LLMProviderForm
           value={value}
@@ -238,7 +245,12 @@ export const NewLLMProviderForm = ({
       </DialogTrigger>
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
-          <DialogTitle>{t('admin.setting.ai.addProvider')}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {t('admin.setting.ai.addProvider')}
+            <a href={CUSTOM_MODEL_DOC_URL} target="_blank" rel="noopener noreferrer">
+              <HelpCircle className="size-4 text-muted-foreground hover:text-foreground" />
+            </a>
+          </DialogTitle>
           <DialogDescription>{t('admin.setting.ai.addProviderDescription')}</DialogDescription>
         </DialogHeader>
         <LLMProviderForm
@@ -701,7 +713,18 @@ export const LLMProviderForm = ({
       completedCount++;
       if (result.status === 'success') {
         successCount++;
-        // Save test result to provider config
+        // Save test result to form's modelConfigs so it persists on submit
+        const currentConfigs = form.getValues('modelConfigs') ?? {};
+        form.setValue('modelConfigs', {
+          ...currentConfigs,
+          [model]: {
+            ...currentConfigs[model],
+            ability: result.ability,
+            imageAbility: result.imageAbility,
+            testedAt: Date.now(),
+          },
+        });
+        // Save test result to parent provider config (for already-added providers)
         const modelKey = `${provider.type}@${model}@${provider.name}`;
         onSaveTestResult?.(modelKey, result.ability, result.imageAbility);
       }

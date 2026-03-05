@@ -565,38 +565,18 @@
         "chatModel": "对话模型",
         "chatModelDescription": "要使用的对话模型，提示：工具调用是 Teable AI 功能所必需的",
         "chatModels": {
-          "sm": "小型对话模型",
-          "smDescription": "用于自动生成聊天标题和 Base 名称。推荐使用 claude-haiku-4.5",
-          "md": "中型对话模型",
-          "mdDescription": "用于 AI 公式生成。如未配置则使用 lg 模型。推荐使用 claude-haiku-4.5",
           "lg": "高级对话模型",
           "lgDescription": "用于规划、编码和其他复杂任务场景。推荐使用 claude-sonnet-4.5"
         },
         "actions": {
           "title": "AI 能力",
-          "aiBasicCapability": {
-            "title": "AI 基础能力",
-            "description": "AI 基础能力，包括 AI 表格查询工具、执行 SQL 查询工具、生成脚本工具、表格数据可视化工具"
+          "aiField": {
+            "title": "AI 字段",
+            "description": "AI 字段功能，包括自动填充和字段设置中的 AI 配置"
           },
-          "buildBase": {
-            "title": "创建数据库",
-            "description": "从0开始创建整个数据库"
-          },
-          "buildApp": {
-            "title": "创建应用",
-            "description": "基于数据库创建应用"
-          },
-          "buildAutomation": {
-            "title": "创建自动化",
-            "description": "从0开始创建整个自动化"
-          },
-          "baseResource": {
-            "title": "表格资源操作",
-            "description": "通过 ai 对表格资源操作，可以创建、修改、删除表格、视图、字段、记录"
-          },
-          "suggestion": {
-            "title": "建议",
-            "description": "根据当前数据库数据的以及对话内容，给予建议"
+          "aiChat": {
+            "title": "AI 聊天",
+            "description": "AI 聊天侧边栏及所有 Agent 功能"
           }
         },
         "chatModelTest": {
@@ -1163,11 +1143,15 @@
           "title": "自动化通知",
           "failed": {
             "title": "自动化 {{name}} 运行失败",
-            "message": "自动化 {{name}} 运行失败。点击下面的按钮查看具体错误。"
+            "message": "自动化 {{name}} 执行时发生错误，请前往运行历史查看详情。"
           },
           "insufficientCredit": {
-            "title": "自动化 {{name}} 运行失败，由于算力不足",
-            "message": "自动化 {{name}} 运行失败，由于算力不足。请升级订阅或联系支持。"
+            "title": "自动化 {{name}} 运行失败（AI 算力不足）",
+            "message": "自动化 {{name}} 运行失败，原因是 AI 算力不足。请补充算力或升级订阅。"
+          },
+          "runQuotaExceeded": {
+            "title": "自动化 {{name}} 已触及每月最大运行次数",
+            "message": "自动化 {{name}} 本月可运行次数已用完，暂时无法继续运行。请升级订阅或购买额外运行次数。"
           }
         },
         "exportBase": {

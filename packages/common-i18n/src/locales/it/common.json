@@ -540,38 +540,18 @@
         "chatModel": "Modello di chat",
         "chatModelDescription": "Il modello di chat da utilizzare, Suggerimento: il modello di codifica medio viene utilizzato per impostazione predefinita per la generazione di formule AI e funzioni correlate",
         "chatModels": {
-          "sm": "Modello di chat piccolo",
-          "smDescription": "Utilizzato per la generazione automatica di titoli chat e nomi base. Consigliato: claude-haiku-4.5",
-          "md": "Modello di chat medio",
-          "mdDescription": "Utilizzato per la generazione di formule AI. Usa lg se non configurato. Consigliato: claude-haiku-4.5",
           "lg": "Modello di chat avanzato",
           "lgDescription": "Per pianificazione, programmazione e altri scenari di attività complesse. Consigliato: claude-sonnet-4.5"
         },
         "actions": {
           "title": "Capacità IA",
-          "aiBasicCapability": {
-            "title": "Capacità IA di base",
-            "description": "Capacità IA di base per query tabelle, esecuzione SQL, generazione script e visualizzazione dati"
+          "aiField": {
+            "title": "Campo IA",
+            "description": "Funzionalità campo IA incluso compilazione automatica e configurazione IA nelle impostazioni campo"
           },
-          "buildBase": {
-            "title": "Crea base dati",
-            "description": "Crea base dati da zero"
-          },
-          "buildApp": {
-            "title": "Crea applicazione",
-            "description": "Crea applicazione basata su base dati"
-          },
-          "buildAutomation": {
-            "title": "Crea automazione",
-            "description": "Crea automazione da zero"
-          },
-          "baseResource": {
-            "title": "Operazione risorse base dati",
-            "description": "Crea, modifica ed elimina tabelle, viste, campi e record tramite IA"
-          },
-          "suggestion": {
-            "title": "Suggerimento",
-            "description": "Fornisci suggerimenti basati sui dati attuali della base dati e sul contenuto della conversazione"
+          "aiChat": {
+            "title": "Chat IA",
+            "description": "Barra laterale Chat IA e tutte le funzionalità agente"
           }
         },
         "chatModelTest": {
@@ -870,6 +850,10 @@
           "insufficientCredit": {
             "title": "L'automazione {{name}} è fallita a causa di credito insufficiente",
             "message": "La tua automazione {{name}} non è riuscita ad essere eseguita a causa di credito insufficiente. Aggiorna l'abbonamento o contatta il supporto."
+          },
+          "runQuotaExceeded": {
+            "title": "L'automazione {{name}} ha raggiunto il numero massimo mensile di esecuzioni",
+            "message": "Le esecuzioni mensili dell'automazione {{name}} sono esaurite e l'esecuzione è temporaneamente non disponibile. Aggiorna l'abbonamento o acquista esecuzioni aggiuntive."
           }
         },
         "exportBase": {

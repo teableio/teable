@@ -4090,6 +4090,151 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     );
 
     it.skipIf(!canRunCanaryV2)(
+      'should preserve formula datetime formatting when converting conditional lookup inner type in v2',
+      async () => {
+        const statusField = await createField(table2.id, {
+          name: 'Status',
+          type: FieldType.SingleLineText,
+        });
+        const dueDateField = await createField(table2.id, {
+          name: 'Due Date',
+          type: FieldType.Date,
+          options: {
+            formatting: {
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.Hour24,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        });
+        const statusFilterField = await createField(table1.id, {
+          name: 'Status Filter',
+          type: FieldType.SingleLineText,
+        });
+
+        await updateRecordByApi(table2.id, table2.records[0].id, statusField.id, 'Active');
+        await updateRecordByApi(table2.id, table2.records[1].id, statusField.id, 'Active');
+        await updateRecordByApi(
+          table2.id,
+          table2.records[0].id,
+          dueDateField.id,
+          '2026-01-02T03:04:00.000Z'
+        );
+        await updateRecordByApi(
+          table2.id,
+          table2.records[1].id,
+          dueDateField.id,
+          '2026-01-03T05:06:00.000Z'
+        );
+        await updateRecordByApi(table1.id, table1.records[0].id, statusFilterField.id, 'Active');
+
+        const lookupField = await createField(table1.id, {
+          type: FieldType.Date,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: dueDateField.id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterField.id },
+                },
+              ],
+            },
+          },
+          options: {
+            formatting: {
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.Hour24,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        });
+
+        const convertedField = await convertFieldByCanaryV2(table1.id, lookupField.id, {
+          type: FieldType.Formula,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: dueDateField.id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterField.id },
+                },
+              ],
+            },
+          },
+          options: {
+            expression: 'NOW()',
+            formatting: {
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.Hour24,
+              timeZone: 'Asia/Shanghai',
+            },
+            timeZone: 'Asia/Shanghai',
+          },
+        });
+
+        expect(convertedField.type).toBe(FieldType.Formula);
+        expect(convertedField.isLookup).toBe(true);
+        expect(convertedField.isConditionalLookup).toBe(true);
+        expect(convertedField.options).toMatchObject({
+          expression: 'NOW()',
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.Hour24,
+            timeZone: 'Asia/Shanghai',
+          },
+        });
+
+        const refreshedField = await getField(table1.id, lookupField.id);
+        expect(refreshedField.type).toBe(FieldType.Formula);
+        expect(refreshedField.isLookup).toBe(true);
+        expect(refreshedField.isConditionalLookup).toBe(true);
+        expect(refreshedField.options).toMatchObject({
+          expression: 'NOW()',
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.Hour24,
+            timeZone: 'Asia/Shanghai',
+          },
+        });
+
+        const persistedField = await prisma.txClient().field.findFirstOrThrow({
+          where: { id: lookupField.id, deletedTime: null },
+          select: {
+            type: true,
+            isConditionalLookup: true,
+            options: true,
+          },
+        });
+        expect(persistedField.type).toBe(FieldType.Formula);
+        expect(persistedField.isConditionalLookup).toBe(true);
+        const persistedOptions =
+          typeof persistedField.options === 'string'
+            ? JSON.parse(persistedField.options)
+            : persistedField.options;
+        expect(persistedOptions).toMatchObject({
+          expression: 'NOW()',
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.Hour24,
+            timeZone: 'Asia/Shanghai',
+          },
+        });
+      }
+    );
+
+    it.skipIf(!canRunCanaryV2)(
       'should remove link filter options when convert payload omits them in v2',
       async () => {
         const statusField = await createField(table2.id, {

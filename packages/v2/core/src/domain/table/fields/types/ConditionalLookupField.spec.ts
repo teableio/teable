@@ -1,18 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../base/BaseId';
+import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
+import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
+import { Table } from '../../Table';
+import { TableId } from '../../TableId';
+import { TableName } from '../../TableName';
 import { DbFieldName } from '../DbFieldName';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
+import { CellValueMultiplicity } from './CellValueMultiplicity';
+import { CellValueType } from './CellValueType';
 import { ConditionalLookupField } from './ConditionalLookupField';
 import { ConditionalLookupOptions } from './ConditionalLookupOptions';
+import { FormulaExpression } from './FormulaExpression';
+import { FormulaField } from './FormulaField';
 import { SelectOption } from './SelectOption';
 import { SingleLineTextField } from './SingleLineTextField';
 import { SingleSelectField } from './SingleSelectField';
-import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
-import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
-import { UpdateSingleSelectOptionsSpec } from '../../specs/field-updates/UpdateSingleSelectOptionsSpec';
-import { TableId } from '../../TableId';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
@@ -42,6 +48,91 @@ const createConditionalLookupField = (statusFieldId: FieldId) => {
 };
 
 describe('ConditionalLookupField.onDependencyUpdated', () => {
+  it('keeps explicit inner field type when validating foreign tables', () => {
+    const baseId = createBaseId('n');
+    const hostTableId = createTableId('o');
+    const foreignTableId = createTableId('p');
+    const hostPrimaryId = createFieldId('q');
+    const hostStatusId = createFieldId('r');
+    const foreignPrimaryId = createFieldId('s');
+    const foreignDateFieldId = createFieldId('t');
+
+    const foreignBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .date()
+      .withId(foreignDateFieldId)
+      .withName(FieldName.create('Due Date')._unsafeUnwrap())
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withId(hostTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostStatusId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const innerFormulaField = FormulaField.create({
+      id: createFieldId('u'),
+      name: FieldName.create('Inner Formula')._unsafeUnwrap(),
+      expression: FormulaExpression.create('NOW()')._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.dateTime(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+
+    const conditionalLookup = ConditionalLookupField.create({
+      id: createFieldId('v'),
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: innerFormulaField,
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignDateFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'Active' }],
+          },
+        },
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const validationResult = conditionalLookup.validateForeignTables({
+      hostTable,
+      foreignTables: [foreignTable],
+    });
+
+    expect(validationResult.isOk()).toBe(true);
+    expect(conditionalLookup.innerField()._unsafeUnwrap()).toBeInstanceOf(FormulaField);
+    expect(conditionalLookup.innerFieldType()._unsafeUnwrap().toString()).toBe('formula');
+  });
+
   it('preserves inner options patch when duplicated', () => {
     const statusFieldId = createFieldId('z');
     const field = ConditionalLookupField.create({

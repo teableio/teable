@@ -1,5 +1,6 @@
-import type { IAIIntegrationConfig, IChatModelAbility, ISettingVo } from '@teable/openapi';
+import type { IAIIntegrationConfig } from '@teable/openapi';
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -20,25 +21,25 @@ interface IAIModelPreferencesCardProps {
   control: Control<IAIIntegrationConfig>;
   models: IModelOption[];
   onChange?: () => void;
-  onEnableAI?: () => void;
-  onTestChatModelAbility?: (
-    chatModel: IAIIntegrationConfig['chatModel']
-  ) => Promise<IChatModelAbility | undefined>;
   needGroup?: boolean;
   hideEmbeddingModel?: boolean;
   /** Optional header title */
   title?: string;
+  /** Show a reset button to clear chatModel */
+  onReset?: () => void;
+  /** Custom placeholder for model selector when no model selected */
+  modelPlaceholder?: string;
 }
 
 export const AIModelPreferencesCard = ({
   control,
   models,
   onChange,
-  onTestChatModelAbility,
-  onEnableAI,
   needGroup,
   hideEmbeddingModel,
   title,
+  onReset,
+  modelPlaceholder,
 }: IAIModelPreferencesCardProps) => {
   const { t } = useTranslation('common');
 
@@ -46,7 +47,14 @@ export const AIModelPreferencesCard = ({
     <Card className="shadow-sm">
       {title && (
         <CardHeader className="px-4 pb-0 pt-4">
-          <div className="text-sm font-semibold">{title}</div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">{title}</div>
+            {onReset && (
+              <Button variant="outline" size="xs" onClick={onReset}>
+                Reset
+              </Button>
+            )}
+          </div>
         </CardHeader>
       )}
       <CardContent className="p-4">
@@ -66,10 +74,8 @@ export const AIModelPreferencesCard = ({
                           onChange?.();
                         }}
                         models={models}
-                        onTestChatModelAbility={onTestChatModelAbility}
-                        onEnableAI={onEnableAI}
-                        formValues={control._formValues as NonNullable<ISettingVo['aiConfig']>}
                         needGroup={needGroup}
+                        placeholder={modelPlaceholder}
                       />
                     </FormControl>
                   </div>

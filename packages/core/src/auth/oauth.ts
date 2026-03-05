@@ -42,4 +42,5 @@ export const OAUTH_ACTIONS: (
   'automation|read',
   'automation|update',
   'user|email_read',
+  'user|integrations',
 ];

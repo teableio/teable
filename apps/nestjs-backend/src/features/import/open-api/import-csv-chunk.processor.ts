@@ -220,6 +220,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
           userId,
           sourceColumnMap,
           notification,
+          attachmentUrl: job?.data?.importerParams?.attachmentUrl,
         },
         {
           // Some queue backends reject custom IDs containing ":".

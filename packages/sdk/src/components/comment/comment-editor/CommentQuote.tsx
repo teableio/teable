@@ -136,8 +136,8 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
               {showTooltip && (
                 <Popover modal={true}>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size={'xs'} className={cn('p-0')}>
-                      <ChevronRight />
+                    <Button variant="ghost" size={'icon-xs'} className={cn('p-0')}>
+                      <ChevronRight className="size-4 shrink-0" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="max-h-40 max-w-60 overflow-auto p-2">
@@ -149,8 +149,8 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
           )}
         </div>
         {onClose && (
-          <Button variant={'ghost'} size={'xs'}>
-            <X onClick={() => onClose?.()} />
+          <Button variant={'ghost'} size={'icon-xs'}>
+            <X className="size-4 shrink-0" onClick={() => onClose?.()} />
           </Button>
         )}
       </div>

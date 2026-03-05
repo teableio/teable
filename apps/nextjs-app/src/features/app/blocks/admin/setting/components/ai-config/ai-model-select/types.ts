@@ -52,6 +52,7 @@ export interface IAIModelSelectProps {
   modelDefinationMap?: IModelDefinationMap;
   children?: ReactNode;
   onlyImageOutput?: boolean; // if true, only show image output models
+  placeholder?: string; // Custom placeholder when no model is selected
 }
 
 // Categorized model options

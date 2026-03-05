@@ -1307,7 +1307,29 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   }
 
   private sanitizeNumericTextExpression(expr: RawBuilder<unknown>): RawBuilder<unknown> {
-    return sql`NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::double precision`;
+    const normalized = sql`NULLIF(REGEXP_REPLACE(BTRIM((${expr})::text), '[,\\s]', '', 'g'), '')`;
+    const isValidNumeric = sql.raw(
+      this.typeValidationStrategy.isValidForType('(__num_prefix)::text', 'numeric')
+    );
+
+    return sql`(
+      WITH __num_src AS (
+        SELECT ${normalized} AS normalized
+      ),
+      __num_ext AS (
+        SELECT
+          normalized,
+          SUBSTRING(normalized FROM '^([+-]?[0-9]+[.]?[0-9]*|[+-]?[0-9]*[.][0-9]+)') AS __num_prefix,
+          normalized ~ '^([+-]?[0-9]+[.]?[0-9]*|[+-]?[0-9]*[.][0-9]+)[eE][+-]?[0-9]+' AS has_exponent
+        FROM __num_src
+      )
+      SELECT CASE
+        WHEN normalized IS NULL THEN NULL
+        WHEN __num_prefix IS NOT NULL AND NOT has_exponent AND ${isValidNumeric} THEN (__num_prefix)::double precision
+        ELSE NULL
+      END
+      FROM __num_ext
+    )`;
   }
 
   private buildJsonNumericSumExpression(expr: RawBuilder<unknown>): RawBuilder<unknown> {
