@@ -410,6 +410,7 @@
       "appUpdate": "Aggiorna app",
       "userProfileRead": "Leggi profilo utente corrente",
       "userEmailRead": "Leggi email utente corrente",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Leggi cronologia record",
       "baseQuery": "Interroga base",
       "instanceRead": "Leggi istanza",
@@ -963,6 +964,7 @@
       "nodeNotFound": "{{nodeId}} nodo non trovato",
       "triggerTestFailed": "Test del trigger fallito, per favore controlla la configurazione del trigger",
       "testFailed": "Test di automazione fallito, controlla la configurazione dell'automazione",
+      "runFailed": "L'esecuzione dell'automazione non è riuscita",
       "nodeParseError": "{{name}} la configurazione del nodo è incompleta o contiene errori, si prega di verificare la configurazione del nodo",
       "nodeNeedTest": "{{name}} il nodo deve essere testato",
       "nodeTestOutdated": "{{name}} il test del nodo è obsoleto",
@@ -1209,7 +1211,8 @@
     },
     "billing": {
       "insufficientCredit": "Credito insufficiente",
-      "exceedMaxRowLimit": "Limite massimo di righe {{maxRowCount}} superato"
+      "exceedMaxRowLimit": "Limite massimo di righe {{maxRowCount}} superato",
+      "exceedMaxAutomationRunLimit": "Raggiunto il numero massimo mensile di esecuzioni di automazione"
     },
     "aggregation": {
       "searchQueryRequired": "È richiesta una query di ricerca",

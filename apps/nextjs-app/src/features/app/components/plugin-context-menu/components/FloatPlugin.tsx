@@ -142,7 +142,7 @@ export const FloatPlugin = (props: {
             <div className={cn('truncate', { 'ml-2': frozenDrag })}>{name}</div>
           </div>
           <Button variant="link" size="icon" onClick={onClose}>
-            <X />
+            <X className="size-4 shrink-0" />
           </Button>
         </div>
         <PluginContent

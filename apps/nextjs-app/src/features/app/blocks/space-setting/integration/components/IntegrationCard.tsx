@@ -38,7 +38,7 @@ export const IntegrationCard = (props: IIntegrationCardProps) => {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="xs"
+                size="icon-xs"
                 className="my-[2px] w-full justify-start text-sm font-normal"
               >
                 <MoreHorizontal className="size-4 shrink-0" />

@@ -39,7 +39,7 @@ import {
 import { Check, ChevronDown, Loader, Plus } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useShareContext } from '../context/ShareContext';
 import { SpaceAvatar } from './space/SpaceAvatar';
 
@@ -72,7 +72,7 @@ const CreateSpaceSection: React.FC<{
             if (e.key === 'Enter') onCreateSpace();
           }}
         />
-        <Button onClick={onCreateSpace} disabled={isCreatingSpace} className="h-9 shrink-0">
+        <Button onClick={onCreateSpace} disabled={isCreatingSpace} className="shrink-0">
           {isCreatingSpace ? (
             <Loader className="size-4 animate-spin" />
           ) : (
@@ -106,6 +106,22 @@ const BasePickerSection: React.FC<{
 }) => {
   const { t } = useTranslation(['common']);
   const selectedBaseName = bases?.find((b) => b.id === selectedBaseId)?.name;
+
+  const baseNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    bases?.forEach((b) => {
+      map[b.id] = b.name;
+    });
+    return map;
+  }, [bases]);
+
+  const commandFilter = useCallback(
+    (id: string, search: string) => {
+      const name = baseNameMap[id?.trim()]?.toLowerCase() || '';
+      return name.includes(search?.toLowerCase()?.trim()) ? 1 : 0;
+    },
+    [baseNameMap]
+  );
 
   if (isLoading) {
     return (
@@ -141,14 +157,14 @@ const BasePickerSection: React.FC<{
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+        <Command filter={commandFilter}>
           <CommandInput placeholder={`${t('common:actions.search')}...`} className="h-10" />
           <CommandList>
             <CommandEmpty>{t('common:share.copyToSpaceDialog.noBaseInSpace')}</CommandEmpty>
             {bases.map((b) => (
               <CommandItem
                 key={b.id}
-                value={b.name}
+                value={b.id}
                 onSelect={() => {
                   setSelectedBaseId(b.id);
                   setBasePickerOpen(false);
@@ -439,7 +455,11 @@ export const ShareSelectSpaceDialog = React.forwardRef<IShareSelectSpaceDialogRe
               onClick={copyHandler}
               disabled={isConfirmDisabled}
             >
-              {copyLoading ? <Loader className="size-4 animate-spin" /> : t('common:noun.copy')}
+              {copyLoading ? (
+                <Loader className="size-4 animate-spin" />
+              ) : (
+                t('common:actions.duplicate')
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
