@@ -12,8 +12,8 @@ export const PluginPanelEmpty = ({ tableId }: { tableId: string }) => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-[43px] items-center justify-end border-b">
-        <Button variant="outline" size="xs" onClick={toggleVisible}>
-          <X />
+        <Button variant="outline" size="icon-xs" onClick={toggleVisible}>
+          <X className="size-4 shrink-0" />
         </Button>
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">

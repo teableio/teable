@@ -410,6 +410,7 @@
       "appUpdate": "App aktualisieren",
       "userProfileRead": "Aktuelles Benutzerprofil lesen",
       "userEmailRead": "Aktuelles Benutzer E-Mail lesen",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Datensatzhistorie lesen",
       "baseQuery": "Base abfragen",
       "instanceRead": "Instanz lesen",
@@ -963,6 +964,7 @@
       "nodeNotFound": "{{nodeId}} Knoten nicht gefunden",
       "triggerTestFailed": "Trigger-Test fehlgeschlagen, bitte überprüfen Sie die Trigger-Konfiguration",
       "testFailed": "Automatisierungstest fehlgeschlagen, bitte überprüfen Sie die Automatisierungskonfiguration",
+      "runFailed": "Automatisierungsausführung fehlgeschlagen",
       "nodeParseError": "{{name}} Knotenkonfiguration ist unvollständig oder fehlerhaft, bitte überprüfen Sie die Knotenkonfiguration",
       "nodeNeedTest": "{{name}} Knoten muss getestet werden",
       "nodeTestOutdated": "{{name}} Knotentest ist veraltet",
@@ -1214,7 +1216,8 @@
     },
     "billing": {
       "insufficientCredit": "Unzureichendes Guthaben",
-      "exceedMaxRowLimit": "Maximale Zeilenanzahl {{maxRowCount}} überschritten"
+      "exceedMaxRowLimit": "Maximale Zeilenanzahl {{maxRowCount}} überschritten",
+      "exceedMaxAutomationRunLimit": "Maximale monatliche Anzahl von Automatisierungsausführungen erreicht"
     },
     "aggregation": {
       "searchQueryRequired": "Suchanfrage ist erforderlich",

@@ -37,7 +37,7 @@ export const ActionMenu = (props: {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="size-8 p-0">
+          <Button variant="ghost" size="icon-sm">
             <MoreHorizontal className="size-4" />
           </Button>
         </DropdownMenuTrigger>

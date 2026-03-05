@@ -83,8 +83,8 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
           </span>
           <Dialog>
             <DialogTrigger asChild>
-              <Button size={'xs'} variant={'ghost'}>
-                <Maximize2 />
+              <Button size={'icon-xs'} variant={'ghost'}>
+                <Maximize2 className="size-4 shrink-0" />
               </Button>
             </DialogTrigger>
             <DialogContent className="min-w-96 max-w-fit">
