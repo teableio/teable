@@ -105,7 +105,7 @@ exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column 
   "isArray": false,
   "storageKind": "scalar",
   "valueSql": ""t"."col_created_time"",
-  "valueType": "unknown",
+  "valueType": "datetime",
 }
 `;
 
@@ -115,7 +115,7 @@ exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column 
   "isArray": false,
   "storageKind": "scalar",
   "valueSql": ""t"."col_date"",
-  "valueType": "unknown",
+  "valueType": "datetime",
 }
 `;
 
@@ -125,7 +125,7 @@ exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column 
   "isArray": false,
   "storageKind": "scalar",
   "valueSql": ""t"."col_last_modified_time"",
-  "valueType": "unknown",
+  "valueType": "datetime",
 }
 `;
 

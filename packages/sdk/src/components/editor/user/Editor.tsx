@@ -37,7 +37,7 @@ export const UserEditor = (props: IUserEditorProps) => {
       role="combobox"
       aria-expanded={open}
       className={cn(
-        'w-full h-auto min-h-9 sm:min-h-9 py-1 flex flex-wrap justify-start hover:bg-transparent gap-1.5',
+        'w-full h-auto h-8 sm:min-h-8 py-0.5 flex flex-wrap justify-start dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 hover:bg-background dark:hover:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] gap-1.5',
         className
       )}
     >

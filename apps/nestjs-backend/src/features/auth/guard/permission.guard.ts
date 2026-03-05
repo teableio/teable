@@ -78,6 +78,15 @@ export class PermissionGuard {
     return true;
   }
 
+  private async permissionUserIntegrations() {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
+      return scopes.includes('user|integrations');
+    }
+    return true;
+  }
+
   protected async templatePermissionCheck(context: ExecutionContext, templateHeader?: string) {
     if (templateHeader) {
       const templateId = this.permissionService.getTemplateIdByHeader(templateHeader);
@@ -259,6 +268,10 @@ export class PermissionGuard {
     }
     if (!resourceId && permissions?.includes('space|read')) {
       return await this.permissionSpaceRead();
+    }
+
+    if (permissions?.includes('user|integrations')) {
+      return await this.permissionUserIntegrations();
     }
 
     // resource permission check

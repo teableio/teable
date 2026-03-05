@@ -341,8 +341,8 @@ export const TemplateTable = () => {
         >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size={'xs'}>
-                <MoreHorizontal />
+              <Button variant="outline" size={'icon-xs'}>
+                <MoreHorizontal className="size-4 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-40">

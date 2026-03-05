@@ -47,8 +47,8 @@ export const PluginHeader = (props: {
     return (
       <div className="flex h-10 items-center border-b pl-4 pr-2">
         <div className=" flex-1 truncate">{name}</div>
-        <Button variant={'ghost'} size={'xs'} onClick={onClose}>
-          <X className="size-4" />
+        <Button variant={'ghost'} size={'icon-xs'} onClick={onClose}>
+          <X className="size-4 shrink-0" />
         </Button>
       </div>
     );
@@ -99,16 +99,16 @@ export const PluginHeader = (props: {
         <Button
           title={t('common:actions.expand')}
           className="h-5 w-auto p-2"
-          size={'xs'}
+          size={'icon-xs'}
           variant={'ghost'}
           onClick={onExpand}
         >
-          <Maximize2 />
+          <Maximize2 className="size-4 shrink-0" />
         </Button>
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <Button className="h-5 w-auto p-2" variant={'ghost'} size={'xs'}>
-              <MoreHorizontal />
+            <Button className="h-5 w-auto p-2" variant={'ghost'} size={'icon-xs'}>
+              <MoreHorizontal className="size-4 shrink-0" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">

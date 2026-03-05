@@ -89,22 +89,22 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           <Button
             variant={'ghost'}
             tabIndex={-1}
-            size={'xs'}
+            size={'icon-xs'}
             onClick={onPrev}
             disabled={disabledPrev}
           >
-            <ChevronUp />
+            <ChevronUp className="size-4 shrink-0" />
           </Button>
         </TooltipWrap>
         <TooltipWrap description="Next record" disabled={disabledNext}>
           <Button
             variant={'ghost'}
-            size={'xs'}
+            size={'icon-xs'}
             tabIndex={-1}
             onClick={onNext}
             disabled={disabledNext}
           >
-            <ChevronDown />
+            <ChevronDown className="size-4 shrink-0" />
           </Button>
         </TooltipWrap>
       </div>
@@ -117,10 +117,10 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
         </h4>
       )}
       {showOperator && (
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
           <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
-            <Button variant={'ghost'} size={'xs'} onClick={onCopyUrl}>
-              <Link />
+            <Button variant={'ghost'} size={'icon-xs'} onClick={onCopyUrl}>
+              <Link className="size-4 shrink-0" />
             </Button>
           </TooltipWrap>
           {editable && (
@@ -133,10 +133,10 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             >
               <Button
                 variant={recordHistoryVisible ? 'secondary' : 'ghost'}
-                size={'xs'}
+                size={'icon-xs'}
                 onClick={onRecordHistoryToggle}
               >
-                <History />
+                <History className="size-4 shrink-0" />
               </Button>
             </TooltipWrap>
           )}
@@ -144,12 +144,12 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           {editable && (
             <TooltipWrap description={t('comment.title')}>
               <Button
-                size={'xs'}
+                size={'icon-xs'}
                 onClick={onCommentToggle}
                 variant={commentVisible ? 'secondary' : 'ghost'}
                 className="relative"
               >
-                <MessageSquare />
+                <MessageSquare className="size-4 shrink-0" />
                 {recordCommentCount ? (
                   <div className="absolute left-4 top-0.5 flex h-3 min-w-3 max-w-5 items-center justify-center rounded-[2px] bg-orange-500 px-0.5 text-[8px] text-white">
                     {recordCommentCount > 99 ? '99+' : recordCommentCount}
@@ -161,8 +161,8 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
 
           {canDelete ? (
             <DropdownMenu modal={false}>
-              <DropdownMenuTrigger className="px-2">
-                <MoreHorizontal />
+              <DropdownMenuTrigger className="size-7 rounded-md px-1.5 hover:bg-accent hover:text-accent-foreground">
+                <MoreHorizontal className="size-4 shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 {!!onDuplicate && (
@@ -191,8 +191,8 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
         </div>
       )}
       <Separator className="h-6" orientation="vertical" />
-      <Button variant={'ghost'} size={'xs'} onClick={onClose}>
-        <X />
+      <Button variant={'ghost'} size={'icon-xs'} onClick={onClose}>
+        <X className="size-4 shrink-0" />
       </Button>
     </div>
   );

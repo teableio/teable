@@ -114,8 +114,8 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
         {canManage && (
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="xs">
-                <MoreHorizontal className="size-3.5" />
+              <Button variant="outline" size="icon-xs">
+                <MoreHorizontal className="size-3.5 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
@@ -143,8 +143,8 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        <Button variant="outline" size="xs" onClick={toggleVisible}>
-          <X />
+        <Button variant="outline" size="icon-xs" onClick={toggleVisible}>
+          <X className="size-4 shrink-0" />
         </Button>
       </div>
     </div>

@@ -105,7 +105,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
       {!disallowSpaceInvitation && (
         <InviteSpacePopover space={space}>
           {isMobile ? (
-            <Button variant={'outline'} size="icon" className="size-7">
+            <Button variant="outline" size="icon-xs">
               <UserPlus className="size-4" />
             </Button>
           ) : (

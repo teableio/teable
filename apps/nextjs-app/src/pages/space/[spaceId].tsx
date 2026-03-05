@@ -51,9 +51,11 @@ export const getServerSideProps: GetServerSideProps = withEnv(
         const newBase = await ssrApi.createBase({
           spaceId: spaceId as string,
         });
+        const queryString = context.req.url?.split('?')[1];
+        const baseDest = queryString ? `/base/${newBase.id}?${queryString}` : `/base/${newBase.id}`;
         return {
           redirect: {
-            destination: `/base/${newBase.id}`,
+            destination: baseDest,
             permanent: false,
           },
         };
