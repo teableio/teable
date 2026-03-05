@@ -17,6 +17,9 @@ import { LinkNotification } from './notification-component';
 import { NotificationIcon } from './NotificationIcon';
 import { NotificationList } from './NotificationList';
 
+const SHOWN_NOTIFICATIONS_LIMIT = 100;
+const shownNotificationIds = new Set<string>();
+
 export const NotificationsManage: React.FC = () => {
   const queryClient = useQueryClient();
   const notification = useNotification();
@@ -48,12 +51,17 @@ export const NotificationsManage: React.FC = () => {
     if (notification?.notification == null) return;
     if (notification.notification.isRead) return;
 
-    // Use a stable toast id for credit-related notifications to prevent stacking
-    // Covers both AI task (creditExhausted) and automation (insufficientCredit) notifications
+    const notificationId = notification.notification.id;
+    if (shownNotificationIds.has(notificationId)) return;
+    if (shownNotificationIds.size >= SHOWN_NOTIFICATIONS_LIMIT) {
+      shownNotificationIds.clear();
+    }
+    shownNotificationIds.add(notificationId);
+
     const isCreditNotification =
       notification.notification.messageI18n?.includes('creditExhausted') ||
       notification.notification.messageI18n?.includes('insufficientCredit');
-    const toastId = isCreditNotification ? 'credit-exhausted-notification' : undefined;
+    const toastId = isCreditNotification ? 'credit-exhausted-notification' : notificationId;
 
     toast.info(
       <div className="flex  items-center">

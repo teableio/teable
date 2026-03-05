@@ -36,7 +36,7 @@ export const LinkContent = ({
   const [selectedRole, setSelectedRole] = useState<IRole>(defaultRole);
   const { t } = useTranslation('common');
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <Button
         variant="link"
         size="sm"

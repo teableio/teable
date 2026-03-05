@@ -167,6 +167,9 @@ const actionsI18nMap: Record<
   'user|email_read': {
     description: 'permission.actionDescription.userEmailRead',
   },
+  'user|integrations': {
+    description: 'permission.actionDescription.userIntegrations',
+  },
   'base|query_data': {
     description: 'permission.actionDescription.baseQuery',
   },
