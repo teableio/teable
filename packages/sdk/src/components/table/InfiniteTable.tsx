@@ -1,4 +1,4 @@
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, SortingState, OnChangeFn } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table, cn } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef } from 'react';
@@ -9,12 +9,15 @@ interface IInfiniteTableProps<T> {
   columns: ColumnDef<T>[];
   className?: string;
   fetchNextPage?: () => void;
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
+  emptyText?: string;
 }
 
 export const InfiniteTable = <T extends { [key: string]: unknown }>(
   props: IInfiniteTableProps<T>
 ) => {
-  const { rows, columns, className, fetchNextPage } = props;
+  const { rows, columns, className, fetchNextPage, sorting, onSortingChange, emptyText } = props;
 
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
@@ -23,6 +26,11 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
     data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    ...(onSortingChange && {
+      manualSorting: true,
+      onSortingChange,
+      state: { sorting },
+    }),
   });
 
   const fetchMoreOnBottomReached = useCallback(
@@ -46,15 +54,15 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
   return (
     <div
       ref={listRef}
-      className={cn('relative size-full overflow-auto px-2', className)}
+      className={cn('relative size-full overflow-auto', className)}
       onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
     >
       <Table className="relative scroll-smooth">
-        <TableHeader className="sticky top-0 z-10 bg-background">
+        <TableHeader className="sticky top-0 z-10 bg-muted">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="flex h-10 bg-background text-[13px] hover:bg-background"
+              className="flex h-10 bg-muted text-[13px] hover:bg-muted"
             >
               {headerGroup.headers.map((header) => {
                 const width = header.getSize();
@@ -103,7 +111,7 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                {t('common.empty')}
+                {emptyText ?? t('common.empty')}
               </TableCell>
             </TableRow>
           )}

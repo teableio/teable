@@ -6,7 +6,7 @@ import { FieldType, validateCellValue } from '@teable/core';
 import { ArrowRight, ChevronRight, MagicAi } from '@teable/icons';
 import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
 import { getRecordHistory, getRecordListHistory } from '@teable/openapi';
-import { Button, cn } from '@teable/ui-lib';
+import { Button } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import type { ReactNode } from 'react';
 import { Fragment, useCallback, useMemo, useState } from 'react';
@@ -73,7 +73,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       {
         accessorKey: 'createdTime',
         header: t('expandRecord.recordHistory.createdTime'),
-        size: 90,
+        size: 128,
         cell: ({ row }) => {
           const createdTime = row.getValue<string>('createdTime');
           const createdDate = dayjs(createdTime);
@@ -88,7 +88,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       {
         accessorKey: 'createdBy',
         header: t('expandRecord.recordHistory.createdBy'),
-        size: 80,
+        size: 120,
         cell: ({ row }) => {
           const createdBy = row.getValue<string>('createdBy');
           const user = userMap[createdBy];
@@ -130,9 +130,9 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
             hasAiConfig: false,
           });
           return (
-            <div className="flex items-center gap-x-1">
+            <div className="flex min-w-0 items-center gap-x-1">
               <Icon className="shrink-0" />
-              <OverflowTooltip text={fieldName} ellipsis className="flex-1 text-[13px]" />
+              <OverflowTooltip text={fieldName} ellipsis className="min-w-0 flex-1 text-[13px]" />
             </div>
           );
         },
@@ -140,7 +140,8 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       {
         accessorKey: 'before',
         header: t('expandRecord.recordHistory.before'),
-        size: actionVisible ? 220 : 280,
+        size: Number.MAX_SAFE_INTEGER,
+        minSize: 150,
         cell: ({ row }) => {
           const before = row.getValue<IRecordHistoryItemVo['before']>('before');
           const validatedCellValue = validateCellValue(before.meta as IFieldVo, before.data);
@@ -148,20 +149,22 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(before.meta.type);
           const copyText = typeof cellValue === 'string' ? cellValue : undefined;
           return (
-            <div className={cn('group relative', actionVisible ? 'w-52' : 'w-[264px]')}>
+            <div className="group relative w-full">
               {cellValue != null ? (
                 <Fragment>
-                  <CellValue
-                    value={cellValue}
-                    field={before.meta as IFieldInstance}
-                    className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
-                  />
+                  <div className="line-clamp-6">
+                    <CellValue
+                      value={cellValue}
+                      field={before.meta as IFieldInstance}
+                      className="max-w-full"
+                    />
+                  </div>
                   {canCopy && copyText && (
                     <CopyButton
                       text={copyText}
                       size="xs"
                       variant="outline"
-                      className="absolute right-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:!bg-[#333333]"
                     />
                   )}
                 </Fragment>
@@ -179,7 +182,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
         cell: () => {
           return (
             <div className="flex w-full justify-center">
-              <ArrowRight className="text-gray-500" />
+              <ArrowRight className="text-muted-foreground" />
             </div>
           );
         },
@@ -187,7 +190,8 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       {
         accessorKey: 'after',
         header: t('expandRecord.recordHistory.after'),
-        size: actionVisible ? 220 : 280,
+        size: Number.MAX_SAFE_INTEGER,
+        minSize: 150,
         cell: ({ row }) => {
           const after = row.getValue<IRecordHistoryItemVo['after']>('after');
           const validatedCellValue = validateCellValue(after.meta as IFieldVo, after.data);
@@ -195,25 +199,27 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(after.meta.type);
           const copyText = typeof cellValue === 'string' ? cellValue : undefined;
           return (
-            <div className={cn('group relative', actionVisible ? 'w-52' : 'w-[264px]')}>
+            <div className="group relative w-full">
               {cellValue != null ? (
                 <Fragment>
-                  <CellValue
-                    value={cellValue}
-                    field={after.meta as IFieldInstance}
-                    className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
-                  />
+                  <div className="line-clamp-6">
+                    <CellValue
+                      value={cellValue}
+                      field={after.meta as IFieldInstance}
+                      className="max-w-full"
+                    />
+                  </div>
                   {canCopy && copyText && (
                     <CopyButton
                       text={copyText}
                       size="xs"
                       variant="outline"
-                      className="absolute right-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:!bg-[#333333]"
                     />
                   )}
                 </Fragment>
               ) : (
-                <span className="text-gray-500">{t('common.empty')}</span>
+                <span className="text-muted-foreground">{t('common.empty')}</span>
               )}
             </div>
           );

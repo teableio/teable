@@ -1380,6 +1380,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     switch (aggregationFn) {
       case 'countall':
       case 'count':
+      case 'counta':
       case 'sum':
       case 'average':
         return '0::double precision';
@@ -1670,7 +1671,19 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         field
       );
 
-      const equalityEnabledFns = new Set(['countall', 'count', 'sum', 'average', 'max', 'min']);
+      const equalityEnabledFns = new Set([
+        'countall',
+        'count',
+        'counta',
+        'sum',
+        'average',
+        'max',
+        'min',
+        'and',
+        'or',
+        'xor',
+        'array_unique',
+      ]);
       const canUseEqualityPlan =
         equalityEnabledFns.has(aggregationFn) &&
         !supportsOrdering &&

@@ -4,8 +4,8 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
-import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import { ForeignTable } from '../../ForeignTable';
+import type { FieldDeletionContext, OnTeableFieldDeleted } from '../../OnTeableFieldDeleted';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
@@ -17,13 +17,6 @@ import type { FieldDuplicateParams } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
-import type {
-  ForeignTableRelatedField,
-  ForeignTableValidationContext,
-} from '../ForeignTableRelatedField';
-import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
-import { FieldValueTypeVisitor, type FieldValueType } from '../visitors/FieldValueTypeVisitor';
-import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
   buildFieldFilterSyncPlan,
   hasFieldReferenceInFilter,
@@ -31,6 +24,13 @@ import {
   isEquivalentFilter,
   syncFilterByFieldChanges,
 } from '../filter-sync';
+import type {
+  ForeignTableRelatedField,
+  ForeignTableValidationContext,
+} from '../ForeignTableRelatedField';
+import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
+import { FieldValueTypeVisitor, type FieldValueType } from '../visitors/FieldValueTypeVisitor';
+import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import {
@@ -298,7 +298,9 @@ export class ConditionalLookupField
     }
 
     const resolvedInnerField = lookupFieldResult.value;
-    if (!this.innerFieldValue || !this.innerFieldValue.type().equals(resolvedInnerField.type())) {
+    // Keep explicit inner type/options (for example conditional lookup -> formula convert).
+    // Only backfill from lookup target when the field is still pending.
+    if (!this.innerFieldValue) {
       this.innerFieldValue = resolvedInnerField;
     }
 

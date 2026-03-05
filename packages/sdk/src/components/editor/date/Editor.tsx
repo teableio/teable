@@ -83,7 +83,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
           <Button
             variant={'outline'}
             className={cn(
-              'w-full first-line:pl-3 text-left font-normal h-10 sm:h-9',
+              'w-full first-line:pl-3 text-left font-normal h-10 sm:h-9 dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 dark:hover:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] ',
               !value && 'text-muted-foreground',
               className
             )}

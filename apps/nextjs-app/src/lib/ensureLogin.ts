@@ -30,9 +30,17 @@ export default function ensureLogin<P extends { [key: string]: any }>(
       // User is logged in, redirect to home page if on login page
       if (!isAnonymous(user?.id) && isLoginPage) {
         const redirect = context.query.redirect;
+        let destination = typeof redirect === 'string' ? redirect : '/space';
+
+        const via = context.query.via;
+        if (typeof via === 'string' && via) {
+          const separator = destination.includes('?') ? '&' : '?';
+          destination = `${destination}${separator}via=${encodeURIComponent(via)}`;
+        }
+
         return {
           redirect: {
-            destination: typeof redirect === 'string' ? redirect : '/space',
+            destination,
             permanent: false,
           },
         };

@@ -45,7 +45,7 @@ export const ExpandViewList = () => {
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button className="size-7 shrink-0 px-0" size="xs" variant="ghost">
+        <Button className="shrink-0" size="icon-xs" variant="ghost">
           <List className="size-4" />
         </Button>
       </PopoverTrigger>

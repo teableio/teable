@@ -14,10 +14,10 @@ export const SheetWrapper = (props: SheetWrapperProps) => {
       <SheetTrigger asChild>
         <Button
           className={cn('fixed left-0 z-50 p-1 top-7 transition-all rounded-r-full rounded-l-none')}
-          size="xs"
+          size="icon-xs"
           variant={'outline'}
         >
-          <ChevronsRight className="size-5" />
+          <ChevronsRight className="size-5 shrink-0" />
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="p-0" closeable={false}>

@@ -364,15 +364,15 @@ const NodeShareContent = ({
               </TooltipProvider>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="size-9 p-0">
-                    <Qrcode />
+                  <Button variant="outline" size="icon">
+                    <Qrcode className="size-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="size-48 bg-white p-2">
                   <QRCodeSVG value={appPublicUrl} className="size-full" />
                 </PopoverContent>
               </Popover>
-              <CopyButton text={appPublicUrl} variant="outline" className="size-9 p-0" />
+              <CopyButton text={appPublicUrl} variant="outline" size="icon" />
             </div>
           </div>
         ) : (
@@ -434,11 +434,11 @@ const NodeShareContent = ({
                   {shareUrl}
                 </span>
               </div>
-              <CopyButton text={shareUrl} variant="outline" className="size-9 p-0" />
+              <CopyButton text={shareUrl} variant="outline" size="icon" />
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="size-9 p-0">
-                    <Qrcode />
+                  <Button variant="outline" size="icon">
+                    <Qrcode className="size-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="size-48 bg-white p-2">

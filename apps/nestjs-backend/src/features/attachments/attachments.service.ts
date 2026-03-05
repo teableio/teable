@@ -216,6 +216,7 @@ export class AttachmentsService {
       : {};
     return {
       ...attachment,
+      size: Number(attachment.size),
       width: attachment.width ?? undefined,
       height: attachment.height ?? undefined,
       url,

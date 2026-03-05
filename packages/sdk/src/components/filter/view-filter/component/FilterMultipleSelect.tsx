@@ -35,7 +35,7 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     return (
       <div
         key={value?.value}
-        className="flex h-5 max-w-32 shrink-0 items-center rounded-full px-2 text-xs font-normal"
+        className="flex h-5 max-w-full shrink-0 items-center rounded-full px-2 text-xs font-normal"
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
