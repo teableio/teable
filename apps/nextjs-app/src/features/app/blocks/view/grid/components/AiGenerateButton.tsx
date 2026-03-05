@@ -160,8 +160,10 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
 
     return (
       <div className="absolute z-50 rounded-lg border bg-background" style={style}>
-        <Button variant="outline" size="sm" onClick={onGenerate} disabled={!!isLocalPending}>
-          <RefreshCcw className={isLocalPending ? 'size-4 animate-spin' : 'size-4'} />
+        <Button variant="outline" size="icon-sm" onClick={onGenerate} disabled={!!isLocalPending}>
+          <RefreshCcw
+            className={isLocalPending ? 'size-4 shrink-0 animate-spin' : 'size-4 shrink-0'}
+          />
         </Button>
       </div>
     );

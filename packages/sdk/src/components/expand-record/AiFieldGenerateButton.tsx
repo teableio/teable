@@ -56,12 +56,12 @@ export const AiFieldGenerateButton = (props: {
   return (
     <Button
       variant="outline"
-      size="xs"
+      size="icon-xs"
       onClick={onGenerate}
       disabled={!!isPending}
       aria-label="Generate by AI"
     >
-      <RefreshCcw className={cn('size-3.5', isPending && 'animate-spin')} />
+      <RefreshCcw className={cn('size-3.5 shrink-0', isPending && 'animate-spin')} />
     </Button>
   );
 };

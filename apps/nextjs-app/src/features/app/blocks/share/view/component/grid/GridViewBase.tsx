@@ -34,6 +34,7 @@ import {
   useGridViewStore,
   LARGE_QUERY_THRESHOLD,
 } from '@teable/sdk/components';
+import { ShareViewContext } from '@teable/sdk/context';
 import {
   useButtonClickStatus,
   useFields,
@@ -50,7 +51,7 @@ import { Skeleton } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { uniqueId } from 'lodash';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
@@ -74,6 +75,7 @@ export const GridViewBase = (props: IGridViewProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const view = useView();
   const tableId = useTableId() as string;
+  const { shareId } = useContext(ShareViewContext);
   const router = useRouter();
   const isHydrated = useIsHydrated();
   const gridRef = useRef<IGridRef>(null);
@@ -96,7 +98,7 @@ export const GridViewBase = (props: IGridViewProps) => {
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const { setGridRef, searchCursor } = useGridSearchStore();
-  const buttonClickStatusHook = useButtonClickStatus(tableId, router.query.shareId as string);
+  const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
 
   const prepare = isHydrated && view && columns.length;
   const { filter, sort } = view ?? {};
@@ -134,7 +136,6 @@ export const GridViewBase = (props: IGridViewProps) => {
 
   const { mutateAsync: copyReq } = useMutation({
     mutationFn: async (copyRo: IRangesRo) => {
-      const shareId = router.query.shareId as string;
       const collapsedGroupIds = viewQueryWithGroup?.collapsedGroupIds;
       const { collapsedGroupIds: originalCollapsedGroupIds, ...rest } = copyRo;
       const params = {

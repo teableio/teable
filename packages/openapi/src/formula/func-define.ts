@@ -182,7 +182,7 @@ export const funcDefine: [
       name: FunctionName.Log,
       func: FUNCTIONS[FunctionName.Log],
       params: ['value', '[base=10]'],
-      definition: 'LOG(number, [base=10]))',
+      definition: 'LOG(number, [base=10])',
       returnType: CellValueType.Number,
     },
   ],

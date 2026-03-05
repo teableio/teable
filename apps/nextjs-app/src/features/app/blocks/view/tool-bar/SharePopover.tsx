@@ -178,8 +178,12 @@ export const SharePopover: React.FC<{
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size={'xs'} variant={'outline'} onClick={() => view.setRefreshLink()}>
-                      <RefreshCcw />
+                    <Button
+                      size={'icon-xs'}
+                      variant={'outline'}
+                      onClick={() => view.setRefreshLink()}
+                    >
+                      <RefreshCcw className="size-4 shrink-0" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>

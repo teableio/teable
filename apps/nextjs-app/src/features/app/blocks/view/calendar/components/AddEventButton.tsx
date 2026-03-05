@@ -47,7 +47,7 @@ export const AddEventButton = (props: IAddEventButtonProps) => {
 
   return createPortal(
     <Button
-      size="sm"
+      size="icon-sm"
       variant="secondary"
       className={cn(
         ADD_EVENT_BUTTON_CLASS_NAME,
@@ -55,7 +55,7 @@ export const AddEventButton = (props: IAddEventButtonProps) => {
       )}
       onClick={onClick}
     >
-      <Plus className="size-4" />
+      <Plus className="size-4 shrink-0" />
     </Button>,
     containerEl
   );
