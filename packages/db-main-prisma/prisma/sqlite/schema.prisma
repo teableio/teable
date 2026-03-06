@@ -127,8 +127,8 @@ model ComputedUpdateOutbox {
   seedTableId        String   @map("seed_table_id")
   seedRecordIds      Json?    @map("seed_record_ids")
   changeType         String   @map("change_type")
-  steps              Json
-  edges              Json
+  steps              Json?
+  edges              Json?
   status             String
   attempts           Int      @default(0)
   maxAttempts        Int      @default(8) @map("max_attempts")
@@ -139,8 +139,12 @@ model ComputedUpdateOutbox {
   estimatedComplexity Int     @default(0) @map("estimated_complexity")
   planHash           String   @map("plan_hash")
   dirtyStats         Json?    @map("dirty_stats")
-  affectedTableIds   Json?    @map("affected_table_ids")
-  affectedFieldIds   Json?    @map("affected_field_ids")
+  runId              String   @map("run_id")
+  originRunIds       String[] @default([]) @map("origin_run_ids")
+  runTotalSteps      Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int @default(0) @map("run_completed_steps_before")
+  affectedTableIds   String[] @default([]) @map("affected_table_ids")
+  affectedFieldIds   String[] @default([]) @map("affected_field_ids")
   syncMaxLevel       Int?     @map("sync_max_level")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
@@ -150,6 +154,7 @@ model ComputedUpdateOutbox {
   @@index([status, nextRunAt])
   @@index([baseId, seedTableId])
   @@index([planHash])
+  @@index([runId])
   @@map("computed_update_outbox")
 }
 
@@ -171,8 +176,8 @@ model ComputedUpdateDeadLetter {
   seedTableId        String   @map("seed_table_id")
   seedRecordIds      Json?    @map("seed_record_ids")
   changeType         String   @map("change_type")
-  steps              Json
-  edges              Json
+  steps              Json?
+  edges              Json?
   status             String
   attempts           Int      @default(0)
   maxAttempts        Int      @default(8) @map("max_attempts")
@@ -183,8 +188,12 @@ model ComputedUpdateDeadLetter {
   estimatedComplexity Int     @default(0) @map("estimated_complexity")
   planHash           String   @map("plan_hash")
   dirtyStats         Json?    @map("dirty_stats")
-  affectedTableIds   Json?    @map("affected_table_ids")
-  affectedFieldIds   Json?    @map("affected_field_ids")
+  runId              String   @map("run_id")
+  originRunIds       String[] @default([]) @map("origin_run_ids")
+  runTotalSteps      Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int @default(0) @map("run_completed_steps_before")
+  affectedTableIds   String[] @default([]) @map("affected_table_ids")
+  affectedFieldIds   String[] @default([]) @map("affected_field_ids")
   syncMaxLevel       Int?     @map("sync_max_level")
   traceData          Json?    @map("trace_data")
   failedAt           DateTime @map("failed_at")
@@ -193,6 +202,7 @@ model ComputedUpdateDeadLetter {
 
   @@index([baseId, seedTableId])
   @@index([planHash])
+  @@index([runId])
   @@map("computed_update_dead_letter")
 }
 
@@ -296,7 +306,7 @@ model Attachments {
   id             String    @id @default(cuid())
   token          String    @unique
   hash           String
-  size           Int
+  size           BigInt
   mimetype       String
   path           String
   width          Int?
@@ -444,6 +454,7 @@ model OAuthApp {
   createdBy        String    @map("created_by")
   secrets          OAuthAppSecret[]
   authorized       OAuthAppAuthorized[]
+  tokens           OAuthAppToken[]
 
   @@map("oauth_app")
 }
@@ -477,13 +488,17 @@ model OAuthAppSecret {
 
 model OAuthAppToken {
   id               String   @id @default(cuid())
-  appSecretId      String   @map("app_secret_id")
+  clientId         String   @map("client_id")
+  appSecretId      String?  @map("app_secret_id")
   refreshTokenSign String   @unique @map("refresh_token_sign")
   expiredTime      DateTime @map("expired_time")
   createdTime      DateTime @default(now()) @map("created_time")
   createdBy        String   @map("created_by")
 
-  oAuthAppSecret OAuthAppSecret @relation(fields: [appSecretId], references: [id], onDelete: Cascade)
+  oAuthAppSecret OAuthAppSecret? @relation(fields: [appSecretId], references: [id], onDelete: Cascade)
+  oAuthApp OAuthApp @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([clientId])
 
   @@map("oauth_app_token")
 }

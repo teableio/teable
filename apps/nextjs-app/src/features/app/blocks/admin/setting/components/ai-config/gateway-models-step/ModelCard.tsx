@@ -1,6 +1,8 @@
 'use client';
 
-import { Trash2, Image as ImageIcon } from '@teable/icons';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { DraggableHandle, Trash2, Image as ImageIcon } from '@teable/icons';
 import type { IGatewayModel, IModelAbility, GatewayModelProvider } from '@teable/openapi';
 import { Button, Switch, Badge, cn } from '@teable/ui-lib/shadcn';
 import { GATEWAY_PROVIDER_ICONS } from '../constant';
@@ -24,6 +26,15 @@ interface IModelCardProps {
 }
 
 export function ModelCard({ model, showPricing, onToggleEnabled, onRemove }: IModelCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: model.id,
+  });
+
+  const style = {
+    transition,
+    transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null),
+  };
+
   // Try ownedBy first, fallback to extracting from model ID
   const provider = model.ownedBy || getProviderFromModelId(model.id);
   const ProviderIcon = provider
@@ -32,11 +43,23 @@ export function ModelCard({ model, showPricing, onToggleEnabled, onRemove }: IMo
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={cn(
         'flex items-center gap-3 rounded-lg border p-4 transition-colors',
-        model.enabled ? 'bg-card' : 'bg-muted text-muted-foreground'
+        model.enabled ? 'bg-card' : 'bg-muted text-muted-foreground',
+        isDragging && 'z-10 opacity-50 shadow-lg'
       )}
     >
+      <button
+        type="button"
+        className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
+        <DraggableHandle className="size-4" />
+      </button>
+
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-center gap-2">
           {ProviderIcon && <ProviderIcon className="size-4 shrink-0" />}

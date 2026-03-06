@@ -24,6 +24,7 @@ interface IImportResultJobData {
   userId: string;
   sourceColumnMap?: Record<string, number | null>;
   notification: boolean;
+  attachmentUrl?: string;
 }
 
 @Injectable()
@@ -44,13 +45,13 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<IImportResultJobData>): Promise<void> {
-    const { jobId, baseId, table, userId, sourceColumnMap, notification } = job.data;
+    const { jobId, baseId, table, userId, sourceColumnMap, notification, attachmentUrl } = job.data;
     const manifest = (await this.cacheService.get(getImportResultManifestKey(jobId))) as
       | IImportResultManifest
       | undefined;
 
     if (!manifest) {
-      this.logger.warn(`Import manifest missing for job ${jobId}`);
+      this.logger.warn(`Import manifest missing for job ${jobId}, attachmentUrl: ${attachmentUrl}`);
       await this.cleanupImportDir(jobId);
       return;
     }
@@ -95,6 +96,9 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
       }
 
       const errorReportUrl = await this.uploadMergedErrorReport(jobId, manifest);
+      this.logger.log(
+        `[IMPORT_TABLE_ERROR_REPORT] jobId=${jobId} table=${table.name}(${table.id}) success=${manifest.successCount} failed=${manifest.failedCount} reportUrl=${errorReportUrl ?? 'N/A'}`
+      );
       const message = this.buildFailureNotification(table.name, manifest, errorReportUrl);
       this.notificationService.sendImportResultNotify({
         baseId,

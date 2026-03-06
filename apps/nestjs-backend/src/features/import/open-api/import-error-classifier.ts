@@ -1,13 +1,13 @@
 import type { I18nPath } from '../../../types/i18n.generated';
 
 export enum ImportErrorType {
-  DATE_OUT_OF_RANGE = 'DATE_OUT_OF_RANGE',
-  PLAN_ROW_LIMIT = 'PLAN_ROW_LIMIT',
-  NOT_NULL_VALIDATION = 'NOT_NULL_VALIDATION',
-  UNIQUE_VALIDATION = 'UNIQUE_VALIDATION',
-  REQUEST_TIMEOUT = 'REQUEST_TIMEOUT',
-  CHUNK_PROCESSING_FAILED = 'CHUNK_PROCESSING_FAILED',
-  UNKNOWN = 'UNKNOWN',
+  DateOutOfRange = 'DATE_OUT_OF_RANGE',
+  PlanRowLimit = 'PLAN_ROW_LIMIT',
+  NotNullValidation = 'NOT_NULL_VALIDATION',
+  UniqueValidation = 'UNIQUE_VALIDATION',
+  RequestTimeout = 'REQUEST_TIMEOUT',
+  ChunkProcessingFailed = 'CHUNK_PROCESSING_FAILED',
+  Unknown = 'UNKNOWN',
 }
 
 export interface IClassifiedError {
@@ -31,9 +31,9 @@ interface IErrorMatcher {
  * 2. Add matcher entry to ERROR_MATCHERS with pattern, i18nKey, context extractor
  * 3. Add i18n translations for the new key in all locale files under "import.error.*"
  */
-const ERROR_MATCHERS: IErrorMatcher[] = [
+const errorMatchers: IErrorMatcher[] = [
   {
-    type: ImportErrorType.DATE_OUT_OF_RANGE,
+    type: ImportErrorType.DateOutOfRange,
     pattern: /time zone displacement out of range|date\/time field value out of range/i,
     i18nKey: 'common.import.error.dateOutOfRange' as I18nPath,
     extractContext: (_match, raw) => {
@@ -42,35 +42,35 @@ const ERROR_MATCHERS: IErrorMatcher[] = [
     },
   },
   {
-    type: ImportErrorType.PLAN_ROW_LIMIT,
+    type: ImportErrorType.PlanRowLimit,
     pattern: /upgrade your plan to import more records/i,
     i18nKey: 'common.import.error.planRowLimit' as I18nPath,
     extractContext: () => ({}),
   },
   {
-    type: ImportErrorType.NOT_NULL_VALIDATION,
-    pattern: /Fields?\s+([\w,\s]+)\s+not null validation failed/i,
+    type: ImportErrorType.NotNullValidation,
+    pattern: /Fields?\s+(\w+(?:\s*,\s*\w+)*)\s+not null validation failed/i,
     i18nKey: 'common.import.error.notNullValidation' as I18nPath,
     extractContext: (match) => ({
       fieldIds: match[1]?.trim() ?? '',
     }),
   },
   {
-    type: ImportErrorType.UNIQUE_VALIDATION,
-    pattern: /Fields?\s+([\w,\s]+)\s+unique validation failed/i,
+    type: ImportErrorType.UniqueValidation,
+    pattern: /Fields?\s+(\w+(?:\s*,\s*\w+)*)\s+unique validation failed/i,
     i18nKey: 'common.import.error.uniqueValidation' as I18nPath,
     extractContext: (match) => ({
       fieldIds: match[1]?.trim() ?? '',
     }),
   },
   {
-    type: ImportErrorType.REQUEST_TIMEOUT,
+    type: ImportErrorType.RequestTimeout,
     pattern: /request timeout/i,
     i18nKey: 'common.import.error.requestTimeout' as I18nPath,
     extractContext: () => ({}),
   },
   {
-    type: ImportErrorType.CHUNK_PROCESSING_FAILED,
+    type: ImportErrorType.ChunkProcessingFailed,
     pattern: /^Chunk processing failed:/i,
     i18nKey: 'common.import.error.chunkProcessingFailed' as I18nPath,
     extractContext: (_match, raw) => ({
@@ -80,7 +80,7 @@ const ERROR_MATCHERS: IErrorMatcher[] = [
 ];
 
 export function classifyImportError(rawMessage: string): IClassifiedError {
-  for (const matcher of ERROR_MATCHERS) {
+  for (const matcher of errorMatchers) {
     const match = rawMessage.match(matcher.pattern);
     if (match) {
       return {
@@ -92,7 +92,7 @@ export function classifyImportError(rawMessage: string): IClassifiedError {
     }
   }
   return {
-    type: ImportErrorType.UNKNOWN,
+    type: ImportErrorType.Unknown,
     i18nKey: 'common.import.error.unknown' as I18nPath,
     context: { message: rawMessage },
     rawMessage,
@@ -123,7 +123,7 @@ export function resolveClassifiedFieldNames(
   };
 }
 
-export type TranslateFn = (key: I18nPath, args?: Record<string, string>) => string;
+export type ITranslateFn = (key: I18nPath, args?: Record<string, string>) => string;
 
 /**
  * Format a classified error into a human-readable localized message.
@@ -134,7 +134,7 @@ export type TranslateFn = (key: I18nPath, args?: Record<string, string>) => stri
  */
 export function formatClassifiedError(
   classified: IClassifiedError,
-  translate: TranslateFn,
+  translate: ITranslateFn,
   fieldMap?: Map<string, string>,
   failedFieldNames?: string[]
 ): string {

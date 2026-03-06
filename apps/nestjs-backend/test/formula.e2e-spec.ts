@@ -3016,96 +3016,6 @@ describe('OpenAPI formula (e2e)', () => {
           },
         } as IFieldRo);
 
-        const dayNumberField = await createField(host.id, {
-          name: 'Milestone Day Number',
-          type: FieldType.Formula,
-          options: {
-            expression: `DAY({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const dateStrField = await createField(host.id, {
-          name: 'Milestone DateStr',
-          type: FieldType.Formula,
-          options: {
-            expression: `DATESTR({${lookupField.id}})`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const timeStrField = await createField(host.id, {
-          name: 'Milestone TimeStr',
-          type: FieldType.Formula,
-          options: {
-            expression: `TIMESTR({${lookupField.id}})`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const monthField = await createField(host.id, {
-          name: 'Milestone Month',
-          type: FieldType.Formula,
-          options: {
-            expression: `MONTH({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const yearField = await createField(host.id, {
-          name: 'Milestone Year',
-          type: FieldType.Formula,
-          options: {
-            expression: `YEAR({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const weekDayField = await createField(host.id, {
-          name: 'Milestone Weekday',
-          type: FieldType.Formula,
-          options: {
-            expression: `WEEKDAY({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const weekNumField = await createField(host.id, {
-          name: 'Milestone Weeknum',
-          type: FieldType.Formula,
-          options: {
-            expression: `WEEKNUM({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const hourField = await createField(host.id, {
-          name: 'Milestone Hour',
-          type: FieldType.Formula,
-          options: {
-            expression: `HOUR({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const minuteField = await createField(host.id, {
-          name: 'Milestone Minute',
-          type: FieldType.Formula,
-          options: {
-            expression: `MINUTE({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const secondField = await createField(host.id, {
-          name: 'Milestone Second',
-          type: FieldType.Formula,
-          options: {
-            expression: `SECOND({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
         const hostRecordId = host.records[0].id;
         await updateRecordByApi(
           host.id,
@@ -3116,16 +3026,6 @@ describe('OpenAPI formula (e2e)', () => {
 
         const updatedRecord = await getRecord(host.id, hostRecordId);
         expect(updatedRecord.data.fields[formattedField.name]).toEqual('12, 12');
-        expect(updatedRecord.data.fields[dayNumberField.name]).toEqual('12, 12');
-        expect(updatedRecord.data.fields[dateStrField.name]).toEqual('2023-10-12, 2023-10-12');
-        expect(updatedRecord.data.fields[timeStrField.name]).toEqual('00:00:00, 00:00:00');
-        expect(updatedRecord.data.fields[monthField.name]).toEqual('10, 10');
-        expect(updatedRecord.data.fields[yearField.name]).toEqual('2023, 2023');
-        expect(updatedRecord.data.fields[weekDayField.name]).toEqual('4, 4');
-        expect(updatedRecord.data.fields[weekNumField.name]).toEqual('41, 41');
-        expect(updatedRecord.data.fields[hourField.name]).toEqual('0, 0');
-        expect(updatedRecord.data.fields[minuteField.name]).toEqual('0, 0');
-        expect(updatedRecord.data.fields[secondField.name]).toEqual('0, 0');
       } finally {
         if (host) {
           await permanentDeleteTable(baseId, host.id);

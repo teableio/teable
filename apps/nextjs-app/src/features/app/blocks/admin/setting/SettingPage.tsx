@@ -102,14 +102,13 @@ export const SettingPage = (props: ISettingPageProps) => {
         isRequired: true,
         isComplete: (() => {
           const aiConfig = setting?.aiConfig;
-          const enabled = Boolean(aiConfig?.enable);
           const hasLlmApi =
             Boolean(aiConfig?.aiGatewayApiKey) || (aiConfig?.llmProviders?.length ?? 0) > 0;
           const hasModelPool = aiConfig?.aiGatewayApiKey
             ? (aiConfig?.gatewayModels ?? []).some((m) => m.enabled)
             : (aiConfig?.llmProviders?.length ?? 0) > 0;
           const hasChatModel = Boolean(aiConfig?.chatModel?.lg);
-          return enabled && hasLlmApi && hasModelPool && hasChatModel;
+          return hasLlmApi && hasModelPool && hasChatModel;
         })(),
         group: 'ai' as const,
         path: '/admin/ai-setting?anchor=llm',

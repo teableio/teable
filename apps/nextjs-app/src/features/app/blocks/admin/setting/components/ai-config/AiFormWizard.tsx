@@ -16,7 +16,6 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
-import { AIEnableCard } from './AIEnableCard';
 import { AISetupWizard, useAISetupSteps, type LLMApiMode } from './AISetupWizard';
 import { DefaultModelsStep } from './DefaultModelsStep';
 import { GatewayModelsStep } from './GatewayModelsStep';
@@ -31,15 +30,12 @@ interface IAIConfigFormWizardProps {
   setAiConfig: (data: NonNullable<ISettingVo['aiConfig']>) => void;
   /** Whether to show pricing/billing related UI. Defaults to isCloud. */
   showPricing?: boolean;
-  /** Whether to show the enable card. Set to false when toggle is in parent. Defaults to true. */
-  showEnableCard?: boolean;
 }
 
 export function AIConfigFormWizard({
   aiConfig,
   setAiConfig,
   showPricing,
-  showEnableCard = true,
 }: IAIConfigFormWizardProps) {
   const isCloud = useIsCloud();
   // showPricing defaults to isCloud if not explicitly provided
@@ -47,7 +43,6 @@ export function AIConfigFormWizard({
   const defaultValues = useMemo(
     () =>
       aiConfig ?? {
-        enable: false,
         llmProviders: [],
         gatewayModels: [],
       },
@@ -62,7 +57,6 @@ export function AIConfigFormWizard({
   const llmProviders = form.watch('llmProviders') ?? [];
   const gatewayModels = form.watch('gatewayModels') ?? [];
   const chatModel = form.watch('chatModel');
-  const aiEnabled = form.watch('enable') ?? false;
   const providerModels = generateModelKeyList(llmProviders);
   const gatewayModelsList = generateGatewayModelKeyList(gatewayModels);
 
@@ -81,11 +75,30 @@ export function AIConfigFormWizard({
 
   // LLM API mode: gateway or custom
   // Auto-detect initial mode based on existing config
-  const [llmApiMode, setLlmApiMode] = useState<LLMApiMode>(() => {
+  const [llmApiMode, setLlmApiModeRaw] = useState<LLMApiMode>(() => {
     if (aiConfig?.aiGatewayApiKey) return 'gateway';
     if (llmProviders.length > 0) return 'custom';
     return 'gateway'; // Default to gateway
   });
+
+  const setLlmApiMode = useCallback((mode: LLMApiMode) => {
+    setLlmApiModeRaw(mode);
+  }, []);
+
+  const handleResetGateway = useCallback(() => {
+    const clearedConfig: NonNullable<ISettingVo['aiConfig']> = {
+      enable: false,
+      llmProviders: [],
+      gatewayModels: [],
+      aiGatewayApiKey: null,
+      aiGatewayBaseUrl: null,
+      chatModel: null,
+      attachmentTest: null,
+      attachmentTransferMode: null,
+    };
+    form.reset(clearedConfig);
+    setAiConfig(clearedConfig);
+  }, [form, setAiConfig]);
 
   // Current step state
   // Default collapsed on page load, user can expand steps manually.
@@ -141,24 +154,6 @@ export function AIConfigFormWizard({
   const updateChatModel = useCallback(
     (chatModel: { lg?: string; md?: string; sm?: string }) => {
       form.setValue('chatModel', chatModel);
-      // Auto-enable AI when chat model is configured
-      const shouldAutoEnable = chatModel.lg && !form.getValues('enable');
-      if (shouldAutoEnable) {
-        form.setValue('enable', true);
-      }
-      // Get current values and ensure enable is true if auto-enabled
-      const currentValues = form.getValues();
-      onSubmit({
-        ...currentValues,
-        enable: shouldAutoEnable ? true : currentValues.enable,
-      });
-    },
-    [form, onSubmit]
-  );
-
-  const updateEnabled = useCallback(
-    (enabled: boolean) => {
-      form.setValue('enable', enabled);
       onSubmit(form.getValues());
     },
     [form, onSubmit]
@@ -258,18 +253,6 @@ export function AIConfigFormWizard({
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <AISetupWizard>
           <div className="space-y-4">
-            {/* AI Enable Toggle - Only visible when showEnableCard is true */}
-            {showEnableCard && (
-              <AIEnableCard
-                enabled={aiEnabled}
-                onEnabledChange={updateEnabled}
-                hasGatewayKey={llmApiMode === 'gateway' ? hasGatewayKey : true}
-                hasModels={isStep2Complete}
-                hasChatModel={Boolean(chatModel?.lg)}
-                isCloud={isCloud}
-              />
-            )}
-
             {/* Step 1: Configure LLM API (Gateway OR Custom Provider) */}
             <SetupStepCard
               icon={<Zap className="size-4" />}
@@ -284,6 +267,7 @@ export function AIConfigFormWizard({
                 onModeChange={setLlmApiMode}
                 aiConfig={form.getValues()}
                 onAiConfigChange={updateAiConfig}
+                onResetGateway={handleResetGateway}
                 llmProviders={llmProviders}
                 onProvidersChange={updateProviders}
                 control={form.control}
@@ -317,7 +301,7 @@ export function AIConfigFormWizard({
                   gatewayModels={gatewayModels}
                   onChange={updateGatewayModels}
                   disabled={!hasGatewayKey}
-                  apiKey={form.getValues().aiGatewayApiKey}
+                  apiKey={form.getValues().aiGatewayApiKey ?? undefined}
                   showPricing={shouldShowPricing}
                 />
               ) : (
@@ -348,7 +332,7 @@ export function AIConfigFormWizard({
               disabled={!isStep2Complete}
             >
               <DefaultModelsStep
-                chatModel={chatModel}
+                chatModel={chatModel ?? undefined}
                 models={availableModels}
                 onChange={updateChatModel}
                 disabled={!isStep2Complete}

@@ -426,7 +426,9 @@ export class FieldOpenApiV2Service {
       if (typeof foreignTableId === 'string' && typeof lookupFieldId === 'string') {
         try {
           const sourceVo = await this.getFieldFromV2(foreignTableId, lookupFieldId, queryContext);
-          if (sourceVo.type) {
+          // Conditional lookup already exposes innerType via normalizeFieldVo.
+          // Do not overwrite it with foreign lookup source field type.
+          if (!vo.isConditionalLookup && sourceVo.type) {
             vo.type = sourceVo.type;
           }
 

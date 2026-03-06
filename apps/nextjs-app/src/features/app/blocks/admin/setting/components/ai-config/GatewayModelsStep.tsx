@@ -1,6 +1,9 @@
 'use client';
 
+import type { DragEndEvent } from '@dnd-kit/core';
+import { verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { IGatewayModel } from '@teable/openapi';
+import { DndKitContext, Droppable, arrayMove } from '@teable/ui-lib/base/dnd-kit';
 import { Label } from '@teable/ui-lib/shadcn';
 import Fuse from 'fuse.js';
 import { useTranslation } from 'next-i18next';
@@ -236,6 +239,20 @@ export function GatewayModelsStep({
     [gatewayModels, onChange]
   );
 
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (over && active.id !== over.id) {
+        const oldIndex = gatewayModels.findIndex((m) => m.id === active.id);
+        const newIndex = gatewayModels.findIndex((m) => m.id === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          onChange(arrayMove(gatewayModels, oldIndex, newIndex));
+        }
+      }
+    },
+    [gatewayModels, onChange]
+  );
+
   // Check if selected model ID is valid (exists in API)
   const isModelIdValid = useMemo(() => {
     if (!newModel.id) return true;
@@ -290,17 +307,24 @@ export function GatewayModelsStep({
             {t('admin.setting.ai.wizard.enabledModels')} (
             {gatewayModels.filter((m) => m.enabled).length})
           </Label>
-          <div className="space-y-2">
-            {gatewayModels.map((model) => (
-              <ModelCard
-                key={model.id}
-                model={model}
-                showPricing={showPricing}
-                onToggleEnabled={handleToggleEnabled}
-                onRemove={handleRemoveModel}
-              />
-            ))}
-          </div>
+          <DndKitContext onDragEnd={handleDragEnd}>
+            <Droppable
+              items={gatewayModels.map((m) => m.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {gatewayModels.map((model) => (
+                  <ModelCard
+                    key={model.id}
+                    model={model}
+                    showPricing={showPricing}
+                    onToggleEnabled={handleToggleEnabled}
+                    onRemove={handleRemoveModel}
+                  />
+                ))}
+              </div>
+            </Droppable>
+          </DndKitContext>
         </div>
       ) : (
         availableRecommendedIds.length === 0 && (

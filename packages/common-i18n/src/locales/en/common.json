@@ -565,38 +565,18 @@
         "chatModel": "Chat model",
         "chatModelDescription": "The chat model to use, Tips: tool calling is required for teable ai features",
         "chatModels": {
-          "sm": "Small chat model",
-          "smDescription": "Used for auto-generating chat titles and base names. Recommended: claude-haiku-4.5",
-          "md": "Medium chat model",
-          "mdDescription": "Used for AI formula generation. Falls back to lg if not configured. Recommended: claude-haiku-4.5",
           "lg": "Advanced chat model",
           "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5"
         },
         "actions": {
           "title": "AI Capabilities",
-          "aiBasicCapability": {
-            "title": "AI basic capability",
-            "description": "AI basic capability for table queries, SQL execution, script generation, and data visualization"
+          "aiField": {
+            "title": "AI Field",
+            "description": "AI field capabilities including auto-fill and AI configuration in field settings"
           },
-          "buildBase": {
-            "title": "Create base",
-            "description": "Create Base from scratch"
-          },
-          "buildApp": {
-            "title": "Create app",
-            "description": "Create App based on Base"
-          },
-          "buildAutomation": {
-            "title": "Create automation",
-            "description": "Create Automation from scratch"
-          },
-          "baseResource": {
-            "title": "Base resource operation",
-            "description": "Create, modify, and delete tables, views, fields, and records through ai"
-          },
-          "suggestion": {
-            "title": "Suggestion",
-            "description": "Give suggestions based on the current database data and conversation content"
+          "aiChat": {
+            "title": "AI Chat",
+            "description": "AI Chat sidebar and all agent capabilities"
           }
         },
         "chatModelTest": {
@@ -1162,12 +1142,16 @@
         "automation": {
           "title": "Automation notification",
           "failed": {
-            "title": "Automation {{name}} failed",
-            "message": "Your Automation {{name}} has failed to run. Click the button below to view specific errors from the run history."
+            "title": "Automation {{name}} run failed",
+            "message": "Your automation {{name}} encountered an execution error. Open run history to view details."
           },
           "insufficientCredit": {
-            "title": "Automation {{name}} failed due to insufficient credit",
-            "message": "Your Automation {{name}} has failed to run due to insufficient credit. please upgrade subscription or contact support."
+            "title": "Automation {{name}} run failed due to insufficient AI credits",
+            "message": "Your automation {{name}} failed because AI credits are insufficient. Please add credits or upgrade your plan."
+          },
+          "runQuotaExceeded": {
+            "title": "Automation {{name}} run failed due to run quota limit",
+            "message": "Your automation {{name}} reached the monthly automation run quota. Please upgrade your plan or purchase additional automation runs."
           }
         },
         "exportBase": {

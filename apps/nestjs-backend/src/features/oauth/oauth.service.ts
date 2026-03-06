@@ -219,12 +219,10 @@ export class OAuthService {
       await prisma.oAuthAppAuthorized.deleteMany({
         where: { clientId },
       });
-      const secrets = await prisma.oAuthAppSecret.findMany({
-        where: { clientId },
-      });
-      const secretIds = secrets.map((s) => s.id);
       await prisma.oAuthAppToken.deleteMany({
-        where: { appSecretId: { in: secretIds } },
+        where: {
+          clientId,
+        },
       });
       // delete access token
       await prisma.accessToken.deleteMany({
@@ -242,7 +240,10 @@ export class OAuthService {
       });
 
       await prisma.oAuthAppToken.deleteMany({
-        where: { createdBy: userId, oAuthAppSecret: { clientId } },
+        where: {
+          createdBy: userId,
+          clientId,
+        },
       });
 
       await prisma.accessToken.deleteMany({

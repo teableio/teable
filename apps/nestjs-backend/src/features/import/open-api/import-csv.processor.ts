@@ -35,7 +35,7 @@ import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { classifyImportError, formatClassifiedError } from './import-error-classifier';
-import type { TranslateFn } from './import-error-classifier';
+import type { ITranslateFn } from './import-error-classifier';
 import { ImportErrorCollector } from './import-error-collector';
 import { parseBoolean } from './import.class';
 
@@ -306,7 +306,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     }
   }
 
-  private createTranslateFn(lang?: string): TranslateFn {
+  private createTranslateFn(lang?: string): ITranslateFn {
     return (key: I18nPath, args?: Record<string, string>) =>
       this.i18n.t(key, { args, lang: lang ?? 'en' }) as string;
   }

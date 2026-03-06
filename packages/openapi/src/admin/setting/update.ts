@@ -103,16 +103,32 @@ export const imageModelAbilitySchema = z.object({
 
 export type IImageModelAbility = z.infer<typeof imageModelAbilitySchema>;
 
+// Tiered pricing tier - for volume-based pricing where cost changes at token thresholds
+export const pricingTierSchema = z.object({
+  cost: z.string(), // USD per token at this tier
+  min: z.number(), // Tier start (inclusive)
+  max: z.number().optional(), // Tier end (absent = open-ended last tier)
+});
+
+export type IPricingTier = z.infer<typeof pricingTierSchema>;
+
 // Unified pricing schema - USD per token (string format, same as Vercel AI Gateway API)
-// Credit calculation: credits = tokens * parseFloat(price) / TOKEN_TO_CREDIT_RATE
+// 100 credits = $1 USD. Credits = totalUSD / USD_PER_CREDIT
 export const pricingSchema = z.object({
-  input: z.string().optional(), // USD per input token, e.g., "0.000003"
-  output: z.string().optional(), // USD per output token, e.g., "0.000015"
-  inputCacheRead: z.string().optional(), // USD per cached input token
-  inputCacheWrite: z.string().optional(), // USD per cache write token
-  reasoning: z.string().optional(), // USD per reasoning token (e.g., o1 models)
-  image: z.string().optional(), // USD per image (for image generation)
-  webSearch: z.string().optional(), // USD per web search query (e.g., "10")
+  // Flat rates (USD per token/unit as string)
+  input: z.string().optional(),
+  output: z.string().optional(),
+  inputCacheRead: z.string().optional(),
+  inputCacheWrite: z.string().optional(),
+  reasoning: z.string().optional(),
+  image: z.string().optional(),
+  webSearch: z.string().optional(),
+
+  // Tiered pricing (overrides flat rate when present)
+  inputTiers: z.array(pricingTierSchema).optional(),
+  outputTiers: z.array(pricingTierSchema).optional(),
+  inputCacheReadTiers: z.array(pricingTierSchema).optional(),
+  inputCacheWriteTiers: z.array(pricingTierSchema).optional(),
 });
 
 export type IModelPricing = z.infer<typeof pricingSchema>;
@@ -132,12 +148,43 @@ export const legacyRatesSchema = z.object({
 export type ILegacyRates = z.infer<typeof legacyRatesSchema>;
 
 // Conversion constants
-// 1 credit = $0.001 USD (100 credits = $1)
+// 1 credit = $0.01 USD (100 credits = $1)
 export const USD_PER_CREDIT = 0.01;
 // Legacy rates were in credits per 1M tokens
 export const TOKENS_PER_RATE_UNIT = 1_000_000;
 
-// Convert new pricing (USD/token) to credits for billing
+/**
+ * Calculate cost for tokens using tiered (progressive) pricing.
+ * Each tier covers a range [min, max). The last tier has no max (open-ended).
+ */
+export function calculateTieredCost(tokenCount: number, tiers: IPricingTier[]): number {
+  let totalCost = 0;
+  for (const tier of tiers) {
+    if (tokenCount <= tier.min) break;
+    const tierMax = tier.max ?? Infinity;
+    const tokensInTier = Math.min(tokenCount, tierMax) - tier.min;
+    totalCost += tokensInTier * parseFloat(tier.cost);
+  }
+  return totalCost;
+}
+
+/**
+ * Calculate USD cost for a single pricing category.
+ * Uses tiered pricing if available, otherwise falls back to flat rate.
+ */
+function categoryUsd(
+  tokenCount: number | undefined,
+  flatRate: string | undefined,
+  tiers: IPricingTier[] | undefined
+): number {
+  if (!tokenCount) return 0;
+  if (tiers?.length) return calculateTieredCost(tokenCount, tiers);
+  if (flatRate) return parseFloat(flatRate) * tokenCount;
+  return 0;
+}
+
+// Convert pricing (USD/token) to credits for billing
+// 100 credits = $1 USD
 export function pricingToCredits(
   pricing: IModelPricing | undefined,
   usage: {
@@ -154,21 +201,20 @@ export function pricingToCredits(
 
   let totalUsd = 0;
 
-  if (pricing.input && usage.inputTokens) {
-    totalUsd += parseFloat(pricing.input) * usage.inputTokens;
-  }
-  if (pricing.output && usage.outputTokens) {
-    totalUsd += parseFloat(pricing.output) * usage.outputTokens;
-  }
-  if (pricing.inputCacheRead && usage.cacheReadTokens) {
-    totalUsd += parseFloat(pricing.inputCacheRead) * usage.cacheReadTokens;
-  }
-  if (pricing.inputCacheWrite && usage.cacheWriteTokens) {
-    totalUsd += parseFloat(pricing.inputCacheWrite) * usage.cacheWriteTokens;
-  }
-  if (pricing.reasoning && usage.reasoningTokens) {
-    totalUsd += parseFloat(pricing.reasoning) * usage.reasoningTokens;
-  }
+  totalUsd += categoryUsd(usage.inputTokens, pricing.input, pricing.inputTiers);
+  totalUsd += categoryUsd(usage.outputTokens, pricing.output, pricing.outputTiers);
+  totalUsd += categoryUsd(
+    usage.cacheReadTokens,
+    pricing.inputCacheRead,
+    pricing.inputCacheReadTiers
+  );
+  totalUsd += categoryUsd(
+    usage.cacheWriteTokens,
+    pricing.inputCacheWrite,
+    pricing.inputCacheWriteTiers
+  );
+  totalUsd += categoryUsd(usage.reasoningTokens, pricing.reasoning, undefined);
+
   if (pricing.image && usage.images) {
     totalUsd += parseFloat(pricing.image) * usage.images;
   }
@@ -176,7 +222,6 @@ export function pricingToCredits(
     totalUsd += parseFloat(pricing.webSearch) * usage.webSearches;
   }
 
-  // Convert USD to credits
   return totalUsd / USD_PER_CREDIT;
 }
 
@@ -357,6 +402,27 @@ export const gatewayModelSchema = z.object({
 export type IGatewayModel = z.infer<typeof gatewayModelSchema>;
 
 /* eslint-disable @typescript-eslint/naming-convention */
+// Raw pricing schema matching Vercel AI Gateway API response (snake_case)
+// @see https://ai-gateway.vercel.sh/v1/models
+export const rawPricingSchema = z.object({
+  // Flat rates (USD per token/unit as string)
+  input: z.string().optional(),
+  output: z.string().optional(),
+  input_cache_read: z.string().optional(),
+  input_cache_write: z.string().optional(),
+  reasoning: z.string().optional(),
+  image: z.string().optional(),
+  web_search: z.string().optional(),
+
+  // Tiered pricing (overrides flat rate when present)
+  input_tiers: z.array(pricingTierSchema).optional(),
+  output_tiers: z.array(pricingTierSchema).optional(),
+  input_cache_read_tiers: z.array(pricingTierSchema).optional(),
+  input_cache_write_tiers: z.array(pricingTierSchema).optional(),
+});
+
+export type IRawPricing = z.infer<typeof rawPricingSchema>;
+
 // Raw API response structure from Vercel AI Gateway (snake_case as returned by API)
 export const gatewayApiModelRawSchema = z.object({
   id: z.string(),
@@ -368,7 +434,7 @@ export const gatewayApiModelRawSchema = z.object({
   max_tokens: z.number().optional(),
   created: z.number().optional(),
   owned_by: gatewayModelProviderSchema.optional(),
-  pricing: pricingSchema.optional(),
+  pricing: rawPricingSchema.optional(),
 });
 /* eslint-enable @typescript-eslint/naming-convention */
 
@@ -390,6 +456,55 @@ export const gatewayApiModelSchema = z.object({
 
 export type IGatewayApiModel = z.infer<typeof gatewayApiModelSchema>;
 
+/**
+ * Normalize a pricing object from any source (gateway API snake_case or admin config camelCase)
+ * into our canonical camelCase IModelPricing format.
+ */
+// Field mappings: [snakeCase, camelCase] pairs for pricing normalization
+const PRICING_STRING_FIELDS: [string, keyof IModelPricing][] = [
+  ['input', 'input'],
+  ['output', 'output'],
+  ['reasoning', 'reasoning'],
+  ['image', 'image'],
+  ['input_cache_read', 'inputCacheRead'],
+  ['input_cache_write', 'inputCacheWrite'],
+  ['web_search', 'webSearch'],
+];
+
+const PRICING_TIER_FIELDS: [string, keyof IModelPricing][] = [
+  ['input_tiers', 'inputTiers'],
+  ['output_tiers', 'outputTiers'],
+  ['input_cache_read_tiers', 'inputCacheReadTiers'],
+  ['input_cache_write_tiers', 'inputCacheWriteTiers'],
+];
+
+/**
+ * Normalize a pricing object from any source (gateway API snake_case or admin config camelCase)
+ * into our canonical camelCase IModelPricing format.
+ */
+export function normalizeGatewayPricing(
+  raw: IRawPricing | IModelPricing | Record<string, unknown> | undefined
+): IModelPricing | undefined {
+  if (!raw || Object.keys(raw).length === 0) return undefined;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = raw as Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pricing: Record<string, any> = {};
+
+  for (const [snake, camel] of PRICING_STRING_FIELDS) {
+    const val = r[snake] ?? (snake !== camel ? r[camel] : undefined);
+    if (val != null) pricing[camel] = String(val);
+  }
+
+  for (const [snake, camel] of PRICING_TIER_FIELDS) {
+    const val = r[snake] ?? (snake !== camel ? r[camel] : undefined);
+    if (Array.isArray(val)) pricing[camel] = val;
+  }
+
+  return Object.keys(pricing).length > 0 ? (pricing as IModelPricing) : undefined;
+}
+
 // Helper function to convert raw API response to camelCase
 export function convertGatewayApiModel(raw: IGatewayApiModelRaw): IGatewayApiModel {
   return {
@@ -402,7 +517,7 @@ export function convertGatewayApiModel(raw: IGatewayApiModelRaw): IGatewayApiMod
     maxTokens: raw.max_tokens,
     created: raw.created,
     ownedBy: raw.owned_by,
-    pricing: raw.pricing,
+    pricing: normalizeGatewayPricing(raw.pricing),
   };
 }
 
@@ -476,7 +591,7 @@ export const aiConfigSchema = z.object({
   llmProviders: z.array(llmProviderSchema).default([]),
   embeddingModel: z.string().optional(),
   translationModel: z.string().optional(),
-  chatModel: chatModelSchema.optional(),
+  chatModel: chatModelSchema.nullable().optional(),
   // AI Gateway models (admin-maintained, recommended for Cloud)
   gatewayModels: z.array(gatewayModelSchema).optional(),
   capabilities: z
@@ -485,13 +600,13 @@ export const aiConfigSchema = z.object({
     })
     .optional(),
   // Vercel AI Gateway configuration
-  aiGatewayApiKey: z.string().optional(),
+  aiGatewayApiKey: z.string().nullable().optional(),
   // AI Gateway base URL (defaults to Vercel's gateway if not set)
-  aiGatewayBaseUrl: z.url().optional(),
+  aiGatewayBaseUrl: z.url().nullable().optional(),
   // Attachment transfer test results (from dual-mode testing)
-  attachmentTest: attachmentTestSchema.optional(),
+  attachmentTest: attachmentTestSchema.nullable().optional(),
   // Attachment transfer mode: 'url' (default) or 'base64'
-  attachmentTransferMode: attachmentTransferModeSchema.default('url').optional(),
+  attachmentTransferMode: attachmentTransferModeSchema.nullable().optional(),
   // Multiple AI Gateway API keys for concurrency scaling via key rotation
   aiGatewayApiKeys: z.array(z.string()).optional(),
   // Vertex AI BYOK credential (free quota optimization for Google models)

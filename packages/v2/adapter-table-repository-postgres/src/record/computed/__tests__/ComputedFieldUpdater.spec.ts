@@ -2,11 +2,14 @@ import {
   ActorId,
   BaseId,
   DbFieldName,
+  FormulaExpression,
   FieldId,
   FieldName,
   LinkFieldConfig,
   LookupOptions,
   RecordId,
+  createFormulaField,
+  createNumberField,
   RollupExpression,
   RollupFieldConfig,
   Table,
@@ -160,6 +163,10 @@ const CASCADE_TARGET_PRIMARY_FIELD_ID = `fld${'v'.repeat(16)}`;
 const CASCADE_MIDDLE_SYMMETRIC_FIELD_ID = `fld${'w'.repeat(16)}`;
 const CASCADE_TARGET_SYMMETRIC_FIELD_ID = `fld${'x'.repeat(16)}`;
 const CASCADE_RECORD_ID = `rec${'y'.repeat(16)}`;
+const SAME_TABLE_FORMULA_TABLE_ID = `tbl${'z'.repeat(16)}`;
+const SAME_TABLE_VALUE_FIELD_ID = `fld${'i'.repeat(16)}`;
+const SAME_TABLE_PLUS_ONE_FIELD_ID = `fld${'j'.repeat(16)}`;
+const SAME_TABLE_DOUBLE_FIELD_ID = `fld${'k'.repeat(16)}`;
 
 const createLinkTables = () => {
   const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
@@ -419,6 +426,68 @@ const createLookupRollupCascadeTables = () => {
     targetLookupFieldId,
   };
 };
+
+const createSameTableFormulaChainTable = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(SAME_TABLE_FORMULA_TABLE_ID)._unsafeUnwrap();
+  const valueFieldId = FieldId.create(SAME_TABLE_VALUE_FIELD_ID)._unsafeUnwrap();
+  const plusOneFieldId = FieldId.create(SAME_TABLE_PLUS_ONE_FIELD_ID)._unsafeUnwrap();
+  const doubleFieldId = FieldId.create(SAME_TABLE_DOUBLE_FIELD_ID)._unsafeUnwrap();
+
+  const valueFieldResult = createNumberField({
+    id: valueFieldId,
+    name: FieldName.create('Value')._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('col_value').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const plusOneFieldResult = createFormulaField({
+    id: plusOneFieldId,
+    name: FieldName.create('PlusOne')._unsafeUnwrap(),
+    expression: FormulaExpression.create(`{${valueFieldId.toString()}} + 1`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('col_plus_one').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const doubleFieldResult = createFormulaField({
+    id: doubleFieldId,
+    name: FieldName.create('PlusOneDouble')._unsafeUnwrap(),
+    expression: FormulaExpression.create(`{${plusOneFieldId.toString()}} * 2`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('col_plus_one_double').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const table = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('SameTableFormula')._unsafeUnwrap())
+    .addFieldFromResult(valueFieldResult)
+    .addFieldFromResult(plusOneFieldResult)
+    .addFieldFromResult(doubleFieldResult)
+    .view()
+    .defaultGrid()
+    .done()
+    .build()
+    ._unsafeUnwrap();
+
+  return {
+    baseId,
+    table,
+    plusOneFieldId,
+    doubleFieldId,
+  };
+};
+
+const createSequentialRecordIds = (count: number): RecordId[] =>
+  Array.from({ length: count }, (_, index) =>
+    RecordId.create(`rec${index.toString().padStart(16, '0')}`)._unsafeUnwrap()
+  );
 
 // =============================================================================
 // Tests
@@ -681,5 +750,90 @@ describe('ComputedFieldUpdater', () => {
         },
       ]
     `);
+  });
+
+  it('chunks same-table CTE batch updates when dirty records exceed threshold', async () => {
+    const { baseId, table, plusOneFieldId, doubleFieldId } = createSameTableFormulaChainTable();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const seedRecordIds = createSequentialRecordIds(1001);
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds,
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: table.id(),
+          fieldIds: [plusOneFieldId],
+          level: 0,
+        },
+        {
+          tableId: table.id(),
+          fieldIds: [doubleFieldId],
+          level: 1,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 2,
+      changeType: 'update',
+      sameTableBatches: [
+        {
+          tableId: table.id(),
+          steps: [
+            {
+              tableId: table.id(),
+              fieldIds: [plusOneFieldId],
+              level: 0,
+            },
+            {
+              tableId: table.id(),
+              fieldIds: [doubleFieldId],
+              level: 1,
+            },
+          ],
+          minLevel: 0,
+          maxLevel: 1,
+        },
+      ],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const tableRepository = createTableRepository([table]);
+    const logger = createLogger();
+    const typeValidationStrategy = createTypeValidationStrategy();
+    const updater = new ComputedFieldUpdater(
+      tableRepository,
+      logger,
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      typeValidationStrategy
+    );
+    const updaterInternal = updater as unknown as {
+      getDirtyCountForTable: () => Promise<number>;
+      getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
+    };
+    updaterInternal.getDirtyCountForTable = async () => 1001;
+    updaterInternal.getDirtyRecordIdChunks = async () => [
+      Array.from({ length: 500 }, (_, i) => `rec${i.toString().padStart(16, '0')}`),
+      Array.from({ length: 500 }, (_, i) => `rec${(i + 500).toString().padStart(16, '0')}`),
+      Array.from({ length: 1 }, (_, i) => `rec${(i + 1000).toString().padStart(16, '0')}`),
+    ];
+
+    const context: IExecutionContext = { actorId };
+    const result = await updater.execute(plan, context);
+    expect(result.isOk()).toBe(true);
+
+    const updateQueries = driver.queries.filter((query) =>
+      query.sql.startsWith('update "bseaaaaaaaaaaaaaaaa"."tblzzzzzzzzzzzzzzzz" as "u"')
+    );
+
+    expect(updateQueries).toHaveLength(3);
+    for (const query of updateQueries) {
+      expect(query.sql).toMatch(/with "level_0" as/i);
+      expect(query.sql).toMatch(/join "level_1" on u\."__id" = "level_1"\."__id"/i);
+      expect(query.sql).toContain('AS "__record_ids"("__id") ON "t"."__id" = "__record_ids"."__id"');
+      expect(query.sql).not.toContain('from "level_0", "level_1"');
+    }
   });
 });

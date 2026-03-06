@@ -16,19 +16,13 @@ export const useDisableAIAction = () => {
   return useMemo(() => {
     if (Array.isArray(disableActions) && disableActions.length > 0) {
       return {
-        suggestion: !disableActions.includes(AIActions.Suggestion),
-        buildBase: !disableActions.includes(AIActions.BuildBase),
-        buildAutomation: !disableActions.includes(AIActions.BuildAutomation),
-        baseResource: !disableActions.includes(AIActions.BaseResource),
-        buildApp: !disableActions.includes(AIActions.BaseApp),
+        aiField: !disableActions.includes(AIActions.AIField),
+        aiChat: !disableActions.includes(AIActions.AIChat),
       };
     }
     return {
-      suggestion: true,
-      buildBase: true,
-      baseResource: true,
-      buildAutomation: true,
-      buildApp: true,
+      aiField: true,
+      aiChat: true,
     };
   }, [disableActions]);
 };

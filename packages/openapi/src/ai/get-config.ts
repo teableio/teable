@@ -61,6 +61,7 @@ export const chatModelResponseSchema = z.object({
 export const getAIConfigSchema = aiConfigSchema.omit({ chatModel: true }).extend({
   modelDefinationMap: modelDefinationMapSchema.optional(),
   chatModel: chatModelResponseSchema.optional(),
+  isSpaceChatModel: z.boolean().optional(),
 });
 
 export type IGetAIConfig = z.infer<typeof getAIConfigSchema>;

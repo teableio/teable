@@ -1,12 +1,6 @@
 import { AlertTriangle, Check, Image, File, Settings } from '@teable/icons';
 import { chatModelAbilityType } from '@teable/openapi';
-import type {
-  IAIIntegrationConfig,
-  IChatModelAbility,
-  IAbilityDetail,
-  ISettingVo,
-} from '@teable/openapi';
-import { ConfirmDialog } from '@teable/ui-lib/base';
+import type { IAIIntegrationConfig, IChatModelAbility, IAbilityDetail } from '@teable/openapi';
 import {
   cn,
   Tooltip,
@@ -16,7 +10,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Cpu } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { AIModelSelect, type IModelOption } from './AiModelSelect';
 
 // Helper to check if ability is supported (handles both boolean and detailed format)
@@ -43,24 +37,21 @@ const getAbilitySupportDetails = (ability: boolean | IAbilityDetail | undefined)
 export const CodingModels = ({
   value,
   onChange,
-  formValues,
   models,
-  onEnableAI,
   needGroup,
+  placeholder,
 }: {
   value: IAIIntegrationConfig['chatModel'];
   onChange: (value: IAIIntegrationConfig['chatModel']) => void;
   models?: IModelOption[];
-  formValues?: NonNullable<ISettingVo['aiConfig']>;
-  onEnableAI?: () => void;
   // Kept for backward compatibility, but not used since testing happens in provider config
   onTestChatModelAbility?: (
     chatModel: IAIIntegrationConfig['chatModel']
   ) => Promise<IChatModelAbility | undefined>;
   needGroup?: boolean;
+  placeholder?: string;
 }) => {
   const { t } = useTranslation('common');
-  const [showEnableAIModal, setShowEnableAIModal] = useState(false);
 
   const abilityIconMap = useMemo(() => {
     return {
@@ -90,22 +81,6 @@ export const CodingModels = ({
 
     // Set all sizes to the same model (simplified selection)
     onChange({ ...value, lg: model, md: model, sm: model, ability });
-
-    // Check if AI needs to be enabled
-    if (model && formValues && !formValues.enable) {
-      setShowEnableAIModal(true);
-    }
-  };
-
-  const handleEnableAIConfirm = () => {
-    // Enable AI after model selection
-    onEnableAI?.();
-    setShowEnableAIModal(false);
-  };
-
-  const handleEnableAICancel = () => {
-    // Don't enable AI, just close modal
-    setShowEnableAIModal(false);
   };
 
   // Icon for chat model selection
@@ -171,6 +146,7 @@ export const CodingModels = ({
           options={models}
           className="flex-1"
           needGroup={needGroup}
+          placeholder={placeholder}
         />
 
         {/* Model Ability Section - directly under model select */}
@@ -250,17 +226,6 @@ export const CodingModels = ({
           </div>
         )}
       </div>
-
-      <ConfirmDialog
-        open={showEnableAIModal}
-        onOpenChange={setShowEnableAIModal}
-        title={t('admin.setting.ai.chatModelTest.enableAITitle')}
-        description={t('admin.setting.ai.chatModelTest.enableAIDescription')}
-        confirmText={t('admin.setting.ai.chatModelTest.enableAI')}
-        cancelText={t('admin.setting.ai.chatModelTest.skipTest')}
-        onConfirm={handleEnableAIConfirm}
-        onCancel={handleEnableAICancel}
-      />
     </div>
   );
 };

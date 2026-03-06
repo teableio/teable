@@ -56,7 +56,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
       role="combobox"
       aria-expanded={open}
       className={cn(
-        'w-full h-auto min-h-[32px] flex py-1 flex-wrap justify-start hover:bg-transparent gap-1.5 px-2',
+        'w-full h-auto min-h-[32px] flex py-1 flex-wrap dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 hover:bg-background dark:hover:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] justify-start gap-1.5 px-2',
         className
       )}
     >

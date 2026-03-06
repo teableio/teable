@@ -535,38 +535,18 @@
         "chatModel": "Chat-Modell",
         "chatModelDescription": "Das zu verwendende Chat-Modell, Tipp: Das mittlere Kodierungsmodell wird standardmäßig für AI-Formelgenerierung und verwandte Funktionen verwendet",
         "chatModels": {
-          "sm": "Kleines Chat-Modell",
-          "smDescription": "Für die automatische Generierung von Chat-Titeln und Base-Namen. Empfohlen: claude-haiku-4.5",
-          "md": "Mittleres Chat-Modell",
-          "mdDescription": "Für AI-Formelgenerierung. Falls nicht konfiguriert, wird lg verwendet. Empfohlen: claude-haiku-4.5",
           "lg": "Erweiteres Chat-Modell",
           "lgDescription": "Für Planung, Programmierung und andere komplexe Aufgabenszenarien. Empfohlen: claude-sonnet-4.5"
         },
         "actions": {
           "title": "KI-Fähigkeiten",
-          "aiBasicCapability": {
-            "title": "KI-Grundfähigkeit",
-            "description": "KI-Grundfähigkeit für Tabellenabfragen, SQL-Ausführung, Skriptgenerierung und Datenvisualisierung"
+          "aiField": {
+            "title": "KI-Feld",
+            "description": "KI-Feldfunktionen einschließlich automatischer Ausfüllung und KI-Konfiguration in Feldeinstellungen"
           },
-          "buildBase": {
-            "title": "Datenbank erstellen",
-            "description": "Datenbank von Grund auf erstellen"
-          },
-          "buildApp": {
-            "title": "App erstellen",
-            "description": "App basierend auf Datenbank erstellen"
-          },
-          "buildAutomation": {
-            "title": "Automatisierung erstellen",
-            "description": "Automatisierung von Grund auf erstellen"
-          },
-          "baseResource": {
-            "title": "Datenbank-Ressourcenoperation",
-            "description": "Tabellen, Ansichten, Felder und Datensätze über KI erstellen, ändern und löschen"
-          },
-          "suggestion": {
-            "title": "Vorschlag",
-            "description": "Vorschläge basierend auf den aktuellen Datenbankdaten und Gesprächsinhalten geben"
+          "aiChat": {
+            "title": "KI-Chat",
+            "description": "KI-Chat-Seitenleiste und alle Agent-Funktionen"
           }
         },
         "chatModelTest": {
@@ -865,6 +845,10 @@
           "insufficientCredit": {
             "title": "Automatisierung {{name}} aufgrund unzureichenden Guthabens fehlgeschlagen",
             "message": "Ihre Automatisierung {{name}} konnte aufgrund unzureichenden Guthabens nicht ausgeführt werden. Bitte aktualisieren Sie Ihr Abonnement oder kontaktieren Sie den Support."
+          },
+          "runQuotaExceeded": {
+            "title": "Automatisierung {{name}} hat die maximale monatliche Ausführungsanzahl erreicht",
+            "message": "Die monatlichen Ausführungen für Automatisierung {{name}} sind aufgebraucht. Die Ausführung ist vorübergehend nicht möglich. Bitte upgraden Sie Ihr Abonnement oder kaufen Sie zusätzliche Ausführungen."
           }
         },
         "exportBase": {

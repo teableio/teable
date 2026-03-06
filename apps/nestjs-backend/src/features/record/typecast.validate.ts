@@ -445,7 +445,10 @@ export class TypeCastAndValidate {
         path: true,
       },
     });
-    return keyBy(attachmentMetadata, 'token');
+    return keyBy(
+      attachmentMetadata.map((a) => ({ ...a, size: Number(a.size) })),
+      'token'
+    );
   }
 
   private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
@@ -597,6 +600,7 @@ export class TypeCastAndValidate {
       const metadata = metadataMap[detail.token];
       acc[metadata.attachmentId] = {
         ...nullsToUndefined(detail),
+        size: Number(detail.size),
         name: metadata.name,
         id: generateAttachmentId(),
       };

@@ -64,7 +64,7 @@ export const KanbanStackCreator = () => {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="lg" className="" onClick={onToggle}>
+        <Button variant="outline" size="lg" onClick={onToggle}>
           <Plus className="size-4" />
           {t('table:kanban.stack.addStack')}
         </Button>

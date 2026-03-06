@@ -7,7 +7,7 @@ export interface IImportResultManifest {
 }
 
 export const IMPORT_RESULT_MANIFEST_TTL_SECONDS = 60 * 60;
-const IMPORT_RESULT_MANIFEST_PREFIX = 'import:result:manifest:';
+const importResultManifestPrefix = 'import:result:manifest:';
 
 export const getImportResultManifestKey = (jobId: string): `import:result:manifest:${string}` =>
-  `${IMPORT_RESULT_MANIFEST_PREFIX}${jobId}` as `import:result:manifest:${string}`;
+  `${importResultManifestPrefix}${jobId}` as `import:result:manifest:${string}`;
