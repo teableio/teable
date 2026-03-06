@@ -90,4 +90,28 @@ describe('Filter Parse', () => {
     const parse = filterSchema.parse(data);
     expect(parse).toEqual(data);
   });
+
+  it('should normalize unary filter items without explicit value to null', async () => {
+    const data = {
+      filterSet: [
+        {
+          fieldId: 'fldbbM45OO5VOWuce4r',
+          operator: 'isNotEmpty',
+        },
+      ],
+      conjunction: 'and',
+    };
+
+    const parse = filterSchema.parse(data);
+    expect(parse).toEqual({
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: 'fldbbM45OO5VOWuce4r',
+          operator: 'isNotEmpty',
+          value: null,
+        },
+      ],
+    });
+  });
 });

@@ -64,6 +64,18 @@ describe('RecordFilterDto', () => {
     expect(invalidScalarForArray.success).toBe(false);
   });
 
+  it('normalizes unary operators without explicit value to null', () => {
+    const validMissingValue = recordFilterConditionSchema.safeParse({
+      fieldId: 'fld123',
+      operator: 'isNotEmpty',
+    });
+
+    expect(validMissingValue.success).toBe(true);
+    if (validMissingValue.success) {
+      expect(validMissingValue.data.value).toBeNull();
+    }
+  });
+
   it('validates groups, nodes, and nullable filters', () => {
     const condition = {
       fieldId: 'fld123',

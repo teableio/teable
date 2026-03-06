@@ -1,62 +1,18 @@
 import { z } from 'zod';
+import {
+  recordConditionDateModeSchema,
+  recordConditionOperatorSchema,
+  recordConditionOperatorsExpectingArray,
+  recordConditionOperatorsExpectingNull,
+  type RecordConditionDateMode,
+  type RecordConditionOperator,
+} from '../domain/table/records/specs/RecordConditionOperators';
 
-export const recordFilterOperatorSchema = z.enum([
-  'is',
-  'isNot',
-  'contains',
-  'doesNotContain',
-  'isEmpty',
-  'isNotEmpty',
-  'isGreater',
-  'isGreaterEqual',
-  'isLess',
-  'isLessEqual',
-  'isAnyOf',
-  'isNoneOf',
-  'hasAnyOf',
-  'hasAllOf',
-  'isNotExactly',
-  'hasNoneOf',
-  'isExactly',
-  'isWithIn',
-  'isBefore',
-  'isAfter',
-  'isOnOrBefore',
-  'isOnOrAfter',
-]);
-export type RecordFilterOperator = z.infer<typeof recordFilterOperatorSchema>;
+export const recordFilterOperatorSchema = recordConditionOperatorSchema;
+export type RecordFilterOperator = RecordConditionOperator;
 
-export const recordFilterDateModeSchema = z.enum([
-  'today',
-  'tomorrow',
-  'yesterday',
-  'currentWeek',
-  'currentMonth',
-  'currentYear',
-  'lastWeek',
-  'lastMonth',
-  'lastYear',
-  'nextWeekPeriod',
-  'nextMonthPeriod',
-  'nextYearPeriod',
-  'oneWeekAgo',
-  'oneWeekFromNow',
-  'oneMonthAgo',
-  'oneMonthFromNow',
-  'daysAgo',
-  'daysFromNow',
-  'exactDate',
-  'exactFormatDate',
-  'pastWeek',
-  'pastMonth',
-  'pastYear',
-  'nextWeek',
-  'nextMonth',
-  'nextYear',
-  'pastNumberOfDays',
-  'nextNumberOfDays',
-]);
-export type RecordFilterDateMode = z.infer<typeof recordFilterDateModeSchema>;
+export const recordFilterDateModeSchema = recordConditionDateModeSchema;
+export type RecordFilterDateMode = RecordConditionDateMode;
 
 const dateValueSchema = z
   .object({
@@ -105,59 +61,74 @@ export const recordFilterValueSchema = z
   .nullable();
 export type RecordFilterValue = z.infer<typeof recordFilterValueSchema>;
 
-const operatorsExpectingNull: ReadonlyArray<RecordFilterOperator> = ['isEmpty', 'isNotEmpty'];
-const operatorsExpectingArray: ReadonlyArray<RecordFilterOperator> = [
-  'isAnyOf',
-  'isNoneOf',
-  'hasAnyOf',
-  'hasAllOf',
-  'isNotExactly',
-  'hasNoneOf',
-  'isExactly',
-];
+const operatorsExpectingNull = recordConditionOperatorsExpectingNull;
+const operatorsExpectingArray = recordConditionOperatorsExpectingArray;
 
-export const recordFilterConditionSchema = z
-  .object({
-    fieldId: z.string(),
-    operator: recordFilterOperatorSchema,
-    value: recordFilterValueSchema,
-  })
-  .superRefine((val, ctx) => {
-    if (operatorsExpectingNull.includes(val.operator)) {
-      if (val.value !== null) {
+const normalizeUnaryOperatorValue = (input: unknown): unknown => {
+  if (input == null || typeof input !== 'object') return input;
+
+  const value = input as Record<string, unknown>;
+  if (typeof value.operator !== 'string') {
+    return input;
+  }
+
+  const operator = value.operator as RecordFilterOperator;
+  if (!operatorsExpectingNull.includes(operator)) {
+    return input;
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'value')) return input;
+
+  return {
+    ...value,
+    value: null,
+  };
+};
+
+export const recordFilterConditionSchema = z.preprocess(
+  normalizeUnaryOperatorValue,
+  z
+    .object({
+      fieldId: z.string(),
+      operator: recordFilterOperatorSchema,
+      value: recordFilterValueSchema,
+    })
+    .superRefine((val, ctx) => {
+      if (operatorsExpectingNull.includes(val.operator)) {
+        if (val.value !== null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Operator '${val.operator}' requires null value`,
+          });
+        }
+        return;
+      }
+
+      if (val.value === null) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `Operator '${val.operator}' requires null value`,
+          message: `Operator '${val.operator}' does not allow null value`,
         });
+        return;
       }
-      return;
-    }
 
-    if (val.value === null) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Operator '${val.operator}' does not allow null value`,
-      });
-      return;
-    }
+      if (operatorsExpectingArray.includes(val.operator)) {
+        if (!Array.isArray(val.value) && !isRecordFilterFieldReferenceValue(val.value)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Operator '${val.operator}' requires an array value`,
+          });
+        }
+        return;
+      }
 
-    if (operatorsExpectingArray.includes(val.operator)) {
-      if (!Array.isArray(val.value) && !isRecordFilterFieldReferenceValue(val.value)) {
+      if (Array.isArray(val.value)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `Operator '${val.operator}' requires an array value`,
+          message: `Operator '${val.operator}' does not allow array values`,
         });
       }
-      return;
-    }
-
-    if (Array.isArray(val.value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Operator '${val.operator}' does not allow array values`,
-      });
-    }
-  });
+    })
+);
 
 export type RecordFilterCondition = z.infer<typeof recordFilterConditionSchema>;
 

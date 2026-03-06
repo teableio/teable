@@ -106,12 +106,30 @@ const operatorsExpectingArray: string[] = [
   isExactly.value,
 ];
 
-export const baseFilterOperatorSchema = z.object({
-  isSymbol: z.literal(false).optional(),
-  fieldId: z.string(),
-  value: filterValueSchema,
-  operator: operators,
-});
+const normalizeUnaryOperatorValue = (input: unknown): unknown => {
+  if (input == null || typeof input !== 'object') return input;
+
+  const value = input as Record<string, unknown>;
+  if (typeof value.operator !== 'string' || !operatorsExpectingNull.includes(value.operator)) {
+    return input;
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'value')) return input;
+
+  return {
+    ...value,
+    value: null,
+  };
+};
+
+export const baseFilterOperatorSchema = z.preprocess(
+  normalizeUnaryOperatorValue,
+  z.object({
+    isSymbol: z.literal(false).optional(),
+    fieldId: z.string(),
+    value: filterValueSchema,
+    operator: operators,
+  })
+);
 
 const filterOperatorRefineBase = z.object({
   value: filterValueSchema,

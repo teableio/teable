@@ -439,6 +439,11 @@ describe('FieldConditionSpecBuilder', () => {
         assert: (spec) => expect(spec).toBeInstanceOf(SingleSelectConditionSpec),
       },
       {
+        field: fields.singleSelectField,
+        operator: 'isNotEmpty',
+        assert: (spec) => expect(spec).toBeInstanceOf(SingleSelectConditionSpec),
+      },
+      {
         field: fields.multipleSelectField,
         operator: 'hasAllOf',
         value: listValue,
