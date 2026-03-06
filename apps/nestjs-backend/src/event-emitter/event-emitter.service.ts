@@ -73,11 +73,11 @@ export class EventEmitterService {
     private readonly cls: ClsService<IClsStore>
   ) {}
 
-  emit(event: string, data: unknown | unknown[]): boolean {
+  emit<T extends unknown | unknown[]>(event: string, data: T): boolean {
     return this.eventEmitter.emit(event, data);
   }
 
-  emitAsync(event: string, data: unknown | unknown[]): Promise<boolean[]> {
+  emitAsync<T extends unknown | unknown[]>(event: string, data: T): Promise<boolean[]> {
     return this.eventEmitter.emitAsync(event, data);
   }
 

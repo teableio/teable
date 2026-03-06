@@ -23,6 +23,7 @@ import {
 } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
+import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { tableConfig } from '@/features/i18n/table.config';
 import { UpgradeWrapper } from '../../billing/UpgradeWrapper';
 import type { IFieldEditorRo } from '../type';
@@ -52,6 +53,7 @@ const SUPPORTED_FIELD_TYPES = new Set([
 export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange }) => {
   const { type: fieldType, isLookup, aiConfig } = field;
   const usage = useBaseUsage();
+  const { aiField: aiFieldEnabled } = useDisableAIAction();
   const baseId = useBaseId() as string;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -63,7 +65,8 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
   });
 
   const { type } = aiConfig ?? {};
-  const { fieldAIEnable = false } = usage?.limit ?? {};
+  const { fieldAIEnable: billingFieldAIEnable = false } = usage?.limit ?? {};
+  const fieldAIEnable = billingFieldAIEnable && aiFieldEnabled;
   const isExpanded = _isExpanded && fieldAIEnable;
   const { llmProviders = [], modelDefinationMap, gatewayModels } = baseAiConfig ?? {};
 
@@ -149,7 +152,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
     }
   };
 
-  if (!SUPPORTED_FIELD_TYPES.has(fieldType as FieldType) || isLookup) {
+  if (!SUPPORTED_FIELD_TYPES.has(fieldType as FieldType) || isLookup || !aiFieldEnabled) {
     return null;
   }
 

@@ -83,14 +83,16 @@ export class SettingOpenApiController {
       ...rest,
       enableCreditReward: enableCreditReward ?? undefined,
       aiConfig: {
-        enable: aiConfig?.enable ?? false,
+        enable: Boolean(aiConfig?.chatModel?.lg),
         llmProviders:
           aiConfig?.llmProviders?.map((provider) => ({
             type: provider.type,
             name: provider.name,
             models: provider.models,
+            isInstance: true,
+            modelConfigs: provider.modelConfigs,
           })) ?? [],
-        chatModel: aiConfig?.chatModel,
+        chatModel: aiConfig?.chatModel ?? undefined,
         capabilities: aiConfig?.capabilities,
         // Include gateway models for space-level AI config
         gatewayModels: aiConfig?.gatewayModels,

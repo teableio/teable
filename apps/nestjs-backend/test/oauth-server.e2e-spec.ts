@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
+import crypto from 'crypto';
 import type { INestApplication } from '@nestjs/common';
 import { HttpError } from '@teable/core';
 import {
@@ -156,7 +157,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
         { maxRedirects: 0 }
       )
     );
-    expect(error?.status).toBe(400);
+    expect(error?.status).toBe(401);
   });
 
   it('/api/oauth/authorize (GET) - scope invalid', async () => {
@@ -288,6 +289,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
         code: code ?? '',
         client_id: oauth.clientId,
         client_secret: secret.data.secret,
+        redirect_uri: oauth.redirectUris[0],
       }),
       {
         maxRedirects: 0,
@@ -508,6 +510,545 @@ describe('OpenAPI OAuthController (e2e)', () => {
       )
     );
     expect(error?.status).toBe(401);
+  });
+
+  it('/api/oauth/access_token (POST) - confidential refresh token missing client_secret should fail', async () => {
+    const { transactionID } = await getAuthorize(axios, oauth);
+    const res = await decision(axios, transactionID!);
+    const url = new URL(res.headers.location);
+    const code = url.searchParams.get('code');
+    const secret = await generateOAuthSecret(oauth.clientId);
+
+    const tokenRes = await anonymousAxios.post(
+      `/oauth/access_token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code ?? '',
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: oauth.redirectUris[0],
+      }),
+      {
+        maxRedirects: 0,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+    expect(tokenRes.status).toBe(201);
+
+    const error = await getError(() =>
+      anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: `${tokenRes.data.refresh_token}`,
+          client_id: oauth.clientId,
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      )
+    );
+    expect(error?.status).toBe(401);
+  });
+
+  it('/api/oauth/access_token (POST) - confidential refresh token wrong client_secret should fail', async () => {
+    const { transactionID } = await getAuthorize(axios, oauth);
+    const res = await decision(axios, transactionID!);
+    const url = new URL(res.headers.location);
+    const code = url.searchParams.get('code');
+    const secret = await generateOAuthSecret(oauth.clientId);
+
+    const tokenRes = await anonymousAxios.post(
+      `/oauth/access_token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code ?? '',
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: oauth.redirectUris[0],
+      }),
+      {
+        maxRedirects: 0,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+    expect(tokenRes.status).toBe(201);
+
+    const error = await getError(() =>
+      anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: `${tokenRes.data.refresh_token}`,
+          client_id: oauth.clientId,
+          client_secret: 'invalid-secret',
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      )
+    );
+    expect(error?.status).toBe(401);
+  });
+
+  it('/api/oauth/access_token (POST) - confidential refresh token with only client_id should fail', async () => {
+    const { transactionID } = await getAuthorize(axios, oauth);
+    const res = await decision(axios, transactionID!);
+    const url = new URL(res.headers.location);
+    const code = url.searchParams.get('code');
+    const secret = await generateOAuthSecret(oauth.clientId);
+
+    const tokenRes = await anonymousAxios.post(
+      `/oauth/access_token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code ?? '',
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: oauth.redirectUris[0],
+      }),
+      {
+        maxRedirects: 0,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+    expect(tokenRes.status).toBe(201);
+
+    const error = await getError(() =>
+      anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: `${tokenRes.data.refresh_token}`,
+          client_id: oauth.clientId,
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      )
+    );
+    expect(error?.status).toBe(401);
+  });
+
+  describe('PKCE flow', () => {
+    const generateCodeVerifier = () => {
+      return crypto.randomBytes(32).toString('base64url');
+    };
+
+    const generateCodeChallenge = (verifier: string) => {
+      return crypto.createHash('sha256').update(verifier).digest('base64url');
+    };
+
+    const getAuthorizeWithPkce = async (
+      ax: AxiosInstance,
+      oa: OAuthCreateVo,
+      codeChallenge: string,
+      codeChallengeMethod = 'S256',
+      state?: string
+    ) => {
+      const res = await ax.get(
+        `/oauth/authorize?response_type=code&client_id=${oa.clientId}&scope=${oa.scopes?.join(' ')}&code_challenge=${codeChallenge}&code_challenge_method=${codeChallengeMethod}${state ? '&state=' + state : ''}`,
+        { maxRedirects: 0 }
+      );
+
+      const url = new URL(res.headers.location, oa.homepage);
+      return {
+        transactionID: url.searchParams.get('transaction_id') as string | null,
+        code: url.searchParams.get('code') as string | null,
+      };
+    };
+
+    it('/api/oauth/authorize (GET) - with PKCE params', async () => {
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+
+      const res = await axios.get(
+        `/oauth/authorize?response_type=code&client_id=${oauth.clientId}&redirect_uri=${oauth.redirectUris[0]}&scope=${oauth.scopes?.join(' ')}&code_challenge=${codeChallenge}&code_challenge_method=S256`,
+        { maxRedirects: 0 }
+      );
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toContain(`/oauth/decision?transaction_id=`);
+    });
+
+    it('/api/oauth/authorize (GET) - invalid code_challenge_method', async () => {
+      const error = await getError(() =>
+        axios.get(
+          `/oauth/authorize?response_type=code&client_id=${oauth.clientId}&redirect_uri=${oauth.redirectUris[0]}&scope=${oauth.scopes?.join(' ')}&code_challenge=abc&code_challenge_method=plain`,
+          { maxRedirects: 0 }
+        )
+      );
+      expect(error?.status).toBe(400);
+    });
+
+    it('/api/oauth/authorize (GET) - code_challenge without method', async () => {
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+
+      const error = await getError(() =>
+        axios.get(
+          `/oauth/authorize?response_type=code&client_id=${oauth.clientId}&redirect_uri=${oauth.redirectUris[0]}&scope=${oauth.scopes?.join(' ')}&code_challenge=${codeChallenge}`,
+          { maxRedirects: 0 }
+        )
+      );
+      expect(error?.status).toBe(400);
+    });
+
+    it('/api/oauth/access_token (POST) - PKCE token exchange', async () => {
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+
+      const { transactionID } = await getAuthorizeWithPkce(axios, oauth, codeChallenge);
+      const res = await decision(axios, transactionID!);
+
+      const url = new URL(res.headers.location);
+      const code = url.searchParams.get('code');
+
+      const tokenRes = await anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code ?? '',
+          client_id: oauth.clientId,
+          code_verifier: codeVerifier,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      expect(tokenRes.status).toBe(201);
+      expect(tokenRes.data).toEqual({
+        token_type: 'Bearer',
+        scopes: oauth.scopes,
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+        expires_in: expect.any(Number),
+        refresh_expires_in: expect.any(Number),
+      });
+
+      const userInfo = await anonymousAxios.get(`/auth/user`, {
+        headers: {
+          Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
+        },
+      });
+      expect(userInfo.data.email).toEqual(testEmail);
+    });
+
+    it('/api/oauth/access_token (POST) - PKCE with trusted authorization', async () => {
+      const codeVerifier1 = generateCodeVerifier();
+      const codeChallenge1 = generateCodeChallenge(codeVerifier1);
+
+      // First authorization - user approves
+      const { transactionID } = await getAuthorizeWithPkce(
+        axios,
+        oauth,
+        codeChallenge1,
+        'S256',
+        '123456'
+      );
+      await decision(axios, transactionID!);
+
+      // Second authorization - should be trusted (immediate)
+      const codeVerifier2 = generateCodeVerifier();
+      const codeChallenge2 = generateCodeChallenge(codeVerifier2);
+      const { code } = await getAuthorizeWithPkce(axios, oauth, codeChallenge2);
+      expect(code).not.toBeNull();
+
+      const tokenRes = await anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code ?? '',
+          client_id: oauth.clientId,
+          code_verifier: codeVerifier2,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      expect(tokenRes.status).toBe(201);
+      expect(tokenRes.data.access_token).toBeDefined();
+    });
+
+    it('/api/oauth/access_token (POST) - PKCE wrong code_verifier', async () => {
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+
+      const { transactionID } = await getAuthorizeWithPkce(axios, oauth, codeChallenge);
+      const res = await decision(axios, transactionID!);
+
+      const url = new URL(res.headers.location);
+      const code = url.searchParams.get('code');
+
+      const wrongVerifier = generateCodeVerifier(); // different verifier
+
+      const error = await getError(() =>
+        anonymousAxios.post(
+          `/oauth/access_token`,
+          new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: code ?? '',
+            client_id: oauth.clientId,
+            code_verifier: wrongVerifier,
+            redirect_uri: oauth.redirectUris[0],
+          }),
+          {
+            maxRedirects: 0,
+            headers: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
+        )
+      );
+      expect(error?.status).toBe(401);
+    });
+
+    it('/api/oauth/access_token (POST) - PKCE missing code_verifier', async () => {
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+
+      const { transactionID } = await getAuthorizeWithPkce(axios, oauth, codeChallenge);
+      const res = await decision(axios, transactionID!);
+
+      const url = new URL(res.headers.location);
+      const code = url.searchParams.get('code');
+
+      // Exchange without code_verifier but with client_secret — should fail because code_challenge was set
+      const secret = await generateOAuthSecret(oauth.clientId);
+      const error = await getError(() =>
+        anonymousAxios.post(
+          `/oauth/access_token`,
+          new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: code ?? '',
+            client_id: oauth.clientId,
+            client_secret: secret.data.secret,
+            redirect_uri: oauth.redirectUris[0],
+          }),
+          {
+            maxRedirects: 0,
+            headers: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
+        )
+      );
+      expect(error?.status).toBe(400);
+    });
+
+    it('/api/oauth/access_token (POST) - PKCE refresh token', async () => {
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+
+      const { transactionID } = await getAuthorizeWithPkce(axios, oauth, codeChallenge);
+      const res = await decision(axios, transactionID!);
+
+      const url = new URL(res.headers.location);
+      const code = url.searchParams.get('code');
+
+      const tokenRes = await anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code ?? '',
+          client_id: oauth.clientId,
+          code_verifier: codeVerifier,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      expect(tokenRes.status).toBe(201);
+
+      // Refresh token using PKCE (no client_secret)
+      const refreshTokenRes = await anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: tokenRes.data.refresh_token,
+          client_id: oauth.clientId,
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      expect(refreshTokenRes.status).toBe(201);
+      expect(refreshTokenRes.data).toEqual({
+        token_type: 'Bearer',
+        scopes: oauth.scopes,
+        access_token: expect.any(String),
+        refresh_token: expect.any(String),
+        expires_in: expect.any(Number),
+        refresh_expires_in: expect.any(Number),
+      });
+
+      // Old refresh token should be invalid
+      const error = await getError(() =>
+        anonymousAxios.post(
+          `/oauth/access_token`,
+          new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: tokenRes.data.refresh_token,
+            client_id: oauth.clientId,
+            code_verifier: codeVerifier,
+          }),
+          {
+            maxRedirects: 0,
+            headers: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
+        )
+      );
+      expect(error?.status).toBe(401);
+    });
+
+    it('/api/oauth/access_token (POST) - non-PKCE code with only client_id should fail', async () => {
+      const { transactionID } = await getAuthorize(axios, oauth);
+      const res = await decision(axios, transactionID!);
+
+      const url = new URL(res.headers.location);
+      const code = url.searchParams.get('code');
+
+      const error = await getError(() =>
+        anonymousAxios.post(
+          `/oauth/access_token`,
+          new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: code ?? '',
+            client_id: oauth.clientId,
+            redirect_uri: oauth.redirectUris[0],
+          }),
+          {
+            maxRedirects: 0,
+            headers: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
+        )
+      );
+      expect(error?.status).toBe(400);
+    });
+
+    it('/api/oauth/access_token (POST) - non-PKCE code with code_verifier should fail', async () => {
+      const { transactionID } = await getAuthorize(axios, oauth);
+      const res = await decision(axios, transactionID!);
+
+      const url = new URL(res.headers.location);
+      const code = url.searchParams.get('code');
+      const codeVerifier = generateCodeVerifier();
+
+      const error = await getError(() =>
+        anonymousAxios.post(
+          `/oauth/access_token`,
+          new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: code ?? '',
+            client_id: oauth.clientId,
+            code_verifier: codeVerifier,
+            redirect_uri: oauth.redirectUris[0],
+          }),
+          {
+            maxRedirects: 0,
+            headers: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          }
+        )
+      );
+      expect(error?.status).toBe(400);
+    });
+
+    it('/api/oauth/access_token (POST) - PKCE revoke access', async () => {
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = generateCodeChallenge(codeVerifier);
+
+      const { transactionID } = await getAuthorizeWithPkce(axios, oauth, codeChallenge);
+      const res = await decision(axios, transactionID!);
+
+      const url = new URL(res.headers.location);
+      const code = url.searchParams.get('code');
+
+      const tokenRes = await anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code ?? '',
+          client_id: oauth.clientId,
+          code_verifier: codeVerifier,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+
+      const revokeRes = await anonymousAxios.get(`/oauth/client/${oauth.clientId}/revoke-token`, {
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Bearer ${tokenRes.data.access_token}`,
+        },
+      });
+      expect(revokeRes.status).toBe(200);
+
+      const error = await getError(() =>
+        anonymousAxios.get(`/auth/user`, {
+          headers: {
+            Authorization: `Bearer ${tokenRes.data.access_token}`,
+          },
+        })
+      );
+      expect(error?.status).toBe(401);
+    });
   });
 
   describe('revoke access', () => {

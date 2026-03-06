@@ -79,5 +79,15 @@ describe('base sql executor utils', () => {
         database: DriverClient.Pg,
       });
     });
+
+    it('should report invalid table names when using display name instead of db table name', () => {
+      const sql = 'SELECT "Biao_Ti" FROM "bseXXX"."xxx" ORDER BY "Ri_Qi" DESC LIMIT 1';
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.actual_db_table_name'],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(/Table 'xxx' not found/);
+    });
   });
 });

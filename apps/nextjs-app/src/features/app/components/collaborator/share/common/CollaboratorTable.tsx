@@ -158,7 +158,7 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
       )}
       {hasNextPage && (
         <div className="flex justify-center py-2">
-          <Button variant="link" size="sm" className="text-[13px]" onClick={() => fetchNextPage()}>
+          <Button variant="link" size="sm" onClick={() => fetchNextPage()}>
             {t('actions.loadMore')} ({list.length} / {total})
           </Button>
         </div>

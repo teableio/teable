@@ -542,38 +542,18 @@
         "chatModel": "チャットモデル",
         "chatModelDescription": "使用するチャットモデル、ヒント: 中型コーディングモデルはAI数式生成と関連機能にデフォルトで使用されます",
         "chatModels": {
-          "sm": "小型チャットモデル",
-          "smDescription": "チャットタイトルとベース名の自動生成に使用。推奨: claude-haiku-4.5",
-          "md": "中型チャットモデル",
-          "mdDescription": "AI数式生成に使用。未設定の場合はlgにフォールバック。推奨: claude-haiku-4.5",
           "lg": "高度なチャットモデル",
           "lgDescription": "計画、コーディング、その他の複雑なタスクシナリオに使用。推奨: claude-sonnet-4.5"
         },
         "actions": {
           "title": "AI機能",
-          "aiBasicCapability": {
-            "title": "AI基本機能",
-            "description": "テーブルクエリ、SQL実行、スクリプト生成、データ可視化のためのAI基本機能"
+          "aiField": {
+            "title": "AIフィールド",
+            "description": "自動入力やフィールド設定のAI構成を含むAIフィールド機能"
           },
-          "buildBase": {
-            "title": "ベースを作成",
-            "description": "ゼロからベースを作成"
-          },
-          "buildApp": {
-            "title": "アプリを作成",
-            "description": "ベースに基づいてアプリを作成"
-          },
-          "buildAutomation": {
-            "title": "自動化を作成",
-            "description": "ゼロから自動化を作成"
-          },
-          "baseResource": {
-            "title": "ベースリソース操作",
-            "description": "AIを通じてテーブル、ビュー、フィールド、レコードを作成、変更、削除"
-          },
-          "suggestion": {
-            "title": "提案",
-            "description": "現在のデータベースデータと会話内容に基づいて提案を行う"
+          "aiChat": {
+            "title": "AIチャット",
+            "description": "AIチャットサイドバーとすべてのエージェント機能"
           }
         },
         "chatModelTest": {
@@ -872,6 +852,10 @@
           "insufficientCredit": {
             "title": "自動化{{name}}がクレジット不足により失敗しました",
             "message": "自動化{{name}}がクレジット不足により実行に失敗しました。サブスクリプションをアップグレードするか、サポートに連絡してください。"
+          },
+          "runQuotaExceeded": {
+            "title": "自動化{{name}}は月間実行回数の上限に達しました",
+            "message": "自動化{{name}}の今月の実行回数を使い切ったため、現在は実行できません。プランをアップグレードするか、追加実行回数を購入してください。"
           }
         },
         "exportBase": {

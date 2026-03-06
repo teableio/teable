@@ -498,6 +498,7 @@ describe('Auth Controller (e2e)', () => {
         refreshTokenSign: 'delete-user-oauth-app-refresh-token-sign-' + new Date().getTime(),
         expiredTime: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
         createdBy: userId,
+        clientId: oauthAppClientId,
       },
     });
 

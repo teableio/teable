@@ -454,6 +454,67 @@ describe('DefaultTableMapper', () => {
     expect((conditionalLookupField as ConditionalLookupField).isPending()).toBe(true);
   });
 
+  it('rehydrates conditional lookup inner formula when result type is provided', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+
+    const conditionalLookupId = `fld${'w'.repeat(16)}`;
+    const withFormulaInner = {
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: conditionalLookupId,
+          name: 'Conditional Formula Lookup',
+          type: 'conditionalLookup' as const,
+          options: {
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            lookupFieldId: `fld${'c'.repeat(16)}`,
+            condition: {
+              filter: {
+                conjunction: 'and' as const,
+                filterSet: [{ fieldId: `fld${'d'.repeat(16)}`, operator: 'is', value: 'open' }],
+              },
+            },
+          },
+          innerType: 'formula',
+          innerOptions: {
+            expression: 'NOW()',
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: 'HH:mm',
+              timeZone: 'utc',
+            },
+          },
+          cellValueType: 'dateTime',
+          isLookup: true,
+          isConditionalLookup: true,
+          isComputed: true,
+          isMultipleCellValue: false,
+        },
+      ],
+    };
+
+    const mapped = mapper.toDomain(withFormulaInner)._unsafeUnwrap();
+    const conditionalLookupField = mapped
+      .getFields()
+      .find((field) => field.id().equals(FieldId.create(conditionalLookupId)._unsafeUnwrap()));
+
+    expect(conditionalLookupField).toBeInstanceOf(ConditionalLookupField);
+    expect((conditionalLookupField as ConditionalLookupField).isPending()).toBe(false);
+
+    const innerField = (conditionalLookupField as ConditionalLookupField)
+      .innerField()
+      ._unsafeUnwrap();
+    expect(innerField).toBeInstanceOf(FormulaField);
+    expect((innerField as FormulaField).formatting()?.toDto()).toEqual({
+      date: 'YYYY-MM-DD',
+      time: 'HH:mm',
+      timeZone: 'utc',
+    });
+  });
+
   it('merges conditional lookup inner options patch when persisting', () => {
     const baseId = BaseId.create(`bse${'m'.repeat(16)}`)._unsafeUnwrap();
     const tableId = TableId.create(`tbl${'m'.repeat(16)}`)._unsafeUnwrap();

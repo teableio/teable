@@ -217,6 +217,7 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
         </div>
         <ScopesSelect
           actionsPrefixes={OAuthActionsPrefixes}
+          allowedActions={OAUTH_ACTIONS}
           initValue={form.scopes as Action[]}
           onChange={(value) =>
             updateForm(

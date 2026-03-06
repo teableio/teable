@@ -36,8 +36,8 @@ export const TableList: React.FC = () => {
         <DropdownMenuTrigger asChild>
           <div className="px-3">
             {permission?.['table|create'] && (
-              <Button variant={'outline'} size={'xs'} className="w-full">
-                <AddBoldIcon />
+              <Button variant={'outline'} size={'icon-xs'} className="w-full">
+                <AddBoldIcon className="size-4 shrink-0" />
               </Button>
             )}
           </div>

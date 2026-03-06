@@ -306,7 +306,7 @@ model Attachments {
   id             String    @id @default(cuid())
   token          String    @unique
   hash           String
-  size           Int
+  size           BigInt
   mimetype       String
   path           String
   width          Int?
@@ -454,6 +454,7 @@ model OAuthApp {
   createdBy        String    @map("created_by")
   secrets          OAuthAppSecret[]
   authorized       OAuthAppAuthorized[]
+  tokens           OAuthAppToken[]
 
   @@map("oauth_app")
 }
@@ -487,13 +488,17 @@ model OAuthAppSecret {
 
 model OAuthAppToken {
   id               String   @id @default(cuid())
-  appSecretId      String   @map("app_secret_id")
+  clientId         String   @map("client_id")
+  appSecretId      String?  @map("app_secret_id")
   refreshTokenSign String   @unique @map("refresh_token_sign")
   expiredTime      DateTime @map("expired_time")
   createdTime      DateTime @default(now()) @map("created_time")
   createdBy        String   @map("created_by")
 
-  oAuthAppSecret OAuthAppSecret @relation(fields: [appSecretId], references: [id], onDelete: Cascade)
+  oAuthAppSecret OAuthAppSecret? @relation(fields: [appSecretId], references: [id], onDelete: Cascade)
+  oAuthApp OAuthApp @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([clientId])
 
   @@map("oauth_app_token")
 }

@@ -11,7 +11,11 @@ import { CellValueMutateVisitor } from '../../visitors/CellValueMutateVisitor';
 import type { CompiledSqlStatement, LinkedRecordLockInfo } from '../insert';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
 
-import type { RecordUpdateBuilderContext, RecordUpdateSeedGroup } from './RecordUpdateBuilder';
+import {
+  collectLinkedRecordLocksForUpdate,
+  type RecordUpdateBuilderContext,
+  type RecordUpdateSeedGroup,
+} from './RecordUpdateBuilder';
 
 /**
  * Input for a single record update in a batch.
@@ -165,6 +169,7 @@ export class BatchRecordUpdateBuilder {
       const recordMutations: RecordMutationData[] = [];
       const allAdditionalStatements: CompiledSqlStatement[] = [];
       const allChangedFieldIds = new Set<string>();
+      const allLinkedRecordLocks: LinkedRecordLockInfo[] = [];
       const recordUpdateValues = new Map<string, Map<string, unknown>>();
 
       const lastModifiedByDbFieldNames = new Set<string>();
@@ -234,6 +239,18 @@ export class BatchRecordUpdateBuilder {
           allChangedFieldIds.add(fieldId.toString());
         }
 
+        const linkedRecordLocksResult = await collectLinkedRecordLocksForUpdate({
+          db: builder.db,
+          table,
+          tableName,
+          recordId: recordIdStr,
+          mutateSpec: update.mutateSpec,
+        });
+        if (linkedRecordLocksResult.isErr()) {
+          return err(linkedRecordLocksResult.error);
+        }
+        allLinkedRecordLocks.push(...linkedRecordLocksResult.value);
+
         recordMutations.push({
           recordId: recordIdStr,
           setClauses: Object.fromEntries(recordSetClauses),
@@ -269,8 +286,7 @@ export class BatchRecordUpdateBuilder {
       }
 
       // Step 4: Deduplicate and sort locks
-      // For now, simplified - full implementation would collect from link changes
-      const linkedRecordLocks: LinkedRecordLockInfo[] = [];
+      const linkedRecordLocks = builder.deduplicateLinkedRecordLocks(allLinkedRecordLocks);
 
       // Step 5: Build impact structure
       const impact: BatchRecordUpdateImpact = {

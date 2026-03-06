@@ -32,6 +32,7 @@ export interface ICacheStore {
   })[];
   [key: `waitlist:invite-code:${string}`]: number;
   [key: `send-mail-rate-limit:${string}`]: boolean;
+  [key: `oauth:token-rate:${string}:${string}`]: number;
   [key: `automation:email:rate:${string}:${number}`]: number;
   // Distributed lock keys
   [key: `lock:${string}`]: string;
@@ -42,6 +43,8 @@ export interface ICacheStore {
     fieldNames: string[];
     maxWidth: number;
   };
+  // trash cleanup: per-item backoff after failed cleanup attempts
+  [key: `trash-cleanup:skipped:${string}`]: { attempts: number; retryAfter: number };
 }
 
 export interface IAttachmentSignatureCache {
@@ -84,6 +87,8 @@ export interface IOAuthCodeState {
     name: string;
     email: string;
   };
+  codeChallenge?: string;
+  codeChallengeMethod?: 'S256';
 }
 
 export interface IOAuthTxnStore {
@@ -93,6 +98,8 @@ export interface IOAuthTxnStore {
   scopes: string[];
   userId: string;
   state?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
 }
 
 export enum OperationName {

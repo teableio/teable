@@ -23,7 +23,7 @@ import { ImportTracingService } from '../metrics/import-tracing.service';
 import type { IChunkImportResult } from './import-csv.processor';
 import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-csv.processor';
 import { classifyImportError, formatClassifiedError } from './import-error-classifier';
-import type { TranslateFn } from './import-error-classifier';
+import type { ITranslateFn } from './import-error-classifier';
 import {
   getImportResultManifestKey,
   IMPORT_RESULT_MANIFEST_TTL_SECONDS,
@@ -151,7 +151,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     }
   }
 
-  private createTranslateFn(lang?: string): TranslateFn {
+  private createTranslateFn(lang?: string): ITranslateFn {
     return (key: I18nPath, args?: Record<string, string>) =>
       this.i18n.t(key, { args, lang: lang ?? 'en' }) as string;
   }
@@ -220,6 +220,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
           userId,
           sourceColumnMap,
           notification,
+          attachmentUrl: job?.data?.importerParams?.attachmentUrl,
         },
         {
           // Some queue backends reject custom IDs containing ":".
@@ -385,7 +386,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     tableId: string;
     maxWidth: number;
     userLang: string;
-    translate: TranslateFn;
+    translate: ITranslateFn;
     fieldIdToName: Map<string, string>;
     errorFilePaths: string[];
     recordCount: number;

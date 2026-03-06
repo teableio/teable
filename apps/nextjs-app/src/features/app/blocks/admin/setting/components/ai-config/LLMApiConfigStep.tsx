@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ArrowUpRight, Database, Zap, AlertTriangle } from '@teable/icons';
+import { Check, ArrowUpRight, Database, Zap, AlertTriangle, RotateCw } from '@teable/icons';
 import type {
   ISettingVo,
   LLMProvider,
@@ -53,6 +53,7 @@ interface ILLMApiConfigStepProps {
 
   // Callbacks
   onComplete?: () => void;
+  onResetGateway?: () => void;
 
   /** Whether to show pricing-related UI. Defaults to true (Cloud). */
   showPricing?: boolean;
@@ -78,6 +79,7 @@ export function LLMApiConfigStep({
   testProviderCallbackRef,
   testModelCallbackRef,
   onComplete,
+  onResetGateway,
   showPricing = true,
 }: ILLMApiConfigStepProps) {
   const { t } = useTranslation('common');
@@ -122,6 +124,15 @@ export function LLMApiConfigStep({
     if (!testedOrigin || !publicOrigin) return false;
     return testedOrigin !== publicOrigin;
   }, [savedAttachmentTest?.testedOrigin, publicOrigin]);
+
+  const handleClearGatewayKey = useCallback(() => {
+    setLocalGatewayKey('');
+    setLocalGatewayBaseUrl('');
+    setTestResult(null);
+    setTestErrorMessage(null);
+    setAttachmentTestResult(null);
+    onResetGateway?.();
+  }, [onResetGateway]);
 
   const handleTestGateway = useCallback(async () => {
     if (!localGatewayKey) return;
@@ -308,7 +319,7 @@ export function LLMApiConfigStep({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Label htmlFor="gateway-key">{t('admin.setting.app.aiGatewayApiKey')} *</Label>
-              <Button variant="outline" size="xs" asChild className="h-6 gap-1 px-2 text-xs">
+              <Button variant="outline" size="xs" asChild className="h-6 gap-1">
                 <Link
                   href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%2Fapi-keys"
                   target="_blank"
@@ -609,7 +620,13 @@ export function LLMApiConfigStep({
       )}
 
       {/* Continue Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {mode === 'gateway' && Boolean(aiConfig?.aiGatewayApiKey) && (
+          <Button variant="outline" onClick={handleClearGatewayKey}>
+            <RotateCw className="mr-1.5 size-3.5" />
+            Reset
+          </Button>
+        )}
         <Button onClick={onComplete} disabled={!canProceed}>
           {t('admin.setting.ai.wizard.saveAndContinue')}
         </Button>

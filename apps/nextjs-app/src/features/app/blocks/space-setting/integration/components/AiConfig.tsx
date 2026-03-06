@@ -1,11 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import {
-  testIntegrationLLM,
-  aiConfigVoSchema,
-  chatModelAbilityType,
-  getPublicSetting,
-} from '@teable/openapi';
+import { useQuery } from '@tanstack/react-query';
+import { testIntegrationLLM, aiConfigVoSchema, getPublicSetting } from '@teable/openapi';
 import type {
   IAIIntegrationConfig,
   IChatModelAbility,
@@ -16,7 +11,6 @@ import type {
 import { Form, toast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
@@ -34,12 +28,10 @@ import {
 interface IAIConfigProps {
   config: IAIIntegrationConfig;
   onChange: (value: IAIIntegrationConfig) => void;
-  onEnableAI?: () => void;
-  children: ReactElement;
 }
 
 export const AIConfig = (props: IAIConfigProps) => {
-  const { config, onChange, onEnableAI: onEnableAIProp, children } = props;
+  const { config, onChange } = props;
   const router = useRouter();
   const spaceId = router.query.spaceId as string;
 
@@ -74,13 +66,16 @@ export const AIConfig = (props: IAIConfigProps) => {
     const publicGatewayModels = setting?.aiConfig?.gatewayModels || [];
     const gatewayModels = generateGatewayModelKeyList(publicGatewayModels);
 
-    // Separate space and instance models
+    // Get instance-level providers from public settings
+    const instanceProviders = setting?.aiConfig?.llmProviders || [];
+    const instanceModelsFromSetting = generateModelKeyList(instanceProviders);
+
+    // Separate space and instance models from space integration
     const spaceModels = providerModels.filter((m) => !m.isInstance);
-    const instanceModels = providerModels.filter((m) => m.isInstance);
 
     // Combine in order: space models, gateway models, instance models
-    return [...spaceModels, ...gatewayModels, ...instanceModels];
-  }, [llmProviders, setting?.aiConfig?.gatewayModels]);
+    return [...spaceModels, ...gatewayModels, ...instanceModelsFromSetting];
+  }, [llmProviders, setting?.aiConfig?.gatewayModels, setting?.aiConfig?.llmProviders]);
 
   // State for batch testing models
   const [modelTestResults, setModelTestResults] = useState<Map<string, IModelTestResult>>(
@@ -92,35 +87,6 @@ export const AIConfig = (props: IAIConfigProps) => {
   const testModelCallbackRef = useRef<
     ((provider: LLMProvider, model: string, modelKey: string) => Promise<void>) | null
   >(null);
-
-  const { mutateAsync: onTestChatModelAbility } = useMutation({
-    mutationFn: async (chatModel: IAIIntegrationConfig['chatModel']) => {
-      const testModelKey = chatModel?.lg;
-      if (!testModelKey) {
-        return;
-      }
-      const testModel = parseModelKey(testModelKey);
-      const testLLMIndex = llmProviders.findIndex(
-        (provider) =>
-          provider.type === testModel.type &&
-          provider.models.includes(testModel.model) &&
-          provider.name === testModel.name
-      );
-      const testLLMProvider = llmProviders[testLLMIndex] as Required<LLMProvider>;
-      if (!testLLMProvider) {
-        return;
-      }
-      return testIntegrationLLM(spaceId, {
-        ...testLLMProvider,
-        modelKey: testModelKey,
-        ability: chatModelAbilityType.options,
-      }).then((res) => {
-        if (res.success) {
-          return res.ability;
-        }
-      });
-    },
-  });
 
   useEffect(() => {
     reset(defaultValues);
@@ -220,11 +186,6 @@ export const AIConfig = (props: IAIConfigProps) => {
     [form, onChange]
   );
 
-  // Enable custom model (AI) - calls the parent's enable handler
-  const onEnableAI = useCallback(() => {
-    onEnableAIProp?.();
-  }, [onEnableAIProp]);
-
   const instanceAIDisableActions = setting?.aiConfig?.capabilities?.disableActions || [];
 
   return (
@@ -232,12 +193,12 @@ export const AIConfig = (props: IAIConfigProps) => {
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
         <AIControlCard
           disableActions={config?.capabilities?.disableActions || instanceAIDisableActions}
+          instanceDisableActions={instanceAIDisableActions}
           onChange={(value: { disableActions: string[] }) => {
             form.setValue('capabilities', value);
             onSubmit(form.getValues());
           }}
         />
-        {children}
         <AIProviderCard
           control={form.control}
           onChange={onProvidersUpdate}
@@ -275,11 +236,14 @@ export const AIConfig = (props: IAIConfigProps) => {
           control={form.control}
           models={models}
           onChange={() => onSubmit(form.getValues())}
-          onTestChatModelAbility={onTestChatModelAbility}
-          onEnableAI={onEnableAI}
           needGroup={true}
           hideEmbeddingModel
           title={t('admin.setting.ai.modelPreferences')}
+          modelPlaceholder="Default"
+          onReset={() => {
+            form.setValue('chatModel', undefined);
+            onSubmit(form.getValues());
+          }}
         />
       </form>
     </Form>

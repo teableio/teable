@@ -7,6 +7,7 @@ import {
   useFields,
   useTablePermission,
   usePersonalView,
+  useButtonClickStatus,
 } from '@teable/sdk/hooks';
 import type { CalendarView } from '@teable/sdk/model';
 import { useContext, useMemo, useState, type ReactNode } from 'react';
@@ -22,6 +23,7 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
   const permission = useTablePermission();
   const allFields = useFields({ withHidden: true, withDenied: true });
   const [expandRecordId, setExpandRecordId] = useState<string>();
+  const buttonClickStatusHook = useButtonClickStatus(tableId!, shareId);
 
   const { startDateField, endDateField, titleField, colorConfig } = useCalendarFields();
 
@@ -101,6 +103,7 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
           viewId={view?.id}
           recordId={expandRecordId}
           recordIds={expandRecordId ? [expandRecordId] : []}
+          buttonClickStatusHook={buttonClickStatusHook}
           onClose={() => setExpandRecordId(undefined)}
         />
       )}

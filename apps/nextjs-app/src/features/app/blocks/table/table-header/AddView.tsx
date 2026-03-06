@@ -59,7 +59,7 @@ export const AddView: React.FC = () => {
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button className="size-7 shrink-0 px-0" size={'xs'} variant={'outline'}>
+        <Button className="shrink-0" size="icon-xs" variant="outline">
           <Plus className="size-4" />
         </Button>
       </PopoverTrigger>
