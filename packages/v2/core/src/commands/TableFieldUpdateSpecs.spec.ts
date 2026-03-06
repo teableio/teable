@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
+import { ActorId } from '../domain/shared/ActorId';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -12,6 +13,7 @@ import { FormulaField } from '../domain/table/fields/types/FormulaField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
+import { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { FieldValueTypeVisitor } from '../domain/table/fields/visitors/FieldValueTypeVisitor';
 import { UpdateLinkConfigSpec } from '../domain/table/specs/field-updates/UpdateLinkConfigSpec';
 import { UpdateLookupOptionsSpec } from '../domain/table/specs/field-updates/UpdateLookupOptionsSpec';
@@ -19,11 +21,20 @@ import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateField
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import { buildUpdateFieldSpecs, parseUpdateFieldSpec } from './TableFieldUpdateSpecs';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
+const createContextWithSelectOptionLimit = (maxChoicesPerField: number): IExecutionContext => ({
+  actorId: ActorId.create('system')._unsafeUnwrap(),
+  config: {
+    selectFieldOptions: {
+      maxChoicesPerField,
+    },
+  },
+});
 
 describe('TableFieldUpdateSpecs', () => {
   it('stabilizes missing dbFieldName with field id during type conversion', () => {
@@ -160,6 +171,66 @@ describe('TableFieldUpdateSpecs', () => {
     expect(newDbFieldName.isOk()).toBe(true);
     expect(oldDbFieldName._unsafeUnwrap()).toBe('stable_current_column');
     expect(newDbFieldName._unsafeUnwrap()).toBe('stable_current_column');
+  });
+
+  it('bypasses select option limit during type conversion to select field', () => {
+    const baseId = createBaseId('y');
+    const tableId = createTableId('y');
+    const targetFieldId = createFieldId('z');
+
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Type Conversion Limit')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(createFieldId('w'))
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleLineText()
+      .withId(targetFieldId)
+      .withName(FieldName.create('To Convert')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const currentField = table
+      .getField((field) => field.id().equals(targetFieldId))
+      ._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'singleSelect',
+        options: ['Todo', 'Doing'],
+      },
+      {
+        hostTable: table,
+        executionContext: createContextWithSelectOptionLimit(1),
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const typeSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldTypeSpec => spec instanceof TableUpdateFieldTypeSpec
+    );
+    expect(typeSpec).toBeDefined();
+    if (!typeSpec) {
+      return;
+    }
+
+    const newField = typeSpec.newField();
+    expect(newField.type().toString()).toBe('singleSelect');
+    expect(newField).toBeInstanceOf(SingleSelectField);
+    expect((newField as SingleSelectField).selectOptions()).toHaveLength(2);
   });
 
   it('derives rollup resultType for type conversion when cellValueType is omitted', () => {

@@ -98,6 +98,7 @@ export class UpdateRecordHandler
       const resolvedFieldValues = new Map(Object.entries(resolvedFields));
 
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
+        context,
         table,
         [resolvedFieldValues],
         command.typecast

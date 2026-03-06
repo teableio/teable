@@ -66,7 +66,10 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
             foreignTables,
           }).andThen((resolved) => {
             const normalized = handler.populateLinkLookupFieldId(resolved, foreignTables);
-            return parseTableFieldSpec(normalized, { isPrimary: false })
+            return parseTableFieldSpec(normalized, {
+              isPrimary: false,
+              executionContext: context,
+            })
               .andThen((spec) =>
                 spec.createField({ baseId: command.baseId, tableId: command.tableId })
               )

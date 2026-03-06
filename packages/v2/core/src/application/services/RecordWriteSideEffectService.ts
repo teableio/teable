@@ -6,6 +6,8 @@ import type { DomainError } from '../../domain/shared/DomainError';
 import { RecordWriteSideEffectVisitor } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
+import type { IExecutionContext } from '../../ports/ExecutionContext';
+import { getSelectFieldOptionWriteConfig } from '../../ports/ExecutionContext';
 
 export type RecordWriteSideEffectResult = {
   table: Table;
@@ -15,6 +17,7 @@ export type RecordWriteSideEffectResult = {
 @injectable()
 export class RecordWriteSideEffectService {
   execute(
+    context: IExecutionContext,
     table: Table,
     recordFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>>,
     typecast: boolean
@@ -27,9 +30,10 @@ export class RecordWriteSideEffectService {
     if (effects.length === 0) return ok({ table });
 
     const updateResult = table.update((mutator) => {
+      const selectFieldOptionConfig = getSelectFieldOptionWriteConfig(context);
       let next = mutator;
       for (const effect of effects) {
-        next = next.addSelectOptions(effect.fieldId, effect.options);
+        next = next.addSelectOptions(effect.fieldId, effect.options, selectFieldOptionConfig);
       }
       return next;
     });

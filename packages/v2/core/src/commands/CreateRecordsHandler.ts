@@ -106,6 +106,7 @@ export class CreateRecordsHandler
       }
 
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
+        context,
         table,
         resolvedRecordsFieldValues,
         command.typecast

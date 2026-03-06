@@ -763,6 +763,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         });
 
         const sideEffectResult = handler.recordWriteSideEffectService.execute(
+          context,
           table,
           selectOptionFieldValues,
           typecast

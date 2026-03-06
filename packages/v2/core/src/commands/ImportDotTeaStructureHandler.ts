@@ -158,28 +158,33 @@ export class ImportDotTeaStructureHandler
       // Build tables directly using TableInputParser (no CreateTableCommand dependency)
       const buildResults = yield* sequence(
         normalized.tables.map((table) =>
-          buildTableFromInput({
-            baseId: command.baseId.toString(),
-            tableId: table.id,
-            name: table.name,
-            // Cast fields to ITableFieldInput[] - the normalized structure already has valid field types
-            fields: table.fields.map((field) => ({
-              id: field.id,
-              type: field.type as ITableFieldInput['type'],
-              name: field.name,
-              isPrimary: field.isPrimary,
-              notNull: field.notNull,
-              unique: field.unique,
-              options: field.options,
-              config: field.config,
-              cellValueType: field.cellValueType,
-              isMultipleCellValue: field.isMultipleCellValue,
-            })) as ITableFieldInput[],
-            views: table.views?.map((view) => ({
-              type: view.type,
-              name: view.name,
-            })),
-          })
+          buildTableFromInput(
+            {
+              baseId: command.baseId.toString(),
+              tableId: table.id,
+              name: table.name,
+              // Cast fields to ITableFieldInput[] - the normalized structure already has valid field types
+              fields: table.fields.map((field) => ({
+                id: field.id,
+                type: field.type as ITableFieldInput['type'],
+                name: field.name,
+                isPrimary: field.isPrimary,
+                notNull: field.notNull,
+                unique: field.unique,
+                options: field.options,
+                config: field.config,
+                cellValueType: field.cellValueType,
+                isMultipleCellValue: field.isMultipleCellValue,
+              })) as ITableFieldInput[],
+              views: table.views?.map((view) => ({
+                type: view.type,
+                name: view.name,
+              })),
+            },
+            {
+              executionContext: context,
+            }
+          )
         )
       );
 

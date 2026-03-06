@@ -12,7 +12,10 @@ export const executeCreateTableEndpoint = async (
   rawBody: unknown,
   commandBus: ICommandBus
 ): Promise<ICreateTableEndpointResult> => {
-  const commandResult = CreateTableCommand.create(rawBody, { t: context.$t });
+  const commandResult = CreateTableCommand.create(rawBody, {
+    t: context.$t,
+    executionContext: context,
+  });
   if (commandResult.isErr()) {
     const error = commandResult.error;
     return {

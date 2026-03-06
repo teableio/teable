@@ -32,6 +32,7 @@ export type CreateTableRecordSeed = {
 
 export type CreateTableCommandOptions = {
   t?: IExecutionContext['$t'];
+  executionContext?: IExecutionContext;
 };
 
 export interface ICreateTableViewSpec {
@@ -197,7 +198,10 @@ export class CreateTableCommand {
     return resolveTableFieldInputs(fieldsWithPrimaryFlag, [], { t: options?.t }).andThen(
       (resolvedFields) => {
         const specs = resolvedFields.map((field, index) =>
-          parseTableFieldSpec(field, { isPrimary: index === primaryIndex })
+          parseTableFieldSpec(field, {
+            isPrimary: index === primaryIndex,
+            executionContext: options?.executionContext,
+          })
         );
 
         return sequence(specs);

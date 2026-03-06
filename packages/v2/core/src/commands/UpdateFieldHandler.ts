@@ -358,6 +358,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
       const updateSpecsResult = buildUpdateFieldSpecs(existingField, command.fieldUpdate, {
         hostTable: table,
         foreignTables,
+        executionContext: context,
       });
       if (updateSpecsResult.isErr()) return err(updateSpecsResult.error);
       const updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>> =

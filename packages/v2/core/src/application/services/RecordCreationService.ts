@@ -76,6 +76,7 @@ export class RecordCreationService {
       const resolvedFieldValues = new Map(Object.entries(resolvedFields));
 
       const sideEffectResult = yield* service.recordWriteSideEffectService.execute(
+        context,
         input.table,
         [resolvedFieldValues],
         input.typecast

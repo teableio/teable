@@ -60,6 +60,8 @@ import { RollupExpression } from '../domain/table/fields/types/RollupExpression'
 import { RollupFieldConfig } from '../domain/table/fields/types/RollupFieldConfig';
 import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
+import type { ISelectFieldOptionWriteConfig } from '../domain/table/fields/types/SelectFieldOptionWriteConfig';
+import { ensureSelectFieldOptionCountWithinLimit } from '../domain/table/fields/types/SelectFieldOptionWriteConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextShowAs } from '../domain/table/fields/types/SingleLineTextShowAs';
 import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue';
@@ -72,6 +74,7 @@ import type { Table } from '../domain/table/Table';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import { getSelectFieldOptionWriteConfig } from '../ports/ExecutionContext';
 import { trackedFieldIdsSchema } from '../schemas/field';
 import type { ITableFieldInput, ResolvedTableFieldInput } from '../schemas/field';
 import {
@@ -1363,17 +1366,23 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
       preventAutoNewOptions?: SelectAutoNewOptions;
       notNull: FieldNotNull;
       unique: FieldUnique;
+      selectFieldOptionConfig?: ISelectFieldOptionWriteConfig;
     }
-  ): CreateSingleSelectFieldSpec {
-    return new CreateSingleSelectFieldSpec(
-      id,
-      name,
-      options,
-      meta.defaultValue,
-      meta.preventAutoNewOptions,
-      meta.notNull,
-      meta.unique
-    ).withPrimary(meta.isPrimary);
+  ): Result<CreateSingleSelectFieldSpec, DomainError> {
+    return ensureSelectFieldOptionCountWithinLimit(
+      options.length,
+      meta.selectFieldOptionConfig
+    ).map(() =>
+      new CreateSingleSelectFieldSpec(
+        id,
+        name,
+        options,
+        meta.defaultValue,
+        meta.preventAutoNewOptions,
+        meta.notNull,
+        meta.unique
+      ).withPrimary(meta.isPrimary)
+    );
   }
 
   applyTo(builder: TableBuilder): void {
@@ -1442,17 +1451,23 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
       preventAutoNewOptions?: SelectAutoNewOptions;
       notNull: FieldNotNull;
       unique: FieldUnique;
+      selectFieldOptionConfig?: ISelectFieldOptionWriteConfig;
     }
-  ): CreateMultipleSelectFieldSpec {
-    return new CreateMultipleSelectFieldSpec(
-      id,
-      name,
-      options,
-      meta.defaultValue,
-      meta.preventAutoNewOptions,
-      meta.notNull,
-      meta.unique
-    ).withPrimary(meta.isPrimary);
+  ): Result<CreateMultipleSelectFieldSpec, DomainError> {
+    return ensureSelectFieldOptionCountWithinLimit(
+      options.length,
+      meta.selectFieldOptionConfig
+    ).map(() =>
+      new CreateMultipleSelectFieldSpec(
+        id,
+        name,
+        options,
+        meta.defaultValue,
+        meta.preventAutoNewOptions,
+        meta.notNull,
+        meta.unique
+      ).withPrimary(meta.isPrimary)
+    );
   }
 
   applyTo(builder: TableBuilder): void {
@@ -2272,7 +2287,11 @@ const resolveFieldId = (id?: FieldId): Result<FieldId, DomainError> =>
 
 export const parseTableFieldSpec = (
   field: ResolvedTableFieldInput,
-  options: { isPrimary: boolean }
+  options: {
+    isPrimary: boolean;
+    executionContext?: IExecutionContext;
+    bypassSelectFieldOptionLimit?: boolean;
+  }
 ): Result<ICreateTableFieldSpec, DomainError> => {
   return optional(field.id, FieldId.create).andThen((id) =>
     FieldName.create(field.name).andThen((name) =>
@@ -2422,7 +2441,7 @@ export const parseTableFieldSpec = (
             )
           )
           .with({ type: 'singleSelect' }, (field) =>
-            parseSelectOptions(field.options).map(
+            parseSelectOptions(field.options).andThen(
               ({ options: selectOptions, defaultValue, preventAutoNewOptions }) =>
                 CreateSingleSelectFieldSpec.create(id, name, selectOptions, {
                   isPrimary: options.isPrimary,
@@ -2430,11 +2449,14 @@ export const parseTableFieldSpec = (
                   preventAutoNewOptions,
                   notNull: validation.notNull,
                   unique: validation.unique,
+                  selectFieldOptionConfig: options.bypassSelectFieldOptionLimit
+                    ? undefined
+                    : getSelectFieldOptionWriteConfig(options.executionContext),
                 })
             )
           )
           .with({ type: 'multipleSelect' }, (field) =>
-            parseSelectOptions(field.options).map(
+            parseSelectOptions(field.options).andThen(
               ({ options: selectOptions, defaultValue, preventAutoNewOptions }) =>
                 CreateMultipleSelectFieldSpec.create(id, name, selectOptions, {
                   isPrimary: options.isPrimary,
@@ -2442,6 +2464,9 @@ export const parseTableFieldSpec = (
                   preventAutoNewOptions,
                   notNull: validation.notNull,
                   unique: validation.unique,
+                  selectFieldOptionConfig: options.bypassSelectFieldOptionLimit
+                    ? undefined
+                    : getSelectFieldOptionWriteConfig(options.executionContext),
                 })
             )
           )

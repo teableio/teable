@@ -54,9 +54,9 @@ import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { UpdateRecordCommand } from './UpdateRecordCommand';
 import { UpdateRecordHandler } from './UpdateRecordHandler';
 
-const createContext = (): IExecutionContext => {
+const createContext = (config?: IExecutionContext['config']): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
-  return { actorId };
+  return { actorId, config };
 };
 
 const createTableUpdateFlow = (
@@ -514,6 +514,63 @@ describe('UpdateRecordHandler', () => {
     expect(eventBus.published[0]).toBeInstanceOf(FieldOptionsAdded);
     expect(eventBus.published[1]).toBeInstanceOf(FieldOptionsAdded);
     expect(eventBus.published[eventBus.published.length - 1]).toBeInstanceOf(RecordUpdated);
+  });
+
+  it('rejects auto-created select options when update exceeds configured max', async () => {
+    const { table, tableId, textFieldId, singleSelectFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'Old Title' },
+      version: 1,
+    };
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      new RecordWriteSideEffectService(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      new FakeUndoRedoService() as unknown as UndoRedoService,
+      unitOfWork
+    );
+
+    const commandResult = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      typecast: true,
+      fields: {
+        [singleSelectFieldId.toString()]: 'In Progress',
+      },
+    });
+
+    const result = await handler.handle(
+      createContext({
+        selectFieldOptions: {
+          maxChoicesPerField: 1,
+        },
+      }),
+      commandResult._unsafeUnwrap()
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.field.select_options_limit');
+    expect(tableRepository.updated).toHaveLength(0);
+    expect(eventBus.published).toHaveLength(0);
   });
 
   it('returns error when record query fails', async () => {

@@ -11,6 +11,7 @@ import {
   isForeignTableRelatedField,
   validateForeignTablesForFields,
 } from './fields/ForeignTableRelatedField';
+import type { ISelectFieldOptionWriteConfig } from './fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from './fields/types/SelectOption';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
@@ -125,18 +126,22 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     return this;
   }
 
-  addSelectOptions(fieldId: FieldId, options: ReadonlyArray<SelectOption>): TableMutateSpecBuilder {
+  addSelectOptions(
+    fieldId: FieldId,
+    options: ReadonlyArray<SelectOption>,
+    config?: ISelectFieldOptionWriteConfig
+  ): TableMutateSpecBuilder {
     if (options.length === 0) {
       return this;
     }
 
-    const nextTableResult = this.currentTable.addSelectOptions(fieldId, options);
+    const nextTableResult = this.currentTable.addSelectOptions(fieldId, options, config);
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);
       return this;
     }
 
-    this.addSpec(TableAddSelectOptionsSpec.create(fieldId, options));
+    this.addSpec(TableAddSelectOptionsSpec.create(fieldId, options, config));
     this.currentTable = nextTableResult.value;
     return this;
   }
@@ -384,11 +389,15 @@ export class TableMutator {
     return this;
   }
 
-  addSelectOptions(fieldId: FieldId, options: ReadonlyArray<SelectOption>): TableMutator {
+  addSelectOptions(
+    fieldId: FieldId,
+    options: ReadonlyArray<SelectOption>,
+    config?: ISelectFieldOptionWriteConfig
+  ): TableMutator {
     if (options.length === 0) {
       return this;
     }
-    this.builder.addSelectOptions(fieldId, options);
+    this.builder.addSelectOptions(fieldId, options, config);
     this.hasUpdates = true;
     return this;
   }

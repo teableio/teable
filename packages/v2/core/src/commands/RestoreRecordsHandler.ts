@@ -71,6 +71,7 @@ export class RestoreRecordsHandler
       );
 
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
+        context,
         table,
         fieldValueMaps,
         false
