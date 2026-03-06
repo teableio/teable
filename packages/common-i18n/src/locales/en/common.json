@@ -1154,6 +1154,33 @@
             "message": "Your automation {{name}} reached the monthly automation run quota. Please upgrade your plan or purchase additional automation runs."
           }
         },
+        "billing": {
+          "title": "Billing notification",
+          "credit": {
+            "warning80": {
+              "title": "AI credits: 80% used",
+              "message": "Your space has used 80% of AI credits. Consider upgrading or purchasing more credits."
+            },
+            "warning90": {
+              "title": "AI credits: 90% used",
+              "message": "Your space has used 90% of AI credits. Upgrade soon to avoid interruption."
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Automation runs: 80% quota used",
+              "message": "Your space has used {{usedRuns}} of {{totalLimit}} automation runs (80%). Consider upgrading your plan."
+            },
+            "warning90": {
+              "title": "Automation runs: 90% quota used",
+              "message": "Your space has used {{usedRuns}} of {{totalLimit}} automation runs (90%). Upgrade soon to avoid interruption."
+            },
+            "gracePeriod": {
+              "title": "Automation runs exceeded - grace period active",
+              "message": "Your automation run quota has been exceeded. Automations will keep running for {{remainingHours}} more hours. Please upgrade your plan."
+            }
+          }
+        },
         "exportBase": {
           "title": "Export base result notification",
           "success": {

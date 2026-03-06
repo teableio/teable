@@ -856,6 +856,33 @@
             "message": "Le esecuzioni mensili dell'automazione {{name}} sono esaurite e l'esecuzione è temporaneamente non disponibile. Aggiorna l'abbonamento o acquista esecuzioni aggiuntive."
           }
         },
+        "billing": {
+          "title": "Notifica fatturazione",
+          "credit": {
+            "warning80": {
+              "title": "Crediti IA: 80 % utilizzati",
+              "message": "Il tuo spazio ha utilizzato l'80 % dei crediti IA. Considera l'upgrade o l'acquisto di crediti aggiuntivi."
+            },
+            "warning90": {
+              "title": "Crediti IA: 90 % utilizzati",
+              "message": "Il tuo spazio ha utilizzato il 90 % dei crediti IA. Aggiorna presto per evitare interruzioni."
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Esecuzioni automazione: 80 % della quota utilizzata",
+              "message": "Il tuo spazio ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (80 %). Considera l'upgrade del tuo piano."
+            },
+            "warning90": {
+              "title": "Esecuzioni automazione: 90 % della quota utilizzata",
+              "message": "Il tuo spazio ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (90 %). Aggiorna presto per evitare interruzioni."
+            },
+            "gracePeriod": {
+              "title": "Esecuzioni automazione superate - periodo di grazia attivo",
+              "message": "La quota di esecuzioni di automazione è stata superata. Le automazioni continueranno a funzionare per altre {{remainingHours}} ore. Aggiorna il tuo piano."
+            }
+          }
+        },
         "exportBase": {
           "title": "Notifica risultato esportazione base",
           "success": {

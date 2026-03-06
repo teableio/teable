@@ -819,6 +819,33 @@
             "message": "Otomasyon {{name}} için aylık çalıştırma hakkı tükendiği için şu anda çalıştırılamıyor. Aboneliğinizi yükseltin veya ek çalıştırma satın alın."
           }
         },
+        "billing": {
+          "title": "Fatura bildirimi",
+          "credit": {
+            "warning80": {
+              "title": "Yapay Zeka kredileri: %80 kullanıldı",
+              "message": "Alanınız yapay zeka kredilerinin %80'ini kullandı. Yükseltmeyi veya daha fazla kredi satın almayı düşünün."
+            },
+            "warning90": {
+              "title": "Yapay Zeka kredileri: %90 kullanıldı",
+              "message": "Alanınız yapay zeka kredilerinin %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Otomasyon çalıştırmaları: Kotanın %80'i kullanıldı",
+              "message": "Alanınız {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %80'ini kullandı. Planınızı yükseltmeyi düşünün."
+            },
+            "warning90": {
+              "title": "Otomasyon çalıştırmaları: Kotanın %90'ı kullanıldı",
+              "message": "Alanınız {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+            },
+            "gracePeriod": {
+              "title": "Otomasyon çalıştırmaları aşıldı – ek süre aktif",
+              "message": "Otomasyon çalıştırma kotanız aşıldı. Otomasyonlar {{remainingHours}} saat daha çalışmaya devam edecek. Lütfen planınızı yükseltin."
+            }
+          }
+        },
         "exportBase": {
           "title": "Veritabanı Dışa Aktarma Sonuç Bildirimi",
           "success": {

@@ -1363,6 +1363,33 @@ export type I18nTranslations = {
                             "message": string;
                         };
                     };
+                    "billing": {
+                        "title": string;
+                        "credit": {
+                            "warning80": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "warning90": {
+                                "title": string;
+                                "message": string;
+                            };
+                        };
+                        "automationRun": {
+                            "warning80": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "warning90": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "gracePeriod": {
+                                "title": string;
+                                "message": string;
+                            };
+                        };
+                    };
                     "exportBase": {
                         "title": string;
                         "success": {

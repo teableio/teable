@@ -854,6 +854,33 @@
             "message": "Las ejecuciones mensuales de la automatización {{name}} se han agotado y no puede ejecutarse temporalmente. Actualiza tu suscripción o compra ejecuciones adicionales."
           }
         },
+        "billing": {
+          "title": "Notificación de facturación",
+          "credit": {
+            "warning80": {
+              "title": "Créditos de IA: 80 % usados",
+              "message": "Tu espacio ha usado el 80 % de los créditos de IA. Considera actualizar o comprar más créditos."
+            },
+            "warning90": {
+              "title": "Créditos de IA: 90 % usados",
+              "message": "Tu espacio ha usado el 90 % de los créditos de IA. Actualiza pronto para evitar interrupciones."
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Ejecuciones de automatización: 80 % de la cuota usada",
+              "message": "Tu espacio ha usado {{usedRuns}} de {{totalLimit}} ejecuciones de automatización (80 %). Considera actualizar tu plan."
+            },
+            "warning90": {
+              "title": "Ejecuciones de automatización: 90 % de la cuota usada",
+              "message": "Tu espacio ha usado {{usedRuns}} de {{totalLimit}} ejecuciones de automatización (90 %). Actualiza pronto para evitar interrupciones."
+            },
+            "gracePeriod": {
+              "title": "Ejecuciones de automatización excedidas - período de gracia activo",
+              "message": "Se ha excedido la cuota de ejecuciones de automatización. Las automatizaciones seguirán ejecutándose durante {{remainingHours}} horas más. Por favor, actualiza tu plan."
+            }
+          }
+        },
         "exportBase": {
           "title": "Notificación de resultado de exportación de base",
           "success": {

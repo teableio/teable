@@ -851,6 +851,33 @@
             "message": "Die monatlichen Ausführungen für Automatisierung {{name}} sind aufgebraucht. Die Ausführung ist vorübergehend nicht möglich. Bitte upgraden Sie Ihr Abonnement oder kaufen Sie zusätzliche Ausführungen."
           }
         },
+        "billing": {
+          "title": "Abrechnungsbenachrichtigung",
+          "credit": {
+            "warning80": {
+              "title": "KI-Guthaben: 80 % verwendet",
+              "message": "Ihr Space hat 80 % des KI-Guthabens verwendet. Erwägen Sie ein Upgrade oder den Kauf weiterer Guthaben."
+            },
+            "warning90": {
+              "title": "KI-Guthaben: 90 % verwendet",
+              "message": "Ihr Space hat 90 % des KI-Guthabens verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Automatisierungsläufe: 80 % des Kontingents verwendet",
+              "message": "Ihr Space hat {{usedRuns}} von {{totalLimit}} Automatisierungsläufen (80 %) verwendet. Erwägen Sie ein Upgrade Ihres Plans."
+            },
+            "warning90": {
+              "title": "Automatisierungsläufe: 90 % des Kontingents verwendet",
+              "message": "Ihr Space hat {{usedRuns}} von {{totalLimit}} Automatisierungsläufen (90 %) verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
+            },
+            "gracePeriod": {
+              "title": "Automatisierungsläufe überschritten – Karenzzeit aktiv",
+              "message": "Ihr Kontingent an Automatisierungsläufen wurde überschritten. Automatisierungen laufen noch {{remainingHours}} Stunden weiter. Bitte upgraden Sie Ihren Plan."
+            }
+          }
+        },
         "exportBase": {
           "title": "Export-Base-Ergebnis-Benachrichtigung",
           "success": {
