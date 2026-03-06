@@ -45,3 +45,21 @@ describe('PgRecordQueryDialect#linkExtractTitles', () => {
     expect(sql).not.toContain('pg_typeof');
   });
 });
+
+describe('PgRecordQueryDialect#coerceToNumericForCompare', () => {
+  const dialect = new PgRecordQueryDialect({} as unknown as Knex);
+
+  it('keeps trusted numeric literals as direct numeric casts', () => {
+    const sql = dialect.coerceToNumericForCompare('39.93');
+    expect(sql).toBe('(39.93)::numeric');
+  });
+
+  it('guards malformed sanitized text before numeric cast', () => {
+    const sql = dialect.coerceToNumericForCompare('"t"."DisplayPrice"');
+    expect(sql).toContain("REGEXP_REPLACE(((\"t\".\"DisplayPrice\")::text), '[^0-9.+-]', '', 'g')");
+    expect(sql).toContain("~ '^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'");
+    expect(sql).toContain('THEN NULLIF(');
+    expect(sql).toContain('::numeric');
+    expect(sql).toContain('ELSE NULL');
+  });
+});

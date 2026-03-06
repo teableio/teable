@@ -245,9 +245,7 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     if (this.isNumericLiteral(expr)) {
       return `(${expr})::numeric`;
     }
-    const textExpr = `((${expr})::text)`;
-    const sanitized = `REGEXP_REPLACE(${textExpr}, '[^0-9.+-]', '', 'g')`;
-    return `NULLIF(${sanitized}, '')::numeric`;
+    return this.buildSafeNumericExpression(expr, 'numeric');
   }
 
   linkHasAny(selectionSql: string): string {
@@ -361,10 +359,27 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     }
   }
 
-  private sanitizeNumericTextExpression(expression: string): string {
+  private buildSafeNumericExpression(
+    expression: string,
+    castType: 'numeric' | 'double precision'
+  ): string {
+    const cleaned = this.buildSanitizedNumericText(expression);
+    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    return `(CASE
+      WHEN ${cleaned} IS NULL THEN NULL
+      WHEN ${cleaned} ~ ${numericPattern} THEN ${cleaned}::${castType}
+      ELSE NULL
+    END)`;
+  }
+
+  private buildSanitizedNumericText(expression: string): string {
     const textExpr = `((${expression})::text)`;
     const sanitized = `REGEXP_REPLACE(${textExpr}, '[^0-9.+-]', '', 'g')`;
-    return `NULLIF(${sanitized}, '')::double precision`;
+    return `NULLIF(${sanitized}, '')`;
+  }
+
+  private sanitizeNumericTextExpression(expression: string): string {
+    return this.buildSafeNumericExpression(expression, 'double precision');
   }
 
   private buildJsonNumericSumExpression(fieldExpression: string): string {
