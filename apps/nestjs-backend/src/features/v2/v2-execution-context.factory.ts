@@ -5,6 +5,23 @@ import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';
 
+const DEFAULT_MAX_SELECT_FIELD_OPTIONS_PER_FIELD = 5000;
+const MAX_SELECT_FIELD_OPTIONS_PER_FIELD_ENV = 'MAX_SELECT_FIELD_OPTIONS_PER_FIELD';
+
+const resolveMaxSelectFieldOptionsPerField = (): number => {
+  const raw = process.env[MAX_SELECT_FIELD_OPTIONS_PER_FIELD_ENV];
+  if (raw == null) {
+    return DEFAULT_MAX_SELECT_FIELD_OPTIONS_PER_FIELD;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return DEFAULT_MAX_SELECT_FIELD_OPTIONS_PER_FIELD;
+  }
+
+  return parsed;
+};
+
 /**
  * Factory for creating V2 execution contexts with proper tracer and requestId injection.
  * Centralizes the context creation logic to ensure consistent tracing across all V2 operations.
@@ -49,6 +66,11 @@ export class V2ExecutionContextFactory {
       tracer,
       requestId,
       windowId,
+      config: {
+        selectFieldOptions: {
+          maxChoicesPerField: resolveMaxSelectFieldOptionsPerField(),
+        },
+      },
     };
 
     return {

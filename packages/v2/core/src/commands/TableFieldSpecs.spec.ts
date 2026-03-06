@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { tableI18nKeys } from '@teable/i18n-keys';
+import { ActorId } from '../domain/shared/ActorId';
 import { BaseId } from '../domain/base/BaseId';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -18,9 +19,18 @@ import {
 
 type FieldInput = Parameters<typeof resolveTableFieldInputs>[0][number];
 
-const parseSpec = (field: FieldInput) => {
+const createContextWithSelectOptionLimit = (maxChoicesPerField: number): IExecutionContext => ({
+  actorId: ActorId.create('system')._unsafeUnwrap(),
+  config: {
+    selectFieldOptions: {
+      maxChoicesPerField,
+    },
+  },
+});
+
+const parseSpec = (field: FieldInput, executionContext?: IExecutionContext) => {
   return resolveTableFieldInputs([field], []).andThen((resolved) =>
-    parseTableFieldSpec(resolved[0]!, { isPrimary: false })
+    parseTableFieldSpec(resolved[0]!, { isPrimary: false, executionContext })
   );
 };
 
@@ -359,6 +369,20 @@ describe('TableFieldSpecs', () => {
     const spec = parseSpec({ type: 'singleLineText', name: 'New Field' })._unsafeUnwrap();
     const field = spec.createField()._unsafeUnwrap();
     expect(field.id()).toBeInstanceOf(FieldId);
+  });
+
+  it('rejects manual select field creation when options exceed configured max', () => {
+    const specResult = parseSpec(
+      {
+        type: 'singleSelect',
+        name: 'Status',
+        options: ['Todo', 'Doing', 'Done'],
+      },
+      createContextWithSelectOptionLimit(2)
+    );
+
+    expect(specResult.isErr()).toBe(true);
+    expect(specResult._unsafeUnwrapErr().code).toBe('validation.field.select_options_limit');
   });
 
   it('applies aiConfig when creating field from spec', () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { tableI18nKeys } from '@teable/i18n-keys';
 import { BaseId } from '../domain/base/BaseId';
+import { ActorId } from '../domain/shared/ActorId';
 import { Field } from '../domain/table/fields/Field';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { NumberField } from '../domain/table/fields/types/NumberField';
@@ -17,6 +18,14 @@ const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
 const buildFieldSpec = (
   build: (builder: ReturnType<typeof Field.specs>) => ReturnType<typeof Field.specs>
 ) => build(Field.specs()).build()._unsafeUnwrap();
+const createContextWithSelectOptionLimit = (maxChoicesPerField: number): IExecutionContext => ({
+  actorId: ActorId.create('system')._unsafeUnwrap(),
+  config: {
+    selectFieldOptions: {
+      maxChoicesPerField,
+    },
+  },
+});
 
 const buildFromCommand = (command: CreateTableCommand) => {
   const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
@@ -74,6 +83,29 @@ describe('CreateTableCommand', () => {
 
     expect(command.records).toHaveLength(1);
     expect(command.records[0]?.fieldValues.get(fieldId)).toBe('Alpha');
+  });
+
+  it('rejects select options over configured max during table creation', () => {
+    const baseId = createBaseId('m')._unsafeUnwrap();
+
+    const result = CreateTableCommand.create(
+      {
+        baseId: baseId.toString(),
+        name: 'Too Many Select Options',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'singleSelect',
+            name: 'Status',
+            options: ['Todo', 'Doing', 'Done'],
+          },
+        ],
+      },
+      { executionContext: createContextWithSelectOptionLimit(2) }
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.field.select_options_limit');
   });
 
   it('creates command with all field types and view types', () => {

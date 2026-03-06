@@ -12,6 +12,8 @@ import type {
   ITrashVo,
 } from '@teable/openapi';
 import { CollaboratorType, TableTrashType, TrashType } from '@teable/openapi';
+import { TableId, v2CoreTokens } from '@teable/v2-core';
+import type { Table, TableQueryService } from '@teable/v2-core';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -31,7 +33,10 @@ import { RecordService } from '../record/record.service';
 import { SpaceService } from '../space/space.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { UserService } from '../user/user.service';
+import { V2ContainerService } from '../v2/v2-container.service';
+import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { ViewService } from '../view/view.service';
+import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
 @Injectable()
 export class TrashService {
@@ -48,6 +53,8 @@ export class TrashService {
     protected readonly recordOpenApiService: RecordOpenApiService,
     protected readonly recordService: RecordService,
     protected readonly viewService: ViewService,
+    protected readonly v2ContainerService: V2ContainerService,
+    protected readonly v2ExecutionContextFactory: V2ExecutionContextFactory,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex
   ) {}
@@ -243,6 +250,91 @@ export class TrashService {
     }
   }
 
+  private async getV2TableDomain(tableId: string): Promise<Table | null> {
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      return null;
+    }
+
+    try {
+      const container = await this.v2ContainerService.getContainer();
+      const tableQueryService = container.resolve<TableQueryService>(
+        v2CoreTokens.tableQueryService
+      );
+      const queryContext = await this.v2ExecutionContextFactory.createContext();
+      const tableResult = await tableQueryService.getById(queryContext, tableIdResult.value);
+
+      return tableResult.isOk() ? tableResult.value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getRecordTrashResourceMap(
+    tableId: string,
+    recordList: Array<{ recordId: string; snapshot: string }>
+  ): Promise<IResourceMapVo> {
+    const cache = { loaded: false, table: null as Table | null };
+    const resourceMap: IResourceMapVo = {};
+
+    for (const { recordId, snapshot } of recordList) {
+      const parsedSnapshot = JSON.parse(snapshot) as {
+        id?: string;
+        name?: string;
+        fields?: Record<string, unknown>;
+      };
+
+      const name = await this.resolveRecordTrashName(tableId, recordId, parsedSnapshot, cache);
+      resourceMap[recordId] = { id: recordId, name };
+    }
+
+    return resourceMap;
+  }
+
+  private async getCachedV2Table(
+    tableId: string,
+    cache: { loaded: boolean; table: Table | null }
+  ): Promise<Table | null> {
+    if (!cache.loaded) {
+      cache.table = await this.getV2TableDomain(tableId);
+      cache.loaded = true;
+    }
+
+    return cache.table;
+  }
+
+  private async resolveRecordTrashName(
+    tableId: string,
+    recordId: string,
+    parsedSnapshot: { id?: string; name?: string; fields?: Record<string, unknown> },
+    cache: { loaded: boolean; table: Table | null }
+  ): Promise<string> {
+    const snapshotName = typeof parsedSnapshot.name === 'string' ? parsedSnapshot.name.trim() : '';
+    if (snapshotName) {
+      return snapshotName;
+    }
+
+    if (
+      parsedSnapshot.fields == null ||
+      typeof parsedSnapshot.fields !== 'object' ||
+      Array.isArray(parsedSnapshot.fields)
+    ) {
+      return '';
+    }
+
+    const table = await this.getCachedV2Table(tableId, cache);
+    if (!table) {
+      return '';
+    }
+
+    const nameResult = resolveV2TrashRecordDisplayName(table, {
+      id: parsedSnapshot.id ?? recordId,
+      fields: parsedSnapshot.fields,
+    });
+
+    return nameResult.isOk() ? nameResult.value ?? '' : '';
+  }
+
   async getResourceMapByIds(
     resourceType: TableTrashType,
     resourceIds: string[],
@@ -292,11 +384,8 @@ export class TrashService {
             snapshot: true,
           },
         });
-        return recordList.reduce((acc, { recordId, snapshot }) => {
-          const { name } = JSON.parse(snapshot) as { name: string };
-          acc[recordId] = { id: recordId, name };
-          return acc;
-        }, {} as IResourceMapVo);
+
+        return await this.getRecordTrashResourceMap(tableId, recordList);
       }
       default:
         throw new CustomHttpException(

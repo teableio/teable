@@ -116,6 +116,7 @@ export class DuplicateRecordHandler
 
       // 5. Execute side effects on field values
       const sideEffectResult = yield* handler.recordWriteSideEffectService.execute(
+        context,
         table,
         [fieldValues],
         false // typecast = false, values are already in correct format

@@ -340,6 +340,28 @@ describe('Field update specs', () => {
       spec.accept(visitor as any)._unsafeUnwrap();
       expect(visitor.calls).toContain('UpdateSingleSelectOptionsSpec');
     });
+
+    it('rejects updates that exceed the configured option limit', () => {
+      const fieldId = createFieldId('g');
+      const opt1 = SelectOption.create({ name: 'Todo', color: 'blue' })._unsafeUnwrap();
+      const opt2 = SelectOption.create({ name: 'Done', color: 'green' })._unsafeUnwrap();
+      const table = buildTableWithSingleSelectField(fieldId, [opt1]);
+      const dbFieldName = DbFieldName.rehydrate('fld_status')._unsafeUnwrap();
+
+      const spec = UpdateSingleSelectOptionsSpec.create(
+        fieldId,
+        dbFieldName,
+        [opt1],
+        [opt1, opt2],
+        {
+          maxChoicesPerField: 1,
+        }
+      );
+
+      const result = spec.mutate(table);
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().code).toBe('validation.field.select_options_limit');
+    });
   });
 
   describe('UpdateDateFormattingSpec', () => {

@@ -14,7 +14,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe record domain types.
 - `RecordId.ts` - Role: value object; Purpose: validate/generate record IDs.
-- `TableRecord.ts` - Role: entity; Purpose: represent a table record with fields, supports setFieldValue mutation.
+- `TableRecord.ts` - Role: entity; Purpose: represent a table record with fields, supports setFieldValue mutation and resolving the primary-field display name.
 - `TableRecordFields.ts` - Role: value object; Purpose: store field-value pairs and cell value wrappers.
 - `RecordMutationSpecBuilder.ts` - Role: builder; Purpose: compose multiple SetValueSpecs with andSpec.
 - `values/CellValue.ts` - Role: value object; Purpose: generic wrapper for validated cell values.

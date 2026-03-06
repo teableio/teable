@@ -5,6 +5,10 @@ import { domainError, type DomainError } from '../../../shared/DomainError';
 import { MutateOnlySpec } from '../../../shared/specification/MutateOnlySpec';
 import type { DbFieldName } from '../../fields/DbFieldName';
 import type { FieldId } from '../../fields/FieldId';
+import {
+  ensureSelectFieldOptionCountWithinLimit,
+  type ISelectFieldOptionWriteConfig,
+} from '../../fields/types/SelectFieldOptionWriteConfig';
 import { MultipleSelectField } from '../../fields/types/MultipleSelectField';
 import type { SelectOption } from '../../fields/types/SelectOption';
 import type { Table } from '../../Table';
@@ -20,7 +24,8 @@ export class UpdateMultipleSelectOptionsSpec<
     private readonly fieldIdValue: FieldId,
     private readonly dbFieldNameValue: DbFieldName,
     private readonly previousOptionsValue: ReadonlyArray<SelectOption>,
-    private readonly nextOptionsValue: ReadonlyArray<SelectOption>
+    private readonly nextOptionsValue: ReadonlyArray<SelectOption>,
+    private readonly configValue: ISelectFieldOptionWriteConfig | undefined
   ) {
     super();
   }
@@ -29,9 +34,16 @@ export class UpdateMultipleSelectOptionsSpec<
     fieldId: FieldId,
     dbFieldName: DbFieldName,
     previousOptions: ReadonlyArray<SelectOption>,
-    nextOptions: ReadonlyArray<SelectOption>
+    nextOptions: ReadonlyArray<SelectOption>,
+    config?: ISelectFieldOptionWriteConfig
   ): UpdateMultipleSelectOptionsSpec {
-    return new UpdateMultipleSelectOptionsSpec(fieldId, dbFieldName, previousOptions, nextOptions);
+    return new UpdateMultipleSelectOptionsSpec(
+      fieldId,
+      dbFieldName,
+      previousOptions,
+      nextOptions,
+      config
+    );
   }
 
   fieldId(): FieldId {
@@ -101,6 +113,12 @@ export class UpdateMultipleSelectOptionsSpec<
   }
 
   mutate(t: Table): Result<Table, DomainError> {
+    const limitResult = ensureSelectFieldOptionCountWithinLimit(
+      this.nextOptionsValue.length,
+      this.configValue
+    );
+    if (limitResult.isErr()) return err(limitResult.error);
+
     const fieldResult = t.getField((f) => f.id().equals(this.fieldIdValue));
     if (fieldResult.isErr()) return err(fieldResult.error);
 

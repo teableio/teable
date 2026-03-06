@@ -5,7 +5,9 @@ import { generateOperationId } from '@teable/core';
 import {
   ProjectionHandler,
   RecordsDeleted,
+  TableQueryService,
   ok,
+  v2CoreTokens,
   type DomainError,
   type IEventHandler,
   type IExecutionContext,
@@ -17,10 +19,14 @@ import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-recor
 import { V2ContainerService } from '../v2/v2-container.service';
 import type { IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
 import { TableTrashListener } from './listener/table-trash.listener';
+import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
 @ProjectionHandler(RecordsDeleted)
 class V2RecordsDeletedTableTrashProjection implements IEventHandler<RecordsDeleted> {
-  constructor(private readonly tableTrashListener: TableTrashListener) {}
+  constructor(
+    private readonly tableTrashListener: TableTrashListener,
+    private readonly tableQueryService: TableQueryService
+  ) {}
 
   async handle(
     context: IExecutionContext,
@@ -30,16 +36,33 @@ class V2RecordsDeletedTableTrashProjection implements IEventHandler<RecordsDelet
       return ok(undefined);
     }
 
-    const records: IDeleteRecordsPayload['records'] = event.recordSnapshots.map((snapshot) => ({
-      id: snapshot.id,
-      fields: snapshot.fields as IRecord['fields'],
-      autoNumber: snapshot.autoNumber,
-      createdTime: snapshot.createdTime,
-      createdBy: snapshot.createdBy,
-      lastModifiedTime: snapshot.lastModifiedTime,
-      lastModifiedBy: snapshot.lastModifiedBy,
-      order: snapshot.orders,
-    }));
+    const tableResult = await this.tableQueryService.getById(context, event.tableId);
+    const table = tableResult.isOk() ? tableResult.value : null;
+
+    const records: IDeleteRecordsPayload['records'] = event.recordSnapshots.map((snapshot) => {
+      const record: IDeleteRecordsPayload['records'][number] = {
+        id: snapshot.id,
+        fields: snapshot.fields as IRecord['fields'],
+        autoNumber: snapshot.autoNumber,
+        createdTime: snapshot.createdTime,
+        createdBy: snapshot.createdBy,
+        lastModifiedTime: snapshot.lastModifiedTime,
+        lastModifiedBy: snapshot.lastModifiedBy,
+        order: snapshot.orders,
+      };
+
+      if (table) {
+        const nameResult = resolveV2TrashRecordDisplayName(table, {
+          id: snapshot.id,
+          fields: snapshot.fields,
+        });
+        if (nameResult.isOk() && nameResult.value) {
+          record.name = nameResult.value;
+        }
+      }
+
+      return record;
+    });
 
     await this.tableTrashListener.recordDeleteListener({
       operationId: generateOperationId(),
@@ -91,9 +114,11 @@ export class V2TableTrashService implements IV2ProjectionRegistrar, OnModuleInit
   registerProjections(container: DependencyContainer): void {
     this.logger.log('Registering V2 record delete projections');
 
+    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
+
     container.registerInstance(
       V2RecordsDeletedTableTrashProjection,
-      new V2RecordsDeletedTableTrashProjection(this.tableTrashListener)
+      new V2RecordsDeletedTableTrashProjection(this.tableTrashListener, tableQueryService)
     );
 
     container.registerInstance(

@@ -2,6 +2,7 @@
 import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableTrashItemVo } from '@teable/openapi';
 import {
   RangeType,
@@ -81,6 +82,7 @@ const waitForTableTrashItems = async (tableId: string, expectedCount = 1, maxRet
 
 describe('Trash (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaService;
   let eventEmitterService: EventEmitterService;
 
   const baseId = globalThis.testConfig.baseId;
@@ -92,6 +94,7 @@ describe('Trash (e2e)', () => {
     const appCtx = await initApp();
 
     app = appCtx.app;
+    prisma = app.get(PrismaService);
     eventEmitterService = app.get(EventEmitterService);
 
     awaitWithViewEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_VIEW_DELETE);
@@ -149,6 +152,80 @@ describe('Trash (e2e)', () => {
       expect((result.data.trashItems[0] as ITableTrashItemVo).resourceIds).toEqual(
         deletedRecordIds
       );
+    });
+
+    it('should expose the primary-field display name for V2 record trash and legacy snapshots', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      const primaryValue = `v2-trash-name-${Date.now()}`;
+
+      try {
+        const createRes = await createRecords(tableId, {
+          records: [
+            {
+              fields: {
+                SingleLineText: primaryValue,
+              },
+            },
+          ],
+        });
+        expect(createRes.headers['x-teable-v2']).toBe('true');
+
+        const createdRecordId = createRes.data.records[0].id;
+
+        const deleteRes = await deleteRecords(tableId, [createdRecordId]);
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        const trashRes = await waitForTableTrashItems(tableId, 1);
+        expect(trashRes.data.resourceMap[createdRecordId]).toMatchObject({
+          id: createdRecordId,
+          name: primaryValue,
+        });
+
+        const recordTrash = await prisma.recordTrash.findFirst({
+          where: { tableId, recordId: createdRecordId },
+          select: {
+            id: true,
+            snapshot: true,
+          },
+        });
+
+        expect(recordTrash).toBeTruthy();
+
+        const snapshotWithName = JSON.parse(recordTrash!.snapshot) as {
+          name?: string;
+          fields: Record<string, unknown>;
+        };
+        expect(snapshotWithName.name).toBe(primaryValue);
+
+        delete snapshotWithName.name;
+
+        await prisma.recordTrash.update({
+          where: { id: recordTrash!.id },
+          data: { snapshot: JSON.stringify(snapshotWithName) },
+        });
+
+        const legacyTrashRes = await getTrashItems({
+          resourceId: tableId,
+          resourceType: ResourceType.Table,
+        });
+        expect(legacyTrashRes.data.resourceMap[createdRecordId]).toMatchObject({
+          id: createdRecordId,
+          name: primaryValue,
+        });
+      } finally {
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
+      }
     });
 
     it('should add V2-created records to table trash when deleting by range', async () => {

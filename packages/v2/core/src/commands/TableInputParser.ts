@@ -10,6 +10,7 @@ import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuild
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import { ViewName } from '../domain/table/views/ViewName';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { ITableFieldInput } from '../schemas/field';
 import {
   collectForeignTableReferences,
@@ -111,11 +112,16 @@ class PluginViewSpec implements ITableViewSpec {
 
 // --- Parsing functions ---
 
+export type TableInputParserOptions = {
+  executionContext?: IExecutionContext;
+};
+
 /**
  * Parse raw field inputs into field specifications.
  */
 export function parseFieldSpecs(
-  rawFields: ReadonlyArray<ITableFieldInput>
+  rawFields: ReadonlyArray<ITableFieldInput>,
+  options?: TableInputParserOptions
 ): Result<ReadonlyArray<ICreateTableFieldSpec>, DomainError> {
   const fieldsToUse =
     rawFields.length > 0
@@ -138,7 +144,10 @@ export function parseFieldSpecs(
 
   return resolveTableFieldInputs(fieldsWithPrimaryFlag, []).andThen((resolvedFields) => {
     const specs = resolvedFields.map((field, index) =>
-      parseTableFieldSpec(field, { isPrimary: index === primaryIndex })
+      parseTableFieldSpec(field, {
+        isPrimary: index === primaryIndex,
+        executionContext: options?.executionContext,
+      })
     );
 
     return sequence(specs);
@@ -185,7 +194,10 @@ export function parseViewSpecs(
 /**
  * Parse table input into structured components.
  */
-export function parseTableInput(input: TableBuildInput): Result<ParsedTableInput, DomainError> {
+export function parseTableInput(
+  input: TableBuildInput,
+  options?: TableInputParserOptions
+): Result<ParsedTableInput, DomainError> {
   const tableIdResult: Result<TableId | undefined, DomainError> = input.tableId
     ? TableId.create(input.tableId)
     : ok<TableId | undefined, DomainError>(undefined);
@@ -193,7 +205,7 @@ export function parseTableInput(input: TableBuildInput): Result<ParsedTableInput
   return BaseId.create(input.baseId).andThen((baseId) =>
     tableIdResult.andThen((tableId) =>
       TableName.create(input.name).andThen((tableName) =>
-        parseFieldSpecs(input.fields).andThen((fieldSpecs) =>
+        parseFieldSpecs(input.fields, options).andThen((fieldSpecs) =>
           parseViewSpecs(input.views).map((viewSpecs) => ({
             baseId,
             tableId,
@@ -239,9 +251,9 @@ export function buildTableFromParsedInput(
  */
 export function buildTableFromInput(
   input: TableBuildInput,
-  options?: TableBuildOptions
+  options?: TableBuildOptions & TableInputParserOptions
 ): Result<TableBuildResult, DomainError> {
-  return parseTableInput(input).andThen((parsed) =>
+  return parseTableInput(input, options).andThen((parsed) =>
     collectForeignTableReferences(parsed.fieldSpecs).andThen((foreignTableReferences) =>
       buildTableFromParsedInput(parsed, options).map((table) => ({
         table,

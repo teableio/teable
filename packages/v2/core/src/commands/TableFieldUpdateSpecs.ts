@@ -57,6 +57,7 @@ import { RollupField } from '../domain/table/fields/types/RollupField';
 import { RollupFieldConfig } from '../domain/table/fields/types/RollupFieldConfig';
 import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
+import type { ISelectFieldOptionWriteConfig } from '../domain/table/fields/types/SelectFieldOptionWriteConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import { SingleLineTextShowAs } from '../domain/table/fields/types/SingleLineTextShowAs';
@@ -118,6 +119,8 @@ import { TableUpdateFieldNameSpec } from '../domain/table/specs/TableUpdateField
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
+import type { IExecutionContext } from '../ports/ExecutionContext';
+import { getSelectFieldOptionWriteConfig } from '../ports/ExecutionContext';
 import type { IUpdateTableFieldSpec } from './IUpdateTableFieldSpec';
 
 // ============ Helper functions ============
@@ -1815,19 +1818,25 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly defaultValueValue: SelectDefaultValue | undefined,
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
-    private readonly uniqueValue: FieldUnique | undefined
+    private readonly uniqueValue: FieldUnique | undefined,
+    private readonly selectFieldOptionConfig: ISelectFieldOptionWriteConfig | undefined
   ) {}
 
-  static create(input: {
-    name?: string;
+  static create(
+    input: {
+      name?: string;
+      options?: {
+        choices?: unknown[];
+        defaultValue?: unknown;
+        preventAutoNewOptions?: unknown;
+      };
+      notNull?: unknown;
+      unique?: unknown;
+    },
     options?: {
-      choices?: unknown[];
-      defaultValue?: unknown;
-      preventAutoNewOptions?: unknown;
-    };
-    notNull?: unknown;
-    unique?: unknown;
-  }): Result<UpdateSingleSelectFieldSpec, DomainError> {
+      executionContext?: IExecutionContext;
+    }
+  ): Result<UpdateSingleSelectFieldSpec, DomainError> {
     return optional(input.name, FieldName.create).andThen((name) => {
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
@@ -1838,7 +1847,7 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
         );
       };
 
-      return parseOptions().andThen((options) =>
+      return parseOptions().andThen((selectOptions) =>
         optional(input.options?.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
           optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
             (preventAutoNewOptions) =>
@@ -1847,11 +1856,12 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
                   (unique) =>
                     new UpdateSingleSelectFieldSpec(
                       name,
-                      options,
+                      selectOptions,
                       defaultValue,
                       preventAutoNewOptions,
                       notNull,
-                      unique
+                      unique,
+                      getSelectFieldOptionWriteConfig(options?.executionContext)
                     )
                 )
               )
@@ -1887,7 +1897,8 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
           currentField.id(),
           dbFieldName,
           currentOptions,
-          this.optionsValue
+          this.optionsValue,
+          this.selectFieldOptionConfig
         )
       );
     }
@@ -1946,19 +1957,25 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly defaultValueValue: SelectDefaultValue | undefined,
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
-    private readonly uniqueValue: FieldUnique | undefined
+    private readonly uniqueValue: FieldUnique | undefined,
+    private readonly selectFieldOptionConfig: ISelectFieldOptionWriteConfig | undefined
   ) {}
 
-  static create(input: {
-    name?: string;
+  static create(
+    input: {
+      name?: string;
+      options?: {
+        choices?: unknown[];
+        defaultValue?: unknown;
+        preventAutoNewOptions?: unknown;
+      };
+      notNull?: unknown;
+      unique?: unknown;
+    },
     options?: {
-      choices?: unknown[];
-      defaultValue?: unknown;
-      preventAutoNewOptions?: unknown;
-    };
-    notNull?: unknown;
-    unique?: unknown;
-  }): Result<UpdateMultipleSelectFieldSpec, DomainError> {
+      executionContext?: IExecutionContext;
+    }
+  ): Result<UpdateMultipleSelectFieldSpec, DomainError> {
     return optional(input.name, FieldName.create).andThen((name) => {
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
@@ -1969,7 +1986,7 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
         );
       };
 
-      return parseOptions().andThen((options) =>
+      return parseOptions().andThen((selectOptions) =>
         optional(input.options?.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
           optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
             (preventAutoNewOptions) =>
@@ -1978,11 +1995,12 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
                   (unique) =>
                     new UpdateMultipleSelectFieldSpec(
                       name,
-                      options,
+                      selectOptions,
                       defaultValue,
                       preventAutoNewOptions,
                       notNull,
-                      unique
+                      unique,
+                      getSelectFieldOptionWriteConfig(options?.executionContext)
                     )
                 )
               )
@@ -2018,7 +2036,8 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
           currentField.id(),
           dbFieldName,
           currentOptions,
-          this.optionsValue
+          this.optionsValue,
+          this.selectFieldOptionConfig
         )
       );
     }
@@ -3112,6 +3131,7 @@ export const parseUpdateFieldSpec = (
   options?: {
     hostTable?: Table;
     foreignTables?: ReadonlyArray<Table>;
+    executionContext?: IExecutionContext;
   }
 ): Result<IUpdateTableFieldSpec, DomainError> => {
   const fieldType = currentField.type().toString();
@@ -3175,12 +3195,14 @@ export const parseUpdateFieldSpec = (
     )
     .with('singleSelect', () =>
       UpdateSingleSelectFieldSpec.create(
-        input as Parameters<typeof UpdateSingleSelectFieldSpec.create>[0]
+        input as Parameters<typeof UpdateSingleSelectFieldSpec.create>[0],
+        { executionContext: options?.executionContext }
       )
     )
     .with('multipleSelect', () =>
       UpdateMultipleSelectFieldSpec.create(
-        input as Parameters<typeof UpdateMultipleSelectFieldSpec.create>[0]
+        input as Parameters<typeof UpdateMultipleSelectFieldSpec.create>[0],
+        { executionContext: options?.executionContext }
       )
     )
     .with('formula', () =>
@@ -3247,6 +3269,7 @@ export const buildUpdateFieldSpecs = (
   options?: {
     hostTable?: Table;
     foreignTables?: ReadonlyArray<Table>;
+    executionContext?: IExecutionContext;
   }
 ): Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError> => {
   const updateSpecResult = parseUpdateFieldSpec(currentField, input, options);
@@ -3342,6 +3365,7 @@ const parseTypeConversion = (
   options?: {
     hostTable?: Table;
     foreignTables?: ReadonlyArray<Table>;
+    executionContext?: IExecutionContext;
   }
 ): Result<IUpdateTableFieldSpec, DomainError> => {
   if (!input.type) {
@@ -3561,7 +3585,11 @@ const parseTypeConversion = (
   // Parse as a create spec
   const createSpecResult = parseTableFieldSpec(
     createFieldInput as Parameters<typeof parseTableFieldSpec>[0],
-    { isPrimary: false } // Type conversion doesn't change primary status
+    {
+      isPrimary: false,
+      executionContext: options?.executionContext,
+      bypassSelectFieldOptionLimit: true,
+    } // Type conversion doesn't change primary status
   );
 
   if (createSpecResult.isErr()) {

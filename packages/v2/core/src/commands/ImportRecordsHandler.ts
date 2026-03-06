@@ -212,6 +212,7 @@ export class ImportRecordsHandler
       // Handle side effects for this batch (discover new select options)
       if (typecast) {
         const sideEffectResult = this.recordWriteSideEffectService.execute(
+          context,
           state.table,
           batchFieldValues,
           typecast

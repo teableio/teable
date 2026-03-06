@@ -1,9 +1,15 @@
+import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { DomainError } from '../../shared/DomainError';
+import { domainError, type DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
 import type { SpecBuilderMode } from '../../shared/specification/SpecBuilder';
 import type { FieldId } from '../fields/FieldId';
+import {
+  normalizeCellDisplayValue,
+  normalizeCellDisplayValues,
+} from '../fields/visitors/normalizeCellDisplayValue';
+import type { Table } from '../Table';
 import type { TableId } from '../TableId';
 import type { RecordId } from './RecordId';
 import { RecordConditionSpecBuilder } from './specs/RecordConditionSpecBuilder';
@@ -43,6 +49,41 @@ export class TableRecord extends Entity<RecordId> {
 
   static specs(mode: SpecBuilderMode = 'and'): RecordConditionSpecBuilder {
     return RecordConditionSpecBuilder.create(mode);
+  }
+
+  /**
+   * Resolve the record display name from the table's primary field value.
+   *
+   * The table parameter is required because the record only stores field values;
+   * the owning table defines which field is primary and whether its cell value is
+   * single or multi-valued.
+   */
+  displayName(table: Table): Result<string | null, DomainError> {
+    if (!this.tableIdValue.equals(table.id())) {
+      return err(
+        domainError.invariant({
+          code: 'record.table_mismatch',
+          message: 'Cannot resolve display name with a different table',
+          details: {
+            recordTableId: this.tableIdValue.toString(),
+            tableId: table.id().toString(),
+          },
+        })
+      );
+    }
+
+    return table.primaryField().andThen((field) =>
+      field.isMultipleCellValue().map((multiplicity) => {
+        const primaryValue = this.fieldsValue.get(field.id())?.toValue();
+
+        if (multiplicity.isMultiple()) {
+          const displayValues = normalizeCellDisplayValues(primaryValue);
+          return displayValues.length > 0 ? displayValues.join(', ') : null;
+        }
+
+        return normalizeCellDisplayValue(primaryValue);
+      })
+    );
   }
 
   /**

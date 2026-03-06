@@ -22,6 +22,10 @@ import { validateForeignTablesForFields } from './fields/ForeignTableRelatedFiel
 import { FieldIsComputedSpec } from './fields/specs/FieldIsComputedSpec';
 import type { FieldHasError } from './fields/types/FieldHasError';
 import type { FieldNotNull } from './fields/types/FieldNotNull';
+import {
+  ensureSelectFieldOptionCountWithinLimit,
+  type ISelectFieldOptionWriteConfig,
+} from './fields/types/SelectFieldOptionWriteConfig';
 import type { FieldUnique } from './fields/types/FieldUnique';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
 import type { SelectOption } from './fields/types/SelectOption';
@@ -760,7 +764,8 @@ export class Table extends AggregateRoot<TableId> {
 
   addSelectOptions(
     fieldId: FieldId,
-    options: ReadonlyArray<SelectOption>
+    options: ReadonlyArray<SelectOption>,
+    config?: ISelectFieldOptionWriteConfig
   ): Result<Table, DomainError> {
     if (options.length === 0) {
       return ok(this);
@@ -788,6 +793,9 @@ export class Table extends AggregateRoot<TableId> {
     }
 
     const mergedOptions = [...existingOptions, ...newOptions];
+    const limitResult = ensureSelectFieldOptionCountWithinLimit(mergedOptions.length, config);
+    if (limitResult.isErr()) return err(limitResult.error);
+
     const nextFieldResult = isSingle
       ? SingleSelectField.create({
           id: field.id(),
