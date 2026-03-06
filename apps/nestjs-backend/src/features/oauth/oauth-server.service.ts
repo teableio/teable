@@ -2,11 +2,12 @@ import {
   BadRequestException,
   HttpException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { getRandomString, nullsToUndefined } from '@teable/core';
+import { getRandomString, HttpErrorCode, nullsToUndefined } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { DecisionInfoGetVo } from '@teable/openapi';
 import type { Response, Request } from 'express';
@@ -15,22 +16,25 @@ import ms from 'ms';
 import type {
   IssueGrantCodeFunction,
   IssueExchangeCodeFunction,
-  ValidateFunctionArity4,
   ImmediateFunction,
   ExchangeDoneFunction,
   OAuth2,
+  ValidateFunctionArity2,
 } from 'oauth2orize';
 import oauth2orize, { AuthorizationError } from 'oauth2orize';
 import { CacheService } from '../../cache/cache.service';
-import { BaseConfig, IBaseConfig } from '../../configs/base.config';
+import type { IOAuthCodeState } from '../../cache/types';
 import { IOAuthConfig, OAuthConfig } from '../../configs/oauth.config';
+import { CustomHttpException } from '../../custom.exception';
 import { second } from '../../utils/second';
 import { AccessTokenService } from '../access-token/access-token.service';
 import { OAuthTxStore } from './oauth-tx-store';
-import type { IAuthorizeClient, IExchangeClient, IOAuth2Server } from './types';
+import { PkceService } from './pkce.service';
+import type { IAuthorizeClient, ITokenClient, IOAuth2Server, IAuthorizeRequest } from './types';
 
 @Injectable()
 export class OAuthServerService {
+  private readonly logger = new Logger(OAuthServerService.name);
   server: IOAuth2Server;
 
   constructor(
@@ -39,15 +43,17 @@ export class OAuthServerService {
     private readonly accessTokenService: AccessTokenService,
     private readonly jwtService: JwtService,
     private readonly oauthTxStore: OAuthTxStore,
-    @BaseConfig() private readonly baseConfig: IBaseConfig,
+    private readonly pkceService: PkceService,
     @OAuthConfig() private readonly oauth2Config: IOAuthConfig
   ) {
     this.server = oauth2orize.createServer({
       store: this.oauthTxStore,
     });
     this.server.grant(oauth2orize.grant.code(this.codeGrant));
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    this.server.grant(require('oauth2orize-pkce').extensions());
     this.server.exchange(oauth2orize.exchange.code(this.codeExchange));
-    (this.server as unknown as IOAuth2Server<IExchangeClient>).exchange(
+    (this.server as unknown as IOAuth2Server<ITokenClient>).exchange(
       oauth2orize.exchange.refreshToken(this.refreshTokenExchange)
     );
   }
@@ -82,12 +88,49 @@ export class OAuthServerService {
     return error;
   }
 
-  private authorizeValidate: ValidateFunctionArity4<IAuthorizeClient> = async (
-    clientId,
-    queryRedirectUri,
-    queryScopes,
-    done
-  ) => {
+  private async checkTokenRateLimit(clientId: string, userId: string) {
+    const { tokenRateLimit, tokenRateWindow } = this.oauth2Config;
+    if (tokenRateLimit <= 0) {
+      return;
+    }
+    const cacheKey = `oauth:token-rate:${clientId}:${userId}` as const;
+    const count = await this.cacheService.incr(cacheKey, second(tokenRateWindow));
+    if (count > tokenRateLimit) {
+      this.logger.warn(
+        `OAuth token rate limit exceeded for client ${clientId} user ${userId}: ${count}/${tokenRateLimit}`
+      );
+      throw new CustomHttpException(
+        `Token request rate limit exceeded, please try again later`,
+        HttpErrorCode.TOO_MANY_REQUESTS
+      );
+    }
+  }
+
+  private validateRedirectUri(
+    redirectUri: string,
+    redirectUris: string[],
+    type: 'pkce' | 'secret'
+  ) {
+    if (
+      type === 'pkce' &&
+      redirectUris.some((uri) => this.pkceService.isLoopbackMatch(uri, redirectUri))
+    ) {
+      return;
+    }
+    if (type === 'secret' && redirectUris.includes(redirectUri)) {
+      return;
+    }
+    throw new UnauthorizedException('Invalid redirectUri');
+  }
+
+  private authorizeValidate: ValidateFunctionArity2<IAuthorizeClient> = async (areq, done) => {
+    const {
+      clientID: clientId,
+      redirectURI,
+      scope: queryScopes,
+      codeChallenge,
+      codeChallengeMethod,
+    } = areq as IAuthorizeRequest;
     try {
       const { redirectUris, scopes } = await this.getOAuthApp(clientId);
       // validate scopes if get scopes from user
@@ -100,12 +143,30 @@ export class OAuthServerService {
       if (!redirectUris.length) {
         return done(new BadRequestException('Redirect uri not configured'));
       }
-      const redirectUri = queryRedirectUri || redirectUris[0];
-      // valid redirectUri
-      if (!redirectUris.includes(redirectUri)) {
-        return done(new BadRequestException('Redirect uri not found'));
-      }
+      const redirectUri = redirectURI || redirectUris[0];
       const clientScopes = queryScopes ?? scopes;
+      if (codeChallenge) {
+        if (codeChallengeMethod !== 'S256') {
+          return done(new BadRequestException('Invalid code challenge method'));
+        }
+        if (!this.pkceService.isValidCodeChallenge(codeChallenge)) {
+          return done(new BadRequestException('Invalid code challenge'));
+        }
+        this.validateRedirectUri(redirectUri, redirectUris, 'pkce');
+        return done(
+          null,
+          {
+            clientId,
+            scopes: clientScopes,
+            redirectUri,
+            codeChallenge,
+            codeChallengeMethod,
+          },
+          redirectUri
+        );
+      }
+      // valid redirectUri
+      this.validateRedirectUri(redirectUri, redirectUris, 'secret');
       done(
         null,
         {
@@ -148,8 +209,9 @@ export class OAuthServerService {
             return reject(this.handleError(error));
           }
           res.redirect(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            `/oauth/decision?transaction_id=${(req as any).oauth2.transactionID}`
+            `/oauth/decision?transaction_id=${
+              (req as Request & { oauth2: { transactionID: string } }).oauth2.transactionID
+            }`
           );
           resolve();
         }
@@ -177,8 +239,6 @@ export class OAuthServerService {
   };
 
   private touchAuthorize = async (clientId: string, userId: string) => {
-    // update authorized time
-    console.log('touchAuthorize', clientId, userId);
     await this.prismaService.oAuthAppAuthorized.upsert({
       where: {
         // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -244,7 +304,7 @@ export class OAuthServerService {
     });
   }
 
-  private codeGrant: IssueGrantCodeFunction = async (client, _redirectUri, user, ares, done) => {
+  private codeGrant: IssueGrantCodeFunction = async (client, _redirectUri, user, _ares, done) => {
     const { clientId } = await this.getOAuthApp(client.clientId);
     const code = getRandomString(16);
     // save code
@@ -255,6 +315,8 @@ export class OAuthServerService {
         redirectUri: client.redirectUri,
         scopes: client.scopes,
         user: pick(user, ['id', 'email', 'name']),
+        codeChallenge: client.codeChallenge,
+        codeChallengeMethod: client.codeChallengeMethod,
       },
       this.oauth2Config.codeExpireIn
     );
@@ -282,60 +344,102 @@ export class OAuthServerService {
     });
   }
 
-  private getRefreshToken(client: IExchangeClient, accessTokenId: string, sign: string) {
-    const { clientId, clientSecret } = client;
-    return this.jwtService.signAsync(
-      {
-        clientId,
-        secret: clientSecret,
-        accessTokenId,
-        sign: sign,
-      },
-      { expiresIn: this.oauth2Config.refreshTokenExpireIn }
-    );
+  private getRefreshToken(client: ITokenClient, accessTokenId: string, sign: string) {
+    const payload =
+      client.type === 'pkce'
+        ? { clientId: client.clientId, accessTokenId, sign }
+        : { clientId: client.clientId, secret: client.clientSecret, accessTokenId, sign };
+    return this.jwtService.signAsync(payload, {
+      expiresIn: this.oauth2Config.refreshTokenExpireIn,
+    });
   }
 
   private getRefreshTokenExpireTime() {
     return new Date(Date.now() + ms(this.oauth2Config.refreshTokenExpireIn)).toISOString();
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private verifyExchangeClient(client: ITokenClient, state: IOAuthCodeState) {
+    // code_challenge was set during authorize — code_verifier is required
+    if (client.type === 'pkce') {
+      if (!client.codeVerifier) {
+        throw new BadRequestException('code_verifier is required');
+      }
+      if (!this.pkceService.isValidCodeVerifier(client.codeVerifier)) {
+        throw new BadRequestException('Invalid code_verifier format');
+      }
+      if (!state.codeChallenge) {
+        throw new BadRequestException('code_challenge is required');
+      }
+      if (!state.codeChallengeMethod || state.codeChallengeMethod !== 'S256') {
+        throw new BadRequestException('Invalid code_challenge method');
+      }
+      const valid = this.pkceService.validateCodeVerifier(
+        state.codeChallenge,
+        state.codeChallengeMethod,
+        client.codeVerifier
+      );
+      if (!valid) {
+        throw new UnauthorizedException('Invalid code_verifier');
+      }
+    } else if (client.type === 'secret') {
+      if (!client.clientSecret) {
+        throw new BadRequestException('client_secret is required');
+      }
+      // RFC 7636: once code_challenge is sent, code_verifier must be provided
+      if (state.codeChallenge) {
+        throw new BadRequestException('code_verifier is required for PKCE flow');
+      }
+    } else {
+      throw new BadRequestException('Invalid client type');
+    }
+  }
+
   private codeExchange: IssueExchangeCodeFunction = async (client, code, redirectUri, done) => {
     await this.prismaService
       .$tx(async () => {
-        // Verify the code
         const codeState = await this.cacheService.get(`oauth:code:${code}`);
         if (!codeState) {
           return done(new UnauthorizedException('Invalid code'));
         }
         await this.cacheService.del(`oauth:code:${code}`);
+        await this.checkTokenRateLimit(client.clientId, codeState.user.id);
 
         if (codeState.clientId !== client.clientId) {
           return done(new UnauthorizedException('Invalid client'));
         }
-        if (redirectUri && codeState.redirectUri !== redirectUri) {
+        if (!redirectUri) {
+          return done(new UnauthorizedException('redirect_uri is required'));
+        }
+        if (redirectUri !== codeState.redirectUri) {
           return done(new UnauthorizedException('Invalid redirectUri'));
         }
+        const tokenClient = client as ITokenClient;
+        this.verifyExchangeClient(tokenClient, codeState);
 
-        // save access token
         const accessToken = await this.generateAccessToken({
           userId: codeState.user.id,
           scopes: codeState.scopes,
           clientId: client.clientId,
-          clientName: client.name,
+          clientName: tokenClient.name,
         });
 
-        // save oauth access token
         const refreshTokenSign = getRandomString(16);
-        const refreshToken = await this.getRefreshToken(client, accessToken.id, refreshTokenSign);
+        const appSecretId = tokenClient.secretId;
+        const refreshToken = await this.getRefreshToken(
+          tokenClient,
+          accessToken.id,
+          refreshTokenSign
+        );
         await this.prismaService.txClient().oAuthAppToken.create({
           data: {
+            clientId: client.clientId,
             refreshTokenSign,
-            appSecretId: client.secretId,
+            appSecretId: appSecretId,
             createdBy: codeState.user.id,
             expiredTime: this.getRefreshTokenExpireTime(),
           },
         });
-        // Issue a token
         done(null, accessToken.token, refreshToken, {
           scopes: codeState.scopes,
           expires_in: second(this.oauth2Config.accessTokenExpireIn),
@@ -346,54 +450,68 @@ export class OAuthServerService {
   };
 
   private refreshTokenExchange: (
-    client: IExchangeClient,
+    client: ITokenClient,
     refreshToken: string,
     issued: ExchangeDoneFunction
   ) => void = (client, refreshToken: string, done) => {
     return this.prismaService
       .$tx(async () => {
-        const { clientSecret, name, secretId } = client;
-        const { clientId, secret, accessTokenId, sign } = await this.jwtService.verifyAsync<{
+        const decoded = await this.jwtService.verifyAsync<{
           clientId: string;
-          secret: string;
+          secret?: string;
           accessTokenId: string;
           sign: string;
         }>(refreshToken);
 
-        if (client.clientId !== clientId) {
+        if (client.clientId !== decoded.clientId) {
           return done(new UnauthorizedException('Invalid client'));
         }
-        if (clientSecret !== secret) {
+        if ((client as ITokenClient & { clientSecret?: string })?.clientSecret !== decoded.secret) {
           return done(new UnauthorizedException('Invalid secret'));
         }
 
         const oldAccessToken = await this.prismaService.txClient().accessToken.findUnique({
-          where: { id: accessTokenId },
+          where: { id: decoded.accessTokenId },
         });
-
         if (!oldAccessToken) {
           return done(new UnauthorizedException('Invalid access token'));
         }
+        await this.checkTokenRateLimit(client.clientId, oldAccessToken.userId);
+
+        const authorized = await this.prismaService.txClient().oAuthAppAuthorized.findUnique({
+          where: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            clientId_userId: {
+              clientId: decoded.clientId,
+              userId: oldAccessToken.userId,
+            },
+          },
+        });
+        if (!authorized) {
+          return done(new UnauthorizedException('Invalid authorized'));
+        }
+
         const scopes = oldAccessToken.scopes ? JSON.parse(oldAccessToken.scopes) : [];
         const accessToken = await this.generateAccessToken({
           userId: oldAccessToken.userId,
           scopes,
-          clientId,
-          clientName: name,
+          clientId: decoded.clientId,
+          clientName: client.name,
         });
 
-        // validate refresh_token and refresh refresh_token
         const oauthAppToken = await this.prismaService
           .txClient()
           .oAuthAppToken.update({
-            where: { refreshTokenSign: sign, appSecretId: secretId },
+            where: {
+              clientId: decoded.clientId,
+              refreshTokenSign: decoded.sign,
+              appSecretId: client.secretId,
+            },
             data: {
               refreshTokenSign: getRandomString(16),
               expiredTime: this.getRefreshTokenExpireTime(),
             },
-            select: {
-              refreshTokenSign: true,
-            },
+            select: { refreshTokenSign: true },
           })
           .catch(() => {
             throw new UnauthorizedException('Invalid refresh token');
@@ -404,7 +522,6 @@ export class OAuthServerService {
           accessToken.id,
           oauthAppToken.refreshTokenSign
         );
-        // Issue a token
         done(null, accessToken.token, newRefreshToken, {
           scopes,
           expires_in: second(this.oauth2Config.accessTokenExpireIn),

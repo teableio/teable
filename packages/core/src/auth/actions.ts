@@ -97,7 +97,7 @@ export const appActions = ['app|create', 'app|delete', 'app|read', 'app|update']
 export const appActionSchema = z.enum(appActions);
 export type AppAction = z.infer<typeof appActionSchema>;
 
-export const userActions = ['user|email_read'] as const;
+export const userActions = ['user|email_read', 'user|integrations'] as const;
 export const userActionSchema = z.enum(userActions);
 export type UserAction = z.infer<typeof userActionSchema>;
 

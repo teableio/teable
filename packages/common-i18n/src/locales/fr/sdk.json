@@ -410,6 +410,7 @@
       "appUpdate": "Mettre à jour une application",
       "userProfileRead": "Lire le profil de l'utilisateur",
       "userEmailRead": "Lire l'email de l'utilisateur",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Lire l'historique des enregistrements",
       "baseQuery": "Interroger la base",
       "instanceRead": "Lire l'instance",
@@ -963,6 +964,7 @@
       "nodeNotFound": "{{nodeId}} nœud non trouvé",
       "triggerTestFailed": "Test du déclencheur échoué, veuillez vérifier la configuration du déclencheur",
       "testFailed": "Test d'automatisation échoué, veuillez vérifier la configuration d'automatisation",
+      "runFailed": "L'exécution de l'automatisation a échoué",
       "nodeParseError": "{{name}} la configuration du nœud est incomplète ou contient des erreurs, veuillez vérifier la configuration du nœud",
       "nodeNeedTest": "{{name}} le nœud doit être testé",
       "nodeTestOutdated": "{{name}} le test du nœud est obsolète",
@@ -1209,7 +1211,8 @@
     },
     "billing": {
       "insufficientCredit": "Crédit insuffisant",
-      "exceedMaxRowLimit": "Limite maximale de lignes {{maxRowCount}} dépassée"
+      "exceedMaxRowLimit": "Limite maximale de lignes {{maxRowCount}} dépassée",
+      "exceedMaxAutomationRunLimit": "Le nombre maximal mensuel d'exécutions d'automatisation est atteint"
     },
     "aggregation": {
       "searchQueryRequired": "La requête de recherche est requise",

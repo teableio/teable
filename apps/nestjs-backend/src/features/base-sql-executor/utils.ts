@@ -80,14 +80,26 @@ export const checkTableAccess = (
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
+    const sqlTableList = parser.tableList(sql, opt);
+    const invalidEntries = sqlTableList.filter((t: string) => !whiteColumnList.includes(t));
+    const invalidTableNames = invalidEntries.map((t: string) => {
+      const parts = t.split('::');
+      return parts[parts.length - 1];
+    });
+
+    const message =
+      invalidTableNames.length > 0
+        ? `Table ${invalidTableNames.map((n: string) => `'${n}'`).join(', ')} not found. Please use the db table name (dbTableName from get-tables-meta) instead of the display table name for SQL queries.`
+        : (error?.message as string);
+
     throw new CustomHttpException(
-      `An error occurred while checking table access: ${error?.message}`,
+      `An error occurred while checking table access: ${message}`,
       HttpErrorCode.VALIDATION_ERROR,
       {
         localization: {
           i18nKey: 'httpErrors.baseSqlExecutor.whiteListCheckError',
           context: {
-            message: error?.message,
+            message,
           },
         },
       }

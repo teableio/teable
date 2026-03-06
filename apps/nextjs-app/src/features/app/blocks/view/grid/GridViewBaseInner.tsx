@@ -99,6 +99,7 @@ import { ExpandRecordContainer } from '@/features/app/components/expand-record-c
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
 import { useShareAllowCopy, useShareContext } from '@/features/app/context/ShareContext';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
+import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
@@ -146,9 +147,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const theme = useGridTheme();
   const fields = useFields();
   const usage = useBaseUsage();
+  const { aiField: aiFieldEnabled } = useDisableAIAction();
   const allFields = useFields({ withHidden: true });
   const taskStatusCollection = useContext(TaskStatusCollectionContext);
-  const buttonClickStatusHook = useButtonClickStatus(tableId);
+  const { shareId } = useShareContext();
+  const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -184,7 +187,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const columnHeaderHeight =
     GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
   const permission = useTablePermission();
-  const { shareId } = useShareContext();
+
   const shareAllowCopy = useShareAllowCopy();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = permission['field|update'];
@@ -194,7 +197,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
   const [cellErrors, setCellErrors] = useState<ICellError[]>([]);
 
-  const { fieldAIEnable = false } = usage?.limit ?? {};
+  const { fieldAIEnable: billingFieldAIEnable = false } = usage?.limit ?? {};
+  const fieldAIEnable = billingFieldAIEnable && aiFieldEnabled;
 
   const aiAutoFillDialogRef = useRef<IAiAutoFillDialogContainerRef>(null);
 

@@ -764,36 +764,16 @@ export type I18nTranslations = {
                     "chatModel": string;
                     "chatModelDescription": string;
                     "chatModels": {
-                        "sm": string;
-                        "smDescription": string;
-                        "md": string;
-                        "mdDescription": string;
                         "lg": string;
                         "lgDescription": string;
                     };
                     "actions": {
                         "title": string;
-                        "aiBasicCapability": {
+                        "aiField": {
                             "title": string;
                             "description": string;
                         };
-                        "buildBase": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildApp": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildAutomation": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "baseResource": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "suggestion": {
+                        "aiChat": {
                             "title": string;
                             "description": string;
                         };
@@ -1375,6 +1355,10 @@ export type I18nTranslations = {
                             "message": string;
                         };
                         "insufficientCredit": {
+                            "title": string;
+                            "message": string;
+                        };
+                        "runQuotaExceeded": {
                             "title": string;
                             "message": string;
                         };
@@ -2269,6 +2253,7 @@ export type I18nTranslations = {
                 "appUpdate": string;
                 "userProfileRead": string;
                 "userEmailRead": string;
+                "userIntegrations": string;
                 "recordHistoryRead": string;
                 "baseQuery": string;
                 "instanceRead": string;
@@ -2822,6 +2807,7 @@ export type I18nTranslations = {
                 "nodeNotFound": string;
                 "triggerTestFailed": string;
                 "testFailed": string;
+                "runFailed": string;
                 "nodeParseError": string;
                 "nodeNeedTest": string;
                 "nodeTestOutdated": string;
@@ -3075,6 +3061,7 @@ export type I18nTranslations = {
             "billing": {
                 "insufficientCredit": string;
                 "exceedMaxRowLimit": string;
+                "exceedMaxAutomationRunLimit": string;
             };
             "aggregation": {
                 "searchQueryRequired": string;

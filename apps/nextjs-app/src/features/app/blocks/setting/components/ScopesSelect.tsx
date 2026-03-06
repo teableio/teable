@@ -9,10 +9,11 @@ interface IScopesSelectProps {
   initValue?: Action[];
   onChange?: (value: string[]) => void;
   actionsPrefixes?: ActionPrefix[];
+  allowedActions?: readonly Action[];
 }
 
 export const ScopesSelect = (props: IScopesSelectProps) => {
-  const { onChange, initValue, actionsPrefixes } = props;
+  const { onChange, initValue, actionsPrefixes, allowedActions } = props;
   const { t } = useTranslation('token');
   const [value, setValue] = useState<Record<Action, boolean>>(() => {
     if (initValue) {
@@ -37,9 +38,17 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
     onChange?.(actions);
   };
 
+  const getActions = (prefix: ActionPrefix) => {
+    const actions = actionPrefixMap[prefix];
+    if (allowedActions) {
+      return actions.filter((action) => (allowedActions as readonly string[]).includes(action));
+    }
+    return actions;
+  };
+
   const handleSelectAll = (prefix: ActionPrefix, shouldSelect: boolean) => {
     const actionMap = { ...value };
-    actionPrefixMap[prefix].forEach((action) => {
+    getActions(prefix).forEach((action) => {
       actionMap[action] = shouldSelect;
     });
     setValue(actionMap);
@@ -62,7 +71,7 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
   return (
     <div className="space-y-3 pl-2">
       {actionsPrefix.map((actionPrefix) => {
-        const actions = actionPrefixMap[actionPrefix];
+        const actions = getActions(actionPrefix);
         const isAllSelected = actions.every((action) => value[action]);
         return (
           <div key={actionPrefix} className="group space-y-1">

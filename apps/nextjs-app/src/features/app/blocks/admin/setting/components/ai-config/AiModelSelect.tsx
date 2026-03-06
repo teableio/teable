@@ -42,6 +42,7 @@ export function AIModelSelect({
   needGroup,
   children,
   onlyImageOutput = false,
+  placeholder,
 }: IAIModelSelectProps) {
   const isCloud = useIsCloud();
   const { t } = useTranslation('common');
@@ -205,6 +206,7 @@ export function AIModelSelect({
               size={size}
               className={className}
               open={open}
+              placeholder={placeholder}
             />
           )}
         </PopoverTrigger>

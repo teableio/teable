@@ -152,7 +152,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { highlightedTableId } = useGridSearchStore();
   const { hrefMap: tableHrefMap, viewIdMap: tableViewIdsMap } = useTableHref();
   const permission = useBasePermission();
-  const { buildApp: buildAppEnabled } = useDisableAIAction();
+  const { aiChat: aiChatEnabled } = useDisableAIAction();
   const { disallowDashboard } = useSetting();
   const pinMap = usePinMap();
   const isCommunity = useIsCommunity();
@@ -160,7 +160,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const canCreateTable = Boolean(permission?.['table|create']);
   const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
-  const canCreateApp = !isCommunity && Boolean(buildAppEnabled && permission?.['app|create']);
+  const canCreateApp = !isCommunity && Boolean(aiChatEnabled && permission?.['app|create']);
   const canCreateFolder = Boolean(permission?.['base|update']);
   const canUpdateTable = Boolean(permission?.['table|update']);
 
@@ -753,7 +753,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   >
                                     <Button
                                       variant="ghost"
-                                      size="xs"
+                                      size="icon-xs"
                                       className="size-4 shrink-0 p-0 group-data-[folder=false]:hidden"
                                     >
                                       <AddBoldIcon className="size-full" />
@@ -767,7 +767,11 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   onCreateSuccess={createSuccefulyCallback}
                                   onUpdateSuccess={updateSuccefulyCallback}
                                 >
-                                  <Button variant="ghost" size="xs" className="size-4 shrink-0 p-0">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className="size-4 shrink-0 p-0"
+                                  >
                                     <MoreHorizontal className="size-full" />
                                   </Button>
                                 </BaseNodeMore>

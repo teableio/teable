@@ -30,7 +30,6 @@ export class OAuthClientStrategy extends PassportStrategy(Strategy) {
     if (!secrets.length) {
       throw new UnauthorizedException('No secrets found for the given clientId');
     }
-
     for (const appSecret of secrets) {
       const isMatch = await bcrypt.compare(clientSecret, appSecret.secret);
       if (isMatch) {
@@ -44,6 +43,7 @@ export class OAuthClientStrategy extends PassportStrategy(Strategy) {
           },
         });
         return {
+          type: 'secret',
           name: oauthApp.name,
           secretId: appSecret.id,
           clientId: appSecret.clientId,

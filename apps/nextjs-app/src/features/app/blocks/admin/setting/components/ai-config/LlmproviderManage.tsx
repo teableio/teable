@@ -167,7 +167,7 @@ export const LLMProviderManage = ({
                     hideModelRates={hideModelRates}
                     onSaveTestResult={onSaveTestResult}
                   >
-                    <Button size="xs" variant="ghost" className="w-7 p-0">
+                    <Button size="icon-xs" variant="ghost">
                       <SlidersHorizontalIcon className="size-4 text-muted-foreground" />
                     </Button>
                   </UpdateLLMProviderForm>
@@ -179,7 +179,22 @@ export const LLMProviderManage = ({
                 <div className="mt-3 flex flex-col gap-2">
                   {models.map((model) => {
                     const modelKey = `${provider.type}@${model}@${provider.name}`;
-                    const testResult = modelTestResults?.get(modelKey);
+                    const testResult =
+                      modelTestResults?.get(modelKey) ??
+                      (() => {
+                        // Fall back to persisted modelConfigs if no transient test result
+                        const config = provider.modelConfigs?.[model];
+                        if (config?.ability || config?.imageAbility) {
+                          return {
+                            modelKey,
+                            status: 'success' as const,
+                            ability: config.ability,
+                            imageAbility: config.imageAbility,
+                            isImageModel: config.isImageModel,
+                          };
+                        }
+                        return undefined;
+                      })();
                     const isImageModel = provider.modelConfigs?.[model]?.isImageModel;
                     const isModelTesting = testingModels?.has(modelKey);
                     return (

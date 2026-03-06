@@ -104,6 +104,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
     });
     await prisma.oAuthAppToken.create({
       data: {
+        clientId,
         appSecretId: secret.id,
         refreshTokenSign: 'test-refresh-token-sign-' + Date.now(),
         expiredTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),

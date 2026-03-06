@@ -540,38 +540,18 @@
         "chatModel": "Modèle de chat",
         "chatModelDescription": "Le modèle de chat à utiliser, Astuce : le modèle de codage moyen est utilisé par défaut pour la génération de formules AI et les fonctionnalités associées",
         "chatModels": {
-          "sm": "Petit modèle de chat",
-          "smDescription": "Utilisé pour générer automatiquement les titres de chat et les noms de base. Recommandé: claude-haiku-4.5",
-          "md": "Modèle de chat moyen",
-          "mdDescription": "Utilisé pour la génération de formules IA. Utilise lg par défaut si non configuré. Recommandé: claude-haiku-4.5",
           "lg": "Modèle de chat avancé",
           "lgDescription": "Pour la planification, le codage et d'autres scénarios de tâches complexes. Recommandé: claude-sonnet-4.5"
         },
         "actions": {
           "title": "Capacités IA",
-          "aiBasicCapability": {
-            "title": "Capacité IA de base",
-            "description": "Capacité IA de base pour les requêtes de tables, l'exécution SQL, la génération de scripts et la visualisation de données"
+          "aiField": {
+            "title": "Champ IA",
+            "description": "Fonctionnalités de champ IA incluant le remplissage automatique et la configuration IA dans les paramètres de champ"
           },
-          "buildBase": {
-            "title": "Créer une base",
-            "description": "Créer une base de données à partir de zéro"
-          },
-          "buildApp": {
-            "title": "Créer une application",
-            "description": "Créer une application basée sur une base de données"
-          },
-          "buildAutomation": {
-            "title": "Créer une automatisation",
-            "description": "Créer une automatisation à partir de zéro"
-          },
-          "baseResource": {
-            "title": "Opération de ressources de base",
-            "description": "Créer, modifier et supprimer des tables, vues, champs et enregistrements via l'IA"
-          },
-          "suggestion": {
-            "title": "Suggestion",
-            "description": "Donner des suggestions basées sur les données actuelles de la base de données et le contenu de la conversation"
+          "aiChat": {
+            "title": "Chat IA",
+            "description": "Barre latérale Chat IA et toutes les fonctionnalités d'agent"
           }
         },
         "chatModelTest": {
@@ -870,6 +850,10 @@
           "insufficientCredit": {
             "title": "L'automatisation {{name}} a échoué en raison d'un crédit insuffisant",
             "message": "Votre automatisation {{name}} n'a pas pu s'exécuter en raison d'un crédit insuffisant. Veuillez mettre à niveau votre abonnement ou contacter le support."
+          },
+          "runQuotaExceeded": {
+            "title": "L'automatisation {{name}} a atteint le nombre maximal d'exécutions mensuelles",
+            "message": "Le quota mensuel d'exécutions de l'automatisation {{name}} est épuisé. L'exécution est temporairement indisponible. Veuillez mettre à niveau votre abonnement ou acheter des exécutions supplémentaires."
           }
         },
         "exportBase": {

@@ -1,13 +1,16 @@
 import type { Action } from '@teable/core';
 import { ActionPrefix } from '@teable/core';
-import { Hash, PackageCheck, Sheet, Square, Table2, User } from '@teable/icons';
+import { Database, Hash, PackageCheck, Sheet, Square, Table2, User } from '@teable/icons';
 import { usePermissionActionsStatic } from '@teable/sdk/hooks';
 import { Badge, cn } from '@teable/ui-lib/shadcn';
+import { AppWindowMac } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const IconMap: Partial<Record<ActionPrefix, React.JSXElementConstructor<any>>> = {
+  [ActionPrefix.App]: AppWindowMac,
+  [ActionPrefix.Base]: Database,
   [ActionPrefix.Table]: Table2,
   [ActionPrefix.Field]: Hash,
   [ActionPrefix.Record]: Square,

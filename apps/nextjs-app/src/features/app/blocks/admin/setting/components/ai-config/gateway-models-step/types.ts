@@ -1,5 +1,6 @@
 import type {
   IGatewayModel,
+  IModelPricing,
   GatewayModelType,
   GatewayModelTag,
   GatewayModelProvider,
@@ -27,13 +28,7 @@ export interface IGatewayModelAPI {
   maxTokens?: number;
   type?: GatewayModelType;
   tags?: GatewayModelTag[];
-  pricing?: {
-    input?: string; // Price per token in USD, e.g., "0.00000006"
-    output?: string;
-    inputCacheRead?: string;
-    inputCacheWrite?: string;
-    webSearch?: string; // Price per web search query in credits
-  };
+  pricing?: IModelPricing;
 }
 
 export interface IGatewayModelsStepProps {

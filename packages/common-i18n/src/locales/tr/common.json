@@ -503,38 +503,18 @@
         "chatModel": "Sohbet modeli",
         "chatModelDescription": "Kullanılacak sohbet modeli, İpucu: orta kodlama modeli varsayılan olarak AI formül üretimi ve ilgili özellikler için kullanılır",
         "chatModels": {
-          "sm": "Küçük sohbet modeli",
-          "smDescription": "Sohbet başlıkları ve base adlarının otomatik oluşturulması için kullanılır. Önerilen: claude-haiku-4.5",
-          "md": "Orta sohbet modeli",
-          "mdDescription": "AI formül oluşturma için kullanılır. Yapılandırılmamışsa lg kullanılır. Önerilen: claude-haiku-4.5",
           "lg": "Gelişmiş sohbet modeli",
           "lgDescription": "Planlama, kodlama ve diğer karmaşık görev senaryoları için. Önerilen: claude-sonnet-4.5"
         },
         "actions": {
           "title": "AI Yetenekleri",
-          "aiBasicCapability": {
-            "title": "Temel AI Yeteneği",
-            "description": "Tablo sorguları, SQL çalıştırma, script oluşturma ve veri görselleştirme için temel AI yeteneği"
+          "aiField": {
+            "title": "AI Alan",
+            "description": "Otomatik doldurma ve alan ayarlarında AI yapılandırması dahil AI alan işlevleri"
           },
-          "buildBase": {
-            "title": "Veritabanı oluştur",
-            "description": "Sıfırdan veritabanı oluştur"
-          },
-          "buildApp": {
-            "title": "Uygulama oluştur",
-            "description": "Veritabanına dayalı uygulama oluştur"
-          },
-          "buildAutomation": {
-            "title": "Otomasyon oluştur",
-            "description": "Sıfırdan otomasyon oluştur"
-          },
-          "baseResource": {
-            "title": "Veritabanı kaynak işlemleri",
-            "description": "AI aracılığıyla tablo, görünüm, alan ve kayıtları oluşturma, değiştirme ve silme"
-          },
-          "suggestion": {
-            "title": "Öneri",
-            "description": "Mevcut veritabanı verilerine ve konuşma içeriğine göre öneriler sunma"
+          "aiChat": {
+            "title": "AI Sohbet",
+            "description": "AI Sohbet kenar çubuğu ve tüm ajan işlevleri"
           }
         },
         "chatModelTest": {
@@ -833,6 +813,10 @@
           "insufficientCredit": {
             "title": "Otomasyon {{name}} yetersiz kredi nedeniyle başarısız oldu",
             "message": "Otomasyonunuz {{name}} yetersiz kredi nedeniyle çalıştırılamadı. Lütfen aboneliği yükseltin veya destekle iletişime geçin."
+          },
+          "runQuotaExceeded": {
+            "title": "Otomasyon {{name}} aylık maksimum çalıştırma sayısına ulaştı",
+            "message": "Otomasyon {{name}} için aylık çalıştırma hakkı tükendiği için şu anda çalıştırılamıyor. Aboneliğinizi yükseltin veya ek çalıştırma satın alın."
           }
         },
         "exportBase": {

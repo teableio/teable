@@ -433,8 +433,8 @@ export const Calendar = (props: ICalendarProps) => {
         <div className="flex items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                <CalendarIcon className="size-4" />
+              <Button variant="outline" size="icon-sm">
+                <CalendarIcon className="size-4 shrink-0" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -452,11 +452,11 @@ export const Calendar = (props: ICalendarProps) => {
             {t('sdk:editor.date.today')}
           </Button>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={onPrevHandler}>
-              <ChevronLeft className="size-4" />
+            <Button variant="outline" size="icon-sm" onClick={onPrevHandler}>
+              <ChevronLeft className="size-4 shrink-0" />
             </Button>
-            <Button variant="outline" size="sm" onClick={onNextHandler}>
-              <ChevronRight className="size-4" />
+            <Button variant="outline" size="icon-sm" onClick={onNextHandler}>
+              <ChevronRight className="size-4 shrink-0" />
             </Button>
           </div>
         </div>

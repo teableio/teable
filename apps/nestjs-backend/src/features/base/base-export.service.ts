@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Readable, PassThrough } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import type {
   ILinkFieldOptions,
@@ -20,6 +21,7 @@ import { omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -69,7 +71,8 @@ export class BaseExportService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @StorageConfig() private readonly storageConfig: IStorageConfig
+    @StorageConfig() private readonly storageConfig: IStorageConfig,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   private captureExportError(
@@ -213,7 +216,16 @@ export class BaseExportService {
     );
 
     try {
-      await this.pipeArchive(archive, baseId, includeData);
+      await this.prismaService.$tx(
+        async (prisma) => {
+          await prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+          await this.pipeArchive(archive, baseId, includeData);
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+          timeout: this.thresholdConfig.bigTransactionTimeout,
+        }
+      );
       archive.finalize();
       const uploadResult = await uploadPromise;
       const { path } = uploadResult;
@@ -673,7 +685,10 @@ export class BaseExportService {
     });
 
     const csvString = stringify(
-      attachments.map((att) => pick(att, columnHeader)),
+      attachments.map((att) => ({
+        ...pick(att, columnHeader),
+        size: Number(att.size),
+      })),
       {
         columns: columnHeader,
       }

@@ -46,8 +46,8 @@ export const OAuthAppSection = () => {
         <SettingTabHeader
           leading={
             formType ? (
-              <Button variant="ghost" size="xs" onClick={onBack}>
-                <ChevronLeft className="size-4" />
+              <Button variant="ghost" size="icon-xs" onClick={onBack}>
+                <ChevronLeft className="size-4 shrink-0" />
               </Button>
             ) : undefined
           }

@@ -8,7 +8,9 @@ import { OAuthServerService } from './oauth-server.service';
 import { OAuthTxStore } from './oauth-tx-store';
 import { OAuthController } from './oauth.controller';
 import { OAuthService } from './oauth.service';
+import { PkceService } from './pkce.service';
 import { OAuthClientStrategy } from './strategies/oauth2-client.strategies';
+import { OAuthPkceClientStrategy } from './strategies/oauth2-pkce-client.strategy';
 
 @Module({
   imports: [
@@ -25,7 +27,14 @@ import { OAuthClientStrategy } from './strategies/oauth2-client.strategies';
     }),
   ],
   controllers: [OAuthController, OAuthServerController],
-  providers: [OAuthServerService, OAuthService, OAuthClientStrategy, OAuthTxStore],
+  providers: [
+    OAuthServerService,
+    OAuthService,
+    OAuthClientStrategy,
+    OAuthPkceClientStrategy,
+    OAuthTxStore,
+    PkceService,
+  ],
   exports: [OAuthService],
 })
 export class OAuthModule {}

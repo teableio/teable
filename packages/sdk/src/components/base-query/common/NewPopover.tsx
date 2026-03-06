@@ -24,8 +24,8 @@ export const NewPopover = (props: {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button className="text-[13px]" size={'xs'} variant={'outline'}>
-          <Plus />
+        <Button size={'icon-xs'} variant={'outline'}>
+          <Plus className="size-4 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className={cn('min-w-80 overflow-auto', className)}>
