@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../shared/DomainContext';
 import { domainError, type DomainError } from '../shared/DomainError';
 import type { ISpecification } from '../shared/specification/ISpecification';
 import { SpecBuilder, type SpecBuilderMode } from '../shared/specification/SpecBuilder';
@@ -11,7 +12,6 @@ import {
   isForeignTableRelatedField,
   validateForeignTablesForFields,
 } from './fields/ForeignTableRelatedField';
-import type { ISelectFieldOptionWriteConfig } from './fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from './fields/types/SelectOption';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
@@ -52,6 +52,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     field: Field,
     options?: {
       foreignTables?: ReadonlyArray<Table>;
+      domainContext?: IDomainContext;
       viewOrder?: {
         viewId: ViewId;
         order: number;
@@ -73,7 +74,11 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
       return this;
     }
 
-    this.addSpec(TableAddFieldSpec.create(resolvedFieldResult.value));
+    this.addSpec(
+      TableAddFieldSpec.create(resolvedFieldResult.value, {
+        domainContext: options?.domainContext,
+      })
+    );
     const viewSpecResult = (() => {
       if (!options?.viewOrder) {
         return TableUpdateViewColumnMetaSpec.fromTableWithFieldId(
@@ -129,19 +134,19 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
   addSelectOptions(
     fieldId: FieldId,
     options: ReadonlyArray<SelectOption>,
-    config?: ISelectFieldOptionWriteConfig
+    domainContext?: IDomainContext
   ): TableMutateSpecBuilder {
     if (options.length === 0) {
       return this;
     }
 
-    const nextTableResult = this.currentTable.addSelectOptions(fieldId, options, config);
+    const nextTableResult = this.currentTable.addSelectOptions(fieldId, options, domainContext);
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);
       return this;
     }
 
-    this.addSpec(TableAddSelectOptionsSpec.create(fieldId, options, config));
+    this.addSpec(TableAddSelectOptionsSpec.create(fieldId, options, domainContext));
     this.currentTable = nextTableResult.value;
     return this;
   }
@@ -392,12 +397,12 @@ export class TableMutator {
   addSelectOptions(
     fieldId: FieldId,
     options: ReadonlyArray<SelectOption>,
-    config?: ISelectFieldOptionWriteConfig
+    domainContext?: IDomainContext
   ): TableMutator {
     if (options.length === 0) {
       return this;
     }
-    this.builder.addSelectOptions(fieldId, options, config);
+    this.builder.addSelectOptions(fieldId, options, domainContext);
     this.hasUpdates = true;
     return this;
   }

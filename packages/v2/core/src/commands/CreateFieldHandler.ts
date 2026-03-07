@@ -54,6 +54,7 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
         // Foreign references may point to tables in other bases (e.g. cross-base lookup).
         references: foreignTableReferences,
       });
+      const domainContext = ExecutionContextPort.getDomainContext(context);
       let createdField: Field | undefined;
       const updateResult = yield* await handler.tableUpdateFlow.execute(
         context,
@@ -83,15 +84,19 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
                   }
                 }
                 createdField = field;
+                const addFieldOptions = {
+                  foreignTables,
+                  domainContext,
+                };
                 if (!command.order) {
-                  return table.update((mutator) => mutator.addField(field, { foreignTables }));
+                  return table.update((mutator) => mutator.addField(field, addFieldOptions));
                 }
 
                 const order = command.order;
                 return ViewId.create(order.viewId).andThen((viewId) =>
                   table.update((mutator) =>
                     mutator.addField(field, {
-                      foreignTables,
+                      ...addFieldOptions,
                       viewOrder: {
                         viewId,
                         order: order.orderIndex,
@@ -104,16 +109,32 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
         },
         {
           hooks: {
+            prepare: async (transactionContext, updatedTable) => {
+              if (!createdField) {
+                return ok([]);
+              }
+
+              const previewResult = await handler.fieldCreationSideEffectService.preview({
+                table: updatedTable,
+                fields: [createdField],
+                foreignTables,
+                domainContext,
+              });
+
+              return previewResult.map(() => []);
+            },
             afterPersist: async (transactionContext, updatedTable) =>
               safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
                 if (!createdField)
                   return err(domainError.unexpected({ message: 'Field not created' }));
-                const sideEffectResult =
-                  yield* await handler.fieldCreationSideEffectService.execute(transactionContext, {
+                const sideEffectExecuteResult =
+                  await handler.fieldCreationSideEffectService.execute(transactionContext, {
                     table: updatedTable,
                     fields: [createdField],
                     foreignTables,
+                    domainContext,
                   });
+                const sideEffectResult = yield* sideEffectExecuteResult;
 
                 return ok(sideEffectResult.events);
               }),

@@ -140,6 +140,7 @@ export * from './domain/base/specs/BaseByIdSpec';
 export * from './domain/base/specs/IBaseSpecVisitor';
 
 export * from './domain/table/Table';
+export * from './domain/table/TableFieldLimit';
 export * from './domain/table/ForeignTable';
 export * from './domain/table/TableMutator';
 export * from './domain/table/TableBuilder';

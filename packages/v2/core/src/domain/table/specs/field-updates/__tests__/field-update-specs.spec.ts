@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../../base/BaseId';
 import type { ISpecification } from '../../../../shared/specification/ISpecification';
+import { DbFieldName } from '../../../fields/DbFieldName';
 import { FieldId } from '../../../fields/FieldId';
 import { FieldName } from '../../../fields/FieldName';
-import { DbFieldName } from '../../../fields/DbFieldName';
 import { DateField } from '../../../fields/types/DateField';
 import { DateTimeFormatting, TimeFormatting } from '../../../fields/types/DateTimeFormatting';
 import { FormulaExpression } from '../../../fields/types/FormulaExpression';
@@ -40,22 +40,22 @@ class SpyVisitor
     return ok(undefined);
   }
 
-  visitUpdateFormulaExpression(_: any) {
+  visitUpdateFormulaExpression(_: UpdateFormulaExpressionSpec) {
     this.calls.push('UpdateFormulaExpressionSpec');
     return ok(undefined);
   }
 
-  visitUpdateNumberFormatting(_: any) {
+  visitUpdateNumberFormatting(_: UpdateNumberFormattingSpec) {
     this.calls.push('UpdateNumberFormattingSpec');
     return ok(undefined);
   }
 
-  visitUpdateSingleSelectOptions(_: any) {
+  visitUpdateSingleSelectOptions(_: UpdateSingleSelectOptionsSpec) {
     this.calls.push('UpdateSingleSelectOptionsSpec');
     return ok(undefined);
   }
 
-  visitUpdateDateFormatting(_: any) {
+  visitUpdateDateFormatting(_: UpdateDateFormattingSpec) {
     this.calls.push('UpdateDateFormattingSpec');
     return ok(undefined);
   }
@@ -182,7 +182,7 @@ describe('Field update specs', () => {
       );
 
       const visitor = new SpyVisitor();
-      spec.accept(visitor as any)._unsafeUnwrap();
+      spec.accept(visitor as unknown as ITableSpecVisitor)._unsafeUnwrap();
       expect(visitor.calls).toContain('UpdateNumberFormattingSpec');
     });
   });
@@ -228,7 +228,7 @@ describe('Field update specs', () => {
 
       const spec = UpdateFormulaExpressionSpec.create(fieldId, prevExpr, nextExpr);
       const visitor = new SpyVisitor();
-      spec.accept(visitor as any)._unsafeUnwrap();
+      spec.accept(visitor as unknown as ITableSpecVisitor)._unsafeUnwrap();
       expect(visitor.calls).toContain('UpdateFormulaExpressionSpec');
     });
   });
@@ -337,7 +337,7 @@ describe('Field update specs', () => {
       const dbFieldName = DbFieldName.rehydrate('fld_test')._unsafeUnwrap();
       const spec = UpdateSingleSelectOptionsSpec.create(fieldId, dbFieldName, [], []);
       const visitor = new SpyVisitor();
-      spec.accept(visitor as any)._unsafeUnwrap();
+      spec.accept(visitor as unknown as ITableSpecVisitor)._unsafeUnwrap();
       expect(visitor.calls).toContain('UpdateSingleSelectOptionsSpec');
     });
 
@@ -354,7 +354,11 @@ describe('Field update specs', () => {
         [opt1],
         [opt1, opt2],
         {
-          maxChoicesPerField: 1,
+          config: {
+            selectFieldOptions: {
+              maxChoicesPerField: 1,
+            },
+          },
         }
       );
 
@@ -412,7 +416,7 @@ describe('Field update specs', () => {
       );
 
       const visitor = new SpyVisitor();
-      spec.accept(visitor as any)._unsafeUnwrap();
+      spec.accept(visitor as unknown as ITableSpecVisitor)._unsafeUnwrap();
       expect(visitor.calls).toContain('UpdateDateFormattingSpec');
     });
   });

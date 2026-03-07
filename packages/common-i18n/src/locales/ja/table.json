@@ -53,6 +53,11 @@
     "help": "詳細については、<HelpCenter /> をご覧ください",
     "helpCenter": "ヘルプセンター"
   },
+  "validation": {
+    "field": {
+      "maxColumnLimit": "テーブル「{{tableName}}」には最大 {{maxFieldCount}} 個のフィールドしか作成できません。"
+    }
+  },
   "field": {
     "fieldManagement": "フィールド管理",
     "fieldManagementDesc": "現在のテーブルのすべてのフィールドの詳細なプロパティ",

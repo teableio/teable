@@ -3616,6 +3616,11 @@ export type I18nTranslations = {
             "help": string;
             "helpCenter": string;
         };
+        "validation": {
+            "field": {
+                "maxColumnLimit": string;
+            };
+        };
         "field": {
             "fieldManagement": string;
             "fieldManagementDesc": string;

@@ -55,6 +55,11 @@
     "help": "Daha fazla bilgi için <HelpCenter /> adresini ziyaret edin",
     "helpCenter": "Yardım Merkezi"
   },
+  "validation": {
+    "field": {
+      "maxColumnLimit": "\"{{tableName}}\" tablosunda en fazla {{maxFieldCount}} alan olabilir."
+    }
+  },
   "field": {
     "fieldManagement": "Alan Yönetimi",
     "fieldManagementDesc": "Mevcut tablonun tüm alanları için detaylı özellikler",

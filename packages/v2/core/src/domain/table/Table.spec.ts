@@ -3,12 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../base/BaseId';
 import { DbTableName } from './DbTableName';
-import { DbFieldName } from './fields/DbFieldName';
 import { FieldDeleted } from './events/FieldDeleted';
 import { FieldUpdated } from './events/FieldUpdated';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
+import { DbFieldName } from './fields/DbFieldName';
 import { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
@@ -24,6 +24,7 @@ import { TextDefaultValue } from './fields/types/TextDefaultValue';
 import { RecordId } from './records/RecordId';
 import { TableUpdateFieldNameSpec } from './specs/TableUpdateFieldNameSpec';
 import { Table } from './Table';
+import { TABLE_FIELD_LIMIT_ERROR_CODE } from './TableFieldLimit';
 import { TableId } from './TableId';
 import { TableName } from './TableName';
 import { GridView } from './views/types/GridView';
@@ -295,6 +296,50 @@ describe('Table', () => {
     expect(addedEntry).toBeTruthy();
     if (!addedEntry) return;
     expect(addedEntry.order).toBe(maxOrder + 1);
+  });
+
+  it('rejects adding a field when the configured table field limit is exceeded', () => {
+    const baseIdResult = createBaseId('g');
+    const tableNameResult = TableName.create('Limited Schema');
+    const fieldNameResult = FieldName.create('Title');
+    const viewNameResult = ViewName.create('Grid');
+    const newFieldIdResult = createFieldId('i');
+    const newFieldNameResult = FieldName.create('Status');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const newField = SingleLineTextField.create({
+      id: newFieldIdResult._unsafeUnwrap(),
+      name: newFieldNameResult._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = table.addField(newField, {
+      domainContext: {
+        config: {
+          tableFields: {
+            maxFieldsPerTable: 1,
+          },
+        },
+      },
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
+    expect(result.error.details).toMatchObject({
+      tableName: 'Limited Schema',
+      currentFieldCount: 1,
+      attemptedFieldCount: 2,
+      maxFieldCount: 1,
+    });
   });
 
   it('rejects adding a field with duplicate dbFieldName', () => {

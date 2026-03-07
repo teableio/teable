@@ -91,6 +91,11 @@
     "help": "Visit the <HelpCenter /> for more information",
     "helpCenter": "Help center"
   },
+  "validation": {
+    "field": {
+      "maxColumnLimit": "Table \"{{tableName}}\" can have at most {{maxFieldCount}} fields."
+    }
+  },
   "field": {
     "fieldManagement": "Field management",
     "fieldManagementDesc": "Detailed properties for all fields of the current table",

@@ -15,8 +15,10 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { LookupField } from '../domain/table/fields/types/LookupField';
+import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
+import { TABLE_FIELD_LIMIT_ERROR_CODE } from '../domain/table/TableFieldLimit';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
@@ -29,11 +31,25 @@ import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateFieldCommand } from './CreateFieldCommand';
 import { CreateFieldHandler } from './CreateFieldHandler';
 
-const createContext = (): IExecutionContext => {
+const createContext = (options?: {
+  maxFieldsPerTable?: number;
+  t?: NonNullable<IExecutionContext['$t']>;
+}): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
   actorIdResult._unsafeUnwrap();
   actorIdResult._unsafeUnwrap();
-  return { actorId: actorIdResult._unsafeUnwrap() };
+  return {
+    actorId: actorIdResult._unsafeUnwrap(),
+    config:
+      options?.maxFieldsPerTable == null
+        ? undefined
+        : {
+            tableFields: {
+              maxFieldsPerTable: options.maxFieldsPerTable,
+            },
+          },
+    $t: options?.t,
+  };
 };
 
 class InMemoryTableRepository implements ITableRepository {
@@ -147,6 +163,26 @@ const buildTable = (params: {
     ._unsafeUnwrap();
 };
 
+let generatedFieldCounter = 0;
+
+const createGeneratedField = (name: string) =>
+  SingleLineTextField.create({
+    id: FieldId.create(
+      `fld${(generatedFieldCounter++).toString(36).padStart(16, '0')}`
+    )._unsafeUnwrap(),
+    name: FieldName.create(name)._unsafeUnwrap(),
+  })._unsafeUnwrap();
+
+const addTextFields = (table: Table, count: number, prefix: string): Table => {
+  let currentTable = table;
+  for (let index = 0; index < count; index += 1) {
+    currentTable = currentTable
+      .update((mutator) => mutator.addField(createGeneratedField(`${prefix} ${index + 1}`)))
+      ._unsafeUnwrap().table;
+  }
+  return currentTable;
+};
+
 describe('CreateFieldHandler', () => {
   it('supports all link relationships and self references', async () => {
     const baseId = `bse${'a'.repeat(16)}`;
@@ -241,6 +277,159 @@ describe('CreateFieldHandler', () => {
     if (!selfTable) return;
     const selfLinks = selfTable.getFields().filter((field) => field.type().toString() === 'link');
     expect(selfLinks.length).toBeGreaterThan(1);
+  });
+
+  it('returns a validation error when the host table exceeds the configured field limit', async () => {
+    const baseId = `bse${'k'.repeat(16)}`;
+    const tableId = `tbl${'l'.repeat(16)}`;
+    const primaryFieldId = `fld${'m'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const handler = new CreateFieldHandler(
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId,
+        tableName: 'Host',
+        primaryFieldId,
+      })
+    );
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'singleLineText',
+        name: 'Overflow',
+      },
+    })._unsafeUnwrap();
+    const result = await handler.handle(
+      createContext({
+        maxFieldsPerTable: 1,
+        t: (_key, options) =>
+          `limit:${String(options?.maxFieldCount)} table:${String(options?.tableName)}`,
+      }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
+    expect(result.error.message).toContain('limit:1');
+    expect(result.error.details).toMatchObject({
+      tableName: 'Host',
+      currentFieldCount: 1,
+      attemptedFieldCount: 2,
+      maxFieldCount: 1,
+    });
+    expect(tableRepository.tables[0]?.getFields()).toHaveLength(1);
+  });
+
+  it('rejects two-way link creation when the reciprocal table would exceed the configured field limit', async () => {
+    const baseId = `bse${'n'.repeat(16)}`;
+    const hostTableId = `tbl${'o'.repeat(16)}`;
+    const foreignTableId = `tbl${'p'.repeat(16)}`;
+    const hostPrimaryId = `fld${'q'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'r'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
+    const handler = new CreateFieldHandler(
+      tableUpdateFlow,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService
+    );
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Host',
+      primaryFieldId: hostPrimaryId,
+    });
+    const foreignTable = addTextFields(
+      buildTable({
+        baseId,
+        tableId: foreignTableId,
+        tableName: 'Foreign',
+        primaryFieldId: foreignPrimaryId,
+      }),
+      2,
+      'Foreign Extra'
+    );
+
+    tableRepository.tables.push(hostTable, foreignTable);
+
+    const command = CreateFieldCommand.create({
+      baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        name: 'Host Link',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryId,
+        },
+      },
+    })._unsafeUnwrap();
+    const result = await handler.handle(
+      createContext({
+        maxFieldsPerTable: 3,
+        t: (_key, options) =>
+          `limit:${String(options?.maxFieldCount)} table:${String(options?.tableName)}`,
+      }),
+      command
+    );
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) {
+      return;
+    }
+
+    expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
+    expect(result.error.message).toContain('limit:3');
+    expect(result.error.message).toContain('table:Foreign');
+    expect(result.error.details).toMatchObject({
+      tableName: 'Foreign',
+      currentFieldCount: 3,
+      attemptedFieldCount: 4,
+      maxFieldCount: 3,
+    });
+    expect(
+      tableRepository.tables.find((table) => table.id().toString() === hostTableId)?.getFields()
+    ).toHaveLength(1);
+    expect(
+      tableRepository.tables.find((table) => table.id().toString() === foreignTableId)?.getFields()
+    ).toHaveLength(3);
   });
 
   it('creates formula field with resolved cellValueType', async () => {

@@ -55,6 +55,11 @@
     "help": "Відвідайте <HelpCenter /> для отримання додаткової інформації",
     "helpCenter": "Центр допомоги"
   },
+  "validation": {
+    "field": {
+      "maxColumnLimit": "Таблиця \"{{tableName}}\" може містити не більше ніж {{maxFieldCount}} полів."
+    }
+  },
   "field": {
     "fieldManagement": "Керування полями",
     "fieldManagementDesc": "Детальні властивості всіх полів поточної таблиці",

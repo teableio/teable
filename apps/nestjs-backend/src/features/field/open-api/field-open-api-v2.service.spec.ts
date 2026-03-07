@@ -529,6 +529,63 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
 });
 
 describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
+  it('applies legacy default names when create payload omits name', () => {
+    const service = createService();
+
+    expect(
+      service.mapLegacyCreateFieldToV2({
+        type: 'singleSelect',
+      })
+    ).toMatchObject({
+      type: 'singleSelect',
+      name: 'Select',
+    });
+
+    expect(
+      service.mapLegacyCreateFieldToV2({
+        type: 'createdTime',
+      })
+    ).toMatchObject({
+      type: 'createdTime',
+      name: 'Created Time',
+    });
+
+    expect(
+      service.mapLegacyCreateFieldToV2({
+        type: 'user',
+        options: { isMultiple: true },
+      })
+    ).toMatchObject({
+      type: 'user',
+      name: 'Collaborators',
+    });
+  });
+
+  it('does not prefill legacy default names for semantic lookup fields', () => {
+    const service = createService();
+
+    expect(
+      service.mapLegacyCreateFieldToV2({
+        type: 'singleLineText',
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: 'tblForeign00000001',
+          lookupFieldId: 'fldLookup000000001',
+          linkFieldId: 'fldLink000000000001',
+        },
+      })
+    ).toEqual({
+      id: expect.any(String),
+      type: 'lookup',
+      legacyMultiplicityDerivation: true,
+      options: {
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        linkFieldId: 'fldLink000000000001',
+      },
+    });
+  });
+
   it('passes dbFieldName through create payload', () => {
     const service = createService();
     const mapped = service.mapLegacyCreateFieldToV2({

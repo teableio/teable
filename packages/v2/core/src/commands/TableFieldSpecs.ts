@@ -1,9 +1,10 @@
+import { tableI18nKeys } from '@teable/i18n-keys';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
-import { tableI18nKeys } from '@teable/i18n-keys';
 
 import type { BaseId } from '../domain/base/BaseId';
+import type { IDomainContext } from '../domain/shared/DomainContext';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { Field } from '../domain/table/fields/Field';
 import {
@@ -60,7 +61,6 @@ import { RollupExpression } from '../domain/table/fields/types/RollupExpression'
 import { RollupFieldConfig } from '../domain/table/fields/types/RollupFieldConfig';
 import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
-import type { ISelectFieldOptionWriteConfig } from '../domain/table/fields/types/SelectFieldOptionWriteConfig';
 import { ensureSelectFieldOptionCountWithinLimit } from '../domain/table/fields/types/SelectFieldOptionWriteConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextShowAs } from '../domain/table/fields/types/SingleLineTextShowAs';
@@ -74,7 +74,7 @@ import type { Table } from '../domain/table/Table';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { getSelectFieldOptionWriteConfig } from '../ports/ExecutionContext';
+import { getDomainContext } from '../ports/ExecutionContext';
 import { trackedFieldIdsSchema } from '../schemas/field';
 import type { ITableFieldInput, ResolvedTableFieldInput } from '../schemas/field';
 import {
@@ -1366,13 +1366,10 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
       preventAutoNewOptions?: SelectAutoNewOptions;
       notNull: FieldNotNull;
       unique: FieldUnique;
-      selectFieldOptionConfig?: ISelectFieldOptionWriteConfig;
+      domainContext?: IDomainContext;
     }
   ): Result<CreateSingleSelectFieldSpec, DomainError> {
-    return ensureSelectFieldOptionCountWithinLimit(
-      options.length,
-      meta.selectFieldOptionConfig
-    ).map(() =>
+    return ensureSelectFieldOptionCountWithinLimit(options.length, meta.domainContext).map(() =>
       new CreateSingleSelectFieldSpec(
         id,
         name,
@@ -1451,13 +1448,10 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
       preventAutoNewOptions?: SelectAutoNewOptions;
       notNull: FieldNotNull;
       unique: FieldUnique;
-      selectFieldOptionConfig?: ISelectFieldOptionWriteConfig;
+      domainContext?: IDomainContext;
     }
   ): Result<CreateMultipleSelectFieldSpec, DomainError> {
-    return ensureSelectFieldOptionCountWithinLimit(
-      options.length,
-      meta.selectFieldOptionConfig
-    ).map(() =>
+    return ensureSelectFieldOptionCountWithinLimit(options.length, meta.domainContext).map(() =>
       new CreateMultipleSelectFieldSpec(
         id,
         name,
@@ -2449,9 +2443,9 @@ export const parseTableFieldSpec = (
                   preventAutoNewOptions,
                   notNull: validation.notNull,
                   unique: validation.unique,
-                  selectFieldOptionConfig: options.bypassSelectFieldOptionLimit
+                  domainContext: options.bypassSelectFieldOptionLimit
                     ? undefined
-                    : getSelectFieldOptionWriteConfig(options.executionContext),
+                    : getDomainContext(options.executionContext),
                 })
             )
           )
@@ -2464,9 +2458,9 @@ export const parseTableFieldSpec = (
                   preventAutoNewOptions,
                   notNull: validation.notNull,
                   unique: validation.unique,
-                  selectFieldOptionConfig: options.bypassSelectFieldOptionLimit
+                  domainContext: options.bypassSelectFieldOptionLimit
                     ? undefined
-                    : getSelectFieldOptionWriteConfig(options.executionContext),
+                    : getDomainContext(options.executionContext),
                 })
             )
           )

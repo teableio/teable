@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 import type { BaseId } from '../base/BaseId';
 import { AggregateRoot } from '../shared/AggregateRoot';
+import type { IDomainContext } from '../shared/DomainContext';
 import { domainError, type DomainError } from '../shared/DomainError';
 import { topologicalSort } from '../shared/graph/topologicalSort';
 import type { ISpecification } from '../shared/specification/ISpecification';
@@ -22,12 +23,9 @@ import { validateForeignTablesForFields } from './fields/ForeignTableRelatedFiel
 import { FieldIsComputedSpec } from './fields/specs/FieldIsComputedSpec';
 import type { FieldHasError } from './fields/types/FieldHasError';
 import type { FieldNotNull } from './fields/types/FieldNotNull';
-import {
-  ensureSelectFieldOptionCountWithinLimit,
-  type ISelectFieldOptionWriteConfig,
-} from './fields/types/SelectFieldOptionWriteConfig';
 import type { FieldUnique } from './fields/types/FieldUnique';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
+import { ensureSelectFieldOptionCountWithinLimit } from './fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from './fields/types/SelectOption';
 import { SingleSelectField } from './fields/types/SingleSelectField';
 import { FieldCellValueSchemaVisitor } from './fields/visitors/FieldCellValueSchemaVisitor';
@@ -61,6 +59,7 @@ import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
 import { TableBuilder } from './TableBuilder';
+import { ensureTableFieldCountWithinLimit } from './TableFieldLimit';
 import type { TableId } from './TableId';
 import { TableMutator, type TableUpdateResult } from './TableMutator';
 import type { TableName } from './TableName';
@@ -662,8 +661,16 @@ export class Table extends AggregateRoot<TableId> {
 
   addField(
     field: Field,
-    options?: { foreignTables?: ReadonlyArray<Table> }
+    options?: {
+      foreignTables?: ReadonlyArray<Table>;
+      domainContext?: IDomainContext;
+    }
   ): Result<Table, DomainError> {
+    const fieldLimitResult = ensureTableFieldCountWithinLimit(this, {
+      domainContext: options?.domainContext,
+    });
+    if (fieldLimitResult.isErr()) return err(fieldLimitResult.error);
+
     if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
       return err(domainError.conflict({ message: 'Field already exists' }));
     }
@@ -765,7 +772,7 @@ export class Table extends AggregateRoot<TableId> {
   addSelectOptions(
     fieldId: FieldId,
     options: ReadonlyArray<SelectOption>,
-    config?: ISelectFieldOptionWriteConfig
+    domainContext?: IDomainContext
   ): Result<Table, DomainError> {
     if (options.length === 0) {
       return ok(this);
@@ -793,7 +800,10 @@ export class Table extends AggregateRoot<TableId> {
     }
 
     const mergedOptions = [...existingOptions, ...newOptions];
-    const limitResult = ensureSelectFieldOptionCountWithinLimit(mergedOptions.length, config);
+    const limitResult = ensureSelectFieldOptionCountWithinLimit(
+      mergedOptions.length,
+      domainContext
+    );
     if (limitResult.isErr()) return err(limitResult.error);
 
     const nextFieldResult = isSingle
@@ -929,7 +939,7 @@ export class Table extends AggregateRoot<TableId> {
   replaceField(
     fieldId: FieldId,
     newField: Field,
-    options?: { foreignTables?: ReadonlyArray<Table> }
+    _options?: { foreignTables?: ReadonlyArray<Table> }
   ): Result<Table, DomainError> {
     if (!fieldId.equals(newField.id())) {
       return err(

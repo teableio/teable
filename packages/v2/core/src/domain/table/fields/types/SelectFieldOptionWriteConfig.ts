@@ -1,17 +1,14 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../../shared/DomainContext';
 import { domainError, type DomainError } from '../../../shared/DomainError';
-
-export interface ISelectFieldOptionWriteConfig {
-  maxChoicesPerField?: number;
-}
 
 export const ensureSelectFieldOptionCountWithinLimit = (
   optionCount: number,
-  config?: ISelectFieldOptionWriteConfig
+  domainContext?: IDomainContext
 ): Result<void, DomainError> => {
-  const maxChoicesPerField = config?.maxChoicesPerField;
+  const maxChoicesPerField = domainContext?.config?.selectFieldOptions?.maxChoicesPerField;
   if (maxChoicesPerField == null || optionCount <= maxChoicesPerField) {
     return ok(undefined);
   }

@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../shared/DomainContext';
 import type { DomainError } from '../../shared/DomainError';
 import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
 import type { Field } from '../fields/Field';
@@ -9,12 +10,22 @@ import type { ITableSpecVisitor } from './ITableSpecVisitor';
 export class TableAddFieldSpec<
   V extends ITableSpecVisitor = ITableSpecVisitor,
 > extends MutateOnlySpec<Table, V> {
-  private constructor(private readonly fieldValue: Field) {
+  private constructor(
+    private readonly fieldValue: Field,
+    private readonly options?: {
+      domainContext?: IDomainContext;
+    }
+  ) {
     super();
   }
 
-  static create(field: Field): TableAddFieldSpec {
-    return new TableAddFieldSpec(field);
+  static create(
+    field: Field,
+    options?: {
+      domainContext?: IDomainContext;
+    }
+  ): TableAddFieldSpec {
+    return new TableAddFieldSpec(field, options);
   }
 
   field(): Field {
@@ -22,7 +33,9 @@ export class TableAddFieldSpec<
   }
 
   mutate(t: Table): Result<Table, DomainError> {
-    return t.addField(this.fieldValue);
+    return t.addField(this.fieldValue, {
+      domainContext: this.options?.domainContext,
+    });
   }
 
   accept(v: V): Result<void, DomainError> {

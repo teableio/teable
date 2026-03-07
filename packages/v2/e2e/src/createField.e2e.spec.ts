@@ -9,6 +9,7 @@ import type { ITableFieldInput } from '@teable/v2-core';
 import {
   CellValueType,
   ROLLUP_FUNCTIONS,
+  TABLE_FIELD_LIMIT_ERROR_CODE,
   getRollupFunctionsByCellValueType,
 } from '@teable/v2-core';
 import { sql } from 'kysely';
@@ -655,6 +656,59 @@ describe('v2 http createField (e2e)', () => {
     if (uniqueParsed.success) {
       expect(uniqueParsed.data.ok).toBe(false);
       expect(uniqueParsed.data.error.message).toContain('unique');
+    }
+  });
+
+  it('returns 400 when creating the 501st field', async () => {
+    const maxFieldCount = 500;
+    const limitedTable = await createTable({
+      baseId: ctx.baseId,
+      name: `Field Limit ${Date.now()}`,
+      fields: Array.from({ length: maxFieldCount }, (_, index) => ({
+        id: createFieldId(),
+        type: 'singleLineText',
+        name: index === 0 ? 'Name' : `Field ${index}`,
+        isPrimary: index === 0,
+      })),
+    });
+
+    try {
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: limitedTable.id,
+          field: {
+            id: createFieldId(),
+            type: 'singleLineText',
+            name: 'Overflow',
+          },
+        }),
+      });
+      const raw = await response.json();
+
+      expect(response.status).toBe(400);
+      const parsed = createFieldErrorResponseSchema.safeParse(raw);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) {
+        return;
+      }
+
+      expect(parsed.data.ok).toBe(false);
+      expect(parsed.data.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
+      expect(parsed.data.error.message).toContain('500');
+      expect(parsed.data.error.details).toMatchObject({
+        tableId: limitedTable.id,
+        currentFieldCount: 500,
+        attemptedFieldCount: 501,
+        maxFieldCount: 500,
+      });
+
+      const latestTable = await getTableById(limitedTable.id);
+      expect(latestTable.fields).toHaveLength(500);
+    } finally {
+      await ctx.deleteTable(limitedTable.id).catch(() => undefined);
     }
   });
 

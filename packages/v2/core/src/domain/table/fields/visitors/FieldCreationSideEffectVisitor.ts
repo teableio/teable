@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../../shared/DomainContext';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { ForeignTable } from '../../ForeignTable';
@@ -43,12 +44,14 @@ export type FieldCreationSideEffects = ReadonlyArray<FieldCreationSideEffect>;
 export type FieldCreationSideEffectContext = {
   table: Table;
   foreignTables: ReadonlyArray<Table>;
+  domainContext?: IDomainContext;
 };
 
 export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreationSideEffects> {
   private constructor(
     private readonly table: Table,
-    private readonly foreignTablesById: ReadonlyMap<string, Table>
+    private readonly foreignTablesById: ReadonlyMap<string, Table>,
+    private readonly domainContext?: IDomainContext
   ) {}
 
   static collect(
@@ -68,7 +71,11 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
     for (const table of context.foreignTables) {
       foreignTablesById.set(table.id().toString(), table);
     }
-    return new FieldCreationSideEffectVisitor(context.table, foreignTablesById);
+    return new FieldCreationSideEffectVisitor(
+      context.table,
+      foreignTablesById,
+      context.domainContext
+    );
   }
 
   visitSingleLineTextField(_: SingleLineTextField): Result<FieldCreationSideEffects, DomainError> {
@@ -168,7 +175,9 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
       .map((symmetricField) => [
         {
           foreignTable,
-          mutateSpec: TableAddFieldSpec.create(symmetricField),
+          mutateSpec: TableAddFieldSpec.create(symmetricField, {
+            domainContext: this.domainContext,
+          }),
         },
       ]);
   }

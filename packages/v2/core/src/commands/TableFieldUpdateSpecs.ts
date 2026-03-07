@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
 
 import { BaseId } from '../domain/base/BaseId';
+import type { IDomainContext } from '../domain/shared/DomainContext';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { DbTableName } from '../domain/table/DbTableName';
@@ -57,7 +58,6 @@ import { RollupField } from '../domain/table/fields/types/RollupField';
 import { RollupFieldConfig } from '../domain/table/fields/types/RollupFieldConfig';
 import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
-import type { ISelectFieldOptionWriteConfig } from '../domain/table/fields/types/SelectFieldOptionWriteConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import { SingleLineTextShowAs } from '../domain/table/fields/types/SingleLineTextShowAs';
@@ -120,7 +120,7 @@ import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateField
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { getSelectFieldOptionWriteConfig } from '../ports/ExecutionContext';
+import { getDomainContext } from '../ports/ExecutionContext';
 import type { IUpdateTableFieldSpec } from './IUpdateTableFieldSpec';
 
 // ============ Helper functions ============
@@ -1819,7 +1819,7 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
-    private readonly selectFieldOptionConfig: ISelectFieldOptionWriteConfig | undefined
+    private readonly domainContextValue: IDomainContext | undefined
   ) {}
 
   static create(
@@ -1861,7 +1861,7 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
                       preventAutoNewOptions,
                       notNull,
                       unique,
-                      getSelectFieldOptionWriteConfig(options?.executionContext)
+                      getDomainContext(options?.executionContext)
                     )
                 )
               )
@@ -1898,7 +1898,7 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
           dbFieldName,
           currentOptions,
           this.optionsValue,
-          this.selectFieldOptionConfig
+          this.domainContextValue
         )
       );
     }
@@ -1958,7 +1958,7 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
-    private readonly selectFieldOptionConfig: ISelectFieldOptionWriteConfig | undefined
+    private readonly domainContextValue: IDomainContext | undefined
   ) {}
 
   static create(
@@ -2000,7 +2000,7 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
                       preventAutoNewOptions,
                       notNull,
                       unique,
-                      getSelectFieldOptionWriteConfig(options?.executionContext)
+                      getDomainContext(options?.executionContext)
                     )
                 )
               )
@@ -2037,7 +2037,7 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
           dbFieldName,
           currentOptions,
           this.optionsValue,
-          this.selectFieldOptionConfig
+          this.domainContextValue
         )
       );
     }

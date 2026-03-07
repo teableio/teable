@@ -91,6 +91,11 @@
     "help": "访问 <HelpCenter /> 获取更多信息",
     "helpCenter": "帮助中心"
   },
+  "validation": {
+    "field": {
+      "maxColumnLimit": "表“{{tableName}}”最多只能有 {{maxFieldCount}} 个字段。"
+    }
+  },
   "field": {
     "fieldManagement": "字段管理",
     "fieldManagementDesc": "当前表格所有字段的详细信息",

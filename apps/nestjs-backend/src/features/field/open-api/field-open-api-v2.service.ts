@@ -561,12 +561,70 @@ export class FieldOpenApiV2Service {
     return {};
   }
 
+  private getLegacyDefaultCreateFieldName(ro: IFieldRo): string | undefined {
+    if (ro.isLookup || ro.isConditionalLookup) {
+      return undefined;
+    }
+
+    switch (ro.type) {
+      case FieldType.SingleLineText:
+        return 'Label';
+      case FieldType.LongText:
+        return 'Notes';
+      case FieldType.Number:
+        return 'Number';
+      case FieldType.Rating:
+        return 'Rating';
+      case FieldType.SingleSelect:
+        return 'Select';
+      case FieldType.MultipleSelect:
+        return 'Tags';
+      case FieldType.Attachment:
+        return 'Attachments';
+      case FieldType.User: {
+        const options =
+          ro.options && typeof ro.options === 'object' && !Array.isArray(ro.options)
+            ? (ro.options as Record<string, unknown>)
+            : undefined;
+        return options?.isMultiple === true ? 'Collaborators' : 'Collaborator';
+      }
+      case FieldType.Date:
+        return 'Date';
+      case FieldType.AutoNumber:
+        return 'ID';
+      case FieldType.CreatedTime:
+        return 'Created Time';
+      case FieldType.LastModifiedTime:
+        return 'Last Modified Time';
+      case FieldType.Checkbox:
+        return 'Done';
+      case FieldType.Button:
+        return 'Button';
+      case FieldType.CreatedBy:
+        return 'Created By';
+      case FieldType.LastModifiedBy:
+        return 'Last Modified By';
+      case FieldType.Formula:
+        return 'Calculation';
+      default:
+        return undefined;
+    }
+  }
+
   private mapLegacyCreateFieldToV2(ro: IFieldRo): Record<string, unknown> {
     const field = ro as Record<string, unknown>;
+    const name = typeof field.name === 'string' && field.name.trim().length > 0 ? field.name : null;
     const base: Record<string, unknown> = {
       id: typeof field.id === 'string' ? field.id : generateFieldId(),
     };
-    if (field.name != null) base.name = field.name;
+    if (name != null) {
+      base.name = name;
+    } else {
+      const legacyDefaultName = this.getLegacyDefaultCreateFieldName(ro);
+      if (legacyDefaultName) {
+        base.name = legacyDefaultName;
+      }
+    }
     if (typeof field.dbFieldName === 'string') {
       base.dbFieldName = field.dbFieldName;
     }

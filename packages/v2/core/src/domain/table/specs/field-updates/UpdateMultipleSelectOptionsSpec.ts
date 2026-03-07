@@ -1,15 +1,13 @@
-import { err, ok } from 'neverthrow';
+import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../../shared/DomainContext';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { MutateOnlySpec } from '../../../shared/specification/MutateOnlySpec';
 import type { DbFieldName } from '../../fields/DbFieldName';
 import type { FieldId } from '../../fields/FieldId';
-import {
-  ensureSelectFieldOptionCountWithinLimit,
-  type ISelectFieldOptionWriteConfig,
-} from '../../fields/types/SelectFieldOptionWriteConfig';
 import { MultipleSelectField } from '../../fields/types/MultipleSelectField';
+import { ensureSelectFieldOptionCountWithinLimit } from '../../fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from '../../fields/types/SelectOption';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
@@ -25,7 +23,7 @@ export class UpdateMultipleSelectOptionsSpec<
     private readonly dbFieldNameValue: DbFieldName,
     private readonly previousOptionsValue: ReadonlyArray<SelectOption>,
     private readonly nextOptionsValue: ReadonlyArray<SelectOption>,
-    private readonly configValue: ISelectFieldOptionWriteConfig | undefined
+    private readonly domainContextValue: IDomainContext | undefined
   ) {
     super();
   }
@@ -35,14 +33,14 @@ export class UpdateMultipleSelectOptionsSpec<
     dbFieldName: DbFieldName,
     previousOptions: ReadonlyArray<SelectOption>,
     nextOptions: ReadonlyArray<SelectOption>,
-    config?: ISelectFieldOptionWriteConfig
+    domainContext?: IDomainContext
   ): UpdateMultipleSelectOptionsSpec {
     return new UpdateMultipleSelectOptionsSpec(
       fieldId,
       dbFieldName,
       previousOptions,
       nextOptions,
-      config
+      domainContext
     );
   }
 
@@ -115,7 +113,7 @@ export class UpdateMultipleSelectOptionsSpec<
   mutate(t: Table): Result<Table, DomainError> {
     const limitResult = ensureSelectFieldOptionCountWithinLimit(
       this.nextOptionsValue.length,
-      this.configValue
+      this.domainContextValue
     );
     if (limitResult.isErr()) return err(limitResult.error);
 

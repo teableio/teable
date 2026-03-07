@@ -5,6 +5,9 @@ export const tableI18nKeys = {
       one_many_duplicate: 'validation.link.one_many_duplicate',
       one_one_duplicate: 'validation.link.one_one_duplicate',
     },
+    field: {
+      maxColumnLimit: 'validation.field.maxColumnLimit',
+    },
   },
   field: {
     default: {
@@ -80,6 +83,7 @@ export type TableI18nKey =
   | 'validation.link.batch_duplicate'
   | 'validation.link.one_many_duplicate'
   | 'validation.link.one_one_duplicate'
+  | 'validation.field.maxColumnLimit'
   | 'field.default.singleLineText.title'
   | 'field.default.longText.title'
   | 'field.default.number.title'

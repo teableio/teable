@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../domain/shared/DomainContext';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { Field } from '../../domain/table/fields/Field';
@@ -18,6 +19,7 @@ export type FieldCreationSideEffectServiceInput = {
   fields: ReadonlyArray<Field>;
   foreignTables: ReadonlyArray<Table>;
   tableState?: ReadonlyMap<string, Table>;
+  domainContext?: IDomainContext;
 };
 
 export type FieldCreationSideEffectServiceResult = {
@@ -33,6 +35,49 @@ export class FieldCreationSideEffectService {
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow
   ) {}
+
+  @TraceSpan()
+  async preview(
+    input: FieldCreationSideEffectServiceInput
+  ): Promise<Result<ReadonlyMap<string, Table>, DomainError>> {
+    const foreignTableState = input.tableState
+      ? new Map<string, Table>(input.tableState)
+      : new Map<string, Table>(
+          input.foreignTables.map((foreignTable) => [foreignTable.id().toString(), foreignTable])
+        );
+    foreignTableState.set(input.table.id().toString(), input.table);
+
+    if (input.fields.length === 0) {
+      return Promise.resolve(ok(foreignTableState));
+    }
+
+    const sideEffectsResult = FieldCreationSideEffectVisitor.collect(input.fields, {
+      table: input.table,
+      foreignTables: input.foreignTables,
+      domainContext: input.domainContext,
+    });
+    if (sideEffectsResult.isErr()) {
+      return Promise.resolve(err(sideEffectsResult.error));
+    }
+
+    for (const sideEffect of sideEffectsResult.value) {
+      const foreignTable = foreignTableState.get(sideEffect.foreignTable.id().toString());
+      if (!foreignTable) {
+        return Promise.resolve(
+          err(domainError.notFound({ message: 'Foreign table not found in state' }))
+        );
+      }
+
+      const previewResult = sideEffect.mutateSpec.mutate(foreignTable);
+      if (previewResult.isErr()) {
+        return Promise.resolve(err(previewResult.error));
+      }
+
+      foreignTableState.set(previewResult.value.id().toString(), previewResult.value);
+    }
+
+    return Promise.resolve(ok(foreignTableState));
+  }
 
   @TraceSpan()
   async execute(
@@ -58,6 +103,7 @@ export class FieldCreationSideEffectService {
         const sideEffects = yield* FieldCreationSideEffectVisitor.collect(input.fields, {
           table: input.table,
           foreignTables: input.foreignTables,
+          domainContext: input.domainContext,
         });
         if (sideEffects.length === 0) return ok({ events: [], tableState: foreignTableState });
 

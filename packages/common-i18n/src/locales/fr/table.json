@@ -53,6 +53,11 @@
     "help": "Visitez le <HelpCenter /> pour plus d'informations",
     "helpCenter": "Centre d'aide"
   },
+  "validation": {
+    "field": {
+      "maxColumnLimit": "La table \"{{tableName}}\" peut contenir au maximum {{maxFieldCount}} champs."
+    }
+  },
   "field": {
     "fieldManagement": "Gestion des champs",
     "fieldManagementDesc": "Propriétés détaillées pour tous les champs de la table actuelle",

@@ -7,7 +7,7 @@ import { RecordWriteSideEffectVisitor } from '../../domain/table/fields/visitors
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import { getSelectFieldOptionWriteConfig } from '../../ports/ExecutionContext';
+import { getDomainContext } from '../../ports/ExecutionContext';
 
 export type RecordWriteSideEffectResult = {
   table: Table;
@@ -30,10 +30,10 @@ export class RecordWriteSideEffectService {
     if (effects.length === 0) return ok({ table });
 
     const updateResult = table.update((mutator) => {
-      const selectFieldOptionConfig = getSelectFieldOptionWriteConfig(context);
+      const domainContext = getDomainContext(context);
       let next = mutator;
       for (const effect of effects) {
-        next = next.addSelectOptions(effect.fieldId, effect.options, selectFieldOptionConfig);
+        next = next.addSelectOptions(effect.fieldId, effect.options, domainContext);
       }
       return next;
     });
