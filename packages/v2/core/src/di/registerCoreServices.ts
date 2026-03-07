@@ -29,7 +29,7 @@ import { v2CoreTokens } from '../ports/tokens';
  * ## Purpose
  *
  * This function centralizes the registration of all core application services,
- * eliminating duplication across container packages (browser, node, bun, etc.).
+ * eliminating duplication across container packages (browser, node, etc.).
  *
  * ## Behavior
  *

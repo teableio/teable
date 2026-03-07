@@ -26,12 +26,9 @@ const v2ServerPackages = [
   '@teable/v2-contract-http-openapi',
   // Containers
   '@teable/v2-container-browser',
-  '@teable/v2-container-bun',
-  '@teable/v2-container-bun-test',
   '@teable/v2-container-node',
   '@teable/v2-container-node-test',
   // DB Adapters
-  '@teable/v2-adapter-db-postgres-bun-sql',
   '@teable/v2-adapter-db-postgres-pg',
   '@teable/v2-adapter-db-postgres-pglite',
   '@teable/v2-adapter-db-postgres-postgresjs',
@@ -41,13 +38,11 @@ const v2ServerPackages = [
   '@teable/v2-adapter-record-repository-postgres',
   '@teable/v2-adapter-table-repository-postgres',
   // Other Adapters
-  '@teable/v2-adapter-bullmq',
   '@teable/v2-adapter-csv-parser-papaparse',
   '@teable/v2-adapter-logger-console',
   '@teable/v2-adapter-logger-pino',
   '@teable/v2-adapter-realtime-broadcastchannel',
   '@teable/v2-adapter-realtime-sharedb',
-  '@teable/v2-adapter-realtime-yjs',
 ];
 const sourceOnlyPackages = ['@teable/formula'];
 

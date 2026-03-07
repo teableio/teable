@@ -2522,11 +2522,6 @@ importers:
         specifier: 5.91.0
         version: 5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17))(esbuild@0.20.2)
 
-  packages/v2/adapter-bullmq:
-    dependencies:
-      '@teable/v2-core':
-        specifier: workspace:*
-        version: link:../core
 
   packages/v2/adapter-csv-parser-papaparse:
     dependencies:
@@ -2574,48 +2569,6 @@ importers:
         specifier: 4.0.17
         version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
 
-  packages/v2/adapter-db-postgres-bun-sql:
-    dependencies:
-      '@teable/v2-adapter-db-postgres-shared':
-        specifier: workspace:*
-        version: link:../adapter-db-postgres-shared
-      '@teable/v2-di':
-        specifier: workspace:*
-        version: link:../di
-      kysely:
-        specifier: 0.28.9
-        version: 0.28.9
-      kysely-bun-sql:
-        specifier: 0.2.0
-        version: 0.2.0(kysely@0.28.9)(typescript@5.4.3)
-    devDependencies:
-      '@teable/eslint-config-bases':
-        specifier: workspace:^
-        version: link:../../eslint-config-bases
-      '@teable/v2-tsdown-config':
-        specifier: workspace:*
-        version: link:../tsdown-config
-      '@types/bun':
-        specifier: 1.3.5
-        version: 1.3.5
-      '@types/node':
-        specifier: 22.18.0
-        version: 22.18.0
-      eslint:
-        specifier: 8.57.0
-        version: 8.57.0
-      prettier:
-        specifier: 3.2.5
-        version: 3.2.5
-      rimraf:
-        specifier: 5.0.5
-        version: 5.0.5
-      tsdown:
-        specifier: 0.18.1
-        version: 0.18.1(typescript@5.4.3)
-      typescript:
-        specifier: 5.4.3
-        version: 5.4.3
 
   packages/v2/adapter-db-postgres-pg:
     dependencies:
@@ -2964,45 +2917,6 @@ importers:
         specifier: 8.18.3
         version: 8.18.3
 
-  packages/v2/adapter-realtime-yjs:
-    dependencies:
-      '@teable/v2-core':
-        specifier: workspace:*
-        version: link:../core
-      neverthrow:
-        specifier: 8.2.0
-        version: 8.2.0
-    devDependencies:
-      '@teable/eslint-config-bases':
-        specifier: workspace:^
-        version: link:../../eslint-config-bases
-      '@teable/v2-tsdown-config':
-        specifier: workspace:*
-        version: link:../tsdown-config
-      '@types/node':
-        specifier: 22.18.0
-        version: 22.18.0
-      '@vitest/coverage-v8':
-        specifier: 4.0.17
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1))
-      eslint:
-        specifier: 8.57.0
-        version: 8.57.0
-      prettier:
-        specifier: 3.2.5
-        version: 3.2.5
-      rimraf:
-        specifier: 5.0.5
-        version: 5.0.5
-      tsdown:
-        specifier: 0.18.1
-        version: 0.18.1(typescript@5.4.3)
-      typescript:
-        specifier: 5.4.3
-        version: 5.4.3
-      vitest:
-        specifier: 4.0.17
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
 
   packages/v2/adapter-repository-postgres:
     dependencies:
@@ -3150,99 +3064,6 @@ importers:
         specifier: 4.0.17
         version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
 
-  packages/v2/benchmark-bun:
-    dependencies:
-      '@orpc/client':
-        specifier: 1.13.0
-        version: 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/contract':
-        specifier: 1.13.0
-        version: 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/server':
-        specifier: 1.13.0
-        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.4(srvx@0.11.2))(fastify@4.29.1)(ws@8.18.3)
-      '@teable/v2-adapter-db-postgres-bun-sql':
-        specifier: workspace:*
-        version: link:../adapter-db-postgres-bun-sql
-      '@teable/v2-adapter-db-postgres-pg':
-        specifier: workspace:*
-        version: link:../adapter-db-postgres-pg
-      '@teable/v2-adapter-db-postgres-postgresjs':
-        specifier: workspace:*
-        version: link:../adapter-db-postgres-postgresjs
-      '@teable/v2-container-bun-test':
-        specifier: workspace:*
-        version: link:../container-bun-test
-      '@teable/v2-contract-http':
-        specifier: workspace:*
-        version: link:../contract-http
-      '@teable/v2-contract-http-client':
-        specifier: workspace:*
-        version: link:../contract-http-client
-      '@teable/v2-contract-http-express':
-        specifier: workspace:*
-        version: link:../contract-http-express
-      '@teable/v2-contract-http-fastify':
-        specifier: workspace:*
-        version: link:../contract-http-fastify
-      '@teable/v2-contract-http-hono':
-        specifier: workspace:*
-        version: link:../contract-http-hono
-      '@teable/v2-contract-http-implementation':
-        specifier: workspace:*
-        version: link:../contract-http-implementation
-      '@teable/v2-core':
-        specifier: workspace:*
-        version: link:../core
-      '@teable/v2-di':
-        specifier: workspace:*
-        version: link:../di
-      '@teable/v2-postgres-schema':
-        specifier: workspace:*
-        version: link:../postgres-schema
-      '@teable/v2-table-templates':
-        specifier: workspace:*
-        version: link:../table-templates
-      express:
-        specifier: 4.21.1
-        version: 4.21.1
-      fastify:
-        specifier: 4.29.1
-        version: 4.29.1
-      kysely:
-        specifier: 0.28.9
-        version: 0.28.9
-      tinybench:
-        specifier: 2.9.0
-        version: 2.9.0
-    devDependencies:
-      '@teable/eslint-config-bases':
-        specifier: workspace:^
-        version: link:../../eslint-config-bases
-      '@teable/v2-tsdown-config':
-        specifier: workspace:*
-        version: link:../tsdown-config
-      '@types/express':
-        specifier: 4.17.21
-        version: 4.17.21
-      '@types/node':
-        specifier: 22.18.0
-        version: 22.18.0
-      eslint:
-        specifier: 8.57.0
-        version: 8.57.0
-      prettier:
-        specifier: 3.2.5
-        version: 3.2.5
-      rimraf:
-        specifier: 5.0.5
-        version: 5.0.5
-      tsdown:
-        specifier: 0.18.1
-        version: 0.18.1(typescript@5.4.3)
-      typescript:
-        specifier: 5.4.3
-        version: 5.4.3
 
   packages/v2/benchmark-node:
     dependencies:
@@ -3433,121 +3254,7 @@ importers:
         specifier: 4.0.17
         version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
 
-  packages/v2/container-bun:
-    dependencies:
-      '@teable/v2-adapter-db-postgres-pg':
-        specifier: workspace:*
-        version: link:../adapter-db-postgres-pg
-      '@teable/v2-adapter-repository-postgres':
-        specifier: workspace:*
-        version: link:../adapter-repository-postgres
-      '@teable/v2-adapter-table-repository-postgres':
-        specifier: workspace:*
-        version: link:../adapter-table-repository-postgres
-      '@teable/v2-core':
-        specifier: workspace:*
-        version: link:../core
-      '@teable/v2-di':
-        specifier: workspace:*
-        version: link:../di
-    devDependencies:
-      '@teable/eslint-config-bases':
-        specifier: workspace:^
-        version: link:../../eslint-config-bases
-      '@teable/v2-tsdown-config':
-        specifier: workspace:*
-        version: link:../tsdown-config
-      '@types/node':
-        specifier: 22.18.0
-        version: 22.18.0
-      '@vitest/coverage-v8':
-        specifier: 4.0.17
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1))
-      eslint:
-        specifier: 8.57.0
-        version: 8.57.0
-      prettier:
-        specifier: 3.2.5
-        version: 3.2.5
-      rimraf:
-        specifier: 5.0.5
-        version: 5.0.5
-      tsdown:
-        specifier: 0.18.1
-        version: 0.18.1(typescript@5.4.3)
-      typescript:
-        specifier: 5.4.3
-        version: 5.4.3
-      vitest:
-        specifier: 4.0.17
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
 
-  packages/v2/container-bun-test:
-    dependencies:
-      '@teable/v2-adapter-csv-parser-papaparse':
-        specifier: workspace:*
-        version: link:../adapter-csv-parser-papaparse
-      '@teable/v2-adapter-db-postgres-pg':
-        specifier: workspace:*
-        version: link:../adapter-db-postgres-pg
-      '@teable/v2-adapter-logger-console':
-        specifier: workspace:*
-        version: link:../adapter-logger-console
-      '@teable/v2-adapter-repository-postgres':
-        specifier: workspace:*
-        version: link:../adapter-repository-postgres
-      '@teable/v2-adapter-table-repository-postgres':
-        specifier: workspace:*
-        version: link:../adapter-table-repository-postgres
-      '@teable/v2-core':
-        specifier: workspace:*
-        version: link:../core
-      '@teable/v2-di':
-        specifier: workspace:*
-        version: link:../di
-      '@teable/v2-postgres-schema':
-        specifier: workspace:*
-        version: link:../postgres-schema
-      '@testcontainers/postgresql':
-        specifier: 11.10.0
-        version: 11.10.0
-      kysely:
-        specifier: 0.28.9
-        version: 0.28.9
-      testcontainers:
-        specifier: 11.10.0
-        version: 11.10.0
-    devDependencies:
-      '@teable/eslint-config-bases':
-        specifier: workspace:^
-        version: link:../../eslint-config-bases
-      '@teable/v2-tsdown-config':
-        specifier: workspace:*
-        version: link:../tsdown-config
-      '@types/node':
-        specifier: 22.18.0
-        version: 22.18.0
-      '@vitest/coverage-v8':
-        specifier: 4.0.17
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1))
-      eslint:
-        specifier: 8.57.0
-        version: 8.57.0
-      prettier:
-        specifier: 3.2.5
-        version: 3.2.5
-      rimraf:
-        specifier: 5.0.5
-        version: 5.0.5
-      tsdown:
-        specifier: 0.18.1
-        version: 0.18.1(typescript@5.4.3)
-      typescript:
-        specifier: 5.4.3
-        version: 5.4.3
-      vitest:
-        specifier: 4.0.17
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.6.1)
 
   packages/v2/container-node:
     dependencies:
@@ -12908,8 +12615,6 @@ packages:
   '@types/body-parser@1.19.5':
     resolution: {integrity: sha512-fB3Zu92ucau0iQ0JMCFQE7b/dv8Ot07NI3KaZIkIUNXq82k4eBAqUaneXfleGY9JWskeS9y+u0nXMyspcuQrCg==}
 
-  '@types/bun@1.3.5':
-    resolution: {integrity: sha512-RnygCqNrd3srIPEWBd5LFeUYG7plCoH2Yw9WaZGyNmdTEei+gWaHqydbaIRkIkcbXwhBT94q78QljxN0Sk838w==}
 
   '@types/canvas-confetti@1.9.0':
     resolution: {integrity: sha512-aBGj/dULrimR1XDZLtG9JwxX1b4HPRF6CX9Yfwh3NvstZEm1ZL7RBnel4keCPSqs1ANRu1u2Aoz9R+VmtjYuTg==}
@@ -18855,12 +18560,6 @@ packages:
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
 
-  kysely-bun-sql@0.2.0:
-    resolution: {integrity: sha512-LuddpS7hoOd3n/HOj6CztBXKQolIkkWv2IOySuE1JwEq45c+V3xbrkZFiHqPlCK8HOEIIa9ZzlZ+QlvNdtc0fQ==}
-    engines: {bun: '>=1.3.0'}
-    peerDependencies:
-      kysely: ^0.28.8
-      typescript: ^5
 
   kysely-postgres-js@3.0.0:
     resolution: {integrity: sha512-o2t/xNSYJQDW6rVGGFPXKmZ0BEz2dGn66c2B+cO/k9ZNcU2qPWPycQPQ+B+P2MBXbKYq0xV9BZmFIvkUrmFWAQ==}
@@ -41820,10 +41519,6 @@ snapshots:
 
   kuler@2.0.0: {}
 
-  kysely-bun-sql@0.2.0(kysely@0.28.9)(typescript@5.4.3):
-    dependencies:
-      kysely: 0.28.9
-      typescript: 5.4.3
 
   kysely-postgres-js@3.0.0(kysely@0.28.9)(postgres@3.4.7):
     dependencies:
