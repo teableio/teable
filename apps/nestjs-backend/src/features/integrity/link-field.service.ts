@@ -105,6 +105,21 @@ export class LinkFieldIntegrityService {
     selfKeyName: string;
   }) {
     try {
+      // Prefer atomic detect+fix when supported (PostgreSQL).
+      // This eliminates the window between detection and fix where concurrent
+      // writes can re-introduce or worsen JSONB/junction desyncs.
+      const atomicQuery = this.dbProvider.integrityQuery().atomicFixLinks(params);
+      if (atomicQuery) {
+        const updatedCount = await this.prismaService.$executeRawUnsafe(atomicQuery);
+        if (updatedCount > 0) {
+          this.logger.debug(
+            `Atomically fixed ${updatedCount} records in ${params.dbTableName}`
+          );
+        }
+        return updatedCount;
+      }
+
+      // Fallback: two-step check-then-fix (SQLite and other engines).
       const inconsistentRecords = await this.checkLinks(params);
 
       if (inconsistentRecords.length > 0) {
