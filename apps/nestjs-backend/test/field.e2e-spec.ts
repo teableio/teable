@@ -37,6 +37,8 @@ import {
   getRecords,
 } from './utils/init-app';
 
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
@@ -309,6 +311,188 @@ describe('OpenAPI FieldController (e2e)', () => {
         });
       });
     });
+  });
+
+  describe('v2 lookup option sync', () => {
+    const itIfForceV2 = isForceV2 ? it : it.skip;
+
+    itIfForceV2('ignores API-supplied choices for lookup-backed single select fields', async () => {
+      let hostTable: ITableFullVo | undefined;
+      let foreignTable: ITableFullVo | undefined;
+
+      try {
+        foreignTable = await createTable(baseId, {
+          name: 'lookup-option-sync-foreign',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            {
+              name: 'Importance',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { id: 'choLookupCore', name: '核心', color: Colors.Blue },
+                  { id: 'choLookupImportant', name: '重要', color: Colors.Green },
+                  { id: 'choLookupReference', name: '参考', color: Colors.Orange },
+                ],
+              },
+            },
+          ],
+        });
+        hostTable = await createTable(baseId, {
+          name: 'lookup-option-sync-host',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        });
+
+        const foreignImportanceField = foreignTable.fields.find(
+          (field) => field.name === 'Importance'
+        )!;
+        const expectedChoices = (
+          foreignImportanceField.options as {
+            choices: Array<{ id: string; name: string; color: string }>;
+          }
+        ).choices;
+
+        const linkField = await createField(hostTable.id, {
+          name: 'Related',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+          } as ILinkFieldOptionsRo,
+        });
+
+        const createdLookupField = await createField(hostTable.id, {
+          name: '章节重要程度',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignImportanceField.id,
+            linkFieldId: linkField.id,
+          } as ILookupOptionsRo,
+          options: {
+            choices: [
+              { id: 'choBroken1', name: 'Option 1', color: Colors.Blue },
+              { id: 'choBroken2', name: 'Option 2', color: Colors.Green },
+            ],
+          },
+        });
+
+        expect(createdLookupField.options).toEqual({
+          choices: expectedChoices,
+        });
+
+        const persistedLookupField = (await getFields(hostTable.id)).find(
+          (field) => field.id === createdLookupField.id
+        );
+        expect(persistedLookupField?.options).toEqual({
+          choices: expectedChoices,
+        });
+      } finally {
+        if (hostTable) {
+          await permanentDeleteTable(baseId, hostTable.id);
+        }
+        if (foreignTable) {
+          await permanentDeleteTable(baseId, foreignTable.id);
+        }
+      }
+    });
+
+    itIfForceV2(
+      'ignores API-supplied choices for conditional lookup-backed single select fields',
+      async () => {
+        let hostTable: ITableFullVo | undefined;
+        let foreignTable: ITableFullVo | undefined;
+
+        try {
+          foreignTable = await createTable(baseId, {
+            name: 'conditional-lookup-option-sync-foreign',
+            fields: [
+              { name: 'Title', type: FieldType.SingleLineText },
+              { name: 'Category', type: FieldType.SingleLineText },
+              {
+                name: 'Importance',
+                type: FieldType.SingleSelect,
+                options: {
+                  choices: [
+                    { id: 'choCondCore', name: '核心', color: Colors.Blue },
+                    { id: 'choCondImportant', name: '重要', color: Colors.Green },
+                    { id: 'choCondReference', name: '参考', color: Colors.Orange },
+                  ],
+                },
+              },
+            ],
+          });
+          hostTable = await createTable(baseId, {
+            name: 'conditional-lookup-option-sync-host',
+            fields: [
+              { name: 'Name', type: FieldType.SingleLineText },
+              { name: 'Category Filter', type: FieldType.SingleLineText },
+            ],
+          });
+
+          const foreignCategoryField = foreignTable.fields.find(
+            (field) => field.name === 'Category'
+          )!;
+          const foreignImportanceField = foreignTable.fields.find(
+            (field) => field.name === 'Importance'
+          )!;
+          const hostCategoryField = hostTable.fields.find(
+            (field) => field.name === 'Category Filter'
+          )!;
+          const expectedChoices = (
+            foreignImportanceField.options as {
+              choices: Array<{ id: string; name: string; color: string }>;
+            }
+          ).choices;
+
+          const createdConditionalLookupField = await createField(hostTable.id, {
+            name: '条件重要程度',
+            type: FieldType.SingleSelect,
+            isLookup: true,
+            isConditionalLookup: true,
+            lookupOptions: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignImportanceField.id,
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignCategoryField.id,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: hostCategoryField.id },
+                  },
+                ],
+              },
+            } as ILookupOptionsRo,
+            options: {
+              choices: [
+                { id: 'choCondBroken1', name: 'Option 1', color: Colors.Blue },
+                { id: 'choCondBroken2', name: 'Option 2', color: Colors.Green },
+              ],
+            },
+          });
+
+          expect(createdConditionalLookupField.options).toEqual({
+            choices: expectedChoices,
+          });
+
+          const persistedConditionalLookupField = (await getFields(hostTable.id)).find(
+            (field) => field.id === createdConditionalLookupField.id
+          );
+          expect(persistedConditionalLookupField?.options).toEqual({
+            choices: expectedChoices,
+          });
+        } finally {
+          if (hostTable) {
+            await permanentDeleteTable(baseId, hostTable.id);
+          }
+          if (foreignTable) {
+            await permanentDeleteTable(baseId, foreignTable.id);
+          }
+        }
+      }
+    );
   });
 
   describe('should decide whether to create field validation rules based on the field type', () => {

@@ -219,6 +219,28 @@ const unwrapConditionalLookupInner = (
   };
 };
 
+const mergeLookupInnerOptions = (params: {
+  innerOptions?: unknown;
+  innerOptionsPatch?: Readonly<Record<string, unknown>>;
+}): ITableFieldPersistenceDTO['options'] | undefined => {
+  const baseInnerOptions =
+    params.innerOptions &&
+    typeof params.innerOptions === 'object' &&
+    !Array.isArray(params.innerOptions)
+      ? ({ ...(params.innerOptions as Record<string, unknown>) } as Record<string, unknown>)
+      : undefined;
+  const innerOptionsPatch = params.innerOptionsPatch;
+
+  if (!innerOptionsPatch || Object.keys(innerOptionsPatch).length === 0) {
+    return baseInnerOptions as ITableFieldPersistenceDTO['options'] | undefined;
+  }
+
+  return {
+    ...(baseInnerOptions ?? {}),
+    ...innerOptionsPatch,
+  } as ITableFieldPersistenceDTO['options'];
+};
+
 class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceDTO> {
   constructor(
     private readonly resolveLookupRelationship?: (
@@ -621,18 +643,11 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       .innerField()
       .andThen((inner) => inner.accept(this))
       .map((innerDto: ITableFieldPersistenceDTO) => {
-        const innerOptionsPatch = field.innerOptionsPatch();
-        const mergedInnerOptions: ITableFieldPersistenceDTO['options'] | undefined =
-          innerOptionsPatch && Object.keys(innerOptionsPatch).length > 0
-            ? {
-                ...((innerDto.options &&
-                typeof innerDto.options === 'object' &&
-                !Array.isArray(innerDto.options)
-                  ? (innerDto.options as Record<string, unknown>)
-                  : {}) as Record<string, unknown>),
-                ...innerOptionsPatch,
-              }
-            : innerDto.options;
+        const unwrappedInner = unwrapConditionalLookupInner(innerDto);
+        const mergedInnerOptions = mergeLookupInnerOptions({
+          innerOptions: unwrappedInner.innerOptions,
+          innerOptionsPatch: field.innerOptionsPatch(),
+        });
 
         return {
           ...innerDto,
@@ -725,18 +740,10 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
         const cellValueType = innerValueType.isOk()
           ? innerValueType.value.cellValueType.toString()
           : undefined;
-        const innerOptionsPatch = field.innerOptionsPatch();
-        const mergedInnerOptions: ITableFieldPersistenceDTO['options'] | undefined =
-          innerOptionsPatch && Object.keys(innerOptionsPatch).length > 0
-            ? {
-                ...((unwrapped.innerOptions &&
-                typeof unwrapped.innerOptions === 'object' &&
-                !Array.isArray(unwrapped.innerOptions)
-                  ? (unwrapped.innerOptions as Record<string, unknown>)
-                  : {}) as Record<string, unknown>),
-                ...innerOptionsPatch,
-              }
-            : (unwrapped.innerOptions as ITableFieldPersistenceDTO['options'] | undefined);
+        const mergedInnerOptions = mergeLookupInnerOptions({
+          innerOptions: unwrapped.innerOptions,
+          innerOptionsPatch: field.innerOptionsPatch(),
+        });
         return {
           ...baseDto,
           type: 'conditionalLookup' as const,

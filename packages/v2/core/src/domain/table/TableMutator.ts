@@ -189,13 +189,17 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     newFieldId: FieldId,
     newFieldName: FieldName,
     includeRecordValues: boolean,
-    options?: { targetViewId?: ViewId }
+    options?: {
+      targetViewId?: ViewId;
+      foreignTables?: ReadonlyArray<Table>;
+    }
   ): TableMutateSpecBuilder {
     const newFieldResult = sourceField.duplicate({
       newId: newFieldId,
       newName: newFieldName,
       baseId: this.currentTable.baseId(),
       tableId: this.currentTable.id(),
+      foreignTables: options?.foreignTables,
     });
     if (newFieldResult.isErr()) {
       this.recordError(newFieldResult.error);
@@ -232,7 +236,9 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
       return this;
     }
 
-    const nextTableResult = this.currentTable.addField(newField);
+    const nextTableResult = this.currentTable.addField(newField, {
+      foreignTables: options?.foreignTables,
+    });
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);
       return this;
@@ -418,7 +424,10 @@ export class TableMutator {
     newFieldId: FieldId,
     newFieldName: FieldName,
     includeRecordValues: boolean,
-    options?: { targetViewId?: ViewId }
+    options?: {
+      targetViewId?: ViewId;
+      foreignTables?: ReadonlyArray<Table>;
+    }
   ): TableMutator {
     this.builder.duplicateField(
       sourceField,

@@ -23,6 +23,8 @@ import { SingleSelectField } from './SingleSelectField';
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
+const createSelectOptions = (options: ReadonlyArray<{ id: string; name: string; color: string }>) =>
+  options.map((option) => SelectOption.create(option)._unsafeUnwrap());
 
 const createConditionalLookupField = (statusFieldId: FieldId) => {
   const lookupOptions = ConditionalLookupOptions.create({
@@ -46,6 +48,175 @@ const createConditionalLookupField = (statusFieldId: FieldId) => {
     conditionalLookupOptions: lookupOptions,
   })._unsafeUnwrap();
 };
+
+describe('ConditionalLookupField foreign target option sync', () => {
+  it('derives select options from the foreign target during pending validation', () => {
+    const baseId = createBaseId('0');
+    const hostTableId = createTableId('1');
+    const foreignTableId = createTableId('2');
+    const hostPrimaryId = createFieldId('3');
+    const hostStatusId = createFieldId('4');
+    const foreignPrimaryId = createFieldId('5');
+    const foreignLookupFieldId = createFieldId('6');
+    const expectedOptions = createSelectOptions([
+      { id: 'cho_core', name: 'Core', color: 'blueBright' },
+      { id: 'cho_important', name: 'Important', color: 'greenBright' },
+      { id: 'cho_reference', name: 'Reference', color: 'orangeBright' },
+    ]);
+
+    const hostBuilder = Table.builder()
+      .withId(hostTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostStatusId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .singleSelect()
+      .withId(foreignLookupFieldId)
+      .withName(FieldName.create('Importance')._unsafeUnwrap())
+      .withOptions(expectedOptions)
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const field = ConditionalLookupField.createPending({
+      id: createFieldId('7'),
+      name: FieldName.create('Importance Lookup')._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignLookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'Active' }],
+          },
+        },
+      })._unsafeUnwrap(),
+      innerOptionsPatch: {
+        choices: [
+          { id: 'cho_broken_1', name: 'Option 1', color: 'blueBright' },
+          { id: 'cho_broken_2', name: 'Option 2', color: 'greenBright' },
+        ],
+      },
+    })._unsafeUnwrap();
+
+    field
+      .validateForeignTables({
+        hostTable,
+        foreignTables: [foreignTable],
+      })
+      ._unsafeUnwrap();
+
+    expect(field.innerOptionsPatch()).toBeUndefined();
+    const innerField = field.innerField()._unsafeUnwrap() as SingleSelectField;
+    expect(innerField.selectOptions().map((option) => option.toDto())).toEqual(
+      expectedOptions.map((option) => option.toDto())
+    );
+  });
+
+  it('rebuilds duplicated select-backed lookup fields from the foreign target', () => {
+    const baseId = createBaseId('8');
+    const hostTableId = createTableId('9');
+    const foreignTableId = createTableId('a');
+    const foreignPrimaryId = createFieldId('b');
+    const foreignLookupFieldId = createFieldId('c');
+    const filterFieldId = createFieldId('d');
+    const expectedOptions = createSelectOptions([
+      { id: 'cho_dup_core', name: 'Core', color: 'blueBright' },
+      { id: 'cho_dup_important', name: 'Important', color: 'greenBright' },
+    ]);
+    const brokenOptions = createSelectOptions([
+      { id: 'cho_dup_broken_1', name: 'Option 1', color: 'blueBright' },
+      { id: 'cho_dup_broken_2', name: 'Option 2', color: 'greenBright' },
+    ]);
+
+    const foreignBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .singleSelect()
+      .withId(foreignLookupFieldId)
+      .withName(FieldName.create('Importance')._unsafeUnwrap())
+      .withOptions(expectedOptions)
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const field = ConditionalLookupField.create({
+      id: createFieldId('e'),
+      name: FieldName.create('Importance Lookup')._unsafeUnwrap(),
+      innerField: SingleSelectField.create({
+        id: foreignLookupFieldId,
+        name: FieldName.create('Importance')._unsafeUnwrap(),
+        options: brokenOptions,
+      })._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignLookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: filterFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+        },
+      })._unsafeUnwrap(),
+      innerOptionsPatch: {
+        choices: brokenOptions.map((option) => option.toDto()),
+      },
+    })._unsafeUnwrap();
+
+    const duplicated = field
+      .duplicate({
+        newId: createFieldId('f'),
+        newName: FieldName.create('Importance Lookup Copy')._unsafeUnwrap(),
+        baseId,
+        tableId: hostTableId,
+        foreignTables: [foreignTable],
+      })
+      ._unsafeUnwrap() as ConditionalLookupField;
+
+    expect(duplicated.innerOptionsPatch()).toBeUndefined();
+    const innerField = duplicated.innerField()._unsafeUnwrap() as SingleSelectField;
+    expect(innerField.selectOptions().map((option) => option.toDto())).toEqual(
+      expectedOptions.map((option) => option.toDto())
+    );
+  });
+});
 
 describe('ConditionalLookupField.onDependencyUpdated', () => {
   it('keeps explicit inner field type when validating foreign tables', () => {

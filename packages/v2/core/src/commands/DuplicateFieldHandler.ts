@@ -4,16 +4,19 @@ import type { Result } from 'neverthrow';
 
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
-import type { Table } from '../domain/table/Table';
+import { Table as TableAggregate, type Table } from '../domain/table/Table';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
@@ -48,6 +51,10 @@ export class DuplicateFieldHandler
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldCreationSideEffectService)
     private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: ITableRepository,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
@@ -61,8 +68,22 @@ export class DuplicateFieldHandler
   ): Promise<Result<DuplicateFieldResult, DomainError>> {
     const handler = this;
     return safeTry<DuplicateFieldResult, DomainError>(async function* () {
+      const sourceTable = yield* await handler.loadSourceTable(context, command.tableId);
+      const loadedSourceField = yield* sourceTable.getField((field) =>
+        field.id().equals(command.fieldId)
+      );
+      const foreignTableReferences = yield* loadedSourceField.accept(
+        new LinkForeignTableReferenceVisitor()
+      );
+      const foreignTables =
+        foreignTableReferences.length === 0
+          ? []
+          : yield* await handler.foreignTableLoaderService.load(context, {
+              references: foreignTableReferences,
+            });
+
       let newField: Field | undefined;
-      let sourceField: Field | undefined;
+      let sourceFieldForResult: Field | undefined;
 
       const updateResult = yield* await handler.tableUpdateFlow.execute(
         context,
@@ -79,7 +100,7 @@ export class DuplicateFieldHandler
                 })
               );
             }
-            sourceField = field;
+            sourceFieldForResult = field;
 
             // Generate new field ID
             const newFieldId = yield* FieldId.generate();
@@ -94,15 +115,10 @@ export class DuplicateFieldHandler
             // Note: Value duplication happens in the repository visitor (TableSchemaUpdateVisitor)
             // when it visits the TableDuplicateFieldSpec
             const updated = yield* table.update((mutator) =>
-              mutator.duplicateField(
-                sourceField!,
-                newFieldId,
-                newFieldName,
-                command.includeRecordValues,
-                {
-                  targetViewId: command.viewId,
-                }
-              )
+              mutator.duplicateField(field, newFieldId, newFieldName, command.includeRecordValues, {
+                targetViewId: command.viewId,
+                foreignTables,
+              })
             );
             const duplicatedFieldResult = updated.table.getField((f) => f.id().equals(newFieldId));
             if (duplicatedFieldResult.isErr()) {
@@ -115,7 +131,7 @@ export class DuplicateFieldHandler
           hooks: {
             afterPersist: async (transactionContext, updatedTable) =>
               safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-                if (!newField || !sourceField) {
+                if (!newField || !loadedSourceField) {
                   return err(domainError.unexpected({ message: 'Field not created' }));
                 }
 
@@ -133,7 +149,7 @@ export class DuplicateFieldHandler
         }
       );
 
-      if (!newField || !sourceField) {
+      if (!newField || !sourceFieldForResult) {
         return err(domainError.unexpected({ message: 'Field not created' }));
       }
 
@@ -157,9 +173,25 @@ export class DuplicateFieldHandler
       });
 
       return ok(
-        DuplicateFieldResult.create(updateResult.table, sourceField, newField, updateResult.events)
+        DuplicateFieldResult.create(
+          updateResult.table,
+          sourceFieldForResult,
+          newField,
+          updateResult.events
+        )
       );
     });
+  }
+
+  private async loadSourceTable(
+    context: ExecutionContextPort.IExecutionContext,
+    tableId: DuplicateFieldCommand['tableId']
+  ): Promise<Result<Table, DomainError>> {
+    const whereSpec = TableAggregate.specs().byId(tableId).build();
+    if (whereSpec.isErr()) {
+      return err(whereSpec.error);
+    }
+    return this.tableRepository.findOne(context, whereSpec.value);
   }
 }
 

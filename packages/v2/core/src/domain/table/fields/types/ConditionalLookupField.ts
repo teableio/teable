@@ -38,6 +38,8 @@ import {
   type ConditionalLookupOptionsValue,
 } from './ConditionalLookupOptions';
 import { FieldComputed } from './FieldComputed';
+import { MultipleSelectField } from './MultipleSelectField';
+import { SingleSelectField } from './SingleSelectField';
 
 /**
  * ConditionalLookupField is a wrapper field that retrieves values from a foreign table
@@ -64,7 +66,7 @@ export class ConditionalLookupField
   implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
 {
   private innerFieldValue: Field | undefined;
-  private readonly innerOptionsPatchValue: Readonly<Record<string, unknown>> | undefined;
+  private innerOptionsPatchValue: Readonly<Record<string, unknown>> | undefined;
   /**
    * Override for isMultipleCellValue. When set, this value is used instead of
    * defaulting to multiple. This is important for compatibility with v1.
@@ -302,6 +304,7 @@ export class ConditionalLookupField
     // Only backfill from lookup target when the field is still pending.
     if (!this.innerFieldValue) {
       this.innerFieldValue = resolvedInnerField;
+      this.normalizeInnerOptionsPatch(resolvedInnerField);
     }
 
     // 4. Set dependencies to host fields referenced by condition value expressions.
@@ -346,17 +349,21 @@ export class ConditionalLookupField
     const isMultipleCellValue = isMultipleResult.isOk()
       ? isMultipleResult.value.isMultiple()
       : undefined;
+    const duplicateInnerField = this.resolveDuplicateInnerField(params.foreignTables);
+    const innerOptionsPatch =
+      duplicateInnerField && this.shouldMirrorTargetSelectOptions(duplicateInnerField)
+        ? undefined
+        : this.innerOptionsPatchValue;
 
-    const innerFieldResult = this.innerField();
-    if (innerFieldResult.isOk()) {
+    if (duplicateInnerField ?? this.innerFieldValue) {
       return ConditionalLookupField.create({
         id: params.newId,
         name: params.newName,
-        innerField: innerFieldResult.value,
+        innerField: duplicateInnerField ?? this.innerFieldValue!,
         conditionalLookupOptions: this.conditionalLookupOptions(),
         isMultipleCellValue,
         dependencies: this.dependencies(),
-        innerOptionsPatch: this.innerOptionsPatchValue,
+        innerOptionsPatch,
       });
     }
 
@@ -366,8 +373,49 @@ export class ConditionalLookupField
       conditionalLookupOptions: this.conditionalLookupOptions(),
       isMultipleCellValue,
       dependencies: this.dependencies(),
-      innerOptionsPatch: this.innerOptionsPatchValue,
+      innerOptionsPatch,
     });
+  }
+
+  private resolveDuplicateInnerField(foreignTables?: ReadonlyArray<Table>): Field | undefined {
+    if (!foreignTables || foreignTables.length === 0) {
+      return this.innerFieldValue;
+    }
+
+    const foreignTable = foreignTables.find((candidate) =>
+      candidate.id().equals(this.foreignTableId())
+    );
+    if (!foreignTable) {
+      return this.innerFieldValue;
+    }
+
+    const targetFieldResult = foreignTable.getField((field) =>
+      field.id().equals(this.lookupFieldId())
+    );
+    if (targetFieldResult.isErr()) {
+      return this.innerFieldValue;
+    }
+
+    const targetField = targetFieldResult.value;
+    if (
+      this.innerFieldValue &&
+      this.shouldMirrorTargetSelectOptions(this.innerFieldValue) &&
+      this.shouldMirrorTargetSelectOptions(targetField)
+    ) {
+      return targetField;
+    }
+
+    return this.innerFieldValue;
+  }
+
+  private normalizeInnerOptionsPatch(resolvedTargetField: Field): void {
+    if (this.shouldMirrorTargetSelectOptions(resolvedTargetField)) {
+      this.innerOptionsPatchValue = undefined;
+    }
+  }
+
+  private shouldMirrorTargetSelectOptions(field: Field): boolean {
+    return field instanceof SingleSelectField || field instanceof MultipleSelectField;
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {

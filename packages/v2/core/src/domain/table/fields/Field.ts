@@ -5,6 +5,7 @@ import type { BaseId } from '../../base/BaseId';
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
 import { FieldConditionSpecBuilder } from '../records/specs/FieldConditionSpecBuilder';
+import type { Table } from '../Table';
 import type { TableId } from '../TableId';
 import { DbFieldName } from './DbFieldName';
 import { DbFieldType } from './DbFieldType';
@@ -25,6 +26,7 @@ export type FieldDuplicateParams = {
   newName: FieldName;
   baseId: BaseId;
   tableId: TableId;
+  foreignTables?: ReadonlyArray<Table>;
 };
 
 export abstract class Field extends Entity<FieldId> {

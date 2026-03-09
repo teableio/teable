@@ -1138,6 +1138,132 @@ describe('CreateFieldHandler (db)', () => {
     expect(defaultJunctionRows).toHaveLength(0);
   });
 
+  it('derives lookup single-select choices from the foreign target field instead of innerOptions patch', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
+
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const foreignPrimaryFieldId = `fld${'u'.repeat(16)}`;
+    const foreignStatusFieldId = `fld${'v'.repeat(16)}`;
+    const expectedChoices = [
+      { id: 'choLookupCore', name: '核心', color: 'blueBright' },
+      { id: 'choLookupImportant', name: '重要', color: 'greenBright' },
+      { id: 'choLookupReference', name: '参考', color: 'orangeBright' },
+    ];
+
+    const createForeignResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Lookup Select Foreign',
+      fields: [
+        {
+          type: 'singleLineText',
+          id: foreignPrimaryFieldId,
+          name: 'Title',
+        },
+        {
+          type: 'singleSelect',
+          id: foreignStatusFieldId,
+          name: 'Status',
+          options: {
+            choices: expectedChoices,
+          },
+        },
+      ],
+    });
+    createForeignResult._unsafeUnwrap();
+    const foreignExec = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createForeignResult._unsafeUnwrap()
+    );
+    foreignExec._unsafeUnwrap();
+    const foreignTableId = foreignExec._unsafeUnwrap().table.id().toString();
+
+    const createHostResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Lookup Select Host',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    createHostResult._unsafeUnwrap();
+    const hostExec = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createHostResult._unsafeUnwrap()
+    );
+    hostExec._unsafeUnwrap();
+    const hostTableId = hostExec._unsafeUnwrap().table.id().toString();
+
+    const linkId = `fld${'w'.repeat(16)}`;
+    const symmetricLinkId = `fld${'x'.repeat(16)}`;
+    const lookupFieldId = `fld${'y'.repeat(16)}`;
+
+    const createLinkResult = CreateFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        id: linkId,
+        name: 'Related Manual',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+          symmetricFieldId: symmetricLinkId,
+        },
+      },
+    });
+    createLinkResult._unsafeUnwrap();
+    const linkExec = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      createLinkResult._unsafeUnwrap()
+    );
+    linkExec._unsafeUnwrap();
+
+    const createLookupResult = CreateFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: hostTableId,
+      field: {
+        type: 'lookup',
+        id: lookupFieldId,
+        name: 'Status Lookup',
+        options: {
+          linkFieldId: linkId,
+          foreignTableId,
+          lookupFieldId: foreignStatusFieldId,
+        },
+        innerOptions: {
+          choices: [
+            { name: 'Option 1', color: 'blueBright' },
+            { name: 'Option 2', color: 'greenBright' },
+          ],
+        },
+      },
+    });
+    createLookupResult._unsafeUnwrap();
+    const lookupExec = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      createLookupResult._unsafeUnwrap()
+    );
+    lookupExec._unsafeUnwrap();
+
+    const persistedLookupRow = await db
+      .selectFrom('field')
+      .select(['options'])
+      .where('id', '=', lookupFieldId)
+      .executeTakeFirst();
+    expect(persistedLookupRow).toBeTruthy();
+    if (!persistedLookupRow) return;
+
+    const persistedOptions = JSON.parse(persistedLookupRow.options ?? '{}') as {
+      choices?: unknown;
+    };
+    expect(persistedOptions).toEqual({
+      choices: expectedChoices,
+    });
+  });
+
   it('defaults link lookupFieldId to foreign primary field when omitted', async () => {
     const { container, baseId } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

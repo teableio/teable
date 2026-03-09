@@ -40,6 +40,8 @@ import { CellValueType } from './CellValueType';
 import { FieldComputed } from './FieldComputed';
 import { LinkField } from './LinkField';
 import { LookupOptions, type LookupOptionsValue } from './LookupOptions';
+import { MultipleSelectField } from './MultipleSelectField';
+import { SingleSelectField } from './SingleSelectField';
 
 /**
  * LookupField is a wrapper field that retrieves values from a linked table.
@@ -58,7 +60,7 @@ export class LookupField
   implements ForeignTableRelatedField, OnTeableFieldUpdated, OnTeableFieldDeleted
 {
   private innerFieldValue: Field | undefined;
-  private readonly innerOptionsPatchValue: Readonly<Record<string, unknown>> | undefined;
+  private innerOptionsPatchValue: Readonly<Record<string, unknown>> | undefined;
   private readonly legacyMultiplicityDerivationEnabled: boolean;
   /**
    * Override for isMultipleCellValue. When set, this value is used instead of
@@ -294,16 +296,21 @@ export class LookupField
     const isMultipleCellValue = isMultipleResult.isOk()
       ? isMultipleResult.value.isMultiple()
       : undefined;
+    const duplicateInnerField = this.resolveDuplicateInnerField(_params.foreignTables);
+    const innerOptionsPatch =
+      duplicateInnerField && this.shouldMirrorTargetSelectOptions(duplicateInnerField)
+        ? undefined
+        : this.innerOptionsPatchValue;
 
-    if (this.innerFieldValue) {
+    if (duplicateInnerField ?? this.innerFieldValue) {
       return LookupField.create({
         id: _params.newId,
         name: _params.newName,
-        innerField: this.innerFieldValue,
+        innerField: duplicateInnerField ?? this.innerFieldValue!,
         lookupOptions: this.lookupOptionsValue,
         isMultipleCellValue,
         dependencies: this.dependencies(),
-        innerOptionsPatch: this.innerOptionsPatchValue,
+        innerOptionsPatch,
         legacyMultiplicityDerivation: this.legacyMultiplicityDerivationEnabled,
       });
     }
@@ -314,7 +321,7 @@ export class LookupField
       lookupOptions: this.lookupOptionsValue,
       isMultipleCellValue,
       dependencies: this.dependencies(),
-      innerOptionsPatch: this.innerOptionsPatchValue,
+      innerOptionsPatch,
       legacyMultiplicityDerivation: this.legacyMultiplicityDerivationEnabled,
     });
   }
@@ -357,6 +364,7 @@ export class LookupField
     // 5. Resolve the inner field from the foreign table's lookup field
     // Nested lookups are supported - enables lookups across 3+ tables (e.g., Table A -> Table B -> Table C)
     this.innerFieldValue = lookupFieldResult.value;
+    this.normalizeInnerOptionsPatch(this.innerFieldValue);
 
     // 6. Set dependencies to include link field and referenced host fields in filter values.
     const hostFieldIds = new Set(
@@ -384,6 +392,43 @@ export class LookupField
       : false;
 
     this.isMultipleCellValueOverride = linkIsMultiple || lookupTargetIsMultiple;
+  }
+
+  private resolveDuplicateInnerField(foreignTables?: ReadonlyArray<Table>): Field | undefined {
+    if (!foreignTables || foreignTables.length === 0) {
+      return this.innerFieldValue;
+    }
+
+    const foreignTable = foreignTables.find((candidate) =>
+      candidate.id().equals(this.foreignTableId())
+    );
+    if (!foreignTable) {
+      return this.innerFieldValue;
+    }
+
+    const targetFieldResult = foreignTable.getField((field) =>
+      field.id().equals(this.lookupFieldId())
+    );
+    if (targetFieldResult.isErr()) {
+      return this.innerFieldValue;
+    }
+
+    const targetField = targetFieldResult.value;
+    if (this.shouldMirrorTargetSelectOptions(targetField)) {
+      return targetField;
+    }
+
+    return this.innerFieldValue;
+  }
+
+  private normalizeInnerOptionsPatch(resolvedTargetField: Field): void {
+    if (this.shouldMirrorTargetSelectOptions(resolvedTargetField)) {
+      this.innerOptionsPatchValue = undefined;
+    }
+  }
+
+  private shouldMirrorTargetSelectOptions(field: Field): boolean {
+    return field instanceof SingleSelectField || field instanceof MultipleSelectField;
   }
 
   private ensureDependencies(nextDependencies: ReadonlyArray<FieldId>): Result<void, DomainError> {
