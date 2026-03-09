@@ -6,8 +6,22 @@ export type IWrapViewQuery = {
   viewId?: string;
 };
 
+export type IRecordReadQuerySource = {
+  tableName: string;
+  cteName: string;
+  cteSql: string;
+  enabledFieldIds?: string[];
+};
+
 @Injectable()
 export class RecordPermissionService {
+  async getReadQuerySource(
+    _tableId: string,
+    _query?: IWrapViewQuery
+  ): Promise<IRecordReadQuerySource | undefined> {
+    return undefined;
+  }
+
   async wrapView(
     _tableId: string,
     builder: Knex.QueryBuilder,

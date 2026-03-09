@@ -201,6 +201,14 @@ export class FieldConditionSpecBuilder {
     }
 
     if (effectiveFieldType.equals(FieldType.singleSelect())) {
+      const isMultipleCellValue = valueTypeResult.value.isMultipleCellValue.isMultiple();
+      if (isMultipleCellValue) {
+        return parseOperator(
+          multipleSelectConditionOperatorSchema,
+          input.operator,
+          'Invalid operator for singleSelect'
+        ).map((operator) => MultipleSelectConditionSpec.create(specField, operator, input.value));
+      }
       return parseOperator(
         singleSelectConditionOperatorSchema,
         input.operator,

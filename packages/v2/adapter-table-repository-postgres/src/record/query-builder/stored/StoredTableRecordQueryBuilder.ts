@@ -31,7 +31,13 @@ type ResolvedOrderBy = {
   direction: 'asc' | 'desc';
   userLikeMode?: 'single' | 'multiple';
   userLikeSource?: 'field' | 'system';
+  selectChoiceMode?: 'single' | 'multiple';
+  selectChoiceOrder?: ReadonlyArray<string>;
 };
+
+export interface IStoredQueryBuilderOptions {
+  sourceTableName?: string;
+}
 
 /**
  * Query builder that selects all stored column values directly.
@@ -45,10 +51,16 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private offsetValue: number | null = null;
   private orderByValues: Array<{ column: OrderByColumn; direction: 'asc' | 'desc' }> = [];
   private whereSpecs: Array<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>> = [];
+  private readonly sourceTableName?: string;
 
   readonly mode: QueryMode = 'stored';
 
-  constructor(private readonly db: Kysely<DynamicDB>) {}
+  constructor(
+    private readonly db: Kysely<DynamicDB>,
+    options?: IStoredQueryBuilderOptions
+  ) {
+    this.sourceTableName = options?.sourceTableName;
+  }
 
   from(table: Table): this {
     this.table = table;
@@ -98,7 +110,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     return safeTry<QB, DomainError>(
       function* (this: StoredTableRecordQueryBuilder) {
         const dbTableName = yield* table.dbTableName();
-        const tableName = yield* dbTableName.value();
+        const tableName = this.sourceTableName ?? (yield* dbTableName.value());
 
         const selectColumns = yield* this.buildSelectColumns(table, projection);
 
@@ -150,7 +162,15 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
           );
 
         for (const orderBy of resolvedOrderBy) {
-          if (orderBy.userLikeMode) {
+          if (orderBy.selectChoiceMode && orderBy.selectChoiceOrder?.length) {
+            query = this.applySelectChoiceOrderBy(
+              query,
+              orderBy.column,
+              orderBy.direction,
+              orderBy.selectChoiceMode,
+              orderBy.selectChoiceOrder
+            );
+          } else if (orderBy.userLikeMode) {
             query = this.applyUserLikeOrderBy(
               query,
               orderBy.column,
@@ -239,6 +259,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
             return ok({ column: '__auto_number', direction });
           }
 
+          const selectChoiceOrder = this.extractSelectChoiceOrder(field);
           return field.dbFieldName().andThen((dbFieldName) =>
             dbFieldName.value().map((column) => ({
               column,
@@ -252,12 +273,95 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
                     userLikeSource: 'field' as const,
                   }
                 : {}),
+              ...(selectChoiceOrder
+                ? {
+                    selectChoiceMode: selectChoiceOrder.mode,
+                    selectChoiceOrder: selectChoiceOrder.values,
+                  }
+                : {}),
             }))
           );
         });
     }
 
     return ok({ column: orderByColumn, direction });
+  }
+
+  private extractSelectChoiceOrder(
+    field: unknown
+  ): { mode: 'single' | 'multiple'; values: string[] } | undefined {
+    const candidate = field as {
+      type?: () => { equals: (other: unknown) => boolean };
+      selectOptions?: () => ReadonlyArray<{ name: () => { toString: () => string } }>;
+      innerField?: () => { isOk: () => boolean; value: unknown };
+      isMultipleCellValue?: () => { isOk: () => boolean; value: { isMultiple: () => boolean } };
+    };
+    const fieldType = candidate.type?.();
+    if (!fieldType) {
+      return undefined;
+    }
+
+    const toChoiceNames = (
+      options: ReadonlyArray<{ name: () => { toString: () => string } }> | undefined
+    ): string[] | undefined => {
+      if (!options?.length) {
+        return undefined;
+      }
+      const names = options.map((option) => option.name().toString()).filter(Boolean);
+      return names.length ? names : undefined;
+    };
+
+    if (
+      fieldType.equals(FieldType.singleSelect()) ||
+      fieldType.equals(FieldType.multipleSelect())
+    ) {
+      const values = toChoiceNames(candidate.selectOptions?.());
+      if (!values) {
+        return undefined;
+      }
+      return {
+        mode: fieldType.equals(FieldType.multipleSelect()) ? 'multiple' : 'single',
+        values,
+      };
+    }
+
+    if (fieldType.equals(FieldType.lookup())) {
+      const innerFieldResult = candidate.innerField?.();
+      if (!innerFieldResult?.isOk()) {
+        return undefined;
+      }
+      const innerField = innerFieldResult.value as {
+        type?: () => { equals: (other: unknown) => boolean };
+        selectOptions?: () => ReadonlyArray<{ name: () => { toString: () => string } }>;
+      };
+      const innerType = innerField.type?.();
+      if (!innerType) {
+        return undefined;
+      }
+      if (
+        !innerType.equals(FieldType.singleSelect()) &&
+        !innerType.equals(FieldType.multipleSelect())
+      ) {
+        return undefined;
+      }
+      const values = toChoiceNames(innerField.selectOptions?.());
+      if (!values) {
+        return undefined;
+      }
+      // Lookup values are usually arrays; prefer multiple mode unless we know it is single-valued.
+      let mode: 'single' | 'multiple' = 'multiple';
+      const multiplicityResult = candidate.isMultipleCellValue?.();
+      if (
+        innerType.equals(FieldType.singleSelect()) &&
+        multiplicityResult?.isOk?.() &&
+        !multiplicityResult.value.isMultiple()
+      ) {
+        mode = 'single';
+      }
+      return { mode, values };
+    }
+
+    return undefined;
   }
 
   /**
@@ -289,6 +393,41 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     return query
       .orderBy(sql`${titleExpr} is null`, nullOrderDirection)
       .orderBy(titleExpr, direction);
+  }
+
+  private applySelectChoiceOrderBy(
+    query: QB,
+    column: string,
+    direction: 'asc' | 'desc',
+    mode: 'single' | 'multiple',
+    choiceOrder: ReadonlyArray<string>
+  ): QB {
+    const columnRef = sql.ref(`${T}.${column}`);
+    const choiceArrayLiteral = sql`ARRAY[${sql.join(
+      choiceOrder.map((name) => sql`${name}`),
+      sql`, `
+    )}]`;
+
+    const choiceIndexExpr =
+      mode === 'multiple'
+        ? sql`CASE
+            WHEN ${columnRef} IS NULL THEN NULL
+            WHEN jsonb_typeof(${columnRef}::jsonb) = 'array'
+              THEN ARRAY_POSITION(${choiceArrayLiteral}, jsonb_path_query_first(${columnRef}::jsonb, '$[0]') #>> '{}')
+            ELSE ARRAY_POSITION(${choiceArrayLiteral}, ${columnRef}::text)
+          END`
+        : sql`ARRAY_POSITION(${choiceArrayLiteral}, ${columnRef}::text)`;
+
+    const nullOrderDirection: 'asc' | 'desc' = direction === 'asc' ? 'desc' : 'asc';
+    let ordered = query
+      .orderBy(sql`${choiceIndexExpr} is null`, nullOrderDirection)
+      .orderBy(choiceIndexExpr, direction);
+
+    if (mode === 'multiple') {
+      ordered = ordered.orderBy(sql`${columnRef}::jsonb::text`, direction);
+    }
+
+    return ordered;
   }
 
   private buildWhereCondition(): Result<Expression<SqlBool> | null, DomainError> {

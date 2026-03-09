@@ -643,6 +643,7 @@ export type IWebSearchConfig = z.infer<typeof webSearchConfigSchema>;
 
 // V2 feature names for canary control
 export const v2FeatureSchema = z.enum([
+  'getRecords',
   'createRecord',
   'formSubmit',
   'updateRecord',

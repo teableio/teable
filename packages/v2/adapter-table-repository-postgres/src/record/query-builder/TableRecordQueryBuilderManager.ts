@@ -23,6 +23,8 @@ export type QueryMode = 'computed' | 'stored';
 export interface IQueryBuilderManagerOptions {
   /** Query mode. Defaults to 'computed' */
   mode?: QueryMode;
+  /** Optional table name override (for CTE-backed reads such as permission views). */
+  sourceTableName?: string;
 }
 
 /**
@@ -70,7 +72,9 @@ export class TableRecordQueryBuilderManager {
     const executeCreate = async (): Promise<Result<ITableRecordQueryBuilder, DomainError>> => {
       const builder =
         mode === 'stored'
-          ? new StoredTableRecordQueryBuilder(db).from(table)
+          ? new StoredTableRecordQueryBuilder(db, {
+              sourceTableName: options?.sourceTableName,
+            }).from(table)
           : new ComputedTableRecordQueryBuilder(db, {
               typeValidationStrategy: this.typeValidationStrategy,
               preferStoredLastModifiedFormula: true,

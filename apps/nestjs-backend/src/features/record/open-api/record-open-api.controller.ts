@@ -111,12 +111,17 @@ export class RecordOpenApiController {
     return this.recordService.getRecordsCollaborators(tableId, query);
   }
 
+  @UseV2Feature('getRecords')
   @Permissions('record|read')
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe, FieldKeyPipe) query: IGetRecordsRo
   ): Promise<IRecordsVo> {
+    if (this.cls.get('useV2')) {
+      return this.recordOpenApiV2Service.getRecords(tableId, query);
+    }
+
     return await this.recordService.getRecords(tableId, query, true);
   }
 

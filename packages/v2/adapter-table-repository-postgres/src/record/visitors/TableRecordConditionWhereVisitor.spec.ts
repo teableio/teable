@@ -179,7 +179,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       const spec = SingleLineTextConditionSpec.create(nameField, 'doesNotContain', value);
       const { sql, parameters } = buildWhereFor(db, spec);
 
-      expect(sql).toMatchInlineSnapshot(`"coalesce("t"."col_name", '') not like $1"`);
+      expect(sql).toMatchInlineSnapshot(`"coalesce("t"."col_name", '') not ilike $1 escape '\\'"`);
       expect(parameters).toEqual(['%test%']);
     });
 
@@ -188,7 +188,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       const spec = LongTextConditionSpec.create(notesField, 'doesNotContain', value);
       const { sql, parameters } = buildWhereFor(db, spec);
 
-      expect(sql).toMatchInlineSnapshot(`"coalesce("t"."col_notes", '') not like $1"`);
+      expect(sql).toMatchInlineSnapshot(`"coalesce("t"."col_notes", '') not ilike $1 escape '\\'"`);
       expect(parameters).toEqual(['%note%']);
     });
 
@@ -197,7 +197,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       const spec = SingleLineTextConditionSpec.create(nameField, 'contains', value);
       const { sql, parameters } = buildWhereFor(db, spec);
 
-      expect(sql).toMatchInlineSnapshot(`""t"."col_name" like $1"`);
+      expect(sql).toMatchInlineSnapshot(`""t"."col_name" ilike $1 escape '\\'"`);
       expect(parameters).toEqual(['%test%']);
     });
   });

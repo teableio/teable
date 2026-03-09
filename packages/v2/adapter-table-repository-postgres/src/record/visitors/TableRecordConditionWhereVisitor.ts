@@ -35,13 +35,71 @@ const fieldIsUserOrLink = (field: core.Field): boolean => {
 
 const fieldIsLink = (field: core.Field): boolean => field.type().toString() === 'link';
 
+const fieldIsLookup = (field: core.Field): boolean => field.type().toString() === 'lookup';
+
+const fieldIsConditionalLookup = (field: core.Field): boolean =>
+  field.type().toString() === 'conditionalLookup';
+
+const resolveLookupInnerField = (field: core.Field): core.Field | undefined => {
+  if (fieldIsLookup(field)) {
+    const result = (field as core.LookupField).innerField();
+    return result.isOk() ? result.value : undefined;
+  }
+  if (fieldIsConditionalLookup(field)) {
+    const result = (field as core.ConditionalLookupField).innerField();
+    return result.isOk() ? result.value : undefined;
+  }
+  return undefined;
+};
+
+const fieldIsLookupWithUserOrLinkInner = (field: core.Field): boolean => {
+  const innerField = resolveLookupInnerField(field);
+  return innerField ? fieldIsUserOrLink(innerField) : false;
+};
+
+const isArrayLikeOutputField = (field: core.Field, isMultiple: boolean): boolean => {
+  // Query model currently forces lookup/conditionalLookup output to arrays for v1 parity.
+  return isMultiple || fieldIsLookup(field) || fieldIsConditionalLookup(field);
+};
+
+const normalizeToJsonArray = (columnRef: RecordConditionWhere): RecordConditionWhere => {
+  return sql`CASE
+    WHEN jsonb_typeof(to_jsonb(${columnRef})) = 'array' THEN to_jsonb(${columnRef})
+    WHEN to_jsonb(${columnRef}) IS NULL THEN '[]'::jsonb
+    ELSE jsonb_build_array(to_jsonb(${columnRef}))
+  END`;
+};
+
+const escapePostgresRegex = (input: string): string => {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const escapeJsonbRegex = (input: string): string => {
+  return input.replace(/[.*+?^${}()|[\]\\"]/g, (match) => {
+    if (match === '\\') return '\\\\\\\\';
+    if (match === '"') return '\\"';
+    return '\\\\' + match;
+  });
+};
+
+const escapeLikeWildcards = (input: string): string => {
+  return input.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+};
+
+const primitiveLiteralToText = (value: Primitive): string => {
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  return String(value);
+};
+
 const buildUserLinkIdArray = (
   columnRef: RecordConditionWhere,
   isMultiple: boolean
 ): RecordConditionWhere => {
   const path = isMultiple ? sql.raw("'$[*].id'") : sql.raw("'$.id'");
-  const fallback = isMultiple ? sql.raw("'[]'::jsonb") : sql.raw("'{}'::jsonb");
-  return sql`jsonb_path_query_array(COALESCE(to_jsonb(${columnRef}), ${fallback}), ${path})`;
+  const sourceJson = isMultiple
+    ? normalizeToJsonArray(columnRef)
+    : sql`COALESCE(to_jsonb(${columnRef}), '{}'::jsonb)`;
+  return sql`jsonb_path_query_array(${sourceJson}, ${path})`;
 };
 
 const buildJsonbTextArray = (jsonArray: RecordConditionWhere): RecordConditionWhere => {
@@ -455,20 +513,36 @@ const buildIsCondition = (
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
     const columnRef = sql.ref(column);
+    const isMultipleRaw = yield* fieldIsMultiple(field);
+    const isMultiple = isArrayLikeOutputField(field, isMultipleRaw);
+    const isUserOrLinkLike = fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
     if (core.isRecordConditionDateValue(value)) {
       const range = yield* resolveDateRange(value, resolveDateFormatting(field));
+      if (isMultiple || fieldIsJson(field)) {
+        const normalizedArray = normalizeToJsonArray(columnRef);
+        return ok(sql`EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+          WHERE NULLIF(elem, 'null')::timestamptz BETWEEN ${range.start} AND ${range.end}
+        )`);
+      }
       return ok(sql`${columnRef} between ${range.start} and ${range.end}`);
     }
     const operand = yield* resolvePrimitiveOperand(value, tableAlias, hostTableAlias);
     if (
       operand.kind === 'field' &&
       core.isRecordConditionFieldReferenceValue(value) &&
-      fieldIsUserOrLink(field)
+      isUserOrLinkLike
     ) {
       const referenceField = value.field();
-      if (fieldIsUserOrLink(referenceField)) {
-        const leftIsMultiple = yield* fieldIsMultiple(field);
-        const rightIsMultiple = yield* fieldIsMultiple(referenceField);
+      const referenceIsUserLike =
+        fieldIsUserOrLink(referenceField) || fieldIsLookupWithUserOrLinkInner(referenceField);
+      if (referenceIsUserLike) {
+        const leftIsMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
+        const rightIsMultiple = isArrayLikeOutputField(
+          referenceField,
+          yield* fieldIsMultiple(referenceField)
+        );
         const rightColumnRef = sql.ref(operand.column);
 
         if (!leftIsMultiple && !rightIsMultiple) {
@@ -480,7 +554,7 @@ const buildIsCondition = (
         const leftIds = buildUserLinkIdArray(columnRef, leftIsMultiple);
         const rightIds = buildUserLinkIdArray(rightColumnRef, rightIsMultiple);
 
-        if (leftIsMultiple && rightIsMultiple) {
+        if (leftIsMultiple) {
           return ok(sql`(${leftIds} @> ${rightIds}) and (${rightIds} @> ${leftIds})`);
         }
 
@@ -506,8 +580,49 @@ const buildIsCondition = (
       }
     }
 
-    const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
-    return ok(sql`${columnRef} = ${right}`);
+    if (operand.kind === 'field') {
+      return ok(sql`${columnRef} = ${sql.ref(operand.column)}`);
+    }
+
+    if (isUserOrLinkLike) {
+      const rightLiteral = String(operand.value);
+      if (!isMultiple) {
+        return ok(sql`jsonb_extract_path_text(to_jsonb(${columnRef}), 'id') = ${rightLiteral}`);
+      }
+      const ids = sql`jsonb_path_query_array(${normalizeToJsonArray(columnRef)}, '$[*].id')`;
+      const valuesText = sql`ARRAY[${rightLiteral}]::text[]`;
+      return ok(sql`jsonb_exists_any(${ids}, ${valuesText})`);
+    }
+
+    if (fieldIsJson(field) || isMultiple) {
+      if (isMultiple) {
+        const normalizedArray = normalizeToJsonArray(columnRef);
+        if (typeof operand.value === 'string') {
+          const escaped = `^${escapePostgresRegex(String(operand.value))}$`;
+          return ok(
+            sql`EXISTS (
+              SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+              WHERE elem ~* ${escaped}
+            )`
+          );
+        }
+        return ok(
+          sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+            WHERE elem = ${primitiveLiteralToText(operand.value)}
+          )`
+        );
+      }
+      return ok(
+        sql`jsonb_path_exists(
+          to_jsonb(${columnRef}),
+          '$[*] ? (@ like_regex $value flag "i")'::jsonpath,
+          jsonb_build_object('value', to_jsonb(${String(operand.value)}))
+        )`
+      );
+    }
+
+    return ok(sql`${columnRef} = ${operand.value}`);
   });
 };
 
@@ -522,8 +637,22 @@ const buildIsNotCondition = (
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
     const columnRef = sql.ref(column);
+    const isMultipleRaw = yield* fieldIsMultiple(field);
+    const isMultiple = isArrayLikeOutputField(field, isMultipleRaw);
+    const isUserOrLinkLike = fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
     if (core.isRecordConditionDateValue(value)) {
       const range = yield* resolveDateRange(value, resolveDateFormatting(field));
+      if (isMultiple || fieldIsJson(field)) {
+        const normalizedArray = normalizeToJsonArray(columnRef);
+        return ok(sql`(
+          NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+            WHERE NULLIF(elem, 'null')::timestamptz BETWEEN ${range.start} AND ${range.end}
+          )
+          OR ${columnRef} IS NULL
+        )`);
+      }
       return ok(
         sql`(${columnRef} not between ${range.start} and ${range.end} or ${columnRef} is null)`
       );
@@ -532,12 +661,17 @@ const buildIsNotCondition = (
     if (
       operand.kind === 'field' &&
       core.isRecordConditionFieldReferenceValue(value) &&
-      fieldIsUserOrLink(field)
+      isUserOrLinkLike
     ) {
       const referenceField = value.field();
-      if (fieldIsUserOrLink(referenceField)) {
-        const leftIsMultiple = yield* fieldIsMultiple(field);
-        const rightIsMultiple = yield* fieldIsMultiple(referenceField);
+      const referenceIsUserLike =
+        fieldIsUserOrLink(referenceField) || fieldIsLookupWithUserOrLinkInner(referenceField);
+      if (referenceIsUserLike) {
+        const leftIsMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
+        const rightIsMultiple = isArrayLikeOutputField(
+          referenceField,
+          yield* fieldIsMultiple(referenceField)
+        );
         const rightColumnRef = sql.ref(operand.column);
 
         if (!leftIsMultiple && !rightIsMultiple) {
@@ -549,11 +683,14 @@ const buildIsNotCondition = (
         const leftIds = buildUserLinkIdArray(columnRef, leftIsMultiple);
         const rightIds = buildUserLinkIdArray(rightColumnRef, rightIsMultiple);
 
-        if (leftIsMultiple && rightIsMultiple) {
+        if (leftIsMultiple) {
           return ok(sql`not ((${leftIds} @> ${rightIds}) and (${rightIds} @> ${leftIds}))`);
         }
 
-        return ok(sql`not jsonb_exists_any(${leftIds}, ${buildJsonbTextArray(rightIds)})`);
+        return ok(sql`NOT EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(${rightIds}) AS ref_id
+          WHERE ref_id = jsonb_extract_path_text(to_jsonb(${columnRef}), 'id')
+        )`);
       }
     }
 
@@ -570,10 +707,51 @@ const buildIsNotCondition = (
       }
     }
 
-    const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
-    // Use IS DISTINCT FROM to match v1 behavior: NULL values should pass "isNot" checks.
-    // Plain `!=` returns NULL when the column is NULL, silently excluding those rows.
-    return ok(sql`${columnRef} is distinct from ${right}`);
+    if (operand.kind === 'field') {
+      return ok(sql`${columnRef} is distinct from ${sql.ref(operand.column)}`);
+    }
+
+    if (isUserOrLinkLike) {
+      const rightLiteral = String(operand.value);
+      if (!isMultiple) {
+        return ok(
+          sql`jsonb_extract_path_text(COALESCE(to_jsonb(${columnRef}), '{}'::jsonb), 'id') IS DISTINCT FROM ${rightLiteral}`
+        );
+      }
+      const ids = sql`jsonb_path_query_array(${normalizeToJsonArray(columnRef)}, '$[*].id')`;
+      const valuesText = sql`ARRAY[${rightLiteral}]::text[]`;
+      return ok(sql`NOT jsonb_exists_any(${ids}, ${valuesText})`);
+    }
+
+    if (fieldIsJson(field) || isMultiple) {
+      if (isMultiple) {
+        const normalizedArray = normalizeToJsonArray(columnRef);
+        if (typeof operand.value === 'string') {
+          const escaped = `^${escapePostgresRegex(String(operand.value))}$`;
+          return ok(
+            sql`NOT EXISTS (
+              SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+              WHERE elem ~* ${escaped}
+            )`
+          );
+        }
+        return ok(
+          sql`NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+            WHERE elem = ${primitiveLiteralToText(operand.value)}
+          )`
+        );
+      }
+      return ok(
+        sql`NOT jsonb_path_exists(
+          COALESCE(to_jsonb(${columnRef}), '[]'::jsonb),
+          '$[*] ? (@ like_regex $value flag "i")'::jsonpath,
+          jsonb_build_object('value', to_jsonb(${String(operand.value)}))
+        )`
+      );
+    }
+
+    return ok(sql`${columnRef} is distinct from ${operand.value}`);
   });
 };
 
@@ -595,16 +773,37 @@ const buildContainsCondition = (
       );
     }
     const columnRef = sql.ref(column);
+
+    const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
+    if (fieldIsJson(field) || isMultiple) {
+      const escapedValue = escapeJsonbRegex(
+        String(operand.kind === 'field' ? `{${operand.column}}` : operand.value)
+      );
+      const isLinkField = fieldIsLink(field);
+      const jsonPath = isLinkField
+        ? isMultiple
+          ? `$[*].title ? (@ like_regex "${escapedValue}" flag "i")`
+          : `$.title ? (@ like_regex "${escapedValue}" flag "i")`
+        : `$[*] ? (@ like_regex "${escapedValue}" flag "i")`;
+      const target = isNegative
+        ? sql`COALESCE(to_jsonb(${columnRef}), ${sql.raw(isMultiple ? "'[]'::jsonb" : "'{}'::jsonb")})`
+        : isMultiple
+          ? normalizeToJsonArray(columnRef)
+          : sql`to_jsonb(${columnRef})`;
+      const condition = sql`jsonb_path_exists(${target}, ${sql.raw(`'${jsonPath}'::jsonpath`)})`;
+      return ok(isNegative ? sql`NOT ${condition}` : condition);
+    }
+
     const pattern =
       operand.kind === 'field'
         ? sql`'%' || ${sql.ref(operand.column)} || '%'`
-        : `%${operand.value}%`;
+        : `%${escapeLikeWildcards(String(operand.value))}%`;
     // Use COALESCE for negative match to align with v1:
     // v1 uses `COALESCE(col, '') NOT LIKE ...` so NULL rows pass the "does not contain" check.
     // Without COALESCE, `NULL not like '%val%'` returns NULL (falsy), excluding NULL rows.
     const condition = isNegative
-      ? sql`coalesce(${columnRef}, '') not like ${pattern}`
-      : sql`${columnRef} like ${pattern}`;
+      ? sql`coalesce(${columnRef}, '') not ilike ${pattern} escape '\\'`
+      : sql`${columnRef} ilike ${pattern} escape '\\'`;
     return ok(condition);
   });
 };
@@ -630,10 +829,37 @@ const buildNumericComparisonCondition = (
       );
     }
     const columnRef = sql.ref(column);
+    const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
     const right =
       operand.kind === 'field'
         ? buildNumericOperand(sql.ref(operand.column))
         : sql`${operand.value}`;
+    if (isMultiple || fieldIsJson(field)) {
+      const normalizedArray = normalizeToJsonArray(columnRef);
+      const elementNumeric = sql`NULLIF(REGEXP_REPLACE(elem, '[^0-9.+-]', '', 'g'), '')::double precision`;
+      if (operator === '>') {
+        return ok(sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+          WHERE ${elementNumeric} > ${right}
+        )`);
+      }
+      if (operator === '>=') {
+        return ok(sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+          WHERE ${elementNumeric} >= ${right}
+        )`);
+      }
+      if (operator === '<') {
+        return ok(sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+          WHERE ${elementNumeric} < ${right}
+        )`);
+      }
+      return ok(sql`EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+        WHERE ${elementNumeric} <= ${right}
+      )`);
+    }
     if (operator === '>') return ok(sql`${columnRef} > ${right}`);
     if (operator === '>=') return ok(sql`${columnRef} >= ${right}`);
     if (operator === '<') return ok(sql`${columnRef} < ${right}`);
@@ -653,6 +879,7 @@ const buildDateComparisonCondition = (
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
     const columnRef = sql.ref(column);
+    const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
 
     if (core.isRecordConditionFieldReferenceValue(value)) {
       const rightColumn = yield* resolveColumn(value.field(), hostTableAlias ?? tableAlias);
@@ -666,6 +893,35 @@ const buildDateComparisonCondition = (
         shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)
           ? sql`(${right})::date`
           : right;
+      if (isMultiple || fieldIsJson(field)) {
+        const normalizedArray = normalizeToJsonArray(columnRef);
+        const leftExprFromArray: RecordConditionWhere =
+          shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)
+            ? sql`(NULLIF(elem, 'null')::timestamptz)::date`
+            : sql`NULLIF(elem, 'null')::timestamptz`;
+        if (operator === '>') {
+          return ok(sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+            WHERE ${leftExprFromArray} > ${rightExpr}
+          )`);
+        }
+        if (operator === '>=') {
+          return ok(sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+            WHERE ${leftExprFromArray} >= ${rightExpr}
+          )`);
+        }
+        if (operator === '<') {
+          return ok(sql`EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+            WHERE ${leftExprFromArray} < ${rightExpr}
+          )`);
+        }
+        return ok(sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+          WHERE ${leftExprFromArray} <= ${rightExpr}
+        )`);
+      }
       if (operator === '>') return ok(sql`${leftExpr} > ${rightExpr}`);
       if (operator === '>=') return ok(sql`${leftExpr} >= ${rightExpr}`);
       if (operator === '<') return ok(sql`${leftExpr} < ${rightExpr}`);
@@ -676,6 +932,33 @@ const buildDateComparisonCondition = (
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
     const boundary = operator === '>' || operator === '<=' ? range.end : range.start;
     const right = sql`${boundary}`;
+    if (isMultiple || fieldIsJson(field)) {
+      const normalizedArray = normalizeToJsonArray(columnRef);
+      const leftExprFromArray: RecordConditionWhere = sql`NULLIF(elem, 'null')::timestamptz`;
+      const rightExpr: RecordConditionWhere = right;
+      if (operator === '>') {
+        return ok(sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+          WHERE ${leftExprFromArray} > ${rightExpr}
+        )`);
+      }
+      if (operator === '>=') {
+        return ok(sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+          WHERE ${leftExprFromArray} >= ${rightExpr}
+        )`);
+      }
+      if (operator === '<') {
+        return ok(sql`EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+          WHERE ${leftExprFromArray} < ${rightExpr}
+        )`);
+      }
+      return ok(sql`EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+        WHERE ${leftExprFromArray} <= ${rightExpr}
+      )`);
+    }
     if (operator === '>') return ok(sql`${columnRef} > ${right}`);
     if (operator === '>=') return ok(sql`${columnRef} >= ${right}`);
     if (operator === '<') return ok(sql`${columnRef} < ${right}`);
@@ -695,6 +978,17 @@ const buildIsWithinCondition = (
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
     const columnRef = sql.ref(column);
+    const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
+    if (isMultiple || fieldIsJson(field)) {
+      const normalizedArray = normalizeToJsonArray(columnRef);
+      const leftExprFromArray: RecordConditionWhere = sql`NULLIF(elem, 'null')::timestamptz`;
+      const startExpr: RecordConditionWhere = sql`${range.start}`;
+      const endExpr: RecordConditionWhere = sql`${range.end}`;
+      return ok(sql`EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+        WHERE ${leftExprFromArray} BETWEEN ${startExpr} AND ${endExpr}
+      )`);
+    }
     return ok(sql`${columnRef} between ${range.start} and ${range.end}`);
   });
 };
@@ -703,17 +997,87 @@ const buildListCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
   kind: ListOperatorKind,
-  tableAlias?: string
+  tableAlias?: string,
+  hostTableAlias?: string
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
+    const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
+    const isUserOrLinkLike = fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
+    const columnRef = sql.ref(column);
+
+    if (core.isRecordConditionFieldReferenceValue(value)) {
+      const referenceField = value.field();
+      const referenceColumn = yield* resolveColumn(referenceField, hostTableAlias ?? tableAlias);
+      const referenceColumnRef = sql.ref(referenceColumn);
+      const referenceIsMultiple = isArrayLikeOutputField(
+        referenceField,
+        yield* fieldIsMultiple(referenceField)
+      );
+      const referenceIsUserLike =
+        fieldIsUserOrLink(referenceField) || fieldIsLookupWithUserOrLinkInner(referenceField);
+
+      const selfArray =
+        isUserOrLinkLike || referenceIsUserLike
+          ? buildUserLinkIdArray(columnRef, isMultiple)
+          : sql`jsonb_path_query_array(
+              ${isMultiple ? normalizeToJsonArray(columnRef) : sql`COALESCE(to_jsonb(${columnRef}), 'null'::jsonb)`},
+              ${sql.raw(isMultiple ? "'$[*]'" : "'$'")}
+            )`;
+      const referenceArray =
+        isUserOrLinkLike || referenceIsUserLike
+          ? buildUserLinkIdArray(referenceColumnRef, referenceIsMultiple)
+          : sql`jsonb_path_query_array(
+              ${referenceIsMultiple ? normalizeToJsonArray(referenceColumnRef) : sql`COALESCE(to_jsonb(${referenceColumnRef}), 'null'::jsonb)`},
+              ${sql.raw(referenceIsMultiple ? "'$[*]'" : "'$'")}
+            )`;
+      const referenceTextArray = buildJsonbTextArray(referenceArray);
+
+      if (kind === 'any') return ok(sql`jsonb_exists_any(${selfArray}, ${referenceTextArray})`);
+      if (kind === 'none')
+        return ok(
+          sql`NOT jsonb_exists_any(COALESCE(${selfArray}, '[]'::jsonb), ${referenceTextArray})`
+        );
+      if (kind === 'all') return ok(sql`${selfArray} @> ${referenceArray}`);
+      if (kind === 'exact')
+        return ok(sql`(${selfArray} @> ${referenceArray}) and (${referenceArray} @> ${selfArray})`);
+      return ok(
+        sql`NOT ((${selfArray} @> ${referenceArray}) and (${referenceArray} @> ${selfArray}))`
+      );
+    }
+
     const values = yield* resolveListValues(value);
     if (values.length === 0)
       return err(core.domainError.unexpected({ message: 'Record condition requires list values' }));
-    const isMultiple = yield* fieldIsMultiple(field);
-    const columnRef = sql.ref(column);
+    const textValues = values.map((entry) => String(entry));
+
+    if (isUserOrLinkLike) {
+      if (!isMultiple) {
+        const leftId = sql`jsonb_extract_path_text(COALESCE(to_jsonb(${columnRef}), '{}'::jsonb), 'id')`;
+        const list = sql.join(textValues.map((entry) => sql`${entry}`));
+        const isNegative = kind === 'none' || kind === 'notExact';
+        return ok(
+          isNegative ? sql`COALESCE(${leftId}, '') not in (${list})` : sql`${leftId} in (${list})`
+        );
+      }
+
+      const ids = sql`jsonb_path_query_array(${normalizeToJsonArray(columnRef)}, '$[*].id')`;
+      const idsWithFallback = sql`jsonb_path_query_array(${normalizeToJsonArray(columnRef)}, '$[*].id')`;
+      const textArray = sql`ARRAY[${sql.join(textValues.map((entry) => sql`${entry}`))}]::text[]`;
+      const valueArray = sql`ARRAY[${sql.join(textValues.map((entry) => sql`${entry}`))}]`;
+      const jsonbArray = sql`to_jsonb(${valueArray})`;
+
+      if (kind === 'any') return ok(sql`jsonb_exists_any(${ids}, ${textArray})`);
+      if (kind === 'none') return ok(sql`NOT jsonb_exists_any(${idsWithFallback}, ${textArray})`);
+      if (kind === 'all') return ok(sql`jsonb_exists_all(${ids}, ${textArray})`);
+      if (kind === 'exact') return ok(sql`(${ids} @> ${jsonbArray}) and (${jsonbArray} @> ${ids})`);
+      return ok(
+        sql`(NOT ((${idsWithFallback} @> ${jsonbArray}) and (${jsonbArray} @> ${idsWithFallback})) OR ${columnRef} IS NULL)`
+      );
+    }
+
     if (!isMultiple) {
       const list = sql.join(values.map((entry) => sql`${entry}`));
       const isNegative = kind === 'none' || kind === 'notExact';
@@ -726,10 +1090,9 @@ const buildListCondition = (
       return ok(sql`${columnRef} in (${list})`);
     }
 
-    const textValues = values.map((entry) => String(entry));
     const textArray = sql`array[${sql.join(textValues.map((entry) => sql`${entry}`))}]`;
     const valueArray = sql`array[${sql.join(values.map((entry) => sql`${entry}`))}]`;
-    const jsonbColumn = sql`to_jsonb(${columnRef})`;
+    const jsonbColumn = isMultiple ? normalizeToJsonArray(columnRef) : sql`to_jsonb(${columnRef})`;
     const jsonbArray = sql`to_jsonb(${valueArray})`;
 
     if (kind === 'any') return ok(sql`${jsonbColumn} ?| ${textArray}`);
@@ -963,7 +1326,7 @@ export class TableRecordConditionWhereVisitor
   visitCheckboxIs(spec: core.CheckboxConditionSpec): Result<RecordConditionWhere, DomainError> {
     // Checkbox fields store NULL for unchecked (not false).
     // When filtering for "is false/unchecked", we must match both false AND NULL
-    // to align with v1 behavior: `(col = false OR col IS NULL)`.
+    // to align with v1 behavior.
     const value = spec.value();
     if (value && core.isRecordConditionLiteralValue(value) && value.toValue() === false) {
       const alias = this.tableAlias;
@@ -971,6 +1334,20 @@ export class TableRecordConditionWhereVisitor
         safeTry<RecordConditionWhere, DomainError>(function* () {
           const column = yield* resolveColumn(spec.field(), alias);
           const columnRef = sql.ref(column);
+          const isArrayLike = isArrayLikeOutputField(
+            spec.field(),
+            yield* fieldIsMultiple(spec.field())
+          );
+          if (isArrayLike || fieldIsJson(spec.field())) {
+            const normalizedArray = normalizeToJsonArray(columnRef);
+            return ok(sql`(
+              NOT EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+                WHERE elem = 'true'
+              )
+              OR ${columnRef} IS NULL
+            )`);
+          }
           return ok(sql`(${columnRef} = false or ${columnRef} is null)`);
         })
       );
@@ -1717,6 +2094,8 @@ export class TableRecordConditionWhereVisitor
     value: core.RecordConditionValue | undefined,
     kind: ListOperatorKind
   ): Result<RecordConditionWhere, DomainError> {
-    return this.addConditionResult(buildListCondition(field, value, kind, this.tableAlias));
+    return this.addConditionResult(
+      buildListCondition(field, value, kind, this.tableAlias, this.hostTableAlias)
+    );
   }
 }

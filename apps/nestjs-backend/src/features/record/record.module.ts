@@ -19,6 +19,6 @@ import { UserNameListener } from './user-name.listener.service';
     TableIndexService,
     RecordPermissionService,
   ],
-  exports: [RecordService, RecordQueryService],
+  exports: [RecordService, RecordQueryService, RecordPermissionService],
 })
 export class RecordModule {}

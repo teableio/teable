@@ -390,7 +390,8 @@ describe('StoredTableRecordQueryBuilder', () => {
       expect(sql).toContain('jsonb_exists_any');
       expect(sql).toContain('jsonb_path_query_array(COALESCE(to_jsonb("t"."col_owner")');
       expect(sql).toContain("'$.id'");
-      expect(sql).toContain('jsonb_path_query_array(COALESCE(to_jsonb("t"."col_assignees")');
+      expect(sql).toContain('jsonb_path_query_array(CASE');
+      expect(sql).toContain('jsonb_build_array(to_jsonb("t"."col_assignees"))');
       expect(sql).toContain("'$[*].id'");
     });
 

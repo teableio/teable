@@ -2,8 +2,16 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
-import { FieldKeyType, parseClipboardText } from '@teable/core';
+import {
+  CellValueType,
+  FieldKeyType,
+  FieldType,
+  Relationship,
+  isMeTag,
+  parseClipboardText,
+} from '@teable/core';
 import type { IFilter, IFilterSet } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IUpdateRecordRo,
   IFormSubmitRo,
@@ -29,25 +37,35 @@ import {
   executeUpdateRecordEndpoint,
   executeDuplicateRecordEndpoint,
   executeReorderRecordsEndpoint,
+  executeListTableRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
 import type {
   ICommandBus,
+  IExecutionContext,
+  IQueryBus,
   RecordFilter,
+  RecordFilterCondition,
+  RecordFilterDateValue,
   RecordFilterGroup,
   RecordFilterNode,
   RecordFilterOperator,
   RecordFilterValue,
 } from '@teable/v2-core';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
 import { FieldService } from '../../field/field.service';
+import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { SelectionService } from '../../selection/selection.service';
 import { TableService } from '../../table/table.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { V2_RECORD_PASTE_AUDIT_CONTEXT_KEY } from '../../v2/v2-audit-log.constants';
+import { RecordPermissionService } from '../record-permission.service';
 import { RecordService } from '../record.service';
 import { RecordOpenApiService } from './record-open-api.service';
 
@@ -79,7 +97,10 @@ export class RecordOpenApiV2Service {
     private readonly tableService: TableService,
     private readonly cls: ClsService<IClsStore>,
     private readonly fieldService: FieldService,
+    private readonly recordPermissionService: RecordPermissionService,
     private readonly aggregationService: AggregationService,
+    private readonly prismaService: PrismaService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @Inject(forwardRef(() => SelectionService))
     private readonly selectionService: SelectionService
   ) {}
@@ -98,6 +119,653 @@ export class RecordOpenApiV2Service {
       domainTags: error.tags,
       details: error.details,
     });
+  }
+
+  async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
+    if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
+      this.throwV2Error(
+        {
+          code: 'validation.invalid_filter',
+          message:
+            'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time',
+          tags: ['validation'],
+        },
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    const requestedFieldKeyType = query.fieldKeyType ?? FieldKeyType.Name;
+    const snapshotProjection = await this.resolveSnapshotProjection(
+      tableId,
+      query,
+      requestedFieldKeyType
+    );
+    const normalizedFilter = await this.normalizeFilterForV2(tableId, query.filter);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(query.groupBy, query.orderBy);
+    const normalizedSort = sortWithGroupFallback?.map((item) => ({
+      fieldId: item.fieldId,
+      order: item.order,
+    }));
+    const normalizedGroupBy = query.groupBy?.map((item) => item.fieldId);
+    const shouldApplySearchFilter = this.shouldApplySearchFilter(query.search);
+    const shouldUseBulkListPath =
+      this.shouldApplyAdvancedSelectionFilters(query) || shouldApplySearchFilter;
+    const queryExtra = this.shouldLoadQueryExtra(query)
+      ? await this.getQueryExtra(tableId, query)
+      : undefined;
+
+    const container = await this.v2ContainerService.getContainer();
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const context = await this.createV2ReadContext(tableId, query);
+    const shouldUseDocIdsPathForView = Boolean(query.viewId);
+
+    if (shouldUseDocIdsPathForView) {
+      const queryResult = await this.recordService.getDocIdsByQuery(
+        tableId,
+        {
+          ...query,
+          skip: query.skip,
+          take: query.take,
+        },
+        true
+      );
+
+      const recordIds = queryResult.ids;
+      const responseExtra = queryExtra ?? queryResult.extra;
+      if (!recordIds.length) {
+        return responseExtra ? { records: [], extra: responseExtra } : { records: [] };
+      }
+
+      const snapshots = await this.recordService.getSnapshotBulkWithPermission(
+        tableId,
+        recordIds,
+        snapshotProjection,
+        requestedFieldKeyType,
+        query.cellFormat,
+        true
+      );
+
+      if (snapshots.length !== recordIds.length) {
+        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      const snapshotMap = new Map(
+        snapshots.map((snapshot) => [snapshot.data.id, snapshot.data as IRecord])
+      );
+      const records = recordIds
+        .map((recordId) => snapshotMap.get(recordId))
+        .filter((record): record is IRecord => Boolean(record));
+
+      if (records.length !== recordIds.length) {
+        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      return responseExtra ? { records, extra: responseExtra } : { records };
+    }
+
+    if (shouldUseBulkListPath) {
+      const allRecords = await this.listAllTableRecordsFromV2(
+        tableId,
+        normalizedFilter ?? undefined,
+        normalizedSort,
+        normalizedGroupBy,
+        undefined,
+        context,
+        queryBus
+      );
+      let filteredRecordIds = allRecords.map((record) => record.id);
+
+      if (shouldApplySearchFilter) {
+        const searchMatchedRecordIds = await this.getSearchMatchedRecordIds(tableId, query);
+        const searchMatchedRecordIdSet = new Set(searchMatchedRecordIds);
+        filteredRecordIds = filteredRecordIds.filter((recordId) =>
+          searchMatchedRecordIdSet.has(recordId)
+        );
+      }
+
+      if (this.shouldApplyAdvancedSelectionFilters(query)) {
+        filteredRecordIds = await this.applyAdvancedSelectionFilters(
+          tableId,
+          query,
+          filteredRecordIds
+        );
+      }
+
+      const skip = query.skip ?? 0;
+      const take = query.take ?? 100;
+      const pagedRecordIds = filteredRecordIds.slice(skip, skip + take);
+
+      if (!pagedRecordIds.length) {
+        return queryExtra ? { records: [], extra: queryExtra } : { records: [] };
+      }
+
+      const snapshots = await this.recordService.getSnapshotBulkWithPermission(
+        tableId,
+        pagedRecordIds,
+        snapshotProjection,
+        requestedFieldKeyType,
+        query.cellFormat,
+        true
+      );
+
+      if (snapshots.length !== pagedRecordIds.length) {
+        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      const snapshotMap = new Map(
+        snapshots.map((snapshot) => [snapshot.data.id, snapshot.data as IRecord])
+      );
+      const orderedRecords = pagedRecordIds
+        .map((recordId) => snapshotMap.get(recordId))
+        .filter((record): record is IRecord => Boolean(record));
+
+      if (orderedRecords.length !== pagedRecordIds.length) {
+        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      const records = orderedRecords;
+      return queryExtra ? { records, extra: queryExtra } : { records };
+    }
+
+    const pageResult = await this.executeListRecordsEndpoint(
+      {
+        tableId,
+        // FieldKeyPipe has normalized request field keys to ids.
+        fieldKeyType: FieldKeyType.Id,
+        limit: query.take,
+        offset: query.skip,
+        ...(normalizedFilter ? { filter: normalizedFilter } : {}),
+        ...(normalizedSort?.length ? { sort: normalizedSort } : {}),
+        ...(normalizedGroupBy?.length ? { groupBy: normalizedGroupBy } : {}),
+      },
+      context,
+      queryBus
+    );
+    const orderedRecords = pageResult.records;
+
+    if (orderedRecords.length === 0) {
+      return queryExtra ? { records: [], extra: queryExtra } : { records: [] };
+    }
+
+    const recordIds = orderedRecords.map((record) => record.id);
+    const snapshots = await this.recordService.getSnapshotBulkWithPermission(
+      tableId,
+      recordIds,
+      snapshotProjection,
+      requestedFieldKeyType,
+      query.cellFormat,
+      true
+    );
+
+    if (snapshots.length !== recordIds.length) {
+      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    const snapshotMap = new Map(
+      snapshots.map((snapshot) => [snapshot.data.id, snapshot.data as IRecord])
+    );
+    const records = recordIds
+      .map((recordId) => snapshotMap.get(recordId))
+      .filter((record): record is IRecord => Boolean(record));
+
+    if (records.length !== recordIds.length) {
+      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return queryExtra ? { records, extra: queryExtra } : { records };
+  }
+
+  private toProjectionMap(fieldKeys?: string | string[]): Record<string, boolean> | undefined {
+    if (!fieldKeys) {
+      return undefined;
+    }
+    const keys = (Array.isArray(fieldKeys) ? fieldKeys : [fieldKeys]).filter(
+      (key): key is string => typeof key === 'string' && key.length > 0
+    );
+    if (!keys.length) {
+      return undefined;
+    }
+    return keys.reduce<Record<string, boolean>>((acc, key) => {
+      acc[key] = true;
+      return acc;
+    }, {});
+  }
+
+  private async resolveSnapshotProjection(
+    tableId: string,
+    query: IGetRecordsRo,
+    fieldKeyType: FieldKeyType
+  ): Promise<Record<string, boolean> | undefined> {
+    const explicitProjection = this.toProjectionMap(
+      query.projection as unknown as string | string[]
+    );
+    if (explicitProjection) {
+      return explicitProjection;
+    }
+
+    if (query.ignoreViewQuery || !query.viewId) {
+      return undefined;
+    }
+
+    const visibleFields = await this.fieldService.getFieldsByQuery(tableId, {
+      viewId: query.viewId,
+      filterHidden: true,
+    });
+
+    const projectionKeys = visibleFields
+      .map((field) => {
+        if (fieldKeyType === FieldKeyType.Id) {
+          return field.id;
+        }
+        if (fieldKeyType === FieldKeyType.Name) {
+          return field.name;
+        }
+        return field.dbFieldName || field.name;
+      })
+      .filter((key): key is string => Boolean(key));
+
+    return this.toProjectionMap(projectionKeys);
+  }
+
+  private async executeListRecordsEndpoint(
+    input: {
+      tableId: string;
+      fieldKeyType: FieldKeyType;
+      limit?: number;
+      offset?: number;
+      filter?: RecordFilter;
+      sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+      groupBy?: string[];
+      search?: [string, string, boolean?];
+    },
+    context: IExecutionContext,
+    queryBus: IQueryBus
+  ): Promise<{
+    records: Array<{ id: string; fields: Record<string, unknown> }>;
+    pagination: { hasMore: boolean };
+  }> {
+    const result = await executeListTableRecordsEndpoint(context, input, queryBus);
+    if (result.status === 200 && result.body.ok) {
+      return {
+        records: result.body.data.records as Array<{ id: string; fields: Record<string, unknown> }>,
+        pagination: {
+          hasMore: result.body.data.pagination.hasMore,
+        },
+      };
+    }
+
+    if (!result.body.ok) {
+      this.throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  private async createV2ReadContext(
+    tableId: string,
+    query: Pick<IGetRecordsRo, 'viewId' | 'ignoreViewQuery' | 'filterLinkCellSelected'>
+  ): Promise<IExecutionContext> {
+    const context = await this.v2ContextFactory.createContext();
+    const viewId = query.ignoreViewQuery ? undefined : query.viewId;
+    const readSource = await this.recordPermissionService.getReadQuerySource(tableId, {
+      viewId,
+      keepPrimaryKey: Boolean(query.filterLinkCellSelected),
+    });
+    if (!readSource) {
+      return context;
+    }
+    return {
+      ...context,
+      recordReadQuerySource: {
+        tableName: readSource.tableName,
+        cteName: readSource.cteName,
+        cteSql: readSource.cteSql,
+      },
+    } as IExecutionContext;
+  }
+
+  private async listAllTableRecordsFromV2(
+    tableId: string,
+    filter: RecordFilter | undefined,
+    sort: Array<{ fieldId: string; order: 'asc' | 'desc' }> | undefined,
+    groupBy: string[] | undefined,
+    search: [string, string, boolean?] | undefined,
+    context: IExecutionContext,
+    queryBus: IQueryBus
+  ): Promise<Array<{ id: string; fields: Record<string, unknown> }>> {
+    const pageSize = 1000;
+    let offset = 0;
+    const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
+
+    while (true) {
+      const page = await this.executeListRecordsEndpoint(
+        {
+          tableId,
+          fieldKeyType: FieldKeyType.Id,
+          limit: pageSize,
+          offset,
+          ...(filter ? { filter } : {}),
+          ...(sort?.length ? { sort } : {}),
+          ...(groupBy?.length ? { groupBy } : {}),
+          ...(search ? { search } : {}),
+        },
+        context,
+        queryBus
+      );
+      records.push(...page.records);
+      if (!page.pagination.hasMore || page.records.length === 0) {
+        break;
+      }
+      offset += page.records.length;
+    }
+
+    return records;
+  }
+
+  private shouldApplyAdvancedSelectionFilters(query: IGetRecordsRo): boolean {
+    return Boolean(
+      query.filterLinkCellCandidate ||
+        query.filterLinkCellSelected ||
+        query.selectedRecordIds?.length
+    );
+  }
+
+  private shouldApplySearchFilter(search: IGetRecordsRo['search']): boolean {
+    return Boolean(search?.[0] && search[2]);
+  }
+
+  private shouldLoadQueryExtra(query: IGetRecordsRo): boolean {
+    return Boolean(query.search || query.groupBy?.length || query.collapsedGroupIds?.length);
+  }
+
+  private async getSearchMatchedRecordIds(
+    tableId: string,
+    query: IGetRecordsRo
+  ): Promise<string[]> {
+    const result = await this.recordService.getDocIdsByQuery(
+      tableId,
+      {
+        fieldKeyType: FieldKeyType.Id,
+        ignoreViewQuery: query.ignoreViewQuery ?? false,
+        viewId: query.viewId,
+        filter: query.filter,
+        orderBy: query.orderBy,
+        search: query.search,
+        groupBy: query.groupBy,
+        collapsedGroupIds: query.collapsedGroupIds,
+        projection: query.projection,
+        skip: 0,
+        take: -1,
+      },
+      true
+    );
+    return result.ids;
+  }
+
+  private async getQueryExtra(
+    tableId: string,
+    query: IGetRecordsRo
+  ): Promise<IRecordsVo['extra'] | undefined> {
+    const result = await this.recordService.getDocIdsByQuery(
+      tableId,
+      {
+        fieldKeyType: FieldKeyType.Id,
+        ignoreViewQuery: query.ignoreViewQuery ?? false,
+        viewId: query.viewId,
+        filter: query.filter,
+        orderBy: query.orderBy,
+        search: query.search,
+        groupBy: query.groupBy,
+        collapsedGroupIds: query.collapsedGroupIds,
+        projection: query.projection,
+        skip: query.skip,
+        take: query.take,
+      },
+      true
+    );
+    return result.extra;
+  }
+
+  private async applyAdvancedSelectionFilters(
+    tableId: string,
+    query: IGetRecordsRo,
+    baseOrderedRecordIds: string[]
+  ): Promise<string[]> {
+    let orderedRecordIds = [...baseOrderedRecordIds];
+    let selectedOrder: string[] | undefined;
+
+    if (query.filterLinkCellSelected) {
+      const selected = await this.resolveSelectedRecordIds(tableId, query.filterLinkCellSelected);
+      const selectedSet = new Set(selected.ids);
+      orderedRecordIds = orderedRecordIds.filter((id) => selectedSet.has(id));
+      selectedOrder = selected.orderedIds;
+    }
+
+    if (query.filterLinkCellCandidate) {
+      const candidateIds = await this.resolveCandidateRecordIds(
+        tableId,
+        query.filterLinkCellCandidate
+      );
+      if (candidateIds) {
+        const candidateSet = new Set(candidateIds);
+        orderedRecordIds = orderedRecordIds.filter((id) => candidateSet.has(id));
+      }
+    }
+
+    if (query.selectedRecordIds?.length) {
+      const selectedSet = new Set(query.selectedRecordIds);
+      orderedRecordIds = query.filterLinkCellCandidate
+        ? orderedRecordIds.filter((id) => !selectedSet.has(id))
+        : orderedRecordIds.filter((id) => selectedSet.has(id));
+    }
+
+    if (selectedOrder?.length) {
+      const rank = new Map(selectedOrder.map((id, index) => [id, index]));
+      orderedRecordIds.sort(
+        (left, right) =>
+          (rank.get(left) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right) ?? Number.MAX_SAFE_INTEGER)
+      );
+    }
+
+    return orderedRecordIds;
+  }
+
+  private async resolveSelectedRecordIds(
+    tableId: string,
+    filterLinkCellSelected: [string, string] | string
+  ): Promise<{ ids: string[]; orderedIds?: string[] }> {
+    const fieldId = Array.isArray(filterLinkCellSelected)
+      ? filterLinkCellSelected[0]
+      : filterLinkCellSelected;
+    const recordId = Array.isArray(filterLinkCellSelected) ? filterLinkCellSelected[1] : undefined;
+    const { fieldRaw, options } = await this.resolveLinkFieldForCurrentTable(tableId, fieldId);
+    const currentTableDbName = await this.recordService.getDbTableName(tableId);
+
+    if (recordId) {
+      const orderedIds = await this.getLinkCellIds(fieldRaw, recordId);
+      return { ids: orderedIds, orderedIds };
+    }
+
+    if (options.fkHostTableName !== currentTableDbName) {
+      const ids = await this.runIdQuery(
+        this.knex(options.fkHostTableName)
+          .distinct({ id: options.foreignKeyName })
+          .whereNotNull(options.foreignKeyName)
+      );
+      return { ids };
+    }
+
+    const ids = await this.runIdQuery(
+      this.knex(currentTableDbName).distinct({ id: '__id' }).whereNotNull(options.selfKeyName)
+    );
+    return { ids };
+  }
+
+  private async resolveCandidateRecordIds(
+    tableId: string,
+    filterLinkCellCandidate: [string, string] | string
+  ): Promise<string[] | null> {
+    const fieldId = Array.isArray(filterLinkCellCandidate)
+      ? filterLinkCellCandidate[0]
+      : filterLinkCellCandidate;
+    const recordId = Array.isArray(filterLinkCellCandidate)
+      ? filterLinkCellCandidate[1]
+      : undefined;
+    const { options } = await this.resolveLinkFieldForCurrentTable(tableId, fieldId);
+    const currentTableDbName = await this.recordService.getDbTableName(tableId);
+    const baseQuery = this.knex(currentTableDbName).distinct({ id: '__id' });
+
+    if (options.relationship === Relationship.OneMany) {
+      if (this.isJunctionTable(options.fkHostTableName)) {
+        const subQuery = this.knex(options.fkHostTableName).select(options.foreignKeyName);
+        if (recordId) {
+          subQuery.whereNot(options.selfKeyName, recordId);
+        }
+        baseQuery.whereNotIn('__id', subQuery);
+      } else {
+        baseQuery.where((builder) => {
+          builder.whereNull(options.selfKeyName);
+          if (recordId) {
+            builder.orWhere(options.selfKeyName, recordId);
+          }
+        });
+      }
+      return this.runIdQuery(baseQuery);
+    }
+
+    if (options.relationship === Relationship.OneOne) {
+      if (options.selfKeyName === '__id') {
+        const subQuery = this.knex(options.fkHostTableName)
+          .select(options.foreignKeyName)
+          .whereNotNull(options.foreignKeyName);
+        if (recordId) {
+          subQuery.whereNot(options.selfKeyName, recordId);
+        }
+        baseQuery.whereNotIn('__id', subQuery);
+      } else {
+        baseQuery.where((builder) => {
+          builder.whereNull(options.selfKeyName);
+          if (recordId) {
+            builder.orWhere(options.selfKeyName, recordId);
+          }
+        });
+      }
+      return this.runIdQuery(baseQuery);
+    }
+
+    return null;
+  }
+
+  private isJunctionTable(dbTableName: string): boolean {
+    if (dbTableName.includes('.')) {
+      return dbTableName.split('.')[1]?.startsWith('junction') ?? false;
+    }
+    return dbTableName.split('_')[1]?.startsWith('junction') ?? false;
+  }
+
+  private async resolveLinkFieldForCurrentTable(
+    tableId: string,
+    fieldId: string
+  ): Promise<{
+    fieldRaw: Record<string, unknown> & { tableId: string; dbFieldName: string };
+    options: {
+      relationship: Relationship;
+      foreignTableId: string;
+      fkHostTableName: string;
+      selfKeyName: string;
+      foreignKeyName: string;
+    };
+  }> {
+    const fieldRaw = await this.prismaService.txClient().field.findFirst({
+      where: { id: fieldId, deletedTime: null },
+    });
+
+    if (!fieldRaw) {
+      this.throwV2Error(
+        {
+          code: 'resource.not_found',
+          message: `Field ${fieldId} not found`,
+          tags: ['resource'],
+        },
+        HttpStatus.NOT_FOUND
+      );
+    }
+
+    const field = createFieldInstanceByRaw(fieldRaw as never);
+    if (field.type !== FieldType.Link) {
+      this.throwV2Error(
+        {
+          code: 'validation.invalid_filter',
+          message: 'You can only filter by link field',
+          tags: ['validation'],
+        },
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    const options = field.options as {
+      relationship: Relationship;
+      foreignTableId: string;
+      fkHostTableName: string;
+      selfKeyName: string;
+      foreignKeyName: string;
+    };
+    if (options.foreignTableId !== tableId) {
+      this.throwV2Error(
+        {
+          code: 'validation.invalid_filter',
+          message: 'Field is not linked to current table',
+          tags: ['validation'],
+        },
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    return { fieldRaw, options };
+  }
+
+  private async getLinkCellIds(
+    fieldRaw: Record<string, unknown> & { tableId: string; dbFieldName: string },
+    recordId: string
+  ): Promise<string[]> {
+    const field = createFieldInstanceByRaw(fieldRaw as never);
+    const dbTableName = await this.recordService.getDbTableName(fieldRaw.tableId);
+    const sqlNative = this.knex(dbTableName)
+      .select(field.dbFieldName)
+      .where('__id', recordId)
+      .limit(1)
+      .toSQL()
+      .toNative();
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ [key: string]: unknown }[]>(sqlNative.sql, ...sqlNative.bindings);
+    if (!rows.length) {
+      return [];
+    }
+
+    const rawValue = rows[0]?.[field.dbFieldName];
+    const value = field.convertDBValue2CellValue(rawValue) as
+      | { id: string }
+      | Array<{ id: string }>
+      | null
+      | undefined;
+    if (!value) {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => item.id).filter((id): id is string => typeof id === 'string');
+    }
+    return typeof value.id === 'string' ? [value.id] : [];
+  }
+
+  private async runIdQuery(queryBuilder: Knex.QueryBuilder): Promise<string[]> {
+    const sqlNative = queryBuilder.toSQL().toNative();
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<Array<{ id?: string; __id?: string }>>(sqlNative.sql, ...sqlNative.bindings);
+    return rows
+      .map((row) => row.id ?? row.__id)
+      .filter((id): id is string => typeof id === 'string');
   }
 
   async updateRecord(
@@ -380,7 +1048,11 @@ export class RecordOpenApiV2Service {
     const container = await this.v2ContainerService.getContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext();
-    const userId = this.cls.get('user.id');
+    (
+      context as IExecutionContext & {
+        [V2_RECORD_PASTE_AUDIT_CONTEXT_KEY]?: boolean;
+      }
+    )[V2_RECORD_PASTE_AUDIT_CONTEXT_KEY] = true;
     const windowId = options?.windowId;
     const tracer = trace.getTracer('default');
 
@@ -540,9 +1212,9 @@ export class RecordOpenApiV2Service {
           options: field.options,
         }));
 
-        const normalizedFilter = this.mapV1FilterToV2(queryRo.filter);
+        const normalizedFilter = await this.normalizeFilterForV2(tableId, queryRo.filter);
         const normalizedUpdateFilter = options?.updateFilter
-          ? this.mapV1FilterToV2(options.updateFilter)
+          ? await this.normalizeFilterForV2(tableId, options.updateFilter)
           : undefined;
         const sortWithGroupFallback = this.mergeGroupByIntoSort(
           rangeQuery.groupBy,
@@ -698,7 +1370,7 @@ export class RecordOpenApiV2Service {
     const context = await this.v2ContextFactory.createContext();
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
-    const normalizedFilter = this.mapV1FilterToV2(rangeQuery.filter);
+    const normalizedFilter = await this.normalizeFilterForV2(tableId, rangeQuery.filter);
     const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
     const v2Input = {
       tableId,
@@ -826,7 +1498,7 @@ export class RecordOpenApiV2Service {
       viewId: rangeQuery.viewId,
       ranges: rangesRo.ranges,
       type: rangesRo.type,
-      filter: this.mapV1FilterToV2(rangeQuery.filter),
+      filter: await this.normalizeFilterForV2(tableId, rangeQuery.filter),
       sort: sortWithGroupFallback?.map((item) => ({
         fieldId: item.fieldId,
         order: item.order,
@@ -1014,10 +1686,199 @@ export class RecordOpenApiV2Service {
     return [searchValue, fieldId, hideNotMatch];
   }
 
+  private mergeFilterWithSearchFilter(
+    filter: RecordFilter | undefined | null,
+    searchFilter: RecordFilter | undefined
+  ): RecordFilter | undefined {
+    if (!searchFilter) {
+      return filter ?? undefined;
+    }
+
+    if (!filter) {
+      return searchFilter;
+    }
+
+    if (
+      typeof filter === 'object' &&
+      filter != null &&
+      'conjunction' in filter &&
+      filter.conjunction === 'and' &&
+      'items' in filter &&
+      Array.isArray(filter.items)
+    ) {
+      return {
+        ...filter,
+        items: [...filter.items, searchFilter],
+      } as RecordFilterGroup;
+    }
+
+    return {
+      conjunction: 'and',
+      items: [filter, searchFilter],
+    } as RecordFilterGroup;
+  }
+
+  private async buildListSearchFilter(
+    tableId: string,
+    query: IGetRecordsRo
+  ): Promise<RecordFilter | undefined> {
+    const search = query.search;
+    if (!search) {
+      return undefined;
+    }
+
+    const [searchValue, fieldKeys, hideNotMatch] = search;
+    if (!hideNotMatch) {
+      // Keep v1 behavior: only highlight search text when hideNotMatchRow is false.
+      return undefined;
+    }
+
+    const fields = await this.fieldService.getFieldInstances(tableId, {
+      viewId: query.ignoreViewQuery ? undefined : query.viewId,
+      filterHidden: true,
+    });
+
+    const searchFieldMap = fields.reduce<Record<string, (typeof fields)[number]>>((acc, field) => {
+      acc[field.id] = field;
+      acc[field.name] = field;
+      if (field.dbFieldName) {
+        acc[field.dbFieldName] = field;
+      }
+      return acc;
+    }, {});
+
+    const searchableFields = await this.recordService.getSearchFields(
+      searchFieldMap as never,
+      [searchValue, fieldKeys, hideNotMatch],
+      query.ignoreViewQuery ? undefined : query.viewId
+    );
+
+    const conditions = searchableFields.map<RecordFilterCondition>((field) => ({
+      fieldId: field.id,
+      operator: 'contains',
+      value: searchValue as RecordFilterValue,
+    }));
+
+    if (!conditions.length) {
+      return undefined;
+    }
+
+    if (conditions.length === 1) {
+      return conditions[0];
+    }
+
+    return {
+      conjunction: 'or',
+      items: conditions,
+    } as RecordFilterGroup;
+  }
+
+  private async normalizeFilterForV2(
+    tableId: string,
+    filter: unknown
+  ): Promise<RecordFilter | undefined | null> {
+    const mapped = this.mapV1FilterToV2(filter);
+    if (!mapped) {
+      return mapped;
+    }
+
+    const fields = await this.fieldService.getFieldInstances(tableId, { filterHidden: true });
+    const fieldMetaMap = new Map(
+      fields.map((field) => [
+        field.id,
+        {
+          type: field.type,
+          cellValueType: field.cellValueType,
+        },
+      ])
+    );
+    const currentUserId = this.cls.get('user.id');
+
+    const normalizeNode = (node: RecordFilterNode): RecordFilterNode | null => {
+      if ('not' in node) {
+        const next = normalizeNode(node.not);
+        if (!next) return null;
+        return { not: next };
+      }
+
+      if ('items' in node) {
+        const items = node.items
+          .map((item) => normalizeNode(item))
+          .filter((item): item is RecordFilterNode => Boolean(item));
+        if (!items.length) return null;
+        return { conjunction: node.conjunction, items };
+      }
+
+      const operator = node.operator as RecordFilterOperator;
+      const operatorsExpectingNull: ReadonlySet<RecordFilterOperator> = new Set([
+        'isEmpty',
+        'isNotEmpty',
+      ]);
+      const operatorsExpectingArray: ReadonlySet<RecordFilterOperator> = new Set([
+        'isAnyOf',
+        'isNoneOf',
+        'hasAnyOf',
+        'hasAllOf',
+        'isNotExactly',
+        'hasNoneOf',
+        'isExactly',
+      ]);
+      const fieldMeta = fieldMetaMap.get(node.fieldId);
+      let value = node.value as RecordFilterValue;
+
+      if (operatorsExpectingNull.has(operator)) {
+        if (value !== null) return null;
+        return { ...node, value: null };
+      }
+
+      if (value == null) {
+        const isCheckboxField =
+          fieldMeta?.type === FieldType.Checkbox ||
+          fieldMeta?.cellValueType === CellValueType.Boolean;
+        if (operator === 'is' && isCheckboxField) {
+          value = false;
+        } else {
+          return null;
+        }
+      }
+
+      if (
+        currentUserId &&
+        fieldMeta &&
+        [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(
+          fieldMeta.type as FieldType
+        )
+      ) {
+        if (Array.isArray(value)) {
+          value = value.map((entry) =>
+            typeof entry === 'string' && isMeTag(entry) ? currentUserId : entry
+          ) as RecordFilterValue;
+        } else if (typeof value === 'string' && isMeTag(value)) {
+          value = currentUserId as RecordFilterValue;
+        }
+      }
+
+      if (operatorsExpectingArray.has(operator)) {
+        if (!Array.isArray(value) && !this.isRecordFilterFieldReferenceValue(value)) {
+          value = [value] as RecordFilterValue;
+        }
+        if (Array.isArray(value) && value.length === 0) return null;
+      }
+
+      return {
+        ...node,
+        value,
+      };
+    };
+
+    const normalized = normalizeNode(mapped);
+    return normalized ?? undefined;
+  }
+
   private mapV1FilterToV2(filter: unknown): RecordFilter | undefined | null {
     if (filter === undefined) return undefined;
     if (filter === null) return null;
-    if (this.isV2FilterNode(filter)) return filter as RecordFilter;
+    if (this.isV2FilterNode(filter)) return this.normalizeV2FilterNode(filter);
     if (this.isV1FilterGroup(filter)) return this.mapV1FilterGroup(filter);
     if (this.isV1FilterItem(filter)) return this.mapV1FilterItem(filter);
     return undefined;
@@ -1064,9 +1925,9 @@ export class RecordOpenApiV2Service {
 
   private mapV1FilterEntry(entry: unknown): RecordFilterNode | null {
     if (entry === null || entry === undefined) return null;
-    if (this.isV2FilterNode(entry)) return entry as RecordFilterNode;
     if (this.isV1FilterGroup(entry)) return this.mapV1FilterGroup(entry);
     if (this.isV1FilterItem(entry)) return this.mapV1FilterItem(entry);
+    if (this.isV2FilterNode(entry)) return this.normalizeV2FilterNode(entry);
     return null;
   }
 
@@ -1075,15 +1936,70 @@ export class RecordOpenApiV2Service {
     operator: string;
     value?: unknown;
     isSymbol?: boolean;
-  }): RecordFilterNode {
+  }): RecordFilterNode | null {
     const operator = this.normalizeV1Operator(
       filter.operator,
       filter.isSymbol
     ) as RecordFilterOperator;
+    const rawValue = 'value' in filter ? filter.value : null;
+    const legacyDateRangeCondition = this.mapLegacyDateRangeCondition(
+      filter.fieldId,
+      operator,
+      rawValue
+    );
+    if (legacyDateRangeCondition) return legacyDateRangeCondition;
+
+    const operatorsExpectingNull: ReadonlySet<RecordFilterOperator> = new Set([
+      'isEmpty',
+      'isNotEmpty',
+    ]);
+    const operatorsExpectingArray: ReadonlySet<RecordFilterOperator> = new Set([
+      'isAnyOf',
+      'isNoneOf',
+      'hasAnyOf',
+      'hasAllOf',
+      'isNotExactly',
+      'hasNoneOf',
+      'isExactly',
+    ]);
+
+    if (operatorsExpectingNull.has(operator)) {
+      return {
+        fieldId: filter.fieldId,
+        operator,
+        value: null,
+      };
+    }
+
+    if (operatorsExpectingArray.has(operator)) {
+      let value = rawValue;
+      if (value == null) return null;
+      if (!Array.isArray(value) && !this.isRecordFilterFieldReferenceValue(value)) {
+        value = [value];
+      }
+      if (Array.isArray(value) && value.length === 0) return null;
+      return {
+        fieldId: filter.fieldId,
+        operator,
+        value: value as RecordFilterValue,
+      };
+    }
+
+    if (rawValue == null) {
+      if (operator === 'is') {
+        return {
+          fieldId: filter.fieldId,
+          operator,
+          value: null,
+        };
+      }
+      return null;
+    }
+
     return {
       fieldId: filter.fieldId,
       operator,
-      value: ('value' in filter ? filter.value ?? null : null) as RecordFilterValue,
+      value: rawValue as RecordFilterValue,
     };
   }
 
@@ -1092,6 +2008,145 @@ export class RecordOpenApiV2Service {
     if (mapped) return mapped;
     if (isSymbol) return operator;
     return operator;
+  }
+
+  private mapLegacyDateRangeCondition(
+    fieldId: string,
+    operator: RecordFilterOperator,
+    value: unknown
+  ): RecordFilterNode | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+    const record = value as Record<string, unknown>;
+    if (record.mode !== 'dateRange') return null;
+
+    if (operator !== 'is' && operator !== 'isWithIn') {
+      this.throwV2Error(
+        {
+          code: 'validation.invalid_filter',
+          message: 'dateRange mode only supports is/isWithIn operators',
+          tags: ['validation'],
+        },
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    const exactDate = record.exactDate;
+    const exactDateEnd = record.exactDateEnd;
+    const timeZone = record.timeZone;
+    if (
+      typeof exactDate !== 'string' ||
+      typeof exactDateEnd !== 'string' ||
+      typeof timeZone !== 'string'
+    ) {
+      return null;
+    }
+
+    const startTimestamp = Date.parse(exactDate);
+    const endTimestamp = Date.parse(exactDateEnd);
+    if (!Number.isFinite(startTimestamp) || !Number.isFinite(endTimestamp)) {
+      return null;
+    }
+    if (startTimestamp > endTimestamp) {
+      this.throwV2Error(
+        {
+          code: 'validation.invalid_filter',
+          message: 'dateRange exactDate must be less than or equal to exactDateEnd',
+          tags: ['validation'],
+          details: { fieldId, exactDate, exactDateEnd },
+        },
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    return {
+      conjunction: 'and',
+      items: [
+        {
+          fieldId,
+          operator: 'isOnOrAfter',
+          value: {
+            mode: 'exactDate',
+            exactDate,
+            timeZone,
+          } as RecordFilterDateValue,
+        },
+        {
+          fieldId,
+          operator: 'isOnOrBefore',
+          value: {
+            mode: 'exactDate',
+            exactDate: exactDateEnd,
+            timeZone,
+          } as RecordFilterDateValue,
+        },
+      ],
+    };
+  }
+
+  private normalizeV2FilterNode(filter: RecordFilterNode): RecordFilterNode | null {
+    if ('not' in filter) {
+      const next = this.normalizeV2FilterNode(filter.not);
+      if (!next) return null;
+      return { not: next };
+    }
+
+    if ('items' in filter) {
+      const items = filter.items
+        .map((item) => this.normalizeV2FilterNode(item))
+        .filter((item): item is RecordFilterNode => Boolean(item));
+      if (!items.length) return null;
+      return { conjunction: filter.conjunction, items };
+    }
+
+    const operator = filter.operator as RecordFilterOperator;
+    const value = filter.value as RecordFilterValue;
+    const legacyDateRangeCondition = this.mapLegacyDateRangeCondition(
+      filter.fieldId,
+      operator,
+      value
+    );
+    if (legacyDateRangeCondition) return legacyDateRangeCondition;
+
+    const operatorsExpectingNull: ReadonlySet<RecordFilterOperator> = new Set([
+      'isEmpty',
+      'isNotEmpty',
+    ]);
+    const operatorsExpectingArray: ReadonlySet<RecordFilterOperator> = new Set([
+      'isAnyOf',
+      'isNoneOf',
+      'hasAnyOf',
+      'hasAllOf',
+      'isNotExactly',
+      'hasNoneOf',
+      'isExactly',
+    ]);
+
+    if (operatorsExpectingNull.has(operator)) {
+      if (value !== null) return null;
+      return filter;
+    }
+
+    if (operatorsExpectingArray.has(operator)) {
+      if (value == null) return null;
+      if (Array.isArray(value) && value.length === 0) return null;
+      return filter;
+    }
+
+    if (value == null) {
+      if (operator === 'is') return filter;
+      return null;
+    }
+    return filter;
+  }
+
+  private isRecordFilterFieldReferenceValue(value: unknown): value is {
+    fieldId: string;
+    type: 'field';
+  } {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const record = value as Record<string, unknown>;
+    return record.type === 'field' && typeof record.fieldId === 'string';
   }
 
   async duplicateRecord(

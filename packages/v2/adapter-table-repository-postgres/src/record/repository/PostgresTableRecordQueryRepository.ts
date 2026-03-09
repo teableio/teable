@@ -28,8 +28,8 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import { CompiledQuery, sql } from 'kysely';
 import type { Expression, Kysely, SqlBool } from 'kysely';
-import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -52,6 +52,16 @@ const ORDER_COLUMN_CACHE_TTL_MS = 5_000;
 type OrderColumnExistsCacheEntry = {
   exists: boolean;
   cachedAt: number;
+};
+
+type IRecordReadQuerySource = {
+  tableName: string;
+  cteName: string;
+  cteSql: string;
+};
+
+type IExecutionContextWithRecordReadQuerySource = IExecutionContext & {
+  recordReadQuerySource?: IRecordReadQuerySource;
 };
 
 @injectable()
@@ -82,9 +92,11 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     const executeFind = async (): Promise<Result<ITableRecordQueryResult, DomainError>> => {
       return await safeTry<ITableRecordQueryResult, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
+          const readQuerySource = this.getRecordReadQuerySource(context);
           // Create query builder via manager (it handles prepare)
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: resolveQueryMode(table, options?.mode),
+            sourceTableName: readQuerySource?.tableName,
           });
 
           if (options?.projectionFieldIds?.length) {
@@ -93,6 +105,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
 
           const dbTableName = yield* table.dbTableName();
           const tableName = yield* dbTableName.value();
+          const sourceTableName = readQuerySource?.tableName ?? tableName;
           const [schemaName, tableNameOnly] = tableName.split('.');
           const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
 
@@ -173,7 +186,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             }
           }
 
-          const compiled = builtQuery.compile();
+          const compiled = this.withRecordReadQuerySource(builtQuery.compile(), readQuerySource);
           this.logger.debug(`find:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
             parameters: compiled.parameters,
           });
@@ -186,15 +199,24 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
 
           try {
             const shouldQueryTotal = options?.includeTotal !== false;
-            const rowsPromise = builtQuery.execute();
+            const rowsPromise = dynamicDb
+              .executeQuery<Record<string, unknown>>(compiled)
+              .then((result) => result.rows);
             const countPromise = shouldQueryTotal
               ? dynamicDb
-                  .selectFrom(`${tableName} as ${TABLE_ALIAS}`)
-                  .select(sql<string>`count(*)`.as('count'))
-                  .$if(whereClause.value !== null, (qb) =>
-                    qb.where(whereClause.value as Expression<SqlBool>)
+                  .executeQuery<{ count: string }>(
+                    this.withRecordReadQuerySource(
+                      dynamicDb
+                        .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
+                        .select(sql<string>`count(*)`.as('count'))
+                        .$if(whereClause.value !== null, (qb) =>
+                          qb.where(whereClause.value as Expression<SqlBool>)
+                        )
+                        .compile(),
+                      readQuerySource
+                    )
                   )
-                  .executeTakeFirstOrThrow()
+                  .then((result) => result.rows[0] ?? { count: '0' })
               : Promise.resolve<{ count: string }>({ count: '0' });
 
             const [rows, countResult] = await Promise.all([rowsPromise, countPromise]);
@@ -233,9 +255,11 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     const executeFindOne = async (): Promise<Result<TableRecordReadModel, DomainError>> => {
       return await safeTry<TableRecordReadModel, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
+          const readQuerySource = this.getRecordReadQuerySource(context);
           // Create query builder via manager
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: resolveQueryMode(table, options?.mode),
+            sourceTableName: readQuerySource?.tableName,
           });
 
           // Filter by record ID via specification
@@ -271,7 +295,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             }
           }
 
-          const compiled = builtQuery.compile();
+          const compiled = this.withRecordReadQuerySource(builtQuery.compile(), readQuerySource);
           this.logger.debug(`findOne:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
             parameters: compiled.parameters,
           });
@@ -280,7 +304,8 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
 
           try {
-            const rows = await builtQuery.execute();
+            const rows = (await (this.db as unknown as Kysely<DynamicDB>).executeQuery(compiled))
+              .rows;
 
             if (rows.length === 0) {
               return err(
@@ -434,6 +459,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       async function* (this: PostgresTableRecordQueryRepository) {
         const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
           mode: resolveQueryMode(table, options?.mode),
+          sourceTableName: this.getRecordReadQuerySource(context)?.tableName,
         });
 
         if (!isCursorOrderBySupported(options?.orderBy)) {
@@ -469,7 +495,10 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           );
         }
 
-        const compiled = builtQuery.compile();
+        const compiled = this.withRecordReadQuerySource(
+          builtQuery.compile(),
+          this.getRecordReadQuerySource(context)
+        );
         this.logger.debug(`findStream:mode:${queryBuilder.mode}:cursor:sql\n${compiled.sql}`, {
           parameters: compiled.parameters,
         });
@@ -480,7 +509,8 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
         );
 
         try {
-          const rows = await builtQuery.execute();
+          const rows = (await (this.db as unknown as Kysely<DynamicDB>).executeQuery(compiled))
+            .rows;
           const records = mapRowsToReadModels(fieldColumns, rows, []);
           return ok(records);
         } catch (error) {
@@ -527,6 +557,40 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       cachedAt: now,
     });
     return exists;
+  }
+
+  private getRecordReadQuerySource(context: IExecutionContext): IRecordReadQuerySource | undefined {
+    const source = (context as IExecutionContextWithRecordReadQuerySource).recordReadQuerySource;
+    if (!source) {
+      return undefined;
+    }
+    if (
+      typeof source.tableName !== 'string' ||
+      typeof source.cteName !== 'string' ||
+      typeof source.cteSql !== 'string'
+    ) {
+      return undefined;
+    }
+    return source;
+  }
+
+  private withRecordReadQuerySource<O>(
+    compiled: CompiledQuery<O>,
+    source?: IRecordReadQuerySource
+  ): CompiledQuery<O> {
+    if (!source) {
+      return compiled;
+    }
+    const cteName = source.cteName.trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(cteName)) {
+      this.logger.warn('Skip invalid record read CTE name', {
+        cteName,
+      });
+      return compiled;
+    }
+    const escapedName = cteName.replace(/"/g, '""');
+    const sqlWithCte = `with "${escapedName}" as (${source.cteSql}) ${compiled.sql}`;
+    return CompiledQuery.raw(sqlWithCte, Array.from(compiled.parameters)) as CompiledQuery<O>;
   }
 }
 
