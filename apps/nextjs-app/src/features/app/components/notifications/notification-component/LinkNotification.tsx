@@ -18,11 +18,11 @@ const getShowMessage = (data: INotificationVo['notifications'][number], t: ILoca
       return message;
     }
     const parsedMessage = JSON.parse(messageI18n);
-    const { i18nKey = '', context } = parsedMessage as ILocalization;
+    const { i18nKey = '', context = {} } = parsedMessage as ILocalization;
     if (!i18nKey) {
       return message;
     }
-    return getLocalizationMessage({ i18nKey, context }, t, 'common');
+    return getLocalizationMessage({ i18nKey, context: { spaceName: '', ...context } }, t, 'common');
   } catch (error) {
     return message;
   }

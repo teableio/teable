@@ -1158,26 +1158,26 @@
           "title": "账单通知",
           "credit": {
             "warning80": {
-              "title": "AI 算力：已使用 80%",
+              "title": "空间 {{spaceName}} AI 算力已使用 80%",
               "message": "您的空间已使用 80% 的 AI 算力。请考虑升级或购买更多算力。"
             },
             "warning90": {
-              "title": "AI 算力：已使用 90%",
+              "title": "空间 {{spaceName}} AI 算力已使用 90%",
               "message": "您的空间已使用 90% 的 AI 算力。请尽快升级以避免中断。"
             }
           },
           "automationRun": {
             "warning80": {
-              "title": "自动化运行次数：已使用 80% 配额",
+              "title": "空间 {{spaceName}} 自动化运行次数已使用 80% 配额",
               "message": "您的空间已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（80%）。请考虑升级订阅。"
             },
             "warning90": {
-              "title": "自动化运行次数：已使用 90% 配额",
+              "title": "空间 {{spaceName}} 自动化运行次数已使用 90% 配额",
               "message": "您的空间已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（90%）。请尽快升级以避免中断。"
             },
             "gracePeriod": {
-              "title": "自动化运行次数已超限 - 宽限期生效中",
-              "message": "您的自动化运行配额已超出。自动化将在接下来的 {{remainingHours}} 小时内继续运行。请升级订阅。"
+              "title": "空间 {{spaceName}} 自动化运行次数已超限 - 宽限期生效中",
+              "message": "您的自动化运行配额已超出。自动化将在接下来的 {{remainingHours}} 小时后停止运行并关闭。请升级订阅。"
             }
           }
         },

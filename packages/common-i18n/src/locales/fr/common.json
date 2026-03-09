@@ -860,26 +860,26 @@
           "title": "Notification de facturation",
           "credit": {
             "warning80": {
-              "title": "Crédits IA : 80 % utilisés",
+              "title": "Espace {{spaceName}} crédits IA 80 % utilisés",
               "message": "Votre espace a utilisé 80 % des crédits IA. Envisagez de mettre à niveau ou d'acheter des crédits supplémentaires."
             },
             "warning90": {
-              "title": "Crédits IA : 90 % utilisés",
+              "title": "Espace {{spaceName}} crédits IA 90 % utilisés",
               "message": "Votre espace a utilisé 90 % des crédits IA. Mettez à niveau bientôt pour éviter les interruptions."
             }
           },
           "automationRun": {
             "warning80": {
-              "title": "Exécutions d'automatisation : 80 % du quota utilisé",
+              "title": "Espace {{spaceName}} exécutions d'automatisation 80 % du quota utilisé",
               "message": "Votre espace a utilisé {{usedRuns}} sur {{totalLimit}} exécutions d'automatisation (80 %). Envisagez de mettre à niveau votre plan."
             },
             "warning90": {
-              "title": "Exécutions d'automatisation : 90 % du quota utilisé",
+              "title": "Espace {{spaceName}} exécutions d'automatisation 90 % du quota utilisé",
               "message": "Votre espace a utilisé {{usedRuns}} sur {{totalLimit}} exécutions d'automatisation (90 %). Mettez à niveau bientôt pour éviter les interruptions."
             },
             "gracePeriod": {
-              "title": "Exécutions d'automatisation dépassées - période de grâce active",
-              "message": "Votre quota d'exécutions d'automatisation a été dépassé. Les automatisations continueront de fonctionner pendant encore {{remainingHours}} heures. Veuillez mettre à niveau votre plan."
+              "title": "Espace {{spaceName}} exécutions d'automatisation dépassées - période de grâce active",
+              "message": "Votre quota d'exécutions d'automatisation a été dépassé. Les automatisations cesseront de fonctionner et seront désactivées dans {{remainingHours}} heures. Veuillez mettre à niveau votre plan."
             }
           }
         },
