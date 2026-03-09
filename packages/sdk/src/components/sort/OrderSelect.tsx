@@ -122,7 +122,7 @@ function OrderSelect(props: IOrderProps) {
 
   return (
     <Select value={value} onValueChange={onSelect}>
-      <SelectTrigger className={cn('mx-2 h-8 w-32', triggerClassName)}>
+      <SelectTrigger className={cn('mx-2 w-32', triggerClassName)}>
         <SelectValue placeholder={t('common.selectPlaceHolder')} />
       </SelectTrigger>
       <SelectContent>

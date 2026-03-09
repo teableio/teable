@@ -35,7 +35,8 @@ export const GoalLineEditor = (props: {
           <ConfigItem label={t('form.value')}>
             <Input
               type="number"
-              className="h-7 text-[13px]"
+              className="text-[13px]"
+              size="sm"
               value={number || ''}
               onBlur={() =>
                 onChange({
@@ -51,7 +52,8 @@ export const GoalLineEditor = (props: {
           </ConfigItem>
           <ConfigItem label={t('form.label')}>
             <Input
-              className="h-7 text-[13px]"
+              className="text-[13px]"
+              size="sm"
               value={text || ''}
               onBlur={() =>
                 onChange({

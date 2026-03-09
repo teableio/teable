@@ -48,8 +48,7 @@ export const TextEditor = (props: ITextEditorProps) => {
         <div className="flex flex-1 items-center gap-2">
           <Input
             value={currentValue}
-            size={12}
-            className="h-8 flex-1"
+            className="flex-1"
             maxLength={maxLength}
             onChange={(e) => {
               setCurrentValue(e.target.value);

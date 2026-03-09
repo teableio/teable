@@ -305,7 +305,7 @@ export function UnderlyingDataPanel({ tableId }: UnderlyingDataPanelProps) {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>Rows per page:</span>
                     <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
-                      <SelectTrigger className="h-8 w-[70px]">
+                      <SelectTrigger className="w-[70px]">
                         <SelectValue placeholder={pageSize.toString()} />
                       </SelectTrigger>
                       <SelectContent>

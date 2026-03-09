@@ -16,7 +16,7 @@ export const DbFieldName: React.FC<{
         <Input
           placeholder={t('table:field.editor.dbFieldName')}
           type="text"
-          className="h-9"
+          size="lg"
           value={field['dbFieldName'] || ''}
           data-1p-ignore="true"
           autoComplete="off"

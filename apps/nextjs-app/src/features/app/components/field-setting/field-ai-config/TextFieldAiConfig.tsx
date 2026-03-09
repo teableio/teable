@@ -153,7 +153,6 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
           </span>
           <Input
             type="text"
-            className="w-full"
             placeholder={t('table:field.aiConfig.placeholder.targetLanguage')}
             value={(aiConfig as ITextFieldTranslateAIConfig)?.targetLanguage || ''}
             onChange={(e) => {

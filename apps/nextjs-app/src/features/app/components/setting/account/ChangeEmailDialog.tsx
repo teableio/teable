@@ -130,7 +130,7 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
               {t('settings.account.changeEmail.current')}
             </Label>
             <Input
-              className="h-7"
+              size="sm"
               id="currentPassword"
               autoComplete="current-password"
               type="password"
@@ -144,7 +144,7 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
               {t('settings.account.changeEmail.new')}
             </Label>
             <Input
-              className="h-7"
+              size="sm"
               id="newEmail"
               autoComplete="new-email"
               type="email"
@@ -174,7 +174,7 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
               </Button>
             </div>
             <Input
-              className="h-7"
+              size="sm"
               id="code"
               type="text"
               value={code}

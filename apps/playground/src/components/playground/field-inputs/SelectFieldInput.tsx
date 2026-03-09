@@ -60,7 +60,7 @@ function SingleSelectInput({
       onValueChange={(val) => onChange(val || null)}
       disabled={disabled}
     >
-      <SelectTrigger className="w-full">
+      <SelectTrigger size="lg">
         <SelectValue
           placeholder={`Select ${fieldName.toLowerCase()}${isRequired ? '' : ' (optional)'}`}
         />

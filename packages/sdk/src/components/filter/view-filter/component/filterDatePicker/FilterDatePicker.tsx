@@ -147,7 +147,7 @@ const NumberInput = memo(function NumberInput({ innerValue, onSelect }: INumberI
     <Input
       placeholder={t('filter.default.placeholder')}
       defaultValue={innerValue?.numberOfDays ?? ''}
-      className="h-8 w-24 placeholder:text-xs"
+      className="w-24 placeholder:text-xs"
       onInput={handleInput}
       onChange={handleChange}
     />

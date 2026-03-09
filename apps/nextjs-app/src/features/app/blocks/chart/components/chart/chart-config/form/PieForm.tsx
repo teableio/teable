@@ -56,7 +56,8 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
               <PopoverContent className="space-y-4">
                 <ConfigItem label={t('form.decimal')}>
                   <Input
-                    className="h-7 text-[13px]"
+                    className="text-[13px]"
+                    size="sm"
                     type="number"
                     step={1}
                     value={decimal ?? ''}
@@ -80,7 +81,8 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
                 </ConfigItem>
                 <ConfigItem label={t('form.prefix')}>
                   <Input
-                    className="h-7 text-[13px]"
+                    className="text-[13px]"
+                    size="sm"
                     value={prefix ?? ''}
                     onBlur={() => {
                       onChange({
@@ -98,7 +100,8 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
                 </ConfigItem>
                 <ConfigItem label={t('form.suffix')}>
                   <Input
-                    className="h-7 text-[13px]"
+                    className="text-[13px]"
+                    size="sm"
                     value={suffix ?? ''}
                     onBlur={() => {
                       onChange({

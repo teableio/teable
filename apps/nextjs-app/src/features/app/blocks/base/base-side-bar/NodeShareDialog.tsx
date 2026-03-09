@@ -571,7 +571,7 @@ const NodeShareContent = ({
             <DialogTitle>{t('table:toolbar.others.share.passwordTitle')}</DialogTitle>
           </DialogHeader>
           <Input
-            className="h-9"
+            size="lg"
             type="password"
             value={sharePassword}
             onChange={(e) => setSharePassword(e.target.value)}

@@ -16,7 +16,8 @@ export const PaddingEditor = (props: {
         <Label className="w-14 text-right text-xs">{t('form.padding.top')}</Label>
         <Input
           type="number"
-          className="h-7 text-[13px]"
+          className="text-[13px]"
+          size="sm"
           value={padding?.top || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
@@ -32,7 +33,8 @@ export const PaddingEditor = (props: {
         <Label className="w-14 text-right text-xs">{t('form.padding.right')}</Label>
         <Input
           type="number"
-          className="h-7 text-[13px]"
+          className="text-[13px]"
+          size="sm"
           value={padding?.right || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
@@ -48,7 +50,8 @@ export const PaddingEditor = (props: {
         <Label className="w-14 text-right text-xs">{t('form.padding.bottom')}</Label>
         <Input
           type="number"
-          className="h-7 text-[13px]"
+          className="text-[13px]"
+          size="sm"
           value={padding?.bottom || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
@@ -64,7 +67,8 @@ export const PaddingEditor = (props: {
         <Label className="w-14 text-right text-xs">{t('form.padding.left')}</Label>
         <Input
           type="number"
-          className="h-7 text-[13px]"
+          className="text-[13px]"
+          size="sm"
           value={padding?.left || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {

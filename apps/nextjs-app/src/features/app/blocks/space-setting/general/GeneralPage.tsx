@@ -96,14 +96,16 @@ export const GeneralPage = () => {
                     onBlur={onBlur}
                     onKeyDown={onKeydown}
                     autoFocus
-                    className="h-9 px-3 shadow-none focus-visible:border-primary focus-visible:ring-0"
+                    size="lg"
+                    className="px-3"
                   />
                 ) : (
                   <Input
                     value={space.name}
                     readOnly
                     onClick={() => hasPermission(space.role, 'space|update') && setIsEditing(true)}
-                    className={`h-9 px-3 shadow-none ${hasPermission(space.role, 'space|update') ? 'cursor-pointer' : 'cursor-default'}`}
+                    size="lg"
+                    className={`px-3 ${hasPermission(space.role, 'space|update') ? 'cursor-pointer' : 'cursor-default'}`}
                   />
                 )}
               </div>
@@ -116,7 +118,8 @@ export const GeneralPage = () => {
                     value={spaceId}
                     readOnly
                     tabIndex={-1}
-                    className="h-9 cursor-default px-3 pr-10 shadow-none focus-visible:ring-0 "
+                    size="lg"
+                    className="cursor-default px-3 pr-10"
                   />
                   <CopyButton
                     variant="ghost"

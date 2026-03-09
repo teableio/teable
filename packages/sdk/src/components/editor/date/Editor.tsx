@@ -100,7 +100,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
               value={inputValue}
               readOnly={readonly}
               placeholder={placeholder}
-              className={cn('w-full h-10 sm:h-8', className)}
+              className={cn('h-10 sm:h-8', className)}
               onChange={(e) => setInputValue(e.target.value)}
               onClick={onInputClick}
               onBlur={onInputBlur}
@@ -108,7 +108,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
             {!isEditing && (
               <Input
                 className={cn(
-                  'absolute left-0 top-0 w-full h-10 sm:h-8 shadow-none pointer-events-none disabled:opacity-100',
+                  'absolute left-0 top-0 h-10 sm:h-8 pointer-events-none disabled:opacity-100',
                   className
                 )}
                 placeholder={placeholder}

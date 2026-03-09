@@ -97,7 +97,7 @@ function MobileMentionSheet({
         <div className="flex items-center gap-2 border-b px-3 py-2">
           <Search className="size-4 shrink-0 text-muted-foreground" />
           <Input
-            className="h-8 border-none shadow-none focus-visible:ring-0"
+            className="border-none"
             placeholder={t('common.search.placeholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}

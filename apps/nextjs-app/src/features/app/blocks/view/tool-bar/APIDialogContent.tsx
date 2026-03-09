@@ -289,7 +289,7 @@ const TokenSection = ({
         <div className="flex items-center gap-2">
           {generatedToken ? (
             <>
-              <Input className="h-8 w-64 font-mono text-xs" readOnly value={generatedToken.token} />
+              <Input className="w-64 font-mono text-xs" readOnly value={generatedToken.token} />
               <CopyButton
                 variant="outline"
                 size="sm"

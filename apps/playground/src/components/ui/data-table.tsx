@@ -282,7 +282,7 @@ export function DataTable<TData, TValue>({
                   onPaginationChange({ pageIndex: 0, pageSize: Number(value) })
                 }
               >
-                <SelectTrigger className="h-8 w-[70px]">
+                <SelectTrigger className="w-[70px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

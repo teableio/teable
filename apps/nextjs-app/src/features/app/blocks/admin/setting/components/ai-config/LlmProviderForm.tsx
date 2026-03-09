@@ -353,7 +353,7 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
                     value={config.inputRate ?? ''}
                     onChange={(e) => handleRateChange(model, 'inputRate', e.target.value)}
                     placeholder="0"
-                    className="h-7 text-xs"
+                    size="sm"
                   />
                   <Input
                     type="number"
@@ -362,7 +362,7 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
                     value={config.outputRate ?? ''}
                     onChange={(e) => handleRateChange(model, 'outputRate', e.target.value)}
                     placeholder="0"
-                    className="h-7 text-xs"
+                    size="sm"
                   />
                 </div>
               );
@@ -414,7 +414,8 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
                       value={config.cacheReadRate ?? ''}
                       onChange={(e) => handleRateChange(model, 'cacheReadRate', e.target.value)}
                       placeholder="auto"
-                      className="h-6 text-[10px]"
+                      size="xs"
+                      className="text-[10px]"
                     />
                     <Input
                       type="number"
@@ -423,7 +424,8 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
                       value={config.cacheWriteRate ?? ''}
                       onChange={(e) => handleRateChange(model, 'cacheWriteRate', e.target.value)}
                       placeholder="auto"
-                      className="h-6 text-[10px]"
+                      size="xs"
+                      className="text-[10px]"
                     />
                     <Input
                       type="number"
@@ -432,7 +434,8 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
                       value={config.reasoningRate ?? ''}
                       onChange={(e) => handleRateChange(model, 'reasoningRate', e.target.value)}
                       placeholder="auto"
-                      className="h-6 text-[10px]"
+                      size="xs"
+                      className="text-[10px]"
                     />
                     <Input
                       type="number"
@@ -441,7 +444,8 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
                       value={config.imageRate ?? ''}
                       onChange={(e) => handleRateChange(model, 'imageRate', e.target.value)}
                       placeholder="0"
-                      className="h-6 text-[10px]"
+                      size="xs"
+                      className="text-[10px]"
                     />
                   </div>
                 );

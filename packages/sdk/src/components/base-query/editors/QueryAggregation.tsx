@@ -177,7 +177,8 @@ const AggregationStaticSelector = (props: {
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         disabled={!column}
-        className={cn('h-7 w-auto min-w-20 text-[13px]', className)}
+        size="sm"
+        className={cn('w-auto min-w-20 text-[13px]', className)}
       >
         <SelectValue placeholder={t('common.selectPlaceHolder')} />
       </SelectTrigger>

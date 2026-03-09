@@ -71,7 +71,7 @@ export function RollupOptions({ form, tableId, tables, isTablesLoading }: Rollup
                 }}
                 disabled={!hasLinkFields || isTablesLoading}
               >
-                <SelectTrigger id={field.name}>
+                <SelectTrigger size="lg" id={field.name}>
                   <SelectValue placeholder={isTablesLoading ? 'Loading...' : 'Select link field'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -116,7 +116,7 @@ export function RollupOptions({ form, tableId, tables, isTablesLoading }: Rollup
                       onValueChange={(value) => lookupFieldState.handleChange(value as any)}
                       disabled={!foreignFields.length}
                     >
-                      <SelectTrigger id={lookupFieldState.name}>
+                      <SelectTrigger size="lg" id={lookupFieldState.name}>
                         <SelectValue placeholder="Select lookup field" />
                       </SelectTrigger>
                       <SelectContent>
@@ -149,7 +149,7 @@ export function RollupOptions({ form, tableId, tables, isTablesLoading }: Rollup
               value={(field.state.value as string | undefined) ?? ''}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger id={field.name}>
+              <SelectTrigger size="lg" id={field.name}>
                 <SelectValue placeholder="Select rollup function" />
               </SelectTrigger>
               <SelectContent>
@@ -176,7 +176,7 @@ export function RollupOptions({ form, tableId, tables, isTablesLoading }: Rollup
               value={(field.state.value as string | undefined) ?? TIME_ZONE_LIST[0]}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger id={field.name}>
+              <SelectTrigger size="lg" id={field.name}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">

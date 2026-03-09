@@ -90,10 +90,7 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
           type="text"
           placeholder="name"
           defaultValue={space.name}
-          style={{
-            boxShadow: 'none',
-          }}
-          className="round-none absolute left-0 top-0 size-full cursor-text bg-background px-4 outline-none"
+          className="rounded-none absolute left-0 top-0 size-full cursor-text px-4"
           onKeyDown={async (e) => {
             if (e.key === 'Enter') {
               if (e.currentTarget.value && e.currentTarget.value !== space.name)

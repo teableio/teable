@@ -254,7 +254,8 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
           >
             <Input
               ref={inputRef}
-              className="h-7 flex-1 shrink focus-visible:ring-0"
+              className="flex-1 shrink"
+              size="sm"
               value={baseName}
               onChange={(e) => setBaseName(e.target.value)}
               onBlur={toggleRenameBase}

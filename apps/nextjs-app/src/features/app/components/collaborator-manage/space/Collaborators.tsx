@@ -247,7 +247,6 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
     <div className="flex size-full flex-col">
       <div className="mb-4 flex w-full items-center gap-x-4">
         <Input
-          className="h-8"
           type="search"
           placeholder={t('invite.dialog.collaboratorSearchPlaceholder')}
           value={inputValue}

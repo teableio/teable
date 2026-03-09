@@ -130,7 +130,8 @@ export const BaseCard: FC<IBaseCard> = (props) => {
               >
                 <Input
                   ref={inputRef}
-                  className="h-7 flex-1"
+                  className="flex-1"
+                  size="sm"
                   value={baseName}
                   onChange={(e) => setBaseName(e.target.value)}
                   onBlur={toggleRenameBase}

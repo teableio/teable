@@ -653,7 +653,7 @@ function PlaygroundSidebar({
                             placeholder="New base name"
                             value={newBaseName}
                             onChange={(e) => setNewBaseName(e.target.value)}
-                            className="h-7 text-xs"
+                            size="sm"
                             disabled={isCreatingBase}
                           />
                           <Button

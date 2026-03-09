@@ -71,7 +71,10 @@ export const SocketRecordList = (props: ISocketRecordListProps) => {
         });
       }}
     >
-      <RecordSearch value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+      <RecordSearch
+        value={searchInput}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchInput(e.target.value)}
+      />
     </RecordList>
   );
 };

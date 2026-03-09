@@ -55,7 +55,7 @@ export function LinkOptions({ form, tableId, tables, isTablesLoading }: LinkOpti
               value={(field.state.value as string | undefined) ?? 'manyMany'}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger id={field.name}>
+              <SelectTrigger size="lg" id={field.name}>
                 <SelectValue placeholder="Select relationship" />
               </SelectTrigger>
               <SelectContent>

@@ -248,7 +248,8 @@ export const ButtonOptions = (props: {
               </Popover>
 
               <Input
-                className="h-9 flex-1"
+                size="lg"
+                className="flex-1"
                 value={options?.label ?? '123'}
                 onChange={(e) => onChange?.({ ...options, label: e.target.value })}
               />
@@ -289,7 +290,6 @@ export const ButtonOptions = (props: {
                   {t('table:field.default.button.maxCount')}
                 </Label>
                 <Input
-                  className="h-8"
                   type="number"
                   value={options?.maxCount}
                   onChange={(e) =>

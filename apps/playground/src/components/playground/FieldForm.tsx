@@ -321,7 +321,7 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                 field.handleChange(nextType as any);
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger size="lg">
                 <SelectValue placeholder="Select a field type" />
               </SelectTrigger>
               <SelectContent>

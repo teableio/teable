@@ -168,7 +168,8 @@ const LabelInput = (props: { value?: string; onChange: (value?: string) => void 
   const [inputValue, setInputValue] = useState(value);
   return (
     <Input
-      className="h-7 text-[13px]"
+      className="text-[13px]"
+      size="sm"
       value={inputValue}
       onBlur={() => inputValue !== value && onChange(inputValue)}
       onChange={(e) => setInputValue(e.target.value)}

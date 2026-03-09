@@ -89,7 +89,7 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
       <div className="flex w-full flex-col gap-2">
         <Label className="text-sm font-medium">{t('field.default.number.formatType')}</Label>
         <Select value={type} onValueChange={onFormattingTypeChange}>
-          <SelectTrigger className="h-9 w-full">
+          <SelectTrigger size="lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -109,7 +109,7 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
             </Label>
             <Input
               placeholder={t('field.default.number.currencySymbol')}
-              className="h-9"
+              size="lg"
               value={formatting.symbol}
               onChange={onSymbolChange}
             />
@@ -119,7 +119,7 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
       <div className="flex w-full flex-col gap-2">
         <Label className="font-medium ">{t('field.default.number.precision')}</Label>
         <Select value={precision.toString()} onValueChange={onPrecisionChange}>
-          <SelectTrigger className="h-9 w-full">
+          <SelectTrigger size="lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

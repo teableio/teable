@@ -678,10 +678,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                           type="text"
                           placeholder="name"
                           defaultValue={item.getItemName()}
-                          style={{
-                            boxShadow: 'none',
-                          }}
-                          className="round-none size-full cursor-text bg-background outline-none"
+                          className="rounded-none size-full cursor-text"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const newVal = e.currentTarget.value;

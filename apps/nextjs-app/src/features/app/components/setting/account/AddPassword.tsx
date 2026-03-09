@@ -77,7 +77,7 @@ export const AddPassword = () => {
                 {t('settings.account.addPassword.password')}
               </Label>
               <Input
-                className="h-7"
+                size="sm"
                 id="newPassword"
                 autoComplete="new-password"
                 type="password"
@@ -91,7 +91,7 @@ export const AddPassword = () => {
                 {t('settings.account.addPassword.confirm')}
               </Label>
               <Input
-                className="h-7"
+                size="sm"
                 id="confirmPassword"
                 autoComplete="new-password"
                 type="password"

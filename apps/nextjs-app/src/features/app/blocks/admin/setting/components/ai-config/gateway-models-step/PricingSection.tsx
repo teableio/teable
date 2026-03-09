@@ -59,7 +59,7 @@ export function PricingSection({
                 value={pricing?.image ?? ''}
                 onChange={(e) => onPricingChange('image', e.target.value)}
                 placeholder="0.04"
-                className="mt-1 h-8"
+                className="mt-1"
               />
             </div>
           ) : (
@@ -71,7 +71,7 @@ export function PricingSection({
                   value={pricing?.input ?? ''}
                   onChange={(e) => onPricingChange('input', e.target.value)}
                   placeholder="0.000003"
-                  className="mt-1 h-8"
+                  className="mt-1"
                 />
               </div>
               <div>
@@ -81,7 +81,7 @@ export function PricingSection({
                   value={pricing?.output ?? ''}
                   onChange={(e) => onPricingChange('output', e.target.value)}
                   placeholder="0.000015"
-                  className="mt-1 h-8"
+                  className="mt-1"
                 />
               </div>
               <div>
@@ -91,7 +91,7 @@ export function PricingSection({
                   value={pricing?.inputCacheRead ?? ''}
                   onChange={(e) => onPricingChange('inputCacheRead', e.target.value)}
                   placeholder="0.0000003"
-                  className="mt-1 h-8"
+                  className="mt-1"
                 />
               </div>
               <div>
@@ -101,7 +101,7 @@ export function PricingSection({
                   value={pricing?.inputCacheWrite ?? ''}
                   onChange={(e) => onPricingChange('inputCacheWrite', e.target.value)}
                   placeholder="0.00000375"
-                  className="mt-1 h-8"
+                  className="mt-1"
                 />
               </div>
             </div>

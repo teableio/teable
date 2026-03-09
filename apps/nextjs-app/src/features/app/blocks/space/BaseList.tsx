@@ -299,7 +299,7 @@ export const BaseList = (props: IBaseListProps) => {
         <div className="sticky top-0 z-10 flex items-center gap-4 bg-background">
           {isHydrated ? (
             <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
-              <SelectTrigger className="h-8 w-auto gap-1 border-none bg-transparent shadow-none hover:bg-accent hover:text-accent-foreground focus:ring-0 dark:bg-transparent [&>svg]:hidden">
+              <SelectTrigger className="w-auto gap-1 border-none bg-transparent hover:bg-accent hover:text-accent-foreground dark:bg-transparent [&>svg]:hidden">
                 <div className="flex items-center gap-1">
                   {viewMode === ViewMode.Recent ? (
                     <Clock4 className="size-3.5" />

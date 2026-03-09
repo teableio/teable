@@ -69,7 +69,7 @@ export function ConditionalLookupOptions({
                   }}
                   disabled={foreignTables.length === 0 || isTablesLoading}
                 >
-                  <SelectTrigger id={field.name}>
+                  <SelectTrigger size="lg" id={field.name}>
                     <SelectValue
                       placeholder={isTablesLoading ? 'Loading...' : 'Select foreign table'}
                     />
@@ -98,7 +98,7 @@ export function ConditionalLookupOptions({
                       onValueChange={(value) => lookupField.handleChange(value as any)}
                       disabled={!foreignFields.length}
                     >
-                      <SelectTrigger id={lookupField.name}>
+                      <SelectTrigger size="lg" id={lookupField.name}>
                         <SelectValue placeholder="Select lookup field" />
                       </SelectTrigger>
                       <SelectContent>

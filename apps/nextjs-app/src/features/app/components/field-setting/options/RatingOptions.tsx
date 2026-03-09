@@ -118,7 +118,7 @@ export const RatingOptions = (props: {
       <div className="flex w-full flex-col gap-2">
         <Label className="text-sm font-medium">{t('field.editor.maximum')}</Label>
         <Select value={max?.toString()} onValueChange={onMaximumChange}>
-          <SelectTrigger className="h-9 w-full">
+          <SelectTrigger size="lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

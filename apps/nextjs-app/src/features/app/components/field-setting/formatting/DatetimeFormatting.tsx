@@ -160,7 +160,7 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) =
           value={formatting.time}
           onValueChange={(value) => onFormattingChange(value, 'time')}
         >
-          <SelectTrigger className="h-8 w-full">
+          <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

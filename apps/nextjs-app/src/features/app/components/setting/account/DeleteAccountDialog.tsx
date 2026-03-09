@@ -131,7 +131,7 @@ export const DeleteAccountDialog = () => {
             </Label>
             <Input
               id="confirm"
-              className="h-8 text-[13px]"
+              className="text-[13px]"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={t('settings.account.deleteAccount.confirm.placeholder')}

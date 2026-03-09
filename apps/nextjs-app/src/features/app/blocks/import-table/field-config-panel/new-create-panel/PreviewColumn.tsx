@@ -61,7 +61,6 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
             <TableCell className="relative min-w-56 font-medium">
               <Input
                 placeholder="fieldName"
-                className="h-8"
                 value={column.name}
                 onChange={(e) => {
                   const newColumns = [...columns];

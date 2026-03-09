@@ -189,7 +189,6 @@ function MediaUrlDialogContent({
         </label>
         <Input
           id="url"
-          className="w-full"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => {

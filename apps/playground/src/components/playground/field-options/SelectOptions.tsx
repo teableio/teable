@@ -43,7 +43,7 @@ export function SelectOptions({ form }: { form: FieldFormApi }) {
                         field.handleChange(newChoices as any);
                       }}
                     >
-                      <SelectTrigger className="w-[140px]">
+                      <SelectTrigger size="lg" className="w-[140px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

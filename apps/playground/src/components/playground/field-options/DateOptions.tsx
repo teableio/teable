@@ -22,7 +22,7 @@ export function DateOptions({ form }: { form: FieldFormApi }) {
               value={(field.state.value as string) || 'YYYY-MM-DD'}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger>
+              <SelectTrigger size="lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -48,7 +48,7 @@ export function DateOptions({ form }: { form: FieldFormApi }) {
               value={(field.state.value as string) || 'None'}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger>
+              <SelectTrigger size="lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -73,7 +73,7 @@ export function DateOptions({ form }: { form: FieldFormApi }) {
               value={(field.state.value as string) || 'utc'}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger>
+              <SelectTrigger size="lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">

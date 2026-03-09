@@ -108,7 +108,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                   value={value ?? undefined}
                   onValueChange={(value) => onSelectChange(key, value)}
                 >
-                  <SelectTrigger className="h-8 w-full bg-background">
+                  <SelectTrigger className="bg-background">
                     <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
                   </SelectTrigger>
                   <SelectContent className="w-full">
@@ -150,7 +150,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                 value={titleField?.id ?? primaryField.id}
                 onValueChange={(value) => onSelectChange('titleFieldId', value)}
               >
-                <SelectTrigger className="h-8 w-full bg-background">
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
                 </SelectTrigger>
                 <SelectContent className="w-full">
@@ -180,7 +180,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                 value={colorType}
                 onValueChange={(value) => onColorTypeChange(value as ColorConfigType)}
               >
-                <SelectTrigger className="h-8 w-full bg-background">
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
                 </SelectTrigger>
                 <SelectContent className="w-full">
@@ -208,7 +208,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                   value={colorFieldId ?? filteredSelectFields[0]?.id}
                   onValueChange={(value) => onColorFieldIdChange(value)}
                 >
-                  <SelectTrigger className="h-8 w-full bg-background">
+                  <SelectTrigger className="bg-background">
                     <SelectValue placeholder={t('table:calendar.placeholder.selectColorField')} />
                   </SelectTrigger>
                   <SelectContent className="w-full">

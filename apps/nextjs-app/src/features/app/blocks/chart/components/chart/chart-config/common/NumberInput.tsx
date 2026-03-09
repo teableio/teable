@@ -17,7 +17,8 @@ export const NumberInput = (props: INumberInputProps) => {
   return (
     <Input
       type="number"
-      className={cn('h-7 text-[13px]', className)}
+      className={cn('text-[13px]', className)}
+      size="sm"
       value={value ?? ''}
       onBlur={() => value !== props.value && onValueChange?.(value)}
       onChange={(e) => {

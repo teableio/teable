@@ -182,7 +182,7 @@ export const FieldEditor = (props: {
         <Input
           placeholder={t('table:field.fieldNameOptional')}
           type="text"
-          className="h-9"
+          size="lg"
           value={field['name'] || ''}
           data-1p-ignore="true"
           autoComplete="off"

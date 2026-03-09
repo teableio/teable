@@ -27,6 +27,7 @@ export const SingleLineTextOptions = (props: {
       {!isLookup && (
         <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
           <Input
+            size="lg"
             type="text"
             value={options?.defaultValue || ''}
             onChange={(e) => onDefaultValueChange(e.target.value)}

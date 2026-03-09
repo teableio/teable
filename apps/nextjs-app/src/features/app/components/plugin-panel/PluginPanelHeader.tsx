@@ -87,7 +87,8 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
       <PluginPanelSelector tableId={tableId} />
       <Input
         ref={renameRef}
-        className={cn('absolute h-7 left-0 right-0', {
+        size="sm"
+        className={cn('absolute left-0 right-0', {
           hidden: rename === null,
         })}
         value={rename ?? ''}

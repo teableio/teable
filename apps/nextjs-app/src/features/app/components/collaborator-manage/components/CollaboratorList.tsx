@@ -30,7 +30,6 @@ export const CollaboratorList = (props: ICollaboratorListProps) => {
     <div className="flex size-full h-full flex-col">
       <div className="mb-6 flex w-full items-center gap-x-4">
         <Input
-          className="h-8"
           type="search"
           placeholder={searchPlaceholder}
           value={search}

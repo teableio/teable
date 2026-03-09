@@ -162,7 +162,7 @@ export const SharePopover: React.FC<{
         {enableShare ? (
           <>
             <div className="flex items-center gap-1">
-              <Input className="h-7 grow" id="share-link" value={shareUrl} readOnly />
+              <Input className="grow" size="sm" id="share-link" value={shareUrl} readOnly />
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -362,7 +362,6 @@ export const SharePopover: React.FC<{
               <DialogDescription>{t('table:toolbar.others.share.passwordTips')}</DialogDescription>
             </DialogHeader>
             <Input
-              className="h-8"
               type="password"
               value={sharePassword}
               onChange={(e) => setSharePassword(e.target.value)}

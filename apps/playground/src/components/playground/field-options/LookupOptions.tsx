@@ -70,7 +70,7 @@ export function LookupOptions({ form, tableId, tables, isTablesLoading }: Lookup
                 }}
                 disabled={!hasLinkFields || isTablesLoading}
               >
-                <SelectTrigger id={field.name}>
+                <SelectTrigger size="lg" id={field.name}>
                   <SelectValue placeholder={isTablesLoading ? 'Loading...' : 'Select link field'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -115,7 +115,7 @@ export function LookupOptions({ form, tableId, tables, isTablesLoading }: Lookup
                       onValueChange={(value) => lookupFieldState.handleChange(value as any)}
                       disabled={!foreignFields.length}
                     >
-                      <SelectTrigger id={lookupFieldState.name}>
+                      <SelectTrigger size="lg" id={lookupFieldState.name}>
                         <SelectValue placeholder="Select lookup field" />
                       </SelectTrigger>
                       <SelectContent>

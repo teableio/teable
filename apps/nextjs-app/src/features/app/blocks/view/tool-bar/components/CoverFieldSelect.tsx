@@ -59,7 +59,7 @@ export const CoverFieldSelect = (props: ICoverFieldSelect) => {
         value={fieldId ?? undefined}
         onValueChange={(value) => onSelectChange?.(value === COVER_FIELD_EMPTY_ID ? null : value)}
       >
-        <SelectTrigger className="h-8 w-full bg-background">
+        <SelectTrigger className="bg-background">
           <SelectValue placeholder={t('table:kanban.toolbar.chooseAttachmentField')} />
         </SelectTrigger>
         <SelectContent className=" w-72">

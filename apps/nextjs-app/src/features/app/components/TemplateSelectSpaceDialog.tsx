@@ -140,7 +140,7 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
             </p>
             <div className="flex items-center gap-2">
               <Input
-                className="h-9"
+                size="lg"
                 value={newSpaceName}
                 onChange={(e) => setNewSpaceName(e.target.value)}
                 disabled={isCreatingSpace}
@@ -173,7 +173,7 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
             onValueChange={setSelectedSpaceId}
             disabled={applyTemplateLoading}
           >
-            <SelectTrigger className="h-9 overflow-hidden [&>svg:last-child]:hidden">
+            <SelectTrigger size="lg" className="overflow-hidden [&>svg:last-child]:hidden">
               <SelectValue />
               <ChevronDown className="size-4 shrink-0 opacity-50" />
             </SelectTrigger>

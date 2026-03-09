@@ -33,7 +33,7 @@ export const InteractionSelect = () => {
 
   return (
     <Select value={interactionType} onValueChange={updateInteractionType}>
-      <SelectTrigger className="h-8 w-auto min-w-32 text-[13px]">
+      <SelectTrigger className="w-auto min-w-32 text-[13px]">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

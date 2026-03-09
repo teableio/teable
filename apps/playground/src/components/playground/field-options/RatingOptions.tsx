@@ -41,7 +41,7 @@ export function RatingOptions({ form }: { form: FieldFormApi }) {
               value={(field.state.value as string) || 'star'}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger>
+              <SelectTrigger size="lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -69,7 +69,7 @@ export function RatingOptions({ form }: { form: FieldFormApi }) {
               value={(field.state.value as string) || 'yellowBright'}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger>
+              <SelectTrigger size="lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

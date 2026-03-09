@@ -57,7 +57,7 @@ export const TemplateModal = (props: TemplateModalProps) => {
             <Input
               placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}
               value={inputValue}
-              className={cn('h-8 w-72', {
+              className={cn('w-72', {
                 'opacity-0': currentTemplateId,
               })}
               onChange={(e) => setInputValue(e.target.value)}

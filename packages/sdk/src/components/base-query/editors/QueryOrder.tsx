@@ -158,7 +158,7 @@ const SortFuncSelector = (props: { value?: SortFunc; onChange: (value: SortFunc)
   }, [t]);
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-7 flex-1 py-0 text-[13px]">
+      <SelectTrigger size="sm" className="flex-1 py-0 text-[13px]">
         <SelectValue placeholder={t('common.selectPlaceHolder')} />
       </SelectTrigger>
       <SelectContent>

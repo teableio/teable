@@ -406,7 +406,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
               placeholder={t('common:actions.search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 px-8"
+              className="px-8"
             />
             {searchQuery && (
               <button

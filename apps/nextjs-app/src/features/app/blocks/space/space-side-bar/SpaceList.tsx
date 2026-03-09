@@ -224,7 +224,7 @@ export const SpaceList: FC = () => {
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
               <Select value={selectedSpaceId} onValueChange={setSelectedSpaceId}>
-                <SelectTrigger>
+                <SelectTrigger size="lg">
                   <SelectValue
                     placeholder={`${t('actions.select')} ${t('noun.space').toLowerCase()}...`}
                   />

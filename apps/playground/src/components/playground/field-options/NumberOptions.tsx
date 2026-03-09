@@ -21,7 +21,7 @@ export function NumberOptions({ form }: { form: FieldFormApi }) {
               value={(field.state.value as string) || 'decimal'}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger>
+              <SelectTrigger size="lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

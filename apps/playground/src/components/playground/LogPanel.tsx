@@ -305,7 +305,8 @@ export function LogPanel({
             placeholder="Search logs..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 pl-7 text-xs"
+            className="pl-7"
+            size="sm"
           />
         </div>
 

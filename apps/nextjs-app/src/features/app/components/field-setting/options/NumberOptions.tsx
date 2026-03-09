@@ -40,6 +40,7 @@ export const NumberOptions = (props: {
       {!isLookup && (
         <DefaultValue onReset={() => onDefaultValueChange(null)}>
           <Input
+            size="lg"
             type="number"
             value={options?.defaultValue ? options.defaultValue : ''}
             onChange={(e) => {

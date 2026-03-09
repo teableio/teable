@@ -230,7 +230,7 @@ export const PluginContextMenuManageDialog = forwardRef<
                           {renamePluginInstallId === plugin.pluginInstallId && (
                             <Input
                               ref={renameInputRef}
-                              className="absolute z-20 flex-1 bg-background text-[13px]"
+                              className="absolute z-20 flex-1 text-[13px]"
                               value={name}
                               // eslint-disable-next-line jsx-a11y/no-autofocus
                               autoFocus

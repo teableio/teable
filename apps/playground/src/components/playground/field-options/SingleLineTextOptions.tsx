@@ -23,7 +23,7 @@ export function SingleLineTextOptions({ form }: { form: FieldFormApi }) {
                 field.handleChange(value === 'none' ? (undefined as any) : value)
               }
             >
-              <SelectTrigger>
+              <SelectTrigger size="lg">
                 <SelectValue placeholder="Select display type" />
               </SelectTrigger>
               <SelectContent>

@@ -67,7 +67,7 @@ export function ConditionalRollupOptions({
                   }}
                   disabled={foreignTables.length === 0 || isTablesLoading}
                 >
-                  <SelectTrigger id={field.name}>
+                  <SelectTrigger size="lg" id={field.name}>
                     <SelectValue
                       placeholder={isTablesLoading ? 'Loading...' : 'Select foreign table'}
                     />
@@ -96,7 +96,7 @@ export function ConditionalRollupOptions({
                       onValueChange={(value) => lookupField.handleChange(value)}
                       disabled={!foreignFields.length}
                     >
-                      <SelectTrigger id={lookupField.name}>
+                      <SelectTrigger size="lg" id={lookupField.name}>
                         <SelectValue placeholder="Select lookup field" />
                       </SelectTrigger>
                       <SelectContent>
@@ -149,7 +149,7 @@ export function ConditionalRollupOptions({
               value={(field.state.value as string | undefined) ?? ''}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger id={field.name}>
+              <SelectTrigger size="lg" id={field.name}>
                 <SelectValue placeholder="Select rollup function" />
               </SelectTrigger>
               <SelectContent>
@@ -177,7 +177,7 @@ export function ConditionalRollupOptions({
               value={(field.state.value as string | undefined) ?? TIME_ZONE_LIST[0]}
               onValueChange={(value) => field.handleChange(value as any)}
             >
-              <SelectTrigger id={field.name}>
+              <SelectTrigger size="lg" id={field.name}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">

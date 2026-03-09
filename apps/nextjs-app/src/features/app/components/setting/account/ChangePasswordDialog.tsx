@@ -111,7 +111,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
               {t('settings.account.changePassword.current')}
             </Label>
             <Input
-              className="h-7"
+              size="sm"
               id="currentPassword"
               autoComplete="current-password"
               type="password"
@@ -125,7 +125,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
               {t('settings.account.changePassword.new')}
             </Label>
             <Input
-              className="h-7"
+              size="sm"
               id="newPassword"
               autoComplete="new-password"
               type="password"
@@ -140,7 +140,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
               {t('settings.account.changePassword.confirm')}
             </Label>
             <Input
-              className="h-7"
+              size="sm"
               id="confirmPassword"
               autoComplete="new-password"
               type="password"

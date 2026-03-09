@@ -157,7 +157,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
             {t('token:formLabelTips.name')}
           </div>
         </Label>
-        <Input className="h-8" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="space-y-2">
         <Label>
@@ -166,11 +166,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
             {t('token:formLabelTips.description')}
           </div>
         </Label>
-        <Input
-          className="h-8"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        ></Input>
+        <Input value={description} onChange={(e) => setDescription(e.target.value)}></Input>
       </div>
       {type === 'new' && (
         <div className="space-y-2">

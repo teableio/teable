@@ -225,7 +225,7 @@ export const CategorySettingDialog = ({ children }: { children?: React.ReactNode
         {/* Add new category */}
         <div className="flex items-center gap-2">
           <Input
-            className="h-8 flex-1"
+            className="flex-1"
             placeholder={t('settings.templateAdmin.tips.categoryNamePlaceholder')}
             value={newCategoryName}
             onChange={(e) => setNewCategoryName(e.target.value)}

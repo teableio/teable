@@ -63,7 +63,7 @@ const CreateSpaceSection: React.FC<{
       </p>
       <div className="flex items-center gap-2">
         <Input
-          className="h-9"
+          size="lg"
           value={newSpaceName}
           onChange={(e) => setNewSpaceName(e.target.value)}
           disabled={isCreatingSpace}
@@ -354,7 +354,7 @@ export const ShareSelectSpaceDialog = React.forwardRef<IShareSelectSpaceDialogRe
                   onValueChange={setSelectedSpaceId}
                   disabled={copyLoading}
                 >
-                  <SelectTrigger className="h-9 overflow-hidden [&>svg:last-child]:hidden">
+                  <SelectTrigger size="lg" className="overflow-hidden [&>svg:last-child]:hidden">
                     <SelectValue />
                     <ChevronDown className="size-4 shrink-0 opacity-50" />
                   </SelectTrigger>
@@ -412,7 +412,7 @@ export const ShareSelectSpaceDialog = React.forwardRef<IShareSelectSpaceDialogRe
                         {t('common:share.copyToSpaceDialog.baseName')}
                       </Label>
                       <Input
-                        className="h-9"
+                        size="lg"
                         value={baseName ?? base?.name ?? ''}
                         onChange={(e) => setBaseName(e.target.value)}
                         disabled={copyLoading}

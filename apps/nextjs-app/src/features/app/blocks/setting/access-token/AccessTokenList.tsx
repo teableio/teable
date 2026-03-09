@@ -67,7 +67,7 @@ export const AccessTokenList = (props: IAccessTokenListProps) => {
           <div>{t('token:new.success.title')}</div>
           <div className="mb-4 mt-2">{t('token:new.success.description')}</div>
           <div className="flex items-center gap-3">
-            <Input className="h-8 w-[26rem] text-muted-foreground" readOnly value={newToken} />
+            <Input className="w-[26rem] text-muted-foreground" readOnly value={newToken} />
             <CopyButton variant="outline" text={newToken} size="xs" iconClassName="size-4" />
           </div>
         </div>

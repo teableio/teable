@@ -109,7 +109,7 @@ function FilterItemRow({ item, fields, onChange, onRemove, showRemove }: FilterI
         value={item.fieldId}
         onValueChange={(value) => onChange({ ...item, fieldId: value, value: undefined })}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger size="lg" className="w-[140px]">
           <SelectValue placeholder="Field" />
         </SelectTrigger>
         <SelectContent>
@@ -125,7 +125,7 @@ function FilterItemRow({ item, fields, onChange, onRemove, showRemove }: FilterI
         value={item.operator}
         onValueChange={(value) => onChange({ ...item, operator: value })}
       >
-        <SelectTrigger className="w-[120px]">
+        <SelectTrigger size="lg" className="w-[120px]">
           <SelectValue placeholder="Operator" />
         </SelectTrigger>
         <SelectContent>
@@ -230,7 +230,7 @@ function FilterGroup({ group, fields, onChange, onRemove, depth = 0 }: FilterGro
           value={group.conjunction}
           onValueChange={(value) => onChange({ ...group, conjunction: value as 'and' | 'or' })}
         >
-          <SelectTrigger className="w-[80px] h-7 text-xs">
+          <SelectTrigger size="sm" className="w-[80px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -410,7 +410,7 @@ export function ConditionBuilder({
                 })
               }
             >
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger size="lg" className="w-[160px]">
                 <SelectValue placeholder="Sort by field" />
               </SelectTrigger>
               <SelectContent>
@@ -433,7 +433,7 @@ export function ConditionBuilder({
                   })
                 }
               >
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger size="lg" className="w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -232,7 +232,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
 
         {isNameEditing ? (
           <Input
-            className="mb-6 mt-16 w-2/3 text-center text-3xl shadow-none"
+            className="mb-6 mt-16 w-2/3 text-center text-3xl"
             value={name}
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus

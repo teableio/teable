@@ -46,7 +46,6 @@ export const CallbackEditor = (props: ICallbackEditorProps) => {
       {callbackURLs.map((callbackURL, index) => (
         <div key={index} className="flex items-center gap-4">
           <Input
-            className="h-8"
             type="text"
             value={callbackURL}
             onChange={(e) => updateCallbackURL(index, e.target.value)}

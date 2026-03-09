@@ -84,7 +84,12 @@ export const ApiRecordList = (props: IApiRecordListProps) => {
         }
       }}
     >
-      {onSearch && <RecordSearch value={search} onChange={(e) => setSearch(e.target.value)} />}
+      {onSearch && (
+        <RecordSearch
+          value={search}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+        />
+      )}
     </RecordList>
   );
 };
