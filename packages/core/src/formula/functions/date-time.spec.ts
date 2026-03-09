@@ -1199,6 +1199,22 @@ describe('DateTime', () => {
         dayjs.tz('8 Sep 2023 18:00', 'D MMM YYYY HH:mm', 'America/Los_Angeles').toISOString()
       );
     });
+
+    it('reparses datetime inputs through the provided format before returning an ISO string', () => {
+      const result = datetimeParseFunc.eval(
+        [
+          new TypedValue('2025-01-05T00:00:00.000Z', CellValueType.DateTime, false),
+          new TypedValue('MMYYYY', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'UTC',
+        }
+      );
+
+      expect(result).toBe('2025-01-01T00:00:00.000Z');
+    });
   });
 
   describe('CreatedTime', () => {

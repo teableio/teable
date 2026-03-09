@@ -8502,7 +8502,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario:DATETIME_PARSE function
      * Formula:DATETIME_PARSE({textField}, "YYYY-MM-DD")
-     * Expect: parses date string
+     * Expect: parses date string with explicit formula timeZone
      */
     it('should parse datetime - DATETIME_PARSE({textField}, "YYYY-MM-DD")', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
@@ -8535,7 +8535,10 @@ describe('v2 http formula (e2e)', () => {
           field: {
             type: 'formula',
             name: 'Parsed',
-            options: { expression: `DATETIME_PARSE({${textFieldId}}, "YYYY-MM-DD")` },
+            options: {
+              expression: `DATETIME_PARSE({${textFieldId}}, "YYYY-MM-DD")`,
+              timeZone: 'utc',
+            },
           },
         }),
       });

@@ -3,8 +3,10 @@
 /* eslint-disable no-useless-escape */
 import { DbFieldType } from '@teable/core';
 import {
-  buildAirtableDatetimeFormatSql,
-  normalizeAirtableDatetimeFormatExpression,
+  buildDatetimeFormatSql,
+  buildDatetimeParseGuardRegex,
+  hasDatetimeTimezoneToken,
+  normalizeDatetimeFormatExpression,
 } from '../../utils/datetime-format.util';
 import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
 import {
@@ -1091,7 +1093,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   datetimeFormat(date: string, format: string): string {
-    return buildAirtableDatetimeFormatSql(this.castToTimestamp(date, 0), format);
+    return buildDatetimeFormatSql(this.castToTimestamp(date, 0), format);
   }
 
   datetimeParse(dateString: string, format?: string): string {
@@ -1106,17 +1108,12 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       return trustedDatetimeInput ? valueExpr : this.parseDatetimeParseWithoutFormat(valueExpr);
     }
     if (trustedDatetimeInput) {
-      return valueExpr;
+      const localTimestampExpr = this.castToTimestamp(valueExpr, 0);
+      const formattedExpr = buildDatetimeFormatSql(localTimestampExpr, trimmedFormat);
+      return this.parseDatetimeParseWithFormat(formattedExpr, trimmedFormat);
     }
-    const normalizedFormat = normalizeAirtableDatetimeFormatExpression(trimmedFormat);
-    const toTimestampExpr = `TO_TIMESTAMP(${valueExpr}::text, ${normalizedFormat})`;
-    const guardPattern = this.buildDatetimeParseGuardRegex(normalizedFormat);
-    if (!guardPattern) {
-      return toTimestampExpr;
-    }
-    const textExpr = `${valueExpr}::text`;
-    const escapedPattern = guardPattern.replace(/'/g, "''");
-    return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${textExpr} = '' THEN NULL WHEN ${textExpr} ~ '${escapedPattern}' THEN ${toTimestampExpr} ELSE NULL END)`;
+
+    return this.parseDatetimeParseWithFormat(`${valueExpr}::text`, trimmedFormat, valueExpr);
   }
 
   day(date: string): string {
@@ -1532,58 +1529,25 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     END)`;
   }
 
-  private buildDatetimeParseGuardRegex(formatLiteral: string): string | null {
-    if (!formatLiteral.startsWith("'") || !formatLiteral.endsWith("'")) {
-      return null;
+  private parseDatetimeParseWithFormat(
+    textExpr: string,
+    formatExpr: string,
+    nullGuardExpr: string = textExpr
+  ): string {
+    const normalizedFormat = normalizeDatetimeFormatExpression(formatExpr);
+    const toTimestampExpr = `TO_TIMESTAMP(${textExpr}::text, ${normalizedFormat})`;
+    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const hasTimezoneToken = hasDatetimeTimezoneToken(formatExpr);
+    const parsedExpr =
+      hasTimezoneToken === false
+        ? `(${toTimestampExpr})::timestamp AT TIME ZONE '${safeTz}'`
+        : toTimestampExpr;
+    const guardPattern = buildDatetimeParseGuardRegex(formatExpr);
+    if (!guardPattern) {
+      return parsedExpr;
     }
-    const literal = formatLiteral.slice(1, -1);
-    const tokenPatterns: Array<[string, string]> = [
-      ['HH24', '\\d{2}'],
-      ['HH12', '\\d{2}'],
-      ['HH', '\\d{2}'],
-      ['AM', '[AaPp][Mm]'],
-      ['MI', '\\d{2}'],
-      ['SS', '\\d{2}'],
-      ['MS', '\\d{1,3}'],
-      ['YYYY', '\\d{4}'],
-      ['YYY', '\\d{3}'],
-      ['YY', '\\d{2}'],
-      ['Y', '\\d'],
-      ['MM', '\\d{2}'],
-      ['DD', '\\d{2}'],
-    ];
-    const optionalTokens = new Set(['FM', 'TM', 'TH']);
-    let pattern = '^';
-    for (let i = 0; i < literal.length; ) {
-      let matched = false;
-      const remaining = literal.slice(i);
-      const upperRemaining = remaining.toUpperCase();
-      for (const [token, tokenPattern] of tokenPatterns) {
-        if (upperRemaining.startsWith(token)) {
-          pattern += tokenPattern;
-          i += token.length;
-          matched = true;
-          break;
-        }
-      }
-      if (matched) {
-        continue;
-      }
-      const optionalToken = upperRemaining.slice(0, 2);
-      if (optionalTokens.has(optionalToken)) {
-        i += optionalToken.length;
-        continue;
-      }
-      const currentChar = literal[i];
-      if (/\s/.test(currentChar)) {
-        pattern += '\\s';
-      } else {
-        pattern += currentChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      }
-      i += 1;
-    }
-    pattern += '$';
-    return pattern;
+    const escapedPattern = guardPattern.replace(/'/g, "''");
+    return `(CASE WHEN ${nullGuardExpr} IS NULL THEN NULL WHEN ${textExpr} = '' THEN NULL WHEN ${textExpr} ~ '${escapedPattern}' THEN ${parsedExpr} ELSE NULL END)`;
   }
   private castToTimestamp(date: string, metadataIndex?: number): string {
     const isTimestampish = (expr: string): boolean => {

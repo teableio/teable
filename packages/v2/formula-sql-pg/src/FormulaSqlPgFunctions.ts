@@ -20,7 +20,12 @@ import {
   makeExpr,
   type SqlExpr,
 } from './SqlExpression';
-import { buildDatetimeFormatSql } from './utils/datetime-format.util';
+import {
+  buildDatetimeFormatSql,
+  buildDatetimeParseGuardRegex,
+  hasDatetimeTimezoneToken,
+  normalizeDatetimeFormatExpression,
+} from './utils/datetime-format.util';
 
 const NULL_DOUBLE_PRECISION = 'NULL::double precision';
 const NULL_BOOLEAN = 'NULL::boolean';
@@ -2019,11 +2024,92 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     return `(CASE WHEN ${offsetMinutesSql} >= 0 THEN '+' ELSE '-' END || LPAD((ABS(${offsetMinutesSql}) / 60)::int::text, 2, '0') || ':' || LPAD((ABS(${offsetMinutesSql}) % 60)::int::text, 2, '0'))`;
   }
 
+  private buildDatetimeParseWithFormatSql(
+    textSql: string,
+    formatExprSql: string,
+    nullGuardSql: string = textSql
+  ): string {
+    const normalizedFormatSql = normalizeDatetimeFormatExpression(formatExprSql);
+    const toTimestampExpr = `TO_TIMESTAMP(${textSql}::text, ${normalizedFormatSql})`;
+    const hasTimezoneToken = hasDatetimeTimezoneToken(formatExprSql);
+    const parsedExpr =
+      hasTimezoneToken === false
+        ? `(${toTimestampExpr})::timestamp AT TIME ZONE ${this.formulaTimeZoneSql()}`
+        : toTimestampExpr;
+    const guardPattern = buildDatetimeParseGuardRegex(formatExprSql);
+    if (!guardPattern) {
+      return `(CASE
+        WHEN ${nullGuardSql} IS NULL THEN NULL
+        WHEN ${textSql} = '' THEN NULL
+        ELSE ${parsedExpr}
+      END)`;
+    }
+
+    const escapedPattern = guardPattern.replace(/'/g, "''");
+    return `(CASE
+      WHEN ${nullGuardSql} IS NULL THEN NULL
+      WHEN ${textSql} = '' THEN NULL
+      WHEN ${textSql} ~ '${escapedPattern}' THEN ${parsedExpr}
+      ELSE NULL
+    END)`;
+  }
+
+  private buildDatetimeParseInvalidCondition(
+    textSql: string,
+    formatExprSql: string,
+    nullGuardSql: string = textSql
+  ): string {
+    const guardPattern = buildDatetimeParseGuardRegex(formatExprSql);
+    if (!guardPattern) {
+      return 'FALSE';
+    }
+
+    const escapedPattern = guardPattern.replace(/'/g, "''");
+    return `(${nullGuardSql} IS NOT NULL AND ${textSql} <> '' AND NOT (${textSql} ~ '${escapedPattern}'))`;
+  }
+
   private datetimeParse(params: SqlExpr[]): SqlExpr {
     const value = params[0];
     if (!value) return makeExpr('NULL', 'datetime', false);
-    if (!value.isArray && value.valueType === 'datetime' && !this.isStructuredJsonField(value)) {
-      return this.coerceToDatetime(value);
+    const format = params[1];
+    const formatText = format ? this.coerceToString(format) : undefined;
+    const formatLiteral = formatText ? this.getStringLiteralValue(formatText) : undefined;
+    const formatExprSql = formatText
+      ? formatLiteral !== undefined
+        ? sqlStringLiteral(formatLiteral)
+        : formatText.valueSql
+      : null;
+
+    if (!formatText) {
+      if (!value.isArray && value.valueType === 'datetime' && !this.isStructuredJsonField(value)) {
+        return this.coerceToDatetime(value);
+      }
+    } else if (
+      formatExprSql != null &&
+      !value.isArray &&
+      value.valueType === 'datetime' &&
+      !this.isStructuredJsonField(value)
+    ) {
+      const datetime = this.coerceToDatetime(value);
+      const localTimestampSql = this.applyFormulaTimeZone(datetime.valueSql);
+      const formattedTextSql = buildDatetimeFormatSql(
+        localTimestampSql,
+        formatExprSql,
+        this.buildTimezoneOffsetSql(localTimestampSql)
+      );
+      const valueSql = this.buildDatetimeParseWithFormatSql(formattedTextSql, formatExprSql);
+      const errorCondition = combineErrorConditions([datetime, formatText]);
+      const errorMessage = buildErrorMessageSql(
+        [datetime, formatText],
+        buildErrorLiteral('TYPE', 'cannot_cast_to_datetime')
+      );
+      return makeExpr(
+        guardValueSql(valueSql, errorCondition),
+        'datetime',
+        false,
+        errorCondition,
+        errorMessage
+      );
     }
     // 编译期检查：如果字段类型不兼容，直接返回错误
     if (!this.canFieldBeDatetimeString(value)) {
@@ -2044,16 +2130,32 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const hasClockTime = `(${trimmedTextSql} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
     const hasExplicitTimeZone = `(${trimmedTextSql} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
     const shouldInterpretAsLocal = `(${hasClockTime} AND NOT ${hasExplicitTimeZone})`;
+    const customFormatValueSql =
+      formatExprSql != null
+        ? this.buildDatetimeParseWithFormatSql(textSql, formatExprSql, textValue.valueSql)
+        : null;
+    const customFormatErrorCondition =
+      formatExprSql != null
+        ? this.buildDatetimeParseInvalidCondition(textSql, formatExprSql, textValue.valueSql)
+        : null;
+    const caseBranches = [`WHEN ${textValue.valueSql} IS NULL THEN NULL`];
+    if (customFormatValueSql && formatText) {
+      caseBranches.push(`WHEN ${formatText.valueSql} IS NOT NULL THEN ${customFormatValueSql}`);
+    }
+    caseBranches.push(
+      `WHEN ${validTimestamp} AND ${shouldInterpretAsLocal} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}`,
+      `WHEN ${validTimestamptz} THEN (${textValue.valueSql})::timestamptz`,
+      `WHEN ${validTimestamp} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}`,
+      'ELSE NULL'
+    );
     const valueSql = `(CASE
-      WHEN ${textValue.valueSql} IS NULL THEN NULL
-      WHEN ${validTimestamp} AND ${shouldInterpretAsLocal} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}
-      WHEN ${validTimestamptz} THEN (${textValue.valueSql})::timestamptz
-      WHEN ${validTimestamp} THEN ${this.interpretTimestampInFormulaTimeZone(textSql)}
-      ELSE NULL
+      ${caseBranches.join('\n      ')}
     END)`;
-    const errorCondition = `(${textValue.valueSql} IS NOT NULL AND NOT (${validTimestamptz} OR ${validTimestamp}))`;
+    const defaultErrorCondition = `(${textValue.valueSql} IS NOT NULL AND NOT (${validTimestamptz} OR ${validTimestamp}))`;
+    const errorCondition = customFormatErrorCondition ?? defaultErrorCondition;
     const combinedErrorCondition = combineErrorConditions([
       textValue,
+      ...(formatText ? [formatText] : []),
       makeExpr(
         'NULL',
         'datetime',
@@ -2065,6 +2167,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const errorMessage = buildErrorMessageSql(
       [
         textValue,
+        ...(formatText ? [formatText] : []),
         makeExpr(
           'NULL',
           'datetime',

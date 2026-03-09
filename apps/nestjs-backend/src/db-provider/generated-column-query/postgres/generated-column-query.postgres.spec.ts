@@ -99,3 +99,18 @@ describe('GeneratedColumnQueryPostgres FROMNOW/TONOW', () => {
     expect(sql).not.toContain(' - NOW()');
   });
 });
+
+describe('GeneratedColumnQueryPostgres DATETIME_PARSE', () => {
+  it('reparses trusted datetime inputs through explicit formats', () => {
+    const query = new GeneratedColumnQueryPostgres();
+    query.setContext({ timeZone: 'Asia/Shanghai' } as unknown as never);
+    query.setCallMetadata([{ type: 'datetime', isFieldReference: false }] as unknown as never);
+
+    const sql = query.datetimeParse('column_a', "'MMYYYY'");
+
+    expect(sql).toContain('TO_CHAR');
+    expect(sql).toContain('TO_TIMESTAMP');
+    expect(sql).toContain(`AT TIME ZONE 'Asia/Shanghai'`);
+    expect(sql).not.toBe('(column_a)');
+  });
+});

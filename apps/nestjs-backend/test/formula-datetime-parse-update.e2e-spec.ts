@@ -134,6 +134,50 @@ describe('Formula DATETIME_PARSE update semantics (e2e)', () => {
     }
   });
 
+  it('reparses date fields with explicit MMYYYY format into the first day of the month', async () => {
+    let tableId: string | undefined;
+    const dateFieldId = generateFieldId();
+
+    try {
+      const table = await createTable(baseId, {
+        name: 'formula-datetime-parse-month-bucket',
+        fields: [
+          { id: dateFieldId, name: 'TransactionDate', type: FieldType.Date },
+          {
+            name: 'MonthBucket',
+            type: FieldType.Formula,
+            options: {
+              expression: `DATETIME_PARSE({${dateFieldId}}, "MMYYYY")`,
+              timeZone: 'UTC',
+            },
+          },
+        ],
+      });
+      tableId = table.id;
+
+      const formulaFieldId =
+        table.fields.find((f) => f.name === 'MonthBucket')?.id ??
+        (() => {
+          throw new Error('MonthBucket field not found');
+        })();
+
+      const { records } = await createRecords(tableId, {
+        fieldKeyType: FieldKeyType.Name,
+        typecast: true,
+        records: [{ fields: { TransactionDate: '2025-01-05T00:00:00.000Z' } }],
+      });
+
+      const record = await getRecord(tableId, records[0].id);
+      const formulaValue = record.fields?.[formulaFieldId as string];
+
+      expect(formulaValue).toBe('2025-01-01T00:00:00.000Z');
+    } finally {
+      if (tableId) {
+        await permanentDeleteTable(baseId, tableId);
+      }
+    }
+  });
+
   /**
    * Test DATETIME_PARSE with single-digit month format.
    * This test verifies that single-digit months are correctly parsed.

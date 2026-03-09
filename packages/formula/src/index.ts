@@ -4,6 +4,7 @@ export * from './field-reference.visitor';
 export * from './field-reference.util';
 export * from './function-call-collector.visitor';
 export * from './error.listener';
+export * from './datetime-format-pg';
 export { FormulaLexer } from './parser/FormulaLexer';
 export * from './parser/Formula';
 export type { FormulaVisitor } from './parser/FormulaVisitor';

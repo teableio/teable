@@ -28,6 +28,19 @@ describe('SelectQueryPostgres tzWrap', () => {
     const sql = query.datetimeFormat('col', "'HH:mm:ss'");
     expect(sql).not.toContain('BTRIM');
   });
+
+  it('reparses trusted datetime inputs through custom formats instead of returning the original value', () => {
+    const query = new SelectQueryPostgres();
+    query.setContext({ timeZone: 'Asia/Shanghai' } as unknown as never);
+    query.setCallMetadata([{ type: 'datetime', isFieldReference: false }] as unknown as never);
+
+    const sql = query.datetimeParse('col', "'MMYYYY'");
+
+    expect(sql).toContain('TO_CHAR');
+    expect(sql).toContain('TO_TIMESTAMP');
+    expect(sql).toContain(`AT TIME ZONE 'Asia/Shanghai'`);
+    expect(sql).not.toBe('(col)');
+  });
 });
 
 describe('SelectQueryPostgres truthinessScore', () => {

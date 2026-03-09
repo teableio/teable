@@ -751,7 +751,19 @@ export class DatetimeParse extends DateTimeFunc {
   }
 
   eval(params: TypedValue<string | null>[], context: IFormulaContext): string | null {
-    const date = getDayjs(params[0].value, context.timeZone, params[1]?.value as string);
+    const format = params[1]?.value as string | undefined;
+
+    if (params[0].type === CellValueType.DateTime && format) {
+      const sourceDate = getDayjs(params[0].value, context.timeZone);
+      if (sourceDate == null) {
+        return null;
+      }
+
+      const reparsedDate = getDayjs(sourceDate.format(format), context.timeZone, format);
+      return reparsedDate?.toISOString() ?? null;
+    }
+
+    const date = getDayjs(params[0].value, context.timeZone, format);
 
     if (date == null) return null;
     return date.toISOString();
