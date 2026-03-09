@@ -76,6 +76,7 @@ import type { TableUpdateFieldNameSpec } from '../TableUpdateFieldNameSpec';
 import type { TableUpdateFieldTypeSpec } from '../TableUpdateFieldTypeSpec';
 import type { TableUpdateViewColumnMetaSpec } from '../TableUpdateViewColumnMetaSpec';
 import type { TableUpdateViewQueryDefaultsSpec } from '../TableUpdateViewQueryDefaultsSpec';
+import { FieldUpdateSemanticsVisitor } from './FieldUpdateSemanticsVisitor';
 
 /**
  * A visitor that generates domain events based on the specs it visits.
@@ -83,6 +84,7 @@ import type { TableUpdateViewQueryDefaultsSpec } from '../TableUpdateViewQueryDe
  */
 export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> {
   private readonly events: IDomainEvent[] = [];
+  private readonly fieldUpdateSemanticsVisitor = new FieldUpdateSemanticsVisitor();
 
   constructor(private readonly table: Table) {}
 
@@ -225,52 +227,43 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
 
   // Field update specs - generate FieldUpdated events
   visitTableUpdateFieldName(spec: TableUpdateFieldNameSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['name']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitTableUpdateFieldDbFieldName(
     spec: TableUpdateFieldDbFieldNameSpec
   ): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['dbFieldName']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitTableUpdateFieldType(spec: TableUpdateFieldTypeSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.newField().id(), ['type', 'options']);
+    this.pushFieldUpdated(spec, spec.newField().id());
     return ok(undefined);
   }
 
   visitTableUpdateFieldConstraints(
     spec: TableUpdateFieldConstraintsSpec
   ): Result<void, DomainError> {
-    const updatedProperties: string[] = [];
-    if (!spec.previousNotNull().equals(spec.nextNotNull())) {
-      updatedProperties.push('notNull');
-    }
-    if (!spec.previousUnique().equals(spec.nextUnique())) {
-      updatedProperties.push('unique');
-    }
-    if (updatedProperties.length > 0) {
-      this.pushFieldUpdated(spec, spec.fieldId(), updatedProperties);
-    }
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitTableUpdateFieldAiConfig(spec: TableUpdateFieldAiConfigSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['aiConfig']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitTableUpdateFieldDescription(
     spec: TableUpdateFieldDescriptionSpec
   ): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['description']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitTableUpdateFieldHasError(spec: TableUpdateFieldHasErrorSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['hasError']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
@@ -278,126 +271,126 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
 
   // SingleLineText
   visitUpdateSingleLineTextShowAs(spec: UpdateSingleLineTextShowAsSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['showAs']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateSingleLineTextDefaultValue(
     spec: UpdateSingleLineTextDefaultValueSpec
   ): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['defaultValue']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // LongText
   visitUpdateLongTextDefaultValue(spec: UpdateLongTextDefaultValueSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['defaultValue']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Number
   visitUpdateNumberFormatting(spec: UpdateNumberFormattingSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['formatting']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateNumberShowAs(spec: UpdateNumberShowAsSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['showAs']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateNumberDefaultValue(spec: UpdateNumberDefaultValueSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['defaultValue']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Date
   visitUpdateDateFormatting(spec: UpdateDateFormattingSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['formatting']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateDateDefaultValue(spec: UpdateDateDefaultValueSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['defaultValue']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Checkbox
   visitUpdateCheckboxDefaultValue(spec: UpdateCheckboxDefaultValueSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['defaultValue']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Rating
   visitUpdateRatingMax(spec: UpdateRatingMaxSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['max']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateRatingIcon(spec: UpdateRatingIconSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['icon']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateRatingColor(spec: UpdateRatingColorSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['color']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // User
   visitUpdateUserMultiplicity(spec: UpdateUserMultiplicitySpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['isMultiple']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateUserNotification(spec: UpdateUserNotificationSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['shouldNotify']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateUserDefaultValue(spec: UpdateUserDefaultValueSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['defaultValue']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Button
   visitUpdateButtonLabel(spec: UpdateButtonLabelSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['label']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateButtonColor(spec: UpdateButtonColorSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['color']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateButtonMaxCount(spec: UpdateButtonMaxCountSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['maxCount']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateButtonWorkflow(spec: UpdateButtonWorkflowSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['workflow']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // SingleSelect
   visitUpdateSingleSelectOptions(spec: UpdateSingleSelectOptionsSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['options']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateSingleSelectDefaultValue(
     spec: UpdateSingleSelectDefaultValueSpec
   ): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['defaultValue']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateSingleSelectAutoNewOptions(
     spec: UpdateSingleSelectAutoNewOptionsSpec
   ): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['autoNewOptions']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
@@ -405,107 +398,102 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
   visitUpdateMultipleSelectOptions(
     spec: UpdateMultipleSelectOptionsSpec
   ): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['options']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateMultipleSelectDefaultValue(
     spec: UpdateMultipleSelectDefaultValueSpec
   ): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['defaultValue']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateMultipleSelectAutoNewOptions(
     spec: UpdateMultipleSelectAutoNewOptionsSpec
   ): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['autoNewOptions']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Formula
   visitUpdateFormulaExpression(spec: UpdateFormulaExpressionSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['expression']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateFormulaFormatting(spec: UpdateFormulaFormattingSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['formatting']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateFormulaShowAs(spec: UpdateFormulaShowAsSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['showAs']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateFormulaTimeZone(spec: UpdateFormulaTimeZoneSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['timeZone']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Link
   visitUpdateLinkConfig(spec: UpdateLinkConfigSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['linkConfig']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateLinkRelationship(spec: UpdateLinkRelationshipSpec): Result<void, DomainError> {
-    const updatedProperties: string[] = ['linkRelationship'];
-    if (spec.isRelationshipTypeChanging()) {
-      updatedProperties.push('relationship');
-    }
-    if (spec.isOneWayChanging()) {
-      updatedProperties.push('isOneWay');
-    }
-    this.pushFieldUpdated(spec, spec.fieldId(), updatedProperties);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Lookup
   visitUpdateLookupOptions(spec: UpdateLookupOptionsSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['lookupOptions']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   // Rollup
   visitUpdateRollupConfig(spec: UpdateRollupConfigSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['rollupConfig']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateRollupExpression(spec: UpdateRollupExpressionSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['expression']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateRollupFormatting(spec: UpdateRollupFormattingSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['formatting']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateRollupShowAs(spec: UpdateRollupShowAsSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['showAs']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
   visitUpdateRollupTimeZone(spec: UpdateRollupTimeZoneSpec): Result<void, DomainError> {
-    this.pushFieldUpdated(spec, spec.fieldId(), ['timeZone']);
+    this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }
 
-  private pushFieldUpdated(
-    spec: object,
-    fieldId: FieldId,
-    updatedProperties: ReadonlyArray<string>
-  ): void {
+  private pushFieldUpdated(spec: object, fieldId: FieldId): void {
+    const semantics = this.fieldUpdateSemanticsVisitor.visit(spec);
+    if (!semantics) {
+      return;
+    }
+
     this.events.push(
       FieldUpdated.create({
         tableId: this.table.id(),
         baseId: this.table.baseId(),
         fieldId,
-        updatedProperties,
-        changes: this.extractChanges(spec, updatedProperties),
+        updatedProperties: semantics.updatedProperties,
+        changes: this.extractChanges(spec, semantics.updatedProperties),
+        propertySemantics: semantics.propertySemantics,
       })
     );
   }

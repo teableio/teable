@@ -121,6 +121,7 @@ describe('TableEventGeneratingSpecVisitor', () => {
       oldValue: null,
       newValue: 'next description',
     });
+    expect((events[0] as FieldUpdated).mayRequirePresence()).toBe(false);
   });
 
   it('generates FieldUpdated event with formatting property for UpdateNumberFormattingSpec', () => {
@@ -146,6 +147,9 @@ describe('TableEventGeneratingSpecVisitor', () => {
       oldValue: previousFormatting,
       newValue: nextFormatting,
     });
+    expect(fieldUpdated.realtimePathFor('formatting')).toEqual(['options']);
+    expect(fieldUpdated.presencePathFor('formatting')).toEqual(['options', 'formatting']);
+    expect(fieldUpdated.mayRequirePresence()).toBe(true);
   });
 
   it('generates type conversion event with type and options properties', () => {
@@ -179,6 +183,7 @@ describe('TableEventGeneratingSpecVisitor', () => {
         choices: [{ id: 'opt1', name: 'Open', color: 'yellowBright' }],
       },
     });
+    expect(fieldUpdated.mayRequirePresence()).toBe(true);
   });
 
   it('does not generate events for query specs', () => {

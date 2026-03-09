@@ -22,3 +22,4 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `packages/v2/core/src/domain/table/TableBuilder.spec.ts` - Aggregate build flow.
 - `packages/v2/core/src/domain/shared/DomainBasics.spec.ts` - Core domain abstractions.
+- `packages/v2/core/src/domain/table/specs/visitors/FieldUpdateSemanticsVisitor.ts` - Spec visitor that classifies field-update events for downstream realtime/presence handling.

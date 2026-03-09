@@ -3,9 +3,10 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
-import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
+import { FieldUpdated, serializeFieldUpdatedValue } from '../../domain/table/events/FieldUpdated';
 import { Table } from '../../domain/table/Table';
 import type { IEventHandler } from '../../ports/EventHandler';
+import type { RealtimeChange } from '../../ports/RealtimeChange';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableMapperPort from '../../ports/mappers/TableMapper';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
@@ -15,6 +16,57 @@ import { v2CoreTokens } from '../../ports/tokens';
 import { ProjectionHandler } from './Projection';
 
 const fieldCollectionPrefix = 'fld';
+
+const hasOwn = (value: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(value, key);
+
+const getValueAtPath = (value: unknown, path: ReadonlyArray<string>): unknown => {
+  let current = value;
+  for (const segment of path) {
+    if (!(current instanceof Object) || !hasOwn(current, segment)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+};
+
+const buildFieldRealtimeChanges = (
+  fieldDto: TableMapperPort.ITableFieldPersistenceDTO,
+  event: FieldUpdated
+): RealtimeChange[] => {
+  const fieldChanges: RealtimeChange[] = [];
+  const seenPaths = new Set<string>();
+
+  for (const property of event.updatedProperties) {
+    const change = event.changes[property];
+    const path = event.realtimePathFor(property);
+    const pathKey = JSON.stringify(path);
+    if (seenPaths.has(pathKey)) {
+      continue;
+    }
+    seenPaths.add(pathKey);
+
+    const snapshotValue = getValueAtPath(fieldDto, path);
+    const nextValue =
+      snapshotValue === undefined ? serializeFieldUpdatedValue(change?.newValue) : snapshotValue;
+    if (nextValue === undefined) {
+      continue;
+    }
+
+    const canReuseOldValue = path.length === 1 && path[0] === property;
+    const oldValue = canReuseOldValue ? serializeFieldUpdatedValue(change?.oldValue) : undefined;
+
+    fieldChanges.push({
+      type: 'set',
+      path: [...path],
+      value: nextValue,
+      ...(oldValue === undefined ? {} : { oldValue }),
+    });
+  }
+
+  return fieldChanges;
+};
 
 @ProjectionHandler(FieldUpdated)
 @injectable()
@@ -50,28 +102,7 @@ export class FieldUpdatedRealtimeProjection implements IEventHandler<FieldUpdate
         event.fieldId.toString()
       ).safeUnwrap();
 
-      const fieldChanges: Array<{
-        type: 'set';
-        path: string[];
-        value: unknown;
-        oldValue?: unknown;
-      }> = [];
-      for (const property of event.updatedProperties) {
-        const change = event.changes[property];
-        const snapshotValue = (fieldDto as Record<string, unknown>)[property];
-        const nextValue = snapshotValue === undefined ? change?.newValue : snapshotValue;
-        if (nextValue === undefined) {
-          continue;
-        }
-        const oldValue = change?.oldValue;
-
-        fieldChanges.push({
-          type: 'set',
-          path: [property],
-          value: nextValue,
-          ...(oldValue === undefined ? {} : { oldValue }),
-        });
-      }
+      const fieldChanges = buildFieldRealtimeChanges(fieldDto, event);
 
       if (fieldChanges.length === 0) {
         return ok(undefined);

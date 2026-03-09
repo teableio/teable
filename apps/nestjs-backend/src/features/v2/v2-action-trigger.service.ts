@@ -13,6 +13,7 @@ import {
   RecordsDeleted,
   ProjectionHandler,
   ok,
+  serializeFieldUpdatedValue,
 } from '@teable/v2-core';
 import type { IExecutionContext, IEventHandler, DomainError, Result } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -23,35 +24,28 @@ export interface IActionTriggerData {
   payload?: Record<string, unknown>;
 }
 
-const serializeActionTriggerValue = (value: unknown): unknown => {
-  if (value == null) return value;
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value instanceof Object && !Array.isArray(value);
+
+const setValueAtPath = (
+  target: Record<string, unknown>,
+  path: ReadonlyArray<string>,
+  value: unknown
+) => {
+  if (path.length === 0) {
+    return;
   }
 
-  if (Array.isArray(value)) {
-    return value.map((item) => serializeActionTriggerValue(item));
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (value instanceof Object) {
-    if ('toDto' in value && typeof value.toDto === 'function') {
-      return serializeActionTriggerValue(value.toDto());
+  let current = target;
+  for (const segment of path.slice(0, -1)) {
+    const nested = current[segment];
+    if (!isRecord(nested)) {
+      current[segment] = {};
     }
-
-    if ('value' in value && typeof value.value === 'function') {
-      return serializeActionTriggerValue(value.value());
-    }
-
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nested]) => [key, serializeActionTriggerValue(nested)])
-    );
+    current = current[segment] as Record<string, unknown>;
   }
 
-  return value;
+  current[path[path.length - 1] as string] = value;
 };
 
 const buildUpdatedFieldPatch = (event: FieldUpdated): Record<string, unknown> => {
@@ -66,7 +60,11 @@ const buildUpdatedFieldPatch = (event: FieldUpdated): Record<string, unknown> =>
       continue;
     }
 
-    patch[property] = serializeActionTriggerValue(change.newValue);
+    setValueAtPath(
+      patch,
+      event.presencePathFor(property),
+      serializeFieldUpdatedValue(change.newValue)
+    );
   }
 
   return patch;
@@ -250,8 +248,7 @@ class V2FieldUpdatedActionTriggerProjection implements IEventHandler<FieldUpdate
     _context: IExecutionContext,
     event: FieldUpdated
   ): Promise<Result<void, DomainError>> {
-    // Keep behavior aligned with v1 listener: only notify field updates that affect options/type.
-    if (!event.hasPropertyUpdate('options') && !event.hasPropertyUpdate('type')) {
+    if (!event.mayRequirePresence()) {
       return ok(undefined);
     }
 

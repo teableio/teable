@@ -47,6 +47,24 @@ import { TableCreatedRealtimeProjection } from './TableCreatedRealtimeProjection
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 import { ViewColumnMetaUpdatedRealtimeProjection } from './ViewColumnMetaUpdatedRealtimeProjection';
 
+const fieldUpdateSemantics = {
+  type: {
+    realtimePath: ['type'],
+    presencePath: ['type'],
+    mayRequirePresence: true,
+  },
+  options: {
+    realtimePath: ['options'],
+    presencePath: ['options'],
+    mayRequirePresence: true,
+  },
+  formatting: {
+    realtimePath: ['options'],
+    presencePath: ['options', 'formatting'],
+    mayRequirePresence: true,
+  },
+} as const;
+
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
@@ -735,6 +753,10 @@ describe('Realtime projections', () => {
         type: { oldValue: 'singleLineText', newValue: 'singleSelect' },
         options: { oldValue: {}, newValue: {} },
       },
+      propertySemantics: {
+        type: fieldUpdateSemantics.type,
+        options: fieldUpdateSemantics.options,
+      },
     });
 
     const result = await projection.handle(createContext(), event);
@@ -750,6 +772,73 @@ describe('Realtime projections', () => {
           choices: [{ id: 'opt1', name: 'Open', color: 'yellowBright' }],
         },
         oldValue: {},
+      },
+    ]);
+  });
+
+  it('projects formatting-only field updates through the field options snapshot', async () => {
+    const table = buildTable('1', '2', '3');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Event Time',
+          type: 'date',
+          options: {
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: 'hh:mm A',
+              timeZone: 'UTC',
+            },
+          },
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['formatting'],
+      changes: {
+        formatting: {
+          oldValue: {
+            date: 'YYYY-MM-DD',
+            time: 'None',
+            timeZone: 'UTC',
+          },
+          newValue: {
+            date: 'YYYY-MM-DD',
+            time: 'hh:mm A',
+            timeZone: 'UTC',
+          },
+        },
+      },
+      propertySemantics: {
+        formatting: fieldUpdateSemantics.formatting,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.change).toEqual([
+      {
+        type: 'set',
+        path: ['options'],
+        value: {
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: 'hh:mm A',
+            timeZone: 'UTC',
+          },
+        },
       },
     ]);
   });
@@ -921,6 +1010,10 @@ describe('Realtime projections', () => {
           },
           newValue: {},
         },
+      },
+      propertySemantics: {
+        type: fieldUpdateSemantics.type,
+        options: fieldUpdateSemantics.options,
       },
     });
 

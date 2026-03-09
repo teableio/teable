@@ -510,6 +510,140 @@ describe('v2 realtime sharedb (e2e)', () => {
     expect(afterUpdate.type).toBe('number');
   });
 
+  it('publishes formatting-only field updates to ShareDB over websocket', async () => {
+    const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime Field Formatting Update',
+        fields: [
+          { type: 'singleLineText', name: 'Name' },
+          {
+            type: 'date',
+            name: 'Event Time',
+            options: {
+              formatting: {
+                date: 'YYYY-MM-DD',
+                time: 'None',
+                timeZone: 'utc',
+              },
+            },
+          },
+        ],
+      } satisfies ICreateTableCommandInput),
+    });
+
+    expect(createTableResponse.status).toBe(201);
+
+    const createTableRaw = await createTableResponse.json();
+    const createTableParsed = createTableOkResponseSchema.safeParse(createTableRaw);
+    expect(createTableParsed.success).toBe(true);
+    if (!createTableParsed.success || !createTableParsed.data.ok) return;
+
+    const tableId = createTableParsed.data.data.table.id;
+    const fieldId =
+      createTableParsed.data.data.table.fields.find((field) => field.name === 'Event Time')?.id ??
+      '';
+    expect(fieldId).toBeTruthy();
+    if (!fieldId) return;
+
+    const socket = new WebSocket(shareDbUrl);
+    const connection = new Connection(socket as Socket);
+    const doc = connection.get(`fld_${tableId}`, fieldId) as Doc<ITableFieldPersistenceDTO>;
+
+    const subscribeResult = await new Promise<Error | undefined>((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve(new Error('ShareDB field doc subscribe timed out'));
+      }, 5000);
+
+      doc.subscribe((error) => {
+        clearTimeout(timeout);
+        if (error) {
+          resolve(new Error(error.message));
+          return;
+        }
+        resolve(undefined);
+      });
+    });
+
+    expect(subscribeResult).toBeUndefined();
+    if (subscribeResult) {
+      doc.destroy();
+      connection.close();
+      return;
+    }
+
+    try {
+      const opPromise = new Promise<ReadonlyArray<Record<string, unknown>>>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          doc.removeListener('op', onOp);
+          reject(new Error('ShareDB formatting op timed out'));
+        }, 5000);
+
+        const onOp = (ops: ReadonlyArray<Record<string, unknown>>, source: boolean) => {
+          if (source) return;
+          const matched = ops.some((op) => {
+            const path = op.p;
+            const nextValue = op.oi;
+            return (
+              Array.isArray(path) &&
+              path.length === 1 &&
+              path[0] === 'options' &&
+              typeof nextValue === 'object' &&
+              nextValue !== null &&
+              'formatting' in nextValue &&
+              typeof (nextValue as { formatting?: { time?: unknown } }).formatting?.time ===
+                'string' &&
+              (nextValue as { formatting: { time: string } }).formatting.time === 'hh:mm A'
+            );
+          });
+          if (!matched) return;
+
+          clearTimeout(timeout);
+          doc.removeListener('op', onOp);
+          resolve(ops);
+        };
+
+        doc.on('op', onOp);
+      });
+
+      const updateResponse = await fetch(`${baseUrl}/tables/updateField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId,
+          fieldId,
+          field: {
+            type: 'date',
+            options: {
+              formatting: {
+                date: 'YYYY-MM-DD',
+                time: 'hh:mm A',
+                timeZone: 'utc',
+              },
+            },
+          },
+        }),
+      });
+
+      expect(updateResponse.status).toBe(200);
+      const updateRaw = await updateResponse.json();
+      const updateParsed = updateFieldOkResponseSchema.safeParse(updateRaw);
+      expect(updateParsed.success).toBe(true);
+      if (!updateParsed.success || !updateParsed.data.ok) return;
+
+      await opPromise;
+      expect(
+        (doc.data?.options as { formatting?: { time?: string } } | undefined)?.formatting?.time
+      ).toBe('hh:mm A');
+    } finally {
+      doc.destroy();
+      connection.close();
+      socket.close();
+    }
+  });
+
   it('emits sequential conversion ops and increments field doc version', async () => {
     const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
       method: 'POST',

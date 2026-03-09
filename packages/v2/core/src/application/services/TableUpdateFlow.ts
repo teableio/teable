@@ -247,6 +247,7 @@ export class TableUpdateFlow {
           fieldId: event.fieldId,
           updatedProperties: event.updatedProperties,
           changes: event.changes,
+          propertySemantics: event.propertySemantics,
           oldVersion: versionChange.oldVersion,
           newVersion: versionChange.newVersion,
         });
