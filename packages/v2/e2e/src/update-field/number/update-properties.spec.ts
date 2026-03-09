@@ -332,7 +332,7 @@ describe('update-field: number property updates', () => {
         fieldId,
         field: { options: { showAs: undefined } },
       })
-    ).rejects.toThrow();
+    ).rejects.toThrow('No changes to apply');
 
     const table = await ctx.getTableById(tableId);
     const field = table.fields.find((f) => f.id === fieldId);

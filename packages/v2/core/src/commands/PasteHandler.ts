@@ -7,6 +7,7 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
+import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
@@ -43,7 +44,11 @@ import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
-import type { UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
+import {
+  composeUndoRedoCommands,
+  createUndoRedoCommand,
+  type UndoRedoCommandLeafData,
+} from '../ports/UndoRedoStore';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
@@ -79,6 +84,8 @@ interface CollectedEventData {
   tableEvents: IDomainEvent[];
   updates: RecordUpdateDTO[];
   createdRecords: RecordValuesDTO[];
+  schemaUndoCommands: UndoRedoCommandLeafData[];
+  schemaRedoCommands: UndoRedoCommandLeafData[];
 }
 
 /** Represents an update operation for an existing record */
@@ -129,6 +136,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
+    @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
+    private readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
@@ -278,7 +287,13 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       );
 
       // 12. Execute paste within transaction
-      const eventData: CollectedEventData = { tableEvents: [], updates: [], createdRecords: [] };
+      const eventData: CollectedEventData = {
+        tableEvents: [],
+        updates: [],
+        createdRecords: [],
+        schemaUndoCommands: [],
+        schemaRedoCommands: [],
+      };
 
       yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
         return handler.executePasteStream(
@@ -319,30 +334,25 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         yield* await handler.eventBus.publishMany(context, events);
       }
 
-      const buildUpdateCommand = (recordId: string, fields: Record<string, unknown>) => ({
-        type: 'UpdateRecord' as const,
-        version: 1,
-        payload: {
+      const buildUpdateCommand = (recordId: string, fields: Record<string, unknown>) =>
+        createUndoRedoCommand('UpdateRecord', {
           tableId: table.id().toString(),
           recordId,
           fields,
-          fieldKeyType: 'id' as const,
+          fieldKeyType: 'id',
           typecast: false,
-        },
-      });
+        });
 
       const undoCommands: UndoRedoCommandLeafData[] = [];
       const redoCommands: UndoRedoCommandLeafData[] = [];
 
       if (eventData.createdRecords.length > 0) {
-        undoCommands.push({
-          type: 'DeleteRecords',
-          version: 1,
-          payload: {
+        undoCommands.push(
+          createUndoRedoCommand('DeleteRecords', {
             tableId: table.id().toString(),
             recordIds: eventData.createdRecords.map((record) => record.recordId),
-          },
-        });
+          })
+        );
       }
 
       if (eventData.updates.length > 0) {
@@ -378,28 +388,18 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           };
         });
 
-        redoCommands.push({
-          type: 'RestoreRecords',
-          version: 1,
-          payload: {
+        redoCommands.push(
+          createUndoRedoCommand('RestoreRecords', {
             tableId: table.id().toString(),
             records: restoreRecords,
-          },
-        });
+          })
+        );
       }
 
       if (undoCommands.length > 0 || redoCommands.length > 0) {
         yield* await handler.undoRedoService.recordEntry(context, table.id(), {
-          undoCommand: {
-            type: 'Batch',
-            version: 1,
-            payload: undoCommands,
-          },
-          redoCommand: {
-            type: 'Batch',
-            version: 1,
-            payload: redoCommands,
-          },
+          undoCommand: composeUndoRedoCommands([...undoCommands, ...eventData.schemaUndoCommands]),
+          redoCommand: composeUndoRedoCommands([...eventData.schemaRedoCommands, ...redoCommands]),
         });
       }
 
@@ -773,6 +773,18 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         }
         tableForMutations = sideEffectResult.value.table;
         const tableUpdateResult = sideEffectResult.value.updateResult;
+        const sideEffectUndoRedoPlan =
+          await handler.recordWriteUndoRedoPlanService.captureSelectOptionSideEffects(
+            context,
+            table,
+            tableForMutations,
+            sideEffectResult.value.effects
+          );
+        if (sideEffectUndoRedoPlan.isErr()) {
+          return err(sideEffectUndoRedoPlan.error);
+        }
+        eventData.schemaUndoCommands.push(...sideEffectUndoRedoPlan.value.undoCommands);
+        eventData.schemaRedoCommands.push(...sideEffectUndoRedoPlan.value.redoCommands);
 
         if (tableUpdateResult) {
           const updateResult = await handler.tableUpdateFlow.execute(

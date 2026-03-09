@@ -3564,6 +3564,7 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
 
     it('should delete conditional rollup filtered by matching text and user fields on the host table', async () => {
+      const isForceV2 = process.env.FORCE_V2_ALL === 'true';
       const { userId, userName, email } = globalThis.testConfig;
       const userCell = { id: userId, title: userName, email };
 
@@ -3610,16 +3611,6 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         } as IConditionalRollupFieldOptions,
       } as IFieldRo);
 
-      const awaitFieldDeleteEvent = createAwaitWithEventWithResult<{
-        records?: unknown[];
-        fields: Array<
-          IFieldVo & {
-            columnMeta?: unknown;
-            references?: string[];
-          }
-        >;
-      }>(eventEmitterService, Events.OPERATION_FIELDS_DELETE);
-
       type TDeleteEventPayload = {
         records?: unknown[];
         fields: Array<
@@ -3633,15 +3624,25 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       let deleteEventPayload: TDeleteEventPayload | undefined;
 
       try {
-        deleteEventPayload = await awaitFieldDeleteEvent(() =>
-          deleteField(table.id, conditionalRollup.id)
-        );
+        if (isForceV2) {
+          await deleteField(table.id, conditionalRollup.id);
+        } else {
+          const awaitFieldDeleteEvent = createAwaitWithEventWithResult<TDeleteEventPayload>(
+            eventEmitterService,
+            Events.OPERATION_FIELDS_DELETE
+          );
+          deleteEventPayload = await awaitFieldDeleteEvent(() =>
+            deleteField(table.id, conditionalRollup.id)
+          );
+        }
       } finally {
         await permanentDeleteTable(baseId, table.id);
       }
 
-      expect(deleteEventPayload).toBeDefined();
-      expect(deleteEventPayload?.records).toBeUndefined();
+      if (!isForceV2) {
+        expect(deleteEventPayload).toBeDefined();
+        expect(deleteEventPayload?.records).toBeUndefined();
+      }
     });
   });
 

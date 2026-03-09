@@ -2,23 +2,39 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { ApplyFieldSnapshotCommand } from '../../commands/ApplyFieldSnapshotCommand';
+import { ApplyRecordOrdersCommand } from '../../commands/ApplyRecordOrdersCommand';
+import { DeleteFieldCommand } from '../../commands/DeleteFieldCommand';
 import { DeleteRecordsCommand } from '../../commands/DeleteRecordsCommand';
+import { ReplayFieldTypeConversionCommand } from '../../commands/ReplayFieldTypeConversionCommand';
 import { RestoreRecordsCommand } from '../../commands/RestoreRecordsCommand';
 import { UpdateRecordCommand } from '../../commands/UpdateRecordCommand';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordId } from '../../domain/table/records/RecordId';
-import type { TableId } from '../../domain/table/TableId';
-import type { ICommandBus } from '../../ports/CommandBus';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
+import { TableId } from '../../domain/table/TableId';
+import * as CommandBusPort from '../../ports/CommandBus';
+import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
-import type {
-  UndoEntry,
-  UndoRedoCommandData,
-  UndoRedoUpdateCommandData,
-  UndoScope,
+import {
+  createTeableSpanAttributes,
+  TeableSpanAttributes,
+  type ISpan,
+  type SpanAttributes,
+} from '../../ports/Tracer';
+import { TraceSpan } from '../../ports/TraceSpan';
+import {
+  composeUndoRedoCommands,
+  createUndoRedoCommand as buildUndoRedoCommand,
+  isSupportedUndoRedoCommandVersion,
+  type IUndoRedoStore,
+  type UndoEntry,
+  type UndoRedoCommandData,
+  type UndoRedoCommandLeafData,
+  type UndoRedoUpdateCommandData,
+  type UndoScope,
+  undoRedoCommandVersions,
 } from '../../ports/UndoRedoStore';
-import type { IUndoRedoStore } from '../../ports/UndoRedoStore';
 
 export type RecordUpdateUndoRedoInput = {
   readonly tableId: TableId;
@@ -27,6 +43,22 @@ export type RecordUpdateUndoRedoInput = {
   readonly newValues: Record<string, unknown>;
   readonly recordVersionBefore: number;
   readonly recordVersionAfter: number;
+  readonly undoCommandsAfter?: ReadonlyArray<UndoRedoCommandLeafData>;
+  readonly redoCommandsBefore?: ReadonlyArray<UndoRedoCommandLeafData>;
+};
+
+const describeError = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message || error.name;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  try {
+    return JSON.stringify(error) ?? String(error);
+  } catch {
+    return String(error);
+  }
 };
 
 @injectable()
@@ -35,11 +67,21 @@ export class UndoRedoService {
     @inject(v2CoreTokens.undoRedoStore)
     private readonly undoRedoStore: IUndoRedoStore,
     @inject(v2CoreTokens.commandBus)
-    private readonly commandBus: ICommandBus
+    private readonly commandBus: CommandBusPort.ICommandBus
   ) {}
 
+  @TraceSpan({
+    component: 'service',
+    attributes: (_context, params: RecordUpdateUndoRedoInput) => ({
+      [TeableSpanAttributes.TABLE_ID]: params.tableId.toString(),
+      [TeableSpanAttributes.RECORD_ID]: params.recordId.toString(),
+      'teable.undo_redo.mode': 'record_update',
+      'teable.undo_redo.undo_commands_after_count': params.undoCommandsAfter?.length ?? 0,
+      'teable.undo_redo.redo_commands_before_count': params.redoCommandsBefore?.length ?? 0,
+    }),
+  })
   async recordUpdateRecord(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     params: RecordUpdateUndoRedoInput
   ): Promise<Result<void, DomainError>> {
     if (Object.keys(params.oldValues).length === 0) {
@@ -54,34 +96,38 @@ export class UndoRedoService {
     } as const;
 
     const undoCommand: UndoRedoUpdateCommandData = {
-      type: 'UpdateRecord',
-      version: 1,
-      payload: {
+      ...buildUndoRedoCommand('UpdateRecord', {
         ...basePayload,
         fields: params.oldValues,
-      },
+      }),
     };
 
     const redoCommand: UndoRedoUpdateCommandData = {
-      type: 'UpdateRecord',
-      version: 1,
-      payload: {
+      ...buildUndoRedoCommand('UpdateRecord', {
         ...basePayload,
         fields: params.newValues,
-      },
+      }),
     };
 
     const entry: Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'> = {
-      undoCommand,
-      redoCommand,
+      undoCommand: composeUndoRedoCommands([undoCommand, ...(params.undoCommandsAfter ?? [])]),
+      redoCommand: composeUndoRedoCommands([...(params.redoCommandsBefore ?? []), redoCommand]),
       recordVersionBefore: params.recordVersionBefore,
       recordVersionAfter: params.recordVersionAfter,
     };
     return this.recordEntry(context, params.tableId, entry);
   }
 
+  @TraceSpan({
+    component: 'service',
+    attributes: (context, tableId: TableId) => ({
+      [TeableSpanAttributes.TABLE_ID]: tableId.toString(),
+      'teable.window_id': context.windowId ?? 'missing',
+      'teable.undo_redo.mode': context.undoRedo?.mode ?? 'normal',
+    }),
+  })
   async recordEntry(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     tableId: TableId,
     entry: Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'>
   ): Promise<Result<void, DomainError>> {
@@ -110,23 +156,47 @@ export class UndoRedoService {
       requestId: context.requestId,
     };
 
-    const appendResult = await this.undoRedoStore.append(scope, entryWithScope);
+    const appendResult = await this.runInSpan(
+      context,
+      'teable.UndoRedoService.storeAppend',
+      createTeableSpanAttributes('service', 'UndoRedoService.storeAppend', {
+        ...this.buildScopeTraceAttributes(scope),
+        ...this.buildEntryTraceAttributes(entryWithScope),
+      }),
+      () => this.undoRedoStore.append(scope, entryWithScope)
+    );
     if (appendResult.isErr()) {
       return err(appendResult.error);
     }
     return ok(undefined);
   }
 
+  @TraceSpan({
+    component: 'service',
+    attributes: (context, tableId: TableId) => ({
+      [TeableSpanAttributes.TABLE_ID]: tableId.toString(),
+      'teable.window_id': context.windowId ?? 'missing',
+      'teable.undo_redo.mode': 'undo',
+    }),
+  })
   async undo(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     tableId: TableId,
     windowId?: string
   ): Promise<Result<UndoEntry | null, DomainError>> {
     return this.applyEntry(context, tableId, windowId, 'undo');
   }
 
+  @TraceSpan({
+    component: 'service',
+    attributes: (context, tableId: TableId) => ({
+      [TeableSpanAttributes.TABLE_ID]: tableId.toString(),
+      'teable.window_id': context.windowId ?? 'missing',
+      'teable.undo_redo.mode': 'redo',
+    }),
+  })
   async redo(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     tableId: TableId,
     windowId?: string
   ): Promise<Result<UndoEntry | null, DomainError>> {
@@ -134,7 +204,7 @@ export class UndoRedoService {
   }
 
   private async applyEntry(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     tableId: TableId,
     windowId: string | undefined,
     mode: 'undo' | 'redo'
@@ -142,16 +212,26 @@ export class UndoRedoService {
     const service = this;
     return safeTry<UndoEntry | null, DomainError>(async function* () {
       const scope = yield* service.resolveScope(context, tableId, windowId);
-      const entry =
-        mode === 'undo'
-          ? yield* await service.undoRedoStore.undo(scope)
-          : yield* await service.undoRedoStore.redo(scope);
+      const entry = yield* await service.runInSpan(
+        context,
+        mode === 'undo' ? 'teable.UndoRedoService.storeUndo' : 'teable.UndoRedoService.storeRedo',
+        createTeableSpanAttributes(
+          'service',
+          mode === 'undo' ? 'UndoRedoService.storeUndo' : 'UndoRedoService.storeRedo',
+          {
+            ...service.buildScopeTraceAttributes(scope),
+            'teable.undo_redo.mode': mode,
+          }
+        ),
+        () =>
+          mode === 'undo' ? service.undoRedoStore.undo(scope) : service.undoRedoStore.redo(scope)
+      );
 
       if (!entry) return ok(null);
 
       const commandData = mode === 'undo' ? entry.undoCommand : entry.redoCommand;
 
-      const executeContext: IExecutionContext = {
+      const executeContext: ExecutionContextPort.IExecutionContext = {
         ...context,
         undoRedo: { mode },
       };
@@ -163,36 +243,32 @@ export class UndoRedoService {
   }
 
   private createCommand(commandData: UndoRedoCommandData): Result<unknown, DomainError> {
+    const versionResult = this.ensureSupportedCommandVersion(commandData);
+    if (versionResult.isErr()) {
+      return err(versionResult.error);
+    }
+
     switch (commandData.type) {
       case 'UpdateRecord': {
-        if (commandData.version !== 1) {
-          return err(
-            domainError.validation({
-              message: `Unsupported undo/redo command version: ${commandData.version}`,
-            })
-          );
-        }
         return UpdateRecordCommand.create(commandData.payload);
       }
       case 'DeleteRecords': {
-        if (commandData.version !== 1) {
-          return err(
-            domainError.validation({
-              message: `Unsupported undo/redo command version: ${commandData.version}`,
-            })
-          );
-        }
         return DeleteRecordsCommand.create(commandData.payload);
       }
       case 'RestoreRecords': {
-        if (commandData.version !== 1) {
-          return err(
-            domainError.validation({
-              message: `Unsupported undo/redo command version: ${commandData.version}`,
-            })
-          );
-        }
         return RestoreRecordsCommand.create(commandData.payload);
+      }
+      case 'ApplyRecordOrders': {
+        return ApplyRecordOrdersCommand.create(commandData.payload);
+      }
+      case 'DeleteField': {
+        return DeleteFieldCommand.create(commandData.payload);
+      }
+      case 'ApplyFieldSnapshot': {
+        return ApplyFieldSnapshotCommand.create(commandData.payload);
+      }
+      case 'ReplayFieldTypeConversion': {
+        return ReplayFieldTypeConversionCommand.create(commandData.payload);
       }
       case 'Batch': {
         return err(domainError.validation({ message: 'Batch undo/redo command must be expanded' }));
@@ -207,36 +283,43 @@ export class UndoRedoService {
   }
 
   private async executeCommandData(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     commandData: UndoRedoCommandData
   ): Promise<Result<void, DomainError>> {
-    if (commandData.type === 'Batch') {
-      if (commandData.version !== 1) {
-        return err(
-          domainError.validation({
-            message: `Unsupported undo/redo command version: ${commandData.version}`,
-          })
-        );
-      }
-      for (const nested of commandData.payload) {
-        const nestedResult = await this.executeCommandData(context, nested);
-        if (nestedResult.isErr()) {
-          return err(nestedResult.error);
+    return this.runInSpan(
+      context,
+      'teable.UndoRedoService.executeCommandData',
+      createTeableSpanAttributes('service', 'UndoRedoService.executeCommandData', {
+        ...this.buildCommandTraceAttributes(commandData),
+        'teable.undo_redo.mode': context.undoRedo?.mode ?? 'normal',
+      }),
+      async () => {
+        if (commandData.type === 'Batch') {
+          const versionResult = this.ensureSupportedCommandVersion(commandData);
+          if (versionResult.isErr()) {
+            return err(versionResult.error);
+          }
+          for (const nested of commandData.payload) {
+            const nestedResult = await this.executeCommandData(context, nested);
+            if (nestedResult.isErr()) {
+              return err(nestedResult.error);
+            }
+          }
+          return ok(undefined);
         }
+
+        const command = this.createCommand(commandData);
+        if (command.isErr()) {
+          return err(command.error);
+        }
+
+        const executeResult = await this.commandBus.execute(context, command.value);
+        if (executeResult.isErr()) {
+          return err(executeResult.error);
+        }
+        return ok(undefined);
       }
-      return ok(undefined);
-    }
-
-    const command = this.createCommand(commandData);
-    if (command.isErr()) {
-      return err(command.error);
-    }
-
-    const executeResult = await this.commandBus.execute(context, command.value);
-    if (executeResult.isErr()) {
-      return err(executeResult.error);
-    }
-    return ok(undefined);
+    );
   }
 
   private isEmptyCommand(command: UndoRedoCommandData): boolean {
@@ -245,7 +328,7 @@ export class UndoRedoService {
   }
 
   private resolveScope(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     tableId: TableId,
     windowId?: string
   ): Result<UndoScope, DomainError> {
@@ -254,5 +337,109 @@ export class UndoRedoService {
       return err(domainError.validation({ message: 'Missing windowId for undo/redo operation' }));
     }
     return ok({ actorId: context.actorId, tableId, windowId: resolvedWindowId });
+  }
+
+  private buildScopeTraceAttributes(scope: UndoScope): SpanAttributes {
+    return {
+      [TeableSpanAttributes.TABLE_ID]: scope.tableId.toString(),
+      'teable.actor_id': scope.actorId.toString(),
+      'teable.window_id': scope.windowId,
+    };
+  }
+
+  private buildEntryTraceAttributes(
+    entry: Pick<UndoEntry, 'undoCommand' | 'redoCommand'>
+  ): SpanAttributes {
+    return {
+      'teable.undo_redo.undo_command_type': entry.undoCommand.type,
+      'teable.undo_redo.undo_command_version': entry.undoCommand.version,
+      'teable.undo_redo.redo_command_type': entry.redoCommand.type,
+      'teable.undo_redo.redo_command_version': entry.redoCommand.version,
+    };
+  }
+
+  private buildCommandTraceAttributes(commandData: UndoRedoCommandData): SpanAttributes {
+    const attributes: Record<string, string | number | boolean> = {
+      'teable.undo_redo.command_type': commandData.type,
+      'teable.undo_redo.command_version': commandData.version,
+    };
+
+    if (
+      commandData.type !== 'Batch' &&
+      'tableId' in commandData.payload &&
+      typeof commandData.payload.tableId === 'string'
+    ) {
+      attributes[TeableSpanAttributes.TABLE_ID] = commandData.payload.tableId;
+    }
+
+    if (commandData.type === 'UpdateRecord') {
+      attributes[TeableSpanAttributes.RECORD_ID] = commandData.payload.recordId;
+    }
+
+    if (commandData.type === 'DeleteField') {
+      attributes[TeableSpanAttributes.FIELD_ID] = commandData.payload.fieldId;
+    }
+
+    if (
+      commandData.type === 'ApplyFieldSnapshot' ||
+      commandData.type === 'ReplayFieldTypeConversion'
+    ) {
+      attributes[TeableSpanAttributes.FIELD_ID] = commandData.payload.snapshot.field.id;
+    }
+
+    if (commandData.type === 'Batch') {
+      attributes['teable.undo_redo.batch_size'] = commandData.payload.length;
+    }
+
+    return attributes;
+  }
+
+  private async runInSpan<T>(
+    context: ExecutionContextPort.IExecutionContext,
+    name: `teable.${string}`,
+    attributes: SpanAttributes,
+    callback: () => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
+    const tracer = context.tracer;
+    let span: ISpan | undefined;
+    if (tracer) {
+      try {
+        span = tracer.startSpan(name, attributes);
+      } catch {
+        span = undefined;
+      }
+    }
+
+    const execute = async () => {
+      const result = await callback();
+      if (result.isErr()) {
+        span?.recordError(result.error.message);
+      }
+      return result;
+    };
+
+    try {
+      return tracer && span ? await tracer.withSpan(span, execute) : await execute();
+    } catch (error) {
+      const message = describeError(error) || 'Undo/redo tracing callback failed';
+      span?.recordError(message);
+      return err(domainError.unexpected({ message }));
+    } finally {
+      span?.end();
+    }
+  }
+
+  private ensureSupportedCommandVersion(
+    commandData: UndoRedoCommandData
+  ): Result<void, DomainError> {
+    if (isSupportedUndoRedoCommandVersion(commandData)) {
+      return ok(undefined);
+    }
+
+    return err(
+      domainError.validation({
+        message: `Unsupported undo/redo command version for ${commandData.type}: ${commandData.version}, expected ${undoRedoCommandVersions[commandData.type]}`,
+      })
+    );
   }
 }

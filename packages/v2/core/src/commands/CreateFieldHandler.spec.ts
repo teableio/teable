@@ -2,9 +2,11 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -51,6 +53,25 @@ const createContext = (options?: {
     $t: options?.t,
   };
 };
+
+const noopUndoRedoService = {
+  async recordEntry() {
+    return ok(undefined);
+  },
+} as unknown as UndoRedoService;
+
+const noopFieldUndoRedoSnapshotService = {
+  async capture(_context: IExecutionContext, _table: Table, fieldId: FieldId) {
+    return ok({
+      field: {
+        id: fieldId.toString(),
+        name: 'Undo Snapshot',
+        type: 'singleLineText',
+      },
+      views: [],
+    });
+  },
+} as unknown as FieldUndoRedoSnapshotService;
 
 class InMemoryTableRepository implements ITableRepository {
   tables: Table[] = [];
@@ -206,7 +227,9 @@ describe('CreateFieldHandler', () => {
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      foreignTableLoaderService
+      foreignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     tableRepository.tables.push(
@@ -299,7 +322,9 @@ describe('CreateFieldHandler', () => {
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      foreignTableLoaderService
+      foreignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     tableRepository.tables.push(
@@ -366,7 +391,9 @@ describe('CreateFieldHandler', () => {
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      foreignTableLoaderService
+      foreignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     const hostTable = buildTable({
@@ -452,7 +479,9 @@ describe('CreateFieldHandler', () => {
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      foreignTableLoaderService
+      foreignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     // Create a table with a number field
@@ -526,7 +555,9 @@ describe('CreateFieldHandler', () => {
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      foreignTableLoaderService
+      foreignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     tableRepository.tables.push(
@@ -623,7 +654,9 @@ describe('CreateFieldHandler', () => {
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      foreignTableLoaderService
+      foreignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     tableRepository.tables.push(
@@ -722,7 +755,9 @@ describe('CreateFieldHandler', () => {
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      foreignTableLoaderService
+      foreignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     tableRepository.tables.push(

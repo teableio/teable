@@ -1,27 +1,33 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
+import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { RecordFieldChangeDTO } from '../domain/table/events/RecordFieldValuesDTO';
+import { RecordReordered } from '../domain/table/events/RecordReordered';
 import { RecordUpdated } from '../domain/table/events/RecordUpdated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
-import type { TableRecord } from '../domain/table/records/TableRecord';
+import { RecordUpdateResult as SingleRecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
+import { TableRecord } from '../domain/table/records/TableRecord';
+import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { UpdateRecordCommand } from './UpdateRecordCommand';
@@ -56,10 +62,14 @@ export class UpdateRecordHandler
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
+    @inject(v2CoreTokens.recordOrderCalculator)
+    private readonly recordOrderCalculator: IRecordOrderCalculator,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
+    @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
+    private readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.eventBus)
@@ -84,7 +94,7 @@ export class UpdateRecordHandler
         context,
         table,
         command.recordId,
-        { mode: 'stored' }
+        { mode: 'stored', includeOrders: true }
       );
 
       // Resolve field keys using FieldKeyResolverService (supports id/name/dbFieldName)
@@ -105,6 +115,13 @@ export class UpdateRecordHandler
       );
       const tableForUpdate = sideEffectResult.table;
       const tableUpdateResult = sideEffectResult.updateResult;
+      const sideEffectUndoRedoPlan =
+        yield* await handler.recordWriteUndoRedoPlanService.captureSelectOptionSideEffects(
+          context,
+          table,
+          tableForUpdate,
+          sideEffectResult.effects
+        );
 
       // table.updateRecord internally uses FieldByKeySpec for intelligent field lookup
       // and returns fieldKeyMapping (fieldId -> originalKey)
@@ -139,6 +156,8 @@ export class UpdateRecordHandler
             {
               mutation: RecordMutationResult;
               tableEvents: ReadonlyArray<IDomainEvent>;
+              previousOrder?: number;
+              nextOrder?: number;
             },
             DomainError
           >(async function* () {
@@ -158,7 +177,52 @@ export class UpdateRecordHandler
               command.recordId,
               mutateSpec
             );
-            return ok({ mutation, tableEvents });
+
+            let previousOrder: number | undefined;
+            let nextOrder: number | undefined;
+
+            if (command.order) {
+              const viewId = command.order.viewId;
+              const viewIdText = viewId.toString();
+              previousOrder = currentRecord.orders?.[viewIdText] ?? currentRecord.autoNumber;
+
+              const orderValuesResult = await handler.recordOrderCalculator.calculateOrders(
+                transactionContext,
+                tableForUpdate,
+                viewId,
+                command.order.anchorId,
+                command.order.position,
+                1
+              );
+              if (orderValuesResult.isErr()) {
+                return err(orderValuesResult.error);
+              }
+
+              nextOrder = orderValuesResult.value[0];
+              if (previousOrder !== nextOrder) {
+                const orderOnlyRecord = yield* TableRecord.create({
+                  id: command.recordId,
+                  tableId: table.id(),
+                  fieldValues: [],
+                });
+                const orderUpdate = SingleRecordUpdateResult.create(
+                  orderOnlyRecord,
+                  new SetRowOrderValueSpec(viewId, nextOrder)
+                );
+                const persistOrderResult = await handler.tableRecordRepository.updateManyStream(
+                  transactionContext,
+                  tableForUpdate,
+                  (function* () {
+                    yield ok([orderUpdate]);
+                  })()
+                );
+                if (persistOrderResult.isErr()) {
+                  return err(persistOrderResult.error);
+                }
+              }
+            }
+
+            return ok({ mutation, tableEvents, previousOrder, nextOrder });
           });
         }
       );
@@ -191,18 +255,40 @@ export class UpdateRecordHandler
       // Use the actual version from the current record for ShareDB sync
       const oldVersion = currentRecord.version;
       const newVersion = oldVersion + 1;
-      const events: IDomainEvent[] = [
-        ...mutationResult.tableEvents,
-        RecordUpdated.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          recordId: command.recordId,
-          oldVersion,
-          newVersion,
-          changes,
-          source: 'user',
-        }),
-      ];
+      const events: IDomainEvent[] = [...mutationResult.tableEvents];
+      if (changes.length > 0) {
+        events.push(
+          RecordUpdated.create({
+            tableId: table.id(),
+            baseId: table.baseId(),
+            recordId: command.recordId,
+            oldVersion,
+            newVersion,
+            changes,
+            source: 'user',
+          })
+        );
+      }
+
+      if (command.order && mutationResult.previousOrder !== mutationResult.nextOrder) {
+        events.push(
+          RecordReordered.create({
+            tableId: table.id(),
+            baseId: table.baseId(),
+            viewId: command.order.viewId,
+            recordIds: [command.recordId],
+            ordersByRecordId: {
+              [command.recordId.toString()]: mutationResult.nextOrder as number,
+            },
+            previousOrdersByRecordId:
+              mutationResult.previousOrder !== undefined
+                ? {
+                    [command.recordId.toString()]: mutationResult.previousOrder,
+                  }
+                : {},
+          })
+        );
+      }
       yield* await handler.eventBus.publishMany(context, events);
 
       const oldValues: Record<string, unknown> = {};
@@ -212,14 +298,69 @@ export class UpdateRecordHandler
         newValues[change.fieldId] = change.newValue;
       }
 
-      yield* await handler.undoRedoService.recordUpdateRecord(context, {
-        tableId: table.id(),
-        recordId: command.recordId,
-        oldValues,
-        newValues,
-        recordVersionBefore: oldVersion,
-        recordVersionAfter: newVersion,
-      });
+      const orderUndoCommands =
+        command.order && mutationResult.previousOrder !== mutationResult.nextOrder
+          ? [
+              createUndoRedoCommand('ApplyRecordOrders', {
+                tableId: table.id().toString(),
+                viewId: command.order.viewId.toString(),
+                records: [
+                  {
+                    recordId: command.recordId.toString(),
+                    ...(mutationResult.previousOrder !== undefined
+                      ? { order: mutationResult.previousOrder }
+                      : {}),
+                  },
+                ],
+              }),
+            ]
+          : [];
+      const orderRedoCommands =
+        command.order && mutationResult.previousOrder !== mutationResult.nextOrder
+          ? [
+              createUndoRedoCommand('ApplyRecordOrders', {
+                tableId: table.id().toString(),
+                viewId: command.order.viewId.toString(),
+                records: [
+                  {
+                    recordId: command.recordId.toString(),
+                    ...(mutationResult.nextOrder !== undefined
+                      ? { order: mutationResult.nextOrder }
+                      : {}),
+                  },
+                ],
+              }),
+            ]
+          : [];
+
+      if (Object.keys(oldValues).length > 0) {
+        yield* await handler.undoRedoService.recordUpdateRecord(context, {
+          tableId: table.id(),
+          recordId: command.recordId,
+          oldValues,
+          newValues,
+          recordVersionBefore: oldVersion,
+          recordVersionAfter: newVersion,
+          undoCommandsAfter: [...sideEffectUndoRedoPlan.undoCommands, ...orderUndoCommands],
+          redoCommandsBefore: [...sideEffectUndoRedoPlan.redoCommands, ...orderRedoCommands],
+        });
+      } else if (
+        sideEffectUndoRedoPlan.undoCommands.length > 0 ||
+        sideEffectUndoRedoPlan.redoCommands.length > 0 ||
+        orderUndoCommands.length > 0 ||
+        orderRedoCommands.length > 0
+      ) {
+        yield* await handler.undoRedoService.recordEntry(context, table.id(), {
+          undoCommand: composeUndoRedoCommands([
+            ...sideEffectUndoRedoPlan.undoCommands,
+            ...orderUndoCommands,
+          ]),
+          redoCommand: composeUndoRedoCommands([
+            ...sideEffectUndoRedoPlan.redoCommands,
+            ...orderRedoCommands,
+          ]),
+        });
+      }
 
       return ok(
         UpdateRecordResult.create(

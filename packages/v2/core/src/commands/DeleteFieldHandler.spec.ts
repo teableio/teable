@@ -2,9 +2,11 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import type { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
 import type { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -32,6 +34,25 @@ const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
 };
+
+const noopUndoRedoService = {
+  async recordEntry() {
+    return ok(undefined);
+  },
+} as unknown as UndoRedoService;
+
+const noopFieldUndoRedoSnapshotService = {
+  async capture(_context: IExecutionContext, _table: Table, fieldId: FieldId) {
+    return ok({
+      field: {
+        id: fieldId.toString(),
+        name: 'Undo Snapshot',
+        type: 'singleLineText',
+      },
+      views: [],
+    });
+  },
+} as unknown as FieldUndoRedoSnapshotService;
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'d'.repeat(16)}`)._unsafeUnwrap();
@@ -176,12 +197,12 @@ class FakeFieldDeletionSideEffectService {
   async execute(
     _: IExecutionContext,
     input: { table: Table; fields: ReadonlyArray<{ id: () => FieldId }>; foreignTables: Table[] }
-  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
+  ): Promise<Result<{ events: ReadonlyArray<IDomainEvent>; appliedDeletions: [] }, DomainError>> {
     this.calls.push({
       table: input.table,
       fields: input.fields.map((field) => field.id()),
     });
-    return ok([...this.events]);
+    return ok({ events: [...this.events], appliedDeletions: [] });
   }
 }
 
@@ -229,7 +250,9 @@ describe('DeleteFieldHandler', () => {
       tableRepository,
       tableUpdateFlow,
       sideEffectService as unknown as FieldDeletionSideEffectService,
-      foreignTableLoader as unknown as ForeignTableLoaderService
+      foreignTableLoader as unknown as ForeignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     const commandResult = DeleteFieldCommand.create({
@@ -263,7 +286,9 @@ describe('DeleteFieldHandler', () => {
         new FakeUnitOfWork()
       ),
       new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
-      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService
+      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     const commandResult = DeleteFieldCommand.create({

@@ -104,13 +104,14 @@ export abstract class View extends Entity<ViewId> implements OnTeableViewFieldDe
       (item) => item.fieldId !== deletedFieldId
     );
 
+    const nextManualSort =
+      nextSort && nextSort.length > 0 ? currentQueryDefaultsDto.manualSort ?? false : undefined;
+
     const nextQueryDefaultsDto = {
       ...(nextFilter !== undefined ? { filter: nextFilter } : {}),
       ...(nextSort && nextSort.length > 0 ? { sort: nextSort } : {}),
       ...(nextGroup && nextGroup.length > 0 ? { group: nextGroup } : {}),
-      ...(currentQueryDefaultsDto.manualSort !== undefined
-        ? { manualSort: currentQueryDefaultsDto.manualSort }
-        : {}),
+      ...(nextManualSort !== undefined ? { manualSort: nextManualSort } : {}),
     };
 
     const nextQueryDefaultsResult = ViewQueryDefaultsValue.rehydrate(nextQueryDefaultsDto);

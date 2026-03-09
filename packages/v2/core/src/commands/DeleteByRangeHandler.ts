@@ -24,6 +24,7 @@ import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import type { RecordSearchValue } from '../queries/ListTableRecordsQuery';
 import {
@@ -300,22 +301,14 @@ export class DeleteByRangeHandler
 
       if (restoreRecords.length > 0) {
         yield* await handler.undoRedoService.recordEntry(context, table.id(), {
-          undoCommand: {
-            type: 'RestoreRecords',
-            version: 1,
-            payload: {
-              tableId: table.id().toString(),
-              records: restoreRecords,
-            },
-          },
-          redoCommand: {
-            type: 'DeleteRecords',
-            version: 1,
-            payload: {
-              tableId: table.id().toString(),
-              recordIds: restoreRecords.map((record) => record.recordId),
-            },
-          },
+          undoCommand: createUndoRedoCommand('RestoreRecords', {
+            tableId: table.id().toString(),
+            records: restoreRecords,
+          }),
+          redoCommand: createUndoRedoCommand('DeleteRecords', {
+            tableId: table.id().toString(),
+            recordIds: restoreRecords.map((record) => record.recordId),
+          }),
         });
       }
 

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
+import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { UndoRedoService } from '../application/services/UndoRedoService';
@@ -33,6 +34,8 @@ import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type { ITableRecordRepository } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -48,6 +51,10 @@ const createContext = (): IExecutionContext => {
 const noopUndoRedoService = {
   recordEntry: async () => ok(undefined),
 } as unknown as UndoRedoService;
+
+const noopRecordWriteUndoRedoPlanService = {
+  captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
+} as unknown as RecordWriteUndoRedoPlanService;
 
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
@@ -221,6 +228,40 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   }
 }
 
+class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
+  constructor(private readonly recordRepository: FakeTableRecordRepository) {}
+
+  async find() {
+    return ok({ records: [], total: 0 });
+  }
+
+  async findOne(
+    _context: IExecutionContext,
+    _table: Table,
+    recordId: RecordId
+  ): Promise<Result<TableRecordReadModel, DomainError>> {
+    const record = this.recordRepository.records.find((entry) => entry.id().equals(recordId));
+    if (!record) {
+      return err(domainError.notFound({ message: 'Record not found' }));
+    }
+
+    const fields: Record<string, unknown> = {};
+    for (const entry of record.fields().entries()) {
+      fields[entry.fieldId.toString()] = entry.value.toValue();
+    }
+
+    return ok({
+      id: record.id().toString(),
+      fields,
+      version: 1,
+    });
+  }
+
+  async *findStream(): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
+    // No-op for tests.
+  }
+}
+
 class FakeEventBus implements IEventBus {
   published: IDomainEvent[] = [];
   failPublish: DomainError | undefined;
@@ -377,9 +418,11 @@ const createHandler = (
     tableQueryService,
     new RecordCreationService(
       recordRepository,
+      new FakeTableRecordQueryRepository(recordRepository),
       createFakeRecordMutationSpecResolverService(),
       new FakeRecordCreateConstraintService(),
       new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       noopUndoRedoService,

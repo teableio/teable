@@ -45,8 +45,12 @@ import {
 import type { ITableFullVo } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
+import { X_TEABLE_UNDO_REDO_ENGINE_HEADER } from '../src/features/undo-redo/open-api/undo-redo.service';
 import { createAwaitWithEvent } from './utils/event-promise';
 import { initApp, permanentDeleteTable, createTable, updateRecordByApi } from './utils/init-app';
+
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
@@ -64,7 +68,9 @@ describe('Undo Redo (e2e)', () => {
       config.headers['X-Window-Id'] = windowId;
       return config;
     });
-    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
+    awaitWithEvent = isForceV2
+      ? async <T>(action: () => Promise<T>) => await action()
+      : createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
   });
 
   afterAll(async () => {
@@ -83,17 +89,18 @@ describe('Undo Redo (e2e)', () => {
     await createField(table.id, { type: FieldType.CreatedTime });
     await createField(table.id, { type: FieldType.LastModifiedTime });
 
-    const record1 = (
-      await createRecords(table.id, {
-        fieldKeyType: FieldKeyType.Id,
-        records: [{ fields: { [table.fields[0].id]: 'record1' } }],
-        order: {
-          viewId: table.views[0].id,
-          anchorId: table.records[0].id,
-          position: 'after',
-        },
-      })
-    ).data.records[0];
+    const createRecordsRes = await createRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [{ fields: { [table.fields[0].id]: 'record1' } }],
+      order: {
+        viewId: table.views[0].id,
+        anchorId: table.records[0].id,
+        position: 'after',
+      },
+    });
+    const expectedUndoRedoEngine =
+      createRecordsRes.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
+    const record1 = createRecordsRes.data.records[0];
 
     const allRecords = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -101,7 +108,8 @@ describe('Undo Redo (e2e)', () => {
     });
     expect(allRecords.data.records).toHaveLength(4);
 
-    await undo(table.id);
+    const undoRes = await undo(table.id);
+    expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedUndoRedoEngine);
 
     const allRecordsAfterUndo = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -110,7 +118,8 @@ describe('Undo Redo (e2e)', () => {
     expect(allRecordsAfterUndo.data.records).toHaveLength(3);
     expect(allRecordsAfterUndo.data.records.find((r) => r.id === record1.id)).toBeUndefined();
 
-    await redo(table.id);
+    const redoRes = await redo(table.id);
+    expect(redoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedUndoRedoEngine);
 
     const allRecordsAfterRedo = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -917,12 +926,14 @@ describe('Undo Redo (e2e)', () => {
       )
     ).data;
 
-    await undo(table.id);
+    const undoRes = await undo(table.id);
+    expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
 
     const viewsAfterUndo = (await getViewList(table.id)).data;
     expect(viewsAfterUndo.find((v) => v.id === view.id)).toBeUndefined();
 
-    await redo(table.id);
+    const redoRes = await redo(table.id);
+    expect(redoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
 
     const viewsAfterRedo = (await getViewList(table.id)).data;
     expect(viewsAfterRedo.find((v) => v.id === view.id)).toMatchObject({

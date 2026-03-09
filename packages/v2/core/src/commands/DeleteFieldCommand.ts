@@ -20,12 +20,18 @@ export class DeleteFieldCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
-    readonly fieldId: FieldId
+    readonly fieldId: FieldId,
+    private readonly skipUndoRedoValue = false
   ) {
     super(baseId, tableId);
   }
 
-  static create(raw: unknown): Result<DeleteFieldCommand, DomainError> {
+  static create(
+    raw: unknown,
+    options?: {
+      skipUndoRedo?: boolean;
+    }
+  ): Result<DeleteFieldCommand, DomainError> {
     const parsed = deleteFieldInputSchema.safeParse(raw);
     if (!parsed.success)
       return err(
@@ -38,9 +44,14 @@ export class DeleteFieldCommand extends TableUpdateCommand {
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).andThen((tableId) =>
         FieldId.create(parsed.data.fieldId).map(
-          (fieldId) => new DeleteFieldCommand(baseId, tableId, fieldId)
+          (fieldId) =>
+            new DeleteFieldCommand(baseId, tableId, fieldId, options?.skipUndoRedo === true)
         )
       )
     );
+  }
+
+  skipUndoRedo(): boolean {
+    return this.skipUndoRedoValue;
   }
 }

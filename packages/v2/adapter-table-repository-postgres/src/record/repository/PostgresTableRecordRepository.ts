@@ -47,7 +47,6 @@ import type { LinkExclusivityConstraint } from '../visitors/LinkExclusivityConst
 
 // System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';
-// Note: __auto_number is a serial primary key - do NOT insert it manually
 
 type ExtraSeedRecordGroup = {
   tableId: core.TableId;
@@ -171,6 +170,73 @@ function buildViewOrderValues(
   return values;
 }
 
+function buildSnapshotViewOrderValues(
+  orders?: Readonly<Record<string, number>>
+): Record<string, number> {
+  if (!orders) {
+    return {};
+  }
+
+  const values: Record<string, number> = {};
+  for (const [viewId, order] of Object.entries(orders)) {
+    if (typeof order !== 'number') {
+      continue;
+    }
+    values[`__row_${viewId}`] = order;
+  }
+
+  return values;
+}
+
+const splitSchemaQualifiedTableName = (
+  tableName: string
+): { schemaName?: string; plainTableName: string } => {
+  const splitIndex = tableName.indexOf('.');
+  if (splitIndex === -1) {
+    return { plainTableName: tableName };
+  }
+
+  return {
+    schemaName: tableName.slice(0, splitIndex),
+    plainTableName: tableName.slice(splitIndex + 1),
+  };
+};
+
+const toSqlTableRef = (tableName: string) => {
+  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
+  return schemaName ? sql.id(schemaName, plainTableName) : sql.id(plainTableName);
+};
+
+const quoteIdentifierName = (identifier: string) => `"${identifier.replaceAll('"', '""')}"`;
+
+const toQualifiedIdentifierLiteral = (tableName: string): string => {
+  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
+  return schemaName
+    ? `${quoteIdentifierName(schemaName)}.${quoteIdentifierName(plainTableName)}`
+    : quoteIdentifierName(plainTableName);
+};
+
+async function syncAutoNumberSequence(db: Kysely<DynamicDB>, tableName: string): Promise<void> {
+  const qualifiedTableName = toQualifiedIdentifierLiteral(tableName);
+  const sequenceResult = await sql<{ seq_name: string | null }>`
+    SELECT pg_get_serial_sequence(${qualifiedTableName}, '__auto_number') AS seq_name
+  `.execute(db);
+
+  const sequenceName = sequenceResult.rows[0]?.seq_name;
+  if (!sequenceName) {
+    return;
+  }
+
+  const tableRef = toSqlTableRef(tableName);
+  await sql`
+    SELECT setval(
+      ${sequenceName},
+      GREATEST(COALESCE((SELECT MAX(__auto_number) FROM ${tableRef}), 0), 1),
+      true
+    )
+  `.execute(db);
+}
+
 /**
  * PostgreSQL implementation of TableRecordRepository.
  *
@@ -197,6 +263,18 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     private readonly hasher: IHasher
   ) {}
 
+  private async resolveRestoreActorIdentity(
+    db: Kysely<DynamicDB>,
+    userId: string | undefined,
+    fallback: ActorIdentity
+  ): Promise<ActorIdentity> {
+    if (!userId) {
+      return fallback;
+    }
+
+    return this.resolveActorIdentity(db, userId, fallback);
+  }
+
   async insert(
     context: core.IExecutionContext,
     table: core.Table,
@@ -219,6 +297,21 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // marking the current transaction as aborted when optional lookup fails.
         const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
         const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
+        const restoreValues = options?.restoreRecordsById?.get(record.id().toString());
+        const createdByIdentity = await this.resolveRestoreActorIdentity(
+          actorLookupDb,
+          restoreValues?.createdBy,
+          restoreValues?.createdBy === actorId ? actorIdentity : {}
+        );
+        const lastModifiedByIdentity = await this.resolveRestoreActorIdentity(
+          actorLookupDb,
+          restoreValues?.lastModifiedBy,
+          restoreValues?.lastModifiedBy === restoreValues?.createdBy
+            ? createdByIdentity
+            : restoreValues?.lastModifiedBy === actorId
+              ? actorIdentity
+              : {}
+        );
 
         // Get view order info for all views in the table
         const views = table.views();
@@ -242,11 +335,37 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             now,
             actorName: actorIdentity.actorName,
             actorEmail: actorIdentity.actorEmail,
+            ...(restoreValues?.createdTime ? { createdTime: restoreValues.createdTime } : {}),
+            ...(restoreValues?.createdBy ? { createdBy: restoreValues.createdBy } : {}),
+            ...(createdByIdentity.actorName ? { createdByName: createdByIdentity.actorName } : {}),
+            ...(createdByIdentity.actorEmail
+              ? { createdByEmail: createdByIdentity.actorEmail }
+              : {}),
+            ...(restoreValues?.lastModifiedTime
+              ? { lastModifiedTime: restoreValues.lastModifiedTime }
+              : {}),
+            ...(restoreValues?.lastModifiedBy
+              ? { lastModifiedBy: restoreValues.lastModifiedBy }
+              : {}),
+            ...(lastModifiedByIdentity.actorName
+              ? { lastModifiedByName: lastModifiedByIdentity.actorName }
+              : {}),
+            ...(lastModifiedByIdentity.actorEmail
+              ? { lastModifiedByEmail: lastModifiedByIdentity.actorEmail }
+              : {}),
+            ...(restoreValues?.autoNumber !== undefined
+              ? { autoNumber: restoreValues.autoNumber }
+              : {}),
           },
         });
 
-        // Add view order columns (default: append to end)
-        let viewOrderValues = buildViewOrderValues(viewOrderInfo, 0);
+        // Add view order columns (default: append to end).
+        let viewOrderValues = restoreValues?.orders
+          ? buildSnapshotViewOrderValues(restoreValues.orders)
+          : {};
+        if (Object.keys(viewOrderValues).length === 0) {
+          viewOrderValues = buildViewOrderValues(viewOrderInfo, 0);
+        }
 
         // If ordering is specified, calculate order value for the target view
         if (options?.order) {
@@ -289,6 +408,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         try {
           // Execute the main insert
           await db.insertInto(tableName).values(valuesWithViewOrder).execute();
+          if (restoreValues?.autoNumber !== undefined) {
+            await syncAutoNumberSequence(db, tableName);
+          }
 
           // Acquire advisory locks for linked records to prevent deadlocks
           const baseId = table.baseId().toString();
@@ -348,6 +470,22 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // marking the current transaction as aborted when optional lookup fails.
         const actorLookupDb = this.db as unknown as Kysely<DynamicDB>;
         const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
+        const restoreIdentityCache = new Map<string, ActorIdentity>();
+        const resolveRestoreIdentity = async (
+          userId: string | undefined,
+          fallback: ActorIdentity
+        ) => {
+          if (!userId) {
+            return fallback;
+          }
+          const cached = restoreIdentityCache.get(userId);
+          if (cached) {
+            return cached;
+          }
+          const identity = await this.resolveRestoreActorIdentity(actorLookupDb, userId, fallback);
+          restoreIdentityCache.set(userId, identity);
+          return identity;
+        };
 
         // Get view order info for all views in the table
         const views = table.views();
@@ -385,9 +523,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         >();
         // Collect order values per record for undo/redo support
         const recordOrdersMap = new Map<string, Record<string, number>>();
+        let hasExplicitAutoNumberRestore = false;
 
         let recordIndex = 0;
         for (const record of records) {
+          const restoreValues = options?.restoreRecordsById?.get(record.id().toString());
+          const createdByIdentity = await resolveRestoreIdentity(
+            restoreValues?.createdBy,
+            restoreValues?.createdBy === actorId ? actorIdentity : {}
+          );
+          const lastModifiedByIdentity = await resolveRestoreIdentity(
+            restoreValues?.lastModifiedBy,
+            restoreValues?.lastModifiedBy === restoreValues?.createdBy
+              ? createdByIdentity
+              : restoreValues?.lastModifiedBy === actorId
+                ? actorIdentity
+                : {}
+          );
           const fieldValues = recordFieldsToMap(table, record);
           const insertDataResult = insertBuilder.buildInsertData({
             table,
@@ -398,15 +550,46 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               now,
               actorName: actorIdentity.actorName,
               actorEmail: actorIdentity.actorEmail,
+              ...(restoreValues?.createdTime ? { createdTime: restoreValues.createdTime } : {}),
+              ...(restoreValues?.createdBy ? { createdBy: restoreValues.createdBy } : {}),
+              ...(createdByIdentity.actorName
+                ? { createdByName: createdByIdentity.actorName }
+                : {}),
+              ...(createdByIdentity.actorEmail
+                ? { createdByEmail: createdByIdentity.actorEmail }
+                : {}),
+              ...(restoreValues?.lastModifiedTime
+                ? { lastModifiedTime: restoreValues.lastModifiedTime }
+                : {}),
+              ...(restoreValues?.lastModifiedBy
+                ? { lastModifiedBy: restoreValues.lastModifiedBy }
+                : {}),
+              ...(lastModifiedByIdentity.actorName
+                ? { lastModifiedByName: lastModifiedByIdentity.actorName }
+                : {}),
+              ...(lastModifiedByIdentity.actorEmail
+                ? { lastModifiedByEmail: lastModifiedByIdentity.actorEmail }
+                : {}),
+              ...(restoreValues?.autoNumber !== undefined
+                ? { autoNumber: restoreValues.autoNumber }
+                : {}),
             },
           });
 
           if (insertDataResult.isErr()) {
             return err(insertDataResult.error);
           }
+          if (restoreValues?.autoNumber !== undefined) {
+            hasExplicitAutoNumberRestore = true;
+          }
 
-          // Add view order columns for each view (default: append to end)
-          let viewOrderValues = buildViewOrderValues(viewOrderInfo, recordIndex);
+          // Add view order columns for each view (default: append to end).
+          let viewOrderValues = restoreValues?.orders
+            ? buildSnapshotViewOrderValues(restoreValues.orders)
+            : {};
+          if (Object.keys(viewOrderValues).length === 0) {
+            viewOrderValues = buildViewOrderValues(viewOrderInfo, recordIndex);
+          }
 
           // If ordering is specified, override the target view's order value
           if (calculatedOrderValues && orderColumnName) {
@@ -475,6 +658,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           for (let i = 0; i < allValues.length; i += batchSize) {
             const batch = allValues.slice(i, i + batchSize);
             await db.insertInto(tableName).values(batch).execute();
+          }
+          if (hasExplicitAutoNumberRestore) {
+            await syncAutoNumberSequence(db, tableName);
           }
 
           // Acquire advisory locks for linked records to prevent deadlocks

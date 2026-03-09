@@ -340,6 +340,183 @@ describe('v2 http deleteField (e2e)', () => {
 
     /**
      * v1 reference:
+     * - community/apps/nestjs-backend/test/share.e2e-spec.ts
+     *   case: should clean link options after filtering field is deleted
+     */
+    it('[V1 PARITY] clears link filter and visible fields when referenced foreign field is deleted', async () => {
+      let hostTableId: string | undefined;
+      let foreignTableId: string | undefined;
+      try {
+        const foreignFilterFieldId = createFieldId();
+        const foreign = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'Delete Field Link Filter Foreign',
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'singleLineText', id: foreignFilterFieldId, name: 'Status' },
+          ],
+        });
+        foreignTableId = foreign.id;
+        const foreignPrimaryFieldId = foreign.fields.find((field) => field.isPrimary)?.id;
+        if (!foreignPrimaryFieldId) throw new Error('Missing foreign primary field');
+
+        const host = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'Delete Field Link Filter Host',
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        });
+        hostTableId = host.id;
+
+        const linkFieldId = createFieldId();
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.id,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Filtered Link',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: foreignFilterFieldId, operator: 'is', value: 'x' }],
+              },
+              visibleFieldIds: [foreignFilterFieldId],
+            },
+          },
+        });
+
+        const beforeDelete = await ctx.getTableById(host.id);
+        const linkFieldBefore = beforeDelete.fields.find((field) => field.id === linkFieldId);
+        expect(linkFieldBefore?.type).toBe('link');
+        if (!linkFieldBefore || linkFieldBefore.type !== 'link') return;
+        expect(linkFieldBefore.options.filter).toEqual({
+          conjunction: 'and',
+          filterSet: [{ fieldId: foreignFilterFieldId, operator: 'is', value: 'x' }],
+        });
+        expect(linkFieldBefore.options.visibleFieldIds).toEqual([foreignFilterFieldId]);
+
+        await ctx.deleteField({ tableId: foreign.id, fieldId: foreignFilterFieldId });
+        await ctx.drainOutbox();
+
+        const afterDelete = await ctx.getTableById(host.id);
+        const linkFieldAfter = afterDelete.fields.find((field) => field.id === linkFieldId);
+        expect(linkFieldAfter?.type).toBe('link');
+        if (!linkFieldAfter || linkFieldAfter.type !== 'link') return;
+        expect(linkFieldAfter.options.filter).toBeNull();
+        expect(linkFieldAfter.options.visibleFieldIds).toBeNull();
+      } finally {
+        await safeDeleteTable(hostTableId);
+        await safeDeleteTable(foreignTableId);
+      }
+    });
+
+    /**
+     * v1 reference:
+     * - community/apps/nestjs-backend/test/conditional-lookup.e2e-spec.ts
+     *   case: keeps only the limit after the sort field is deleted
+     */
+    it('[V1 PARITY] removes conditional lookup sort but preserves limit when sort field is deleted', async () => {
+      let hostTableId: string | undefined;
+      let foreignTableId: string | undefined;
+      try {
+        const foreignValueFieldId = createFieldId();
+        const foreignSortFieldId = createFieldId();
+        const foreign = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'Delete Field Conditional Sort Foreign',
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            { type: 'singleLineText', id: foreignValueFieldId, name: 'Value' },
+            { type: 'number', id: foreignSortFieldId, name: 'Score' },
+          ],
+          records: [
+            { fields: { Name: 'r1', [foreignValueFieldId]: 'alpha', [foreignSortFieldId]: 2 } },
+            { fields: { Name: 'r2', [foreignValueFieldId]: 'beta', [foreignSortFieldId]: 1 } },
+          ],
+        });
+        foreignTableId = foreign.id;
+
+        const host = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'Delete Field Conditional Sort Host',
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+          records: [{ fields: { Name: 'host-1' } }],
+        });
+        hostTableId = host.id;
+
+        const conditionalLookupFieldId = createFieldId();
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.id,
+          field: {
+            type: 'conditionalLookup',
+            id: conditionalLookupFieldId,
+            name: 'Conditional Limited',
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [{ fieldId: foreignValueFieldId, operator: 'is', value: 'alpha' }],
+                },
+                sort: {
+                  fieldId: foreignSortFieldId,
+                  order: 'asc',
+                },
+                limit: 1,
+              },
+            },
+          },
+        });
+        await ctx.drainOutbox();
+
+        const beforeDelete = await ctx.getTableById(host.id);
+        const conditionalFieldBefore = beforeDelete.fields.find(
+          (field) => field.id === conditionalLookupFieldId
+        ) as
+          | {
+              hasError?: boolean;
+              options?: { condition?: { limit?: number; sort?: unknown } };
+            }
+          | undefined;
+        expect(conditionalFieldBefore).toBeTruthy();
+        if (!conditionalFieldBefore?.options?.condition) return;
+        expect(conditionalFieldBefore.hasError).toBeFalsy();
+        expect(conditionalFieldBefore.options.condition.limit).toBe(1);
+        expect(conditionalFieldBefore.options.condition.sort).toEqual({
+          fieldId: foreignSortFieldId,
+          order: 'asc',
+        });
+
+        await ctx.deleteField({ tableId: foreign.id, fieldId: foreignSortFieldId });
+        await ctx.drainOutbox();
+
+        const afterDelete = await ctx.getTableById(host.id);
+        const conditionalFieldAfter = afterDelete.fields.find(
+          (field) => field.id === conditionalLookupFieldId
+        ) as
+          | {
+              hasError?: boolean;
+              options?: { condition?: { limit?: number; sort?: unknown } };
+            }
+          | undefined;
+        expect(conditionalFieldAfter).toBeTruthy();
+        if (!conditionalFieldAfter?.options?.condition) return;
+        expect(conditionalFieldAfter.hasError).toBeFalsy();
+        expect(conditionalFieldAfter.options.condition.limit).toBe(1);
+        expect(conditionalFieldAfter.options.condition.sort).toBeUndefined();
+      } finally {
+        await safeDeleteTable(hostTableId);
+        await safeDeleteTable(foreignTableId);
+      }
+    });
+
+    /**
+     * v1 reference:
      * - community/apps/nestjs-backend/test/delete-field.e2e-spec.ts
      * - community/apps/nestjs-backend/test/field.e2e-spec.ts
      */
@@ -713,8 +890,9 @@ describe('v2 http deleteField (e2e)', () => {
         const linkFieldId = createFieldId();
         const lookupFieldId = createFieldId();
         const formulaFieldId = createFieldId();
+        const symLookupFieldId = createFieldId();
 
-        await ctx.createField({
+        const withLink = await ctx.createField({
           baseId: ctx.baseId,
           tableId: host.tableId,
           field: {
@@ -725,10 +903,19 @@ describe('v2 http deleteField (e2e)', () => {
               relationship: 'manyOne',
               foreignTableId: foreign.tableId,
               lookupFieldId: foreign.primaryFieldId,
-              isOneWay: true,
             },
           },
         });
+        const linkField = withLink.fields.find((field) => field.id === linkFieldId);
+        expect(linkField?.type).toBe('link');
+        if (!linkField || linkField.type !== 'link') {
+          throw new Error('Expected created link field');
+        }
+        const symmetricFieldId = linkField.options.symmetricFieldId;
+        expect(symmetricFieldId).toBeTruthy();
+        if (!symmetricFieldId) {
+          throw new Error('Expected symmetric field id for two-way link');
+        }
 
         await ctx.createField({
           baseId: ctx.baseId,
@@ -741,6 +928,21 @@ describe('v2 http deleteField (e2e)', () => {
               linkFieldId,
               foreignTableId: foreign.tableId,
               lookupFieldId: foreign.primaryFieldId,
+            },
+          },
+        });
+
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: foreign.tableId,
+          field: {
+            type: 'lookup',
+            id: symLookupFieldId,
+            name: 'Host Name Lookup',
+            options: {
+              linkFieldId: symmetricFieldId,
+              foreignTableId: host.tableId,
+              lookupFieldId: host.primaryFieldId,
             },
           },
         });
@@ -780,6 +982,7 @@ describe('v2 http deleteField (e2e)', () => {
         const lookupBefore = beforeDelete.fields.find((field) => field.id === lookupFieldId);
         expect(lookupBefore?.isLookup).toBe(true);
         expect(lookupBefore?.hasError).toBeFalsy();
+        expect(await countReferenceRowsFrom(foreign.primaryFieldId)).toBe(2);
 
         await ctx.deleteField({ tableId: host.tableId, fieldId: linkFieldId });
         await ctx.drainOutbox();
@@ -788,10 +991,16 @@ describe('v2 http deleteField (e2e)', () => {
         const lookupAfter = afterDelete.fields.find((field) => field.id === lookupFieldId);
         expect(lookupAfter?.isLookup).toBe(true);
         expect(lookupAfter?.hasError).toBe(true);
+        const foreignAfter = await ctx.getTableById(foreign.tableId);
+        expect(foreignAfter.fields.find((field) => field.id === symmetricFieldId)).toBeUndefined();
+        expect(foreignAfter.fields.find((field) => field.id === symLookupFieldId)?.hasError).toBe(
+          true
+        );
         expect(await getStoredCellValue(host.tableId, hostRecord.id, lookupDbFieldName)).toBeNull();
         expect(
           await getStoredCellValue(host.tableId, hostRecord.id, formulaDbFieldName)
         ).toBeNull();
+        expect(await countReferenceRowsFrom(foreign.primaryFieldId)).toBe(0);
       } finally {
         await safeDeleteTable(hostTableId);
         await safeDeleteTable(foreignTableId);
@@ -1067,12 +1276,11 @@ describe('v2 http deleteField (e2e)', () => {
             { fieldId: statusFieldId, operator: 'is', value: 'done' },
           ],
         };
-        const sortPayload: LegacySortPayload = {
+        const sortPayload = {
           sortObjs: [
-            { fieldId: numberFieldId, order: 'asc' },
-            { fieldId: statusFieldId, order: 'asc' },
+            { fieldId: numberFieldId, order: 'asc' as const },
+            { fieldId: statusFieldId, order: 'asc' as const },
           ],
-          manualSort: false,
         };
         const groupPayload = [
           { fieldId: numberFieldId, order: 'asc' as const },

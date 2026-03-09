@@ -8,11 +8,15 @@ import {
   BaseId,
   DbFieldName,
   FieldId,
+  FieldHasError,
   FieldName,
+  FormulaExpression,
   LinkFieldConfig,
   Table,
   TableAddFieldSpec,
+  TableId,
   TableName,
+  TableUpdateFieldHasErrorSpec,
   UpdateLinkRelationshipSpec,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
@@ -845,6 +849,112 @@ describe('TableSchemaUpdateVisitor', () => {
       'should pass fieldId from new field'
       // Verify: fieldId used for options generation
     );
+  });
+
+  describe('visitTableUpdateFieldHasError', () => {
+    const db = createTestDb();
+    const schema = `bse${'e'.repeat(16)}`;
+    const tableName = `tbl${'f'.repeat(16)}`;
+    const tableId = tableName;
+
+    const createFormulaTable = () => {
+      const baseId = BaseId.create(schema)._unsafeUnwrap();
+      const aggregateTableId = TableId.create(tableId)._unsafeUnwrap();
+      const sourceFieldId = FieldId.create(`fld${'1'.repeat(16)}`)._unsafeUnwrap();
+      const formulaFieldId = FieldId.create(`fld${'2'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(aggregateTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Field Error Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(sourceFieldId)
+        .withName(FieldName.create('Source')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder
+        .field()
+        .formula()
+        .withId(formulaFieldId)
+        .withName(FieldName.create('Formula')._unsafeUnwrap())
+        .withExpression(FormulaExpression.create(`{${sourceFieldId.toString()}}`)._unsafeUnwrap())
+        .done();
+      builder.view().defaultGrid().done();
+
+      const table = builder.build()._unsafeUnwrap();
+      const sourceField = table
+        .getField((candidate) => candidate.id().equals(sourceFieldId))
+        ._unsafeUnwrap();
+      const formulaField = table
+        .getField((candidate) => candidate.id().equals(formulaFieldId))
+        ._unsafeUnwrap();
+      sourceField.setDbFieldName(DbFieldName.rehydrate('source')._unsafeUnwrap())._unsafeUnwrap();
+      formulaField.setDbFieldName(DbFieldName.rehydrate('formula')._unsafeUnwrap())._unsafeUnwrap();
+
+      return table;
+    };
+
+    it('drops outbound references and clears stored values when setting hasError', () => {
+      const table = createFormulaTable();
+      const formulaField = table
+        .getField((candidate) => candidate.name().toString() === 'Formula')
+        ._unsafeUnwrap();
+      const spec = TableUpdateFieldHasErrorSpec.setError(
+        formulaField.id(),
+        formulaField.hasError()
+      );
+      const visitor = new TableSchemaUpdateVisitor({
+        db,
+        schema,
+        tableName,
+        tableId,
+        table,
+      });
+
+      const result = visitor.visitTableUpdateFieldHasError(spec);
+      expect(result.isOk()).toBe(true);
+
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls.some((sql) => sql.includes('delete from "reference"'))).toBe(true);
+      expect(sqls.some((sql) => sql.includes('where "to_field_id" = $1'))).toBe(true);
+      expect(
+        sqls.some(
+          (sql) =>
+            sql.includes(`UPDATE "${schema}"."${tableName}" SET "formula" = NULL`) ||
+            sql.includes(`update "${schema}"."${tableName}" set "formula" = NULL`)
+        )
+      ).toBe(true);
+      expect(sqls.some((sql) => sql.includes('insert into "reference"'))).toBe(false);
+    });
+
+    it('rebuilds outbound references when clearing hasError', () => {
+      const table = createFormulaTable();
+      const formulaField = table
+        .getField((candidate) => candidate.name().toString() === 'Formula')
+        ._unsafeUnwrap();
+      const spec = TableUpdateFieldHasErrorSpec.clearError(
+        formulaField.id(),
+        FieldHasError.error()
+      );
+      const visitor = new TableSchemaUpdateVisitor({
+        db,
+        schema,
+        tableName,
+        tableId,
+        table,
+      });
+
+      const result = visitor.visitTableUpdateFieldHasError(spec);
+      expect(result.isOk()).toBe(true);
+
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls.some((sql) => sql.includes('delete from "reference"'))).toBe(true);
+      expect(sqls.some((sql) => sql.includes('insert into "reference"'))).toBe(true);
+      expect(sqls.some((sql) => sql.includes('update "') && sql.includes('"formula" = NULL'))).toBe(
+        false
+      );
+    });
   });
 
   describe('visitTableAddField', () => {

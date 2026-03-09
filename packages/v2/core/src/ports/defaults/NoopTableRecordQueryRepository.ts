@@ -30,7 +30,7 @@ export class NoopTableRecordQueryRepository implements ITableRecordQueryReposito
     _context: IExecutionContext,
     _table: Table,
     _recordId: RecordId,
-    _options?: Pick<ITableRecordQueryOptions, 'mode'>
+    _options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders'>
   ): Promise<Result<TableRecordReadModel, DomainError>> {
     return err(domainError.notFound({ code: 'record.not_found', message: 'Record not found' }));
   }

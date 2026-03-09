@@ -729,10 +729,34 @@ export class TableSchemaUpdateVisitor
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const statements: TableSchemaStatementBuilder[] = [];
+      const field = yield* visitor.params.table.getField((candidate) =>
+        candidate.id().equals(spec.fieldId())
+      );
+      const ctx = createSchemaRuleContext({
+        db: visitor.params.db,
+        introspector: new PostgresSchemaIntrospector(visitor.params.db),
+        schema: visitor.params.schema,
+        tableName: visitor.params.tableName,
+        tableId: visitor.params.tableId,
+        field,
+      });
+      const rules = yield* createFieldSchemaRules(field, {
+        schema: visitor.params.schema,
+        tableName: visitor.params.tableName,
+        tableId: visitor.params.tableId,
+      });
+
+      for (const rule of rules) {
+        if (!(rule instanceof ReferenceRule)) {
+          continue;
+        }
+        const downResult = rule.down(ctx);
+        if (downResult.isOk()) {
+          statements.push(...downResult.value);
+        }
+      }
+
       if (spec.isSettingError()) {
-        const field = yield* visitor.params.table.getField((candidate) =>
-          candidate.id().equals(spec.fieldId())
-        );
         const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
         const fullTableName = visitor.params.schema
           ? `"${visitor.params.schema}"."${visitor.params.tableName}"`
@@ -745,6 +769,16 @@ export class TableSchemaUpdateVisitor
               visitor.params.db
             ),
         });
+      } else {
+        for (const rule of rules) {
+          if (!(rule instanceof ReferenceRule)) {
+            continue;
+          }
+          const upResult = rule.up(ctx);
+          if (upResult.isOk()) {
+            statements.push(...upResult.value);
+          }
+        }
       }
       yield* addCond(statements);
       return ok(statements);

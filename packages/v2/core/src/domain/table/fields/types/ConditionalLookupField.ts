@@ -481,8 +481,57 @@ export class ConditionalLookupField
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
     const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
+    const optionsDto = this.conditionalLookupOptionsValue.toDto();
     const condition = this.conditionalLookupOptionsValue.condition();
     const conditionReferencesDeletedField = condition.referencesField(deletedField.id());
+    const deletedSortField =
+      deletedFromForeignTable && condition.sort()?.fieldId().equals(deletedField.id());
+
+    if (deletedSortField && !deletedField.id().equals(this.lookupFieldId())) {
+      const nextOptionsResult = ConditionalLookupOptions.create({
+        ...optionsDto,
+        condition: {
+          ...optionsDto.condition,
+          sort: undefined,
+        },
+      });
+      if (nextOptionsResult.isErr()) {
+        return err(nextOptionsResult.error);
+      }
+
+      const multiplicityResult = this.isMultipleCellValue();
+      if (multiplicityResult.isErr()) {
+        return err(multiplicityResult.error);
+      }
+
+      const nextFieldResult = this.innerField()
+        .andThen((innerField) =>
+          ConditionalLookupField.create({
+            id: this.id(),
+            name: this.name(),
+            innerField,
+            conditionalLookupOptions: nextOptionsResult.value,
+            isMultipleCellValue: multiplicityResult.value.isMultiple(),
+            dependencies: this.dependencies(),
+            innerOptionsPatch: this.innerOptionsPatchValue,
+          })
+        )
+        .orElse(() =>
+          ConditionalLookupField.createPending({
+            id: this.id(),
+            name: this.name(),
+            conditionalLookupOptions: nextOptionsResult.value,
+            isMultipleCellValue: multiplicityResult.value.isMultiple(),
+            dependencies: this.dependencies(),
+            innerOptionsPatch: this.innerOptionsPatchValue,
+          })
+        );
+      if (nextFieldResult.isErr()) {
+        return err(nextFieldResult.error);
+      }
+
+      return ok(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
+    }
 
     const shouldSetError =
       (deletedFromHostTable && conditionReferencesDeletedField) ||

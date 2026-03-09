@@ -26,7 +26,7 @@ import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryReposi
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import type { UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
+import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { buildRecordConditionSpec } from '../queries/RecordFilterMapper';
 import { ClearCommand } from './ClearCommand';
@@ -216,17 +216,14 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
       }
 
       if (eventData.length > 0) {
-        const buildUpdateCommand = (recordId: string, fields: Record<string, unknown>) => ({
-          type: 'UpdateRecord' as const,
-          version: 1,
-          payload: {
+        const buildUpdateCommand = (recordId: string, fields: Record<string, unknown>) =>
+          createUndoRedoCommand('UpdateRecord', {
             tableId: table.id().toString(),
             recordId,
             fields,
-            fieldKeyType: 'id' as const,
+            fieldKeyType: 'id',
             typecast: false,
-          },
-        });
+          });
 
         const undoCommands: UndoRedoCommandLeafData[] = eventData.map((update) => {
           const fields: Record<string, unknown> = {};
@@ -245,16 +242,8 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         });
 
         yield* await handler.undoRedoService.recordEntry(context, table.id(), {
-          undoCommand: {
-            type: 'Batch',
-            version: 1,
-            payload: undoCommands,
-          },
-          redoCommand: {
-            type: 'Batch',
-            version: 1,
-            payload: redoCommands,
-          },
+          undoCommand: createUndoRedoCommand('Batch', undoCommands),
+          redoCommand: createUndoRedoCommand('Batch', redoCommands),
         });
       }
 

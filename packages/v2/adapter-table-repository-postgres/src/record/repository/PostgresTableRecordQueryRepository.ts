@@ -226,7 +226,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     context: IExecutionContext,
     table: Table,
     recordId: RecordId,
-    options?: Pick<ITableRecordQueryOptions, 'mode'>
+    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders'>
   ): Promise<Result<TableRecordReadModel, DomainError>> {
     const span = context.tracer?.startSpan('teable.repository.record.findOne');
 
@@ -245,8 +245,31 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           // Limit to 1
           queryBuilder.limit(1);
 
+          let orderColumns: string[] = [];
+          if (options?.includeOrders) {
+            const dbTableName = yield* table.dbTableName();
+            const tableName = yield* dbTableName.value();
+            const [schemaName, tableNameOnly] = tableName.split('.');
+            const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+            const orderColumnsResult = await sql<{ column_name: string }>`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_schema = ${schemaName}
+              AND table_name = ${tableNameOnly}
+              AND column_name LIKE '__row_%'
+            `.execute(dynamicDb);
+
+            orderColumns = orderColumnsResult.rows.map((r) => r.column_name);
+          }
+
           // Build the query
-          const builtQuery = yield* queryBuilder.build();
+          let builtQuery = yield* queryBuilder.build();
+
+          if (orderColumns.length > 0) {
+            for (const col of orderColumns) {
+              builtQuery = builtQuery.select(sql.ref(`${TABLE_ALIAS}.${col}`).as(col));
+            }
+          }
 
           const compiled = builtQuery.compile();
           this.logger.debug(`findOne:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
@@ -265,7 +288,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
               );
             }
 
-            const records = mapRowsToReadModels(fieldColumns, rows, []);
+            const records = mapRowsToReadModels(fieldColumns, rows, orderColumns);
             return ok(records[0]);
           } catch (error) {
             span?.recordError(describeError(error));
@@ -556,10 +579,16 @@ const mapRowsToReadModels = (
       orders = {};
       for (const colName of orderColumns) {
         const orderValue = row[colName];
-        if (typeof orderValue === 'number') {
+        const parsedOrder =
+          typeof orderValue === 'number'
+            ? orderValue
+            : orderValue != null
+              ? Number(orderValue)
+              : undefined;
+        if (parsedOrder != null && Number.isFinite(parsedOrder)) {
           // Extract viewId from column name (format: __row_{viewId})
           const viewId = colName.replace('__row_', '');
-          orders[viewId] = orderValue;
+          orders[viewId] = parsedOrder;
         }
       }
       if (Object.keys(orders).length === 0) {

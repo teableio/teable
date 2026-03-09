@@ -97,4 +97,75 @@ describe('View.onFieldDeleted', () => {
     expect(nextQueryDefaults?.group).toBeUndefined();
     expect(nextQueryDefaults?.manualSort).toBe(false);
   });
+
+  it('normalizes manualSort to false when sort survives deletion but legacy payload omitted it', () => {
+    const baseId = BaseId.create(`bse${'d'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'d'.repeat(16)}`)._unsafeUnwrap();
+    const viewId = ViewId.create(`viw${'d'.repeat(16)}`)._unsafeUnwrap();
+    const amountFieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
+    const statusFieldId = FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap();
+    const ownerFieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
+
+    const amountField = SingleLineTextField.create({
+      id: amountFieldId,
+      name: FieldName.create('Amount')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const statusField = SingleLineTextField.create({
+      id: statusFieldId,
+      name: FieldName.create('Status')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const ownerField = SingleLineTextField.create({
+      id: ownerFieldId,
+      name: FieldName.create('Owner')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const view = GridView.create({
+      id: viewId,
+      name: ViewName.create('Grid')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    view
+      .setColumnMeta(
+        ViewColumnMeta.create({
+          [amountFieldId.toString()]: { order: 0 },
+          [statusFieldId.toString()]: { order: 1 },
+          [ownerFieldId.toString()]: { order: 2 },
+        })._unsafeUnwrap()
+      )
+      ._unsafeUnwrap();
+    view
+      .setQueryDefaults(
+        ViewQueryDefaults.create({
+          sort: [
+            { fieldId: amountFieldId.toString(), order: 'asc' },
+            { fieldId: statusFieldId.toString(), order: 'asc' },
+          ],
+        })._unsafeUnwrap()
+      )
+      ._unsafeUnwrap();
+
+    const previousTable = Table.rehydrate({
+      id: tableId,
+      baseId,
+      name: TableName.create('Tasks')._unsafeUnwrap(),
+      fields: [amountField, statusField, ownerField],
+      views: [view],
+      primaryFieldId: ownerFieldId,
+    })._unsafeUnwrap();
+
+    const currentTable = previousTable.removeField(amountFieldId)._unsafeUnwrap();
+    const currentView = currentTable.getView(viewId)._unsafeUnwrap();
+
+    const update = currentView
+      .onFieldDeleted(amountField, {
+        table: currentTable,
+        sourceTable: currentTable,
+        previousSourceTable: previousTable,
+      })
+      ._unsafeUnwrap();
+
+    expect(update?.queryDefaults?.toDto()).toEqual({
+      sort: [{ fieldId: statusFieldId.toString(), order: 'asc' }],
+      manualSort: false,
+    });
+  });
 });

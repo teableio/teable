@@ -2,9 +2,11 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
@@ -14,6 +16,7 @@ import { ViewId } from '../domain/table/views/ViewId';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import type { ResolvedTableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { CreateFieldCommand } from './CreateFieldCommand';
@@ -39,7 +42,11 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
     @inject(v2CoreTokens.fieldCreationSideEffectService)
     private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
     @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: ForeignTableLoaderService
+    private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.undoRedoService)
+    private readonly undoRedoService: UndoRedoService,
+    @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
+    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
   ) {}
 
   @TraceSpan()
@@ -141,6 +148,28 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
           },
         }
       );
+      if (!createdField) {
+        return err(domainError.unexpected({ message: 'Field not created' }));
+      }
+
+      const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
+        context,
+        updateResult.table,
+        createdField.id()
+      );
+      yield* await handler.undoRedoService.recordEntry(context, updateResult.table.id(), {
+        undoCommand: createUndoRedoCommand('DeleteField', {
+          baseId: command.baseId.toString(),
+          tableId: command.tableId.toString(),
+          fieldId: createdField.id().toString(),
+        }),
+        redoCommand: createUndoRedoCommand('ApplyFieldSnapshot', {
+          baseId: command.baseId.toString(),
+          tableId: command.tableId.toString(),
+          snapshot,
+        }),
+      });
+
       return ok(CreateFieldResult.create(updateResult.table, updateResult.events));
     });
   }

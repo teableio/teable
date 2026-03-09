@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { UndoRedoService } from '../application/services/UndoRedoService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -17,6 +18,7 @@ import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryReposi
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { ReorderRecordsCommand } from './ReorderRecordsCommand';
@@ -54,6 +56,8 @@ export class ReorderRecordsHandler
     private readonly recordOrderCalculator: IRecordOrderCalculator,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.undoRedoService)
+    private readonly undoRedoService: UndoRedoService,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
@@ -162,6 +166,44 @@ export class ReorderRecordsHandler
         }),
       ];
       yield* await handler.eventBus.publishMany(context, events);
+
+      const changedOrders = command.recordIds.flatMap((recordId) => {
+        const recordIdText = recordId.toString();
+        const previousOrder = previousOrdersByRecordId[recordIdText];
+        const nextOrder = ordersByRecordId[recordIdText];
+        if (previousOrder === nextOrder) {
+          return [];
+        }
+
+        return [
+          {
+            recordId: recordIdText,
+            ...(previousOrder !== undefined ? { previousOrder } : {}),
+            ...(nextOrder !== undefined ? { nextOrder } : {}),
+          },
+        ];
+      });
+
+      if (changedOrders.length > 0) {
+        yield* await handler.undoRedoService.recordEntry(context, table.id(), {
+          undoCommand: createUndoRedoCommand('ApplyRecordOrders', {
+            tableId: table.id().toString(),
+            viewId: command.order.viewId.toString(),
+            records: changedOrders.map((item) => ({
+              recordId: item.recordId,
+              ...(item.previousOrder !== undefined ? { order: item.previousOrder } : {}),
+            })),
+          }),
+          redoCommand: createUndoRedoCommand('ApplyRecordOrders', {
+            tableId: table.id().toString(),
+            viewId: command.order.viewId.toString(),
+            records: changedOrders.map((item) => ({
+              recordId: item.recordId,
+              ...(item.nextOrder !== undefined ? { order: item.nextOrder } : {}),
+            })),
+          }),
+        });
+      }
 
       return ok(
         ReorderRecordsResult.create(command.recordIds.map((recordId) => recordId.toString()))

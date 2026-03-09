@@ -55,6 +55,8 @@ import {
   updateRecordByApi,
 } from './utils/init-app';
 
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
@@ -72,7 +74,9 @@ describe('OpenAPI link (e2e)', () => {
       config.headers['X-Window-Id'] = windowId;
       return config;
     });
-    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
+    awaitWithEvent = isForceV2
+      ? async <T>(action: () => Promise<T>) => await action()
+      : createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
   });
 
   afterAll(async () => {

@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
+import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { UndoRedoService } from '../application/services/UndoRedoService';
@@ -15,14 +16,17 @@ import type { RecordCreated } from '../domain/table/events/RecordCreated';
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { IRecordCreateConstraintService } from '../ports/RecordCreateConstraintService';
+import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { BatchRecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import type { RecordFieldValues } from './CreateRecordCommand';
@@ -61,12 +65,16 @@ export class CreateRecordsHandler
     private readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
+    @inject(v2CoreTokens.tableRecordQueryRepository)
+    private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordMutationSpecResolverService)
     private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordCreateConstraintService)
     private readonly recordCreateConstraintService: IRecordCreateConstraintService,
     @inject(v2CoreTokens.recordWriteSideEffectService)
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
+    @inject(v2CoreTokens.recordWriteUndoRedoPlanService)
+    private readonly recordWriteUndoRedoPlanService: RecordWriteUndoRedoPlanService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.eventBus)
@@ -113,6 +121,13 @@ export class CreateRecordsHandler
       );
       const tableForCreate = sideEffectResult.table;
       const tableUpdateResult = sideEffectResult.updateResult;
+      const sideEffectUndoRedoPlan =
+        yield* await handler.recordWriteUndoRedoPlanService.captureSelectOptionSideEffects(
+          context,
+          table,
+          tableForCreate,
+          sideEffectResult.effects
+        );
 
       // 2. Create all records (validates and applies field values internally)
       const {
@@ -225,34 +240,56 @@ export class CreateRecordsHandler
       const mergedEvents = [...mutationResult.tableEvents, ...events];
       yield* await handler.eventBus.publishMany(context, mergedEvents);
 
+      const restoreSnapshotResult = await handler.tableRecordQueryRepository.find(
+        context,
+        tableForCreate,
+        RecordByIdsSpec.create(records.map((record) => record.id())),
+        { mode: 'stored', includeOrders: true }
+      );
+      const restoreSnapshotRecords = yield* restoreSnapshotResult;
+      const restoreSnapshotMap = new Map(
+        restoreSnapshotRecords.records.map((record) => [record.id, record])
+      );
       const recordSnapshots = records.map((record) => {
-        const fields: Record<string, unknown> = {};
-        for (const entry of record.fields().entries()) {
-          fields[entry.fieldId.toString()] = entry.value.toValue();
+        const snapshot = restoreSnapshotMap.get(record.id().toString());
+        if (!snapshot) {
+          const fields: Record<string, unknown> = {};
+          for (const entry of record.fields().entries()) {
+            fields[entry.fieldId.toString()] = entry.value.toValue();
+          }
+          return {
+            recordId: record.id().toString(),
+            fields,
+          };
         }
+
         return {
           recordId: record.id().toString(),
-          fields,
+          fields: snapshot.fields,
+          ...(snapshot.orders ? { orders: snapshot.orders } : {}),
+          ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
+          ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
+          ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
+          ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
+          ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
         };
       });
 
       yield* await handler.undoRedoService.recordEntry(context, table.id(), {
-        undoCommand: {
-          type: 'DeleteRecords',
-          version: 1,
-          payload: {
+        undoCommand: composeUndoRedoCommands([
+          createUndoRedoCommand('DeleteRecords', {
             tableId: table.id().toString(),
             recordIds: recordSnapshots.map((snapshot) => snapshot.recordId),
-          },
-        },
-        redoCommand: {
-          type: 'RestoreRecords',
-          version: 1,
-          payload: {
+          }),
+          ...sideEffectUndoRedoPlan.undoCommands,
+        ]),
+        redoCommand: composeUndoRedoCommands([
+          ...sideEffectUndoRedoPlan.redoCommands,
+          createUndoRedoCommand('RestoreRecords', {
             tableId: table.id().toString(),
             records: recordSnapshots,
-          },
-        },
+          }),
+        ]),
       });
 
       return ok(

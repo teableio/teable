@@ -48,10 +48,16 @@ export class UpdateFieldCommand {
   private constructor(
     readonly tableId: TableId,
     readonly fieldId: FieldId,
-    readonly fieldUpdate: IFieldUpdateInput
+    readonly fieldUpdate: IFieldUpdateInput,
+    readonly allowNoop: boolean
   ) {}
 
-  static create(raw: unknown): Result<UpdateFieldCommand, DomainError> {
+  static create(
+    raw: unknown,
+    options?: {
+      allowNoop?: boolean;
+    }
+  ): Result<UpdateFieldCommand, DomainError> {
     const parsed = updateFieldInputSchema.safeParse(raw);
     if (!parsed.success)
       return err(
@@ -63,7 +69,8 @@ export class UpdateFieldCommand {
 
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
       FieldId.create(parsed.data.fieldId).map(
-        (fieldId) => new UpdateFieldCommand(tableId, fieldId, parsed.data.field)
+        (fieldId) =>
+          new UpdateFieldCommand(tableId, fieldId, parsed.data.field, options?.allowNoop ?? false)
       )
     );
   }

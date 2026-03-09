@@ -562,8 +562,53 @@ export class ConditionalRollupField
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
     const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
+    const configDto = this.configValue.toDto();
     const condition = this.configValue.condition();
     const conditionReferencesDeletedField = condition.referencesField(deletedField.id());
+    const deletedSortField =
+      deletedFromForeignTable && condition.sort()?.fieldId().equals(deletedField.id());
+
+    if (deletedSortField && !deletedField.id().equals(this.lookupFieldId())) {
+      const nextConfigResult = ConditionalRollupConfig.create({
+        ...configDto,
+        condition: {
+          ...configDto.condition,
+          sort: undefined,
+        },
+      });
+      if (nextConfigResult.isErr()) {
+        return err(nextConfigResult.error);
+      }
+
+      const cellValueTypeResult = this.cellValueType();
+      if (cellValueTypeResult.isErr()) {
+        return err(cellValueTypeResult.error);
+      }
+      const multiplicityResult = this.isMultipleCellValue();
+      if (multiplicityResult.isErr()) {
+        return err(multiplicityResult.error);
+      }
+
+      const nextFieldResult = ConditionalRollupField.createPending({
+        id: this.id(),
+        name: this.name(),
+        config: nextConfigResult.value,
+        expression: this.expressionValue,
+        timeZone: this.timeZoneValue,
+        formatting: this.formattingValue,
+        showAs: this.showAsValue,
+        resultType: {
+          cellValueType: cellValueTypeResult.value,
+          isMultipleCellValue: multiplicityResult.value,
+        },
+        dependencies: this.dependencies(),
+      });
+      if (nextFieldResult.isErr()) {
+        return err(nextFieldResult.error);
+      }
+
+      return ok(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
+    }
 
     const shouldSetError =
       (deletedFromHostTable && conditionReferencesDeletedField) ||

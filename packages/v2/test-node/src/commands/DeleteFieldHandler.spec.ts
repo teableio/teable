@@ -294,4 +294,90 @@ describe('DeleteFieldHandler', () => {
 
     expect(lookupField.hasError().isError()).toBe(true);
   });
+
+  it('deletes a foreign lookup target used by a link show-by field without returning not found', async () => {
+    const { container, tableRepository, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+
+    const hostCreated = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Host',
+        fields: [{ type: 'singleLineText', name: 'Title' }],
+      })._unsafeUnwrap()
+    );
+    hostCreated._unsafeUnwrap();
+    const hostTable = hostCreated._unsafeUnwrap().table;
+
+    const foreignCreated = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Foreign',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      })._unsafeUnwrap()
+    );
+    foreignCreated._unsafeUnwrap();
+    const foreignTable = foreignCreated._unsafeUnwrap().table;
+
+    const foreignDisplayFieldId = `fld${'d'.repeat(16)}`;
+    await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      CreateFieldCommand.create({
+        baseId: baseId.toString(),
+        tableId: foreignTable.id().toString(),
+        field: {
+          type: 'singleLineText',
+          id: foreignDisplayFieldId,
+          name: 'Display',
+        },
+      })._unsafeUnwrap()
+    );
+
+    const linkFieldId = `fld${'z'.repeat(16)}`;
+    const linkCreated = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+      context,
+      CreateFieldCommand.create({
+        baseId: baseId.toString(),
+        tableId: hostTable.id().toString(),
+        field: {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Foreign Link',
+          options: {
+            relationship: 'oneOne',
+            foreignTableId: foreignTable.id().toString(),
+            lookupFieldId: foreignDisplayFieldId,
+            isOneWay: true,
+          },
+        },
+      })._unsafeUnwrap()
+    );
+    linkCreated._unsafeUnwrap();
+
+    const deleteResult = await commandBus.execute<DeleteFieldCommand, DeleteFieldResult>(
+      context,
+      DeleteFieldCommand.create({
+        baseId: baseId.toString(),
+        tableId: foreignTable.id().toString(),
+        fieldId: foreignDisplayFieldId,
+      })._unsafeUnwrap()
+    );
+    deleteResult._unsafeUnwrap();
+
+    const hostSpecResult = hostTable.specs().byId(hostTable.id()).build();
+    hostSpecResult._unsafeUnwrap();
+    const hostAfterResult = await tableRepository.findOne(context, hostSpecResult._unsafeUnwrap());
+    hostAfterResult._unsafeUnwrap();
+
+    const linkField = hostAfterResult
+      ._unsafeUnwrap()
+      .getFields()
+      .find((field) => field.id().toString() === linkFieldId) as LinkField | undefined;
+    expect(linkField).toBeDefined();
+  });
 });

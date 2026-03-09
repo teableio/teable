@@ -118,10 +118,24 @@ export class RestoreRecordsHandler
               );
               tableEvents = tableFlowResult.events;
             }
+            const restoreRecordsById = new Map(
+              command.records.map((record) => [
+                record.recordId,
+                {
+                  ...(record.orders ? { orders: record.orders } : {}),
+                  ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
+                  ...(record.createdTime ? { createdTime: record.createdTime } : {}),
+                  ...(record.createdBy ? { createdBy: record.createdBy } : {}),
+                  ...(record.lastModifiedTime ? { lastModifiedTime: record.lastModifiedTime } : {}),
+                  ...(record.lastModifiedBy ? { lastModifiedBy: record.lastModifiedBy } : {}),
+                },
+              ])
+            );
             const mutation = yield* await handler.tableRecordRepository.insertMany(
               transactionContext,
               tableForInsert,
-              records
+              records,
+              { restoreRecordsById }
             );
             return ok({ mutation, tableEvents });
           });

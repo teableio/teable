@@ -3,6 +3,9 @@ import type { Result } from 'neverthrow';
 import type { ActorId } from '../domain/shared/ActorId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { TableId } from '../domain/table/TableId';
+import type { ViewColumnMetaValue } from '../domain/table/views/ViewColumnMeta';
+import type { ViewQueryDefaultsDTO } from '../domain/table/views/ViewQueryDefaults';
+import type { ITableFieldInput } from '../schemas/field';
 
 export type UndoScope = {
   readonly actorId: ActorId;
@@ -39,9 +42,73 @@ export type UndoRedoRestoreRecordsPayload = {
   readonly records: ReadonlyArray<UndoRedoRestoreRecord>;
 };
 
-export type UndoRedoCommandLeafType = 'UpdateRecord' | 'DeleteRecords' | 'RestoreRecords';
+export type UndoRedoApplyRecordOrdersPayload = {
+  readonly tableId: string;
+  readonly viewId: string;
+  readonly records: ReadonlyArray<{
+    readonly recordId: string;
+    readonly order?: number | null;
+  }>;
+};
+
+export type UndoRedoDeleteFieldPayload = {
+  readonly baseId: string;
+  readonly tableId: string;
+  readonly fieldId: string;
+};
+
+export type UndoRedoFieldViewSnapshot = {
+  readonly viewId: string;
+  readonly columnMeta?: ViewColumnMetaValue[string] | null;
+  readonly query?: ViewQueryDefaultsDTO;
+  readonly orderedFieldIds?: ReadonlyArray<string>;
+};
+
+export type UndoRedoFieldRecordValue = {
+  readonly recordId: string;
+  readonly value: unknown;
+};
+
+export type UndoRedoFieldSnapshot = {
+  readonly field: ITableFieldInput & { readonly id: string };
+  readonly hasError?: boolean;
+  readonly views: ReadonlyArray<UndoRedoFieldViewSnapshot>;
+  readonly records?: ReadonlyArray<UndoRedoFieldRecordValue>;
+};
+
+export type UndoRedoApplyFieldSnapshotPayload = {
+  readonly baseId: string;
+  readonly tableId: string;
+  readonly snapshot: UndoRedoFieldSnapshot;
+};
+
+export type UndoRedoReplayFieldTypeConversionPayload = {
+  readonly baseId: string;
+  readonly tableId: string;
+  readonly snapshot: UndoRedoFieldSnapshot;
+};
+
+export type UndoRedoCommandLeafType =
+  | 'UpdateRecord'
+  | 'DeleteRecords'
+  | 'RestoreRecords'
+  | 'ApplyRecordOrders'
+  | 'DeleteField'
+  | 'ApplyFieldSnapshot'
+  | 'ReplayFieldTypeConversion';
 
 export type UndoRedoCommandType = UndoRedoCommandLeafType | 'Batch';
+
+export const undoRedoCommandVersions = {
+  UpdateRecord: 1,
+  DeleteRecords: 1,
+  RestoreRecords: 1,
+  ApplyRecordOrders: 1,
+  DeleteField: 1,
+  ApplyFieldSnapshot: 1,
+  ReplayFieldTypeConversion: 1,
+  Batch: 1,
+} as const satisfies Record<UndoRedoCommandType, number>;
 
 export type UndoRedoUpdateCommandData = {
   readonly type: 'UpdateRecord';
@@ -61,10 +128,38 @@ export type UndoRedoRestoreRecordsCommandData = {
   readonly payload: UndoRedoRestoreRecordsPayload;
 };
 
+export type UndoRedoApplyRecordOrdersCommandData = {
+  readonly type: 'ApplyRecordOrders';
+  readonly version: number;
+  readonly payload: UndoRedoApplyRecordOrdersPayload;
+};
+
+export type UndoRedoDeleteFieldCommandData = {
+  readonly type: 'DeleteField';
+  readonly version: number;
+  readonly payload: UndoRedoDeleteFieldPayload;
+};
+
+export type UndoRedoApplyFieldSnapshotCommandData = {
+  readonly type: 'ApplyFieldSnapshot';
+  readonly version: number;
+  readonly payload: UndoRedoApplyFieldSnapshotPayload;
+};
+
+export type UndoRedoReplayFieldTypeConversionCommandData = {
+  readonly type: 'ReplayFieldTypeConversion';
+  readonly version: number;
+  readonly payload: UndoRedoReplayFieldTypeConversionPayload;
+};
+
 export type UndoRedoCommandLeafData =
   | UndoRedoUpdateCommandData
   | UndoRedoDeleteRecordsCommandData
-  | UndoRedoRestoreRecordsCommandData;
+  | UndoRedoRestoreRecordsCommandData
+  | UndoRedoApplyRecordOrdersCommandData
+  | UndoRedoDeleteFieldCommandData
+  | UndoRedoApplyFieldSnapshotCommandData
+  | UndoRedoReplayFieldTypeConversionCommandData;
 
 export type UndoRedoBatchCommandData = {
   readonly type: 'Batch';
@@ -73,6 +168,51 @@ export type UndoRedoBatchCommandData = {
 };
 
 export type UndoRedoCommandData = UndoRedoCommandLeafData | UndoRedoBatchCommandData;
+
+export type UndoRedoCommandPayloadByType = {
+  UpdateRecord: UndoRedoUpdateRecordPayload;
+  DeleteRecords: UndoRedoDeleteRecordsPayload;
+  RestoreRecords: UndoRedoRestoreRecordsPayload;
+  ApplyRecordOrders: UndoRedoApplyRecordOrdersPayload;
+  DeleteField: UndoRedoDeleteFieldPayload;
+  ApplyFieldSnapshot: UndoRedoApplyFieldSnapshotPayload;
+  ReplayFieldTypeConversion: UndoRedoReplayFieldTypeConversionPayload;
+  Batch: ReadonlyArray<UndoRedoCommandLeafData>;
+};
+
+export type UndoRedoCommandDataByType = {
+  UpdateRecord: UndoRedoUpdateCommandData;
+  DeleteRecords: UndoRedoDeleteRecordsCommandData;
+  RestoreRecords: UndoRedoRestoreRecordsCommandData;
+  ApplyRecordOrders: UndoRedoApplyRecordOrdersCommandData;
+  DeleteField: UndoRedoDeleteFieldCommandData;
+  ApplyFieldSnapshot: UndoRedoApplyFieldSnapshotCommandData;
+  ReplayFieldTypeConversion: UndoRedoReplayFieldTypeConversionCommandData;
+  Batch: UndoRedoBatchCommandData;
+};
+
+export const createUndoRedoCommand = <TType extends UndoRedoCommandType>(
+  type: TType,
+  payload: UndoRedoCommandPayloadByType[TType]
+): UndoRedoCommandDataByType[TType] =>
+  ({
+    type,
+    version: undoRedoCommandVersions[type],
+    payload,
+  }) as UndoRedoCommandDataByType[TType];
+
+export const isSupportedUndoRedoCommandVersion = (command: UndoRedoCommandData): boolean =>
+  command.version === undoRedoCommandVersions[command.type];
+
+export const composeUndoRedoCommands = (
+  commands: ReadonlyArray<UndoRedoCommandLeafData>
+): UndoRedoCommandData =>
+  commands.length === 1 ? commands[0]! : createUndoRedoCommand('Batch', commands);
+
+export const flattenUndoRedoCommands = (
+  command: UndoRedoCommandData
+): ReadonlyArray<UndoRedoCommandLeafData> =>
+  command.type === 'Batch' ? command.payload : [command];
 
 export type UndoEntry = {
   readonly scope: UndoScope;

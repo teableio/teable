@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
+import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type {
@@ -41,6 +42,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
@@ -64,6 +66,10 @@ const createTableUpdateFlow = (
   eventBus: FakeEventBus,
   unitOfWork: FakeUnitOfWork
 ) => new TableUpdateFlow(tableRepository, new FakeTableSchemaRepository(), eventBus, unitOfWork);
+
+const noopRecordWriteUndoRedoPlanService = {
+  captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
+} as unknown as RecordWriteUndoRedoPlanService;
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap();
@@ -287,6 +293,12 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   }
 }
 
+class FakeRecordOrderCalculator implements IRecordOrderCalculator {
+  async calculateOrders(): Promise<Result<ReadonlyArray<number>, DomainError>> {
+    return ok([1024]);
+  }
+}
+
 class FakeRecordMutationSpecResolverService {
   needsResolutionValue = false;
   resolveCalls: ICellValueSpec[] = [];
@@ -372,8 +384,10 @@ describe('UpdateRecordHandler', () => {
       tableQueryService,
       recordRepository,
       recordQueryRepository,
+      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
       new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoService,
@@ -421,8 +435,10 @@ describe('UpdateRecordHandler', () => {
       tableQueryService,
       recordRepository,
       recordQueryRepository,
+      new FakeRecordOrderCalculator(),
       resolver as unknown as RecordMutationSpecResolverService,
       new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
       new FakeUndoRedoService() as unknown as UndoRedoService,
@@ -467,8 +483,10 @@ describe('UpdateRecordHandler', () => {
       tableQueryService,
       recordRepository,
       recordQueryRepository,
+      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
       new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoService,
@@ -541,8 +559,10 @@ describe('UpdateRecordHandler', () => {
       tableQueryService,
       recordRepository,
       recordQueryRepository,
+      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
       new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoService,
@@ -587,8 +607,10 @@ describe('UpdateRecordHandler', () => {
       tableQueryService,
       new FakeTableRecordRepository(),
       recordQueryRepository,
+      new FakeRecordOrderCalculator(),
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
       new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
       new FakeEventBus(),
       new FakeUndoRedoService() as unknown as UndoRedoService,
@@ -648,8 +670,10 @@ describe('UpdateRecordHandler', () => {
       tableQueryService,
       recordRepository,
       recordQueryRepository,
+      new FakeRecordOrderCalculator(),
       resolver as unknown as RecordMutationSpecResolverService,
       new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       new FakeUndoRedoService() as unknown as UndoRedoService,
@@ -714,8 +738,10 @@ describe('UpdateRecordHandler', () => {
         tableQueryService,
         recordRepository,
         recordQueryRepository,
+        new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
         new FakeUndoRedoService() as unknown as UndoRedoService,
@@ -769,8 +795,10 @@ describe('UpdateRecordHandler', () => {
         tableQueryService,
         recordRepository,
         recordQueryRepository,
+        new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
         new FakeUndoRedoService() as unknown as UndoRedoService,
@@ -816,8 +844,10 @@ describe('UpdateRecordHandler', () => {
         tableQueryService,
         new FakeTableRecordRepository(),
         recordQueryRepository,
+        new FakeRecordOrderCalculator(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeEventBus(),
         new FakeUndoRedoService() as unknown as UndoRedoService,

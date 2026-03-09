@@ -8,8 +8,15 @@ import {
   FieldKeyType,
   FieldType,
   generateFieldId,
+  generateOperationId,
   getDefaultFormatting,
   getDbFieldType,
+  ViewOpBuilder,
+  ViewType,
+  type IGridColumnMeta,
+  type IGridViewOptions,
+  type IViewVo,
+  type IOtOperation,
 } from '@teable/core';
 import type { IDuplicateFieldRo } from '@teable/openapi';
 import {
@@ -20,6 +27,7 @@ import {
   executeUpdateRecordEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import {
+  DeleteFieldsCommand,
   DbTableName,
   FieldId,
   LinkFieldConfig,
@@ -35,9 +43,13 @@ import type {
   ITableMapper,
 } from '@teable/v2-core';
 import { instanceToPlain } from 'class-transformer';
+import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
+import { FieldOpenApiService } from './field-open-api.service';
+import { ViewService } from '../../view/view.service';
+import { adjustFrozenField } from '../../view/utils/derive-frozen-fields';
 import {
   V2_FIELD_UPDATE_AUDIT_CONTEXT_KEY,
   type IV2FieldUpdateAuditContext,
@@ -45,9 +57,14 @@ import {
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import {
+  V2_FIELD_DELETE_COMPAT_CONTEXT_KEY,
+  type IV2FieldDeleteCompatContext,
+} from '../../v2/v2-field-delete-compat.constants';
+import {
   V2_FIELD_CONVERT_UNDO_CONTEXT_KEY,
   type IV2FieldConvertUndoContext,
 } from '../../v2/v2-undo-redo.constants';
+import type { IClsStore } from '../../../types/cls';
 
 const internalServerError = 'Internal server error';
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -57,12 +74,21 @@ type ConvertFieldExecutionOptions = {
   undoRedoMode?: 'undo' | 'redo' | 'normal';
 };
 
+type GridViewDeleteSnapshot = {
+  viewId: string;
+  options: IGridViewOptions;
+  columnMeta: IGridColumnMeta;
+};
+
 @Injectable()
 export class FieldOpenApiV2Service {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
-    private readonly dataLoaderService: DataLoaderService
+    private readonly dataLoaderService: DataLoaderService,
+    private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly viewService: ViewService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   private stripUndefinedDeep(value: unknown): unknown {
@@ -91,6 +117,77 @@ export class FieldOpenApiV2Service {
     );
     if (!ids.length) return;
     this.dataLoaderService.field.invalidateTables(ids);
+  }
+
+  private async captureGridViewDeleteSnapshots(tableId: string): Promise<GridViewDeleteSnapshot[]> {
+    const views = await this.viewService.getViews(tableId);
+    return views.flatMap((view) => this.toGridViewDeleteSnapshot(view));
+  }
+
+  private toGridViewDeleteSnapshot(view: IViewVo): GridViewDeleteSnapshot[] {
+    if (view.type !== ViewType.Grid) {
+      return [];
+    }
+
+    const options = (view.options ?? {}) as IGridViewOptions;
+    const columnMeta = (view.columnMeta ?? {}) as IGridColumnMeta;
+    return [
+      {
+        viewId: view.id,
+        options,
+        columnMeta,
+      },
+    ];
+  }
+
+  private buildFrozenFieldDeleteOps(
+    viewSnapshots: ReadonlyArray<GridViewDeleteSnapshot>,
+    fieldIds: ReadonlyArray<string>
+  ): Record<string, IOtOperation[]> {
+    const columnMetaUpdate = Object.fromEntries(fieldIds.map((fieldId) => [fieldId, null]));
+    const opsMap: Record<string, IOtOperation[]> = {};
+
+    for (const snapshot of viewSnapshots) {
+      const nextOptions = adjustFrozenField(
+        snapshot.options,
+        snapshot.columnMeta,
+        columnMetaUpdate as unknown as IGridColumnMeta
+      );
+      if (!nextOptions) {
+        continue;
+      }
+
+      opsMap[snapshot.viewId] = [
+        ViewOpBuilder.editor.setViewProperty.build({
+          key: 'options',
+          oldValue: snapshot.options,
+          newValue: nextOptions,
+        }),
+      ];
+    }
+
+    return opsMap;
+  }
+
+  private attachDeleteFieldCompatContext(
+    context: IExecutionContext,
+    tableId: string,
+    fieldIds: ReadonlyArray<string>,
+    payload: Awaited<ReturnType<FieldOpenApiService['captureDeleteFieldsLegacyPayload']>>,
+    gridViewSnapshots: ReadonlyArray<GridViewDeleteSnapshot>
+  ): void {
+    (
+      context as IExecutionContext & {
+        [V2_FIELD_DELETE_COMPAT_CONTEXT_KEY]?: IV2FieldDeleteCompatContext;
+      }
+    )[V2_FIELD_DELETE_COMPAT_CONTEXT_KEY] = {
+      tableId,
+      userId: this.cls.get('user.id'),
+      operationId: generateOperationId(),
+      remainingFieldIds: new Set(fieldIds),
+      frozenFieldOps: this.buildFrozenFieldDeleteOps(gridViewSnapshots, fieldIds),
+      legacyDeletePayload: payload,
+    };
   }
 
   private throwV2Error(
@@ -1127,6 +1224,18 @@ export class FieldOpenApiV2Service {
       );
     }
 
+    const [legacyDeletePayload, gridViewSnapshots] = await Promise.all([
+      this.fieldOpenApiService.captureDeleteFieldsLegacyPayload(tableId, [fieldId]),
+      this.captureGridViewDeleteSnapshots(tableId),
+    ]);
+    this.attachDeleteFieldCompatContext(
+      context,
+      tableId,
+      [fieldId],
+      legacyDeletePayload,
+      gridViewSnapshots
+    );
+
     const result = await executeDeleteFieldEndpoint(
       context,
       {
@@ -1147,6 +1256,72 @@ export class FieldOpenApiV2Service {
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async deleteFields(tableId: string, fieldIds: string[]): Promise<void> {
+    const container = await this.v2ContainerService.getContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
+    const context = await this.v2ContextFactory.createContext();
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
+    }
+
+    const tableResult = await tableQueryService.getById(context, tableIdResult.value);
+    if (tableResult.isErr()) {
+      const errMsg = tableResult.error.message ?? 'Table not found';
+      const isNotFound =
+        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
+      throw new HttpException(
+        errMsg,
+        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+
+    const [legacyDeletePayload, gridViewSnapshots] = await Promise.all([
+      this.fieldOpenApiService.captureDeleteFieldsLegacyPayload(tableId, fieldIds),
+      this.captureGridViewDeleteSnapshots(tableId),
+    ]);
+    this.attachDeleteFieldCompatContext(
+      context,
+      tableId,
+      fieldIds,
+      legacyDeletePayload,
+      gridViewSnapshots
+    );
+
+    const commandResult = DeleteFieldsCommand.create({
+      baseId: tableResult.value.baseId().toString(),
+      tableId,
+      fieldIds,
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        {
+          code: commandResult.error.code,
+          message: commandResult.error.message,
+          tags: commandResult.error.tags,
+          details: commandResult.error.details,
+        },
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    const result = await commandBus.execute(context, commandResult.value);
+    if (result.isErr()) {
+      this.throwV2Error(
+        {
+          code: result.error.code,
+          message: result.error.message,
+          tags: result.error.tags,
+          details: result.error.details,
+        },
+        result.error.code === 'not_found' ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST
+      );
+    }
+
+    this.invalidateFieldLoader([tableId]);
   }
 
   async updateField(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {

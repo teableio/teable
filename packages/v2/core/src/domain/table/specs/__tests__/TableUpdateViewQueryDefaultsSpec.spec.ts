@@ -49,10 +49,16 @@ describe('TableUpdateViewQueryDefaultsSpec', () => {
     expect(updates[0]?.queryDefaults.equals(queryDefaults)).toBe(true);
   });
 
-  it('mutate is no-op and keeps original table instance', () => {
+  it('mutates the matching view query defaults and returns a cloned table', () => {
     const table = buildTable();
     const view = table.views()[0]!;
-    const queryDefaults = ViewQueryDefaults.empty();
+    const queryDefaults = ViewQueryDefaults.create({
+      filter: {
+        conjunction: 'and',
+        items: [{ fieldId: table.primaryFieldId().toString(), operator: 'is', value: 'B' }],
+      },
+      manualSort: false,
+    })._unsafeUnwrap();
 
     const spec = TableUpdateViewQueryDefaultsSpec.create([
       {
@@ -62,7 +68,8 @@ describe('TableUpdateViewQueryDefaultsSpec', () => {
     ]);
 
     const mutated = spec.mutate(table)._unsafeUnwrap();
-    expect(mutated).toBe(table);
+    expect(mutated).not.toBe(table);
     expect(mutated.views()[0]?.id().equals(view.id())).toBe(true);
+    expect(mutated.views()[0]?.queryDefaults()._unsafeUnwrap().equals(queryDefaults)).toBe(true);
   });
 });

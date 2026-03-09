@@ -21,6 +21,7 @@ import type { RecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DuplicateRecordCommand } from './DuplicateRecordCommand';
@@ -188,27 +189,19 @@ export class DuplicateRecordHandler
       }
 
       yield* await handler.undoRedoService.recordEntry(context, table.id(), {
-        undoCommand: {
-          type: 'DeleteRecords',
-          version: 1,
-          payload: {
-            tableId: table.id().toString(),
-            recordIds: [record.id().toString()],
-          },
-        },
-        redoCommand: {
-          type: 'RestoreRecords',
-          version: 1,
-          payload: {
-            tableId: table.id().toString(),
-            records: [
-              {
-                recordId: record.id().toString(),
-                fields: recordFields,
-              },
-            ],
-          },
-        },
+        undoCommand: createUndoRedoCommand('DeleteRecords', {
+          tableId: table.id().toString(),
+          recordIds: [record.id().toString()],
+        }),
+        redoCommand: createUndoRedoCommand('RestoreRecords', {
+          tableId: table.id().toString(),
+          records: [
+            {
+              recordId: record.id().toString(),
+              fields: recordFields,
+            },
+          ],
+        }),
       });
 
       // 10. Build field key mapping for response transformation (using field ID)

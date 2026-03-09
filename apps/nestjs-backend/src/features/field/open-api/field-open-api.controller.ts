@@ -212,9 +212,7 @@ export class FieldOpenApiController {
     @Headers('x-window-id') windowId: string
   ) {
     if (this.cls.get('useV2')) {
-      for (const fieldId of query.fieldIds) {
-        await this.fieldOpenApiV2Service.deleteField(tableId, fieldId);
-      }
+      await this.fieldOpenApiV2Service.deleteFields(tableId, query.fieldIds);
       return;
     }
     await this.fieldOpenApiService.deleteFields(tableId, query.fieldIds, windowId);

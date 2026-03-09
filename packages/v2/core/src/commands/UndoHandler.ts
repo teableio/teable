@@ -4,8 +4,10 @@ import type { Result } from 'neverthrow';
 
 import { UndoRedoService } from '../application/services/UndoRedoService';
 import type { DomainError } from '../domain/shared/DomainError';
-import type { IExecutionContext } from '../ports/ExecutionContext';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
+import { TeableSpanAttributes } from '../ports/Tracer';
+import { TraceSpan } from '../ports/TraceSpan';
 import type { UndoEntry } from '../ports/UndoRedoStore';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { UndoCommand } from './UndoCommand';
@@ -26,8 +28,15 @@ export class UndoHandler implements ICommandHandler<UndoCommand, UndoResult> {
     private readonly undoRedoService: UndoRedoService
   ) {}
 
+  @TraceSpan({
+    attributes: (context, command: UndoCommand) => ({
+      [TeableSpanAttributes.TABLE_ID]: command.tableId.toString(),
+      'teable.window_id': command.windowId ?? context.windowId ?? 'missing',
+      'teable.undo_redo.mode': 'undo',
+    }),
+  })
   async handle(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     command: UndoCommand
   ): Promise<Result<UndoResult, DomainError>> {
     const handler = this;

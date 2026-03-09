@@ -171,7 +171,7 @@ export interface ITableRecordQueryRepository {
     context: IExecutionContext,
     table: Table,
     recordId: RecordId,
-    options?: Pick<ITableRecordQueryOptions, 'mode'>
+    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders'>
   ): Promise<Result<TableRecordReadModel, DomainError>>;
 
   /**

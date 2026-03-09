@@ -918,4 +918,165 @@ describe('LinkField', () => {
       expect(result._unsafeUnwrap()).toBeUndefined();
     });
   });
+
+  describe('onFieldDeleted', () => {
+    it('falls back lookupFieldId to the foreign primary field when the show-by field is deleted', () => {
+      const baseId = createBaseId('q')._unsafeUnwrap();
+      const hostTableId = createTableId('r')._unsafeUnwrap();
+      const foreignTableId = createTableId('s')._unsafeUnwrap();
+      const hostPrimaryFieldId = createFieldId('v')._unsafeUnwrap();
+      const foreignPrimaryFieldId = createFieldId('w')._unsafeUnwrap();
+      const foreignDisplayFieldId = createFieldId('t')._unsafeUnwrap();
+      const linkFieldId = createFieldId('u')._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Foreign')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignPrimaryFieldId)
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignDisplayFieldId)
+        .withName(FieldName.create('Display')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withId(hostTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Host')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(hostPrimaryFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+      const linkField = LinkField.create({
+        id: linkFieldId,
+        name: FieldName.create('Foreign Link')._unsafeUnwrap(),
+        config: LinkFieldConfig.create({
+          relationship: 'oneOne',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignDisplayFieldId.toString(),
+          isOneWay: true,
+          fkHostTableName: 'host_table',
+          selfKeyName: '__id',
+          foreignKeyName: '__fk_link',
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const deletedField = foreignTable
+        .getFields()
+        .find((field) => field.id().equals(foreignDisplayFieldId));
+      expect(deletedField).toBeDefined();
+      if (!deletedField) return;
+
+      const result = linkField.onFieldDeleted(deletedField, {
+        table: hostTable,
+        sourceTable: foreignTable,
+        previousSourceTable: foreignTable,
+      });
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(UpdateLinkConfigSpec);
+
+      const spec = result._unsafeUnwrap() as UpdateLinkConfigSpec;
+      expect(spec.nextConfig().lookupFieldId().equals(foreignPrimaryFieldId)).toBe(true);
+    });
+
+    it('cleans foreign filter and visible field ids when the referenced foreign field is deleted', () => {
+      const baseId = createBaseId('x')._unsafeUnwrap();
+      const hostTableId = createTableId('y')._unsafeUnwrap();
+      const foreignTableId = createTableId('z')._unsafeUnwrap();
+      const hostPrimaryFieldId = createFieldId('1')._unsafeUnwrap();
+      const foreignPrimaryFieldId = createFieldId('2')._unsafeUnwrap();
+      const foreignStatusFieldId = createFieldId('3')._unsafeUnwrap();
+      const linkFieldId = createFieldId('4')._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Foreign Clean')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignPrimaryFieldId)
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder
+        .field()
+        .singleSelect({
+          options: [
+            SelectOption.create({ id: 'cho_status', name: 'x', color: 'green' })._unsafeUnwrap(),
+          ],
+        })
+        .withId(foreignStatusFieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withId(hostTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Host Clean')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(hostPrimaryFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+      const linkField = LinkField.create({
+        id: linkFieldId,
+        name: FieldName.create('Filtered Link')._unsafeUnwrap(),
+        config: LinkFieldConfig.create({
+          relationship: 'manyMany',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryFieldId.toString(),
+          fkHostTableName: 'clean_link_table',
+          selfKeyName: '__id',
+          foreignKeyName: '__fk_clean_link',
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: foreignStatusFieldId.toString(), operator: 'is', value: 'x' }],
+          },
+          visibleFieldIds: [foreignStatusFieldId.toString()],
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const deletedField = foreignTable
+        .getFields()
+        .find((field) => field.id().equals(foreignStatusFieldId));
+      expect(deletedField).toBeDefined();
+      if (!deletedField) return;
+
+      const result = linkField.onFieldDeleted(deletedField, {
+        table: hostTable,
+        sourceTable: foreignTable,
+        previousSourceTable: foreignTable,
+      });
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBeInstanceOf(UpdateLinkConfigSpec);
+
+      const spec = result._unsafeUnwrap() as UpdateLinkConfigSpec;
+      expect(spec.nextConfig().filter()).toBeNull();
+      expect(spec.nextConfig().visibleFieldIds()).toBeNull();
+    });
+  });
 });

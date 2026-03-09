@@ -13,6 +13,7 @@ import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisit
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
+import { createUndoRedoCommand } from '../UndoRedoStore';
 
 import { RealtimeDocId } from '../RealtimeDocId';
 
@@ -139,28 +140,20 @@ describe('NoopUndoRedoStore', () => {
     (
       await store.append(scope, {
         scope,
-        undoCommand: {
-          type: 'UpdateRecord',
-          version: 1,
-          payload: {
-            tableId: tableId.toString(),
-            recordId: `rec${'b'.repeat(16)}`,
-            fields: { fld: 'old' },
-            fieldKeyType: 'id',
-            typecast: false,
-          },
-        },
-        redoCommand: {
-          type: 'UpdateRecord',
-          version: 1,
-          payload: {
-            tableId: tableId.toString(),
-            recordId: `rec${'b'.repeat(16)}`,
-            fields: { fld: 'new' },
-            fieldKeyType: 'id',
-            typecast: false,
-          },
-        },
+        undoCommand: createUndoRedoCommand('UpdateRecord', {
+          tableId: tableId.toString(),
+          recordId: `rec${'b'.repeat(16)}`,
+          fields: { fld: 'old' },
+          fieldKeyType: 'id',
+          typecast: false,
+        }),
+        redoCommand: createUndoRedoCommand('UpdateRecord', {
+          tableId: tableId.toString(),
+          recordId: `rec${'b'.repeat(16)}`,
+          fields: { fld: 'new' },
+          fieldKeyType: 'id',
+          typecast: false,
+        }),
         recordVersionBefore: 1,
         recordVersionAfter: 2,
         createdAt: new Date().toISOString(),

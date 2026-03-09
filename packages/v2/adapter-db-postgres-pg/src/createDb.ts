@@ -33,10 +33,12 @@ const createPgDb = async <DB>(config: IV2PostgresDbConfig): Promise<Kysely<DB>> 
   }
 
   const poolOptions = resolvePoolOptions(config);
+  const pool = new Pool(poolOptions);
+  pool.on('error', handlePgPoolError);
 
   return new Kysely<DB>({
     dialect: new PostgresDialect({
-      pool: new Pool(poolOptions),
+      pool,
     }),
   });
 };
@@ -64,6 +66,23 @@ type PgPoolOptions = {
   connectionTimeoutMillis?: number;
   maxUses?: number;
   allowExitOnIdle?: boolean;
+};
+
+type PgPoolError = Error & { code?: string };
+
+const ignoredPgPoolErrorCodes = new Set(['57P01', '57P02']);
+
+export const shouldIgnorePgPoolError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  const code = (error as PgPoolError).code;
+  return typeof code === 'string' && ignoredPgPoolErrorCodes.has(code);
+};
+
+export const handlePgPoolError = (error: unknown): void => {
+  if (shouldIgnorePgPoolError(error)) {
+    return;
+  }
+  console.error('[v2-adapter-db-postgres-pg] Unexpected idle pg pool error', error);
 };
 
 const resolvePoolOptions = (config: IV2PostgresDbConfig): PgPoolOptions => {

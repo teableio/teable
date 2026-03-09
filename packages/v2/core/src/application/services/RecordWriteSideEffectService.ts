@@ -3,7 +3,10 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
-import { RecordWriteSideEffectVisitor } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
+import {
+  RecordWriteSideEffectVisitor,
+  type RecordWriteSideEffects,
+} from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type { Table } from '../../domain/table/Table';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -11,6 +14,7 @@ import { getDomainContext } from '../../ports/ExecutionContext';
 
 export type RecordWriteSideEffectResult = {
   table: Table;
+  effects: RecordWriteSideEffects;
   updateResult?: TableUpdateResult;
 };
 
@@ -22,12 +26,12 @@ export class RecordWriteSideEffectService {
     recordFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>>,
     typecast: boolean
   ): Result<RecordWriteSideEffectResult, DomainError> {
-    if (!typecast) return ok({ table });
+    if (!typecast) return ok({ table, effects: [] });
 
     const effectsResult = RecordWriteSideEffectVisitor.collect(table, recordFieldValues, typecast);
     if (effectsResult.isErr()) return err(effectsResult.error);
     const effects = effectsResult.value;
-    if (effects.length === 0) return ok({ table });
+    if (effects.length === 0) return ok({ table, effects });
 
     const updateResult = table.update((mutator) => {
       const domainContext = getDomainContext(context);
@@ -39,6 +43,6 @@ export class RecordWriteSideEffectService {
     });
     if (updateResult.isErr()) return err(updateResult.error);
 
-    return ok({ table: updateResult.value.table, updateResult: updateResult.value });
+    return ok({ table: updateResult.value.table, effects, updateResult: updateResult.value });
   }
 }

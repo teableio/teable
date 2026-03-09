@@ -5,6 +5,8 @@ import { AttachmentValueResolverService } from '../application/services/Attachme
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldCrossTableUpdateSideEffectService } from '../application/services/FieldCrossTableUpdateSideEffectService';
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
+import { FieldUndoRedoReplayService } from '../application/services/FieldUndoRedoReplayService';
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { LinkFieldUpdateSideEffectService } from '../application/services/LinkFieldUpdateSideEffectService';
@@ -13,6 +15,7 @@ import { RecordCreateConstraintService } from '../application/services/RecordCre
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
+import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -138,6 +141,18 @@ export const registerV2CoreServices = (
     });
   }
 
+  if (!container.isRegistered(v2CoreTokens.fieldUndoRedoSnapshotService)) {
+    container.register(v2CoreTokens.fieldUndoRedoSnapshotService, FieldUndoRedoSnapshotService, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.fieldUndoRedoReplayService)) {
+    container.register(v2CoreTokens.fieldUndoRedoReplayService, FieldUndoRedoReplayService, {
+      lifecycle,
+    });
+  }
+
   // FieldCrossTableUpdateSideEffectService - cross-table update side effects for field updates
   if (!container.isRegistered(v2CoreTokens.fieldCrossTableUpdateSideEffectService)) {
     container.register(
@@ -228,6 +243,16 @@ export const registerV2CoreServices = (
     container.register(v2CoreTokens.recordWriteSideEffectService, RecordWriteSideEffectService, {
       lifecycle,
     });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.recordWriteUndoRedoPlanService)) {
+    container.register(
+      v2CoreTokens.recordWriteUndoRedoPlanService,
+      RecordWriteUndoRedoPlanService,
+      {
+        lifecycle,
+      }
+    );
   }
 
   // RecordCreationService - shared single-record creation workflow

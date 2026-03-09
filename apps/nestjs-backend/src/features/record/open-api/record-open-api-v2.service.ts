@@ -128,6 +128,15 @@ export class RecordOpenApiV2Service {
         fields,
         typecast: updateRecordRo.typecast ?? false,
         fieldKeyType: updateRecordRo.fieldKeyType,
+        ...(order
+          ? {
+              order: {
+                viewId: order.viewId,
+                anchorId: order.anchorId,
+                position: order.position,
+              },
+            }
+          : {}),
       };
 
       const result = await executeUpdateRecordEndpoint(context, v2Input, commandBus);
@@ -139,7 +148,7 @@ export class RecordOpenApiV2Service {
       }
     }
 
-    if (hasOrder && order) {
+    if (!hasFields && hasOrder && order) {
       const reorderResult = await executeReorderRecordsEndpoint(
         context,
         {
@@ -834,7 +843,7 @@ export class RecordOpenApiV2Service {
 
     if (result.status === 200 && result.body.ok) {
       // V2's DeleteByRangeHandler captures snapshots and emits RecordsDeleted event.
-      // Undo/redo is handled by V2RecordsDeletedUndoRedoProjection in v2-undo-redo.service.ts
+      // Undo/redo is handled directly by v2 command replay.
       return { ids: [...result.body.data.deletedRecordIds] };
     }
 

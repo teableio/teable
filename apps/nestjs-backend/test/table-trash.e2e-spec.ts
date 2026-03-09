@@ -81,6 +81,7 @@ const waitForTableTrashItems = async (tableId: string, expectedCount = 1, maxRet
 };
 
 describe('Trash (e2e)', () => {
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
   let app: INestApplication;
   let prisma: PrismaService;
   let eventEmitterService: EventEmitterService;
@@ -89,6 +90,8 @@ describe('Trash (e2e)', () => {
 
   let awaitWithViewEvent: <T>(fn: () => Promise<T>) => Promise<T>;
   let awaitWithFieldEvent: <T>(fn: () => Promise<T>) => Promise<T>;
+  const awaitWithFieldDeleteSync = async <T>(fn: () => Promise<T>) =>
+    isForceV2 ? fn() : awaitWithFieldEvent(fn);
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -132,7 +135,7 @@ describe('Trash (e2e)', () => {
       const fields = await getFields(tableId);
       const deletedFieldIds = fields.filter((f) => !f.isPrimary).map((f) => f.id);
 
-      await awaitWithFieldEvent(async () => deleteFields(tableId, deletedFieldIds));
+      await awaitWithFieldDeleteSync(async () => deleteFields(tableId, deletedFieldIds));
 
       const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
 
@@ -369,7 +372,7 @@ describe('Trash (e2e)', () => {
       const fields = await getFields(tableId);
       const deletedFieldIds = fields.filter((f) => !f.isPrimary).map((f) => f.id);
 
-      await awaitWithFieldEvent(async () => deleteFields(tableId, deletedFieldIds));
+      await awaitWithFieldDeleteSync(async () => deleteFields(tableId, deletedFieldIds));
 
       const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
       const restored = await restoreTrash(result.data.trashItems[0].id);
@@ -386,7 +389,7 @@ describe('Trash (e2e)', () => {
         },
       });
 
-      await awaitWithFieldEvent(async () => deleteFields(tableId, [formulaField.id]));
+      await awaitWithFieldDeleteSync(async () => deleteFields(tableId, [formulaField.id]));
 
       const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
       const restored = await restoreTrash(result.data.trashItems[0].id);
@@ -415,7 +418,7 @@ describe('Trash (e2e)', () => {
       });
       const createdRecordIds = created.data.records.map((r) => r.id);
 
-      await awaitWithFieldEvent(async () => deleteFields(tableId, [field.id]));
+      await awaitWithFieldDeleteSync(async () => deleteFields(tableId, [field.id]));
 
       await deleteRecords(tableId, [createdRecordIds[0]]);
 
@@ -467,7 +470,7 @@ describe('Trash (e2e)', () => {
       const deletedRecordIds = recordsData.records.map((r) => r.id);
 
       await awaitWithViewEvent(() => deleteView(tableId, deletedViewId));
-      await awaitWithFieldEvent(async () => deleteFields(tableId, deletedFieldIds));
+      await awaitWithFieldDeleteSync(async () => deleteFields(tableId, deletedFieldIds));
       await deleteRecords(tableId, deletedRecordIds);
 
       const result = await waitForTableTrashItems(tableId, 3);

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
+import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { UndoRedoService } from '../application/services/UndoRedoService';
@@ -51,6 +52,10 @@ const createContext = (): IExecutionContext => {
 const noopUndoRedoService = {
   recordEntry: async () => ok(undefined),
 } as unknown as UndoRedoService;
+
+const noopRecordWriteUndoRedoPlanService = {
+  captureSelectOptionSideEffects: async () => ok({ undoCommands: [], redoCommands: [] }),
+} as unknown as RecordWriteUndoRedoPlanService;
 
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
@@ -468,6 +473,7 @@ describe('PasteHandler', () => {
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -540,6 +546,7 @@ describe('PasteHandler', () => {
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -614,6 +621,7 @@ describe('PasteHandler', () => {
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -687,6 +695,7 @@ describe('PasteHandler', () => {
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -734,6 +743,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordQueryRepository(),
         resolver as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -803,6 +813,7 @@ describe('PasteHandler', () => {
         recordQueryRepository,
         resolver as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -847,6 +858,7 @@ describe('PasteHandler', () => {
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         new FakeEventBus(),
         noopUndoRedoService,
         new FakeUnitOfWork()
@@ -900,6 +912,7 @@ describe('PasteHandler', () => {
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         eventBus,
         noopUndoRedoService,
         unitOfWork
@@ -950,6 +963,7 @@ describe('PasteHandler', () => {
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
         new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
         eventBus,
         noopUndoRedoService,
         unitOfWork

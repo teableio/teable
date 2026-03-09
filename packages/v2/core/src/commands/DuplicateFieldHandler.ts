@@ -2,8 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { UndoRedoService } from '../application/services/UndoRedoService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Field } from '../domain/table/fields/Field';
@@ -14,6 +16,7 @@ import type { TableUpdateResult } from '../domain/table/TableMutator';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DuplicateFieldCommand } from './DuplicateFieldCommand';
 
@@ -44,7 +47,11 @@ export class DuplicateFieldHandler
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldCreationSideEffectService)
-    private readonly fieldCreationSideEffectService: FieldCreationSideEffectService
+    private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
+    @inject(v2CoreTokens.undoRedoService)
+    private readonly undoRedoService: UndoRedoService,
+    @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
+    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
   ) {}
 
   @TraceSpan()
@@ -129,6 +136,25 @@ export class DuplicateFieldHandler
       if (!newField || !sourceField) {
         return err(domainError.unexpected({ message: 'Field not created' }));
       }
+
+      const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
+        context,
+        updateResult.table,
+        newField.id(),
+        { includeRecords: command.includeRecordValues }
+      );
+      yield* await handler.undoRedoService.recordEntry(context, updateResult.table.id(), {
+        undoCommand: createUndoRedoCommand('DeleteField', {
+          baseId: command.baseId.toString(),
+          tableId: command.tableId.toString(),
+          fieldId: newField.id().toString(),
+        }),
+        redoCommand: createUndoRedoCommand('ApplyFieldSnapshot', {
+          baseId: command.baseId.toString(),
+          tableId: command.tableId.toString(),
+          snapshot,
+        }),
+      });
 
       return ok(
         DuplicateFieldResult.create(updateResult.table, sourceField, newField, updateResult.events)

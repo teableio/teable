@@ -64,6 +64,9 @@ const createService = () =>
   new FieldOpenApiV2Service(
     {} as never,
     {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
     {} as never
   ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -973,6 +976,9 @@ describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
 describe('FieldOpenApiV2Service normalizeFieldVo', () => {
   const createNormalizeService = () =>
     new FieldOpenApiV2Service(
+      {} as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never

@@ -113,6 +113,17 @@ export interface UpdateManyStreamResult {
   totalUpdated: number;
 }
 
+export interface RecordRestoreSystemValues {
+  /** Preserve legacy record identity fields during undo/redo restore. */
+  autoNumber?: number;
+  createdTime?: string;
+  createdBy?: string;
+  lastModifiedTime?: string;
+  lastModifiedBy?: string;
+  /** Preserve per-view row-order snapshot during undo/redo restore. */
+  orders?: Readonly<Record<string, number>>;
+}
+
 /**
  * Options for insert operations.
  */
@@ -123,6 +134,12 @@ export interface InsertOptions {
    * in the specified view, rather than appending to the end.
    */
   order?: RecordInsertOrder;
+
+  /**
+   * Optional system column overrides used by undo/redo restore.
+   * Keys are stringified record ids.
+   */
+  restoreRecordsById?: ReadonlyMap<string, RecordRestoreSystemValues>;
 }
 
 export interface ITableRecordRepository {

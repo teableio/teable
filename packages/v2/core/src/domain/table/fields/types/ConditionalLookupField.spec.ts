@@ -283,4 +283,88 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
   });
+
+  it('drops sort but keeps limit when the foreign sort field is deleted', () => {
+    const foreignTableId = createTableId('i');
+    const lookupFieldId = createFieldId('j');
+    const sortFieldId = createFieldId('k');
+    const hostPrimaryFieldId = createFieldId('l');
+    const conditionalLookup = ConditionalLookupField.create({
+      id: createFieldId('m'),
+      name: FieldName.create('Conditional Lookup Sorted')._unsafeUnwrap(),
+      innerField: SingleLineTextField.create({
+        id: createFieldId('n'),
+        name: FieldName.create('Title')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'isNotEmpty' }],
+          },
+          sort: { fieldId: sortFieldId.toString(), order: 'desc' },
+          limit: 2,
+        },
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const hostTableBuilder = Table.builder()
+      .withId(createTableId('o'))
+      .withBaseId(createBaseId('p'))
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostTableBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryFieldId)
+      .withName(FieldName.create('Host Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostTableBuilder.view().defaultGrid().done();
+    const hostTable = hostTableBuilder.build()._unsafeUnwrap();
+
+    const foreignTableBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(createBaseId('p'))
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignTableBuilder
+      .field()
+      .singleLineText()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignTableBuilder
+      .field()
+      .number()
+      .withId(sortFieldId)
+      .withName(FieldName.create('Score')._unsafeUnwrap())
+      .done();
+    foreignTableBuilder.view().defaultGrid().done();
+    const foreignTable = foreignTableBuilder.build()._unsafeUnwrap();
+
+    const deletedField = foreignTable.getFields().find((field) => field.id().equals(sortFieldId));
+    expect(deletedField).toBeDefined();
+    if (!deletedField) return;
+
+    const result = conditionalLookup.onFieldDeleted(deletedField, {
+      table: hostTable,
+      sourceTable: foreignTable,
+      previousSourceTable: foreignTable,
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
+
+    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
+    const nextField = spec.newField() as ConditionalLookupField;
+    const nextCondition = nextField.conditionalLookupOptions().condition().toDto();
+
+    expect(nextCondition.sort).toBeUndefined();
+    expect(nextCondition.limit).toBe(2);
+    expect(nextCondition.filter).toEqual({
+      conjunction: 'and',
+      filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'isNotEmpty' }],
+    });
+  });
 });

@@ -2,9 +2,11 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { UndoRedoService } from '../application/services/UndoRedoService';
 import type { BaseId } from '../domain/base/BaseId';
 import {
   domainError,
@@ -31,6 +33,7 @@ import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { buildUpdateFieldSpecs } from './TableFieldUpdateSpecs';
 import { UpdateFieldCommand } from './UpdateFieldCommand';
@@ -66,7 +69,11 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: ITableRecordQueryRepository,
     @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus
+    private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.undoRedoService)
+    private readonly undoRedoService: UndoRedoService,
+    @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
+    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
   ) {}
 
   private hasTypeConversion(
@@ -325,15 +332,6 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         return err(fieldResult.error);
       }
       const existingField = fieldResult.value;
-      const shouldCaptureOldFieldSnapshots =
-        typeof command.fieldUpdate.type === 'string' &&
-        command.fieldUpdate.type !== existingField.type().toString();
-      if (shouldCaptureOldFieldSnapshots) {
-        yield* handler.ensureFieldDbFieldName(existingField);
-      }
-      const oldSnapshotsByRecordId = shouldCaptureOldFieldSnapshots
-        ? yield* await handler.loadFieldValueSnapshotsByRecordId(context, table, command.fieldId)
-        : {};
 
       // 3. Extract foreign table references from both command and existing field
       const commandReferences = yield* command.foreignTableReferences();
@@ -364,6 +362,26 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
       const updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>> =
         updateSpecsResult.value;
       yield* handler.ensureTypeConversionSpecDbFieldNames(updateSpecs);
+      const hasTypeConversion = handler.hasTypeConversion(updateSpecs, command.fieldId);
+      if (updateSpecs.length === 0) {
+        if (!command.allowNoop) {
+          return err(domainError.validation({ message: 'No changes to apply' }));
+        }
+        return ok(UpdateFieldResult.create(table, []));
+      }
+
+      const oldFieldSnapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
+        context,
+        table,
+        command.fieldId,
+        { includeRecords: hasTypeConversion }
+      );
+      if (hasTypeConversion) {
+        yield* handler.ensureFieldDbFieldName(existingField);
+      }
+      const oldSnapshotsByRecordId = hasTypeConversion
+        ? yield* await handler.loadFieldValueSnapshotsByRecordId(context, table, command.fieldId)
+        : {};
 
       // 6. Execute update flow with the already-loaded table
       const updateResult = yield* await handler.tableUpdateFlow.execute(
@@ -419,46 +437,69 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         }
       );
 
-      const hasTypeConversion = handler.hasTypeConversion(updateSpecs, command.fieldId);
-      if (!hasTypeConversion) {
-        return ok(UpdateFieldResult.create(updateResult.table, updateResult.events));
+      let conversionEvents: ReadonlyArray<IDomainEvent> = [];
+      if (hasTypeConversion) {
+        const typeConversionSpec = updateSpecs.find(
+          (spec): spec is TableUpdateFieldTypeSpec =>
+            spec instanceof TableUpdateFieldTypeSpec &&
+            spec.newField().id().equals(command.fieldId) &&
+            spec.isTypeConversion()
+        );
+        const oldDbFieldNameResult = typeConversionSpec
+          ?.oldField()
+          .dbFieldName()
+          .andThen((name) => name.value());
+        const effectiveDbFieldNameFallback =
+          oldDbFieldNameResult && oldDbFieldNameResult.isOk()
+            ? oldDbFieldNameResult.value
+            : undefined;
+        const updatedField = yield* updateResult.table.getField((f) =>
+          f.id().equals(command.fieldId)
+        );
+        yield* handler.ensureFieldDbFieldName(updatedField, effectiveDbFieldNameFallback);
+
+        const newSnapshotsByRecordId = yield* await handler.loadFieldValueSnapshotsByRecordId(
+          context,
+          updateResult.table,
+          command.fieldId
+        );
+
+        conversionEvents = yield* await handler.buildTypeConversionRecordUpdateEvents(
+          updateResult.table,
+          command.fieldId,
+          oldSnapshotsByRecordId,
+          newSnapshotsByRecordId
+        );
+
+        if (conversionEvents.length > 0) {
+          yield* await handler.eventBus.publishMany(context, conversionEvents);
+        }
       }
 
-      const typeConversionSpec = updateSpecs.find(
-        (spec): spec is TableUpdateFieldTypeSpec =>
-          spec instanceof TableUpdateFieldTypeSpec &&
-          spec.newField().id().equals(command.fieldId) &&
-          spec.isTypeConversion()
-      );
-      const oldDbFieldNameResult = typeConversionSpec
-        ?.oldField()
-        .dbFieldName()
-        .andThen((name) => name.value());
-      const effectiveDbFieldNameFallback =
-        oldDbFieldNameResult && oldDbFieldNameResult.isOk()
-          ? oldDbFieldNameResult.value
-          : undefined;
-      const updatedField = yield* updateResult.table.getField((f) =>
-        f.id().equals(command.fieldId)
-      );
-      yield* handler.ensureFieldDbFieldName(updatedField, effectiveDbFieldNameFallback);
-
-      const newSnapshotsByRecordId = yield* await handler.loadFieldValueSnapshotsByRecordId(
+      const newFieldSnapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
         context,
         updateResult.table,
-        command.fieldId
-      );
-
-      const conversionEvents = yield* await handler.buildTypeConversionRecordUpdateEvents(
-        updateResult.table,
         command.fieldId,
-        oldSnapshotsByRecordId,
-        newSnapshotsByRecordId
+        { includeRecords: hasTypeConversion }
       );
-
-      if (conversionEvents.length > 0) {
-        yield* await handler.eventBus.publishMany(context, conversionEvents);
-      }
+      yield* await handler.undoRedoService.recordEntry(context, updateResult.table.id(), {
+        undoCommand: createUndoRedoCommand(
+          hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
+          {
+            baseId: table.baseId().toString(),
+            tableId: table.id().toString(),
+            snapshot: oldFieldSnapshot,
+          }
+        ),
+        redoCommand: createUndoRedoCommand(
+          hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
+          {
+            baseId: updateResult.table.baseId().toString(),
+            tableId: updateResult.table.id().toString(),
+            snapshot: newFieldSnapshot,
+          }
+        ),
+      });
 
       return ok(
         UpdateFieldResult.create(updateResult.table, [...updateResult.events, ...conversionEvents])

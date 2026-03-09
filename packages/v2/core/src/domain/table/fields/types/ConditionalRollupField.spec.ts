@@ -194,3 +194,57 @@ describe('ConditionalRollupField.onDependencyUpdated', () => {
     expect(nextFilter.filterSet[0]?.value).toBe('Active Plus');
   });
 });
+
+describe('ConditionalRollupField.onFieldDeleted', () => {
+  it('removes sort but preserves filter and limit when the foreign sort field is deleted', () => {
+    const lookupFieldId = createFieldId('l');
+    const sortFieldId = createFieldId('s');
+    const config = ConditionalRollupConfig.create({
+      foreignTableId: createTableId('a').toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'is', value: 'Active' }],
+        },
+        sort: { fieldId: sortFieldId.toString(), order: 'asc' },
+        limit: 1,
+      },
+    })._unsafeUnwrap();
+
+    const field = ConditionalRollupField.createPending({
+      id: createFieldId('r'),
+      name: FieldName.create('Conditional Rollup Sorted')._unsafeUnwrap(),
+      config,
+      expression: RollupExpression.default(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+
+    const deletedSortField = SingleLineTextField.create({
+      id: sortFieldId,
+      name: FieldName.create('Score')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = field.onFieldDeleted(deletedSortField, {
+      table: { id: () => createTableId('h') } as never,
+      sourceTable: { id: () => createTableId('a') } as never,
+      previousSourceTable: { id: () => createTableId('a') } as never,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
+
+    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
+    const nextField = spec.newField() as ConditionalRollupField;
+    const nextCondition = nextField.config().condition().toDto();
+    expect(nextCondition.filter).toEqual({
+      conjunction: 'and',
+      filterSet: [{ fieldId: lookupFieldId.toString(), operator: 'is', value: 'Active' }],
+    });
+    expect(nextCondition.sort).toBeUndefined();
+    expect(nextCondition.limit).toBe(1);
+  });
+});

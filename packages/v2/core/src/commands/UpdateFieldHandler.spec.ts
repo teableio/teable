@@ -2,9 +2,11 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import type { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
 import type { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import type { UndoRedoService } from '../application/services/UndoRedoService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -40,6 +42,26 @@ import { UpdateFieldHandler } from './UpdateFieldHandler';
 const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
 });
+
+const noopUndoRedoService = {
+  async recordEntry() {
+    return ok(undefined);
+  },
+} as unknown as UndoRedoService;
+
+const noopFieldUndoRedoSnapshotService = {
+  async capture(_context: IExecutionContext, _table: Table, fieldId: FieldId) {
+    return ok({
+      field: {
+        id: fieldId.toString(),
+        name: 'Undo Snapshot',
+        type: 'singleLineText',
+      },
+      views: [],
+      records: [],
+    });
+  },
+} as unknown as FieldUndoRedoSnapshotService;
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap();
@@ -313,7 +335,9 @@ describe('UpdateFieldHandler', () => {
         },
       } as unknown as ForeignTableLoaderService,
       tableRecordQueryRepository,
-      eventBus
+      eventBus,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     const command = UpdateFieldCommand.create({
@@ -405,7 +429,9 @@ describe('UpdateFieldHandler', () => {
         },
       } as unknown as ForeignTableLoaderService,
       tableRecordQueryRepository,
-      eventBus
+      eventBus,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     const command = UpdateFieldCommand.create({
@@ -418,6 +444,110 @@ describe('UpdateFieldHandler', () => {
 
     const result = await handler.handle(createContext(), command);
     expect(result.isOk()).toBe(true);
+  });
+
+  it('returns an explicit no-op validation error for normal update commands', async () => {
+    const { table, tableId, fieldId } = buildTable();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const eventBus = new FakeEventBus();
+
+    const handler = new UpdateFieldHandler(
+      tableRepository,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        eventBus,
+        new FakeUnitOfWork()
+      ),
+      {
+        async prepare() {
+          return ok([]);
+        },
+        async execute(_context: IExecutionContext, input: { table: Table }) {
+          return ok({ specs: [], updatedTable: input.table, events: [] });
+        },
+      } as unknown as FieldUpdateSideEffectService,
+      {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService,
+      new FakeTableRecordQueryRepository(),
+      eventBus,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = UpdateFieldCommand.create({
+      tableId: tableId.toString(),
+      fieldId: fieldId.toString(),
+      field: {
+        type: 'singleLineText',
+      },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe('No changes to apply');
+    }
+    expect(eventBus.published).toHaveLength(0);
+  });
+
+  it('allows no-op update commands when explicitly marked as replay-safe', async () => {
+    const { table, tableId, fieldId } = buildTable();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const eventBus = new FakeEventBus();
+
+    const handler = new UpdateFieldHandler(
+      tableRepository,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        eventBus,
+        new FakeUnitOfWork()
+      ),
+      {
+        async prepare() {
+          return ok([]);
+        },
+        async execute(_context: IExecutionContext, input: { table: Table }) {
+          return ok({ specs: [], updatedTable: input.table, events: [] });
+        },
+      } as unknown as FieldUpdateSideEffectService,
+      {
+        async load() {
+          return ok([]);
+        },
+      } as unknown as ForeignTableLoaderService,
+      new FakeTableRecordQueryRepository(),
+      eventBus,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+
+    const command = UpdateFieldCommand.create(
+      {
+        tableId: tableId.toString(),
+        fieldId: fieldId.toString(),
+        field: {
+          type: 'singleLineText',
+        },
+      },
+      {
+        allowNoop: true,
+      }
+    )._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+    expect(eventBus.published).toHaveLength(0);
   });
 
   it('injects sequential field versions into FieldUpdated events from table update flow', async () => {
@@ -464,7 +594,9 @@ describe('UpdateFieldHandler', () => {
         },
       } as unknown as ForeignTableLoaderService,
       new FakeTableRecordQueryRepository(),
-      eventBus
+      eventBus,
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
     );
 
     const command = UpdateFieldCommand.create({

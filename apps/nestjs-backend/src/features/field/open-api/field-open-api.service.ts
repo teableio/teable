@@ -97,6 +97,17 @@ type LinkReferenceOptions = Pick<
   ILinkFieldOptions,
   'foreignTableId' | 'lookupFieldId' | 'visibleFieldIds'
 >;
+
+export type ILegacyDeleteFieldsPayloadSnapshot = {
+  fields: Array<
+    IFieldVo & {
+      columnMeta: IColumnMeta;
+      references?: string[];
+    }
+  >;
+  records: Awaited<ReturnType<RecordService['getRecordsFields']>> | undefined;
+};
+
 @Injectable()
 export class FieldOpenApiService {
   private logger = new Logger(FieldOpenApiService.name);
@@ -1259,6 +1270,54 @@ export class FieldOpenApiService {
       },
     });
     return groupBy(referencesRaw, 'fromFieldId');
+  }
+
+  async captureDeleteFieldsLegacyPayload(
+    tableId: string,
+    fieldIds: string[]
+  ): Promise<ILegacyDeleteFieldsPayloadSnapshot> {
+    return await this.prismaService.$tx(async () => {
+      const fieldRaws = await this.prismaService.txClient().field.findMany({
+        where: { tableId, id: { in: fieldIds }, deletedTime: null },
+      });
+      const fieldRawMap = new Map(fieldRaws.map((raw) => [raw.id, raw]));
+
+      if (fieldRawMap.size !== fieldIds.length) {
+        const notExistFieldId = fieldIds.find((id) => !fieldRawMap.has(id));
+        throw new NotFoundException(`Field ${notExistFieldId} not found`);
+      }
+
+      const fieldVos = fieldIds.map((id) => rawField2FieldObj(fieldRawMap.get(id)!));
+      const fieldInstances = fieldVos.map(createFieldInstanceByVo);
+      const nonComputedFields = fieldInstances.filter((field) => !field.isComputed);
+      const projection = nonComputedFields.map((field) => field.id);
+      const records =
+        projection.length === 0
+          ? undefined
+          : await this.recordService.getRecordsFields(
+              tableId,
+              {
+                projection,
+                fieldKeyType: FieldKeyType.Id,
+                take: -1,
+              },
+              true
+            );
+
+      const [columnsMeta, referenceMap] = await Promise.all([
+        this.viewService.getColumnsMetaMap(tableId, fieldIds),
+        this.getFieldReferenceMap(fieldIds),
+      ]);
+
+      return {
+        fields: fieldVos.map((field, i) => ({
+          ...field,
+          columnMeta: columnsMeta[i],
+          references: fieldIds.concat(referenceMap[field.id]?.map((ref) => ref.toFieldId) || []),
+        })),
+        records,
+      };
+    });
   }
 
   @Timing()

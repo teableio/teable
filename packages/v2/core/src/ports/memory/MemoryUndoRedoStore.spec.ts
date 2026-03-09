@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ActorId } from '../../domain/shared/ActorId';
 import { TableId } from '../../domain/table/TableId';
-import type { UndoEntry, UndoScope } from '../UndoRedoStore';
+import { createUndoRedoCommand, type UndoEntry, type UndoScope } from '../UndoRedoStore';
 
 import { MemoryUndoRedoStore } from './MemoryUndoRedoStore';
 
@@ -14,28 +14,20 @@ const buildScope = (): UndoScope => {
 
 const buildEntry = (scope: UndoScope, recordId: string): UndoEntry => ({
   scope,
-  undoCommand: {
-    type: 'UpdateRecord',
-    version: 1,
-    payload: {
-      tableId: scope.tableId.toString(),
-      recordId,
-      fields: { fld: 'old' },
-      fieldKeyType: 'id',
-      typecast: false,
-    },
-  },
-  redoCommand: {
-    type: 'UpdateRecord',
-    version: 1,
-    payload: {
-      tableId: scope.tableId.toString(),
-      recordId,
-      fields: { fld: 'new' },
-      fieldKeyType: 'id',
-      typecast: false,
-    },
-  },
+  undoCommand: createUndoRedoCommand('UpdateRecord', {
+    tableId: scope.tableId.toString(),
+    recordId,
+    fields: { fld: 'old' },
+    fieldKeyType: 'id',
+    typecast: false,
+  }),
+  redoCommand: createUndoRedoCommand('UpdateRecord', {
+    tableId: scope.tableId.toString(),
+    recordId,
+    fields: { fld: 'new' },
+    fieldKeyType: 'id',
+    typecast: false,
+  }),
   recordVersionBefore: 1,
   recordVersionAfter: 2,
   createdAt: new Date().toISOString(),

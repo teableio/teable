@@ -125,6 +125,15 @@ export interface RecordInsertBuilderContext {
   now: string;
   actorName?: string;
   actorEmail?: string;
+  createdTime?: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdByEmail?: string;
+  lastModifiedTime?: string;
+  lastModifiedBy?: string;
+  lastModifiedByName?: string;
+  lastModifiedByEmail?: string;
+  autoNumber?: number;
 }
 
 /**
@@ -181,14 +190,20 @@ export class RecordInsertBuilder {
     const builder = this;
 
     return safeTry<RecordInsertDataResult, DomainError>(function* () {
+      const createdTime = context.createdTime ?? context.now;
+      const createdBy = context.createdBy ?? context.actorId;
+      const lastModifiedTime = context.lastModifiedTime ?? createdTime;
+      const lastModifiedBy = context.lastModifiedBy ?? createdBy;
+
       // System columns
       const values: Record<string, unknown> = {
         [RECORD_ID_COLUMN]: context.recordId,
-        [CREATED_TIME_COLUMN]: context.now,
-        [CREATED_BY_COLUMN]: context.actorId,
-        [LAST_MODIFIED_TIME_COLUMN]: context.now,
-        [LAST_MODIFIED_BY_COLUMN]: context.actorId,
+        [CREATED_TIME_COLUMN]: createdTime,
+        [CREATED_BY_COLUMN]: createdBy,
+        [LAST_MODIFIED_TIME_COLUMN]: lastModifiedTime,
+        [LAST_MODIFIED_BY_COLUMN]: lastModifiedBy,
         [VERSION_COLUMN]: 1,
+        ...(typeof context.autoNumber === 'number' ? { __auto_number: context.autoNumber } : {}),
       };
 
       const additionalStatements: CompiledSqlStatement[] = [];
@@ -234,7 +249,15 @@ export class RecordInsertBuilder {
             const dbFieldName = dbFieldNameValueResult.value;
             const systemColumn = isCreatedBy ? CREATED_BY_COLUMN : LAST_MODIFIED_BY_COLUMN;
             userFieldColumns.push({ dbFieldName, systemColumn });
-            values[dbFieldName] = buildUserFieldJsonValue(context);
+            values[dbFieldName] = buildUserFieldJsonValue({
+              userId: isCreatedBy ? createdBy : lastModifiedBy,
+              userName: isCreatedBy
+                ? context.createdByName ?? context.actorName ?? createdBy
+                : context.lastModifiedByName ?? context.actorName ?? lastModifiedBy,
+              userEmail: isCreatedBy
+                ? context.createdByEmail ?? context.actorEmail
+                : context.lastModifiedByEmail ?? context.actorEmail,
+            });
             continue;
           }
 
@@ -253,12 +276,15 @@ export class RecordInsertBuilder {
           }
           const dbFieldName = dbFieldNameValueResult.value;
 
-          const fallbackValue =
-            isCreatedTime || isLastModifiedTime
-              ? context.now
-              : isCreatedBy || isLastModifiedBy
-                ? context.actorId
-                : null;
+          const fallbackValue = isCreatedTime
+            ? createdTime
+            : isLastModifiedTime
+              ? lastModifiedTime
+              : isCreatedBy
+                ? createdBy
+                : isLastModifiedBy
+                  ? lastModifiedBy
+                  : null;
           const resolvedValue = rawValue ?? fallbackValue;
           const dbFieldTypeResult = field.dbFieldType();
           let dbFieldTypeValue: string | null = null;
@@ -618,11 +644,15 @@ export class RecordInsertBuilder {
   }
 }
 
-function buildUserFieldJsonValue(context: RecordInsertBuilderContext): string {
+function buildUserFieldJsonValue(params: {
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+}): string {
   return JSON.stringify({
-    id: context.actorId,
-    title: context.actorName ?? context.actorId,
-    email: context.actorEmail ?? null,
-    avatarUrl: `${USER_AVATAR_PREFIX}${context.actorId}`,
+    id: params.userId,
+    title: params.userName ?? params.userId,
+    email: params.userEmail ?? null,
+    avatarUrl: `${USER_AVATAR_PREFIX}${params.userId}`,
   });
 }

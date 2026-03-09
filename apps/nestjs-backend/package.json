@@ -183,6 +183,7 @@
     "@teable/db-main-prisma": "workspace:^",
     "@teable/openapi": "workspace:^",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
+    "@teable/v2-adapter-undo-redo-keyv": "workspace:*",
     "@teable/v2-adapter-realtime-sharedb": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-contract-http": "workspace:*",

@@ -15,6 +15,7 @@ import type {
   ITableRecordRepository,
   InsertManyStreamOptions,
   InsertManyStreamResult,
+  InsertOptions,
   RecordMutationResult,
   UpdateManyStreamOptions,
   UpdateManyStreamResult,
@@ -24,7 +25,8 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
   async insert(
     _: IExecutionContext,
     __: Table,
-    ___: TableRecord
+    ___: TableRecord,
+    ____?: InsertOptions
   ): Promise<Result<RecordMutationResult, DomainError>> {
     return ok({});
   }
@@ -32,7 +34,8 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
   async insertMany(
     _: IExecutionContext,
     __: Table,
-    ___: ReadonlyArray<TableRecord>
+    ___: ReadonlyArray<TableRecord>,
+    ____?: InsertOptions
   ): Promise<Result<BatchRecordMutationResult, DomainError>> {
     return ok({});
   }

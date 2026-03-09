@@ -11,6 +11,10 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   constructor(private readonly cacheManager: Keyv<any>) {}
   private readonly logger = new Logger(CacheService.name);
 
+  getKeyv(): Keyv<any> {
+    return this.cacheManager;
+  }
+
   /**
    * Get the underlying Redis client if available
    * Returns undefined if not using Redis

@@ -25,6 +25,7 @@ import {
   hasFieldFilterSyncPlanChanges,
   hasFieldReferenceInFilter,
   isEquivalentFilter,
+  syncFilterByFieldChangesWithId,
   syncFilterByFieldChanges,
 } from '../filter-sync';
 import type {
@@ -368,12 +369,82 @@ export class LinkField
     const deletedFromHostTable = context.sourceTable.id().equals(context.table.id());
     const deletedFromForeignTable = context.sourceTable.id().equals(this.foreignTableId());
     const filter = this.configValue.filter();
+    const visibleFieldIds = this.configValue.visibleFieldIds();
+    const deletedLookupField =
+      deletedFromForeignTable && deletedField.id().equals(this.lookupFieldId());
+
+    const shouldCleanForeignFilter =
+      deletedFromForeignTable &&
+      filter != null &&
+      hasFieldReferenceInFilter(filter, deletedField.id());
+    const nextFilter = shouldCleanForeignFilter
+      ? syncFilterByFieldChangesWithId(filter, deletedField.id().toString(), {
+          removeReferencedFilterItems: true,
+          renamedSelectOptionValues: new Map(),
+          removedSelectOptionValues: new Set(),
+        })
+      : filter;
+    const shouldCleanVisibleFieldIds =
+      deletedFromForeignTable &&
+      visibleFieldIds != null &&
+      visibleFieldIds.some((fieldId) => fieldId.equals(deletedField.id()));
+    const nextVisibleFieldIds = shouldCleanVisibleFieldIds
+      ? visibleFieldIds?.filter((fieldId) => !fieldId.equals(deletedField.id())) ?? null
+      : visibleFieldIds;
+    const normalizedVisibleFieldIds =
+      nextVisibleFieldIds != null && nextVisibleFieldIds.length === 0 ? null : nextVisibleFieldIds;
+
+    if (deletedLookupField) {
+      const fallbackLookupFieldId = context.sourceTable.primaryFieldId();
+      if (fallbackLookupFieldId.equals(deletedField.id())) {
+        if (this.hasError().isError()) {
+          return ok(undefined);
+        }
+        return ok(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+      }
+
+      return this.configDto().andThen((currentDto) =>
+        LinkFieldConfig.create({
+          ...currentDto,
+          lookupFieldId: fallbackLookupFieldId.toString(),
+          ...(shouldCleanForeignFilter ? { filter: nextFilter } : {}),
+          ...(shouldCleanVisibleFieldIds ? { visibleFieldIds: normalizedVisibleFieldIds } : {}),
+        }).map((nextConfig) =>
+          composeAndSpecsOrUndefined([
+            UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig),
+            ...(this.hasError().isError()
+              ? [TableUpdateFieldHasErrorSpec.clearError(this.id(), this.hasError())]
+              : []),
+          ])
+        )
+      );
+    }
+
+    if (deletedFromForeignTable) {
+      const hasConfigCleanup =
+        (shouldCleanForeignFilter && !isEquivalentFilter(filter, nextFilter)) ||
+        shouldCleanVisibleFieldIds;
+      if (!hasConfigCleanup) {
+        return ok(undefined);
+      }
+
+      return this.configDto().andThen((currentDto) =>
+        LinkFieldConfig.create({
+          ...currentDto,
+          ...(shouldCleanForeignFilter ? { filter: nextFilter } : {}),
+          ...(shouldCleanVisibleFieldIds ? { visibleFieldIds: normalizedVisibleFieldIds } : {}),
+        }).map((nextConfig) =>
+          composeAndSpecsOrUndefined([
+            UpdateLinkConfigSpec.create(this.id(), this.configValue, nextConfig),
+          ])
+        )
+      );
+    }
 
     const shouldSetError =
-      (deletedFromHostTable &&
-        filter != null &&
-        hasFieldReferenceInFilter(filter, deletedField.id())) ||
-      (deletedFromForeignTable && deletedField.id().equals(this.lookupFieldId()));
+      deletedFromHostTable &&
+      filter != null &&
+      hasFieldReferenceInFilter(filter, deletedField.id());
 
     if (!shouldSetError || this.hasError().isError()) {
       return ok(undefined);

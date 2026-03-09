@@ -19,9 +19,11 @@ type HandlerMethod<TResult> = (
   ...args: ReadonlyArray<unknown>
 ) => Promise<Result<TResult, DomainError>>;
 
-type TraceAttributes =
-  | SpanAttributes
-  | ((context: IExecutionContext, message: unknown) => SpanAttributes);
+type TraceAttributeResolver = {
+  bivarianceHack(context: IExecutionContext, message: unknown): SpanAttributes;
+}['bivarianceHack'];
+
+type TraceAttributes = SpanAttributes | TraceAttributeResolver;
 
 /**
  * Options for the TraceSpan decorator.
