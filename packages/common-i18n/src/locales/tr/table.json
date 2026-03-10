@@ -56,6 +56,11 @@
     "helpCenter": "Yardım Merkezi"
   },
   "validation": {
+    "link": {
+      "batch_duplicate": "Kayıt bağlanamıyor: aynı grupta bu kayıt zaten başka bir kayıt tarafından bağlanmış. Bire-çok ilişkilerde her alt kayıt yalnızca bir üst kayda ait olabilir.",
+      "one_many_duplicate": "Kayıt bağlanamıyor: bu kayıt zaten başka bir kayda bağlı. Bire-çok ilişkilerde her alt kayıt yalnızca bir üst kayda ait olabilir.",
+      "one_one_duplicate": "Kayıt bağlanamıyor: hedef kayıt bire-bir ilişkide zaten başka bir kayıt tarafından bağlanmış."
+    },
     "field": {
       "maxColumnLimit": "\"{{tableName}}\" tablosunda en fazla {{maxFieldCount}} alan olabilir."
     }
@@ -200,6 +205,9 @@
           "sum": "Değerleri toplar.",
           "xor": "Yalnızca tek sayıda değer doğruysa true döndürür."
         }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} koşullu toplama"
       }
     },
     "editor": {

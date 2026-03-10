@@ -32,6 +32,7 @@
     "../icons/src",
     "../core/src",
     "../formula/src",
+    "../i18n-keys/src",
     "../ui-lib/src",
     "../openapi/src"
   ]

@@ -56,6 +56,11 @@
     "helpCenter": "Centro de ayuda"
   },
   "validation": {
+    "link": {
+      "batch_duplicate": "No se puede vincular el registro: en el mismo lote ya está vinculado por otro registro. En las relaciones de uno a muchos, cada registro secundario solo puede pertenecer a un registro principal.",
+      "one_many_duplicate": "No se puede vincular el registro: ya está vinculado a otro registro. En las relaciones de uno a muchos, cada registro secundario solo puede pertenecer a un registro principal.",
+      "one_one_duplicate": "No se puede vincular el registro: el registro de destino ya está vinculado por otro registro en una relación de uno a uno."
+    },
     "field": {
       "maxColumnLimit": "La tabla \"{{tableName}}\" puede tener como máximo {{maxFieldCount}} campos."
     }
@@ -165,6 +170,7 @@
         "title": "{{lookupFieldName}} (filtrado de {{tableName}})"
       },
       "rollup": {
+        "title": "Resumen de {{lookupFieldName}} (de {{linkFieldName}})",
         "rollup": "Acurrucado",
         "selectAnRollupFunction": "Seleccione una función enrollable",
         "func": {
@@ -199,6 +205,9 @@
           "sum": "Sumar los valores.",
           "xor": "Devuelve verdadero si y solo si el número impar de valores es verdadero."
         }
+      },
+      "conditionalRollup": {
+        "title": "Resumen condicional de {{lookupFieldName}}"
       }
     },
     "editor": {

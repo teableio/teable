@@ -92,6 +92,11 @@
     "helpCenter": "Help center"
   },
   "validation": {
+    "link": {
+      "batch_duplicate": "Cannot link record(s): already linked by another record in the same batch. In one-to-many relationships, each record can only belong to one parent.",
+      "one_many_duplicate": "Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.",
+      "one_one_duplicate": "Cannot link record(s): the target record is already linked by another record in a one-to-one relationship."
+    },
     "field": {
       "maxColumnLimit": "Table \"{{tableName}}\" can have at most {{maxFieldCount}} fields."
     }

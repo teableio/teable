@@ -54,6 +54,11 @@
     "helpCenter": "Centre d'aide"
   },
   "validation": {
+    "link": {
+      "batch_duplicate": "Impossible de lier l'enregistrement : dans ce même lot, il est déjà lié par un autre enregistrement. Dans une relation un-à-plusieurs, chaque enregistrement enfant ne peut appartenir qu'à un seul enregistrement parent.",
+      "one_many_duplicate": "Impossible de lier l'enregistrement : il est déjà lié à un autre enregistrement. Dans une relation un-à-plusieurs, chaque enregistrement enfant ne peut appartenir qu'à un seul enregistrement parent.",
+      "one_one_duplicate": "Impossible de lier l'enregistrement : l'enregistrement cible est déjà lié par un autre enregistrement dans une relation un-à-un."
+    },
     "field": {
       "maxColumnLimit": "La table \"{{tableName}}\" peut contenir au maximum {{maxFieldCount}} champs."
     }
@@ -198,6 +203,9 @@
           "sum": "Somme des valeurs.",
           "xor": "Renvoie vrai si et seulement si un nombre impair de valeurs sont vraies."
         }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} rollup conditionnel"
       }
     },
     "editor": {

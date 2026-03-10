@@ -56,6 +56,11 @@
     "helpCenter": "Centro Assistenza"
   },
   "validation": {
+    "link": {
+      "batch_duplicate": "Impossibile collegare il record: nello stesso batch è già collegato da un altro record. Nelle relazioni uno-a-molti, ogni record figlio può appartenere a un solo record padre.",
+      "one_many_duplicate": "Impossibile collegare il record: è già collegato a un altro record. Nelle relazioni uno-a-molti, ogni record figlio può appartenere a un solo record padre.",
+      "one_one_duplicate": "Impossibile collegare il record: il record di destinazione è già collegato da un altro record in una relazione uno-a-uno."
+    },
     "field": {
       "maxColumnLimit": "La tabella \"{{tableName}}\" può avere al massimo {{maxFieldCount}} campi."
     }
@@ -200,6 +205,9 @@
           "sum": "Somma insieme i valori.",
           "xor": "Restituisce vero se e solo se un numero dispari di valori è vero."
         }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} rollup condizionale"
       }
     },
     "editor": {

@@ -56,6 +56,11 @@
     "helpCenter": "Hilfe-Center"
   },
   "validation": {
+    "link": {
+      "batch_duplicate": "Verknüpfung nicht möglich: Im selben Batch wurde der Datensatz bereits von einem anderen Datensatz verknüpft. In Eins-zu-viele-Beziehungen kann jeder untergeordnete Datensatz nur zu einem übergeordneten Datensatz gehören.",
+      "one_many_duplicate": "Verknüpfung nicht möglich: Der Datensatz ist bereits mit einem anderen Datensatz verknüpft. In Eins-zu-viele-Beziehungen kann jeder untergeordnete Datensatz nur zu einem übergeordneten Datensatz gehören.",
+      "one_one_duplicate": "Verknüpfung nicht möglich: Der Zieldatensatz ist in einer Eins-zu-eins-Beziehung bereits mit einem anderen Datensatz verknüpft."
+    },
     "field": {
       "maxColumnLimit": "Die Tabelle \"{{tableName}}\" darf höchstens {{maxFieldCount}} Felder enthalten."
     }
@@ -200,6 +205,9 @@
           "sum": "Addieren der Werte.",
           "xor": "Gibt wahr zurück, wenn und nur wenn eine ungerade Anzahl von Werten wahr ist."
         }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} bedingtes Rollup"
       }
     },
     "editor": {

@@ -92,6 +92,11 @@
     "helpCenter": "帮助中心"
   },
   "validation": {
+    "link": {
+      "batch_duplicate": "无法建立关联：同一批次中已有其他记录关联了该记录。在一对多关系中，每条子记录只能属于一个父记录。",
+      "one_many_duplicate": "无法建立关联：该记录已关联到其他记录。在一对多关系中，每条子记录只能属于一个父记录。",
+      "one_one_duplicate": "无法建立关联：目标记录已在一对一关系中被其他记录关联。"
+    },
     "field": {
       "maxColumnLimit": "表“{{tableName}}”最多只能有 {{maxFieldCount}} 个字段。"
     }
