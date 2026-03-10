@@ -11,11 +11,15 @@ import { composeAndSpecsOrUndefined } from '../../domain/shared/specification/co
 import type { RecordFieldChangeDTO } from '../../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../../domain/table/fields/FieldId';
+import type { Field } from '../../domain/table/fields/Field';
 import { FieldHasError } from '../../domain/table/fields/types/FieldHasError';
+import { FieldNotNull } from '../../domain/table/fields/types/FieldNotNull';
+import { FieldUnique } from '../../domain/table/fields/types/FieldUnique';
 import type { UpdateRecordItem } from '../../domain/table/methods/records';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
+import { TableUpdateFieldConstraintsSpec } from '../../domain/table/specs/TableUpdateFieldConstraintsSpec';
 import { TableUpdateFieldHasErrorSpec } from '../../domain/table/specs/TableUpdateFieldHasErrorSpec';
 import {
   TableUpdateViewColumnMetaSpec,
@@ -64,8 +68,14 @@ const stripUndefinedDeep = (value: unknown): unknown => {
   return result;
 };
 
-const toUpdateFieldInput = (field: UndoRedoFieldSnapshot['field']): IFieldUpdateInput => {
-  const options = (() => {
+const toUpdateFieldInput = (
+  field: UndoRedoFieldSnapshot['field'],
+  replayOptions?: {
+    currentField?: Field;
+    deferConstraintEnforcement?: boolean;
+  }
+): IFieldUpdateInput => {
+  const fieldOptions = (() => {
     if (field.type === 'lookup') {
       return {
         ...field.options,
@@ -90,10 +100,21 @@ const toUpdateFieldInput = (field: UndoRedoFieldSnapshot['field']): IFieldUpdate
       ? { description: field.description ?? null }
       : {}),
     ...(field.dbFieldName ? { dbFieldName: field.dbFieldName } : {}),
-    ...(field.notNull !== undefined ? { notNull: field.notNull } : {}),
-    ...(field.unique !== undefined ? { unique: field.unique } : {}),
+    ...(!replayOptions?.deferConstraintEnforcement
+      ? {
+          ...(field.notNull !== undefined ? { notNull: field.notNull } : {}),
+          ...(field.unique !== undefined ? { unique: field.unique } : {}),
+        }
+      : {
+          ...(field.notNull !== undefined &&
+          replayOptions.currentField?.notNull().toBoolean() &&
+          field.notNull !== true
+            ? { notNull: false }
+            : {}),
+          ...(field.unique !== undefined ? { unique: field.unique } : {}),
+        }),
     ...(field.aiConfig !== undefined ? { aiConfig: field.aiConfig } : {}),
-    ...(options ? { options } : {}),
+    ...(fieldOptions ? { options: fieldOptions } : {}),
     ...('config' in field && field.config ? { config: field.config } : {}),
     ...('cellValueType' in field && field.cellValueType
       ? { cellValueType: field.cellValueType }
@@ -104,6 +125,21 @@ const toUpdateFieldInput = (field: UndoRedoFieldSnapshot['field']): IFieldUpdate
     replaceOptions: true,
   }) as IFieldUpdateInput;
 };
+
+const toCreateFieldInput = (
+  field: UndoRedoFieldSnapshot['field'],
+  options?: {
+    deferConstraintEnforcement?: boolean;
+  }
+): UndoRedoFieldSnapshot['field'] =>
+  stripUndefinedDeep({
+    ...field,
+    ...(options?.deferConstraintEnforcement
+      ? {
+          ...(field.notNull !== undefined ? { notNull: false } : {}),
+        }
+      : {}),
+  }) as UndoRedoFieldSnapshot['field'];
 
 @injectable()
 export class FieldUndoRedoReplayService {
@@ -148,13 +184,17 @@ export class FieldUndoRedoReplayService {
       const table = yield* await service.loadTable(context, params.baseId, params.tableId);
       const currentFieldResult = table.getField((field) => field.id().equals(fieldId));
       const currentField = currentFieldResult.isOk() ? currentFieldResult.value : undefined;
+      const deferConstraintEnforcement = Boolean(params.snapshot.records?.length);
 
       if (currentField) {
         const updateCommand = yield* UpdateFieldCommand.create(
           {
             tableId: params.tableId,
             fieldId: fieldId.toString(),
-            field: toUpdateFieldInput(params.snapshot.field),
+            field: toUpdateFieldInput(params.snapshot.field, {
+              currentField,
+              deferConstraintEnforcement,
+            }),
           },
           {
             allowNoop: true,
@@ -165,7 +205,9 @@ export class FieldUndoRedoReplayService {
         const createCommand = yield* CreateFieldCommand.create({
           baseId: params.baseId,
           tableId: params.tableId,
-          field: params.snapshot.field,
+          field: toCreateFieldInput(params.snapshot.field, {
+            deferConstraintEnforcement,
+          }),
         });
         yield* await service.executeNested(context, createCommand);
       }
@@ -191,6 +233,15 @@ export class FieldUndoRedoReplayService {
           records: params.snapshot.records,
         });
         latestTable = yield* await service.loadTable(context, params.baseId, params.tableId);
+      }
+
+      if (deferConstraintEnforcement) {
+        latestTable = yield* await service.applyDeferredConstraints(
+          context,
+          latestTable,
+          fieldId,
+          params.snapshot.field
+        );
       }
 
       return ok(latestTable);
@@ -633,5 +684,52 @@ export class FieldUndoRedoReplayService {
     }
 
     return ok(updateResult.value.table);
+  }
+
+  private async applyDeferredConstraints(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    fieldId: FieldId,
+    snapshotField: UndoRedoFieldSnapshot['field']
+  ): Promise<Result<Table, DomainError>> {
+    const service = this;
+    return safeTry<Table, DomainError>(async function* () {
+      const currentField = yield* table.getField((field) => field.id().equals(fieldId));
+      const dbFieldName = yield* currentField.dbFieldName();
+      const targetNotNull =
+        snapshotField.notNull === undefined
+          ? currentField.notNull()
+          : yield* FieldNotNull.create(snapshotField.notNull);
+      const targetUnique =
+        snapshotField.unique === undefined
+          ? currentField.unique()
+          : yield* FieldUnique.create(snapshotField.unique);
+
+      if (
+        currentField.notNull().equals(targetNotNull) &&
+        currentField.unique().equals(targetUnique)
+      ) {
+        return ok(table);
+      }
+
+      const spec = TableUpdateFieldConstraintsSpec.create({
+        fieldId,
+        dbFieldName,
+        previousNotNull: currentField.notNull(),
+        nextNotNull: targetNotNull,
+        previousUnique: currentField.unique(),
+        nextUnique: targetUnique,
+      });
+
+      const updateResult = yield* await service.tableUpdateFlow.execute(
+        context,
+        { table },
+        (candidate) =>
+          spec.mutate(candidate).map((updated) => TableUpdateResult.create(updated, spec)),
+        { publishEvents: true }
+      );
+
+      return ok(updateResult.table);
+    });
   }
 }

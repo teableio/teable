@@ -599,6 +599,31 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       }
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
     });
+
+    it('down should remove a constraint-backed unique created by constraint updates', async () => {
+      await createTestTable(TABLE_NAME, ['email_col TEXT']);
+
+      const fieldResult = createRealField('uniq004', 'Email', 'email_col', { unique: true });
+      const field = fieldResult._unsafeUnwrap();
+
+      const columnRule = new ColumnExistsRule(field);
+      const rule = new ColumnUniqueConstraintRule(field, columnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      await db.executeQuery(
+        sql`ALTER TABLE ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)} ADD CONSTRAINT ${sql.ref(
+          `${TABLE_NAME}_email_col_unique`
+        )} UNIQUE (${sql.ref('email_col')})`.compile(db)
+      );
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+
+      for (const stmt of rule.down(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+    });
   });
 
   describe('NotNullConstraintRule', () => {

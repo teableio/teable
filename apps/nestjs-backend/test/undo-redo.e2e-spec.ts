@@ -41,6 +41,7 @@ import {
   updateViewFilter,
   updateViewName,
   updateViewOrder,
+  X_CANARY_HEADER,
 } from '@teable/openapi';
 import type { ITableFullVo } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -51,6 +52,8 @@ import { createAwaitWithEvent } from './utils/event-promise';
 import { initApp, permanentDeleteTable, createTable, updateRecordByApi } from './utils/init-app';
 
 const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+const canRunCanaryV2 =
+  process.env.FORCE_V2_ALL === 'true' || process.env.ENABLE_CANARY_FEATURE === 'true';
 
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
@@ -541,6 +544,101 @@ describe('Undo Redo (e2e)', () => {
 
     expect(fieldsAfterRedo.length).toEqual(2);
   });
+
+  it.skipIf(!canRunCanaryV2)(
+    'should undo / redo delete field with not-null and unique constraints',
+    async () => {
+      const constrainedTable = await createTable(baseId, {
+        name: `undo-constrained-${getRandomString(6)}`,
+        fields: [{ type: FieldType.SingleLineText, name: 'Title', isPrimary: true }],
+        records: [],
+      });
+      const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+      axios.defaults.headers.common[X_CANARY_HEADER] = 'true';
+
+      try {
+        const titleFieldId = constrainedTable.fields.find((field) => field.name === 'Title')?.id;
+        const createCodeFieldRes = await createField(constrainedTable.id, {
+          type: FieldType.SingleLineText,
+          name: 'Code',
+          notNull: true,
+          unique: true,
+        });
+        expect(createCodeFieldRes.headers[X_TEABLE_V2_HEADER]).toBe('true');
+        const codeField = createCodeFieldRes.data;
+        const codeFieldId = codeField.id;
+
+        expect(titleFieldId).toBeTruthy();
+        expect(codeFieldId).toBeTruthy();
+        if (!titleFieldId || !codeFieldId) {
+          return;
+        }
+
+        await createRecords(constrainedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [titleFieldId]: 'Alpha',
+                [codeFieldId]: 'CODE-001',
+              },
+            },
+            {
+              fields: {
+                [titleFieldId]: 'Beta',
+                [codeFieldId]: 'CODE-002',
+              },
+            },
+          ],
+        });
+
+        const deleteFieldRes = await deleteField(constrainedTable.id, codeFieldId);
+        expect(deleteFieldRes.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+        const fieldsAfterDelete = (
+          await getFields(constrainedTable.id, {
+            viewId: constrainedTable.views[0].id,
+          })
+        ).data;
+        expect(fieldsAfterDelete.some((field) => field.id === codeFieldId)).toBe(false);
+
+        const undoRes = await undo(constrainedTable.id);
+        expect(undoRes.data.status).toEqual('fulfilled');
+        expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const restoredField = (await getField(constrainedTable.id, codeFieldId)).data;
+        expect(restoredField.notNull).toBe(true);
+        expect(restoredField.unique).toBe(true);
+
+        const recordsAfterUndo = (
+          await getRecords(constrainedTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+            viewId: constrainedTable.views[0].id,
+          })
+        ).data;
+        expect(recordsAfterUndo.records[0].fields[codeFieldId]).toEqual('CODE-001');
+        expect(recordsAfterUndo.records[1].fields[codeFieldId]).toEqual('CODE-002');
+
+        const redoRes = await redo(constrainedTable.id);
+        expect(redoRes.data.status).toEqual('fulfilled');
+        expect(redoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const fieldsAfterRedo = (
+          await getFields(constrainedTable.id, {
+            viewId: constrainedTable.views[0].id,
+          })
+        ).data;
+        expect(fieldsAfterRedo.some((field) => field.id === codeFieldId)).toBe(false);
+      } finally {
+        if (previousCanaryHeader == null) {
+          delete axios.defaults.headers.common[X_CANARY_HEADER];
+        } else {
+          axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+        }
+        await permanentDeleteTable(baseId, constrainedTable.id);
+      }
+    }
+  );
 
   it('should undo / redo create field', async () => {
     const field = await awaitWithEvent(() =>

@@ -9,6 +9,11 @@ import type {
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
 } from '../core/ISchemaRule';
+import {
+  dropConstraintStatement,
+  dropIndexStatement,
+  type TableIdentifier,
+} from '../helpers/StatementBuilders';
 
 /**
  * Schema rule for adding/removing UNIQUE constraint on a column.
@@ -105,14 +110,15 @@ export class ColumnUniqueConstraintRule implements ISchemaRule {
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(ctx.field);
-      const indexName = self.getIndexName(ctx.tableName, columnName);
+      const uniqueName = self.getIndexName(ctx.tableName, columnName);
+      const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
 
-      const schemaBuilder = ctx.schema ? ctx.db.schema.withSchema(ctx.schema) : ctx.db.schema;
-
-      // Drop unique index
-      const statement = schemaBuilder.dropIndex(indexName).ifExists();
-
-      return ok([statement]);
+      // Same-type field updates currently add UNIQUE via ALTER TABLE ... ADD CONSTRAINT,
+      // while field creation uses CREATE UNIQUE INDEX. Delete must tolerate both forms.
+      return ok([
+        dropConstraintStatement(table, uniqueName),
+        dropIndexStatement(table, uniqueName),
+      ]);
     });
   }
 }

@@ -1,6 +1,7 @@
 import {
   ActorId,
   CreateFieldCommand,
+  CreateRecordCommand,
   DeleteFieldCommand,
   DuplicateFieldCommand,
   type DuplicateFieldResult,
@@ -123,6 +124,104 @@ describe('v2 field undo/redo (e2e)', () => {
     expect(
       (await ctx.getTableById(tableId)).fields.some((field) => field.id === amountFieldId)
     ).toBe(false);
+  });
+
+  it('undoes constrained field deletion and restores notNull / unique enforcement', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Undo Redo Delete Constrained Field',
+      fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const tableId = table.id;
+    const titleFieldId = findFieldId(table, 'Title');
+    const codeFieldId = `fld${'d'.repeat(16)}`;
+    const windowId = 'e2e-field-delete-constrained';
+    const context = buildContext(windowId);
+
+    const createCodeFieldCommand = CreateFieldCommand.create({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        id: codeFieldId,
+        type: 'singleLineText',
+        name: 'Code',
+        notNull: true,
+        unique: true,
+      },
+    })._unsafeUnwrap();
+    const deleteCommand = DeleteFieldCommand.create({
+      baseId: ctx.baseId,
+      tableId,
+      fieldId: codeFieldId,
+    })._unsafeUnwrap();
+    const undoCommand = UndoCommand.create({ tableId, windowId })._unsafeUnwrap();
+    const redoCommand = RedoCommand.create({ tableId, windowId })._unsafeUnwrap();
+
+    (await commandBus.execute(context, createCodeFieldCommand))._unsafeUnwrap();
+
+    const firstRecord = await ctx.createRecord(tableId, {
+      [titleFieldId]: 'Alpha',
+      [codeFieldId]: 'CODE-001',
+    });
+    const secondRecord = await ctx.createRecord(tableId, {
+      [titleFieldId]: 'Beta',
+      [codeFieldId]: 'CODE-002',
+    });
+
+    (await commandBus.execute(context, deleteCommand))._unsafeUnwrap();
+    expect((await ctx.getTableById(tableId)).fields.some((field) => field.id === codeFieldId)).toBe(
+      false
+    );
+
+    (await commandBus.execute(context, undoCommand))._unsafeUnwrap();
+    const undoneTable = await ctx.getTableById(tableId);
+    const restoredCodeField = undoneTable.fields.find((field) => field.id === codeFieldId);
+    expect(restoredCodeField?.notNull).toBe(true);
+    expect(restoredCodeField?.unique).toBe(true);
+
+    const recordsAfterUndo = await ctx.listRecords(tableId);
+    expect(recordsAfterUndo.find((item) => item.id === firstRecord.id)?.fields[codeFieldId]).toBe(
+      'CODE-001'
+    );
+    expect(recordsAfterUndo.find((item) => item.id === secondRecord.id)?.fields[codeFieldId]).toBe(
+      'CODE-002'
+    );
+
+    const validationContext = buildContext('e2e-field-delete-constrained-validation');
+    const missingRequiredResult = await commandBus.execute(
+      validationContext,
+      CreateRecordCommand.create({
+        tableId,
+        fields: {
+          [titleFieldId]: 'Gamma',
+        },
+      })._unsafeUnwrap()
+    );
+    expect(missingRequiredResult.isErr()).toBe(true);
+    if (missingRequiredResult.isErr()) {
+      expect(missingRequiredResult.error.code).toBe('validation.field.not_null');
+    }
+
+    const duplicateCodeResult = await commandBus.execute(
+      validationContext,
+      CreateRecordCommand.create({
+        tableId,
+        fields: {
+          [titleFieldId]: 'Delta',
+          [codeFieldId]: 'CODE-001',
+        },
+      })._unsafeUnwrap()
+    );
+    expect(duplicateCodeResult.isErr()).toBe(true);
+    if (duplicateCodeResult.isErr()) {
+      expect(duplicateCodeResult.error.code).toBe('validation.field.unique');
+    }
+
+    (await commandBus.execute(context, redoCommand))._unsafeUnwrap();
+    expect((await ctx.getTableById(tableId)).fields.some((field) => field.id === codeFieldId)).toBe(
+      false
+    );
   });
 
   it('undoes and redoes field type conversion with field values', async () => {
