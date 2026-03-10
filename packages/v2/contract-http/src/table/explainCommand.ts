@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  createFieldInputSchema,
+  deleteFieldInputSchema,
+  updateFieldInputSchema,
+} from '@teable/v2-core';
 
 import {
   apiOkResponseDtoSchema,
@@ -10,6 +15,27 @@ import {
 } from '../shared/http';
 
 // Input schemas for explain endpoints
+export const explainCreateFieldInputSchema = createFieldInputSchema.extend({
+  analyze: z.boolean().optional().default(false),
+  includeSql: z.boolean().optional().default(true),
+  includeGraph: z.boolean().optional().default(false),
+  includeLocks: z.boolean().optional().default(true),
+});
+
+export const explainUpdateFieldInputSchema = updateFieldInputSchema.extend({
+  analyze: z.boolean().optional().default(false),
+  includeSql: z.boolean().optional().default(true),
+  includeGraph: z.boolean().optional().default(false),
+  includeLocks: z.boolean().optional().default(true),
+});
+
+export const explainDeleteFieldInputSchema = deleteFieldInputSchema.extend({
+  analyze: z.boolean().optional().default(false),
+  includeSql: z.boolean().optional().default(true),
+  includeGraph: z.boolean().optional().default(false),
+  includeLocks: z.boolean().optional().default(true),
+});
+
 export const explainCreateRecordInputSchema = z.object({
   tableId: z.string(),
   fields: z.record(z.string(), z.unknown()),
@@ -38,6 +64,9 @@ export const explainDeleteRecordsInputSchema = z.object({
   includeLocks: z.boolean().optional().default(true),
 });
 
+export type IExplainCreateFieldInput = z.infer<typeof explainCreateFieldInputSchema>;
+export type IExplainUpdateFieldInput = z.infer<typeof explainUpdateFieldInputSchema>;
+export type IExplainDeleteFieldInput = z.infer<typeof explainDeleteFieldInputSchema>;
 export type IExplainCreateRecordInput = z.infer<typeof explainCreateRecordInputSchema>;
 export type IExplainUpdateRecordInput = z.infer<typeof explainUpdateRecordInputSchema>;
 export type IExplainDeleteRecordsInput = z.infer<typeof explainDeleteRecordsInputSchema>;
@@ -311,7 +340,15 @@ const complexityAssessmentSchema = z.object({
 });
 
 const commandExplainInfoSchema = z.object({
-  type: z.enum(['CreateRecord', 'UpdateRecord', 'DeleteRecords', 'Paste']),
+  type: z.enum([
+    'CreateField',
+    'UpdateField',
+    'DeleteField',
+    'CreateRecord',
+    'UpdateRecord',
+    'DeleteRecords',
+    'Paste',
+  ]),
   tableId: z.string(),
   tableName: z.string(),
   recordIds: z.array(z.string()),

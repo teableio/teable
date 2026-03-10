@@ -2,13 +2,50 @@ import type { IExplainService } from '@teable/v2-command-explain';
 import type { IExplainEndpointResult, IExplainResultDto } from '@teable/v2-contract-http';
 import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import {
+  CreateFieldCommand,
   CreateRecordCommand,
-  UpdateRecordCommand,
+  DeleteFieldCommand,
   DeleteRecordsCommand,
   RecordId,
   TableId,
+  UpdateFieldCommand,
+  UpdateRecordCommand,
 } from '@teable/v2-core';
 import type { IExecutionContext } from '@teable/v2-core';
+
+export interface IExplainCreateFieldInput {
+  baseId: string;
+  tableId: string;
+  field: Record<string, unknown>;
+  order?: {
+    viewId: string;
+    orderIndex: number;
+  };
+  analyze?: boolean;
+  includeSql?: boolean;
+  includeGraph?: boolean;
+  includeLocks?: boolean;
+}
+
+export interface IExplainUpdateFieldInput {
+  tableId: string;
+  fieldId: string;
+  field: Record<string, unknown>;
+  analyze?: boolean;
+  includeSql?: boolean;
+  includeGraph?: boolean;
+  includeLocks?: boolean;
+}
+
+export interface IExplainDeleteFieldInput {
+  baseId: string;
+  tableId: string;
+  fieldId: string;
+  analyze?: boolean;
+  includeSql?: boolean;
+  includeGraph?: boolean;
+  includeLocks?: boolean;
+}
 
 export interface IExplainCreateRecordInput {
   tableId: string;
@@ -37,6 +74,120 @@ export interface IExplainDeleteRecordsInput {
   includeGraph?: boolean;
   includeLocks?: boolean;
 }
+
+export const executeExplainCreateFieldEndpoint = async (
+  context: IExecutionContext,
+  input: IExplainCreateFieldInput,
+  explainService: IExplainService
+): Promise<IExplainEndpointResult> => {
+  const commandResult = CreateFieldCommand.create(input);
+  if (commandResult.isErr()) {
+    const error = commandResult.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
+  }
+
+  const result = await explainService.explain(context, commandResult.value, {
+    analyze: input.analyze ?? false,
+    includeSql: input.includeSql ?? true,
+    includeGraph: input.includeGraph ?? false,
+    includeLocks: input.includeLocks ?? true,
+  });
+
+  if (result.isErr()) {
+    const error = result.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      data: result.value as IExplainResultDto,
+    },
+  };
+};
+
+export const executeExplainUpdateFieldEndpoint = async (
+  context: IExecutionContext,
+  input: IExplainUpdateFieldInput,
+  explainService: IExplainService
+): Promise<IExplainEndpointResult> => {
+  const commandResult = UpdateFieldCommand.create(input);
+  if (commandResult.isErr()) {
+    const error = commandResult.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
+  }
+
+  const result = await explainService.explain(context, commandResult.value, {
+    analyze: input.analyze ?? false,
+    includeSql: input.includeSql ?? true,
+    includeGraph: input.includeGraph ?? false,
+    includeLocks: input.includeLocks ?? true,
+  });
+
+  if (result.isErr()) {
+    const error = result.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      data: result.value as IExplainResultDto,
+    },
+  };
+};
+
+export const executeExplainDeleteFieldEndpoint = async (
+  context: IExecutionContext,
+  input: IExplainDeleteFieldInput,
+  explainService: IExplainService
+): Promise<IExplainEndpointResult> => {
+  const commandResult = DeleteFieldCommand.create(input);
+  if (commandResult.isErr()) {
+    const error = commandResult.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
+  }
+
+  const result = await explainService.explain(context, commandResult.value, {
+    analyze: input.analyze ?? false,
+    includeSql: input.includeSql ?? true,
+    includeGraph: input.includeGraph ?? false,
+    includeLocks: input.includeLocks ?? true,
+  });
+
+  if (result.isErr()) {
+    const error = result.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      data: result.value as IExplainResultDto,
+    },
+  };
+};
 
 export const executeExplainCreateRecordEndpoint = async (
   context: IExecutionContext,

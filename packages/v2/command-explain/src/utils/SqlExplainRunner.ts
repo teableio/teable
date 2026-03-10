@@ -28,10 +28,32 @@ class BatchRollbackSignal extends Error {
   }
 }
 
+/**
+ * Error class used to signal intentional rollback after sequential EXPLAIN execution.
+ */
+class SequentialRollbackSignal extends Error {
+  constructor(readonly results: SequentialExplainStatementResult[]) {
+    super('Intentional rollback after sequential EXPLAIN');
+    this.name = 'SequentialRollbackSignal';
+  }
+}
+
 export type BatchExplainStatement = {
   sql: string;
   parameters: ReadonlyArray<unknown>;
   description: string;
+};
+
+export type SequentialExplainStatement = BatchExplainStatement & {
+  explainable?: boolean;
+  execute?: boolean;
+  initialError?: string;
+};
+
+export type SequentialExplainStatementResult = {
+  explainAnalyze: ExplainAnalyzeOutput | null;
+  explainOnly: ExplainOutput | null;
+  error: string | null;
 };
 
 /**
@@ -238,6 +260,176 @@ export class SqlExplainRunner {
     }
   }
 
+  /**
+   * Run a mixed DDL/DML statement sequence in one transaction and roll it back at the end.
+   *
+   * Non-explainable statements are executed normally so later explainable statements can observe
+   * the expected schema/data state. In plan-only mode, explainable statements are executed after
+   * EXPLAIN so the sequence can continue against the mutated in-transaction state.
+   */
+  async explainSequentialInTransaction(
+    db: Kysely<V1TeableDatabase>,
+    statements: ReadonlyArray<SequentialExplainStatement>,
+    analyze: boolean
+  ): Promise<Result<SequentialExplainStatementResult[], DomainError>> {
+    if (statements.length === 0) {
+      return ok([]);
+    }
+
+    try {
+      await db.transaction().execute(async (trx) => {
+        const results: SequentialExplainStatementResult[] = [];
+
+        for (let i = 0; i < statements.length; i++) {
+          const statement = statements[i]!;
+          const savepointName = `seq_stmt_${i}`;
+          await sql`SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+
+          try {
+            if (statement.initialError) {
+              results.push({
+                explainAnalyze: null,
+                explainOnly: null,
+                error: statement.initialError,
+              });
+              await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              continue;
+            }
+
+            if (statement.execute === false) {
+              results.push({
+                explainAnalyze: null,
+                explainOnly: null,
+                error: 'Statement capture skipped execution',
+              });
+              await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              continue;
+            }
+
+            if (statement.explainable === false) {
+              await this.executeSql(trx, statement.sql, statement.parameters);
+              results.push({
+                explainAnalyze: null,
+                explainOnly: null,
+                error: 'PostgreSQL EXPLAIN does not support this statement type',
+              });
+              await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              continue;
+            }
+
+            if (analyze) {
+              try {
+                const analyzeRows = await this.executeExplainQuery(
+                  trx,
+                  `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${statement.sql}`,
+                  statement.parameters
+                );
+                results.push({
+                  explainAnalyze: this.parseExplainAnalyzeJson(analyzeRows),
+                  explainOnly: null,
+                  error: null,
+                });
+              } catch (analyzeError) {
+                await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+                await sql`SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+
+                try {
+                  const explainRows = await this.executeExplainQuery(
+                    trx,
+                    `EXPLAIN (FORMAT JSON) ${statement.sql}`,
+                    statement.parameters
+                  );
+                  results.push({
+                    explainAnalyze: null,
+                    explainOnly: this.parseExplainOnlyJson(explainRows),
+                    error: `EXPLAIN ANALYZE failed: ${analyzeError instanceof Error ? analyzeError.message : String(analyzeError)}`,
+                  });
+                } catch (explainError) {
+                  results.push({
+                    explainAnalyze: null,
+                    explainOnly: null,
+                    error: `EXPLAIN failed: ${explainError instanceof Error ? explainError.message : String(explainError)}`,
+                  });
+                  await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+                }
+              }
+
+              await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              continue;
+            }
+
+            let explainOnly: ExplainOutput | null = null;
+            let explainError: string | null = null;
+
+            try {
+              const explainRows = await this.executeExplainQuery(
+                trx,
+                `EXPLAIN (FORMAT JSON) ${statement.sql}`,
+                statement.parameters
+              );
+              explainOnly = this.parseExplainOnlyJson(explainRows);
+            } catch (error) {
+              explainError = `EXPLAIN failed: ${error instanceof Error ? error.message : String(error)}`;
+            }
+
+            try {
+              await this.executeSql(trx, statement.sql, statement.parameters);
+            } catch (executeError) {
+              const executeErrorMessage = `Statement execution failed: ${executeError instanceof Error ? executeError.message : String(executeError)}`;
+              explainError = explainError
+                ? `${explainError}; ${executeErrorMessage}`
+                : executeErrorMessage;
+              await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+            }
+
+            results.push({
+              explainAnalyze: null,
+              explainOnly,
+              error: explainError,
+            });
+            await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+          } catch (statementError) {
+            try {
+              await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+              await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
+            } catch (rollbackError) {
+              console.warn('Failed to rollback sequential explain step', {
+                statement: statement.description,
+                statementError,
+                rollbackError,
+              });
+            }
+            results.push({
+              explainAnalyze: null,
+              explainOnly: null,
+              error: `Sequential explain failed: ${statementError instanceof Error ? statementError.message : String(statementError)}`,
+            });
+          }
+        }
+
+        throw new SequentialRollbackSignal(results);
+      });
+
+      return err(
+        domainError.invariant({
+          message: 'Transaction should have rolled back',
+        })
+      );
+    } catch (error) {
+      if (error instanceof SequentialRollbackSignal) {
+        return ok(error.results);
+      }
+
+      return err(
+        domainError.infrastructure({
+          message: `Sequential EXPLAIN failed: ${error instanceof Error ? error.message : String(error)}`,
+        })
+      );
+    }
+  }
+
   private async runExplainAnalyzeInTransaction(
     db: Kysely<V1TeableDatabase>,
     sqlStatement: string,
@@ -353,6 +545,37 @@ export class SqlExplainRunner {
         })
       );
     }
+  }
+
+  private async executeExplainQuery(
+    db: Kysely<V1TeableDatabase>,
+    explainSql: string,
+    parameters: ReadonlyArray<unknown>
+  ): Promise<Array<{ 'QUERY PLAN': string | object }>> {
+    const query = sql`${sql.raw(explainSql)}`;
+    const compiled = query.compile(db);
+    const finalQuery = {
+      ...compiled,
+      parameters: [...parameters],
+    };
+
+    const result = await db.executeQuery<{ 'QUERY PLAN': string | object }>(finalQuery);
+    return result.rows;
+  }
+
+  private async executeSql(
+    db: Kysely<V1TeableDatabase>,
+    statementSql: string,
+    parameters: ReadonlyArray<unknown>
+  ): Promise<void> {
+    const query = sql`${sql.raw(statementSql)}`;
+    const compiled = query.compile(db);
+    const finalQuery = {
+      ...compiled,
+      parameters: [...parameters],
+    };
+
+    await db.executeQuery(finalQuery);
   }
 
   private parseExplainAnalyzeJson(

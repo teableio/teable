@@ -6,6 +6,7 @@ export * from './ComputedUpdatePlanner';
 export * from './ComputedUpdateRun';
 export * from './FieldDependencyGraph';
 export * from './UpdateFromSelectBuilder';
+export * from './isPersistedAsGeneratedColumn';
 export * from './outbox/ComputedUpdateOutbox';
 export * from './outbox/ComputedUpdateOutboxPayload';
 export * from './outbox/ComputedUpdateSeedPayload';

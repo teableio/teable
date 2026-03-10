@@ -6,7 +6,14 @@
  * Information about the command being explained.
  */
 export type CommandExplainInfo = {
-  readonly type: 'CreateRecord' | 'UpdateRecord' | 'DeleteRecords' | 'Paste';
+  readonly type:
+    | 'CreateField'
+    | 'UpdateField'
+    | 'DeleteField'
+    | 'CreateRecord'
+    | 'UpdateRecord'
+    | 'DeleteRecords'
+    | 'Paste';
   readonly tableId: string;
   readonly tableName: string;
   readonly recordIds: ReadonlyArray<string>;

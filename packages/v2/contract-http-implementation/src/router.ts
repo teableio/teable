@@ -24,8 +24,11 @@ import { executeDeleteFieldEndpoint } from './handlers/tables/deleteField';
 import { executeDeleteRecordsEndpoint } from './handlers/tables/deleteRecords';
 import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
 import {
+  executeExplainCreateFieldEndpoint,
   executeExplainCreateRecordEndpoint,
+  executeExplainDeleteFieldEndpoint,
   executeExplainDeleteRecordsEndpoint,
+  executeExplainUpdateFieldEndpoint,
   executeExplainUpdateRecordEndpoint,
 } from './handlers/tables/explainCommand';
 import { executeGetRecordByIdEndpoint } from './handlers/tables/getRecordById';
@@ -864,6 +867,96 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   });
 
+  const tablesExplainCreateField = os.tables.explainCreateField.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const explainService = container.resolve<IExplainService>(
+      v2CommandExplainTokens.explainService
+    );
+    const result = await executeExplainCreateFieldEndpoint(executionContext, input, explainService);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  const tablesExplainUpdateField = os.tables.explainUpdateField.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const explainService = container.resolve<IExplainService>(
+      v2CommandExplainTokens.explainService
+    );
+    const result = await executeExplainUpdateFieldEndpoint(executionContext, input, explainService);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  const tablesExplainDeleteField = os.tables.explainDeleteField.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const explainService = container.resolve<IExplainService>(
+      v2CommandExplainTokens.explainService
+    );
+    const result = await executeExplainDeleteFieldEndpoint(executionContext, input, explainService);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
   const tablesExplainUpdateRecord = os.tables.explainUpdateRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
@@ -942,6 +1035,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       createTables: tablesCreateTables,
       createField: tablesCreateField,
       updateField: tablesUpdateField,
+      explainCreateField: tablesExplainCreateField,
+      explainUpdateField: tablesExplainUpdateField,
       createRecord: tablesCreateRecord,
       submitRecord: tablesSubmitRecord,
       createRecords: tablesCreateRecords,
@@ -954,6 +1049,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       deleteByRange: tablesDeleteByRange,
       deleteRecords: tablesDeleteRecords,
       deleteField: tablesDeleteField,
+      explainDeleteField: tablesExplainDeleteField,
       delete: tablesDelete,
       getById: tablesGetById,
       getRecord: tablesGetRecord,

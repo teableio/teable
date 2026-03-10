@@ -1,6 +1,14 @@
 import { Command } from '@effect/cli';
 import { dottea } from './dottea';
-import { explainCreate, explainUpdate, explainDelete, explainPaste } from './explain';
+import {
+  explainCreate,
+  explainUpdate,
+  explainDelete,
+  explainCreateField,
+  explainUpdateField,
+  explainDeleteField,
+  explainPaste,
+} from './explain';
 import { mockGenerate } from './mock';
 import { recordsList, recordsGet, recordsCreate, recordsUpdate, recordsDelete } from './records';
 import { relations } from './relations';
@@ -18,7 +26,15 @@ import {
 // explain subcommand group
 export const explain = Command.make('explain').pipe(
   Command.withDescription('Explain command execution plans'),
-  Command.withSubcommands([explainCreate, explainUpdate, explainDelete, explainPaste])
+  Command.withSubcommands([
+    explainCreate,
+    explainUpdate,
+    explainDelete,
+    explainCreateField,
+    explainUpdateField,
+    explainDeleteField,
+    explainPaste,
+  ])
 );
 
 // mock subcommand group

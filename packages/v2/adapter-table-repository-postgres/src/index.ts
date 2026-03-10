@@ -1,6 +1,11 @@
 // Schema (DDL) exports - re-export selectively to avoid conflicts
 export type { IV2PostgresDdlAdapterConfig } from './schema';
 export { v2PostgresDdlAdapterConfigSchema } from './schema';
+export {
+  FieldValueChangeCollectorVisitor,
+  TableAddFieldCollectorVisitor,
+  TableSchemaUpdateVisitor,
+} from './schema';
 export * from './schema/rules';
 export * from './schema/repositories';
 export * from './schema/naming';

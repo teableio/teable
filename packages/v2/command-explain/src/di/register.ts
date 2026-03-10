@@ -5,8 +5,11 @@ import { v2CommandExplainTokens } from './tokens';
 import { ExplainService } from '../service/ExplainService';
 import { SqlExplainRunner } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
+import { CreateFieldAnalyzer } from '../analyzers/CreateFieldAnalyzer';
 import { UpdateRecordAnalyzer } from '../analyzers/UpdateRecordAnalyzer';
 import { CreateRecordAnalyzer } from '../analyzers/CreateRecordAnalyzer';
+import { UpdateFieldAnalyzer } from '../analyzers/UpdateFieldAnalyzer';
+import { DeleteFieldAnalyzer } from '../analyzers/DeleteFieldAnalyzer';
 import { DeleteRecordsAnalyzer } from '../analyzers/DeleteRecordsAnalyzer';
 import { PasteCommandAnalyzer } from '../analyzers/PasteCommandAnalyzer';
 
@@ -23,6 +26,15 @@ export const registerCommandExplainModule = (container: DependencyContainer): vo
   });
 
   // Register analyzers
+  container.register(v2CommandExplainTokens.createFieldAnalyzer, CreateFieldAnalyzer, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  container.register(v2CommandExplainTokens.updateFieldAnalyzer, UpdateFieldAnalyzer, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  container.register(v2CommandExplainTokens.deleteFieldAnalyzer, DeleteFieldAnalyzer, {
+    lifecycle: Lifecycle.Singleton,
+  });
   container.register(v2CommandExplainTokens.updateRecordAnalyzer, UpdateRecordAnalyzer, {
     lifecycle: Lifecycle.Singleton,
   });

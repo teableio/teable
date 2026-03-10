@@ -5,17 +5,23 @@ import {
   type DomainError,
   type IExecutionContext,
   domainError,
+  DeleteFieldCommand,
   UpdateRecordCommand,
   CreateRecordCommand,
+  CreateFieldCommand,
   DeleteRecordsCommand,
   PasteCommand,
+  UpdateFieldCommand,
 } from '@teable/v2-core';
 
 import type { ExplainResult, ExplainOptions } from '../types';
 import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
+import type { CreateFieldAnalyzer } from '../analyzers/CreateFieldAnalyzer';
 import type { UpdateRecordAnalyzer } from '../analyzers/UpdateRecordAnalyzer';
 import type { CreateRecordAnalyzer } from '../analyzers/CreateRecordAnalyzer';
+import type { UpdateFieldAnalyzer } from '../analyzers/UpdateFieldAnalyzer';
+import type { DeleteFieldAnalyzer } from '../analyzers/DeleteFieldAnalyzer';
 import type { DeleteRecordsAnalyzer } from '../analyzers/DeleteRecordsAnalyzer';
 import type { PasteCommandAnalyzer } from '../analyzers/PasteCommandAnalyzer';
 
@@ -37,6 +43,12 @@ export interface IExplainService {
 @injectable()
 export class ExplainService implements IExplainService {
   constructor(
+    @inject(v2CommandExplainTokens.createFieldAnalyzer)
+    private readonly createFieldAnalyzer: CreateFieldAnalyzer,
+    @inject(v2CommandExplainTokens.updateFieldAnalyzer)
+    private readonly updateFieldAnalyzer: UpdateFieldAnalyzer,
+    @inject(v2CommandExplainTokens.deleteFieldAnalyzer)
+    private readonly deleteFieldAnalyzer: DeleteFieldAnalyzer,
     @inject(v2CommandExplainTokens.updateRecordAnalyzer)
     private readonly updateRecordAnalyzer: UpdateRecordAnalyzer,
     @inject(v2CommandExplainTokens.createRecordAnalyzer)
@@ -64,6 +76,18 @@ export class ExplainService implements IExplainService {
     const mergedOptions = { ...DEFAULT_EXPLAIN_OPTIONS, ...options };
 
     // Route to appropriate analyzer based on command type
+    if (command instanceof CreateFieldCommand) {
+      return this.createFieldAnalyzer.analyze(context, command, mergedOptions, startTime);
+    }
+
+    if (command instanceof UpdateFieldCommand) {
+      return this.updateFieldAnalyzer.analyze(context, command, mergedOptions, startTime);
+    }
+
+    if (command instanceof DeleteFieldCommand) {
+      return this.deleteFieldAnalyzer.analyze(context, command, mergedOptions, startTime);
+    }
+
     if (command instanceof UpdateRecordCommand) {
       return this.updateRecordAnalyzer.analyze(context, command, mergedOptions, startTime);
     }
