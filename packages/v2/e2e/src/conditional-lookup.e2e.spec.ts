@@ -8,6 +8,7 @@ import {
   updateFieldOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -145,6 +146,36 @@ describe('v2 http conditional lookup (e2e)', () => {
       throw new Error(`Failed to get table: ${JSON.stringify(rawBody)}`);
     }
     return parsed.data.data.table;
+  };
+
+  const getDbTableName = async (tableId: string) => {
+    const tableMeta = await ctx.testContainer.db
+      .selectFrom('table_meta')
+      .select('db_table_name')
+      .where('id', '=', tableId)
+      .executeTakeFirst();
+
+    const dbTableName = tableMeta?.db_table_name;
+    if (!dbTableName) {
+      throw new Error(`Failed to resolve db_table_name for table ${tableId}`);
+    }
+
+    return dbTableName;
+  };
+
+  const setRecordSystemTime = async (
+    tableId: string,
+    recordId: string,
+    columnName: '__created_time' | '__last_modified_time',
+    time: string
+  ) => {
+    const dbTableName = await getDbTableName(tableId);
+
+    await sql`
+      UPDATE ${sql.table(dbTableName)}
+      SET ${sql.ref(columnName)} = ${time}
+      WHERE "__id" = ${recordId}
+    `.execute(ctx.testContainer.db);
   };
 
   beforeAll(async () => {
@@ -336,6 +367,179 @@ describe('v2 http conditional lookup (e2e)', () => {
       hostRecords = await listRecords(host.id);
       activeRecord = hostRecords[0];
       expect(activeRecord.fields[lookupFieldId]).toEqual(['Alpha', 'Beta']);
+    });
+  });
+
+  describe('date field reference filters', () => {
+    it('keeps date=date parity when date=system time fields use field timezones', async () => {
+      const foreignTitleFieldId = createFieldId();
+      const foreignDateFieldId = createFieldId();
+
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_DateRef_Foreign',
+        fields: [
+          { type: 'singleLineText', id: foreignTitleFieldId, name: 'Title', isPrimary: true },
+          {
+            type: 'date',
+            id: foreignDateFieldId,
+            name: 'Event Date',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'utc' },
+            },
+          },
+        ],
+      });
+
+      await createRecord(foreign.id, {
+        [foreignTitleFieldId]: 'Previous Day Event',
+        [foreignDateFieldId]: '2026-03-09',
+      });
+      await createRecord(foreign.id, {
+        [foreignTitleFieldId]: 'Current Day Event',
+        [foreignDateFieldId]: '2026-03-10',
+      });
+
+      const hostNameFieldId = createFieldId();
+      const hostDateFilterFieldId = createFieldId();
+      const hostCreatedTimeFieldId = createFieldId();
+      const hostLastModifiedTimeFieldId = createFieldId();
+
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_DateRef_Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'date',
+            id: hostDateFilterFieldId,
+            name: 'Date Filter',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'utc' },
+            },
+          },
+          {
+            type: 'createdTime',
+            id: hostCreatedTimeFieldId,
+            name: 'Created At',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'Asia/Shanghai' },
+            },
+          },
+          {
+            type: 'lastModifiedTime',
+            id: hostLastModifiedTimeFieldId,
+            name: 'Last Modified At',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'Asia/Shanghai' },
+            },
+          },
+        ],
+      });
+
+      const hostRecord = await createRecord(host.id, {
+        [hostNameFieldId]: 'Host Row',
+        [hostDateFilterFieldId]: '2026-03-10',
+      });
+
+      await setRecordSystemTime(
+        host.id,
+        hostRecord.id,
+        '__created_time',
+        '2026-03-09T16:30:00.000Z'
+      );
+      await setRecordSystemTime(
+        host.id,
+        hostRecord.id,
+        '__last_modified_time',
+        '2026-03-09T16:30:00.000Z'
+      );
+
+      const dateEqualsDateFieldId = createFieldId();
+      const dateEqualsCreatedTimeFieldId = createFieldId();
+      const dateEqualsLastModifiedTimeFieldId = createFieldId();
+
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: dateEqualsDateFieldId,
+        name: 'Date Equals Date',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignTitleFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignDateFieldId,
+                  operator: 'is',
+                  value: hostDateFilterFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: dateEqualsCreatedTimeFieldId,
+        name: 'Date Equals CreatedTime',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignTitleFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignDateFieldId,
+                  operator: 'is',
+                  value: hostCreatedTimeFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: dateEqualsLastModifiedTimeFieldId,
+        name: 'Date Equals LastModifiedTime',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignTitleFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignDateFieldId,
+                  operator: 'is',
+                  value: hostLastModifiedTimeFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const hostRecords = await listRecords(host.id);
+      expect(hostRecords).toHaveLength(1);
+
+      const hostFields = hostRecords[0]!.fields;
+      expect(hostFields[hostCreatedTimeFieldId]).toBe('2026-03-09T16:30:00.000Z');
+      expect(hostFields[hostLastModifiedTimeFieldId]).toBe('2026-03-09T16:30:00.000Z');
+      expect(hostFields[dateEqualsDateFieldId]).toEqual(['Current Day Event']);
+      expect(hostFields[dateEqualsCreatedTimeFieldId]).toEqual(['Current Day Event']);
+      expect(hostFields[dateEqualsLastModifiedTimeFieldId]).toEqual(['Current Day Event']);
     });
   });
 

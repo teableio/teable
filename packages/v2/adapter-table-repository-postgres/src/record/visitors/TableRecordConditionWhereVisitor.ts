@@ -285,6 +285,22 @@ const shouldCompareAsDateOnly = (field: core.Field): boolean => {
   return formatting?.time() === core.TimeFormatting.None;
 };
 
+const buildDateOnlyComparableExpr = (
+  field: core.Field,
+  expr: RecordConditionWhere
+): RecordConditionWhere => {
+  const timeZone = resolveDateFormatting(field)?.timeZone().toString() ?? 'utc';
+  return sql`(${expr} AT TIME ZONE ${timeZone})::date`;
+};
+
+const buildDateComparableExpr = (
+  field: core.Field,
+  expr: RecordConditionWhere,
+  compareAsDateOnly: boolean
+): RecordConditionWhere => {
+  return compareAsDateOnly ? buildDateOnlyComparableExpr(field, expr) : expr;
+};
+
 const resolveDateRange = (
   value: core.RecordConditionDateValue,
   formatting?: core.DateTimeFormatting
@@ -570,9 +586,13 @@ const buildIsCondition = (
     if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
       const rightColumnRef = sql.ref(operand.column);
+      const compareAsDateOnly =
+        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField);
 
-      if (shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)) {
-        return ok(sql`(${columnRef})::date = (${rightColumnRef})::date`);
+      if (compareAsDateOnly) {
+        return ok(
+          sql`${buildDateComparableExpr(field, columnRef, compareAsDateOnly)} = ${buildDateComparableExpr(referenceField, rightColumnRef, compareAsDateOnly)}`
+        );
       }
 
       if (fieldIsJson(field) || fieldIsJson(referenceField)) {
@@ -697,9 +717,13 @@ const buildIsNotCondition = (
     if (operand.kind === 'field' && core.isRecordConditionFieldReferenceValue(value)) {
       const referenceField = value.field();
       const rightColumnRef = sql.ref(operand.column);
+      const compareAsDateOnly =
+        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField);
 
-      if (shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)) {
-        return ok(sql`(${columnRef})::date is distinct from (${rightColumnRef})::date`);
+      if (compareAsDateOnly) {
+        return ok(
+          sql`${buildDateComparableExpr(field, columnRef, compareAsDateOnly)} is distinct from ${buildDateComparableExpr(referenceField, rightColumnRef, compareAsDateOnly)}`
+        );
       }
 
       if (fieldIsJson(field) || fieldIsJson(referenceField)) {
@@ -885,20 +909,25 @@ const buildDateComparisonCondition = (
       const rightColumn = yield* resolveColumn(value.field(), hostTableAlias ?? tableAlias);
       const right = sql.ref(rightColumn);
       const referenceField = value.field();
-      const leftExpr: RecordConditionWhere =
-        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)
-          ? sql`(${columnRef})::date`
-          : columnRef;
-      const rightExpr: RecordConditionWhere =
-        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)
-          ? sql`(${right})::date`
-          : right;
+      const compareAsDateOnly =
+        shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField);
+      const leftExpr: RecordConditionWhere = buildDateComparableExpr(
+        field,
+        columnRef,
+        compareAsDateOnly
+      );
+      const rightExpr: RecordConditionWhere = buildDateComparableExpr(
+        referenceField,
+        right,
+        compareAsDateOnly
+      );
       if (isMultiple || fieldIsJson(field)) {
         const normalizedArray = normalizeToJsonArray(columnRef);
-        const leftExprFromArray: RecordConditionWhere =
-          shouldCompareAsDateOnly(field) || shouldCompareAsDateOnly(referenceField)
-            ? sql`(NULLIF(elem, 'null')::timestamptz)::date`
-            : sql`NULLIF(elem, 'null')::timestamptz`;
+        const leftExprFromArray: RecordConditionWhere = buildDateComparableExpr(
+          field,
+          sql`NULLIF(elem, 'null')::timestamptz`,
+          compareAsDateOnly
+        );
         if (operator === '>') {
           return ok(sql`EXISTS (
             SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem

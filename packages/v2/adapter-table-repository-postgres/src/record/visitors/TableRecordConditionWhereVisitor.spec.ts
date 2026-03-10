@@ -2,6 +2,7 @@
 import {
   BaseId,
   CheckboxConditionSpec,
+  DateTimeFormatting,
   DbFieldName,
   FieldName,
   RecordConditionFieldReferenceValue,
@@ -65,6 +66,16 @@ const compileWhere = (db: ReturnType<typeof createTestDb>, condRaw: unknown) => 
 
 const BASE_ID = `bse${'a'.repeat(16)}`;
 const TABLE_ID = `tbl${'t'.repeat(16)}`;
+const UTC_DATE_ONLY = DateTimeFormatting.create({
+  date: 'YYYY-MM-DD',
+  time: 'None',
+  timeZone: 'utc',
+})._unsafeUnwrap();
+const SHANGHAI_DATE_ONLY = DateTimeFormatting.create({
+  date: 'YYYY-MM-DD',
+  time: 'None',
+  timeZone: 'Asia/Shanghai',
+})._unsafeUnwrap();
 
 const createTestTable = () => {
   const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
@@ -80,8 +91,24 @@ const createTestTable = () => {
   builder.field().singleSelect().withName(FieldName.create('Status')._unsafeUnwrap()).done();
   builder.field().checkbox().withName(FieldName.create('Done')._unsafeUnwrap()).done();
   builder.field().longText().withName(FieldName.create('Notes')._unsafeUnwrap()).done();
-  builder.field().date().withName(FieldName.create('Due Date')._unsafeUnwrap()).done();
-  builder.field().date().withName(FieldName.create('Cutoff Date')._unsafeUnwrap()).done();
+  builder
+    .field()
+    .date()
+    .withName(FieldName.create('Due Date')._unsafeUnwrap())
+    .withFormatting(UTC_DATE_ONLY)
+    .done();
+  builder
+    .field()
+    .date()
+    .withName(FieldName.create('Cutoff Date')._unsafeUnwrap())
+    .withFormatting(UTC_DATE_ONLY)
+    .done();
+  builder
+    .field()
+    .createdTime()
+    .withName(FieldName.create('Created At')._unsafeUnwrap())
+    .withFormatting(SHANGHAI_DATE_ONLY)
+    .done();
   builder.view().defaultGrid().done();
 
   const table = builder.build()._unsafeUnwrap();
@@ -95,6 +122,9 @@ const createTestTable = () => {
   fields[6]
     .setDbFieldName(DbFieldName.rehydrate('col_cutoff_date')._unsafeUnwrap())
     ._unsafeUnwrap();
+  fields[7]
+    .setDbFieldName(DbFieldName.rehydrate('col_created_time')._unsafeUnwrap())
+    ._unsafeUnwrap();
 
   return {
     table,
@@ -105,6 +135,7 @@ const createTestTable = () => {
     notesField: fields[4],
     dueDateField: fields[5],
     cutoffDateField: fields[6],
+    createdTimeField: fields[7],
   };
 };
 
@@ -138,6 +169,7 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
     notesField,
     dueDateField,
     cutoffDateField,
+    createdTimeField,
   } = createTestTable();
 
   // ---- isNot ----
@@ -286,8 +318,31 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       if (where.isErr()) return;
 
       const { sql, parameters } = compileWhere(db, where.value);
-      expect(sql).toContain('("f"."col_due_date")::date < ("t"."col_cutoff_date")::date');
-      expect(parameters).toEqual([]);
+      expect(sql).toContain('("f"."col_due_date" AT TIME ZONE $1)::date');
+      expect(sql).toContain('("t"."col_cutoff_date" AT TIME ZONE $2)::date');
+      expect(parameters).toEqual(['utc', 'utc']);
+    });
+
+    test('date is with createdTime field reference uses each field timezone before date truncation', () => {
+      const value = RecordConditionFieldReferenceValue.create(createdTimeField)._unsafeUnwrap();
+      const spec = dueDateField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const visitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+      const visitResult = spec.value.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toContain('("f"."col_due_date" AT TIME ZONE $1)::date');
+      expect(sql).toContain('("t"."col_created_time" AT TIME ZONE $2)::date');
+      expect(parameters).toEqual(['utc', 'Asia/Shanghai']);
     });
   });
 
