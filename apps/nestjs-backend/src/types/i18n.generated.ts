@@ -3617,6 +3617,11 @@ export type I18nTranslations = {
             "helpCenter": string;
         };
         "validation": {
+            "link": {
+                "batch_duplicate": string;
+                "one_many_duplicate": string;
+                "one_one_duplicate": string;
+            };
             "field": {
                 "maxColumnLimit": string;
             };
