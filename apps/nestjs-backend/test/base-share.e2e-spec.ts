@@ -1097,10 +1097,18 @@ describe('BaseShareController (e2e)', () => {
       await createTable(targetBaseId, { name: 'SourceTable1' });
 
       const nodeList = await getBaseNodeList(sourceBaseId);
-      const firstNode = nodeList.data[0];
+      const sourceTableNode = nodeList.data.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Table &&
+          node.resourceMeta?.name === 'SourceTable1'
+      );
+
+      if (!sourceTableNode) {
+        throw new Error('SourceTable1 node not found in base node list');
+      }
 
       const share = await createBaseShare(sourceBaseId, {
-        nodeId: firstNode.id,
+        nodeId: sourceTableNode.id,
         allowSave: true,
       });
       testShareId = share.data.shareId;

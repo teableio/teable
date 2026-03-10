@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { updateFieldOkResponseSchema } from '@teable/v2-contract-http';
 import { NumberFormattingType } from '@teable/v2-core';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
@@ -15,6 +16,52 @@ const deleteTableSafe = async (ctx: SharedTestContext, tableId: string | undefin
   try {
     await ctx.deleteTable(tableId);
   } catch {}
+};
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getDomainEventName = (event: unknown): string | undefined => {
+  if (!isObjectRecord(event)) {
+    return undefined;
+  }
+
+  const name = event['name'];
+  if (!isObjectRecord(name) || typeof name.toString !== 'function') {
+    return undefined;
+  }
+
+  return name.toString();
+};
+
+const getChangedFieldIdsFromDomainEvent = (event: unknown): string[] => {
+  const eventName = getDomainEventName(event);
+  if (eventName === 'RecordUpdated') {
+    if (!isObjectRecord(event)) return [];
+    const changes = event['changes'];
+    if (!Array.isArray(changes)) return [];
+    return changes.flatMap((change) => {
+      if (!isObjectRecord(change)) return [];
+      return typeof change['fieldId'] === 'string' ? [change['fieldId']] : [];
+    });
+  }
+
+  if (eventName === 'RecordsBatchUpdated') {
+    if (!isObjectRecord(event)) return [];
+    const updates = event['updates'];
+    if (!Array.isArray(updates)) return [];
+    return updates.flatMap((update) => {
+      if (!isObjectRecord(update)) return [];
+      const changes = update['changes'];
+      if (!Array.isArray(changes)) return [];
+      return changes.flatMap((change) => {
+        if (!isObjectRecord(change)) return [];
+        return typeof change['fieldId'] === 'string' ? [change['fieldId']] : [];
+      });
+    });
+  }
+
+  return [];
 };
 
 describe('update-field: record value seeding after property changes', () => {
@@ -70,6 +117,112 @@ describe('update-field: record value seeding after property changes', () => {
       expect(rec1?.fields[formulaFieldId]).toBe('Red is my color');
       expect(rec2?.fields[selectFieldId]).toBe('Emerald');
       expect(rec2?.fields[formulaFieldId]).toBe('Emerald is my color');
+    } finally {
+      await deleteTableSafe(ctx, tableId);
+    }
+  });
+
+  test('should not emit user field record changes when select option rename recomputes CONCATENATE(singleSelect, user)', async () => {
+    let tableId: string | undefined;
+    try {
+      const selectFieldId = createFieldId();
+      const userFieldId = createFieldId();
+      const formulaFieldId = createFieldId();
+      const optionTodo = { id: 'choTodo', name: 'Todo', color: 'blueBright' as const };
+      const optionDone = { id: 'choDone', name: 'Done', color: 'greenBright' as const };
+
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Record Value Seeding Select User Event Guard',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'singleSelect',
+            id: selectFieldId,
+            name: 'Status',
+            options: { choices: [optionTodo, optionDone] },
+          },
+          {
+            type: 'user',
+            id: userFieldId,
+            name: 'Assignee',
+            options: {
+              isMultiple: false,
+              shouldNotify: false,
+            },
+          },
+          {
+            type: 'formula',
+            id: formulaFieldId,
+            name: 'Summary',
+            options: {
+              expression: `CONCATENATE({${selectFieldId}}, " - ", {${userFieldId}})`,
+            },
+          },
+        ],
+      });
+      tableId = table.id;
+
+      const record = await ctx.createRecord(tableId, {
+        [selectFieldId]: 'Todo',
+        [userFieldId]: {
+          id: ctx.testUser.id,
+          title: ctx.testUser.name,
+        },
+      });
+      await ctx.drainOutbox();
+
+      const beforeEventCount = ctx.testContainer.eventBus.events().length;
+
+      const response = await fetch(`${ctx.baseUrl}/tables/updateField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId,
+          fieldId: selectFieldId,
+          field: {
+            options: {
+              choices: [{ ...optionTodo, name: 'Ready' }, optionDone],
+            },
+          },
+        }),
+      });
+
+      expect(response.ok).toBe(true);
+      const rawBody = await response.json();
+      const parsed = updateFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) {
+        throw new Error('Failed to parse updateField response');
+      }
+
+      const responseEventNames = parsed.data.data.events.map((event) => event.name);
+      expect(responseEventNames).toContain('FieldUpdated');
+      expect(responseEventNames).not.toContain('RecordUpdated');
+      expect(responseEventNames).not.toContain('RecordsBatchUpdated');
+
+      await ctx.drainOutbox();
+
+      const records = await ctx.listRecords(tableId);
+      const updated = records.find((current) => current.id === record.id);
+      expect(updated?.fields[selectFieldId]).toBe('Ready');
+      expect(updated?.fields[userFieldId]).toMatchObject({
+        id: ctx.testUser.id,
+        title: ctx.testUser.name,
+      });
+      expect(updated?.fields[formulaFieldId]).toBe(`Ready - ${ctx.testUser.name}`);
+
+      const newEvents = ctx.testContainer.eventBus.events().slice(beforeEventCount);
+      const newEventNames = newEvents
+        .map((event) => getDomainEventName(event))
+        .filter((eventName): eventName is string => Boolean(eventName));
+      const changedFieldIds = newEvents.flatMap((event) =>
+        getChangedFieldIdsFromDomainEvent(event)
+      );
+
+      expect(newEventNames).not.toContain('RecordUpdated');
+      expect(newEventNames).not.toContain('RecordsBatchUpdated');
+      expect(changedFieldIds).not.toContain(userFieldId);
     } finally {
       await deleteTableSafe(ctx, tableId);
     }
