@@ -5,20 +5,25 @@ import {
   FieldId,
   FieldName,
   LinkFieldConfig,
+  RecordByIdsSpec,
   RecordId,
   Table,
   TableId,
   TableName,
   ViewId,
   DefaultTableMapper,
+  buildRecordConditionSpec,
   ok,
 } from '@teable/v2-core';
 import type {
   IHasher,
   ILogger,
+  ISpecification,
   ITablePersistenceDTO,
   LinkField,
   IRecordOrderCalculator,
+  ITableRecordConditionSpecVisitor,
+  TableRecord,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
@@ -227,6 +232,197 @@ const VIEW_ID = `viw${'k'.repeat(16)}`;
 // =============================================================================
 
 describe('PostgresTableRecordRepository.updateOne', () => {
+  it('rejects bulk update when the filter spec does not produce a where clause', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('BulkUpdateTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(
+        RecordId.create(RECORD_ID)._unsafeUnwrap(),
+        new Map([[NAME_FIELD_ID, 'inactive']])
+      )
+      ._unsafeUnwrap().mutateSpec;
+    const emptySpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> = {
+      isSatisfiedBy: () => true,
+      mutate: (record) => ok(record),
+      accept: () => ok(undefined as never),
+    };
+
+    const { db, driver } = createRecordingDb();
+    const repo = createRepository(db, table);
+
+    const result = await repo.updateMany({ actorId }, table, emptySpec, mutateSpec);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record.bulk_update.empty_filter');
+    expect(driver.queries).toHaveLength(0);
+
+    vi.useRealTimers();
+  });
+
+  it('generates bulk update SQL with database-pushed where matching', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const numberFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('BulkUpdateTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(numberFieldId)
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(numberFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_amount')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(
+        RecordId.create(RECORD_ID)._unsafeUnwrap(),
+        new Map([[NAME_FIELD_ID, 'inactive']])
+      )
+      ._unsafeUnwrap().mutateSpec;
+    const filterSpec = buildRecordConditionSpec(table, {
+      fieldId: numberFieldId.toString(),
+      operator: 'isGreater',
+      value: 5,
+    })._unsafeUnwrap();
+
+    const { db, driver } = createRecordingDb();
+    const repo = createRepository(db, table);
+
+    const result = await repo.updateMany({ actorId }, table, filterSpec, mutateSpec);
+    expect(result.isOk()).toBe(true);
+
+    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
+      [
+        {
+          "parameters": [
+            5,
+            "2025-01-01T00:00:00.000Z",
+            "usr_test",
+            "inactive",
+          ],
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "col_amount" > $1) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+        },
+      ]
+    `);
+
+    vi.useRealTimers();
+  });
+
+  it('generates bulk update SQL for explicit record ids', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(`rec${'a'.repeat(16)}`)._unsafeUnwrap();
+    const recordIdB = RecordId.create(`rec${'b'.repeat(16)}`)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('BulkUpdateByIdsTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(textFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const mutateSpec = table
+      .updateRecord(
+        RecordId.create(RECORD_ID)._unsafeUnwrap(),
+        new Map([[NAME_FIELD_ID, 'inactive']])
+      )
+      ._unsafeUnwrap().mutateSpec;
+    const targetSpec = RecordByIdsSpec.create([recordIdA, recordIdB]);
+
+    const { db, driver } = createRecordingDb();
+    const repo = createRepository(db, table);
+
+    const result = await repo.updateMany({ actorId }, table, targetSpec, mutateSpec);
+    expect(result.isOk()).toBe(true);
+
+    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
+      [
+        {
+          "parameters": [
+            "recaaaaaaaaaaaaaaaa",
+            "recbbbbbbbbbbbbbbbb",
+            "2025-01-01T00:00:00.000Z",
+            "usr_test",
+            "inactive",
+          ],
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" in ($1, $2)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+        },
+      ]
+    `);
+
+    vi.useRealTimers();
+  });
+
   it('generates update SQL for a non-link field', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));

@@ -7,6 +7,7 @@ import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service
 import { ViewModule } from '../view/view.module';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { V2ContainerService } from './v2-container.service';
+import { V2Controller } from './v2.controller';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2FieldDeleteCompatService } from './v2-field-delete-compat.service';
 import { V2OpenApiController } from './v2-openapi.controller';
@@ -91,7 +92,7 @@ const toErrorMessage = (body: unknown): string => {
     ShareDbModule,
     ViewModule,
   ],
-  controllers: [V2OpenApiController],
+  controllers: [V2Controller, V2OpenApiController],
   providers: [
     V2ContainerService,
     V2ExecutionContextFactory,

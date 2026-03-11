@@ -86,6 +86,23 @@ export interface InsertManyStreamResult {
 }
 
 /**
+ * Result of bulk update operations driven by a filter specification.
+ */
+export interface UpdateManyResult {
+  /** Total number of records updated */
+  totalUpdated: number;
+  /** IDs of records updated by the statement */
+  updatedRecordIds: ReadonlyArray<RecordId>;
+  /** Per-record snapshot captured directly by the bulk update statement. */
+  updatedRecords: ReadonlyArray<{
+    recordId: RecordId;
+    oldVersion: number;
+    newVersion: number;
+    oldFieldValues: Readonly<Record<string, unknown>>;
+  }>;
+}
+
+/**
  * Progress information for streaming update operations.
  */
 export interface UpdateManyStreamProgress {
@@ -197,6 +214,25 @@ export interface ITableRecordRepository {
     recordId: RecordId,
     mutateSpec: ICellValueSpec
   ): Promise<Result<RecordMutationResult, DomainError>>;
+
+  /**
+   * Update multiple records matching a filter specification using a single mutate spec.
+   *
+   * Repository adapters are expected to translate this into an efficient
+   * `UPDATE ... SET ... WHERE ... RETURNING __id` statement when possible.
+   *
+   * @param context - Execution context (may contain transaction)
+   * @param table - Target table
+   * @param spec - Filter specification describing which records to update
+   * @param mutateSpec - Specification describing the mutations to apply
+   * @returns Result with updated count and updated record ids or error
+   */
+  updateMany(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    mutateSpec: ICellValueSpec
+  ): Promise<Result<UpdateManyResult, DomainError>>;
 
   /**
    * Update multiple records from a streaming/batched source.

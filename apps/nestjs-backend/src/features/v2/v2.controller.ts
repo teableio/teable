@@ -7,6 +7,7 @@ import {
   executeCreateTableEndpoint,
   executeDeleteRecordsEndpoint,
   executeGetTableByIdEndpoint,
+  executeUpdateRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
 import type { IQueryBus, ICommandBus } from '@teable/v2-core' with { 'resolution-mode': 'import' };
@@ -63,6 +64,25 @@ export class V2Controller {
         const context = await this.v2ContextFactory.createContext();
 
         const result = await executeDeleteRecordsEndpoint(context, input, commandBus);
+
+        if (result.status === 200) return result.body;
+
+        if (result.status === 400) {
+          throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+        }
+
+        if (result.status === 404) {
+          throw new ORPCError('NOT_FOUND', { message: result.body.error });
+        }
+
+        throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+      }),
+      updateRecords: implement(v2Contract.tables.updateRecords).handler(async ({ input }) => {
+        const container = await this.v2Container.getContainer();
+        const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+        const context = await this.v2ContextFactory.createContext();
+
+        const result = await executeUpdateRecordsEndpoint(context, input, commandBus);
 
         if (result.status === 200) return result.body;
 

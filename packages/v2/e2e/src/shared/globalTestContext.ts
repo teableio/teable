@@ -45,6 +45,7 @@ import {
   renameTableOkResponseSchema,
   updateFieldOkResponseSchema,
   updateRecordOkResponseSchema,
+  updateRecordsOkResponseSchema,
   clearOkResponseSchema,
   pasteOkResponseSchema,
   importCsvOkResponseSchema,
@@ -60,6 +61,7 @@ import type {
   IImportCsvCommandInput,
   IImportRecordsCommandInput,
   IUpdateFieldCommandInput,
+  IUpdateRecordsCommandInput,
   RecordFilter,
 } from '@teable/v2-core';
 import { ActorId, MemoryUndoRedoStore, v2CoreTokens } from '@teable/v2-core';
@@ -119,6 +121,9 @@ export interface SharedTestContext {
     recordId: string,
     fields: Record<string, unknown>
   ) => Promise<ReturnType<typeof parseUpdateRecordResponse>>;
+  updateRecords: (
+    payload: IUpdateRecordsCommandInput
+  ) => Promise<ReturnType<typeof parseUpdateRecordsResponse>>;
   duplicateRecord: (
     tableId: string,
     recordId: string
@@ -223,6 +228,14 @@ const parseUpdateRecordResponse = (rawBody: unknown) => {
     throw new Error('Failed to parse update record response');
   }
   return parsed.data.data.record;
+};
+
+const parseUpdateRecordsResponse = (rawBody: unknown) => {
+  const parsed = updateRecordsOkResponseSchema.safeParse(rawBody);
+  if (!parsed.success || !parsed.data.ok) {
+    throw new Error('Failed to parse update records response');
+  }
+  return parsed.data.data;
 };
 
 const parseDuplicateRecordResponse = (rawBody: unknown) => {
@@ -527,6 +540,19 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     return parseUpdateRecordResponse(await response.json());
   };
 
+  const updateRecords = async (payload: IUpdateRecordsCommandInput) => {
+    const response = await fetch(`${baseUrl}/tables/updateRecords`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to update records: ${errorText}`);
+    }
+    return parseUpdateRecordsResponse(await response.json());
+  };
+
   const duplicateRecord = async (tableId: string, recordId: string) => {
     const response = await fetch(`${baseUrl}/tables/duplicateRecord`, {
       method: 'POST',
@@ -723,6 +749,7 @@ const initSharedContext = async (): Promise<SharedTestContext> => {
     createRecord,
     createRecords,
     updateRecord,
+    updateRecords,
     duplicateRecord,
     deleteRecord,
     deleteRecords,

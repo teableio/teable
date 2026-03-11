@@ -42,6 +42,7 @@ import { executeClearEndpoint } from './handlers/tables/clear';
 import { executeDeleteByRangeEndpoint } from './handlers/tables/deleteByRange';
 import { executeRenameTableEndpoint } from './handlers/tables/renameTable';
 import { executeUpdateRecordEndpoint } from './handlers/tables/updateRecord';
+import { executeUpdateRecordsEndpoint } from './handlers/tables/updateRecords';
 import { executeReorderRecordsEndpoint } from './handlers/tables/reorderRecords';
 import { executeDuplicateFieldEndpoint } from './handlers/tables/duplicateField';
 import { executeDuplicateRecordEndpoint } from './handlers/tables/duplicateRecord';
@@ -371,6 +372,34 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeUpdateRecordEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  const tablesUpdateRecords = os.tables.updateRecords.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeUpdateRecordsEndpoint(executionContext, input, commandBus);
 
     if (result.status === 200) return result.body;
 
@@ -1041,6 +1070,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       submitRecord: tablesSubmitRecord,
       createRecords: tablesCreateRecords,
       updateRecord: tablesUpdateRecord,
+      updateRecords: tablesUpdateRecords,
       reorderRecords: tablesReorderRecords,
       duplicateField: tablesDuplicateField,
       duplicateRecord: tablesDuplicateRecord,

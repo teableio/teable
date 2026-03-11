@@ -26,6 +26,7 @@ import {
   renameTableInputSchema,
   updateFieldInputSchema,
   updateRecordInputSchema,
+  updateRecordsInputSchema,
   reorderRecordsInputSchema,
 } from '@teable/v2-core';
 
@@ -64,6 +65,7 @@ import { reorderRecordsOkResponseSchema } from './table/reorderRecords';
 import { submitRecordOkResponseSchema } from './table/submitRecord';
 import { updateFieldOkResponseSchema } from './table/updateField';
 import { updateRecordOkResponseSchema } from './table/updateRecord';
+import { updateRecordsOkResponseSchema } from './table/updateRecords';
 
 const BASES_CREATE_PATH = '/bases/create';
 const BASES_LIST_PATH = '/bases/list';
@@ -94,6 +96,7 @@ const TABLES_DELETE_BY_RANGE_PATH = '/tables/deleteByRange';
 const TABLES_RENAME_PATH = '/tables/rename';
 const TABLES_UPDATE_FIELD_PATH = '/tables/updateField';
 const TABLES_UPDATE_RECORD_PATH = '/tables/updateRecord';
+const TABLES_UPDATE_RECORDS_PATH = '/tables/updateRecords';
 const TABLES_REORDER_RECORDS_PATH = '/tables/reorderRecords';
 const TABLES_DUPLICATE_FIELD_PATH = '/tables/duplicateField';
 const TABLES_DUPLICATE_RECORD_PATH = '/tables/duplicateRecord';
@@ -182,6 +185,16 @@ export const v2Contract: AnyContractRouter = {
       })
       .input(explainUpdateFieldInputSchema)
       .output(explainOkResponseSchema),
+    updateRecords: oc
+      .route({
+        method: 'POST',
+        path: TABLES_UPDATE_RECORDS_PATH,
+        successStatus: 200,
+        summary: 'Update multiple records by filter or recordIds',
+        tags: ['tables'],
+      })
+      .input(updateRecordsInputSchema)
+      .output(updateRecordsOkResponseSchema),
     createRecord: oc
       .route({
         method: 'POST',

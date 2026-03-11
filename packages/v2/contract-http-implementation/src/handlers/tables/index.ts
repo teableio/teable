@@ -20,6 +20,7 @@ export * from './deleteByRange';
 export * from './renameTable';
 export * from './updateRecord';
 export * from './updateField';
+export * from './updateRecords';
 export * from './reorderRecords';
 export * from './duplicateRecord';
 export * from './duplicateField';

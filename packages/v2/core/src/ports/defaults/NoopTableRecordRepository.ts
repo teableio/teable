@@ -17,6 +17,7 @@ import type {
   InsertManyStreamResult,
   InsertOptions,
   RecordMutationResult,
+  UpdateManyResult,
   UpdateManyStreamOptions,
   UpdateManyStreamResult,
 } from '../TableRecordRepository';
@@ -74,6 +75,15 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
     _mutateSpec: ICellValueSpec
   ): Promise<Result<RecordMutationResult, DomainError>> {
     return ok({});
+  }
+
+  async updateMany(
+    _context: IExecutionContext,
+    _table: Table,
+    _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    _mutateSpec: ICellValueSpec
+  ): Promise<Result<UpdateManyResult, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
   }
 
   async updateManyStream(

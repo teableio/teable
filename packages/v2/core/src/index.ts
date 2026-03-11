@@ -81,6 +81,8 @@ export * from './commands/RestoreRecordsCommand';
 export * from './commands/RestoreRecordsHandler';
 export * from './commands/UpdateRecordCommand';
 export * from './commands/UpdateRecordHandler';
+export * from './commands/UpdateRecordsCommand';
+export * from './commands/UpdateRecordsHandler';
 export * from './commands/UndoCommand';
 export * from './commands/UndoHandler';
 export * from './commands/RedoCommand';

@@ -38,6 +38,8 @@ import {
 import { BatchRecordUpdateBuilder } from '../query-builder/update/BatchRecordUpdateBuilder';
 import { buildBatchUpdateSql } from '../query-builder/update/BatchUpdateSqlBuilder';
 import { RecordUpdateBuilder } from '../query-builder/update/RecordUpdateBuilder';
+import { buildRecordWhereClause } from './buildRecordWhereClause';
+import { CellValueMutateVisitor } from '../visitors/CellValueMutateVisitor';
 import {
   TableRecordConditionWhereVisitor,
   FieldDeleteValueVisitor,
@@ -47,6 +49,13 @@ import type { LinkExclusivityConstraint } from '../visitors/LinkExclusivityConst
 
 // System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';
+const VERSION_COLUMN = '__version';
+
+type BulkUpdateTrackedField = {
+  fieldId: core.FieldId;
+  dbFieldName: string;
+  oldValueAlias: string;
+};
 
 type ExtraSeedRecordGroup = {
   tableId: core.TableId;
@@ -236,6 +245,24 @@ async function syncAutoNumberSequence(db: Kysely<DynamicDB>, tableName: string):
     )
   `.execute(db);
 }
+
+const toBulkUpdateTrackedFields = (
+  table: core.Table,
+  changedFieldIds: ReadonlyArray<core.FieldId>
+): Result<ReadonlyArray<BulkUpdateTrackedField>, DomainError> =>
+  safeTry(function* () {
+    const trackedFields: BulkUpdateTrackedField[] = [];
+    for (const fieldId of changedFieldIds) {
+      const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
+      const dbFieldName = yield* field.dbFieldName();
+      trackedFields.push({
+        fieldId,
+        dbFieldName: yield* dbFieldName.value(),
+        oldValueAlias: `old_${fieldId.toString()}`,
+      });
+    }
+    return ok(trackedFields);
+  });
 
 /**
  * PostgreSQL implementation of TableRecordRepository.
@@ -848,6 +875,144 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           return err(
             wrapDatabaseError(error, 'update', { tableName, recordId: recordIdStr }, context.$t)
           );
+        }
+      }.bind(this)
+    );
+  }
+
+  async updateMany(
+    context: core.IExecutionContext,
+    table: core.Table,
+    spec: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>,
+    mutateSpec: core.ICellValueSpec
+  ): Promise<Result<core.UpdateManyResult, DomainError>> {
+    return safeTry<core.UpdateManyResult, DomainError>(
+      async function* (this: PostgresTableRecordRepository) {
+        const dbTableName = yield* table.dbTableName();
+        const tableName = yield* dbTableName.value();
+        const actorId = context.actorId.toString();
+        const actorContext = context as core.IExecutionContext & {
+          actorName?: string;
+          actorEmail?: string;
+        };
+        const now = new Date().toISOString();
+        const db = resolvePostgresDb(this.db, context) as unknown as Kysely<DynamicDB>;
+
+        const mutateVisitor = CellValueMutateVisitor.create(db, table, tableName, {
+          recordId: '__bulk_update__',
+          actorId,
+          now,
+          actorName: actorContext.actorName,
+          actorEmail: actorContext.actorEmail,
+        });
+
+        yield* mutateSpec.accept(mutateVisitor);
+        const statementsResult = mutateVisitor.build();
+        if (statementsResult.isErr()) {
+          return err(statementsResult.error);
+        }
+
+        const { setClauses, additionalStatements, changedFieldIds } =
+          mutateVisitor.getSetClausesRaw();
+        if (additionalStatements.length > 0) {
+          return err(
+            core.domainError.notImplemented({
+              code: 'record.bulk_update.additional_statements_not_supported',
+              message: 'Bulk update by filter does not support relation or junction updates',
+            })
+          );
+        }
+
+        const whereExpression = yield* buildRecordWhereClause(spec);
+        if (!whereExpression) {
+          return err(
+            core.domainError.validation({
+              code: 'record.bulk_update.empty_filter',
+              message: 'Bulk update filter cannot be empty',
+            })
+          );
+        }
+
+        const trackedFields = yield* toBulkUpdateTrackedFields(table, changedFieldIds);
+
+        try {
+          const matchedSelects = [
+            sql.ref(RECORD_ID_COLUMN).as('matched_id'),
+            sql.ref(VERSION_COLUMN).as('old_version'),
+            ...trackedFields.map(({ dbFieldName, oldValueAlias }) =>
+              sql.ref(dbFieldName).as(oldValueAlias)
+            ),
+          ];
+
+          const returningSelects = [
+            sql.ref(RECORD_ID_COLUMN).as('record_id'),
+            sql.ref(VERSION_COLUMN).as('new_version'),
+            sql.ref('matched.old_version').as('old_version'),
+            ...trackedFields.map(({ oldValueAlias }) =>
+              sql.ref(`matched.${oldValueAlias}`).as(oldValueAlias)
+            ),
+          ];
+
+          const rows = await db
+            .with('matched', (qb) =>
+              qb.selectFrom(tableName).select(matchedSelects).where(whereExpression)
+            )
+            .updateTable(tableName)
+            .from('matched')
+            .set(setClauses)
+            .whereRef(RECORD_ID_COLUMN, '=', 'matched.matched_id')
+            .returning(returningSelects)
+            .execute();
+
+          const updatedRecordIds: core.RecordId[] = [];
+          const updatedRecords: Array<core.UpdateManyResult['updatedRecords'][number]> = [];
+          for (const row of rows) {
+            const rawId = row.record_id;
+            if (typeof rawId !== 'string') {
+              continue;
+            }
+            const recordIdResult = core.RecordId.create(rawId);
+            if (recordIdResult.isOk()) {
+              const oldFieldValues: Record<string, unknown> = {};
+              for (const { fieldId, oldValueAlias } of trackedFields) {
+                oldFieldValues[fieldId.toString()] = row[oldValueAlias];
+              }
+
+              const oldVersion = Number(row.old_version);
+              const newVersion = Number(row.new_version);
+              updatedRecordIds.push(recordIdResult.value);
+              updatedRecords.push({
+                recordId: recordIdResult.value,
+                oldVersion: Number.isFinite(oldVersion) ? oldVersion : 0,
+                newVersion: Number.isFinite(newVersion) ? newVersion : 0,
+                oldFieldValues,
+              });
+            }
+          }
+
+          if (updatedRecordIds.length > 0 && changedFieldIds.length > 0) {
+            const computedResult = await this.runComputedUpdateManyByIds(
+              context,
+              table,
+              updatedRecordIds,
+              changedFieldIds
+            );
+            if (computedResult.isErr()) {
+              return err(computedResult.error);
+            }
+          }
+
+          if (updatedRecordIds.length > 0) {
+            await this.touchTableMeta(db, table.id().toString(), actorId);
+          }
+
+          return ok({
+            totalUpdated: updatedRecordIds.length,
+            updatedRecordIds,
+            updatedRecords,
+          });
+        } catch (error) {
+          return err(wrapDatabaseError(error, 'update', { tableName }, context.$t));
         }
       }.bind(this)
     );

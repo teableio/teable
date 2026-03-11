@@ -211,6 +211,15 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
+  async updateMany(
+    _context: IExecutionContext,
+    _table: Table,
+    _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    _mutateSpec: ICellValueSpec
+  ) {
+    return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
+  }
+
   async updateManyStream(
     _context: IExecutionContext,
     _table: Table,

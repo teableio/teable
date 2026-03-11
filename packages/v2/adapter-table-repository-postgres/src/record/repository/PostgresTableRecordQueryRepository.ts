@@ -42,7 +42,7 @@ import type {
 } from '../query-builder';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
 import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
-import { TableRecordConditionWhereVisitor } from '../visitors';
+import { buildRecordWhereClause } from './buildRecordWhereClause';
 
 const RECORD_ID_COLUMN = '__id';
 const RECORD_VERSION_COLUMN = '__version';
@@ -156,7 +156,9 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             queryBuilder.where(spec);
           }
 
-          const whereClause = spec ? buildWhereClause(spec) : ok(null);
+          const whereClause = spec
+            ? buildRecordWhereClause(spec, { tableAlias: TABLE_ALIAS })
+            : ok(null);
           if (whereClause.isErr()) {
             return err(whereClause.error);
           }
@@ -730,21 +732,6 @@ const buildUnexpectedQueryError = (prefix: string, error: unknown): DomainError 
     ...(details ? { details } : {}),
     message: `${prefix}: ${describeError(error)}`,
   });
-};
-
-const buildWhereClause = (
-  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-): Result<Expression<SqlBool> | null, DomainError> => {
-  const visitor = new TableRecordConditionWhereVisitor({ tableAlias: TABLE_ALIAS });
-  const acceptResult = spec.accept(visitor);
-  if (acceptResult.isErr()) {
-    return err(acceptResult.error);
-  }
-  const whereResult = visitor.where();
-  if (whereResult.isErr()) {
-    return err(whereResult.error);
-  }
-  return ok(whereResult.value as unknown as Expression<SqlBool>);
 };
 
 const parseCursorToken = (cursor: string | undefined): number | undefined => {

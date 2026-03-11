@@ -822,9 +822,31 @@ export class Table extends AggregateRoot<TableId> {
           preventAutoNewOptions: (field as MultipleSelectField).preventAutoNewOptions(),
         });
     if (nextFieldResult.isErr()) return err(nextFieldResult.error);
+    const nextField = nextFieldResult.value;
+
+    const setDescriptionResult = nextField.setDescription(field.description());
+    if (setDescriptionResult.isErr()) return err(setDescriptionResult.error);
+    const setAiConfigResult = nextField.setAiConfig(field.aiConfig());
+    if (setAiConfigResult.isErr()) return err(setAiConfigResult.error);
+    const setNotNullResult = nextField.setNotNull(field.notNull());
+    if (setNotNullResult.isErr()) return err(setNotNullResult.error);
+    const setUniqueResult = nextField.setUnique(field.unique());
+    if (setUniqueResult.isErr()) return err(setUniqueResult.error);
+
+    const dbFieldNameResult = field.dbFieldName();
+    if (dbFieldNameResult.isOk()) {
+      const setDbFieldNameResult = nextField.setDbFieldName(dbFieldNameResult.value);
+      if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+    }
+
+    const dbFieldTypeResult = field.dbFieldType();
+    if (dbFieldTypeResult.isOk()) {
+      const setDbFieldTypeResult = nextField.setDbFieldType(dbFieldTypeResult.value);
+      if (setDbFieldTypeResult.isErr()) return err(setDbFieldTypeResult.error);
+    }
 
     const nextFields = this.fieldsValue.map((current) =>
-      current.id().equals(fieldId) ? nextFieldResult.value : current
+      current.id().equals(fieldId) ? nextField : current
     );
 
     const props: ITableBuildProps = {
