@@ -13,7 +13,7 @@ import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import type { LinkField } from '../../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
-import { NumberField } from '../../domain/table/fields/types/NumberField';
+import type { NumberField } from '../../domain/table/fields/types/NumberField';
 import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineTextField';
 import { ForeignTable } from '../../domain/table/ForeignTable';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
@@ -55,10 +55,10 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async update(
     _: IExecutionContext,
-    __: Table,
+    table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ): Promise<Result<Table, DomainError>> {
+    return ok(table);
   }
 
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {

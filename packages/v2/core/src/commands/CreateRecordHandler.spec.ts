@@ -2,8 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
+import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -130,10 +130,10 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async update(
     _context: IExecutionContext,
-    _table: Table,
+    table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ): Promise<Result<Table, DomainError>> {
+    return ok(table);
   }
 
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {

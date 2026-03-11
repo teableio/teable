@@ -1,3 +1,4 @@
+import type { ITableActionKey } from '@teable/core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
@@ -12,6 +13,7 @@ import { NotSpec } from '../shared/specification/NotSpec';
 
 import { DbTableName } from './DbTableName';
 import type { RecordCreateSource } from './events/RecordFieldValuesDTO';
+import { TableActionTriggerRequested } from './events/TableActionTriggerRequested';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import type { DbFieldName } from './fields/DbFieldName';
@@ -580,6 +582,22 @@ export class Table extends AggregateRoot<TableId> {
       })
     );
     return ok(undefined);
+  }
+
+  requestActionTrigger(params: {
+    actionKey: ITableActionKey;
+    payload?: Record<string, unknown>;
+    tableId?: TableId;
+    baseId?: BaseId;
+  }): void {
+    this.addDomainEvent(
+      TableActionTriggerRequested.create({
+        tableId: params.tableId ?? this.id(),
+        baseId: params.baseId ?? this.baseIdValue,
+        actionKey: params.actionKey,
+        payload: params.payload,
+      })
+    );
   }
 
   update(build: (mutator: TableMutator) => TableMutator): Result<TableUpdateResult, DomainError> {

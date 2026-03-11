@@ -75,8 +75,8 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
     return ok(undefined);
   }
 
-  async update() {
-    return ok(undefined);
+  async update(_context: IExecutionContext, table: Table) {
+    return ok(table);
   }
 
   async delete() {

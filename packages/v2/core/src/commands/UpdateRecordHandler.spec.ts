@@ -41,8 +41,8 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
@@ -197,10 +197,10 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async update(
     _context: IExecutionContext,
-    _table: Table,
+    table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ): Promise<Result<Table, DomainError>> {
+    return ok(table);
   }
 
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {

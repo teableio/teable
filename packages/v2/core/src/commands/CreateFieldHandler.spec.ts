@@ -2,8 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { UndoRedoService } from '../application/services/UndoRedoService';
@@ -130,10 +130,10 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async update(
     _context: IExecutionContext,
-    _table: Table,
+    table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ) {
-    return ok(undefined);
+    return ok(table);
   }
 
   async delete(_context: IExecutionContext, _table: Table) {

@@ -134,9 +134,9 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
     _: IExecutionContext,
     table: Table,
     __: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<Table, DomainError>> {
     this.updates.push(table);
-    return ok(undefined);
+    return ok(table);
   }
 
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {

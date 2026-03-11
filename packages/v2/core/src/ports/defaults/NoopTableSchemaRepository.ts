@@ -23,10 +23,10 @@ export class NoopTableSchemaRepository implements ITableSchemaRepository {
 
   async update(
     _: IExecutionContext,
-    __: Table,
+    table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ): Promise<Result<Table, DomainError>> {
+    return ok(table);
   }
 
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {

@@ -12,10 +12,12 @@ import {
   permanentDeleteTable,
 } from './utils/init-app';
 
-type ActionTrigger = {
+interface IActionTrigger {
   actionKey: string;
   payload?: Record<string, unknown>;
-};
+}
+
+const amountTextFieldName = 'Amount Text';
 
 let fieldIdCounter = 0;
 
@@ -44,8 +46,8 @@ const collectActionTriggers = async (params: {
   act: () => Promise<unknown>;
   idleMs?: number;
   timeoutMs?: number;
-  until?: (actions: ReadonlyArray<ActionTrigger>) => boolean;
-}): Promise<ActionTrigger[]> => {
+  until?: (actions: ReadonlyArray<IActionTrigger>) => boolean;
+}): Promise<IActionTrigger[]> => {
   const {
     shareDbService,
     cookie,
@@ -57,12 +59,13 @@ const collectActionTriggers = async (params: {
     until,
   } = params;
 
-  return new Promise<ActionTrigger[]>((resolve, reject) => {
+  return new Promise<IActionTrigger[]>((resolve, reject) => {
     const connection = createConnection(shareDbService, cookie, port);
     const presence = connection.getPresence(getActionTriggerChannel(tableId));
-    const received: ActionTrigger[] = [];
+    const received: IActionTrigger[] = [];
     let capture = false;
     let settled = false;
+    let actCompleted = false;
     let idleTimer: NodeJS.Timeout | undefined;
 
     const cleanup = () => {
@@ -72,7 +75,9 @@ const collectActionTriggers = async (params: {
       try {
         presence.unsubscribe();
         presence.destroy();
-      } catch {}
+      } catch {
+        void 0;
+      }
       connection.close();
     };
 
@@ -87,13 +92,16 @@ const collectActionTriggers = async (params: {
       resolve(received);
     };
 
-    const onReceive = (_id: string, batch: ActionTrigger[]) => {
+    const onReceive = (_id: string, batch: IActionTrigger[]) => {
       if (!capture) {
         return;
       }
       received.push(...batch);
       if (until?.(received)) {
         finish();
+        return;
+      }
+      if (!actCompleted) {
         return;
       }
       if (idleTimer) clearTimeout(idleTimer);
@@ -115,6 +123,13 @@ const collectActionTriggers = async (params: {
       try {
         capture = true;
         await act();
+        actCompleted = true;
+        if (until?.(received)) {
+          finish();
+          return;
+        }
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => finish(), idleMs);
       } catch (actError) {
         finish(actError);
       }
@@ -150,12 +165,12 @@ describe('V2 action trigger field conversion (e2e)', () => {
       name: 'v2-action-trigger-field-conversion',
       fields: [
         { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
-        { name: 'Amount Text', type: FieldType.SingleLineText },
+        { name: amountTextFieldName, type: FieldType.SingleLineText },
       ],
     });
     tableIds.add(table.id);
 
-    const amountFieldId = table.fields.find((field) => field.name === 'Amount Text')?.id;
+    const amountFieldId = table.fields.find((field) => field.name === amountTextFieldName)?.id;
     if (!amountFieldId) {
       throw new Error('Amount Text field not found');
     }
@@ -177,7 +192,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         const response = await axios.put(
           `/table/${table.id}/field/${amountFieldId}/convert`,
           {
-            name: 'Amount Text',
+            name: amountTextFieldName,
             type: FieldType.Number,
           },
           {

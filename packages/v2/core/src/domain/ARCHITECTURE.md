@@ -6,6 +6,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Domain model core: aggregates, entities, value objects, specs, domain events.
 - Depends only on TS/JS, neverthrow, zod, nanoid, ts-pattern.
+- Repository-driven persistence lifecycle details belong behind ports/adapters; application code should
+  observe aggregates and domain events, not drive adapter-private post-persist steps.
 
 ## Subfolders
 

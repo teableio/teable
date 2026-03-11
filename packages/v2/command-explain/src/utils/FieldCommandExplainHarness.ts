@@ -211,9 +211,13 @@ export class CaptureTableSchemaRepository implements ITableSchemaRepository {
     context: IExecutionContext,
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    const repository = this;
-    return safeTry<void, DomainError>(async function* () {
+  ): Promise<Result<Table, DomainError>> {
+    const captureCompiledStatement = this.captureCompiledStatement.bind(this);
+    const captureFieldBackfillStatements = this.captureFieldBackfillStatements.bind(this);
+    const captureCascadeStatements = this.captureCascadeStatements.bind(this);
+    const captureCascadePlanStatements = this.captureCascadePlanStatements.bind(this);
+    const db = this.options.db;
+    return safeTry<Table, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
 
       const dbTableNameResult = table
@@ -225,7 +229,7 @@ export class CaptureTableSchemaRepository implements ITableSchemaRepository {
 
       const { schema, tableName } = dbTableNameResult.value;
       const visitor = new TableSchemaUpdateVisitor({
-        db: repository.options.db,
+        db,
         schema,
         tableName,
         tableId: table.id().toString(),
@@ -235,68 +239,40 @@ export class CaptureTableSchemaRepository implements ITableSchemaRepository {
       yield* mutateSpec.accept(visitor);
       const schemaStatements = yield* visitor.where();
       for (let i = 0; i < schemaStatements.length; i++) {
-        repository.captureCompiledStatement(
+        captureCompiledStatement(
           `Schema step ${i + 1}: table ${table.name().toString()}`,
-          schemaStatements[i]!.compile(repository.options.db)
+          schemaStatements[i]!.compile(db)
         );
       }
 
       const addFieldCollector = new TableAddFieldCollectorVisitor();
       yield* mutateSpec.accept(addFieldCollector);
-      yield* await repository.captureFieldBackfillStatements(
-        context,
-        table,
-        addFieldCollector.fields(),
-        {
-          descriptionPrefix: 'Field backfill',
-          includeOneManyTwoWay: addFieldCollector
-            .fields()
-            .some((field: Field) => field.type().equals(FieldType.link())),
-        }
-      );
+      yield* await captureFieldBackfillStatements(context, table, addFieldCollector.fields(), {
+        descriptionPrefix: 'Field backfill',
+        includeOneManyTwoWay: addFieldCollector
+          .fields()
+          .some((field: Field) => field.type().equals(FieldType.link())),
+      });
 
       const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
       yield* mutateSpec.accept(valueChangeVisitor);
-      yield* await repository.captureCascadeStatements(context, table, {
+      yield* await captureCascadeStatements(context, table, {
         selfBackfillFieldIds: valueChangeVisitor.selfBackfillFields(),
         valueChangedFieldIds: valueChangeVisitor.valueChangedFields(),
         deferredBackfillFieldIds: valueChangeVisitor.deferredBackfillFields(),
         hasDbStorageTypeChange: valueChangeVisitor.hasDbStorageTypeChange(),
       });
 
-      return ok(undefined);
-    });
-  }
-
-  async refreshInMemoryTableAfterUpdate(
-    _context: IExecutionContext,
-    table: Table,
-    _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>> {
-    return ok(table);
-  }
-
-  async replayDeferredBackfillAfterUpdate(
-    context: IExecutionContext,
-    table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    const repository = this;
-    return safeTry<void, DomainError>(async function* () {
-      const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
-      yield* mutateSpec.accept(valueChangeVisitor);
       const deferredFieldIds = valueChangeVisitor.deferredBackfillFields();
-      if (deferredFieldIds.length === 0) {
-        return ok(undefined);
+      if (deferredFieldIds.length > 0) {
+        yield* await captureCascadePlanStatements(context, table, {
+          fieldIds: deferredFieldIds,
+          skipDistinctFilter: valueChangeVisitor.hasDbStorageTypeChange(),
+          descriptionPrefix: 'Deferred computed cascade',
+        });
       }
 
-      yield* await repository.captureCascadePlanStatements(context, table, {
-        fieldIds: deferredFieldIds,
-        skipDistinctFilter: valueChangeVisitor.hasDbStorageTypeChange(),
-        descriptionPrefix: 'Deferred computed cascade',
-      });
-
-      return ok(undefined);
+      return ok(table);
     });
   }
 

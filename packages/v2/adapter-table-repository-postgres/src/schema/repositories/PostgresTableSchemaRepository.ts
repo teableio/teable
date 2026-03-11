@@ -1,27 +1,27 @@
+import type {
+  TableId,
+  BaseId,
+  FieldId,
+  IExecutionContext,
+  ISpecification,
+  ITableRepository,
+  ITableSchemaRepository,
+  Field,
+  LinkField,
+  ITableSpecVisitor,
+  Table,
+  DomainError,
+} from '@teable/v2-core';
 import {
   TraceSpan,
   DbFieldName,
   TableByIdSpec,
-  TableId,
-  TableActionTriggerRequested,
   domainError,
   isDomainError,
+  resolveLatestTableInTransactionScope,
+  scheduleTableUpdateDeferredTask,
   v2CoreTokens,
-} from '@teable/v2-core';
-import {
   SelectOption,
-  type BaseId,
-  type FieldId,
-  type IDomainEvent,
-  type IExecutionContext,
-  type ISpecification,
-  type ITableRepository,
-  type ITableSchemaRepository,
-  type Field,
-  type LinkField,
-  type ITableSpecVisitor,
-  type Table,
-  type DomainError,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -76,6 +76,13 @@ type ComputedFieldCascadeService = {
       hasDbStorageTypeChange?: boolean;
     }
   ): Promise<Result<void, DomainError>>;
+};
+
+type FieldValueChangeSet = {
+  selfBackfillFieldIds: ReadonlyArray<FieldId>;
+  valueChangedFieldIds: ReadonlyArray<FieldId>;
+  deferredBackfillFieldIds: ReadonlyArray<FieldId>;
+  hasDbStorageTypeChange: boolean;
 };
 
 const ensureDbFieldNames = (fields: ReadonlyArray<Field>): Result<void, DomainError> => {
@@ -241,9 +248,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     context: IExecutionContext,
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<Table, DomainError>> {
     const repository = this;
-    return await safeTry<void, DomainError>(async function* () {
+    return await safeTry<Table, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
 
       const { schema, tableName } = yield* table
@@ -311,11 +318,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         }
       }
 
-      const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
-      yield* mutateSpec.accept(valueChangeVisitor);
-      const selfBackfillFieldIds = valueChangeVisitor.selfBackfillFields();
-      const valueChangedFieldIds = valueChangeVisitor.valueChangedFields();
-      const deferredBackfillFieldIds = valueChangeVisitor.deferredBackfillFields();
+      const valueChanges = yield* repository.collectFieldValueChanges(mutateSpec);
 
       const backfillVisitor = new TableAddFieldCollectorVisitor();
       yield* mutateSpec.accept(backfillVisitor);
@@ -338,34 +341,59 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       // Re-ensure dbFieldNames after mutation: specs like TableUpdateFieldNameSpec
       // replace fields via duplicate() which drops the dbFieldName.
       yield* ensureDbFieldNames(table.getFields());
-      if (selfBackfillFieldIds.length > 0 || valueChangedFieldIds.length > 0) {
+      if (
+        valueChanges.selfBackfillFieldIds.length > 0 ||
+        valueChanges.valueChangedFieldIds.length > 0
+      ) {
         yield* await repository.cascadeService.cascade(context, {
           table,
-          selfBackfillFieldIds,
-          valueChangedFieldIds,
-          deferredBackfillFieldIds,
-          hasDbStorageTypeChange: valueChangeVisitor.hasDbStorageTypeChange(),
+          selfBackfillFieldIds: valueChanges.selfBackfillFieldIds,
+          valueChangedFieldIds: valueChanges.valueChangedFieldIds,
+          deferredBackfillFieldIds: valueChanges.deferredBackfillFieldIds,
+          hasDbStorageTypeChange: valueChanges.hasDbStorageTypeChange,
         });
       }
 
-      return ok(undefined);
+      const nextTable = yield* await repository.refreshInMemoryTableAfterUpdate(
+        context,
+        table,
+        valueChanges.valueChangedFieldIds
+      );
+      yield* await repository.recordPostPersistActionTriggers(context, nextTable, valueChanges);
+      yield* await repository.scheduleDeferredBackfillAfterUpdate(context, nextTable, valueChanges);
+
+      return ok(nextTable);
+    });
+  }
+
+  private collectFieldValueChanges(
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Result<FieldValueChangeSet, DomainError> {
+    const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
+    const acceptResult = mutateSpec.accept(valueChangeVisitor);
+    if (acceptResult.isErr()) return err(acceptResult.error);
+
+    return ok({
+      selfBackfillFieldIds: valueChangeVisitor.selfBackfillFields(),
+      valueChangedFieldIds: valueChangeVisitor.valueChangedFields(),
+      deferredBackfillFieldIds: valueChangeVisitor.deferredBackfillFields(),
+      hasDbStorageTypeChange: valueChangeVisitor.hasDbStorageTypeChange(),
     });
   }
 
   @TraceSpan()
-  async refreshInMemoryTableAfterUpdate(
+  private async refreshInMemoryTableAfterUpdate(
     context: IExecutionContext,
     table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+    valueChangedFieldIds: ReadonlyArray<FieldId>
   ): Promise<Result<Table, DomainError>> {
-    const repository = this;
-    return await safeTry<Table, DomainError>(async function* () {
-      const selectFieldIds = yield* repository.collectChangedSelectFieldIds(table, mutateSpec);
+    try {
+      const selectFieldIds = this.collectChangedSelectFieldIds(table, valueChangedFieldIds);
       if (selectFieldIds.length === 0) {
         return ok(table);
       }
 
-      const db = resolvePostgresDb(repository.db, context);
+      const db = resolvePostgresDb(this.db, context);
       const rows = await db
         .selectFrom('field')
         .select(['id', 'options'])
@@ -382,7 +410,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
       const optionsByFieldId = new Map<string, ReadonlyArray<SelectOption>>();
       for (const row of rows) {
-        const optionsResult = repository.parseSelectOptions(row.options);
+        const optionsResult = this.parseSelectOptions(row.options);
         if (optionsResult.isErr()) return err(optionsResult.error);
         optionsByFieldId.set(row.id, optionsResult.value);
       }
@@ -397,27 +425,30 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       }
 
       return ok(nextTable);
-    });
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to refresh in-memory table after schema update: ${describeError(error)}`,
+        })
+      );
+    }
   }
 
   @TraceSpan()
-  async collectPostPersistPresenceEventsAfterUpdate(
+  private async recordPostPersistActionTriggers(
     context: IExecutionContext,
     table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
+    valueChanges: FieldValueChangeSet
+  ): Promise<Result<void, DomainError>> {
     const repository = this;
-    return safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-      const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
-      yield* mutateSpec.accept(valueChangeVisitor);
-
+    return safeTry<void, DomainError>(async function* () {
       const changedFieldIds = dedupeFieldIds([
-        ...valueChangeVisitor.selfBackfillFields(),
-        ...valueChangeVisitor.valueChangedFields(),
-        ...valueChangeVisitor.deferredBackfillFields(),
+        ...valueChanges.selfBackfillFieldIds,
+        ...valueChanges.valueChangedFieldIds,
+        ...valueChanges.deferredBackfillFieldIds,
       ]);
       if (changedFieldIds.length === 0) {
-        return ok([]);
+        return ok(undefined);
       }
 
       const actionTriggerTargets = new Map<
@@ -462,7 +493,6 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         addActionTriggerTarget(step.tableId, step.fieldIds);
       }
 
-      const events: IDomainEvent[] = [];
       for (const target of actionTriggerTargets.values()) {
         let targetBaseId = target.baseId;
         if (!targetBaseId) {
@@ -475,43 +505,55 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           }
         }
 
-        events.push(
-          TableActionTriggerRequested.create({
-            tableId: target.tableId,
-            baseId: targetBaseId ?? table.baseId(),
-            actionKey: 'setRecord',
-            payload: {
-              tableId: target.tableId.toString(),
-              fieldIds: [...target.fieldIds],
-            },
-          })
-        );
+        table.requestActionTrigger({
+          tableId: target.tableId,
+          baseId: targetBaseId ?? table.baseId(),
+          actionKey: 'setRecord',
+          payload: {
+            tableId: target.tableId.toString(),
+            fieldIds: [...target.fieldIds],
+          },
+        });
       }
 
-      return ok(events);
+      return ok(undefined);
     });
   }
 
   @TraceSpan()
-  async replayDeferredBackfillAfterUpdate(
+  private async scheduleDeferredBackfillAfterUpdate(
     context: IExecutionContext,
     table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+    valueChanges: FieldValueChangeSet
+  ): Promise<Result<void, DomainError>> {
+    if (valueChanges.deferredBackfillFieldIds.length === 0) {
+      return ok(undefined);
+    }
+
+    scheduleTableUpdateDeferredTask(context, async () =>
+      this.replayDeferredBackfillAfterUpdate(
+        context,
+        resolveLatestTableInTransactionScope(context, table.id(), table),
+        valueChanges
+      )
+    );
+
+    return ok(undefined);
+  }
+
+  @TraceSpan()
+  private async replayDeferredBackfillAfterUpdate(
+    context: IExecutionContext,
+    table: Table,
+    valueChanges: FieldValueChangeSet
   ): Promise<Result<void, DomainError>> {
     const repository = this;
     return await safeTry<void, DomainError>(async function* () {
-      const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
-      yield* mutateSpec.accept(valueChangeVisitor);
-      const deferredBackfillFieldIds = valueChangeVisitor.deferredBackfillFields();
-      if (deferredBackfillFieldIds.length === 0) {
-        return ok(undefined);
-      }
-
       yield* await repository.cascadeService.cascade(context, {
         table,
         selfBackfillFieldIds: [],
-        valueChangedFieldIds: deferredBackfillFieldIds,
-        hasDbStorageTypeChange: valueChangeVisitor.hasDbStorageTypeChange(),
+        valueChangedFieldIds: valueChanges.deferredBackfillFieldIds,
+        hasDbStorageTypeChange: valueChanges.hasDbStorageTypeChange,
       });
 
       return ok(undefined);
@@ -544,15 +586,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
   private collectChangedSelectFieldIds(
     table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Result<ReadonlyArray<FieldId>, DomainError> {
-    const valueChangeVisitor = new FieldValueChangeCollectorVisitor();
-    const acceptResult = mutateSpec.accept(valueChangeVisitor);
-    if (acceptResult.isErr()) return err(acceptResult.error);
-
-    const fieldIds = valueChangeVisitor.valueChangedFields();
-    if (fieldIds.length === 0) return ok([]);
-
+    fieldIds: ReadonlyArray<FieldId>
+  ): ReadonlyArray<FieldId> {
+    if (fieldIds.length === 0) return [];
     const selectFieldIds: FieldId[] = [];
     for (const fieldId of fieldIds) {
       const fieldResult = table.getField((field) => field.id().equals(fieldId));
@@ -563,7 +599,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       }
     }
 
-    return ok(selectFieldIds);
+    return selectFieldIds;
   }
 
   private parseSelectOptions(raw: unknown): Result<ReadonlyArray<SelectOption>, DomainError> {

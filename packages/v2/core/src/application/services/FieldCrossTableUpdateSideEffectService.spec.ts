@@ -2,33 +2,31 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { TableUpdateFlow } from './TableUpdateFlow';
-import { FieldCrossTableUpdateSideEffectService } from './FieldCrossTableUpdateSideEffectService';
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { DbFieldName } from '../../domain/table/fields/DbFieldName';
-import { FieldId } from '../../domain/table/fields/FieldId';
 import {
   createConditionalLookupFieldPending,
   createLookupFieldPending,
   createNewLinkField,
 } from '../../domain/table/fields/FieldFactory';
+import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import { ConditionalLookupField } from '../../domain/table/fields/types/ConditionalLookupField';
+import type { ConditionalLookupField } from '../../domain/table/fields/types/ConditionalLookupField';
 import { ConditionalLookupOptions } from '../../domain/table/fields/types/ConditionalLookupOptions';
-import { LinkField } from '../../domain/table/fields/types/LinkField';
+import type { LinkField } from '../../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
-import { LookupField } from '../../domain/table/fields/types/LookupField';
+import type { LookupField } from '../../domain/table/fields/types/LookupField';
 import { LookupOptions } from '../../domain/table/fields/types/LookupOptions';
 import { NumberField } from '../../domain/table/fields/types/NumberField';
 import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { SingleSelectField } from '../../domain/table/fields/types/SingleSelectField';
+import { UpdateSingleSelectOptionsSpec } from '../../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableByIdSpec } from '../../domain/table/specs/TableByIdSpec';
-import { UpdateSingleSelectOptionsSpec } from '../../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
@@ -39,6 +37,8 @@ import { MemoryTableRepository } from '../../ports/memory/MemoryTableRepository'
 import type { ITableRepository } from '../../ports/TableRepository';
 import type { ITableSchemaRepository } from '../../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
+import { FieldCrossTableUpdateSideEffectService } from './FieldCrossTableUpdateSideEffectService';
+import { TableUpdateFlow } from './TableUpdateFlow';
 
 const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
@@ -58,10 +58,10 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async update(
     _: IExecutionContext,
-    __: Table,
+    table: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ): Promise<Result<Table, DomainError>> {
+    return ok(table);
   }
 
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {

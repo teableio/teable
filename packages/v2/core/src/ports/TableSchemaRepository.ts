@@ -16,6 +16,6 @@ export interface ITableSchemaRepository {
     context: IExecutionContext,
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>>;
+  ): Promise<Result<Table, DomainError>>;
   delete(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
 }

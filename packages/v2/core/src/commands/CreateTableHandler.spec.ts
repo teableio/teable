@@ -126,10 +126,10 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async update(
     _context: IExecutionContext,
-    _table: Table,
+    table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ) {
-    return ok(undefined);
+    return ok(table);
   }
 
   async delete(_context: IExecutionContext, _table: Table) {

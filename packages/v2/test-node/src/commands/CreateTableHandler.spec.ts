@@ -469,7 +469,7 @@ describe('CreateTableHandler', () => {
       }
 
       async update(_: IExecutionContext, __: Table, ___: ISpecification<Table, ITableSpecVisitor>) {
-        return ok(undefined);
+        return this.fail();
       }
 
       async delete(_: IExecutionContext, __: Table) {

@@ -21,6 +21,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Command handlers may orchestrate ports and application services, but must not call other command
   handlers or re-dispatch commands through `ICommandBus`.
 - Shared write behavior belongs in `application/services/` and is reused by handlers.
+- Repository-specific post-persist work (for example schema refresh, backfill replay, or
+  repository-originated action-trigger collection) stays inside the repository `create/update/delete`
+  method. Application flows may only consume the returned aggregate and its domain events.
 
 ## Files
 

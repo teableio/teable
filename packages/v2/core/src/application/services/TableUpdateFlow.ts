@@ -20,6 +20,12 @@ import * as TableRepositoryPort from '../../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
+import {
+  abortTableUpdateTransactionScope,
+  enterTableUpdateTransactionScope,
+  flushTableUpdateTransactionScope,
+  recordLatestTableInTransactionScope,
+} from './TableUpdateTransactionScope';
 
 type TableUpdateMutate = (table: Table) => Result<TableUpdateResult, DomainError>;
 type TableUpdateFlowHook = (
@@ -49,32 +55,11 @@ type TableUpdateFlowOptions = {
 };
 
 type TableUpdateFlowHooks = {
+  // These hooks are for command/application side effects only. Repository-owned
+  // post-persist work must stay behind the repository method boundary and flow
+  // back out as aggregate domain events on the returned table.
   prepare?: TableUpdateFlowHook;
   afterPersist?: TableUpdateFlowHook;
-};
-
-type TableSchemaRepositoryRefresher = {
-  refreshInMemoryTableAfterUpdate(
-    context: IExecutionContext,
-    table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, DomainError>>;
-};
-
-type TableSchemaRepositoryDeferredBackfillReplayer = {
-  replayDeferredBackfillAfterUpdate(
-    context: IExecutionContext,
-    table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>>;
-};
-
-type TableSchemaRepositoryPostPersistPresenceEventCollector = {
-  collectPostPersistPresenceEventsAfterUpdate(
-    context: IExecutionContext,
-    table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>>;
 };
 
 export type TableUpdateFlowResult = {
@@ -92,36 +77,6 @@ const normalizeHookResult = (
     };
   }
   return { events: result };
-};
-
-const isTableSchemaRepositoryRefresher = (
-  repository: TableSchemaRepositoryPort.ITableSchemaRepository
-): repository is TableSchemaRepositoryPort.ITableSchemaRepository &
-  TableSchemaRepositoryRefresher => {
-  return (
-    typeof (repository as Partial<TableSchemaRepositoryRefresher>)
-      .refreshInMemoryTableAfterUpdate === 'function'
-  );
-};
-
-const isTableSchemaRepositoryDeferredBackfillReplayer = (
-  repository: TableSchemaRepositoryPort.ITableSchemaRepository
-): repository is TableSchemaRepositoryPort.ITableSchemaRepository &
-  TableSchemaRepositoryDeferredBackfillReplayer => {
-  return (
-    typeof (repository as Partial<TableSchemaRepositoryDeferredBackfillReplayer>)
-      .replayDeferredBackfillAfterUpdate === 'function'
-  );
-};
-
-const isTableSchemaRepositoryPostPersistPresenceEventCollector = (
-  repository: TableSchemaRepositoryPort.ITableSchemaRepository
-): repository is TableSchemaRepositoryPort.ITableSchemaRepository &
-  TableSchemaRepositoryPostPersistPresenceEventCollector => {
-  return (
-    typeof (repository as Partial<TableSchemaRepositoryPostPersistPresenceEventCollector>)
-      .collectPostPersistPresenceEventsAfterUpdate === 'function'
-  );
 };
 
 @injectable()
@@ -149,7 +104,7 @@ export class TableUpdateFlow {
     const handler = this;
     return await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
       const events: IDomainEvent[] = [];
-      const presenceEvents: IDomainEvent[] = [];
+      const postPersistEvents: IDomainEvent[] = [];
       const table = yield* await handler.resolveTable(context, target);
       let tableUpdatePersistResult: TableRepositoryPort.TableUpdatePersistResult | void = undefined;
 
@@ -162,72 +117,61 @@ export class TableUpdateFlow {
       events.push(...hostEvents);
 
       const mutateSpec = updated.mutateSpec;
-      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
-        return safeTry<void, DomainError>(async function* () {
-          if (options?.hooks?.prepare) {
-            const prepareHookResult = yield* await options.hooks.prepare(
-              transactionContext,
-              latestTable,
-              mutateSpec
-            );
-            const normalizedResult = normalizeHookResult(prepareHookResult);
-            events.push(...normalizedResult.events);
-            latestTable = normalizedResult.table ?? latestTable;
-          }
+      let transactionContextRef: IExecutionContext | undefined;
+      const transactionResult = await handler.unitOfWork.withTransaction(
+        context,
+        async (transactionContext) => {
+          transactionContextRef = transactionContext;
+          return safeTry<void, DomainError>(async function* () {
+            enterTableUpdateTransactionScope(transactionContext);
 
-          tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
-            transactionContext,
-            latestTable,
-            mutateSpec
-          );
-          yield* await handler.tableSchemaRepository.update(
-            transactionContext,
-            latestTable,
-            mutateSpec
-          );
-
-          if (isTableSchemaRepositoryRefresher(handler.tableSchemaRepository)) {
-            latestTable =
-              yield* await handler.tableSchemaRepository.refreshInMemoryTableAfterUpdate(
+            if (options?.hooks?.prepare) {
+              const prepareHookResult = yield* await options.hooks.prepare(
                 transactionContext,
                 latestTable,
                 mutateSpec
               );
-          }
+              const normalizedResult = normalizeHookResult(prepareHookResult);
+              events.push(...normalizedResult.events);
+              latestTable = normalizedResult.table ?? latestTable;
+            }
 
-          if (
-            isTableSchemaRepositoryPostPersistPresenceEventCollector(handler.tableSchemaRepository)
-          ) {
-            const postPersistPresenceEvents =
-              yield* await handler.tableSchemaRepository.collectPostPersistPresenceEventsAfterUpdate(
+            tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
+              transactionContext,
+              latestTable,
+              mutateSpec
+            );
+            latestTable = yield* await handler.tableSchemaRepository.update(
+              transactionContext,
+              latestTable,
+              mutateSpec
+            );
+            recordLatestTableInTransactionScope(transactionContext, latestTable);
+            postPersistEvents.push(...latestTable.pullDomainEvents());
+
+            if (options?.hooks?.afterPersist) {
+              const afterPersistHookResult = yield* await options.hooks.afterPersist(
                 transactionContext,
                 latestTable,
                 mutateSpec
               );
-            presenceEvents.push(...postPersistPresenceEvents);
-          }
+              const normalizedResult = normalizeHookResult(afterPersistHookResult);
+              events.push(...normalizedResult.events);
+              latestTable = normalizedResult.table ?? latestTable;
+              recordLatestTableInTransactionScope(transactionContext, latestTable);
+            }
 
-          if (options?.hooks?.afterPersist) {
-            const afterPersistHookResult = yield* await options.hooks.afterPersist(
-              transactionContext,
-              latestTable,
-              mutateSpec
-            );
-            const normalizedResult = normalizeHookResult(afterPersistHookResult);
-            events.push(...normalizedResult.events);
-            latestTable = normalizedResult.table ?? latestTable;
-          }
-
-          if (isTableSchemaRepositoryDeferredBackfillReplayer(handler.tableSchemaRepository)) {
-            yield* await handler.tableSchemaRepository.replayDeferredBackfillAfterUpdate(
-              transactionContext,
-              latestTable,
-              mutateSpec
-            );
-          }
-          return ok(undefined);
-        });
-      });
+            yield* await flushTableUpdateTransactionScope(transactionContext);
+            return ok(undefined);
+          });
+        }
+      );
+      if (transactionResult.isErr()) {
+        if (transactionContextRef) {
+          abortTableUpdateTransactionScope(transactionContextRef);
+        }
+        return err(transactionResult.error);
+      }
 
       const normalizedEvents = handler.attachFieldEventVersions(events, tableUpdatePersistResult);
 
@@ -236,8 +180,8 @@ export class TableUpdateFlow {
         if (normalizedEvents.length > 0) {
           yield* await handler.eventBus.publishMany(context, normalizedEvents);
         }
-        if (presenceEvents.length > 0) {
-          yield* await handler.eventBus.publishMany(context, presenceEvents);
+        if (postPersistEvents.length > 0) {
+          yield* await handler.eventBus.publishMany(context, postPersistEvents);
         }
       }
       return ok({ table: latestTable, events: normalizedEvents });

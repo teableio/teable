@@ -407,6 +407,7 @@ export * from './ports/TableRecordStreamPaginationStrategy';
 export * from './ports/TableRecordRepository';
 export * from './ports/RecordCreateConstraintService';
 export { RecordCreateConstraintService } from './application/services/RecordCreateConstraintService';
+export * from './application/services/TableUpdateTransactionScope';
 export * from './ports/TableSchemaRepository';
 export * from './ports/UnitOfWork';
 export * from './ports/UndoRedoStore';

@@ -18,8 +18,8 @@ import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
-import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
@@ -159,10 +159,10 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
   async update(
     _context: IExecutionContext,
-    _table: Table,
+    table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, DomainError>> {
-    return ok(undefined);
+  ): Promise<Result<Table, DomainError>> {
+    return ok(table);
   }
 
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
