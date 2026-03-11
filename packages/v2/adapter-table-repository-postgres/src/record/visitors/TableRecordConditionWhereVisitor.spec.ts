@@ -15,6 +15,8 @@ import {
   Table,
   TableId,
   TableName,
+  UserConditionSpec,
+  UserMultiplicity,
 } from '@teable/v2-core';
 import {
   DummyDriver,
@@ -144,15 +146,48 @@ const createTestTable = () => {
  */
 const buildWhereFor = (
   db: ReturnType<typeof createTestDb>,
-  spec: { accept: (v: TableRecordConditionWhereVisitor) => { isErr: () => boolean } }
+  spec: { accept: (v: TableRecordConditionWhereVisitor) => { isErr: () => boolean } },
+  options?: { tableAlias?: string; hostTableAlias?: string }
 ) => {
-  const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 't' });
+  const visitor = new TableRecordConditionWhereVisitor({ tableAlias: 't', ...options });
   const acceptResult = spec.accept(visitor);
   expect(acceptResult.isErr()).toBe(false);
   const whereResult = visitor.where();
   expect(whereResult.isOk()).toBe(true);
   if (whereResult.isErr()) throw new Error('where() failed');
   return compileWhere(db, whereResult.value);
+};
+
+const createUserReferenceFields = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('UserReferenceFilterTable')._unsafeUnwrap());
+
+  builder.field().user().withName(FieldName.create('Owner')._unsafeUnwrap()).done();
+  builder
+    .field()
+    .user()
+    .withName(FieldName.create('Assignees')._unsafeUnwrap())
+    .withMultiplicity(UserMultiplicity.multiple())
+    .done();
+  builder.view().defaultGrid().done();
+
+  const table = builder.build()._unsafeUnwrap();
+  const ownerField = table.getField((field) => field.name().toString() === 'Owner')._unsafeUnwrap();
+  const assigneesField = table
+    .getField((field) => field.name().toString() === 'Assignees')
+    ._unsafeUnwrap();
+
+  ownerField.setDbFieldName(DbFieldName.rehydrate('col_owner')._unsafeUnwrap())._unsafeUnwrap();
+  assigneesField
+    .setDbFieldName(DbFieldName.rehydrate('col_assignees')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { ownerField, assigneesField };
 };
 
 // ============================================================================
@@ -395,6 +430,50 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
 
       expect(sql).toMatchInlineSnapshot(`""t"."col_score" <= $1"`);
       expect(parameters).toEqual([100]);
+    });
+  });
+
+  describe('user field reference operators', () => {
+    test('single user is multi user field reference uses overlap match with host alias', () => {
+      const userDb = createTestDb();
+      const { ownerField, assigneesField } = createUserReferenceFields();
+      const spec = UserConditionSpec.create(
+        ownerField,
+        'is',
+        RecordConditionFieldReferenceValue.create(assigneesField)._unsafeUnwrap()
+      );
+
+      const { sql, parameters } = buildWhereFor(userDb, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+
+      expect(sql).toContain('jsonb_exists_any');
+      expect(sql).toContain('to_jsonb("f"."col_owner")');
+      expect(sql).toContain('jsonb_path_query_array(CASE');
+      expect(sql).toContain('to_jsonb("t"."col_assignees")');
+      expect(parameters).toEqual([]);
+    });
+
+    test('single user isNot multi user field reference uses anti-match with host alias', () => {
+      const userDb = createTestDb();
+      const { ownerField, assigneesField } = createUserReferenceFields();
+      const spec = UserConditionSpec.create(
+        ownerField,
+        'isNot',
+        RecordConditionFieldReferenceValue.create(assigneesField)._unsafeUnwrap()
+      );
+
+      const { sql, parameters } = buildWhereFor(userDb, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+
+      expect(sql).toContain('NOT EXISTS');
+      expect(sql).toContain('jsonb_array_elements_text');
+      expect(sql).toContain('to_jsonb("f"."col_owner")');
+      expect(sql).toContain('to_jsonb("t"."col_assignees")');
+      expect(parameters).toEqual([]);
     });
   });
 });

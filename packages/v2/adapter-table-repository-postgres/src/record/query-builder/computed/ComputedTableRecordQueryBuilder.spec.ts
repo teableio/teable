@@ -1,5 +1,6 @@
 import {
   BaseId,
+  ConditionalLookupOptions,
   ConditionalRollupConfig,
   DateTimeFormatting,
   NumberFormatting,
@@ -19,6 +20,7 @@ import {
   Table,
   TableId,
   TableName,
+  UserMultiplicity,
 } from '@teable/v2-core';
 import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import {
@@ -1774,6 +1776,152 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toMatchInlineSnapshot(
         `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("cond_fldcccccccccccccccc_src"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select * from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = "t"."col_category_ref" order by "f"."__auto_number" asc limit $1) as "cond_fldcccccccccccccccc_src") as "cond_fldcccccccccccccccc" on true"`
       );
+    });
+  });
+
+  describe('conditional lookup field', () => {
+    const CONDITIONAL_LOOKUP_FIELD_ID = `fld${'q'.repeat(16)}`;
+    const FOREIGN_TITLE_FIELD_ID = `fld${'r'.repeat(16)}`;
+    const FOREIGN_OWNER_FIELD_ID = `fld${'o'.repeat(16)}`;
+    const HOST_ASSIGNEES_FIELD_ID = `fld${'a'.repeat(16)}`;
+
+    const createConditionalLookupTable = (operator: 'is' | 'isNot') => {
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const conditionalLookupFieldId = FieldId.create(CONDITIONAL_LOOKUP_FIELD_ID)._unsafeUnwrap();
+      const foreignTitleFieldId = FieldId.create(FOREIGN_TITLE_FIELD_ID)._unsafeUnwrap();
+      const foreignOwnerFieldId = FieldId.create(FOREIGN_OWNER_FIELD_ID)._unsafeUnwrap();
+      const hostAssigneesFieldId = FieldId.create(HOST_ASSIGNEES_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ConditionalLookupForeignTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignTitleFieldId)
+        .withName(FieldName.create('Task')._unsafeUnwrap())
+        .done();
+      foreignBuilder
+        .field()
+        .user()
+        .withId(foreignOwnerFieldId)
+        .withName(FieldName.create('Owner')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      const foreignTitleField = foreignTable
+        .getField((f) => f.id().equals(foreignTitleFieldId))
+        ._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_task')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      foreignTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_owner')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const conditionalLookupOptions = ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignTitleFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: foreignOwnerFieldId.toString(),
+                operator,
+                value: hostAssigneesFieldId.toString(),
+                isSymbol: true,
+              },
+            ],
+          },
+        },
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ConditionalLookupHostTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .user()
+        .withId(hostAssigneesFieldId)
+        .withName(FieldName.create('Assignees')._unsafeUnwrap())
+        .withMultiplicity(UserMultiplicity.multiple())
+        .done();
+      mainBuilder
+        .field()
+        .conditionalLookup()
+        .withId(conditionalLookupFieldId)
+        .withName(FieldName.create('MatchingTasks')._unsafeUnwrap())
+        .withConditionalLookupOptions(conditionalLookupOptions)
+        .withInnerField(foreignTitleField)
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_assignees')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_matching_tasks')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      return { mainTable, foreignTable, foreignTableId };
+    };
+
+    test('conditional lookup snapshot with single user is multi user field reference filter', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('is');
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).toContain('inner join lateral');
+      expect(sql).toContain('jsonb_exists_any');
+      expect(sql).toContain('to_jsonb("f"."col_owner")');
+      expect(sql).toContain('to_jsonb("t"."col_assignees")');
+      expect(parameters).toEqual([
+        '/api/attachments/read/public/avatar/',
+        '/api/attachments/read/public/avatar/',
+        5000,
+      ]);
+    });
+
+    test('conditional lookup snapshot with single user isNot multi user field reference filter', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('isNot');
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).toContain('inner join lateral');
+      expect(sql).toContain('NOT EXISTS');
+      expect(sql).toContain('jsonb_array_elements_text');
+      expect(sql).toContain('to_jsonb("f"."col_owner")');
+      expect(sql).toContain('to_jsonb("t"."col_assignees")');
+      expect(parameters).toEqual([
+        '/api/attachments/read/public/avatar/',
+        '/api/attachments/read/public/avatar/',
+        5000,
+      ]);
     });
   });
 

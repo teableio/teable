@@ -9,6 +9,8 @@ import { NumberField } from '../../fields/types/NumberField';
 import { SelectOption } from '../../fields/types/SelectOption';
 import { SingleLineTextField } from '../../fields/types/SingleLineTextField';
 import { SingleSelectField } from '../../fields/types/SingleSelectField';
+import { UserField } from '../../fields/types/UserField';
+import { UserMultiplicity } from '../../fields/types/UserMultiplicity';
 import { TableId } from '../../TableId';
 import { RecordId } from '../RecordId';
 import { TableRecord } from '../TableRecord';
@@ -25,6 +27,7 @@ import {
 } from './RecordConditionValues';
 import { SingleLineTextConditionSpec } from './SingleLineTextConditionSpec';
 import { SingleSelectConditionSpec } from './SingleSelectConditionSpec';
+import { UserConditionSpec } from './UserConditionSpec';
 
 const fieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const fieldName = (name: string) => FieldName.create(name)._unsafeUnwrap();
@@ -88,6 +91,29 @@ const buildBaseRecord = () => {
     id: fieldId('l'),
     name: fieldName('Flag'),
   })._unsafeUnwrap();
+  const ownerField = UserField.create({
+    id: fieldId('m'),
+    name: fieldName('Owner'),
+    isMultiple: UserMultiplicity.single(),
+  })._unsafeUnwrap();
+  const assigneesField = UserField.create({
+    id: fieldId('n'),
+    name: fieldName('Assignees'),
+    isMultiple: UserMultiplicity.multiple(),
+  })._unsafeUnwrap();
+  const manyAssigneesField = UserField.create({
+    id: fieldId('o'),
+    name: fieldName('ManyAssignees'),
+    isMultiple: UserMultiplicity.multiple(),
+  })._unsafeUnwrap();
+  const otherOwnerField = UserField.create({
+    id: fieldId('p'),
+    name: fieldName('OtherOwner'),
+    isMultiple: UserMultiplicity.single(),
+  })._unsafeUnwrap();
+
+  const alice = { id: 'usrAlice', title: 'Alice' };
+  const bob = { id: 'usrBob', title: 'Bob' };
 
   const record = TableRecord.create({
     id: recordId('a'),
@@ -105,6 +131,10 @@ const buildBaseRecord = () => {
       { fieldId: referenceTargetField.id(), value: cell('match') },
       { fieldId: referenceListField.id(), value: cell(['Alpha', 'Beta']) },
       { fieldId: checkboxField.id(), value: cell(true) },
+      { fieldId: ownerField.id(), value: cell(alice) },
+      { fieldId: assigneesField.id(), value: cell([alice]) },
+      { fieldId: manyAssigneesField.id(), value: cell([alice, bob]) },
+      { fieldId: otherOwnerField.id(), value: cell(bob) },
     ],
   })._unsafeUnwrap();
 
@@ -122,6 +152,10 @@ const buildBaseRecord = () => {
     referenceTargetField,
     referenceListField,
     checkboxField,
+    ownerField,
+    assigneesField,
+    manyAssigneesField,
+    otherOwnerField,
   };
 };
 
@@ -258,7 +292,7 @@ describe('RecordConditionSpec evaluation', () => {
   it('handles empty operators and missing values', () => {
     const { record, emptyStringField, emptyArrayField } = buildBaseRecord();
     const missingField = SingleLineTextField.create({
-      id: fieldId('m'),
+      id: fieldId('z'),
       name: fieldName('Missing'),
     })._unsafeUnwrap();
 
@@ -304,6 +338,49 @@ describe('RecordConditionSpec evaluation', () => {
     const invalidReference = RecordConditionFieldReferenceValue.create(objectField)._unsafeUnwrap();
     const invalidSpec = SingleLineTextConditionSpec.create(referenceField, 'is', invalidReference);
     expect(invalidSpec.isSatisfiedBy(record)).toBe(false);
+  });
+
+  it('matches user field references across single and multiple values', () => {
+    const { record, ownerField, assigneesField, manyAssigneesField, otherOwnerField } =
+      buildBaseRecord();
+
+    const singleToMulti = UserConditionSpec.create(
+      ownerField,
+      'is',
+      RecordConditionFieldReferenceValue.create(assigneesField)._unsafeUnwrap()
+    );
+    const multiToSingle = UserConditionSpec.create(
+      assigneesField,
+      'is',
+      RecordConditionFieldReferenceValue.create(ownerField)._unsafeUnwrap()
+    );
+    const multiToSingleMismatch = UserConditionSpec.create(
+      manyAssigneesField,
+      'is',
+      RecordConditionFieldReferenceValue.create(ownerField)._unsafeUnwrap()
+    );
+    const multiToOtherSingle = UserConditionSpec.create(
+      assigneesField,
+      'is',
+      RecordConditionFieldReferenceValue.create(otherOwnerField)._unsafeUnwrap()
+    );
+    const singleToMultiIsNot = UserConditionSpec.create(
+      otherOwnerField,
+      'isNot',
+      RecordConditionFieldReferenceValue.create(assigneesField)._unsafeUnwrap()
+    );
+    const multiToSingleIsNot = UserConditionSpec.create(
+      manyAssigneesField,
+      'isNot',
+      RecordConditionFieldReferenceValue.create(ownerField)._unsafeUnwrap()
+    );
+
+    expect(singleToMulti.isSatisfiedBy(record)).toBe(true);
+    expect(multiToSingle.isSatisfiedBy(record)).toBe(true);
+    expect(multiToSingleMismatch.isSatisfiedBy(record)).toBe(false);
+    expect(multiToOtherSingle.isSatisfiedBy(record)).toBe(false);
+    expect(singleToMultiIsNot.isSatisfiedBy(record)).toBe(true);
+    expect(multiToSingleIsNot.isSatisfiedBy(record)).toBe(true);
   });
 
   it('returns false for unsupported operators and still mutates ok', () => {

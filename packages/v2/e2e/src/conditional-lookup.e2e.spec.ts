@@ -544,10 +544,29 @@ describe('v2 http conditional lookup (e2e)', () => {
   });
 
   describe('user field filter lookup', () => {
-    it('should match single user against multi user reference', async () => {
+    const listUserIds = (value: unknown): string[] =>
+      Array.isArray(value)
+        ? value.flatMap((entry) => {
+            if (typeof entry !== 'object' || entry == null || !('id' in entry)) {
+              return [];
+            }
+            const id = (entry as { id?: unknown }).id;
+            return typeof id === 'string' ? [id] : [];
+          })
+        : [];
+
+    const setupSingleOwnerVsMultiAssigneesLookup = async (operator: 'is' | 'isNot') => {
       const titleFieldId = createFieldId();
       const ownerFieldId = createFieldId();
-      const userCell = { id: ctx.testUser.id, title: ctx.testUser.name };
+      const assigneesFieldId = createFieldId();
+      const aliceCell = { id: ctx.testUser.id, title: ctx.testUser.name };
+      const bobCell = { id: 'usrConditionalLookupUserBob', title: 'Bob' };
+
+      await sql`
+        insert into users (id, name, email)
+        values (${bobCell.id}, ${bobCell.title}, ${'bob+conditional-lookup@e2e.com'})
+        on conflict (id) do nothing
+      `.execute(ctx.testContainer.db);
 
       const foreign = await createTable({
         baseId: ctx.baseId,
@@ -562,13 +581,12 @@ describe('v2 http conditional lookup (e2e)', () => {
           },
         ],
         records: [
-          { fields: { [titleFieldId]: 'Task Alpha', [ownerFieldId]: userCell } },
-          { fields: { [titleFieldId]: 'Task Beta', [ownerFieldId]: userCell } },
-          { fields: { [titleFieldId]: 'Task Gamma' } },
+          { fields: { [titleFieldId]: 'Task Alpha', [ownerFieldId]: aliceCell } },
+          { fields: { [titleFieldId]: 'Task Beta', [ownerFieldId]: aliceCell } },
+          { fields: { [titleFieldId]: 'Task Gamma', [ownerFieldId]: bobCell } },
         ],
       });
 
-      const assigneesFieldId = createFieldId();
       const host = await createTable({
         baseId: ctx.baseId,
         name: 'ConditionalLookup_User_Host_Multi',
@@ -581,8 +599,8 @@ describe('v2 http conditional lookup (e2e)', () => {
           },
         ],
         records: [
-          { fields: { [assigneesFieldId]: [userCell] } },
-          { fields: { [assigneesFieldId]: null } },
+          { fields: { [assigneesFieldId]: [aliceCell] } },
+          { fields: { [assigneesFieldId]: [bobCell] } },
         ],
       });
 
@@ -600,7 +618,7 @@ describe('v2 http conditional lookup (e2e)', () => {
               filterSet: [
                 {
                   fieldId: ownerFieldId,
-                  operator: 'is',
+                  operator,
                   value: assigneesFieldId,
                   isSymbol: true,
                 },
@@ -613,22 +631,49 @@ describe('v2 http conditional lookup (e2e)', () => {
       await ctx.testContainer.processOutbox();
       await ctx.testContainer.processOutbox();
 
+      return { host, assigneesFieldId, lookupFieldId, aliceCell, bobCell };
+    };
+
+    it('should match single user against multi user reference', async () => {
+      const { host, assigneesFieldId, lookupFieldId, aliceCell, bobCell } =
+        await setupSingleOwnerVsMultiAssigneesLookup('is');
       const hostRecords = await listRecords(host.id);
-      const assignedRecord = hostRecords.find((record) => {
-        const value = record.fields[assigneesFieldId] as Array<unknown> | null | undefined;
-        return Array.isArray(value) && value.length > 0;
-      });
-      const emptyRecord = hostRecords.find((record) => {
-        const value = record.fields[assigneesFieldId] as Array<unknown> | null | undefined;
-        return !value || (Array.isArray(value) && value.length === 0);
-      });
+      const aliceRecord = hostRecords.find((record) =>
+        listUserIds(record.fields[assigneesFieldId]).includes(aliceCell.id)
+      );
+      const bobRecord = hostRecords.find((record) =>
+        listUserIds(record.fields[assigneesFieldId]).includes(bobCell.id)
+      );
 
-      expect(assignedRecord).toBeDefined();
-      expect(emptyRecord).toBeDefined();
+      expect(aliceRecord).toBeDefined();
+      expect(bobRecord).toBeDefined();
 
-      const ownedTasks = [...((assignedRecord!.fields[lookupFieldId] as string[]) ?? [])].sort();
-      expect(ownedTasks).toEqual(['Task Alpha', 'Task Beta']);
-      expect((emptyRecord!.fields[lookupFieldId] as string[] | undefined) ?? []).toEqual([]);
+      const aliceTasks = [...((aliceRecord!.fields[lookupFieldId] as string[]) ?? [])].sort();
+      const bobTasks = [...((bobRecord!.fields[lookupFieldId] as string[]) ?? [])].sort();
+
+      expect(aliceTasks).toEqual(['Task Alpha', 'Task Beta']);
+      expect(bobTasks).toEqual(['Task Gamma']);
+    });
+
+    it('should exclude matching single user against multi user reference with isNot', async () => {
+      const { host, assigneesFieldId, lookupFieldId, aliceCell, bobCell } =
+        await setupSingleOwnerVsMultiAssigneesLookup('isNot');
+      const hostRecords = await listRecords(host.id);
+      const aliceRecord = hostRecords.find((record) =>
+        listUserIds(record.fields[assigneesFieldId]).includes(aliceCell.id)
+      );
+      const bobRecord = hostRecords.find((record) =>
+        listUserIds(record.fields[assigneesFieldId]).includes(bobCell.id)
+      );
+
+      expect(aliceRecord).toBeDefined();
+      expect(bobRecord).toBeDefined();
+
+      const aliceTasks = [...((aliceRecord!.fields[lookupFieldId] as string[]) ?? [])].sort();
+      const bobTasks = [...((bobRecord!.fields[lookupFieldId] as string[]) ?? [])].sort();
+
+      expect(aliceTasks).toEqual(['Task Gamma']);
+      expect(bobTasks).toEqual(['Task Alpha', 'Task Beta']);
     });
   });
 

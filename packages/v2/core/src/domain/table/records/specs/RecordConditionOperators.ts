@@ -220,7 +220,17 @@ export const getValidRecordConditionOperators = (
     fieldType.equals(FieldType.lastModifiedBy())
   ) {
     operators = isMultiple
-      ? ['hasAnyOf', 'hasAllOf', 'isExactly', 'hasNoneOf', 'isNotExactly', 'isEmpty', 'isNotEmpty']
+      ? [
+          'is',
+          'isNot',
+          'hasAnyOf',
+          'hasAllOf',
+          'isExactly',
+          'hasNoneOf',
+          'isNotExactly',
+          'isEmpty',
+          'isNotEmpty',
+        ]
       : ['is', 'isNot', 'isAnyOf', 'isNoneOf', 'isEmpty', 'isNotEmpty'];
   }
 

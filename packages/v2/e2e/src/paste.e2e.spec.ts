@@ -1356,6 +1356,136 @@ describe('v2 http paste (e2e)', () => {
     });
   });
 
+  describe('paste with user field reference updateFilter', () => {
+    let userTableId: string;
+    let userViewId: string;
+    let nameFieldId: string;
+    let ownerFieldId: string;
+    let assigneesFieldId: string;
+
+    const listUserRecords = async () => ctx.listRecords(userTableId);
+
+    beforeAll(async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Paste User UpdateFilter Table',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Owner',
+            type: 'user',
+            options: {
+              isMultiple: false,
+            },
+          },
+          {
+            name: 'Assignees',
+            type: 'user',
+            options: {
+              isMultiple: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      userTableId = table.id;
+      userViewId = table.views[0].id;
+      nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      ownerFieldId = table.fields.find((field) => field.name === 'Owner')?.id ?? '';
+      assigneesFieldId = table.fields.find((field) => field.name === 'Assignees')?.id ?? '';
+
+      const alice = { id: ctx.testUser.id, title: ctx.testUser.name };
+      const bob = { id: 'usrPasteUserRefBob', title: 'Bob' };
+
+      await ctx.testContainer.db
+        .insertInto('users')
+        .values({ id: bob.id, name: bob.title, email: 'bob+paste-filter@e2e.com' })
+        .onConflict((oc) => oc.column('id').doNothing())
+        .execute();
+
+      await ctx.createRecords(userTableId, [
+        {
+          fields: {
+            [nameFieldId]: 'Alpha',
+            [ownerFieldId]: alice,
+            [assigneesFieldId]: [alice],
+          },
+        },
+        {
+          fields: {
+            [nameFieldId]: 'Beta',
+            [ownerFieldId]: alice,
+            [assigneesFieldId]: [alice, bob],
+          },
+        },
+        {
+          fields: {
+            [nameFieldId]: 'Gamma',
+            [ownerFieldId]: bob,
+            [assigneesFieldId]: [alice],
+          },
+        },
+      ]);
+    }, 30000);
+
+    it('should update records when single user equals multi user reference by overlap', async () => {
+      const result = await ctx.paste({
+        tableId: userTableId,
+        viewId: userViewId,
+        ranges: [
+          [0, 0],
+          [0, 2],
+        ],
+        content: [['Owner=Assignees 1'], ['Owner=Assignees 2'], ['Owner=Assignees 3']],
+        updateFilter: {
+          fieldId: ownerFieldId,
+          operator: 'is',
+          value: {
+            type: 'field',
+            fieldId: assigneesFieldId,
+          },
+        },
+      });
+
+      expect(result.updatedCount).toBe(2);
+      expect(result.createdCount).toBe(0);
+
+      const records = await listUserRecords();
+      expect(records[0]?.fields[nameFieldId]).toBe('Owner=Assignees 1');
+      expect(records[1]?.fields[nameFieldId]).toBe('Owner=Assignees 2');
+      expect(records[2]?.fields[nameFieldId]).toBe('Gamma');
+    });
+
+    it('should update records when multi user has exactly one matching single user reference', async () => {
+      const result = await ctx.paste({
+        tableId: userTableId,
+        viewId: userViewId,
+        ranges: [
+          [0, 0],
+          [0, 2],
+        ],
+        content: [['Assignees=Owner 1'], ['Assignees=Owner 2'], ['Assignees=Owner 3']],
+        updateFilter: {
+          fieldId: assigneesFieldId,
+          operator: 'is',
+          value: {
+            type: 'field',
+            fieldId: ownerFieldId,
+          },
+        },
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.createdCount).toBe(0);
+
+      const records = await listUserRecords();
+      expect(records[0]?.fields[nameFieldId]).toBe('Assignees=Owner 1');
+      expect(records[1]?.fields[nameFieldId]).toBe('Owner=Assignees 2');
+      expect(records[2]?.fields[nameFieldId]).toBe('Gamma');
+    });
+  });
+
   describe('paste with type (columns/rows selection)', () => {
     let typeTableId: string;
     let typeViewId: string;

@@ -23,6 +23,30 @@ type ComparisonValue = Primitive | ReadonlyArray<Primitive> | RecordConditionDat
 const isPrimitive = (value: unknown): value is Primitive =>
   typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 
+const isUserLikeField = (field: Field): boolean => {
+  const type = field.type().toString();
+  return type === 'user' || type === 'link' || type === 'createdBy' || type === 'lastModifiedBy';
+};
+
+const extractUserLikePrimitive = (value: unknown): Primitive | undefined => {
+  if (isPrimitive(value)) return value;
+  if (typeof value !== 'object' || value == null || !('id' in value)) {
+    return undefined;
+  }
+  const id = (value as { id?: unknown }).id;
+  return isPrimitive(id) ? id : undefined;
+};
+
+const toUserLikePrimitiveArray = (value: unknown): ReadonlyArray<Primitive> | undefined => {
+  if (Array.isArray(value)) {
+    const values = value.map(extractUserLikePrimitive);
+    return values.every((entry): entry is Primitive => entry !== undefined) ? values : undefined;
+  }
+
+  const single = extractUserLikePrimitive(value);
+  return single === undefined ? undefined : [single];
+};
+
 const toPrimitiveArray = (value: unknown): ReadonlyArray<Primitive> | undefined => {
   if (Array.isArray(value) && value.every(isPrimitive)) return value;
   if (isPrimitive(value)) return [value];
@@ -54,12 +78,68 @@ const resolveComparisonValue = (
   if (isRecordConditionLiteralListValue(value)) return value.toValues();
   if (isRecordConditionDateValue(value)) return value;
   if (isRecordConditionFieldReferenceValue(value)) {
+    if (isUserLikeField(value.field())) {
+      const userLikeValues = toUserLikePrimitiveArray(
+        record.fields().get(value.field().id())?.toValue()
+      );
+      if (!userLikeValues) return undefined;
+      return userLikeValues.length === 1 ? userLikeValues[0] : userLikeValues;
+    }
     const fieldValue = record.fields().get(value.field().id())?.toValue();
     if (Array.isArray(fieldValue) && fieldValue.every(isPrimitive)) return fieldValue;
     if (isPrimitive(fieldValue)) return fieldValue;
     return undefined;
   }
   return undefined;
+};
+
+const hasExactPrimitiveSet = (
+  leftValues: ReadonlyArray<Primitive>,
+  rightValues: ReadonlyArray<Primitive>
+): boolean => {
+  const leftSet = new Set(leftValues);
+  const rightSet = new Set(rightValues);
+
+  if (leftSet.size !== rightSet.size) return false;
+  return rightValues.every((value) => leftSet.has(value));
+};
+
+const evaluateUserLikeOperator = (
+  operator: RecordConditionOperator,
+  recordValue: unknown,
+  comparisonValue: Primitive | ReadonlyArray<Primitive>
+): boolean => {
+  const recordValues = toUserLikePrimitiveArray(recordValue);
+  if (!recordValues) return false;
+
+  const comparisonValues = Array.isArray(comparisonValue) ? comparisonValue : [comparisonValue];
+
+  switch (operator) {
+    case 'is':
+      if (recordValues.length === 1 && comparisonValues.length > 1) {
+        return comparisonValues.includes(recordValues[0]);
+      }
+      return hasExactPrimitiveSet(recordValues, comparisonValues);
+    case 'isNot':
+      if (recordValues.length === 1 && comparisonValues.length > 1) {
+        return !comparisonValues.includes(recordValues[0]);
+      }
+      return !hasExactPrimitiveSet(recordValues, comparisonValues);
+    case 'isAnyOf':
+    case 'hasAnyOf':
+      return comparisonValues.some((value) => recordValues.includes(value));
+    case 'isNoneOf':
+    case 'hasNoneOf':
+      return comparisonValues.every((value) => !recordValues.includes(value));
+    case 'hasAllOf':
+      return comparisonValues.every((value) => recordValues.includes(value));
+    case 'isExactly':
+      return hasExactPrimitiveSet(recordValues, comparisonValues);
+    case 'isNotExactly':
+      return !hasExactPrimitiveSet(recordValues, comparisonValues);
+    default:
+      return false;
+  }
 };
 
 const evaluateArrayOperator = (
@@ -98,12 +178,14 @@ const evaluateScalarOperator = (
   recordValue: unknown,
   comparisonValue: Primitive
 ): boolean => {
-  if (operator === 'is') return Object.is(recordValue, comparisonValue);
-  if (operator === 'isNot') return !Object.is(recordValue, comparisonValue);
+  const normalizedValue = isPrimitive(recordValue) ? recordValue : undefined;
+
+  if (operator === 'is') return Object.is(normalizedValue, comparisonValue);
+  if (operator === 'isNot') return !Object.is(normalizedValue, comparisonValue);
 
   if (operator === 'contains' || operator === 'doesNotContain') {
-    if (typeof recordValue !== 'string' || typeof comparisonValue !== 'string') return false;
-    const contains = recordValue.includes(comparisonValue);
+    if (typeof normalizedValue !== 'string' || typeof comparisonValue !== 'string') return false;
+    const contains = normalizedValue.includes(comparisonValue);
     return operator === 'contains' ? contains : !contains;
   }
 
@@ -113,11 +195,11 @@ const evaluateScalarOperator = (
     operator === 'isLess' ||
     operator === 'isLessEqual'
   ) {
-    if (typeof recordValue !== 'number' || typeof comparisonValue !== 'number') return false;
-    if (operator === 'isGreater') return recordValue > comparisonValue;
-    if (operator === 'isGreaterEqual') return recordValue >= comparisonValue;
-    if (operator === 'isLess') return recordValue < comparisonValue;
-    return recordValue <= comparisonValue;
+    if (typeof normalizedValue !== 'number' || typeof comparisonValue !== 'number') return false;
+    if (operator === 'isGreater') return normalizedValue > comparisonValue;
+    if (operator === 'isGreaterEqual') return normalizedValue >= comparisonValue;
+    if (operator === 'isLess') return normalizedValue < comparisonValue;
+    return normalizedValue <= comparisonValue;
   }
 
   if (
@@ -172,6 +254,7 @@ const evaluateDateCondition = (
 };
 
 const evaluateRecordCondition = (
+  field: Field,
   operator: RecordConditionOperator,
   recordValue: unknown,
   value: RecordConditionValue | undefined,
@@ -186,6 +269,14 @@ const evaluateRecordCondition = (
 
   if (comparisonValue instanceof RecordConditionDateValue) {
     return evaluateDateCondition(operator, recordValue, comparisonValue);
+  }
+
+  if (isUserLikeField(field)) {
+    return evaluateUserLikeOperator(
+      operator,
+      recordValue,
+      comparisonValue as Primitive | ReadonlyArray<Primitive>
+    );
   }
 
   if (Array.isArray(comparisonValue)) {
@@ -236,6 +327,12 @@ export abstract class RecordValueConditionSpec<
   isSatisfiedBy(record: TableRecord): boolean {
     const fieldValue = record.fields().get(this.field().id());
     const recordValue = fieldValue ? fieldValue.toValue() : undefined;
-    return evaluateRecordCondition(this.operatorValue, recordValue, this.valueValue, record);
+    return evaluateRecordCondition(
+      this.field(),
+      this.operatorValue,
+      recordValue,
+      this.valueValue,
+      record
+    );
   }
 }

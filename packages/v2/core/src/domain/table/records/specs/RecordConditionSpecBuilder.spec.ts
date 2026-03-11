@@ -277,6 +277,8 @@ describe('RecordCondition operators', () => {
       fields.userMultiField.accept(new FieldValueTypeVisitor())._unsafeUnwrap()
     );
     expect(userMultiOperators).toEqual([
+      'is',
+      'isNot',
       'hasAnyOf',
       'hasAllOf',
       'isExactly',
@@ -458,6 +460,12 @@ describe('FieldConditionSpecBuilder', () => {
         field: fields.userSingleField,
         operator: 'isAnyOf',
         value: listValue,
+        assert: (spec) => expect(spec).toBeInstanceOf(UserConditionSpec),
+      },
+      {
+        field: fields.userMultiField,
+        operator: 'is',
+        value: textValue,
         assert: (spec) => expect(spec).toBeInstanceOf(UserConditionSpec),
       },
       {
