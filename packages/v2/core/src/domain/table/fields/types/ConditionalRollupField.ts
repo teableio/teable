@@ -465,23 +465,35 @@ export class ConditionalRollupField
   onDependencyUpdated(
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
-    _context: FieldUpdateContext
+    context: FieldUpdateContext
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
     const currentConfig = this.configValue;
     const currentCondition = currentConfig.condition();
-    const referencesUpdatedField =
-      currentCondition.referencesField(updatedField.id()) ||
-      updatedField.id().equals(this.lookupFieldId());
+    const isLookupTargetUpdated = updatedField.id().equals(this.lookupFieldId());
+    const referencesUpdatedField = currentCondition.referencesField(updatedField.id());
 
-    if (!referencesUpdatedField) {
-      return ok(undefined);
-    }
-
-    const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
     const hasTypeConversion = updateSpecs.some(
       (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
     );
+    if (isLookupTargetUpdated && hasTypeConversion) {
+      const nextFieldResult = this.rebuildForLookupTargetUpdate(updatedField, updateSpecs, context);
+      if (nextFieldResult.isOk()) {
+        specs.push(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
+      } else if (!this.hasError().isError()) {
+        specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+      }
+
+      if (!referencesUpdatedField) {
+        return ok(composeAndSpecsOrUndefined(specs));
+      }
+    }
+
+    if (!referencesUpdatedField) {
+      return ok(composeAndSpecsOrUndefined(specs));
+    }
+
+    const plan = buildFieldFilterSyncPlan(updatedField, updateSpecs);
     if (hasTypeConversion && !this.hasError().isError()) {
       specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
       return ok(composeAndSpecsOrUndefined(specs));
@@ -554,6 +566,53 @@ export class ConditionalRollupField
 
     specs.push(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
     return ok(composeAndSpecsOrUndefined(specs));
+  }
+
+  private rebuildForLookupTargetUpdate(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    context: FieldUpdateContext
+  ): Result<ConditionalRollupField, DomainError> {
+    return this.resolveUpdatedLookupField(updatedField, updateSpecs, context).andThen(
+      (valuesField) =>
+        ConditionalRollupField.create({
+          id: this.id(),
+          name: this.name(),
+          config: this.configValue,
+          expression: this.expressionValue,
+          valuesField,
+          timeZone: this.timeZoneValue,
+          formatting: this.formattingValue,
+          showAs: this.showAsValue,
+          dependencies: this.dependencies(),
+        })
+    );
+  }
+
+  private resolveUpdatedLookupField(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    context: FieldUpdateContext
+  ): Result<Field, DomainError> {
+    const convertedSpec = updateSpecs.find(
+      (spec): spec is TableUpdateFieldTypeSpec =>
+        spec instanceof TableUpdateFieldTypeSpec &&
+        (spec.oldField().id().equals(this.lookupFieldId()) ||
+          spec.newField().id().equals(this.lookupFieldId()))
+    );
+    let nextLookupField = convertedSpec?.newField() ?? updatedField;
+
+    const foreignTable = context.foreignTables.find((candidate) =>
+      candidate.id().equals(this.foreignTableId())
+    );
+    if (foreignTable) {
+      const foreignTableResult = ForeignTable.from(foreignTable).fieldById(this.lookupFieldId());
+      if (foreignTableResult.isOk()) {
+        nextLookupField = foreignTableResult.value;
+      }
+    }
+
+    return ok(nextLookupField);
   }
 
   onFieldDeleted(

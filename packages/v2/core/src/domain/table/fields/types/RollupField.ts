@@ -439,7 +439,7 @@ export class RollupField
   onDependencyUpdated(
     updatedField: Field,
     updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
-    _context: FieldUpdateContext
+    context: FieldUpdateContext
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
 
@@ -457,6 +457,17 @@ export class RollupField
     const hasTypeConversion = updateSpecs.some(
       (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
     );
+
+    if (updatedField.id().equals(this.lookupFieldId()) && hasTypeConversion) {
+      const nextFieldResult = this.rebuildForLookupTargetUpdate(updatedField, updateSpecs, context);
+      if (nextFieldResult.isOk()) {
+        specs.push(TableUpdateFieldTypeSpec.create(this, nextFieldResult.value));
+      } else if (!this.hasError().isError()) {
+        specs.push(TableUpdateFieldHasErrorSpec.setError(this.id(), this.hasError()));
+      }
+
+      return ok(composeAndSpecsOrUndefined(specs));
+    }
 
     if (hasTypeConversion) {
       if (updatedField.id().equals(this.linkFieldId())) {
@@ -484,6 +495,53 @@ export class RollupField
     }
 
     return ok(composeAndSpecsOrUndefined(specs));
+  }
+
+  private rebuildForLookupTargetUpdate(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    context: FieldUpdateContext
+  ): Result<RollupField, DomainError> {
+    return this.resolveUpdatedLookupField(updatedField, updateSpecs, context).andThen(
+      (valuesField) =>
+        RollupField.create({
+          id: this.id(),
+          name: this.name(),
+          config: this.configValue,
+          expression: this.expressionValue,
+          valuesField,
+          timeZone: this.timeZoneValue,
+          formatting: this.formattingValue,
+          showAs: this.showAsValue,
+          dependencies: this.dependencies(),
+        })
+    );
+  }
+
+  private resolveUpdatedLookupField(
+    updatedField: Field,
+    updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    context: FieldUpdateContext
+  ): Result<Field, DomainError> {
+    const convertedSpec = updateSpecs.find(
+      (spec): spec is TableUpdateFieldTypeSpec =>
+        spec instanceof TableUpdateFieldTypeSpec &&
+        (spec.oldField().id().equals(this.lookupFieldId()) ||
+          spec.newField().id().equals(this.lookupFieldId()))
+    );
+    let nextLookupField = convertedSpec?.newField() ?? updatedField;
+
+    const foreignTable = context.foreignTables.find((candidate) =>
+      candidate.id().equals(this.foreignTableId())
+    );
+    if (foreignTable) {
+      const foreignTableResult = ForeignTable.from(foreignTable).fieldById(this.lookupFieldId());
+      if (foreignTableResult.isOk()) {
+        nextLookupField = foreignTableResult.value;
+      }
+    }
+
+    return ok(nextLookupField);
   }
 
   onFieldDeleted(

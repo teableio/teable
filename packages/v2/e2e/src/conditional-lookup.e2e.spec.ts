@@ -633,6 +633,108 @@ describe('v2 http conditional lookup (e2e)', () => {
   });
 
   describe('field reference compatibility validation', () => {
+    it('keeps conditional lookup healthy when lookup target converts from singleLineText to longText', async () => {
+      const taskFieldId = createFieldId();
+      const foreignStatusFieldId = createFieldId();
+
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_TargetType_Foreign',
+        fields: [
+          { type: 'singleLineText', id: taskFieldId, name: 'Task' },
+          { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+        ],
+        records: [
+          { fields: { [taskFieldId]: 'Task Alpha', [foreignStatusFieldId]: 'Active' } },
+          { fields: { [taskFieldId]: 'Task Beta', [foreignStatusFieldId]: 'Active' } },
+          { fields: { [taskFieldId]: 'Task Gamma', [foreignStatusFieldId]: 'Closed' } },
+        ],
+      });
+
+      const hostStatusFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'ConditionalLookup_TargetType_Host',
+        fields: [{ type: 'singleLineText', id: hostStatusFieldId, name: 'Status Filter' }],
+        records: [{ fields: { [hostStatusFieldId]: 'Active' } }],
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Matched Tasks',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: taskFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignStatusFieldId,
+                  operator: 'is',
+                  value: hostStatusFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const hostRecordsBefore = await listRecords(host.id);
+      expect(hostRecordsBefore[0]?.fields[lookupFieldId]).toEqual(['Task Alpha', 'Task Beta']);
+
+      await updateField(foreign.id, taskFieldId, {
+        type: 'longText',
+        name: 'Task',
+        options: {},
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const tableAfterConversion = await getTableById(host.id);
+      const lookupAfterConversion = tableAfterConversion.fields.find(
+        (field) => field.id === lookupFieldId
+      ) as
+        | {
+            type?: string;
+            hasError?: boolean;
+            conditionalLookupOptions?: { lookupFieldId?: string };
+          }
+        | undefined;
+      expect(lookupAfterConversion?.type).toBe('longText');
+      expect(lookupAfterConversion?.hasError).toBeFalsy();
+      expect(lookupAfterConversion?.conditionalLookupOptions?.lookupFieldId).toBe(taskFieldId);
+
+      const foreignRecords = await listRecords(foreign.id);
+      const activeRecord = foreignRecords.find(
+        (record) => record.fields[foreignStatusFieldId] === 'Active'
+      );
+      expect(activeRecord).toBeDefined();
+      if (!activeRecord) {
+        throw new Error('Missing active foreign record');
+      }
+
+      await updateRecord(foreign.id, activeRecord.id, {
+        [taskFieldId]: 'Task Alpha\nLine 2',
+      });
+
+      await ctx.testContainer.processOutbox();
+      await ctx.testContainer.processOutbox();
+
+      const hostRecordsAfter = await listRecords(host.id);
+      expect(hostRecordsAfter[0]?.fields[lookupFieldId]).toEqual([
+        'Task Alpha\nLine 2',
+        'Task Beta',
+      ]);
+    });
+
     it('marks conditional lookup field as errored when reference field type changes', async () => {
       const taskFieldId = createFieldId();
       const foreignOwnerFieldId = createFieldId();

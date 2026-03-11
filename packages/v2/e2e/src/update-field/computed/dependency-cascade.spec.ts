@@ -126,6 +126,131 @@ describe('update-field: computed dependency cascades', () => {
     };
   };
 
+  const createLinkRollupTable = async () => {
+    const foreignSourceFieldId = createFieldId();
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: createName('dep-cascade-rollup-foreign'),
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'singleLineText', id: foreignSourceFieldId, name: 'Source' },
+      ],
+      records: [{ fields: { Name: 'F1', [foreignSourceFieldId]: 'Alpha' } }],
+    });
+
+    const foreignPrimary = foreign.fields.find((field) => field.isPrimary);
+    if (!foreignPrimary) throw new Error('No foreign primary field');
+
+    const linkFieldId = createFieldId();
+    const rollupFieldId = createFieldId();
+    const host = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: createName('dep-cascade-rollup-host'),
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignPrimary.id,
+          },
+        },
+        {
+          type: 'rollup',
+          id: rollupFieldId,
+          name: 'Rollup',
+          options: { expression: 'array_join({values})' },
+          config: {
+            linkFieldId,
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignSourceFieldId,
+          },
+        },
+      ],
+    });
+
+    const foreignRecords = await ctx.listRecords(foreign.id);
+    const firstForeign = foreignRecords[0];
+    if (!firstForeign) throw new Error('No foreign record');
+
+    await ctx.createRecord(host.id, {
+      Name: 'H1',
+      [linkFieldId]: { id: firstForeign.id },
+    });
+    await ctx.drainOutbox();
+
+    return {
+      hostTableId: host.id,
+      foreignTableId: foreign.id,
+      rollupFieldId,
+      foreignSourceFieldId,
+    };
+  };
+
+  const createConditionalRollupTable = async () => {
+    const foreignSourceFieldId = createFieldId();
+    const foreignStatusFieldId = createFieldId();
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: createName('dep-cascade-cond-rollup-foreign'),
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'singleLineText', id: foreignSourceFieldId, name: 'Source' },
+        { type: 'singleLineText', id: foreignStatusFieldId, name: 'Status' },
+      ],
+      records: [
+        {
+          fields: { Name: 'F1', [foreignSourceFieldId]: 'Alpha', [foreignStatusFieldId]: 'Active' },
+        },
+        {
+          fields: { Name: 'F2', [foreignSourceFieldId]: 'Beta', [foreignStatusFieldId]: 'Closed' },
+        },
+      ],
+    });
+
+    const conditionalRollupFieldId = createFieldId();
+    const host = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: createName('dep-cascade-cond-rollup-host'),
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'conditionalRollup',
+          id: conditionalRollupFieldId,
+          name: 'Conditional Rollup',
+          options: {
+            expression: 'array_join({values})',
+            timeZone: 'utc',
+          },
+          config: {
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignSourceFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: foreignStatusFieldId, operator: 'is', value: 'Active' }],
+              },
+            },
+          },
+        },
+      ],
+      records: [{ fields: { Name: 'H1' } }],
+    });
+
+    await ctx.drainOutbox();
+
+    return {
+      hostTableId: host.id,
+      foreignTableId: foreign.id,
+      conditionalRollupFieldId,
+      foreignSourceFieldId,
+      foreignStatusFieldId,
+    };
+  };
+
   const expectUnsupportedLinkMutation = async (fieldPatch: Record<string, unknown>) => {
     let hostTableId: string | undefined;
     let foreignTableId: string | undefined;
@@ -282,7 +407,43 @@ describe('update-field: computed dependency cascades', () => {
   // ============ Rollup dependencies ============
 
   test('[V1 PARITY] should recalc rollup when target field converts but aggregation stays valid', async () => {
-    expect(true).toBe(true);
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+    try {
+      const setup = await createLinkRollupTable();
+      hostTableId = setup.hostTableId;
+      foreignTableId = setup.foreignTableId;
+
+      const recordsBefore = await ctx.listRecords(setup.hostTableId);
+      expect(recordsBefore[0]?.fields[setup.rollupFieldId]).toBe('Alpha');
+
+      await ctx.updateField({
+        tableId: setup.foreignTableId,
+        fieldId: setup.foreignSourceFieldId,
+        field: { type: 'longText', options: {} },
+      });
+      await ctx.drainOutbox();
+
+      const updatedTable = await ctx.getTableById(setup.hostTableId);
+      const rollupField = updatedTable.fields.find((field) => field.id === setup.rollupFieldId);
+      expect(rollupField?.type).toBe('rollup');
+      expect(rollupField?.hasError ?? false).toBe(false);
+
+      const foreignRecords = await ctx.listRecords(setup.foreignTableId);
+      const firstForeign = foreignRecords[0];
+      if (!firstForeign) throw new Error('No foreign record');
+
+      await ctx.updateRecord(setup.foreignTableId, firstForeign.id, {
+        [setup.foreignSourceFieldId]: 'Alpha\nLine 2',
+      });
+      await ctx.drainOutbox();
+
+      const recordsAfter = await ctx.listRecords(setup.hostTableId);
+      expect(recordsAfter[0]?.fields[setup.rollupFieldId]).toBe('Alpha\nLine 2');
+    } finally {
+      await cleanupTable(hostTableId);
+      await cleanupTable(foreignTableId);
+    }
   });
 
   test('[V1 PARITY] should set rollup hasError when target field conversion makes aggregation invalid', async () => {
@@ -447,8 +608,48 @@ describe('update-field: computed dependency cascades', () => {
     expect(true).toBe(true);
   });
 
-  test('[NOT IMPLEMENTED] should seed conditional rollup when foreign field converts', async () => {
-    expect(true).toBe(true);
+  test('[V1 PARITY] should seed conditional rollup when foreign field converts', async () => {
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+    try {
+      const setup = await createConditionalRollupTable();
+      hostTableId = setup.hostTableId;
+      foreignTableId = setup.foreignTableId;
+
+      const recordsBefore = await ctx.listRecords(setup.hostTableId);
+      expect(recordsBefore[0]?.fields[setup.conditionalRollupFieldId]).toBe('Alpha');
+
+      await ctx.updateField({
+        tableId: setup.foreignTableId,
+        fieldId: setup.foreignSourceFieldId,
+        field: { type: 'longText', options: {} },
+      });
+      await ctx.drainOutbox();
+
+      const updatedTable = await ctx.getTableById(setup.hostTableId);
+      const conditionalRollupField = updatedTable.fields.find(
+        (field) => field.id === setup.conditionalRollupFieldId
+      );
+      expect(conditionalRollupField?.type).toBe('conditionalRollup');
+      expect(conditionalRollupField?.hasError ?? false).toBe(false);
+
+      const foreignRecords = await ctx.listRecords(setup.foreignTableId);
+      const activeForeign = foreignRecords.find(
+        (record) => record.fields[setup.foreignStatusFieldId] === 'Active'
+      );
+      if (!activeForeign) throw new Error('No matching foreign record');
+
+      await ctx.updateRecord(setup.foreignTableId, activeForeign.id, {
+        [setup.foreignSourceFieldId]: 'Alpha\nLine 2',
+      });
+      await ctx.drainOutbox();
+
+      const recordsAfter = await ctx.listRecords(setup.hostTableId);
+      expect(recordsAfter[0]?.fields[setup.conditionalRollupFieldId]).toBe('Alpha\nLine 2');
+    } finally {
+      await cleanupTable(hostTableId);
+      await cleanupTable(foreignTableId);
+    }
   });
 
   // ============ D. Formula compatibility after dependency field type change ============

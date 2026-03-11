@@ -16,6 +16,7 @@ import { ConditionalLookupField } from './ConditionalLookupField';
 import { ConditionalLookupOptions } from './ConditionalLookupOptions';
 import { FormulaExpression } from './FormulaExpression';
 import { FormulaField } from './FormulaField';
+import { LongTextField } from './LongTextField';
 import { SelectOption } from './SelectOption';
 import { SingleLineTextField } from './SingleLineTextField';
 import { SingleSelectField } from './SingleSelectField';
@@ -371,6 +372,50 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
     expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
   });
 
+  it('emits field type update when lookup target is type-converted', () => {
+    const lookupTargetFieldId = createFieldId('g');
+    const conditionalLookup = ConditionalLookupField.create({
+      id: createFieldId('h'),
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: SingleLineTextField.create({
+        id: lookupTargetFieldId,
+        name: FieldName.create('Task')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: createTableId('i').toString(),
+        lookupFieldId: lookupTargetFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: createFieldId('j').toString(), operator: 'is', value: 'A' }],
+          },
+        },
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const convertedField = LongTextField.create({
+      id: lookupTargetFieldId,
+      name: FieldName.create('Task')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const typeSpec = TableUpdateFieldTypeSpec.create(
+      conditionalLookup.innerField()._unsafeUnwrap(),
+      convertedField
+    );
+
+    const result = conditionalLookup.onDependencyUpdated(convertedField, [typeSpec], {
+      table: {} as never,
+      foreignTables: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
+
+    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
+    const nextField = spec.newField() as ConditionalLookupField;
+    expect(nextField.hasError().toBoolean()).toBe(false);
+    expect(nextField.innerField()._unsafeUnwrap()).toBeInstanceOf(LongTextField);
+  });
+
   it('emits field type update when referenced select option name changes', () => {
     const statusFieldId = createFieldId('b');
     const conditionalLookup = createConditionalLookupField(statusFieldId);
@@ -407,6 +452,61 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
       filterSet: Array<{ value?: unknown }>;
     };
     expect(nextFilter.filterSet[0]?.value).toBe('Active Plus');
+  });
+
+  it('emits field type update when lookup target select options are changed', () => {
+    const lookupTargetFieldId = createFieldId('k');
+    const previousInnerField = SingleSelectField.create({
+      id: lookupTargetFieldId,
+      name: FieldName.create('Status')._unsafeUnwrap(),
+      options: [SelectOption.create({ id: 'cho_x', name: 'x', color: 'cyan' })._unsafeUnwrap()],
+    })._unsafeUnwrap();
+
+    const conditionalLookup = ConditionalLookupField.create({
+      id: createFieldId('l'),
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: previousInnerField,
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: createTableId('m').toString(),
+        lookupFieldId: lookupTargetFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: createFieldId('n').toString(), operator: 'is', value: 'A' }],
+          },
+        },
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const updatedInnerField = SingleSelectField.create({
+      id: lookupTargetFieldId,
+      name: FieldName.create('Status')._unsafeUnwrap(),
+      options: [
+        SelectOption.create({ id: 'cho_x', name: 'x', color: 'cyan' })._unsafeUnwrap(),
+        SelectOption.create({ id: 'cho_y', name: 'y', color: 'blue' })._unsafeUnwrap(),
+      ],
+    })._unsafeUnwrap();
+
+    const optionsSpec = UpdateSingleSelectOptionsSpec.create(
+      lookupTargetFieldId,
+      DbFieldName.rehydrate('status')._unsafeUnwrap(),
+      previousInnerField.selectOptions(),
+      updatedInnerField.selectOptions()
+    );
+
+    const result = conditionalLookup.onDependencyUpdated(updatedInnerField, [optionsSpec], {
+      table: {} as never,
+      foreignTables: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
+
+    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
+    const nextField = spec.newField() as ConditionalLookupField;
+    const nextInner = nextField.innerField()._unsafeUnwrap() as SingleSelectField;
+    expect(nextInner.selectOptions()).toHaveLength(2);
+    expect(nextInner.selectOptions()[1]?.name().toString()).toBe('y');
   });
 
   it('marks hasError when value-referenced field is type-converted', () => {

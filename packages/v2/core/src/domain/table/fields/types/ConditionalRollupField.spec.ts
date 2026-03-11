@@ -11,6 +11,8 @@ import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { ConditionalRollupConfig } from './ConditionalRollupConfig';
 import { ConditionalRollupField } from './ConditionalRollupField';
+import { LongTextField } from './LongTextField';
+import { NumberField } from './NumberField';
 import { RollupExpression } from './RollupExpression';
 import { SelectOption } from './SelectOption';
 import { SingleLineTextField } from './SingleLineTextField';
@@ -135,6 +137,91 @@ describe('ConditionalRollupField without filter', () => {
 });
 
 describe('ConditionalRollupField.onDependencyUpdated', () => {
+  it('emits field type update when lookup target is type-converted compatibly', () => {
+    const lookupFieldId = createFieldId('f');
+    const statusFieldId = createFieldId('g');
+    const valuesField = SingleLineTextField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Task')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const conditionalRollup = ConditionalRollupField.create({
+      id: createFieldId('h'),
+      name: FieldName.create('Conditional Rollup')._unsafeUnwrap(),
+      config: ConditionalRollupConfig.create({
+        foreignTableId: createTableId('i').toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+        },
+      })._unsafeUnwrap(),
+      expression: RollupExpression.create('countall({values})')._unsafeUnwrap(),
+      valuesField,
+    })._unsafeUnwrap();
+
+    const convertedField = LongTextField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Task')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const typeSpec = TableUpdateFieldTypeSpec.create(valuesField, convertedField);
+
+    const result = conditionalRollup.onDependencyUpdated(convertedField, [typeSpec], {
+      table: {} as never,
+      foreignTables: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldTypeSpec);
+
+    const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
+    const nextField = spec.newField() as ConditionalRollupField;
+    expect(nextField.hasError().isError()).toBe(false);
+    expect(nextField.cellValueType()._unsafeUnwrap().toString()).toBe('number');
+  });
+
+  it('marks hasError when lookup target type-conversion makes aggregation invalid', () => {
+    const lookupFieldId = createFieldId('j');
+    const statusFieldId = createFieldId('k');
+    const valuesField = NumberField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Amount')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const conditionalRollup = ConditionalRollupField.create({
+      id: createFieldId('l'),
+      name: FieldName.create('Conditional Rollup')._unsafeUnwrap(),
+      config: ConditionalRollupConfig.create({
+        foreignTableId: createTableId('m').toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusFieldId.toString(), operator: 'is', value: 'Active' }],
+          },
+        },
+      })._unsafeUnwrap(),
+      expression: RollupExpression.create('sum({values})')._unsafeUnwrap(),
+      valuesField,
+    })._unsafeUnwrap();
+
+    const convertedField = LongTextField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Amount')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const typeSpec = TableUpdateFieldTypeSpec.create(valuesField, convertedField);
+
+    const result = conditionalRollup.onDependencyUpdated(convertedField, [typeSpec], {
+      table: {} as never,
+      foreignTables: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
+  });
+
   it('marks hasError when referenced field is type-converted', () => {
     const statusFieldId = createFieldId('d');
     const conditionalRollup = createConditionalRollupField(statusFieldId);
