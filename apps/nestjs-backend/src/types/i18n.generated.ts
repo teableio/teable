@@ -4808,6 +4808,7 @@ export type I18nTranslations = {
             "clearChatConfirmDesc": string;
             "dontShowAgain": string;
             "noModel": string;
+            "addAttachment": string;
             "noHistory": string;
             "noFoundHistory": string;
             "timeGroup": {

@@ -774,7 +774,7 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
     const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
     const width = coordInstance.getColumnWidth(columnIndex);
     const height =
-      activeCellBound?.columnIndex === columnIndex && activeCellBound?.rowIndex === rowIndex
+      activeCellBound?.columnIndex === columnIndex && activeCellBound?.rowIndex === _rowIndex
         ? activeCellBound.height
         : coordInstance.getRowHeight(rowIndex);
 
